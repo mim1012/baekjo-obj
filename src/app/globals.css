@@ -1,26 +1,161 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary-900: #1a221d;
+  --color-primary-500: #2f3b34;
+  --color-primary-100: #e5e9e4;
+  --color-surface-0: #ffffff;
+  --color-surface-50: #faf9f5;
+  --color-surface-100: #f4f2ec;
+  --color-surface-200: #eae8e1;
+  --color-gold-muted: #b8a07e;
+  --color-sage-soft: #7a8a7f;
+  
+  --color-text-primary: #202521;
+  --color-text-secondary: #6f756f;
+  
+  --color-error: #a65348;
+  --color-success: #51705b;
+
+  /* Brand UI colors for user pages (non-destructive) */
+  --color-brand-base: #FBFAF7;
+  --color-brand-sub: #F4EFE8;
+  --color-brand-text-main: #17211D;
+  --color-brand-text-body: #334155;
+  --color-brand-text-sub: #64748B;
+  --color-brand-line: rgba(15, 23, 42, 0.08);
+  --color-brand-accent: #1D3E2F;
+
+  --font-sans: var(--font-sans), "Pretendard Variable", Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+  --font-serif: var(--font-serif), "Playfair Display", Iowan Old Style, Baskerville, "Times New Roman", serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --background: #f4f2ec;
+  --foreground: #202521;
+  --paper: #faf9f5;
+  --stone: #737772;
+  --line: #d8d6ce;
+  
+  /* Easing curves */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --ease-smooth: cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  border-color: var(--line);
+}
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main h1,
+main h2 {
+  font-family: var(--font-serif);
+  text-wrap: balance;
+  letter-spacing: -0.02em;
+}
+
+main p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: #cdd3cd;
+  color: #202521;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  outline-color: var(--color-gold-muted);
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-gold-muted);
+  outline-offset: 3px;
+}
+
+input,
+select,
+textarea {
+  accent-color: var(--color-primary-500);
+  background-color: var(--color-surface-50);
+}
+
+@layer utilities {
+  .flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .font-editorial {
+    font-family: var(--font-serif);
+    letter-spacing: -0.01em;
+  }
+
+  .paper-surface {
+    background: var(--paper);
+    border: 1px solid var(--line);
+  }
+  
+  .glass-panel {
+    @apply bg-white/70 backdrop-blur-md border-b border-white/20;
+  }
+
+  .site-container {
+    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .hover-lift {
+    @apply transition-all duration-300 ease-[var(--ease-smooth)];
+  }
+  .hover-lift:hover {
+    @apply -translate-y-1 shadow-[0_8px_24px_rgba(47,59,52,0.08)];
+  }
+
+  .grid-22 {
+    display: grid;
+    grid-template-columns: minmax(1rem, 1fr) repeat(20, minmax(0, 1fr)) minmax(1rem, 1fr);
+  }
+
+  .grid-22-container {
+    grid-column: 2 / 22;
+  }
+
+  .font-playfair-spaced {
+    font-family: var(--font-serif);
+    letter-spacing: 0.1em;
+  }
 }
