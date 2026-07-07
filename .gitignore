@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local logs (build/install output — not part of the project)
+*.log
+
+# editor / IDE local caches (team uses different IDEs: Antigravity, Claude Code, Codex, VS Code, JetBrains)
+# each tool's local state stays local — never commit it. Add your IDE's folder here if it creates one.
+.vscode/
+.idea/
