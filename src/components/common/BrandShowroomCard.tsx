@@ -27,7 +27,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
         <div>
           <div className="mb-4 inline-flex items-center gap-2">
             <span className="text-[11px] font-bold text-[#1D3E2F] bg-[#1D3E2F]/10 px-2.5 py-1 rounded-sm">
-              MD's Pick
+              MD&apos;s Pick
             </span>
             <span className="text-[12px] font-medium text-[#64748B]">
               깐깐한 기준을 통과한 신뢰할 수 있는 브랜드
