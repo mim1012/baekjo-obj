@@ -47,3 +47,9 @@ next-env.d.ts
 # each tool's local state stays local — never commit it. Add your IDE's folder here if it creates one.
 .vscode/
 .idea/
+
+# playwright (골든플로우 E2E 산출물)
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
