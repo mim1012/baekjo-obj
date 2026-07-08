@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
-import { login } from '@/lib/storage';
+import { login, isLoggedIn } from '@/lib/storage';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +12,12 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isLoggedIn()) {
+      router.push('/mypage');
+    }
+  }, [router]);
 
   const handleLogin = (event: React.FormEvent) => {
     event.preventDefault();
@@ -111,9 +117,11 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#777E78]">
-            <Link href="#" className="hover:text-[#2F3B34]">비밀번호 찾기</Link>
-            <span className="h-3 w-px bg-[#D3D2CA]" />
             <Link href="/signup" className="hover:text-[#2F3B34]">회원가입</Link>
+            <span className="w-px h-3 bg-[#D1D0C8]" />
+            <Link href="#" className="hover:text-[#2F3B34]">아이디 찾기</Link>
+            <span className="w-px h-3 bg-[#D1D0C8]" />
+            <Link href="#" className="hover:text-[#2F3B34]">비밀번호 찾기</Link>
           </div>
 
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">

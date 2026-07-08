@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, Fragment } from 'react';
 import { Filter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 interface Column {
   key: string;
@@ -16,6 +16,8 @@ interface AdminResourcePageProps {
   rows: Array<Record<string, string | number>>;
   filters?: string[];
   createFields?: string[];
+  customActions?: (row: Record<string, string | number>) => React.ReactNode;
+  renderExpandedRow?: (row: Record<string, string | number>) => React.ReactNode;
 }
 
 export default function AdminResourcePage({
@@ -27,12 +29,15 @@ export default function AdminResourcePage({
   rows,
   filters = ['전체 상태'],
   createFields = [],
+  customActions,
+  renderExpandedRow,
 }: AdminResourcePageProps) {
   const [editingRow, setEditingRow] = useState<Record<string, string | number> | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string | number>>(new Set());
   const [activeFilter, setActiveFilter] = useState<string>(filters[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -156,21 +161,40 @@ export default function AdminResourcePage({
             </thead>
             <tbody className="divide-y divide-[#E1DFD8]">
               {paginatedRows.map((row, index) => (
-                <tr key={String(row.id ?? index)} className="hover:bg-[#FAF9F5]">
-                  {columns.map((column) => (
-                    <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
-                      {column.key === 'status' ? (
-                        <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
-                      ) : (
-                        <span className="line-clamp-2">{row[column.key]}</span>
-                      )}
+                <React.Fragment key={String(row.id ?? index)}>
+                  <tr 
+                    className="hover:bg-[#FAF9F5] cursor-pointer"
+                    onClick={() => {
+                      if (expandedRowId === String(row.id ?? index)) {
+                        setExpandedRowId(null);
+                      } else {
+                        setExpandedRowId(String(row.id ?? index));
+                      }
+                    }}
+                  >
+                    {columns.map((column) => (
+                      <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
+                        {column.key === 'status' ? (
+                          <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
+                        ) : (
+                          <span className="line-clamp-2">{row[column.key]}</span>
+                        )}
+                      </td>
+                    ))}
+                    <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      {customActions && customActions(row)}
+                      <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                      <button type="button" onClick={() => handleDelete(row.id as string | number ?? index)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
                     </td>
-                  ))}
-                  <td className="px-5 py-4 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
-                    <button type="button" onClick={() => handleDelete(row.id as string | number ?? index)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
-                  </td>
-                </tr>
+                  </tr>
+                  {expandedRowId === String(row.id ?? index) && renderExpandedRow && (
+                    <tr className="bg-[#FAF9F5] border-t-0">
+                      <td colSpan={columns.length + 1} className="px-5 py-6">
+                        {renderExpandedRow(row)}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               ))}
             </tbody>
           </table>

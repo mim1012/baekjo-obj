@@ -27,7 +27,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`h-full antialiased ${playfair.variable}`}>
+    <html lang="ko" translate="no" className={`h-full antialiased ${playfair.variable}`}>
+      <head>
+        <meta name="google" content="notranslate" />
+      </head>
       <body className="flex min-h-full flex-col bg-[#F4F2EC] font-sans text-[#202521]">
         <SiteSettingsProvider>
           <CategorySettingsProvider>

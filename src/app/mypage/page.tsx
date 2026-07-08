@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck } from 'lucide-react';
-import { getOrders, getInsuranceApplications, getWishlist, getCurrentUser } from '@/lib/storage';
+import { getOrders, getInsuranceApplications, getWishlist, getCurrentUser, logout } from '@/lib/storage';
 import { products } from '@/data/products';
 import { reviews } from '@/data/reviews';
 import { qnaList } from '@/data/qna';
@@ -11,8 +13,15 @@ import { useMounted } from '@/lib/useMounted';
 
 export default function MyPage() {
   const mounted = useMounted();
+  const router = useRouter();
 
-  if (!mounted) return null;
+  useEffect(() => {
+    if (mounted && !getCurrentUser()) {
+      router.push('/login');
+    }
+  }, [mounted, router]);
+
+  if (!mounted || !getCurrentUser()) return null;
 
   const orders = getOrders().sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -32,13 +41,23 @@ export default function MyPage() {
           
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-[#E4E8E3] flex items-center justify-center text-[#2F3B34]">
-                <User className="h-8 w-8" />
-              </div>
-              <div>
-                <div className="text-lg font-bold text-gray-900">{currentUser?.name ?? '백조고객'}님</div>
-                <div className="text-sm text-[#68776C] font-medium">{currentUser ? currentUser.email : '로그인 후 맞춤 정보를 확인하세요'}</div>
+            <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-[#E4E8E3] flex items-center justify-center text-[#2F3B34]">
+                    <User className="h-8 w-8" />
+                  </div>
+                  <div>
+                    <div className="text-lg font-bold text-gray-900">{currentUser?.name ?? '백조고객'}님</div>
+                    <div className="text-sm text-[#68776C] font-medium">{currentUser ? currentUser.email : '로그인 후 맞춤 정보를 확인하세요'}</div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { logout(); router.push('/login'); }} 
+                  className="px-3 py-1.5 text-xs font-semibold text-[#59615B] border border-[#D1D0C8] rounded hover:bg-slate-50"
+                >
+                  로그아웃
+                </button>
               </div>
             </div>
 

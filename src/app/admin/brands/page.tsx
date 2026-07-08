@@ -19,6 +19,7 @@ export default function AdminBrandsDashboard() {
   // Modals state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isAddingBrand, setIsAddingBrand] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
 
   const activeBrand = brands.find(b => b.id === activeBrandId);
 
@@ -307,15 +308,19 @@ export default function AdminBrandsDashboard() {
                     e.preventDefault();
                     const formData = new FormData(e.currentTarget);
                     const name = formData.get('name') as string;
-                    const grade = formData.get('grade') as string;
+                    const grade = formData.get('grade') as "A+" | "A" | "B+" | "B";
                     
                     if (!name.trim()) return;
                     
                     const newBrand: Brand = {
                       id: `brand-${Date.now()}`,
                       name,
+                      logo: '',
+                      philosophy: '',
+                      relatedConcernSlugs: [],
                       description: '새로 등록된 브랜드입니다.',
                       auditGrade: grade,
+                      auditPoints: [],
                       representativeProductIds: [],
                       isRecommended: false,
                       isNew: true,

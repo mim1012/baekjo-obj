@@ -159,6 +159,18 @@ export function registerUser(user: User): User {
   return user;
 }
 
+export function updateUserStatus(id: string, status: User['status'], rejectReason?: string): void {
+  const registered = getJSON<User[]>(REGISTERED_USERS_KEY, []);
+  const index = registered.findIndex((u) => u.id === id);
+  if (index >= 0) {
+    registered[index].status = status;
+    if (rejectReason !== undefined) {
+      registered[index].rejectReason = rejectReason;
+    }
+    setJSON(REGISTERED_USERS_KEY, registered);
+  }
+}
+
 export function login(email: string): User {
   const existing = getUsers().find(
     (user) => user.email.toLowerCase() === email.toLowerCase(),

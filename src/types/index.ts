@@ -215,8 +215,19 @@ export interface User {
   petType?: string;
   breed?: string;
   mainConcern?: string;
-  role: 'user' | 'admin';
-  status?: 'active' | 'inactive';
+  companyName?: string;
+  businessNumber?: string;
+  insuranceCompany?: string;
+  insuranceRegNumber?: string;
+  activityArea?: string;
+  specialty?: string;
+  attachedFiles?: string[];
+  rejectReason?: string;
+  b2bData?: any;
+  insuranceData?: any;
+  partnerData?: any;
+  role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+  status?: 'active' | 'inactive' | 'pending' | 'rejected';
   createdAt: string;
 }
 

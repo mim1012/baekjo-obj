@@ -6,6 +6,7 @@ import { LogIn, Menu, Search, ShoppingBag, User, X, ChevronDown } from 'lucide-r
 import { useState, useSyncExternalStore } from 'react';
 import BrandMark from './BrandMark';
 import { getCartCount } from '@/lib/cart';
+import { getCurrentUser, logout } from '@/lib/storage';
 
 const NAV_LINKS = [
   { label: '고민 해결', href: '/concerns' },
@@ -134,13 +135,26 @@ export default function Header() {
           >
             <Search className="size-5" />
           </Link>
-          <Link
-            href="/login"
-            aria-label="로그인"
-            className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block"
-          >
-            <LogIn className="size-5" />
-          </Link>
+          {getCurrentUser() ? (
+            <button
+              onClick={() => {
+                logout();
+                window.location.reload();
+              }}
+              aria-label="로그아웃"
+              className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block text-xs font-semibold"
+            >
+              로그아웃
+            </button>
+          ) : (
+            <Link
+              href="/login"
+              aria-label="로그인"
+              className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block"
+            >
+              <LogIn className="size-5" />
+            </Link>
+          )}
           <Link
             href="/mypage"
             aria-label="마이페이지"
