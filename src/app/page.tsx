@@ -132,10 +132,10 @@ export default function Home() {
                 {/* 4 Icons Grid */}
                 <div className="grid grid-cols-4 gap-2 text-center w-full">
                   {[
-                    { icon: Activity, title: '브랜드 운영 방향' },
-                    { icon: Leaf, title: '성분·원료 정보' },
-                    { icon: Monitor, title: '제조·유통 기준' },
-                    { icon: Heart, title: '보호자 사용 가치' }
+                    { icon: Activity, title: settings.audit.icons[0]?.title || '브랜드 운영 방향' },
+                    { icon: Leaf, title: settings.audit.icons[1]?.title || '성분·원료 정보' },
+                    { icon: Monitor, title: settings.audit.icons[2]?.title || '제조·유통 기준' },
+                    { icon: Heart, title: settings.audit.icons[3]?.title || '보호자 사용 가치' }
                   ].map((item, idx) => {
                     const Icon = item.icon;
                     return (
@@ -212,33 +212,33 @@ export default function Home() {
               <div className="text-center mb-8">
                 <div className="flex items-center justify-center gap-2 mb-2">
                   <span className="text-[#E7E0D5] font-light">—</span>
-                  <h3 className="text-sm font-bold text-[#17211D] tracking-wide">진단 기반 추천 프로세스</h3>
+                  <h3 className="text-sm font-bold text-[#17211D] tracking-wide">{settings.curation.boardTitle}</h3>
                   <span className="text-[#E7E0D5] font-light">—</span>
                 </div>
-                <p className="text-[13px] text-[#6F766F]">간단한 정보로 우리 아이에게 꼭 맞는 선택을 연결합니다.</p>
+                <p className="text-[13px] text-[#6F766F]">{settings.curation.boardDesc}</p>
               </div>
 
               {/* Step 1: 4 Cards */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {[
                   { 
-                    title: '눈물', 
-                    desc: '눈물 자국이<br />걱정될 때',
+                    title: settings.curation.cards[0]?.title || '눈물', 
+                    desc: settings.curation.cards[0]?.desc || '눈물 자국이<br />걱정될 때',
                     imgSrc: '/images/icon-tear.svg',
                   },
                   { 
-                    title: '피부', 
-                    desc: '자주 긁거나<br />피부가 예민할 때',
+                    title: settings.curation.cards[1]?.title || '피부', 
+                    desc: settings.curation.cards[1]?.desc || '자주 긁거나<br />피부가 예민할 때',
                     imgSrc: '/images/icon-skin.svg',
                   },
                   { 
-                    title: '관절', 
-                    desc: '걸음걸이가<br />불편해 보일 때',
+                    title: settings.curation.cards[2]?.title || '관절', 
+                    desc: settings.curation.cards[2]?.desc || '걸음걸이가<br />불편해 보일 때',
                     imgSrc: '/images/icon-joint.svg',
                   },
                   { 
-                    title: '체중', 
-                    desc: '체중 관리가<br />필요할 때',
+                    title: settings.curation.cards[3]?.title || '체중', 
+                    desc: settings.curation.cards[3]?.desc || '체중 관리가<br />필요할 때',
                     imgSrc: '/images/icon-weight.svg',
                   }
                 ].map((item, idx) => (
@@ -267,11 +267,11 @@ export default function Home() {
               <div className="bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 flex items-center justify-between shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] relative overflow-hidden transition-transform hover:-translate-y-1">
                 <div className="flex items-center gap-5 relative z-10">
                   <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
-                  <img src="/images/icon-swan-shield.svg" alt="백조오브제 큐레이션" className="w-full h-full object-cover scale-110" />
+                  <img src="/images/icon-swan-shield.svg" alt={settings.curation.step2Title} className="w-full h-full object-cover scale-110" />
                   </div>
                   <div className="text-left">
-                    <h4 className="text-[15px] font-bold text-[#17211D] mb-1 tracking-tight">백조오브제 큐레이션</h4>
-                    <p className="text-[12.5px] text-[#6F766F] leading-relaxed">필요한 정보만 정리하고<br/>복잡한 선택 과정을 단순하게 안내합니다.</p>
+                    <h4 className="text-[15px] font-bold text-[#17211D] mb-1 tracking-tight">{settings.curation.step2Title}</h4>
+                    <p className="text-[12.5px] text-[#6F766F] leading-relaxed" dangerouslySetInnerHTML={{ __html: settings.curation.step2Desc }}></p>
                   </div>
                 </div>
               </div>
@@ -290,11 +290,11 @@ export default function Home() {
                 {/* Left outcome card */}
                 <div className="flex-1 bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] flex items-center gap-5 transition-transform hover:-translate-y-1">
                 <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
-                    <img src="/images/icon-product.svg" alt="검증 브랜드 & 상품 추천" className="w-full h-full object-cover scale-110" />
+                    <img src="/images/icon-product.svg" alt={settings.curation.step3LeftTitle} className="w-full h-full object-cover scale-110" />
                 </div>
                   <div className="text-left">
-                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">검증 브랜드 & 상품 추천</h5>
-                    <p className="text-[11px] text-[#6F766F] leading-tight">엄선된 브랜드와 상품을 고민 유형에 맞게 추천</p>
+                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">{settings.curation.step3LeftTitle}</h5>
+                    <p className="text-[11px] text-[#6F766F] leading-tight" dangerouslySetInnerHTML={{ __html: settings.curation.step3LeftDesc }}></p>
                   </div>
                 </div>
 
@@ -304,11 +304,11 @@ export default function Home() {
                 {/* Right outcome card */}
                 <div className="flex-1 bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] flex items-center gap-5 transition-transform hover:-translate-y-1">
                 <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
-                    <img src="/images/icon-insurance.svg" alt="펫보험 비교 & 안내" className="w-full h-full object-cover scale-110" />
+                    <img src="/images/icon-insurance.svg" alt={settings.curation.step3RightTitle} className="w-full h-full object-cover scale-110" />
                 </div>
                   <div className="text-left">
-                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">펫보험 비교 & 안내</h5>
-                    <p className="text-[11px] text-[#6F766F] leading-tight">필요한 경우 보험 비교 및 안내 제공</p>
+                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">{settings.curation.step3RightTitle}</h5>
+                    <p className="text-[11px] text-[#6F766F] leading-tight" dangerouslySetInnerHTML={{ __html: settings.curation.step3RightDesc }}></p>
                   </div>
                 </div>
               </div>
@@ -316,7 +316,7 @@ export default function Home() {
               {/* Bottom Guide */}
               <div className="mt-8 pt-4 border-t border-[#E7E0D5]/50 flex items-center justify-center gap-2 text-[11px] text-[#6F766F] font-medium">
                 <svg className="size-4 text-[#A8742E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
-                <span>맞춤 진단은 왼쪽의 "1분 맞춤 진단 시작" 버튼에서 시작할 수 있습니다.</span>
+                <span>{settings.curation.bottomGuide}</span>
               </div>
 
             </div>
@@ -328,9 +328,9 @@ export default function Home() {
       <section id="brands" className="bg-card py-20 lg:py-32 overflow-hidden">
         <ScrollReveal className="site-container-wide">
           <SectionHeading
-            eyebrow="Verified brands"
-            title="검증된 브랜드, 한눈에 둘러보기"
-            description="검증보다 감동을 먼저 생각합니다. 제품 데이터, 철학, 제조 품질, 성분 안정성을 직접 확인한 브랜드만 큐레이션합니다."
+            eyebrow={settings.brands.eyebrow}
+            title={settings.brands.title}
+            description={settings.brands.description}
           />
           <div className="mt-12 w-full pb-4">
             <BrandShowcaseSlider 
@@ -344,7 +344,7 @@ export default function Home() {
           </div>
           <div className="mt-10 flex justify-center">
             <Link href="/brands" className="inline-flex items-center gap-2 bg-card border border-border rounded-full px-8 py-4 text-sm font-semibold text-text-sub transition-all hover:bg-bg shadow-sm">
-              모든 검증 브랜드 보기 <ArrowRight className="size-4" />
+              {settings.brands.buttonText} <ArrowRight className="size-4" />
             </Link>
           </div>
         </ScrollReveal>
@@ -354,11 +354,11 @@ export default function Home() {
       <section className="bg-bg py-20 lg:py-32 overflow-hidden">
         <ScrollReveal className="site-container-wide">
           <SectionHeading
-            eyebrow="The daily edit"
-            title="Audit를 통과한 오늘의 추천"
-            description="검증된 브랜드 중에서도 가장 많은 보호자님들께 선택받은 대표 상품입니다."
+            eyebrow={settings.bestProducts.eyebrow}
+            title={settings.bestProducts.title}
+            description={settings.bestProducts.description}
             href="/shop"
-            linkLabel="전체 셀렉션 보기"
+            linkLabel={settings.bestProducts.linkLabel}
           />
           <div className="mt-12 flex overflow-x-auto snap-x scrollbar-hide gap-4 lg:grid lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 pb-4">
             {bestProducts.map((product) => (
@@ -374,12 +374,10 @@ export default function Home() {
       <section id="insurance" className="bg-card py-20 lg:py-32 overflow-hidden relative">
         <ScrollReveal className="site-container-wide relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <p className="font-editorial text-lg italic text-slate-400">Insurance Analysis</p>
-            <h2 className="mt-4 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: settings.insuranceTitle }}>
+            <p className="font-editorial text-lg italic text-slate-400">{settings.insurance.eyebrow}</p>
+            <h2 className="mt-4 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: settings.insurance.title }}>
             </h2>
-            <p className="mt-5 text-pretty text-sm leading-7 text-text-sub">
-              옆집 아이의 정답이 우리 아이의 정답일까요? 나이와 질환에 꼭 맞는 맞춤 특약을 찾고,<br className="hidden sm:block" /> 보험 가입을 강요하지 않는 객관적인 약관 분석 프로세스를 경험해 보세요.
-            </p>
+            <p className="mt-5 text-pretty text-sm leading-7 text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.description }}></p>
           </div>
 
           {/* Flow Cards */}
@@ -394,8 +392,8 @@ export default function Home() {
                   <div className="h-2 w-20 bg-slate-200 rounded-full"></div>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-text-main">기본 정보 동의</h3>
-              <p className="mt-2 text-xs text-text-sub">최소한의 정보로 비교를 시작합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step1Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step1Desc }}></p>
             </div>
 
             {/* Step 2 */}
@@ -411,8 +409,8 @@ export default function Home() {
                   <span className="text-[10px] font-bold text-text-main">만 4세</span>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-text-main">맞춤 조건 입력</h3>
-              <p className="mt-2 text-xs text-text-sub">아이의 건강 상태를 꼼꼼히 체크합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step2Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step2Desc }}></p>
             </div>
 
             {/* Step 3 */}
@@ -427,15 +425,15 @@ export default function Home() {
                   <div className="text-xs font-bold text-text-main">월 32,000원~</div>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-text-main">결과 리포트</h3>
-              <p className="mt-2 text-xs text-text-sub">최적의 보장 조건을 안내합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step3Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step3Desc }}></p>
             </div>
           </div>
 
           <div className="mt-16 text-center">
-            <p className="text-xs text-slate-400 mb-6">* 본 화면은 실제 API 연동이 아닌 가이드라인 안내를 위한 예시 화면입니다.</p>
+            <p className="text-xs text-slate-400 mb-6" dangerouslySetInnerHTML={{ __html: settings.insurance.disclaimer }}></p>
             <Link href="/insurance" className="inline-flex items-center gap-2 bg-navy rounded-full px-8 py-4 text-sm font-semibold text-white transition-all hover:bg-blue shadow-lg">
-              무료 분석 프로세스 시작하기 <ArrowRight className="size-4" />
+              {settings.insurance.buttonText} <ArrowRight className="size-4" />
             </Link>
           </div>
         </ScrollReveal>
@@ -446,9 +444,8 @@ export default function Home() {
       <section className="bg-bg py-20 lg:py-32 overflow-hidden">
         <ScrollReveal className="site-container-wide">
           <div className="flex flex-col mb-12">
-            <p className="font-editorial text-lg italic text-slate-400">Trust Board</p>
-            <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight">
-              함께 만드는 백조오브제의 기록
+            <p className="font-editorial text-lg italic text-slate-400">{settings.trustBoard.eyebrow}</p>
+            <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: settings.trustBoard.title }}>
             </h2>
           </div>
 
@@ -456,9 +453,9 @@ export default function Home() {
             {/* Reviews */}
             <div className="w-full lg:w-2/3">
               <div className="flex justify-between items-end mb-6">
-                <h3 className="text-lg font-semibold text-text-main">먼저 함께해 본 이들의 이야기</h3>
+                <h3 className="text-lg font-semibold text-text-main">{settings.trustBoard.reviewsTitle}</h3>
                 <Link href="/reviews" className="text-sm font-semibold text-text-sub hover:text-text-main transition-colors flex items-center gap-1">
-                  후기 전체보기 <ArrowRight className="size-3" />
+                  {settings.trustBoard.reviewsLinkText} <ArrowRight className="size-3" />
                 </Link>
               </div>
               <div className="flex flex-col gap-6">
@@ -476,9 +473,9 @@ export default function Home() {
             {/* Notices */}
             <div className="w-full lg:w-1/3">
               <div className="flex justify-between items-end mb-6">
-                <h3 className="text-lg font-semibold text-text-main">새로운 소식</h3>
+                <h3 className="text-lg font-semibold text-text-main">{settings.trustBoard.noticesTitle}</h3>
                 <Link href="/notices" className="text-sm font-semibold text-text-sub hover:text-text-main transition-colors flex items-center gap-1">
-                  공지 전체보기 <ArrowRight className="size-3" />
+                  {settings.trustBoard.noticesLinkText} <ArrowRight className="size-3" />
                 </Link>
               </div>
               <div className="flex flex-col border-t border-border">
@@ -501,8 +498,8 @@ export default function Home() {
       <section className="bg-card py-6 border-t border-border">
         <div className="site-container-wide flex justify-center">
           <Link href="/b2b" className="flex items-center gap-2 text-[13px] font-medium text-slate-500 hover:text-navy transition-colors">
-            <span>브랜드 입점, 병원/장례 제휴, 케어 키트 도입 등 파트너십이 필요하신가요?</span>
-            <span className="font-semibold underline underline-offset-2">B2B 제휴 안내 보기</span>
+            <span dangerouslySetInnerHTML={{ __html: settings.b2b.text }}></span>
+            <span className="font-semibold underline underline-offset-2">{settings.b2b.linkText}</span>
             <ArrowRight className="size-3" />
           </Link>
         </div>
