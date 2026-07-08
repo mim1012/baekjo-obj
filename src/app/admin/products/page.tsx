@@ -23,8 +23,9 @@ export default function AdminProductsDashboard() {
   const [localProducts, setLocalProducts] = useState(mockProducts);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Add product modal state
+  // Modals state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
 
   const handleSaveCategories = (newCats: string[], type: 'product' | 'lifestyle') => {
     if (type === 'product') {
@@ -174,31 +175,69 @@ export default function AdminProductsDashboard() {
 
         {/* Main Content: Products */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <div className="p-6 pb-0 flex items-end justify-between gap-4 shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#202521]">
-                {activeCategory ? `'${activeCategory}' 상품 목록` : '전체 상품 목록'}
-              </h2>
-              <p className="mt-1 text-sm text-[#737A74]">총 {filteredProducts.length}개의 상품</p>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <label className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                <input 
-                  placeholder="상품명 검색..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]" 
-                />
-              </label>
-              <button 
-                onClick={() => setIsAddingProduct(true)}
-                className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
-              >
-                <Plus className="size-4" /> 
-                {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
-              </button>
+          <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
+            {/* Category Management Panel */}
+            {activeCategory ? (
+              <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-[#202521]">{activeCategory}</h2>
+                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">
+                        {activeGroup === 'product' ? '일반 상품 카테고리' : '라이프스타일 카테고리'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#59615B]">
+                      해당 카테고리의 이름 등 속성을 관리합니다.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="px-3 py-1.5 text-sm font-medium bg-[#F0EEE8] text-[#4F5751] rounded hover:bg-[#E1DFD8] transition-colors flex items-center gap-1.5">
+                      <Settings className="size-3.5" /> 정보 수정
+                    </button>
+                    <button 
+                      onClick={() => {
+                        const idx = (activeGroup === 'product' ? productCats : lifestyleCats).indexOf(activeCategory);
+                        // @ts-ignore
+                        if (idx !== -1) handleDeleteCategory(idx, activeGroup, { stopPropagation: () => {} });
+                      }}
+                      className="px-3 py-1.5 text-sm font-medium bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                    >
+                      <Trash2 className="size-3.5" /> 삭제
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-bold text-[#202521]">전체 상품 목록</h2>
+                <p className="mt-1 text-sm text-[#737A74]">모든 상품을 한눈에 관리합니다.</p>
+              </div>
+            )}
+
+            {/* Actions Bar */}
+            <div className="flex items-end justify-between mt-2">
+              <p className="text-sm font-medium text-[#59615B]">
+                등록된 상품: <span className="font-bold text-[#202521]">{filteredProducts.length}</span>개
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
+                  <input 
+                    placeholder="상품명 검색..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34] shadow-sm" 
+                  />
+                </label>
+                <button 
+                  onClick={() => setIsAddingProduct(true)}
+                  className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
+                >
+                  <Plus className="size-4" /> 
+                  {activeCategory ? `'${activeCategory}'에 상품 추가` : '새 상품 추가'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -233,7 +272,11 @@ export default function AdminProductsDashboard() {
                           ) : <span className="text-slate-300">-</span>}
                         </td>
                         <td className="px-5 py-3 text-right">
-                          <button className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
+                          <button 
+                            onClick={() => setEditingProduct(product)}
+                            className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" 
+                            title="상품 설정"
+                          >
                             <Settings className="size-4" />
                           </button>
                           <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => {
@@ -259,39 +302,107 @@ export default function AdminProductsDashboard() {
             )}
           </div>
 
-          {/* Add Product Modal (Mock) */}
-          {isAddingProduct && (
+          {/* Add/Edit Product Modal */}
+          {(isAddingProduct || editingProduct) && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
-                  <h3 className="font-bold text-[#202521]">새 상품 등록</h3>
-                  <button onClick={() => setIsAddingProduct(false)} className="text-[#8B928C] hover:text-black">✕</button>
+              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
+                  <h3 className="font-bold text-[#202521]">{editingProduct ? '상품 수정' : '새 상품 등록'}</h3>
+                  <button onClick={() => { setIsAddingProduct(false); setEditingProduct(null); }} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
-                <div className="p-6 space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
-                    <input type="text" className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="예: 시그니처 연어 사료 2kg" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                <div className="p-6 overflow-y-auto">
+                  <form id="product-form" className="space-y-5" onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const name = formData.get('name') as string;
+                    const brandId = formData.get('brandId') as string;
+                    const price = Number(formData.get('price'));
+                    const lifestyle = formData.get('lifestyle') as string;
+                    const selectedCats = formData.getAll('category') as string[];
+                    
+                    if (!name.trim() || selectedCats.length === 0) {
+                      alert('상품명과 일반 카테고리를 최소 1개 이상 선택해주세요.');
+                      return;
+                    }
+
+                    const newProd = {
+                      id: editingProduct ? editingProduct.id : `prod-${Date.now()}`,
+                      name,
+                      brandId,
+                      price,
+                      category: selectedCats.join(','),
+                      lifestyleCategory: lifestyle || undefined,
+                      rating: editingProduct ? editingProduct.rating : 0,
+                      reviewCount: editingProduct ? editingProduct.reviewCount : 0,
+                      petType: editingProduct ? editingProduct.petType : 'both',
+                      ageGroup: editingProduct ? editingProduct.ageGroup : 'all',
+                      concernTags: editingProduct ? editingProduct.concernTags : [],
+                      image: editingProduct ? editingProduct.image : '/placeholder.png',
+                      stock: editingProduct ? editingProduct.stock : 100
+                    };
+
+                    if (editingProduct) {
+                      setLocalProducts(prev => prev.map(p => p.id === newProd.id ? { ...p, ...newProd } as any : p));
+                    } else {
+                      setLocalProducts(prev => [newProd as any, ...prev]);
+                    }
+
+                    setIsAddingProduct(false);
+                    setEditingProduct(null);
+                  }}>
                     <div>
-                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">일반 카테고리</label>
-                      <select className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white" defaultValue={activeGroup === 'product' && activeCategory ? activeCategory : ''}>
-                        <option value="" disabled>선택...</option>
-                        {productCats.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명 <span className="text-red-500">*</span></label>
+                      <input name="name" type="text" defaultValue={editingProduct?.name || ''} className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="예: 시그니처 연어 사료 2kg" required />
                     </div>
+                    
+                    <div className="bg-[#F8F7F2] p-4 rounded-lg border border-[#D1D0C8]">
+                      <label className="block text-xs font-bold text-[#202521] mb-2">일반 카테고리 (복수 선택 가능) <span className="text-red-500">*</span></label>
+                      <div className="flex flex-wrap gap-2">
+                        {productCats.map(c => {
+                          const isDefaultChecked = editingProduct 
+                            ? editingProduct.category.split(',').includes(c)
+                            : (activeGroup === 'product' && activeCategory === c);
+                          return (
+                            <label key={c} className="inline-flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded border border-[#D1D0C8] hover:border-[#2F3B34] transition-colors">
+                              <input 
+                                type="checkbox" 
+                                name="category" 
+                                value={c} 
+                                defaultChecked={isDefaultChecked}
+                                className="w-3.5 h-3.5 text-[#2F3B34] border-[#D1D0C8] focus:ring-[#2F3B34]" 
+                              />
+                              <span className="text-sm font-medium text-[#4F5751]">{c}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#59615B] mb-1.5">라이프스타일 카테고리</label>
+                        <select name="lifestyle" className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white" defaultValue={editingProduct?.lifestyleCategory || (activeGroup === 'lifestyle' && activeCategory ? activeCategory : '')}>
+                          <option value="">(해당 없음)</option>
+                          {lifestyleCats.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#59615B] mb-1.5">브랜드명</label>
+                        <input name="brandId" type="text" defaultValue={editingProduct?.brandId || ''} className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="브랜드 이름 입력" />
+                      </div>
+                    </div>
+                    
                     <div>
-                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">라이프스타일 카테고리</label>
-                      <select className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white" defaultValue={activeGroup === 'lifestyle' && activeCategory ? activeCategory : ''}>
-                        <option value="">(없음)</option>
-                        {lifestyleCats.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
+                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가 (원)</label>
+                      <input name="price" type="number" defaultValue={editingProduct?.price || ''} className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="0" />
                     </div>
-                  </div>
+                  </form>
                 </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
-                  <button onClick={() => setIsAddingProduct(false)} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
-                  <button onClick={() => setIsAddingProduct(false)} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823]">등록 완료</button>
+                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
+                  <button onClick={() => { setIsAddingProduct(false); setEditingProduct(null); }} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
+                  <button type="submit" form="product-form" className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823]">
+                    {editingProduct ? '수정 완료' : '등록 완료'}
+                  </button>
                 </div>
               </div>
             </div>
