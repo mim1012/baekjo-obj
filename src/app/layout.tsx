@@ -18,6 +18,9 @@ export const metadata: Metadata = {
     "반려동물과 함께하는 시간을 더 오래, 더 아름답게. 검증된 브랜드와 전문가의 기준을 한곳에서 만나보세요.",
 };
 
+import { SiteSettingsProvider } from "@/components/providers/SiteSettingsProvider";
+import { CategorySettingsProvider } from "@/components/providers/CategorySettingsProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -26,7 +29,11 @@ export default function RootLayout({
   return (
     <html lang="ko" className={`h-full antialiased ${playfair.variable}`}>
       <body className="flex min-h-full flex-col bg-[#F4F2EC] font-sans text-[#202521]">
-        <AppShell>{children}</AppShell>
+        <SiteSettingsProvider>
+          <CategorySettingsProvider>
+            <AppShell>{children}</AppShell>
+          </CategorySettingsProvider>
+        </SiteSettingsProvider>
       </body>
     </html>
   );

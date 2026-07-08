@@ -5,6 +5,7 @@ import { getOrders, updateOrderStatus } from '@/lib/storage';
 import { formatDate, formatPrice } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
 import { FileText, CreditCard, Truck, RefreshCcw } from 'lucide-react';
+import Pagination from '@/components/admin/Pagination';
 
 export default function AdminOrdersPage() {
   const mounted = useMounted();
@@ -14,6 +15,9 @@ export default function AdminOrdersPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('전체 상태');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('전체 상태');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('전체 상태');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const handleStatusChange = (id: string, field: 'orderStatus' | 'paymentStatus' | 'deliveryStatus', value: string) => {
     updateOrderStatus(id, { [field]: value });
@@ -50,6 +54,11 @@ export default function AdminOrdersPage() {
     return result;
   }, [rawOrders, searchTerm, orderStatusFilter, paymentStatusFilter, deliveryStatusFilter]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
+
   if (!mounted) return null;
 
   // 통계 계산
@@ -60,9 +69,14 @@ export default function AdminOrdersPage() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-[#202521]">주문 관리</h1>
-        <p className="mt-2 text-sm text-[#737A74]">고객 주문 내역과 배송 상태를 관리합니다.</p>
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h1 className="text-2xl font-bold text-[#202521]">주문 관리</h1>
+          <p className="mt-2 text-sm text-[#737A74]">고객 주문 내역과 배송 상태를 관리합니다.</p>
+        </div>
+        <button type="button" onClick={() => alert('주문 등록 기능은 현재 모의 상태입니다.')} className="bg-[#2F3B34] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#2F3B34]/90 flex items-center gap-2">
+          수기 주문 등록
+        </button>
       </div>
       
       {/* 요약 카드 */}
@@ -162,7 +176,7 @@ export default function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredOrders.map(order => {
+              {paginatedOrders.map(order => {
                 const itemSummary = order.items.length > 1 
                   ? `${order.items[0].productName} 외 ${order.items.length - 1}건` 
                   : order.items[0].productName;
@@ -239,7 +253,9 @@ export default function AdminOrdersPage() {
                         <option value="배송완료">배송완료</option>
                       </select>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right whitespace-nowrap">
+                      <button onClick={() => alert('상세/수정 팝업이 뜰 예정입니다.')} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">수정</button>
+                      <button onClick={() => { if(window.confirm('정말로 삭제하시겠습니까?')) alert('삭제되었습니다.'); }} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">삭제</button>
                       <button className="text-[#2F3B34] hover:underline font-medium text-xs border border-[#2F3B34] px-3 py-1.5 rounded-md">상세보기</button>
                     </td>
                   </tr>
@@ -254,6 +270,14 @@ export default function AdminOrdersPage() {
               <p className="text-gray-500">등록된 주문 내역이 없습니다.</p>
             </div>
           )}
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </div>

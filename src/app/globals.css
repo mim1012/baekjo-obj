@@ -2,41 +2,46 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-primary-900: #1a221d;
-  --color-primary-500: #2f3b34;
-  --color-primary-100: #e5e9e4;
-  --color-surface-0: #ffffff;
-  --color-surface-50: #faf9f5;
-  --color-surface-100: #f4f2ec;
-  --color-surface-200: #eae8e1;
-  --color-gold-muted: #b8a07e;
-  --color-sage-soft: #7a8a7f;
-  
-  --color-text-primary: #202521;
-  --color-text-secondary: #6f756f;
-  
-  --color-error: #a65348;
-  --color-success: #51705b;
+  /* Brand Core Colors */
+  --color-navy: #1B2922; /* Deep Green Accent */
+  --color-blue: #2563EB;
+  --color-beige: #D8C4A3;
 
-  /* Brand UI colors for user pages (non-destructive) */
-  --color-brand-base: #FBFAF7;
-  --color-brand-sub: #F4EFE8;
-  --color-brand-text-main: #17211D;
-  --color-brand-text-body: #334155;
-  --color-brand-text-sub: #64748B;
-  --color-brand-line: rgba(15, 23, 42, 0.08);
-  --color-brand-accent: #1D3E2F;
+  /* Surface / Backgrounds */
+  --color-bg: #FBFAF7;
+  --color-sub: #F4EFE8;
+  --color-card: #FFFFFF;
+  
+  /* Text */
+  --color-text-main: #17211D;
+  --color-text-sub: #64748B;
+  
+  /* Lines / Borders */
+  --color-border: rgba(15, 23, 42, 0.08);
+  
+  /* Status */
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-error: #DC2626;
+
+  /* Legacy variable support if used elsewhere */
+  --color-primary-900: var(--color-navy);
+  --color-primary-500: var(--color-blue);
+  --color-primary-100: var(--color-beige);
+  --color-surface-0: var(--color-card);
+  --color-surface-50: var(--color-bg);
+  --color-text-primary: var(--color-text-main);
+  --color-text-secondary: var(--color-text-sub);
 
   --font-sans: var(--font-sans), "Pretendard Variable", Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
   --font-serif: var(--font-serif), "Playfair Display", Iowan Old Style, Baskerville, "Times New Roman", serif;
 }
 
 :root {
-  --background: #f4f2ec;
-  --foreground: #202521;
-  --paper: #faf9f5;
-  --stone: #737772;
-  --line: #d8d6ce;
+  --background: var(--color-bg);
+  --foreground: var(--color-text-main);
+  --paper: var(--color-card);
+  --line: var(--color-border);
   
   /* Easing curves */
   --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -122,7 +127,15 @@ textarea {
   }
 
   .site-container {
-    @apply mx-auto w-full max-w-7xl px-5 sm:px-8 lg:px-10;
+    @apply mx-auto w-full max-w-[1280px] px-5 sm:px-8 lg:px-10;
+  }
+  
+  .site-container-wide {
+    @apply mx-auto w-full max-w-[1400px] px-5 sm:px-8 lg:px-12;
+  }
+  
+  .site-container-hero {
+    @apply mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-12;
   }
 
   .hide-scrollbar::-webkit-scrollbar {

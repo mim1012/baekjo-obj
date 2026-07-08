@@ -11,7 +11,7 @@ export default function ReviewCard({ review, productName }: Props) {
   const stars = ratingStars(review.rating);
 
   return (
-    <article className="group flex min-h-64 flex-col gap-4 rounded-[18px] bg-white border border-[rgba(15,23,42,0.08)] p-6 transition-all duration-500 hover:shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
+    <article className="group flex h-full min-h-[240px] flex-col gap-4 rounded-[18px] bg-card border border-border p-6 transition-all duration-500 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex gap-0.5" aria-label={`${review.rating}점`}>
@@ -28,7 +28,7 @@ export default function ReviewCard({ review, productName }: Props) {
               />
             ))}
           </div>
-          <p className="mt-2 text-xs text-[#64748B]">
+          <p className="mt-2 text-xs text-text-sub">
             {review.breed} · {review.age} · {review.usePeriod}
           </p>
         </div>
@@ -38,18 +38,19 @@ export default function ReviewCard({ review, productName }: Props) {
       </div>
 
       {productName && (
-        <p className="truncate border-l-2 border-slate-200 pl-3 text-xs font-medium text-[#334155]">
+        <p className="truncate border-l-2 border-border pl-3 text-xs font-medium text-slate-700">
           {productName}
         </p>
       )}
 
-      <p className="line-clamp-5 flex-1 text-pretty text-sm leading-7 text-[#17211D]">
+      <p className="line-clamp-5 flex-1 text-pretty text-sm leading-7 text-text-main">
         “{review.content}”
       </p>
 
       {review.isPhotoReview && (
-        <div className="flex size-16 items-center justify-center rounded-lg bg-[#F4EFE8] text-[#64748B]">
-          {review.image ? <span className="text-[10px] font-semibold">PHOTO</span> : <ImageIcon className="size-5 opacity-50" />}
+        <div className="mt-auto self-end flex items-center gap-1 rounded bg-bg px-2 py-1 text-text-sub border border-border">
+          <ImageIcon className="size-3 opacity-60" />
+          <span className="text-[9px] font-semibold tracking-wider">PHOTO</span>
         </div>
       )}
     </article>

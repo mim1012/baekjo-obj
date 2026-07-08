@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -8,222 +10,359 @@ import {
   HeartPulse,
   Search,
   ShieldCheck,
-  HeartHandshake
+  HeartHandshake,
+  ShieldPlus,
+  Leaf,
+  Umbrella,
+  Shield,
+  CheckCircle2,
+  RefreshCw,
+  UserCheck,
+  Heart,
+  FileText,
+  Monitor,
+  Plus
 } from 'lucide-react';
 import { brands } from '@/data/brands';
 import { concerns } from '@/data/concerns';
 import { notices } from '@/data/notices';
 import { products } from '@/data/products';
 import { reviews } from '@/data/reviews';
+import { homeContent } from '@/data/homeContent';
 import ConcernCard from '@/components/common/ConcernCard';
 import BrandCard from '@/components/common/BrandCard';
-import BrandShowroomCard from '@/components/common/BrandShowroomCard';
+import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import ScrollReveal from '@/components/common/ScrollReveal';
 import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
+import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 
 export default function Home() {
+  const { settings } = useSiteSettings();
   const bestProducts = sortProducts(products.filter((product) => product.isBest || product.isRecommended), 'popular').slice(0, 4);
   const recentNotices = notices.slice(0, 3);
   const displayBrands = brands.filter(b => b.isVisible !== false).slice(0, 3);
 
   return (
     <div className="flex flex-col">
-      {/* 1. Hero */}
-      <section className="relative overflow-hidden min-h-[600px] flex items-center bg-[#FBFAF7] border-b border-[rgba(15,23,42,0.06)]">
-        <div className="site-container relative z-10 w-full py-16 lg:py-28 flex flex-col lg:flex-row items-center gap-12 lg:gap-8">
-          {/* Left: Copy & CTAs */}
-          <div className="w-full lg:w-[44%] flex flex-col items-start text-left">
-            <h1 className="text-balance text-4xl sm:text-5xl md:text-[56px] font-bold tracking-tight text-[#17211D] leading-[1.15]">
-              <span className="block sm:whitespace-nowrap">우리 아이에게</span>
-              <span className="block sm:whitespace-nowrap mt-2">정말 필요한 선택</span>
-            </h1>
-            <p className="mt-6 max-w-xl text-pretty text-base leading-relaxed text-[#64748B] sm:text-lg">
-              검증된 브랜드, 전문가 추천, 보험 분석까지.<br />
-              백조오브제의 엄격한 심사 기준을 통과한 프리미엄 펫슈어런스 에코시스템.
-            </p>
+      <section className="relative w-full h-screen bg-black flex items-center justify-center overflow-hidden">
+        {/* Video */}
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline 
+          className="w-full h-full object-cover"
+        >
+          <source src={settings.intro.videoSrc} type="video/mp4" />
+        </video>
+      </section>
 
-            <div className="mt-10 flex flex-col gap-3 w-full sm:w-auto sm:flex-row">
-              <Link
-                href="#audit"
-                className="inline-flex items-center justify-center gap-2 bg-[#17211D] px-8 py-4 text-sm font-bold text-white transition-all duration-300 hover:bg-[#334155] rounded-full shadow-[0_4px_14px_rgba(15,23,42,0.12)]"
-              >
-                백조오브제 Audit 보기
-                <ArrowRight className="size-4" />
-              </Link>
+      {/* 2. How to start Section (Timeline Flow) */}
+      <section className="bg-[#FBFAF7] py-16 lg:py-24 border-t border-[#E7E0D5]">
+        <div className="site-container-wide">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.3fr_0.7fr] items-start gap-12 lg:gap-16">
+            {/* Left 30% */}
+            <div className="text-left">
+              <h2 className="text-[34px] lg:text-[38px] font-bold leading-[1.25] text-[#17211D] tracking-tight" dangerouslySetInnerHTML={{ __html: settings.howToStart.title }} />
+              <p className="mt-5 text-[15px] text-[#6F766F] leading-relaxed" dangerouslySetInnerHTML={{ __html: settings.howToStart.description }} />
             </div>
-            <div className="mt-4 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link
-                href="/brands"
-                className="inline-flex items-center justify-center gap-2 border border-[rgba(15,23,42,0.12)] bg-white px-6 py-3.5 text-sm font-semibold text-[#334155] transition-all hover:bg-slate-50 rounded-full"
-              >
-                <Check className="size-4" /> 검증 브랜드관 둘러보기
-              </Link>
-              <Link
-                href="/insurance"
-                className="inline-flex items-center justify-center gap-2 border border-[rgba(15,23,42,0.12)] bg-white px-6 py-3.5 text-sm font-semibold text-[#334155] transition-all hover:bg-slate-50 rounded-full"
-              >
-                <HeartPulse className="size-4" /> 펫보험 비교하기
-              </Link>
-            </div>
-          </div>
 
-          {/* Right: Hero Curation Visual Image */}
-          <div className="w-full lg:w-[56%] relative mt-12 lg:mt-0 flex lg:justify-end">
-            <div className="relative w-full max-w-[820px] aspect-[4/3] lg:ml-auto">
-              <Image 
-                src="/images/hero-curation-visual-natural.png" 
-                alt="백조오브제 큐레이션 비주얼" 
-                fill 
-                className="object-contain block" 
-                priority
-                unoptimized
-              />
+            {/* Right 70% Timeline Flow */}
+            <div className="relative flex flex-col md:flex-row w-full justify-between items-start pt-2">
+              {/* 가로 연결선 (Desktop) */}
+              <div className="absolute top-[14px] left-[15%] right-[15%] h-px bg-[#E7E0D5] z-0 hidden md:block"></div>
+
+              {settings.howToStart.steps.map((step, index) => {
+                const Icon = [ShieldCheck, Leaf, Umbrella][index] || ShieldCheck;
+                return (
+                  <div key={step.num} className="relative z-10 flex-1 flex flex-col items-center text-center px-4">
+                    {/* Number Badge */}
+                    <div className="bg-[#FBFAF7] px-2 mb-6">
+                      <span className="font-editorial text-[12px] font-bold text-[#A8742E] bg-[#F3EEE6] border border-[#E7E0D5]/60 rounded-full size-7 flex items-center justify-center shadow-sm">
+                        {step.num}
+                      </span>
+                    </div>
+                    
+                    {/* Icon Circle */}
+                    <div className="flex size-[54px] items-center justify-center rounded-full border border-[#17211D] bg-[#FBFAF7] text-[#17211D] mb-4">
+                      <Icon className="size-[20px]" strokeWidth={1.5} />
+                    </div>
+                    
+                    {/* Title */}
+                    <h3 className="text-[16px] lg:text-[17px] font-bold text-[#17211D] mb-3 leading-snug" dangerouslySetInnerHTML={{ __html: step.title }}></h3>
+                    
+                    {/* Description */}
+                    <p className="text-[13px] text-[#6F766F] leading-relaxed mb-5 max-w-[200px] break-keep" dangerouslySetInnerHTML={{ __html: step.desc }}></p>
+                    
+                    {/* Link */}
+                    <Link href={step.linkHref} className="text-[13px] font-bold text-[#17211D] hover:underline flex items-center gap-1">
+                      <span>{step.linkText}</span>
+                      <ArrowRight className="size-3.5" />
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       </section>
 
-      {/* 2. Audit Section */}
-      <section id="audit" className="bg-white py-16 lg:py-28 overflow-hidden">
-        <ScrollReveal className="site-container">
-          <div className="flex flex-col lg:flex-row gap-16 lg:gap-24">
-            {/* Left: Sticky Title */}
-            <div className="w-full lg:w-1/3 lg:sticky lg:top-32 self-start">
-              <span className="inline-flex items-center justify-center size-14 rounded-full bg-[#1D3E2F]/10 mb-6 shadow-sm">
-                <ShieldCheck className="size-6 text-[#1D3E2F]" />
-              </span>
-              <p className="font-editorial text-lg italic text-slate-400">Strict Standard</p>
-              <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-[#17211D] tracking-tight">
-                타협하지 않는 기준,<br />Baekjo Audit
-              </h2>
-              <p className="mt-6 text-pretty text-sm leading-7 text-[#64748B]">
-                백조오브제는 단순히 예쁜 상품을 판매하지 않습니다. 성분 안전성, 제조 시설 품질, 기업의 철학까지 검증된 브랜드만을 엄선하여 우리 아이에게 가장 안전한 선택을 제안합니다.
-              </p>
-            </div>
+      {/* 3. Audit Section (2-Column Layout: Typography + Card Visual Group) */}
+      <section id="audit" className="bg-[#FBFAF7] py-16 lg:py-24 border-t border-[#E7E0D5] overflow-hidden">
+        <div className="site-container-wide pb-12 lg:pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-[0.35fr_0.65fr] gap-12 lg:gap-16 items-center">
             
-            {/* Right: 4 Step Cards */}
-            <div className="w-full lg:w-2/3 grid gap-6 sm:grid-cols-2">
-              {[
-                { step: '1', title: '브랜드 철학 검증', desc: '생명을 존중하는 진정성 있는 기업 가치관' },
-                { step: '2', title: '유해 성분 배제', desc: '조금의 논란이라도 있는 성분 100% 차단' },
-                { step: '3', title: '제조 시설 실사', desc: '투명한 위생 상태 및 품질 관리 프로세스 점검' },
-                { step: '4', title: '수의학적 자문', desc: '전문가 기반의 효능 검증 및 리스크 평가' },
-              ].map((item) => (
-                <div key={item.step} className="flex flex-col rounded-[18px] bg-[#FBFAF7] border border-[rgba(15,23,42,0.08)] p-6 shadow-sm transition-transform hover:-translate-y-1">
-                  <div className="flex items-center gap-4 mb-4">
-                    <span className="flex size-10 items-center justify-center rounded-full bg-white text-[#17211D] font-editorial text-xl italic border border-[rgba(15,23,42,0.06)] shadow-sm">{item.step}</span>
-                    <h3 className="text-base font-semibold text-[#17211D] tracking-tight">{item.title}</h3>
-                  </div>
-                  <p className="text-sm text-[#64748B] leading-relaxed pl-14">{item.desc}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-      </section>
-
-      {/* 3. 맞춤 큐레이션 (통합) */}
-      <section className="bg-[#FBFAF7] py-16 lg:py-28 overflow-hidden border-t border-[rgba(15,23,42,0.06)]">
-        <ScrollReveal className="site-container">
-          <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
-            {/* Left: Text & CTA */}
-            <div className="w-full lg:w-1/3 lg:sticky lg:top-32 self-start">
-              <p className="font-editorial text-lg italic text-slate-400">Custom Curation</p>
-              <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl leading-[1.2] text-[#17211D] tracking-tight">
-                반려동물 고민에 맞춘<br />큐레이션
-              </h2>
-              <p className="mt-6 text-pretty text-sm leading-7 text-[#64748B]">
-                우리 아이의 상태를 알려주시면 가장 완벽한 관리 방향을 설계해 드립니다. 무엇부터 시작할지 막막하시다면 맞춤 진단을, 이미 필요한 고민이 있다면 고민별 가이드를 확인해 보세요.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row lg:flex-col">
-                <Link href="/diagnosis" className="inline-flex items-center justify-center gap-2 bg-[#17211D] rounded-full px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#334155] shadow-[0_4px_14px_rgba(15,23,42,0.12)]">
-                  1분 맞춤 진단 시작 <ArrowRight className="size-4" />
-                </Link>
-                <Link href="/concerns" className="inline-flex items-center justify-center gap-2 bg-white border border-[rgba(15,23,42,0.12)] rounded-full px-6 py-3.5 text-sm font-semibold text-[#334155] transition-all hover:bg-slate-50">
-                  모든 고민 살펴보기 <ArrowRight className="size-4" />
-                </Link>
+            {/* Left 35%: Large Main Message */}
+            <div className="text-left">
+              <span className="text-[12px] font-bold tracking-[0.15em] text-[#6F766F] block mb-6">{settings.audit.badge}</span>
+              <h2 className="text-[38px] lg:text-[46px] font-bold leading-[1.25] text-[#17211D] tracking-tight mb-8" dangerouslySetInnerHTML={{ __html: settings.audit.title }} />
+              <div className="text-[14px] text-[#6F766F] leading-[1.8] max-w-[340px]">
+                <p className="font-bold text-[#17211D] mb-2">{settings.audit.descriptionTitle}</p>
+                <p className="break-keep">{settings.audit.descriptionText}</p>
               </div>
             </div>
 
-            {/* Right: Flow & Concern Cards */}
-            <div className="w-full lg:w-2/3 flex flex-col gap-10">
-              {/* Top: Flow */}
-              <div className="bg-white rounded-[24px] border border-[rgba(15,23,42,0.08)] p-6 sm:p-8 shadow-sm">
-                <h3 className="text-sm font-bold text-[#17211D] mb-6 flex items-center gap-2">
-                  <Activity className="size-4 text-[#1D3E2F]" /> 진단 기반 추천 프로세스
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 relative">
-                  <div className="hidden sm:block absolute top-6 left-10 right-10 h-px bg-slate-200"></div>
+            {/* Right 65%: Unified Visual Group Card */}
+            <div className="flex flex-col md:flex-row bg-white border border-[#E7E0D5] rounded-3xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.02)] w-full items-stretch">
+              {/* Left inside card: 4 Icons & Signature */}
+              <div className="flex-1 flex flex-col justify-between p-8 lg:p-10 border-b md:border-b-0 md:border-r border-[#E7E0D5]/60">
+                {/* 4 Icons Grid */}
+                <div className="grid grid-cols-4 gap-2 text-center w-full">
                   {[
-                    { icon: Search, title: '상태 체크' },
-                    { icon: Check, title: '맞춤 결과' },
-                    { icon: Activity, title: '제품 추천' },
-                    { icon: ShieldCheck, title: '보험 연계' },
-                  ].map((step, idx) => {
-                    const Icon = step.icon;
+                    { icon: Activity, title: settings.audit.icons[0]?.title || '브랜드 운영 방향' },
+                    { icon: Leaf, title: settings.audit.icons[1]?.title || '성분·원료 정보' },
+                    { icon: Monitor, title: settings.audit.icons[2]?.title || '제조·유통 기준' },
+                    { icon: Heart, title: settings.audit.icons[3]?.title || '보호자 사용 가치' }
+                  ].map((item, idx) => {
+                    const Icon = item.icon;
                     return (
-                      <div key={step.title} className="relative flex flex-row sm:flex-col items-center gap-4 sm:gap-3 text-center">
-                        <div className="shrink-0 flex items-center justify-center size-12 rounded-full bg-[#FBFAF7] border border-[rgba(15,23,42,0.06)] relative z-10">
-                          <Icon className="size-5 text-[#1D3E2F]" />
+                      <div key={idx} className="flex flex-col items-center">
+                        <div className="flex size-[56px] items-center justify-center rounded-full border border-[#E7E0D5] bg-[#FBFAF7] text-[#17211D] shadow-[0_2px_8px_rgba(0,0,0,0.03)] mb-3">
+                          <Icon className="size-5 text-[#17211D]" strokeWidth={1.5} />
                         </div>
-                        <h4 className="font-semibold text-sm text-[#17211D]">{step.title}</h4>
+                        <span className="text-[12px] font-bold text-[#17211D] leading-[1.4] break-keep">{item.title}</span>
                       </div>
                     );
                   })}
                 </div>
+                
+                {/* Handwritten signature text */}
+                <p className="font-editorial italic text-[18px] text-[#A8742E] text-left mt-8 tracking-wide leading-relaxed" dangerouslySetInnerHTML={{ __html: settings.audit.signatureText }} />
               </div>
 
-              {/* Bottom: 4 Concern Cards */}
-              <div className="grid grid-cols-2 gap-4">
-                {concerns.slice(0, 4).map((concern) => (
-                  <div key={concern.slug} className="w-full">
-                    <ConcernCard concern={concern} />
+              {/* Right inside card: Large Poodle Image (Takes up full height and half card width) */}
+              <div className="w-full md:w-[320px] lg:w-[380px] shrink-0 relative min-h-[300px]">
+                <img 
+                  src="/images/poodle-pet-food.png" 
+                  alt="백조오브제 펫 푸드와 푸들"
+                  className="absolute inset-0 w-full h-full object-cover" 
+                />
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Bottom Banner */}
+        <div className="border-t border-[#E7E0D5] bg-[#FAF8F3] py-4">
+          <div className="site-container-wide flex items-center justify-center gap-2 text-[13px] font-semibold text-[#6F766F]">
+            <ShieldCheck className="size-[18px] text-[#17211D]" strokeWidth={1.5} />
+            <span>{settings.audit.bannerText}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* 3. 맞춤 큐레이션 (통합) */}
+      <section className="bg-bg py-20 lg:py-32 overflow-hidden">
+        <ScrollReveal className="site-container-wide">
+          <div className="flex flex-col lg:flex-row gap-12 lg:gap-24">
+            {/* Left: Text & CTA */}
+            <div className="w-full lg:w-1/3 lg:sticky lg:top-32 self-start flex flex-col text-left">
+              <p className="font-editorial text-lg italic text-slate-400">{settings.curation.badge}</p>
+              <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-[#17211D] tracking-tight" dangerouslySetInnerHTML={{ __html: settings.curation.title }} />
+              <p className="mt-6 text-pretty text-sm leading-7 text-[#6F766F]">
+                {settings.curation.description}
+              </p>
+              <div className="mt-8 flex flex-col gap-3">
+                <Link href="/diagnosis" className="inline-flex items-center justify-center gap-2 bg-[#17211D] rounded-full px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#1D3E2F] shadow-[0_4px_14px_rgba(23,33,29,0.12)]">
+                  {settings.curation.button1Text} <ArrowRight className="size-4" />
+                </Link>
+                <Link href="/concerns" className="inline-flex items-center justify-center gap-2 bg-white border border-[#E7E0D5] rounded-full px-6 py-3.5 text-sm font-semibold text-[#17211D] transition-all hover:bg-[#FAF8F3]">
+                  {settings.curation.button2Text} <ArrowRight className="size-4" />
+                </Link>
+              </div>
+
+              {/* Poodle Image below buttons */}
+              <div className="mt-8 rounded-2xl overflow-hidden border border-[#E7E0D5] aspect-[4/3] relative bg-[#FAF8F3]">
+                <img 
+                  src="/images/poodle-pet-food.png" 
+                  alt="백조오브제 펫 푸드와 푸들"
+                  className="absolute inset-0 w-full h-full object-cover" 
+                />
+              </div>
+            </div>
+
+            {/* Right: Custom Curation Board */}
+            <div className="w-full lg:w-2/3 bg-[#FAF8F3] border border-[#E7E0D5] rounded-[28px] p-6 lg:p-8 shadow-[0_4px_24px_rgba(0,0,0,0.01)] flex flex-col justify-between">
+              
+              {/* Board Header */}
+              <div className="text-center mb-8">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <span className="text-[#E7E0D5] font-light">—</span>
+                  <h3 className="text-sm font-bold text-[#17211D] tracking-wide">{settings.curation.boardTitle}</h3>
+                  <span className="text-[#E7E0D5] font-light">—</span>
+                </div>
+                <p className="text-[13px] text-[#6F766F]">{settings.curation.boardDesc}</p>
+              </div>
+
+              {/* Step 1: 4 Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { 
+                    title: settings.curation.cards[0]?.title || '눈물', 
+                    desc: settings.curation.cards[0]?.desc || '눈물 자국이<br />걱정될 때',
+                    imgSrc: '/images/icon-tear.svg',
+                  },
+                  { 
+                    title: settings.curation.cards[1]?.title || '피부', 
+                    desc: settings.curation.cards[1]?.desc || '자주 긁거나<br />피부가 예민할 때',
+                    imgSrc: '/images/icon-skin.svg',
+                  },
+                  { 
+                    title: settings.curation.cards[2]?.title || '관절', 
+                    desc: settings.curation.cards[2]?.desc || '걸음걸이가<br />불편해 보일 때',
+                    imgSrc: '/images/icon-joint.svg',
+                  },
+                  { 
+                    title: settings.curation.cards[3]?.title || '체중', 
+                    desc: settings.curation.cards[3]?.desc || '체중 관리가<br />필요할 때',
+                    imgSrc: '/images/icon-weight.svg',
+                  }
+                ].map((item, idx) => (
+                  <div key={idx} className="bg-white border border-[#E7E0D5] rounded-[20px] p-5 flex flex-col items-center justify-center text-center shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[140px] transition-transform hover:-translate-y-1">
+                    <div className="mb-3">
+                      <img src={item.imgSrc} alt={item.title} className="w-12 h-12 object-contain" />
+                    </div>
+                    <h4 className="text-[14px] font-bold text-[#17211D] mb-1.5">{item.title}</h4>
+                    <p className="text-[12px] text-[#6F766F] leading-tight break-keep" dangerouslySetInnerHTML={{ __html: item.desc }}></p>
                   </div>
                 ))}
               </div>
+
+              {/* Connecting Lines: y=0 to y=48 */}
+              <div className="w-full flex justify-center my-6 h-12 relative">
+                <svg className="w-full h-full" viewBox="0 0 100 48" preserveAspectRatio="none">
+                  <path d="M 12.5,0 L 12.5,20 L 87.5,20 M 37.5,0 L 37.5,20 M 62.5,0 L 62.5,20 M 87.5,0 L 87.5,20" stroke="#E7E0D5" strokeWidth="1.5" fill="none" />
+                  <path d="M 50,20 L 50,48" stroke="#E7E0D5" strokeWidth="1.5" strokeDasharray="4 4" fill="none" />
+                </svg>
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 bg-[#FAF8F3] border-2 border-[#E7E0D5] rounded-full p-1.5 z-10">
+                  <div className="size-2 rounded-full bg-[#E7E0D5]" />
+                </div>
+              </div>
+
+              {/* Step 2: Central Block */}
+              <div className="bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 flex items-center justify-between shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] relative overflow-hidden transition-transform hover:-translate-y-1">
+                <div className="flex items-center gap-5 relative z-10">
+                  <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
+                  <img src="/images/icon-swan-shield.svg" alt={settings.curation.step2Title} className="w-full h-full object-cover scale-110" />
+                  </div>
+                  <div className="text-left">
+                    <h4 className="text-[15px] font-bold text-[#17211D] mb-1 tracking-tight">{settings.curation.step2Title}</h4>
+                    <p className="text-[12.5px] text-[#6F766F] leading-relaxed" dangerouslySetInnerHTML={{ __html: settings.curation.step2Desc }}></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Connecting Lines: Step 2 to Step 3 */}
+              <div className="w-full flex justify-center my-4 h-12 relative">
+                <svg className="w-full h-full" viewBox="0 0 100 48" preserveAspectRatio="none">
+                  <path d="M 50,0 L 50,24" stroke="#E7E0D5" strokeWidth="1" strokeDasharray="3 3" fill="none" />
+                  <path d="M 25,24 L 75,24" stroke="#E7E0D5" strokeWidth="1" fill="none" />
+                  <path d="M 25,24 L 25,48 M 75,24 L 75,48" stroke="#E7E0D5" strokeWidth="1" fill="none" />
+                </svg>
+              </div>
+
+              {/* Step 3: Outcomes Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center relative">
+                {/* Left outcome card */}
+                <div className="flex-1 bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] flex items-center gap-5 transition-transform hover:-translate-y-1">
+                <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
+                    <img src="/images/icon-product.svg" alt={settings.curation.step3LeftTitle} className="w-full h-full object-cover scale-110" />
+                </div>
+                  <div className="text-left">
+                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">{settings.curation.step3LeftTitle}</h5>
+                    <p className="text-[11px] text-[#6F766F] leading-tight" dangerouslySetInnerHTML={{ __html: settings.curation.step3LeftDesc }}></p>
+                  </div>
+                </div>
+
+                {/* Plus Badge */}
+                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 size-8 rounded-full bg-[#FAF8F3] border-2 border-[#E7E0D5] text-[#17211D] font-medium text-sm flex items-center justify-center hidden md:flex z-10 shadow-sm">+</div>
+
+                {/* Right outcome card */}
+                <div className="flex-1 bg-white border border-[#E7E0D5] rounded-[24px] p-6 lg:p-8 shadow-[0_4px_12px_rgba(0,0,0,0.02)] min-h-[160px] flex items-center gap-5 transition-transform hover:-translate-y-1">
+                <div className="w-16 h-16 shrink-0 rounded-[14px] bg-[#FAF8F3] border border-[#E7E0D5]/50 flex items-center justify-center overflow-hidden">
+                    <img src="/images/icon-insurance.svg" alt={settings.curation.step3RightTitle} className="w-full h-full object-cover scale-110" />
+                </div>
+                  <div className="text-left">
+                    <h5 className="text-[13px] font-bold text-[#17211D] mb-0.5">{settings.curation.step3RightTitle}</h5>
+                    <p className="text-[11px] text-[#6F766F] leading-tight" dangerouslySetInnerHTML={{ __html: settings.curation.step3RightDesc }}></p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Guide */}
+              <div className="mt-8 pt-4 border-t border-[#E7E0D5]/50 flex items-center justify-center gap-2 text-[11px] text-[#6F766F] font-medium">
+                <svg className="size-4 text-[#A8742E]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" /></svg>
+                <span>{settings.curation.bottomGuide}</span>
+              </div>
+
             </div>
           </div>
         </ScrollReveal>
       </section>
 
       {/* 4. 검증 브랜드관 */}
-      <section id="brands" className="bg-[#FBFAF7] py-16 lg:py-28 overflow-hidden border-y border-[rgba(15,23,42,0.06)]">
-        <ScrollReveal className="site-container">
+      <section id="brands" className="bg-card py-20 lg:py-32 overflow-hidden">
+        <ScrollReveal className="site-container-wide">
           <SectionHeading
-            eyebrow="Verified brands"
-            title="어떤 브랜드가 좋은지 모르겠다면,<br />저희가 미리 검증한 브랜드를 만나보세요."
-            description="입점보다 검증을 먼저 생각합니다. 제품 데이터 판독, 제조 품질, 성분 안전성을 직접 확인한 프리미엄 큐레이션 공간입니다."
+            eyebrow={settings.brands.eyebrow}
+            title={settings.brands.title}
+            description={settings.brands.description}
           />
-          <div className="mt-12 flex flex-col gap-6 pb-4">
-            {displayBrands.slice(0, 1).map((brand) => {
-              const brandProducts = products.filter(p => p.brandId === brand.id).slice(0, 2);
-              return <BrandShowroomCard key={brand.id} brand={brand} products={brandProducts} />;
-            })}
+          <div className="mt-12 w-full pb-4">
+            <BrandShowcaseSlider 
+              brands={displayBrands} 
+              productsByBrand={products.reduce((acc, p) => {
+                if (!acc[p.brandId]) acc[p.brandId] = [];
+                acc[p.brandId].push(p);
+                return acc;
+              }, {} as Record<string, typeof products>)} 
+            />
           </div>
-          <div className="mt-8 flex justify-center">
-            <Link href="/brands" className="inline-flex items-center gap-2 bg-white border border-[rgba(15,23,42,0.12)] rounded-full px-8 py-4 text-sm font-semibold text-[#334155] transition-all hover:bg-slate-50 shadow-sm">
-              모든 검증 브랜드 쇼룸 보기 <ArrowRight className="size-4" />
+          <div className="mt-10 flex justify-center">
+            <Link href="/brands" className="inline-flex items-center gap-2 bg-card border border-border rounded-full px-8 py-4 text-sm font-semibold text-text-sub transition-all hover:bg-bg shadow-sm">
+              {settings.brands.buttonText} <ArrowRight className="size-4" />
             </Link>
           </div>
         </ScrollReveal>
       </section>
 
       {/* 5. 베스트 상품 */}
-      <section className="bg-white py-16 lg:py-28 overflow-hidden">
-        <ScrollReveal className="site-container">
+      <section className="bg-bg py-20 lg:py-32 overflow-hidden">
+        <ScrollReveal className="site-container-wide">
           <SectionHeading
-            eyebrow="The daily edit"
-            title="Audit를 통과한 오늘의 추천"
-            description="검증된 브랜드 중에서도 가장 많은 보호자님들께 선택받은 대표 상품입니다."
+            eyebrow={settings.bestProducts.eyebrow}
+            title={settings.bestProducts.title}
+            description={settings.bestProducts.description}
             href="/shop"
-            linkLabel="전체 셀렉션 보기"
+            linkLabel={settings.bestProducts.linkLabel}
           />
-          <div className="mt-12 flex overflow-x-auto snap-x scrollbar-hide gap-4 md:grid md:grid-cols-4 md:gap-x-6 md:gap-y-10 pb-4">
+          <div className="mt-12 flex overflow-x-auto snap-x scrollbar-hide gap-4 lg:grid lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10 pb-4">
             {bestProducts.map((product) => (
-              <div key={product.id} className="shrink-0 w-[240px] md:w-auto snap-start">
+              <div key={product.id} className="shrink-0 w-[240px] sm:w-[280px] lg:w-auto snap-start">
                 <ProductCard product={product} />
               </div>
             ))}
@@ -232,112 +371,81 @@ export default function Home() {
       </section>
 
       {/* 7. 펫보험 무료 분석 (Mock UI Flow) */}
-      <section id="insurance" className="bg-[#FBFAF7] py-16 lg:py-28 overflow-hidden border-y border-[rgba(15,23,42,0.06)] relative">
-        <ScrollReveal className="site-container relative z-10">
+      <section id="insurance" className="bg-card py-20 lg:py-32 overflow-hidden relative">
+        <ScrollReveal className="site-container-wide relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-16">
-            <p className="font-editorial text-lg italic text-slate-400">Insurance Analysis</p>
-            <h2 className="mt-4 text-balance font-editorial text-3xl sm:text-4xl leading-tight text-[#17211D] tracking-tight">
-              보이지 않는 미래의 병원비까지 점검합니다.
+            <p className="font-editorial text-lg italic text-slate-400">{settings.insurance.eyebrow}</p>
+            <h2 className="mt-4 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: settings.insurance.title }}>
             </h2>
-            <p className="mt-5 text-pretty text-sm leading-7 text-[#64748B]">
-              옆집 아이의 정답이 우리 아이의 정답일까요? 나이와 질환에 꼭 맞는 맞춤 특약을 찾고,<br className="hidden sm:block" /> 보험 가입을 강요하지 않는 객관적인 약관 분석 프로세스를 경험해 보세요.
-            </p>
+            <p className="mt-5 text-pretty text-sm leading-7 text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.description }}></p>
           </div>
 
           {/* Flow Cards */}
           <div className="flex flex-col lg:flex-row gap-6 relative">
             {/* Step 1 */}
-            <div className="flex-1 rounded-[24px] bg-white border border-[rgba(15,23,42,0.08)] p-6 lg:p-8 shadow-sm flex flex-col items-center text-center relative mt-0 lg:mt-0">
-              <span className="flex size-12 items-center justify-center rounded-full bg-[#FBFAF7] text-slate-400 font-editorial text-xl italic mb-6">1</span>
+            <div className="flex-1 rounded-[24px] bg-card border border-border p-6 lg:p-8 shadow-sm flex flex-col items-center text-center relative mt-0 lg:mt-0">
+              <span className="flex size-12 items-center justify-center rounded-full bg-bg text-slate-400 font-editorial text-xl italic mb-6">1</span>
               <div className="w-full max-w-[200px] mb-6 space-y-3">
                 <div className="h-2 w-1/2 bg-slate-200 rounded-full mx-auto"></div>
-                <div className="h-10 w-full bg-[#FBFAF7] border border-[rgba(15,23,42,0.06)] rounded-lg flex items-center px-4 gap-2">
-                  <div className="size-3 rounded-sm bg-[#1D3E2F]"></div>
+                <div className="h-10 w-full bg-bg border border-border rounded-lg flex items-center px-4 gap-2">
+                  <div className="size-3 rounded-sm bg-navy"></div>
                   <div className="h-2 w-20 bg-slate-200 rounded-full"></div>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-[#17211D]">기본 정보 동의</h3>
-              <p className="mt-2 text-xs text-[#64748B]">최소한의 정보로 비교를 시작합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step1Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step1Desc }}></p>
             </div>
 
             {/* Step 2 */}
-            <div className="flex-1 rounded-[24px] bg-white border border-[rgba(15,23,42,0.08)] p-6 lg:p-8 shadow-[0_12px_40px_rgba(15,23,42,0.04)] flex flex-col items-center text-center relative mt-0 lg:mt-8 z-10">
-              <span className="flex size-12 items-center justify-center rounded-full bg-[#1D3E2F] text-white font-editorial text-xl italic mb-6 shadow-md">2</span>
+            <div className="flex-1 rounded-[24px] bg-card border border-border p-6 lg:p-8 shadow-[0_12px_40px_rgba(15,23,42,0.04)] flex flex-col items-center text-center relative mt-0 lg:mt-8 z-10">
+              <span className="flex size-12 items-center justify-center rounded-full bg-navy text-white font-editorial text-xl italic mb-6 shadow-md">2</span>
               <div className="w-full max-w-[200px] mb-6 space-y-2">
-                <div className="flex justify-between items-center bg-[#FBFAF7] p-2.5 rounded-lg border border-[rgba(15,23,42,0.06)]">
+                <div className="flex justify-between items-center bg-bg p-2.5 rounded-lg border border-border">
                   <span className="text-[10px] font-medium text-slate-400">품종</span>
-                  <span className="text-[10px] font-bold text-[#17211D]">말티즈</span>
+                  <span className="text-[10px] font-bold text-text-main">말티즈</span>
                 </div>
-                <div className="flex justify-between items-center bg-[#FBFAF7] p-2.5 rounded-lg border border-[rgba(15,23,42,0.06)]">
+                <div className="flex justify-between items-center bg-bg p-2.5 rounded-lg border border-border">
                   <span className="text-[10px] font-medium text-slate-400">나이</span>
-                  <span className="text-[10px] font-bold text-[#17211D]">만 4세</span>
+                  <span className="text-[10px] font-bold text-text-main">만 4세</span>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-[#17211D]">맞춤 조건 입력</h3>
-              <p className="mt-2 text-xs text-[#64748B]">아이의 건강 상태를 꼼꼼히 체크합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step2Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step2Desc }}></p>
             </div>
 
             {/* Step 3 */}
-            <div className="flex-1 rounded-[24px] bg-white border border-[rgba(15,23,42,0.08)] p-6 lg:p-8 shadow-sm flex flex-col items-center text-center relative mt-0 lg:mt-16">
-              <span className="flex size-12 items-center justify-center rounded-full bg-[#FBFAF7] text-slate-400 font-editorial text-xl italic mb-6">3</span>
+            <div className="flex-1 rounded-[24px] bg-card border border-border p-6 lg:p-8 shadow-sm flex flex-col items-center text-center relative mt-0 lg:mt-16">
+              <span className="flex size-12 items-center justify-center rounded-full bg-bg text-slate-400 font-editorial text-xl italic mb-6">3</span>
               <div className="w-full max-w-[200px] mb-6">
-                <div className="bg-[#FBFAF7] rounded-xl p-3 border border-[rgba(15,23,42,0.06)] text-left">
+                <div className="bg-bg rounded-xl p-3 border border-border text-left">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-[10px] font-bold text-[#17211D]">추천 특약 A</span>
-                    <HeartPulse className="size-3 text-[#1D3E2F]" />
+                    <span className="text-[10px] font-bold text-text-main">추천 특약 A</span>
+                    <HeartPulse className="size-3 text-navy" />
                   </div>
-                  <div className="text-xs font-bold text-[#17211D]">월 32,000원~</div>
+                  <div className="text-xs font-bold text-text-main">월 32,000원~</div>
                 </div>
               </div>
-              <h3 className="text-lg font-semibold text-[#17211D]">결과 리포트</h3>
-              <p className="mt-2 text-xs text-[#64748B]">최적의 보장 조건을 안내합니다.</p>
+              <h3 className="text-lg font-semibold text-text-main" dangerouslySetInnerHTML={{ __html: settings.insurance.step3Title }}></h3>
+              <p className="mt-2 text-xs text-text-sub" dangerouslySetInnerHTML={{ __html: settings.insurance.step3Desc }}></p>
             </div>
           </div>
 
           <div className="mt-16 text-center">
-            <p className="text-xs text-slate-400 mb-6">* 본 화면은 실제 API 연동이 아닌 가이드라인 안내를 위한 예시 화면입니다.</p>
-            <Link href="/insurance" className="inline-flex items-center gap-2 bg-[#17211D] rounded-full px-8 py-4 text-sm font-semibold text-white transition-all hover:bg-[#334155] shadow-lg">
-              무료 분석 프로세스 시작하기 <ArrowRight className="size-4" />
+            <p className="text-xs text-slate-400 mb-6" dangerouslySetInnerHTML={{ __html: settings.insurance.disclaimer }}></p>
+            <Link href="/insurance" className="inline-flex items-center gap-2 bg-navy rounded-full px-8 py-4 text-sm font-semibold text-white transition-all hover:bg-blue shadow-lg">
+              {settings.insurance.buttonText} <ArrowRight className="size-4" />
             </Link>
           </div>
         </ScrollReveal>
       </section>
 
-      {/* 8. 케어 키트 / 협업 (Banner Type) */}
-      <section className="bg-white py-12 lg:py-16 overflow-hidden">
-        <ScrollReveal className="site-container">
-          <div className="bg-[#FBFAF7] rounded-[24px] border border-[rgba(15,23,42,0.06)] p-8 lg:p-12 flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden">
-            <div className="relative z-10 max-w-xl">
-              <p className="font-editorial text-sm italic text-slate-400 mb-2">Care Kit & Partnership</p>
-              <h2 className="text-balance font-editorial text-2xl sm:text-3xl leading-tight text-[#17211D] tracking-tight">
-                가장 도움이 필요한 순간, 실질적인 위로를 전합니다.
-              </h2>
-              <p className="mt-4 text-pretty text-sm leading-6 text-[#64748B]">
-                동물병원, 장례식장, 파트너 브랜드와 함께 긴급한 순간에 꼭 필요한 샘플과 가이드를 제공하는 백조오브제 케어 키트를 만나보세요.
-              </p>
-            </div>
-            <div className="relative z-10 shrink-0 flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-              <Link href="/landing/care-kit" className="inline-flex items-center justify-center gap-2 bg-[#17211D] rounded-full px-6 py-3.5 text-sm font-semibold text-white transition-all hover:bg-[#334155] w-full sm:w-auto">
-                케어 키트 살펴보기
-              </Link>
-              <Link href="/landing/care-kit#partner" className="inline-flex items-center justify-center gap-2 bg-white border border-[rgba(15,23,42,0.12)] rounded-full px-6 py-3.5 text-sm font-semibold text-[#17211D] transition-all hover:bg-slate-50 w-full sm:w-auto">
-                제휴 문의
-              </Link>
-            </div>
-            {/* Background Decoration */}
-            <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-gradient-to-l from-[#F4EFE8]/50 to-transparent pointer-events-none"></div>
-            <HeartHandshake className="absolute -right-8 -bottom-8 size-48 text-[#17211D]/[0.02] pointer-events-none" />
-          </div>
-        </ScrollReveal>
-      </section>
 
       {/* 9 & 10. Trust Block (후기 & 공지사항 통합) */}
-      <section className="bg-white py-16 lg:py-28 overflow-hidden">
-        <ScrollReveal className="site-container">
+      <section className="bg-bg py-20 lg:py-32 overflow-hidden">
+        <ScrollReveal className="site-container-wide">
           <div className="flex flex-col mb-12">
-            <p className="font-editorial text-lg italic text-slate-400">Trust Board</p>
-            <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl leading-tight text-[#17211D] tracking-tight">
-              함께 만드는 백조오브제의 기록
+            <p className="font-editorial text-lg italic text-slate-400">{settings.trustBoard.eyebrow}</p>
+            <h2 className="mt-3 text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: settings.trustBoard.title }}>
             </h2>
           </div>
 
@@ -345,14 +453,14 @@ export default function Home() {
             {/* Reviews */}
             <div className="w-full lg:w-2/3">
               <div className="flex justify-between items-end mb-6">
-                <h3 className="text-lg font-semibold text-[#17211D]">먼저 함께해 본 이들의 이야기</h3>
-                <Link href="/reviews" className="text-sm font-semibold text-[#64748B] hover:text-[#17211D] transition-colors flex items-center gap-1">
-                  후기 전체보기 <ArrowRight className="size-3" />
+                <h3 className="text-lg font-semibold text-text-main">{settings.trustBoard.reviewsTitle}</h3>
+                <Link href="/reviews" className="text-sm font-semibold text-text-sub hover:text-text-main transition-colors flex items-center gap-1">
+                  {settings.trustBoard.reviewsLinkText} <ArrowRight className="size-3" />
                 </Link>
               </div>
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-6">
                 {reviews.slice(0, 2).map((review) => (
-                  <div key={review.id} className="bg-[#FBFAF7] rounded-[16px] border border-[rgba(15,23,42,0.06)] p-5 hover:shadow-sm transition-shadow">
+                  <div key={review.id} className="w-full h-full">
                     <ReviewCard
                       review={review}
                       productName={products.find((product) => product.id === review.productId)?.name}
@@ -365,19 +473,19 @@ export default function Home() {
             {/* Notices */}
             <div className="w-full lg:w-1/3">
               <div className="flex justify-between items-end mb-6">
-                <h3 className="text-lg font-semibold text-[#17211D]">새로운 소식</h3>
-                <Link href="/notices" className="text-sm font-semibold text-[#64748B] hover:text-[#17211D] transition-colors flex items-center gap-1">
-                  공지 전체보기 <ArrowRight className="size-3" />
+                <h3 className="text-lg font-semibold text-text-main">{settings.trustBoard.noticesTitle}</h3>
+                <Link href="/notices" className="text-sm font-semibold text-text-sub hover:text-text-main transition-colors flex items-center gap-1">
+                  {settings.trustBoard.noticesLinkText} <ArrowRight className="size-3" />
                 </Link>
               </div>
-              <div className="flex flex-col border-t border-[rgba(15,23,42,0.06)]">
+              <div className="flex flex-col border-t border-border">
                 {recentNotices.map((notice) => (
                   <Link
                     key={notice.id}
                     href={`/notices/${notice.id}`}
-                    className="group flex flex-col justify-center gap-2 border-b border-[rgba(15,23,42,0.06)] py-5 transition-colors hover:bg-slate-50 px-2 -mx-2 rounded-lg"
+                    className="group flex flex-col justify-center gap-2 border-b border-border py-6 transition-colors hover:bg-card px-4 -mx-4 rounded-xl"
                   >
-                    <span className="line-clamp-2 text-sm font-medium text-[#334155] group-hover:text-[#17211D] leading-relaxed">{notice.title}</span>
+                    <span className="line-clamp-2 text-sm font-medium text-text-sub group-hover:text-text-main leading-relaxed">{notice.title}</span>
                     <span className="text-[11px] font-semibold text-slate-400">{formatDate(notice.date)}</span>
                   </Link>
                 ))}
@@ -385,6 +493,16 @@ export default function Home() {
             </div>
           </div>
         </ScrollReveal>
+      </section>
+      {/* 9. B2B 파트너십 유도 바 (Footer 직전) */}
+      <section className="bg-card py-6 border-t border-border">
+        <div className="site-container-wide flex justify-center">
+          <Link href="/b2b" className="flex items-center gap-2 text-[13px] font-medium text-slate-500 hover:text-navy transition-colors">
+            <span dangerouslySetInnerHTML={{ __html: settings.b2b.text }}></span>
+            <span className="font-semibold underline underline-offset-2">{settings.b2b.linkText}</span>
+            <ArrowRight className="size-3" />
+          </Link>
+        </div>
       </section>
     </div>
   );
@@ -403,12 +521,12 @@ function SectionHeading({ eyebrow, title, description, href, linkLabel }: Sectio
     <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
       <div>
         <p className="font-editorial text-lg italic text-slate-400">{eyebrow}</p>
-        <h2 className="mt-3 max-w-2xl text-balance font-editorial text-3xl sm:text-4xl leading-tight text-[#17211D] tracking-tight" dangerouslySetInnerHTML={{ __html: title }}>
+        <h2 className="mt-3 max-w-2xl text-balance font-editorial text-3xl sm:text-4xl lg:text-[40px] leading-[1.2] text-text-main tracking-tight" dangerouslySetInnerHTML={{ __html: title }}>
         </h2>
-        <p className="mt-4 max-w-xl text-pretty text-sm leading-7 text-[#64748B]">{description}</p>
+        <p className="mt-4 max-w-xl text-pretty text-sm leading-7 text-text-sub">{description}</p>
       </div>
       {href && linkLabel && (
-        <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-[#334155] hover:text-[#17211D] transition-colors">
+        <Link href={href} className="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-text-sub hover:text-text-main transition-colors">
           {linkLabel}
           <ArrowRight className="size-4" />
         </Link>
