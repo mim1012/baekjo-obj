@@ -218,6 +218,8 @@ export interface User {
   role: 'user' | 'admin';
   status?: 'active' | 'inactive';
   createdAt: string;
+  provider?: 'kakao' | 'naver' | 'email';
+  profileImage?: string;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

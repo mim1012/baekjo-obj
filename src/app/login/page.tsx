@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import BrandMark from '@/components/common/BrandMark';
 import { login } from '@/lib/storage';
+import { isSocialLoginEnabled, loginWithProvider } from '@/lib/socialAuth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +41,15 @@ export default function LoginPage() {
       else localStorage.removeItem('baekjo_remember_email');
     }
     router.push('/');
+  };
+
+  const handleSocialLogin = (provider: 'kakao' | 'naver') => {
+    setError('');
+    if (!isSocialLoginEnabled()) {
+      setError('간편 로그인은 아직 준비 중이에요. 조금만 기다려 주세요.');
+      return;
+    }
+    void loginWithProvider(provider);
   };
 
   return (
@@ -119,10 +129,10 @@ export default function LoginPage() {
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">
             <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 로그인</p>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
+              <button type="button" onClick={() => handleSocialLogin('kakao')} className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
                 카카오
               </button>
-              <button type="button" className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
+              <button type="button" onClick={() => handleSocialLogin('naver')} className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
                 네이버
               </button>
             </div>
