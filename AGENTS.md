@@ -35,8 +35,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## 3. 역할 경계 (누가 무엇을 소유하나)
 | 담당 | 사람 / 도구 | 소유 영역 |
 |------|-------------|-----------|
-| **프론트 전체** | 디자이너 (**Antigravity IDE**) | 화면·UI·애니메이션 + **가짜(mock) 데이터**(`src/data/**`) + **기획 기능 연결**(화면 동작·핸들러·상태). 경로: `src/app/**`, `src/components/**`, `src/data/**`, `src/app/globals.css`, `public/**` |
-| **백엔드 / 실데이터** | 나 (**Claude Code + Codex**) | 진짜 데이터·서버 로직: `src/lib/**`(콘센트 속 구현), `src/app/api/**`(생성 예정), 인증·결제·주문 처리·검증 |
+| **프론트 전체** | **dad041566** (Codex · Antigravity IDE) | 화면·UI·애니메이션 + **가짜(mock) 데이터**(`src/data/**`) + **기획 기능 연결**(화면 동작·핸들러·상태). 경로: `src/app/**`, `src/components/**`, `src/data/**`, `src/app/globals.css`, `public/**` |
+| **백엔드 / 실데이터 / 인프라 / main 관리** | **mim1012 (나)** (Claude Code + Codex) | 진짜 데이터·서버 로직·DB 연동·인프라·배포: `src/lib/**`(콘센트 속 구현), `src/app/api/**`(생성 예정), 인증·결제·주문 처리·검증. **`main` 브랜치 관리자** |
 | **공유 접점 = 계약** | 양쪽 합의 필요 | **`src/types/index.ts`(데이터 설계도)** + **`src/lib/storage.ts`(콘센트 = 함수 시그니처)**. §4 규칙 준수 |
 
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
@@ -85,8 +85,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > ⚠️ **관리자 화면(#7)은 클라이언트의 주 사용 surface.** "코드가 바뀐 곳"이 아니라 "클라이언트가 쓰는 곳" 기준으로 검증.
 
 ## 8. Git · 배포 · 자동 검증
-- **브랜치**: **`main` = 통합 브랜치**(항상 배포 가능). 디자이너 = `fe/*`, 나 = `be/*`(feat/fix). PR로만 main 머지.
-  push 전 항상 `git pull --rebase origin main`. 서로의 레인에 직접 push 금지.
+- **브랜치**: **`main` = 통합 브랜치**(항상 배포 가능). **main 관리자 = mim1012(나)** — main 머지 수행·최종 책임.
+  - **dad041566(프론트)**: 자기 작업 브랜치(현재 `codex/baekjo-site-launch`, 새 작업은 `fe/*` 권장)에서 작업
+    → **main 반영은 반드시 PR로. main 직접 push 금지.** PR을 올리면 CI가 돌고, 머지는 mim1012가 한다.
+  - **mim1012(백엔드)**: `be/*`(feat/fix)에서 작업 → PR로 main 머지.
+  - push 전 항상 `git pull --rebase origin main`. 서로의 레인에 직접 push 금지.
+  - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소(dad041566-hue/BAGJO1)는 이관 완료.
+  - **하드 강제(TODO)**: mim1012 계정으로 `baekjo-obj` Settings → Branches에서 `main` 보호 규칙(PR 필수 + CI 통과 필수) 설정.
+    절차는 `docs/dad041566-워크플로우-안내.md` §4.
 - **CI 게이트(IDE 무관·자동)**: 모든 PR에서 `.github/workflows/ci.yml`가 **typecheck+build+lint** 실행.
   실패하면 머지 불가 → drift가 프로덕션에 못 샌다. **어떤 IDE로 짰든 GitHub에서 똑같이 걸린다.**
 - **배포**: preview → 골든플로우 스모크 → 프로모트. 직접 prod 배포 금지. 세션당 1배치.

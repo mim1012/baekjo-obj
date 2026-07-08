@@ -3,16 +3,16 @@
 > 규칙의 SSOT은 [`AGENTS.md`](./AGENTS.md). 이 문서는 **실제로 어떻게 손발을 맞추나**(역할·콘센트·브랜치·핸드오프)를 쉽게 풀어 설명합니다.
 
 ## 0. 3줄 요약
-1. **디자이너 = 프론트 전부**(화면 + 가짜데이터 + 기능연결), **나(Claude+Codex) = 백엔드/진짜데이터.**
+1. **dad041566 = 프론트 전부**(화면 + 가짜데이터 + 기능연결), **mim1012(나, Claude+Codex) = 백엔드/진짜데이터/인프라 + `main` 관리.**
 2. **콘센트 규칙**: 화면은 `src/lib/storage.ts`에만 데이터 요청, 나는 그 함수 속만 진짜로 바꾼다 → 화면 안 깨짐.
-3. **각자 자기 브랜치**(디자이너 `fe/*`, 나 `be/*`)에서 작업 → PR로 `main`에 합침. GitHub CI가 자동 검사.
+3. **각자 자기 브랜치**(dad041566은 작업 브랜치, 나 `be/*`)에서 작업 → **PR로만 `main`에 합침**(머지는 mim1012). GitHub CI가 자동 검사.
 
 ## 1. 참여자와 도구 (셋 다 루트 `AGENTS.md`를 읽음)
 | 참여자 | 도구 | 읽는 지침 | 담당 |
 |--------|------|-----------|------|
-| 디자이너 | **Antigravity IDE** | 루트 `AGENTS.md` | 프론트 전부: `src/app/**`, `src/components/**`, `src/data/**`(가짜데이터), `globals.css`, `public/**` |
-| 나 | **Claude Code** | `CLAUDE.md` → `@AGENTS.md` | 백엔드/진짜데이터: `src/lib/**`, `src/app/api/**`, 인증·결제·주문 |
-| 나 | **Codex** | 루트 `AGENTS.md` | 동상 (구현·리뷰 보조) |
+| **dad041566** (프론트) | **Codex · Antigravity IDE** | 루트 `AGENTS.md` | 프론트 전부: `src/app/**`, `src/components/**`, `src/data/**`(가짜데이터), `globals.css`, `public/**` |
+| **mim1012** (나) | **Claude Code** | `CLAUDE.md` → `@AGENTS.md` | 백엔드/진짜데이터/DB/인프라 + **main 브랜치 관리**: `src/lib/**`, `src/app/api/**`, 인증·결제·주문 |
+| **mim1012** (나) | **Codex** | 루트 `AGENTS.md` | 동상 (구현·리뷰 보조) |
 
 ## 2. 콘센트 규칙 — drift 안 나게 하는 핵심 (쉬운 버전)
 - 화면은 **벽에 있는 콘센트(`src/lib/storage.ts`)에만 플러그를 꽂는다.** (`getOrders()`, `addOrder()` 같은 함수)
@@ -25,8 +25,8 @@
 
 ## 3. 최초 셋업
 ```bash
-git clone https://github.com/dad041566-hue/BAGJO1.git
-cd BAGJO1
+git clone https://github.com/mim1012/baekjo-obj.git
+cd baekjo-obj
 npm install
 npm run dev   # http://localhost:3000
 ```
@@ -34,18 +34,26 @@ npm run dev   # http://localhost:3000
 - **Claude Code / Codex(나)**: 루트에서 실행 → `CLAUDE.md`·`AGENTS.md` 자동 로드.
 
 ## 4. Git 흐름
-- **`main` = 통합 브랜치**(항상 배포 가능). 디자이너 `fe/*`, 나 `be/*`. 서로의 레인에 직접 push 금지.
+- **`main` = 통합 브랜치**(항상 배포 가능). **관리자 = mim1012** — main 머지는 mim1012가 수행.
+  - dad041566: 작업 브랜치(현재 `codex/baekjo-site-launch`, 새 작업은 `fe/*` 권장)에서 작업 → **main 반영은 PR로만. main 직접 push 금지.**
+  - mim1012: `be/*`. 서로의 레인에 직접 push 금지.
 - 하루 흐름:
   ```bash
   git checkout main && git pull
   git checkout -b fe/진단화면      # 나는 be/주문API
   # 작업 → 작은 커밋 (feat:/fix:)
+  npm run build && npm run lint    # push 전 자가 검증 (오늘자 사고 예방)
   git pull --rebase origin main    # push 전 최신화
   git push -u origin fe/진단화면
-  # GitHub에서 PR → 리뷰 → Squash merge → 브랜치 삭제
+  # GitHub에서 PR → CI 통과 → mim1012가 머지 → 브랜치 삭제
   ```
 - **PR 머지 조건**: GitHub CI(`.github/workflows/ci.yml`)의 typecheck+build+lint 통과 + 리뷰어 승인(작성자≠리뷰어).
   백엔드 PR은 내가 `code-reviewer`·`security-reviewer` 에이전트로 리뷰 후 당신이 승인(2명뿐인 리뷰 보완).
+- **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유·관리 = mim1012). 이전 저장소
+  `dad041566-hue/BAGJO1`은 이관 완료 — 새 작업은 전부 새 저장소에서. dad041566은 collaborator로 초대받아 작업.
+- **브랜치 보호(하드 강제, 1회 설정)**: mim1012 계정으로 GitHub → `baekjo-obj` → Settings → Branches →
+  `main`에 보호 규칙: ☑ Require a pull request before merging ☑ Require status checks to pass (CI 선택).
+  이걸 켜야 "main 직접 push 금지"가 문서가 아니라 시스템으로 강제된다. 절차 상세: [`docs/dad041566-워크플로우-안내.md`](./docs/dad041566-워크플로우-안내.md).
 
 ## 5. 핸드오프 (UI ↔ 로직 왕복)
 - 디자이너가 로직 필요한 자리에 마커: `// HANDOFF(logic): 실제 주문 API 필요` → 내가 `storage.ts` 속을 채운다.
