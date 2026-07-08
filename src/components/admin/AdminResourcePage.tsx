@@ -179,7 +179,7 @@ export default function AdminResourcePage({
         {filteredRows.length === 0 && <div className="p-12 text-center text-sm text-[#7B827C]">표시할 데이터가 없습니다.</div>}
 
         {/* Pagination Controls */}
-        {totalPages > 1 && (
+        {filteredRows.length > 0 && (
           <div className="flex items-center justify-between border-t border-[#D1D0C8] bg-[#F8F7F2] px-4 py-3 sm:px-6">
             <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
               <div>
