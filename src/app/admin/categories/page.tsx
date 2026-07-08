@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useCategorySettings, BrandFilter } from '@/components/providers/CategorySettingsProvider';
 import { Plus, Trash2, Save, Eye } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
+
 
 export default function AdminCategoriesPage() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
@@ -48,7 +48,7 @@ export default function AdminCategoriesPage() {
   };
 
   const handleAddBrandFilter = () => {
-    setBrandFilters(prev => [...prev, { id: `filter-${uuidv4().slice(0, 6)}`, label: '새로운 브랜드 필터' }]);
+    setBrandFilters(prev => [...prev, { id: `filter-${Math.random().toString(36).substring(2, 8)}`, label: '새로운 브랜드 필터' }]);
   };
 
   const handleUpdateBrandFilter = (index: number, key: keyof BrandFilter, value: string) => {
