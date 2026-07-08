@@ -1,15 +1,20 @@
+'use client';
+
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
+import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 
 export default function AdminProductsPage() {
+  const { categorySettings } = useCategorySettings();
+
   return (
     <AdminResourcePage
       title="상품 관리"
       description="입점된 전체 상품의 정보를 확인하고 상태를 관리합니다."
       actionLabel="상품 등록"
       searchPlaceholder="상품명, 카테고리 검색"
-      filters={['전체 카테고리', '식사와 영양', '건강과 케어', '구강과 위생']}
+      filters={['전체 카테고리', ...categorySettings.lifestyleCategories]}
       columns={[
         { key: 'name', label: '상품명' },
         { key: 'brand', label: '브랜드' },

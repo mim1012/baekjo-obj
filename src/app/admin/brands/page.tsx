@@ -1,14 +1,19 @@
+'use client';
+
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { brands } from '@/data/brands';
+import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 
 export default function AdminBrandsPage() {
+  const { categorySettings } = useCategorySettings();
+
   return (
     <AdminResourcePage
       title="브랜드 관리"
       description="입점 브랜드의 철학, 검증 등급, 대표 상품과 노출 순서를 관리합니다."
       actionLabel="브랜드 등록"
       searchPlaceholder="브랜드명 검색"
-      filters={['전체 등급', '추천 브랜드', '신규 브랜드', '숨김']}
+      filters={categorySettings.brandFilters.map(f => f.label)}
       columns={[
         { key: 'name', label: '브랜드명' },
         { key: 'grade', label: '검증 등급' },

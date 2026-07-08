@@ -19,6 +19,7 @@ export const metadata: Metadata = {
 };
 
 import { SiteSettingsProvider } from "@/components/providers/SiteSettingsProvider";
+import { CategorySettingsProvider } from "@/components/providers/CategorySettingsProvider";
 
 export default function RootLayout({
   children,
@@ -29,7 +30,9 @@ export default function RootLayout({
     <html lang="ko" className={`h-full antialiased ${playfair.variable}`}>
       <body className="flex min-h-full flex-col bg-[#F4F2EC] font-sans text-[#202521]">
         <SiteSettingsProvider>
-          <AppShell>{children}</AppShell>
+          <CategorySettingsProvider>
+            <AppShell>{children}</AppShell>
+          </CategorySettingsProvider>
         </SiteSettingsProvider>
       </body>
     </html>

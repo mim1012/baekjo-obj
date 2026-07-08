@@ -1,15 +1,16 @@
+'use client';
+
+import { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { brands } from '@/data/brands';
 import BrandCard from '@/components/common/BrandCard';
 import Link from 'next/link';
+import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 
-export const metadata = {
-  title: '브랜드관 | 백조오브제',
-  description: '백조오브제가 깐깐한 기준으로 검증한 프리미엄 브랜드들을 만나보세요.',
-};
-
-export default async function BrandsPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const resolvedParams = await searchParams;
-  const filter = resolvedParams.filter || 'all';
+function BrandsContent() {
+  const searchParams = useSearchParams();
+  const filter = searchParams.get('filter') || 'all';
+  const { categorySettings } = useCategorySettings();
 
   const filteredBrands = brands.filter(b => {
     if (filter === 'audit') return b.auditGrade.includes('A');
@@ -110,12 +111,7 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
         <div className="site-container">
           {/* 필터 탭 */}
           <div className="mb-16 flex flex-wrap justify-center gap-3">
-            {[
-              { id: 'all', label: '전체 브랜드' },
-              { id: 'audit', label: '백조 인증 (A등급 이상)' },
-              { id: 'recommended', label: '전문가 추천' },
-              { id: 'new', label: '신규 입점' }
-            ].map(tab => (
+            {categorySettings.brandFilters.map(tab => (
               <Link
                 key={tab.id}
                 href={`/brands?filter=${tab.id}`}
@@ -138,5 +134,13 @@ export default async function BrandsPage({ searchParams }: { searchParams: Promi
         </div>
       </section>
     </div>
+  );
+}
+
+export default function BrandsPage() {
+  return (
+    <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+      <BrandsContent />
+    </Suspense>
   );
 }

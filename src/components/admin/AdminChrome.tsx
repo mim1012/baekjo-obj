@@ -21,6 +21,7 @@ import {
   Gift,
   HeartHandshake,
   Settings,
+  SlidersHorizontal,
 } from 'lucide-react';
 import BrandMark from '@/components/common/BrandMark';
 import { logout } from '@/lib/storage';
@@ -40,6 +41,7 @@ const adminLinks = [
   { href: '/admin/survey-results', label: '진단 참여 내역', icon: Activity },
   { href: '/admin/kits', label: '케어 키트 관리', icon: Gift },
   { href: '/admin/partners', label: 'B2B 제휴 관리', icon: HeartHandshake },
+  { href: '/admin/categories', label: '카테고리/필터 관리', icon: SlidersHorizontal },
   { href: '/admin/settings', label: '환경설정', icon: Settings },
 ];
 
