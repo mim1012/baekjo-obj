@@ -20,6 +20,7 @@ import {
   Activity,
   Gift,
   HeartHandshake,
+  Settings,
 } from 'lucide-react';
 import BrandMark from '@/components/common/BrandMark';
 import { logout } from '@/lib/storage';
@@ -39,6 +40,7 @@ const adminLinks = [
   { href: '/admin/survey-results', label: '진단 참여 내역', icon: Activity },
   { href: '/admin/kits', label: '케어 키트 관리', icon: Gift },
   { href: '/admin/partners', label: 'B2B 제휴 관리', icon: HeartHandshake },
+  { href: '/admin/settings', label: '환경설정', icon: Settings },
 ];
 
 export default function AdminChrome({ children }: { children: React.ReactNode }) {
@@ -52,15 +54,15 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex min-h-dvh flex-col bg-[#EAE8E1] md:flex-row">
-      <aside className="w-full shrink-0 border-r border-[#465148] bg-[#29332C] text-white md:w-64">
-        <div className="border-b border-[#465148] p-6">
+      <aside className="w-full shrink-0 border-r border-[#465148] bg-[#29332C] text-white md:w-64 md:h-screen md:sticky md:top-0 flex flex-col">
+        <div className="border-b border-[#465148] p-6 shrink-0">
           <Link href="/admin" aria-label="백조오브제 관리자 홈" className="text-white">
             <BrandMark inverse />
           </Link>
           <p className="mt-4 text-[10px] uppercase text-[#89958B]">Administration</p>
         </div>
 
-        <nav aria-label="관리자 메뉴" className="grid grid-cols-2 gap-1 px-3 py-4 md:grid-cols-1">
+        <nav aria-label="관리자 메뉴" className="grid grid-cols-2 gap-1 px-3 py-4 md:grid-cols-1 flex-1 overflow-y-auto custom-scrollbar">
           {adminLinks.map((item) => {
             const Icon = item.icon;
             const active = item.href === '/admin' ? pathname === '/admin' : pathname.startsWith(item.href);
@@ -81,7 +83,7 @@ export default function AdminChrome({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        <div className="px-6 pb-6">
+        <div className="px-6 pb-6 pt-4 border-t border-[#465148] shrink-0 mt-auto">
           <Link href="/" className="inline-flex items-center gap-2 text-xs text-[#9EA8A0] hover:text-white">
             <ArrowLeft className="size-3.5" />
             스토어로 돌아가기

@@ -22,8 +22,14 @@ export default function AdminInsurancePage() {
   );
   return (
     <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">보험 분석 신청 관리</h1>
+      <div className="flex justify-between items-end mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">보험 분석 신청 관리</h1>
+          <p className="mt-2 text-sm text-[#737A74]">고객의 보험 분석 신청 내역을 관리합니다.</p>
+        </div>
+        <button type="button" onClick={() => alert('신청 등록 기능은 현재 모의 상태입니다.')} className="bg-[#2F3B34] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#2F3B34]/90 flex items-center gap-2">
+          신청 수기 등록
+        </button>
       </div>
 
       <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
@@ -36,6 +42,7 @@ export default function AdminInsurancePage() {
               <th className="px-6 py-3 font-medium">기존보험유무</th>
               <th className="px-6 py-3 font-medium">상태</th>
               <th className="px-6 py-3 font-medium">상태변경</th>
+              <th className="px-6 py-3 font-medium text-right">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -70,6 +77,10 @@ export default function AdminInsurancePage() {
                     <option value="분석중">분석중</option>
                     <option value="분석완료">분석완료</option>
                   </select>
+                </td>
+                <td className="px-6 py-4 text-right whitespace-nowrap">
+                  <button onClick={() => alert('상세/수정 팝업이 뜰 예정입니다.')} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">수정</button>
+                  <button onClick={() => { if(window.confirm('정말로 삭제하시겠습니까?')) alert('삭제되었습니다.'); }} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
                 </td>
               </tr>
             ))}

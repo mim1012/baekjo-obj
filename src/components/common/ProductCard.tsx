@@ -52,21 +52,23 @@ export default function ProductCard({ product }: Props) {
     : 0;
 
   return (
-    <Link href={`/shop/${product.id}`} className="group block w-full rounded-[16px] bg-white border border-[rgba(15,23,42,0.08)] overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_4px_24px_rgba(15,23,42,0.04)]">
-      <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#F4EFE8]">
-        <div className="absolute inset-x-[15%] bottom-[12%] top-[14%] border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] shadow-sm">
-          <div className="flex h-full flex-col items-center justify-center px-3 text-center">
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">BAEKJO SELECTION</span>
-            <span className="mt-1.5 font-editorial text-[9px] italic text-slate-400">Object No. {product.id.replace('p', '0')}</span>
+    <Link href={`/shop/${product.id}`} className="group block w-full rounded-[16px] bg-card border border-border overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-md">
+      <div className="relative aspect-[4/3] w-full overflow-hidden bg-sub">
+        {product.image ? (
+          <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center px-3 text-center opacity-50">
+            <ShoppingBag className="size-5 text-[#A8742E]/40 mb-1.5" strokeWidth={1.5} />
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-[#8A7A64]">BAEKJO SELECTION</span>
           </div>
-        </div>
+        )}
 
         <div className="absolute left-3 top-3 flex flex-col gap-1.5">
           {product.isBest && (
-            <span className="bg-[#17211D] px-2.5 py-1 text-[9px] font-bold text-white rounded-sm">BEST</span>
+            <span className="bg-navy px-2.5 py-1 text-[9px] font-bold text-white rounded-sm">BEST</span>
           )}
           {product.isRecommended && (
-            <span className="bg-white/90 backdrop-blur-sm border border-[rgba(15,23,42,0.08)] px-2.5 py-1 text-[9px] font-bold text-[#334155] rounded-sm">
+            <span className="bg-card/90 backdrop-blur-sm border border-border px-2.5 py-1 text-[9px] font-bold text-text-sub rounded-sm">
               CURATED
             </span>
           )}
@@ -77,7 +79,7 @@ export default function ProductCard({ product }: Props) {
             type="button"
             onClick={handleCart}
             aria-label={`${product.name} 장바구니에 담기`}
-            className="flex size-10 items-center justify-center rounded-full border border-[rgba(15,23,42,0.08)] bg-white text-[#334155] shadow-sm hover:bg-slate-50 transition-colors"
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-text-main shadow-sm hover:bg-bg transition-colors"
           >
             <ShoppingBag className="size-4" />
           </button>
@@ -85,58 +87,58 @@ export default function ProductCard({ product }: Props) {
             type="button"
             onClick={handleWishlist}
             aria-label={`${product.name} 찜하기`}
-            className="flex size-10 items-center justify-center rounded-full border border-[rgba(15,23,42,0.08)] bg-white text-[#334155] shadow-sm hover:bg-slate-50 transition-colors"
+            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-text-main shadow-sm hover:bg-bg transition-colors"
           >
-            <Heart className={`size-4 ${wishlisted ? 'fill-[#9B5D55] text-[#9B5D55]' : ''}`} />
+            <Heart className={`size-4 ${wishlisted ? 'fill-error text-error' : ''}`} />
           </button>
         </div>
       </div>
 
-      <div className="p-4 pt-5">
-        <p className="text-[11px] font-medium text-[#64748B]">
+      <div className="p-4 pt-4">
+        <p className="text-[10px] font-medium text-text-sub">
           {brandName} · {product.category}
         </p>
-        <h3 className="mt-1.5 line-clamp-2 min-h-[40px] text-pretty text-sm font-medium leading-5 text-[#17211D] tracking-tight">
+        <h3 className="mt-1 line-clamp-2 min-h-[36px] text-pretty text-[13px] font-medium leading-relaxed text-text-main tracking-tight">
           {product.name}
         </h3>
 
         <div className="mt-2 flex flex-wrap gap-1">
           {product.concernTags.slice(0, 2).map((tag) => (
-            <span key={tag} className="border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] rounded-sm px-2 py-0.5 text-[9px] text-[#64748B]">
+            <span key={tag} className="border border-border bg-bg rounded-sm px-2 py-0.5 text-[9px] text-text-sub">
               {concernLabels[tag] ?? tag}
             </span>
           ))}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {product.price !== null && product.price !== undefined ? (
             <>
-              {discount > 0 && <span className="text-sm font-bold text-[#9B5D55] tracking-tight">{discount}%</span>}
-              <span className="font-semibold tabular-nums text-[#17211D] tracking-tight">
+              {discount > 0 && <span className="text-[13px] font-bold text-[#A8742E] tracking-tight">{discount}%</span>}
+              <span className="font-semibold tabular-nums text-text-main tracking-tight">
                 {formatPrice(product.salePrice || product.price!)}
               </span>
               {discount > 0 && (
-                <span className="text-xs tabular-nums text-[#64748B] line-through tracking-tight">
+                <span className="text-xs tabular-nums text-text-sub line-through tracking-tight">
                   {formatPrice(product.price!)}
                 </span>
               )}
             </>
           ) : (
-            <span className="font-semibold tabular-nums text-[#A65348] text-sm tracking-tight">
-              가격 확인 필요
+            <span className="font-semibold tabular-nums text-slate-400 text-[13px] tracking-tight">
+              상담 후 안내
             </span>
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-1 text-[11px] text-[#64748B]">
+        <div className="mt-2 flex items-center gap-1 text-[11px] text-text-sub">
           <Star className="size-3 fill-slate-300 text-slate-300" />
-          <span className="font-medium tabular-nums text-[#334155]">{product.rating}</span>
+          <span className="font-medium tabular-nums text-text-sub">{product.rating}</span>
           <span className="tabular-nums">({product.reviewCount})</span>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-1.5 pt-4 border-t border-[rgba(15,23,42,0.06)]">
+        <div className="mt-4 flex flex-wrap gap-1.5 pt-4 border-t border-border">
           {['안전성 검증 완료', '품질 오딧 통과'].map((badge) => (
-            <span key={badge} className="inline-flex items-center gap-1 rounded-sm bg-[#F4EFE8] px-1.5 py-0.5 text-[9px] font-medium text-[#334155] transition-all duration-300 hover:bg-[#17211D] hover:text-white cursor-default">
+            <span key={badge} className="inline-flex items-center gap-1 rounded-sm bg-bg border border-border px-1.5 py-0.5 text-[9px] font-medium text-text-sub transition-all duration-300 hover:bg-navy hover:text-white hover:border-navy cursor-default">
               <Check className="size-2.5" />
               {badge}
             </span>

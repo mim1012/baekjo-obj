@@ -11,9 +11,29 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  const [error, setError] = useState('');
 
   const handleLogin = (event: React.FormEvent) => {
     event.preventDefault();
+    setError('');
+
+    // 관리자 로그인 분기 처리
+    if (email === 'admin@naver.com') {
+      if (password === 'admin1234') {
+        login(email);
+        if (typeof window !== 'undefined') {
+          if (remember) localStorage.setItem('baekjo_remember_email', email);
+          else localStorage.removeItem('baekjo_remember_email');
+        }
+        router.push('/admin');
+        return;
+      } else {
+        setError('관리자 비밀번호가 일치하지 않습니다.');
+        return;
+      }
+    }
+
+    // 일반 유저
     login(email);
     if (typeof window !== 'undefined') {
       if (remember) localStorage.setItem('baekjo_remember_email', email);
@@ -49,6 +69,11 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-[#747B75]">백조오브제 계정으로 로그인해 주세요.</p>
 
           <form onSubmit={handleLogin} className="mt-9 space-y-4">
+            {error && (
+              <div className="rounded-md bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
+                {error}
+              </div>
+            )}
             <label className="block">
               <span className="mb-2 block text-xs font-medium text-[#5F6761]">이메일</span>
               <input

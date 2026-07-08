@@ -1,6 +1,4 @@
-'use client';
-
-import { useState } from 'react';
+import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { Partner } from '@/types';
 
 const mockPartners: Partner[] = [
@@ -13,64 +11,45 @@ const mockPartners: Partner[] = [
     address: '서울시 강남구',
     cooperationType: '병원 케어 키트 비치',
     providedKits: ['k1'],
-    status: '운영중',
-    isContracted: true,
-    isDelivered: true,
+    status: 'active',
   },
   {
     id: 'pt2',
-    name: '천사 펫 장례식장',
-    type: 'funeral',
-    contactPerson: '이실장',
-    phone: '031-111-2222',
-    address: '경기도 광주시',
-    cooperationType: '위로 키트 제공',
-    providedKits: [],
-    status: '상담중',
-    isContracted: false,
-    isDelivered: false,
-  }
+    name: '펫프렌들리 호텔 마리나',
+    type: 'hotel',
+    contactPerson: '이매니저',
+    phone: '032-987-6543',
+    address: '인천시 중구',
+    cooperationType: '투숙객 웰컴 키트',
+    providedKits: ['k1'],
+    status: 'pending',
+  },
 ];
 
 export default function AdminPartnersPage() {
-  const [partners] = useState<Partner[]>(mockPartners);
-
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">B2B 파트너십 문의 관리</h1>
-      </div>
-
-      <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50 text-gray-500">
-            <tr>
-              <th className="px-6 py-3 font-medium">업체명</th>
-              <th className="px-6 py-3 font-medium">유형</th>
-              <th className="px-6 py-3 font-medium">담당자/연락처</th>
-              <th className="px-6 py-3 font-medium">제휴 내용</th>
-              <th className="px-6 py-3 font-medium">상태</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {partners.map(p => (
-              <tr key={p.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-medium text-gray-900">{p.name}</td>
-                <td className="px-6 py-4 text-gray-500">
-                  <span className="bg-purple-50 text-purple-700 px-2 py-1 rounded text-xs">{p.type === 'hospital' ? '동물병원' : p.type === 'funeral' ? '장례식장' : '기타'}</span>
-                </td>
-                <td className="px-6 py-4 text-gray-500">{p.contactPerson}<br/><span className="text-xs">{p.phone}</span></td>
-                <td className="px-6 py-4 text-gray-900">{p.cooperationType}</td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${p.status === '운영중' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
-                    {p.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <AdminResourcePage
+      title="B2B 제휴 관리"
+      description="제휴 병원, 호텔 등 B2B 파트너십을 관리하고 키트 제공 현황을 파악합니다."
+      actionLabel="제휴처 등록"
+      searchPlaceholder="제휴처명, 담당자 검색"
+      filters={['전체 유형', '동물병원', '호텔/리조트', '활성', '대기중']}
+      columns={[
+        { key: 'name', label: '제휴처명' },
+        { key: 'type', label: '분류' },
+        { key: 'cooperationType', label: '제휴 형태' },
+        { key: 'contact', label: '담당자/연락처' },
+        { key: 'status', label: '상태' },
+      ]}
+      rows={mockPartners.map((partner) => ({
+        id: partner.id,
+        name: partner.name,
+        type: partner.type === 'hospital' ? '동물병원' : '호텔',
+        cooperationType: partner.cooperationType,
+        contact: `${partner.contactPerson} (${partner.phone})`,
+        status: partner.status === 'active' ? '활성' : partner.status === 'pending' ? '대기' : '종료',
+      }))}
+      createFields={['제휴처명', '분류', '제휴 형태', '담당자', '연락처', '주소', '제공 키트', '상태']}
+    />
   );
 }
