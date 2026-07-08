@@ -5,10 +5,14 @@ import { getInsuranceApplications, updateInsuranceStatus } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import { InsuranceApplication } from '@/types';
 import { useMounted } from '@/lib/useMounted';
+import Pagination from '@/components/admin/Pagination';
 
 export default function AdminInsurancePage() {
   const mounted = useMounted();
   const [, refreshApplications] = useState(0);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const handleStatusChange = (id: string, newStatus: InsuranceApplication['status']) => {
     updateInsuranceStatus(id, newStatus);
@@ -20,6 +24,10 @@ export default function AdminInsurancePage() {
   const apps = getInsuranceApplications().sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+
+  const totalPages = Math.max(1, Math.ceil(apps.length / ITEMS_PER_PAGE));
+  const paginatedApps = apps.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   return (
     <div>
       <div className="flex justify-between items-end mb-8">
@@ -46,7 +54,7 @@ export default function AdminInsurancePage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {apps.map(app => (
+            {paginatedApps.map(app => (
               <tr key={app.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-gray-500">{formatDate(app.createdAt)}</td>
                 <td className="px-6 py-4 font-medium text-gray-900">{app.ownerName} ({app.phone})</td>
@@ -92,6 +100,14 @@ export default function AdminInsurancePage() {
             보험 분석 신청 내역이 없습니다.
           </div>
         )}
+
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={apps.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

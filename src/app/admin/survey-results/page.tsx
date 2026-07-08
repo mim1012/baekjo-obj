@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { formatDate } from '@/lib/format';
 import { X } from 'lucide-react';
+import Pagination from '@/components/admin/Pagination';
 
 interface SurveyResult {
   id: string;
@@ -25,6 +26,12 @@ export default function AdminSurveyResultsPage() {
   const [editingResult, setEditingResult] = useState<SurveyResult | null>(null);
   const [isAddingResult, setIsAddingResult] = useState(false);
   const [newResult, setNewResult] = useState<Partial<SurveyResult>>({});
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+  
+  const totalPages = Math.max(1, Math.ceil(results.length / ITEMS_PER_PAGE));
+  const paginatedResults = results.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -68,7 +75,7 @@ export default function AdminSurveyResultsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {results.map(r => (
+            {paginatedResults.map(r => (
               <tr key={r.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 text-gray-500">{formatDate(r.date)}</td>
                 <td className="px-6 py-4 font-medium text-gray-900">{r.user}</td>
@@ -89,6 +96,14 @@ export default function AdminSurveyResultsPage() {
             진단 참여 내역이 없습니다.
           </div>
         )}
+        
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={results.length}
+          itemsPerPage={ITEMS_PER_PAGE}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* 수정 모달 */}

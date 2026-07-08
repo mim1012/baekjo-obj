@@ -5,6 +5,7 @@ import { getOrders, updateOrderStatus } from '@/lib/storage';
 import { formatDate, formatPrice } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
 import { FileText, CreditCard, Truck, RefreshCcw } from 'lucide-react';
+import Pagination from '@/components/admin/Pagination';
 
 export default function AdminOrdersPage() {
   const mounted = useMounted();
@@ -14,6 +15,9 @@ export default function AdminOrdersPage() {
   const [orderStatusFilter, setOrderStatusFilter] = useState('전체 상태');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('전체 상태');
   const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('전체 상태');
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
 
   const handleStatusChange = (id: string, field: 'orderStatus' | 'paymentStatus' | 'deliveryStatus', value: string) => {
     updateOrderStatus(id, { [field]: value });
@@ -49,6 +53,11 @@ export default function AdminOrdersPage() {
     
     return result;
   }, [rawOrders, searchTerm, orderStatusFilter, paymentStatusFilter, deliveryStatusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
+  const paginatedOrders = useMemo(() => {
+    return filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
   if (!mounted) return null;
 
@@ -167,7 +176,7 @@ export default function AdminOrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredOrders.map(order => {
+              {paginatedOrders.map(order => {
                 const itemSummary = order.items.length > 1 
                   ? `${order.items[0].productName} 외 ${order.items.length - 1}건` 
                   : order.items[0].productName;
@@ -261,6 +270,14 @@ export default function AdminOrdersPage() {
               <p className="text-gray-500">등록된 주문 내역이 없습니다.</p>
             </div>
           )}
+          
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredOrders.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </div>

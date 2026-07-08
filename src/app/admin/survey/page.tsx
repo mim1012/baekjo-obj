@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { surveyQuestions, surveyResultRules } from '@/data/survey';
 import { X } from 'lucide-react';
+import Pagination from '@/components/admin/Pagination';
 
 export default function AdminSurveyPage() {
   const [questions, setQuestions] = useState(surveyQuestions);
@@ -13,6 +14,16 @@ export default function AdminSurveyPage() {
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newQuestion, setNewQuestion] = useState<Partial<typeof surveyQuestions[0]>>({ type: 'single' });
   const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } });
+
+  const [currentQuestionsPage, setCurrentQuestionsPage] = useState(1);
+  const [currentRulesPage, setCurrentRulesPage] = useState(1);
+  const ITEMS_PER_PAGE = 20;
+
+  const totalQuestionsPages = Math.max(1, Math.ceil(questions.length / ITEMS_PER_PAGE));
+  const paginatedQuestions = questions.slice((currentQuestionsPage - 1) * ITEMS_PER_PAGE, currentQuestionsPage * ITEMS_PER_PAGE);
+
+  const totalRulesPages = Math.max(1, Math.ceil(rules.length / ITEMS_PER_PAGE));
+  const paginatedRules = rules.slice((currentRulesPage - 1) * ITEMS_PER_PAGE, currentRulesPage * ITEMS_PER_PAGE);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -50,7 +61,7 @@ export default function AdminSurveyPage() {
         <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
           <h2 className="text-lg font-bold text-gray-900 mb-6">설문 문항 관리</h2>
           <div className="space-y-4">
-            {questions.map(q => (
+            {paginatedQuestions.map(q => (
               <div key={q.id} className="border border-gray-100 bg-gray-50 p-4 rounded-sm">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-semibold text-gray-900">{q.title}</h3>
@@ -70,6 +81,15 @@ export default function AdminSurveyPage() {
               </div>
             ))}
           </div>
+          <div className="mt-6">
+            <Pagination 
+              currentPage={currentQuestionsPage}
+              totalPages={totalQuestionsPages}
+              totalItems={questions.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentQuestionsPage}
+            />
+          </div>
         </div>
 
         <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
@@ -78,7 +98,7 @@ export default function AdminSurveyPage() {
             <button onClick={() => { setNewRule({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
           </div>
           <div className="space-y-4">
-            {rules.map(r => (
+            {paginatedRules.map(r => (
               <div key={r.id} className="border border-gray-100 bg-gray-50 p-4 rounded-sm">
                 <div className="mb-3 pb-3 border-b border-gray-200">
                   <div className="flex justify-between items-center mb-1">
@@ -104,6 +124,15 @@ export default function AdminSurveyPage() {
                 </div>
               </div>
             ))}
+          </div>
+          <div className="mt-6">
+            <Pagination 
+              currentPage={currentRulesPage}
+              totalPages={totalRulesPages}
+              totalItems={rules.length}
+              itemsPerPage={ITEMS_PER_PAGE}
+              onPageChange={setCurrentRulesPage}
+            />
           </div>
         </div>
       </div>
