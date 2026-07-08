@@ -18,6 +18,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     try {
       const saved = localStorage.getItem('siteSettings');
       if (saved) {
+        // localStorage is client-only; loading after mount keeps SSR hydration consistent
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSettings(JSON.parse(saved));
       }
     } catch (e) {

@@ -31,22 +31,22 @@ export default function SiteSettingsPage() {
     alert('설정이 저장되었습니다.');
   };
 
-  const updateDraft = (section: keyof HomeSettings, field: string, value: any) => {
+  const updateDraft = (section: keyof HomeSettings, field: string, value: unknown) => {
     setDraft((prev) => {
-      const sectionData = prev[section] as any;
+      const sectionData = prev[section] as unknown;
       if (typeof sectionData === 'object' && sectionData !== null) {
         return {
           ...prev,
           [section]: {
-            ...sectionData,
+            ...(sectionData as Record<string, unknown>),
             [field]: value,
           },
-        };
+        } as HomeSettings;
       }
       return {
         ...prev,
         [section]: value,
-      };
+      } as HomeSettings;
     });
   };
 
@@ -55,13 +55,13 @@ export default function SiteSettingsPage() {
   // ----------------------------------------------------
   const updateArrayField = (section: keyof HomeSettings, arrayField: string, index: number, itemField: string, value: string) => {
     setDraft((prev) => {
-      const sectionData = prev[section] as any;
-      const newArray = [...sectionData[arrayField]];
+      const sectionData = prev[section] as Record<string, unknown>;
+      const newArray = [...(sectionData[arrayField] as Array<Record<string, string>>)];
       newArray[index] = { ...newArray[index], [itemField]: value };
       return {
         ...prev,
         [section]: { ...sectionData, [arrayField]: newArray }
-      };
+      } as HomeSettings;
     });
   };
 

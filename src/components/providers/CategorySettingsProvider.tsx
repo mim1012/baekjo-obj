@@ -38,6 +38,8 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
     try {
       const saved = localStorage.getItem('categorySettings');
       if (saved) {
+        // localStorage is client-only; loading after mount keeps SSR hydration consistent
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setCategorySettings(JSON.parse(saved));
       }
     } catch (e) {

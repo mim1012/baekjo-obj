@@ -5,6 +5,15 @@ import { surveyQuestions, surveyResultRules } from '@/data/survey';
 import { X } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
 
+const EMPTY_RECOMMENDATION: typeof surveyResultRules[0]['recommendation'] = {
+  direction: '',
+  categorySlug: '',
+  brandIds: [],
+  productIds: [],
+  needInsuranceAnalysis: false,
+  recommendKit: false,
+};
+
 export default function AdminSurveyPage() {
   const [questions, setQuestions] = useState(surveyQuestions);
   const [rules, setRules] = useState(surveyResultRules);
@@ -13,7 +22,7 @@ export default function AdminSurveyPage() {
   const [isAddingQuestion, setIsAddingQuestion] = useState(false);
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newQuestion, setNewQuestion] = useState<Partial<typeof surveyQuestions[0]>>({ type: 'single' });
-  const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } });
+  const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: EMPTY_RECOMMENDATION });
 
   const [currentQuestionsPage, setCurrentQuestionsPage] = useState(1);
   const [currentRulesPage, setCurrentRulesPage] = useState(1);
@@ -95,7 +104,7 @@ export default function AdminSurveyPage() {
         <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-900">결과 매핑 룰</h2>
-            <button onClick={() => { setNewRule({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
+            <button onClick={() => { setNewRule({ condition: {}, recommendation: EMPTY_RECOMMENDATION }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
           </div>
           <div className="space-y-4">
             {paginatedRules.map(r => (
@@ -375,7 +384,7 @@ export default function AdminSurveyPage() {
                 <input 
                   className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
                   value={newRule.recommendation?.direction || ''} 
-                  onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation as any), direction: e.target.value}})} 
+                  onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), direction: e.target.value}})}
                 />
               </label>
               <div className="grid grid-cols-2 gap-4">
@@ -384,7 +393,7 @@ export default function AdminSurveyPage() {
                   <input 
                     className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
                     value={newRule.recommendation?.brandIds?.join(', ') || ''} 
-                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation as any), brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})} 
+                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})}
                   />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
@@ -392,7 +401,7 @@ export default function AdminSurveyPage() {
                   <input 
                     className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
                     value={newRule.recommendation?.productIds?.join(', ') || ''} 
-                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation as any), productIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})} 
+                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), productIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})}
                   />
                 </label>
               </div>
@@ -407,9 +416,8 @@ export default function AdminSurveyPage() {
                     ageGroup: newRule.condition?.ageGroup || undefined,
                   },
                   recommendation: {
-                    direction: newRule.recommendation?.direction || '',
-                    brandIds: newRule.recommendation?.brandIds || [],
-                    productIds: newRule.recommendation?.productIds || []
+                    ...EMPTY_RECOMMENDATION,
+                    ...newRule.recommendation,
                   }
                 };
                 setRules([...rules, ruleToAdd]);

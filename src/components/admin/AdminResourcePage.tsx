@@ -35,10 +35,6 @@ export default function AdminResourcePage({
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeFilter, searchQuery]);
-
   const handleEdit = (row: Record<string, string | number>) => {
     setEditingRow(row);
   };
@@ -125,7 +121,7 @@ export default function AdminResourcePage({
               aria-label={searchPlaceholder} 
               placeholder={searchPlaceholder} 
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               className="w-full border border-[#D1D0C8] bg-white py-2.5 pl-10 pr-4 text-sm" 
             />
           </label>
@@ -134,7 +130,7 @@ export default function AdminResourcePage({
               <button 
                 key={filter} 
                 type="button" 
-                onClick={() => setActiveFilter(filter)}
+                onClick={() => { setActiveFilter(filter); setCurrentPage(1); }}
                 className={`inline-flex min-h-10 items-center gap-2 border px-3 text-xs ${activeFilter === filter ? 'bg-[#2F3B34] text-white border-[#2F3B34]' : 'bg-white border-[#D1D0C8] text-[#59615B]'}`}
               >
                 <Filter className="size-3.5" /> {filter}
