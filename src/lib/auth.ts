@@ -7,6 +7,8 @@ import Naver from 'next-auth/providers/naver';
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [Kakao, Naver],
   session: { strategy: 'jwt' },
+  // 검증 실패(PKCE 등) 시 Auth.js 기본 영문 에러 페이지 대신 로그인 화면으로 돌려보낸다.
+  pages: { error: '/login' },
   callbacks: {
     jwt({ token, account }) {
       // 최초 로그인 시에만 account 가 존재한다 → 제공자를 토큰에 저장.

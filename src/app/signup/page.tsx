@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { concerns } from '@/data/concerns';
 import { registerUser } from '@/lib/storage';
+import SocialLoginButtons from '@/components/common/SocialLoginButtons';
+
+const SIGNUP_SOCIAL_LABELS = { kakao: '카카오로 시작하기', naver: '네이버로 시작하기' };
 
 export default function SignupPage() {
   const router = useRouter();
@@ -101,6 +104,12 @@ export default function SignupPage() {
             회원가입
           </button>
         </form>
+
+        <div className="mt-8 border-t border-[#DEDCD5] pt-6">
+          <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 가입</p>
+          {/* 소셜은 첫 로그인 때 자동 가입되므로 로그인과 같은 흐름을 사용한다. */}
+          <SocialLoginButtons labels={SIGNUP_SOCIAL_LABELS} />
+        </div>
 
         <p className="mt-6 text-center text-xs text-[#7B827C]">
           이미 계정이 있나요? <Link href="/login" className="font-semibold text-[#2F3B34]">로그인</Link>

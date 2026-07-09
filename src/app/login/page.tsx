@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import BrandMark from '@/components/common/BrandMark';
 import { login } from '@/lib/storage';
-import { isSocialLoginEnabled, loginWithProvider } from '@/lib/socialAuth';
+import SocialLoginButtons from '@/components/common/SocialLoginButtons';
+import { useMounted } from '@/lib/useMounted';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +14,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [error, setError] = useState('');
+  const mounted = useMounted();
+
+  // 소셜 로그인 실패로 돌아온 경우(/login?error=...) 이유를 안내한다.
+  // setState 없이 렌더 시점에 URL에서 파생 — 마운트 후에만 읽어 hydration 불일치를 피하고,
+  // URL은 건드리지 않는다(주소가 곧 상태 — 지우면 다음 리렌더에서 배너가 소리 없이 사라진다).
+  const socialError =
+    mounted && new URLSearchParams(window.location.search).get('error')
+      ? '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
+      : '';
 
   const handleLogin = (event: React.FormEvent) => {
     event.preventDefault();
@@ -43,15 +53,6 @@ export default function LoginPage() {
     router.push('/');
   };
 
-  const handleSocialLogin = (provider: 'kakao' | 'naver') => {
-    setError('');
-    if (!isSocialLoginEnabled()) {
-      setError('간편 로그인은 아직 준비 중이에요. 조금만 기다려 주세요.');
-      return;
-    }
-    void loginWithProvider(provider);
-  };
-
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
       <div className="grid w-full max-w-4xl border border-[#D1D0C8] bg-[#FAF9F5] shadow-sm md:grid-cols-[0.85fr_1.15fr]">
@@ -79,9 +80,9 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-[#747B75]">백조오브제 계정으로 로그인해 주세요.</p>
 
           <form onSubmit={handleLogin} className="mt-9 space-y-4">
-            {error && (
-              <div className="rounded-md bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
-                {error}
+            {(error || socialError) && (
+              <div role="alert" className="rounded-md bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
+                {error || socialError}
               </div>
             )}
             <label className="block">
@@ -128,14 +129,7 @@ export default function LoginPage() {
 
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">
             <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 로그인</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => handleSocialLogin('kakao')} className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
-                카카오
-              </button>
-              <button type="button" onClick={() => handleSocialLogin('naver')} className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
-                네이버
-              </button>
-            </div>
+            <SocialLoginButtons />
           </div>
         </div>
       </div>
