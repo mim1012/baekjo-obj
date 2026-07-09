@@ -1,0 +1,226 @@
+// members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
+import { getSupabase } from '@/lib/supabase/server';
+import type { User } from '@/types';
+
+/** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
+export type MemberRecord = User & { passwordHash: string | null };
+
+/** 이메일 unique 제약(Postgres 23505) 위반 시 던지는 타입드 에러. */
+export class DuplicateEmailError extends Error {
+  constructor() {
+    super('이미 가입된 이메일입니다.');
+    this.name = 'DuplicateEmailError';
+  }
+}
+
+interface MemberRow {
+  id: string;
+  email: string;
+  name: string;
+  phone: string;
+  password_hash: string | null;
+  provider: 'email' | 'kakao' | 'naver';
+  provider_id: string | null;
+  pet_type: string | null;
+  breed: string | null;
+  main_concern: string | null;
+  role: 'user' | 'admin';
+  status: 'active' | 'inactive';
+  profile_image: string | null;
+  created_at: string;
+}
+
+const SELECT_COLUMNS =
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, created_at';
+
+function rowToRecord(row: MemberRow): MemberRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    petType: row.pet_type ?? undefined,
+    breed: row.breed ?? undefined,
+    mainConcern: row.main_concern ?? undefined,
+    role: row.role,
+    status: row.status,
+    createdAt: row.created_at,
+    provider: row.provider,
+    profileImage: row.profile_image ?? undefined,
+    passwordHash: row.password_hash,
+  };
+}
+
+/** MemberRecord → 화면에 내려줄 User (비밀번호 해시 제거). */
+export function toUser(record: MemberRecord): User {
+  return {
+    id: record.id,
+    name: record.name,
+    email: record.email,
+    phone: record.phone,
+    petType: record.petType,
+    breed: record.breed,
+    mainConcern: record.mainConcern,
+    role: record.role,
+    status: record.status,
+    createdAt: record.createdAt,
+    provider: record.provider,
+    profileImage: record.profileImage,
+  };
+}
+
+function isUniqueViolation(error: { code?: string }): boolean {
+  return error.code === '23505';
+}
+
+export async function findMemberByEmail(email: string): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .select(SELECT_COLUMNS)
+    .eq('email', email)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToRecord(data as MemberRow) : null;
+}
+
+export async function findMemberByProvider(
+  provider: 'kakao' | 'naver',
+  providerId: string,
+): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .select(SELECT_COLUMNS)
+    .eq('provider', provider)
+    .eq('provider_id', providerId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToRecord(data as MemberRow) : null;
+}
+
+export async function findMemberById(id: string): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .select(SELECT_COLUMNS)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToRecord(data as MemberRow) : null;
+}
+
+export interface InsertEmailMemberInput {
+  name: string;
+  email: string;
+  phone: string;
+  passwordHash: string;
+  petType?: string;
+  breed?: string;
+  mainConcern?: string;
+}
+
+export async function insertEmailMember(input: InsertEmailMemberInput): Promise<MemberRecord> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .insert({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      password_hash: input.passwordHash,
+      provider: 'email',
+      pet_type: input.petType ?? null,
+      breed: input.breed ?? null,
+      main_concern: input.mainConcern ?? null,
+      role: 'user',
+    })
+    .select(SELECT_COLUMNS)
+    .single();
+
+  if (error) {
+    if (isUniqueViolation(error)) throw new DuplicateEmailError();
+    throw error;
+  }
+  return rowToRecord(data as MemberRow);
+}
+
+export interface UpsertSocialMemberInput {
+  provider: 'kakao' | 'naver';
+  providerId: string;
+  email: string | null;
+  name: string | null;
+  profileImage: string | null;
+}
+
+/**
+ * 소셜 로그인 회원 upsert.
+ * ① (provider, provider_id)로 기존 회원 조회 → 있으면 이름/프로필사진만 최신화.
+ * ② 없고 이메일이 있으면 이메일로 기존 회원 조회 → 있으면 그대로 반환(계정 연동은 범위 밖 — provider/비밀번호 덮어쓰지 않음).
+ * ③ 둘 다 없으면 신규 생성(role은 항상 'user').
+ */
+export async function upsertSocialMember(input: UpsertSocialMemberInput): Promise<MemberRecord> {
+  const existingByProvider = await findMemberByProvider(input.provider, input.providerId);
+  if (existingByProvider) {
+    const nextName = input.name ?? existingByProvider.name;
+    const nextImage = input.profileImage ?? existingByProvider.profileImage ?? null;
+    const changed =
+      nextName !== existingByProvider.name ||
+      nextImage !== (existingByProvider.profileImage ?? null);
+    if (!changed) return existingByProvider;
+
+    const { data, error } = await getSupabase()
+      .from('members')
+      .update({ name: nextName, profile_image: nextImage })
+      .eq('id', existingByProvider.id)
+      .select(SELECT_COLUMNS)
+      .single();
+    if (error) throw error;
+    return rowToRecord(data as MemberRow);
+  }
+
+  if (input.email) {
+    const existingByEmail = await findMemberByEmail(input.email);
+    if (existingByEmail) return existingByEmail;
+  }
+
+  const fallbackEmail =
+    input.email ?? `social-${input.provider}-${input.providerId}@placeholder.baekjo`;
+
+  const { data, error } = await getSupabase()
+    .from('members')
+    .insert({
+      email: fallbackEmail,
+      name: input.name ?? '백조회원',
+      phone: '',
+      provider: input.provider,
+      provider_id: input.providerId,
+      profile_image: input.profileImage,
+      role: 'user',
+    })
+    .select(SELECT_COLUMNS)
+    .single();
+
+  if (error) {
+    if (isUniqueViolation(error)) {
+      // 동시 최초 소셜 로그인 레이스 — 진 쪽 요청이 여기로 온다. 승자가 이미 만든 행을
+      // (provider, provider_id) 우선, 그다음 이메일로 재조회해 그대로 반환한다.
+      // 에러를 던져 로그인 전체를 실패시키지 않는다.
+      const winner =
+        (await findMemberByProvider(input.provider, input.providerId)) ??
+        (await findMemberByEmail(fallbackEmail));
+      if (winner) return winner;
+      throw new DuplicateEmailError();
+    }
+    throw error;
+  }
+  return rowToRecord(data as MemberRow);
+}
+
+const MEMBERS_LIST_CAP = 500;
+
+export async function listMembers(): Promise<MemberRecord[]> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .select(SELECT_COLUMNS)
+    .order('created_at', { ascending: false })
+    .limit(MEMBERS_LIST_CAP);
+  if (error) throw error;
+  return (data as MemberRow[]).map(rowToRecord);
+}

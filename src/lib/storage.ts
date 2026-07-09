@@ -151,29 +151,63 @@ export function getUsers(): User[] {
   );
 }
 
-export function registerUser(user: User): User {
-  const registered = getJSON<User[]>(REGISTERED_USERS_KEY, []);
-  registered.push(user);
-  setJSON(REGISTERED_USERS_KEY, registered);
-  setCurrentUser(user);
-  return user;
+/**
+ * 이메일/비밀번호 로그인. Auth.js Credentials 프로바이더로 서버 세션을 세운 뒤
+ * /api/members/me 로 최신 회원 정보를 읽어온다. next-auth 는 동적 import 로
+ * 불러와 이 파일이 next-auth 에 정적 의존하지 않도록 한다(logout()과 동일 패턴).
+ *
+ * signIn 자체가 실패하면 'invalid-credentials'(비밀번호 오류). signIn은 성공했는데
+ * /api/members/me 조회가 실패하면 — 서버 세션은 이미 생성된 상태이므로 비밀번호
+ * 문제로 오인시키지 않도록 별도로 'network'를 반환한다.
+ */
+export async function login(
+  email: string,
+  password: string,
+): Promise<{ user?: User; error?: 'invalid-credentials' | 'network' }> {
+  const { signIn } = await import('next-auth/react');
+  const result = await signIn('credentials', { email, password, redirect: false });
+  if (result?.error) return { error: 'invalid-credentials' };
+
+  try {
+    const response = await fetch('/api/members/me');
+    if (!response.ok) return { error: 'network' };
+    const { user } = (await response.json()) as { user: User };
+    setCurrentUser(user);
+    return { user };
+  } catch {
+    return { error: 'network' };
+  }
 }
 
-export function login(email: string): User {
-  const existing = getUsers().find(
-    (user) => user.email.toLowerCase() === email.toLowerCase(),
-  );
-  const user: User = existing ?? {
-    id: `u-${Date.now()}`,
-    name: email.split('@')[0] || '백조회원',
-    email,
-    phone: '',
-    role: 'user',
-    status: 'active',
-    createdAt: new Date().toISOString(),
-  };
-  setCurrentUser(user);
-  return user;
+/** 회원가입. 서버에 회원을 생성한 뒤 곧바로 로그인해 세션을 세운다. */
+export async function registerUser(input: {
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  petType?: string;
+  breed?: string;
+  mainConcern?: string;
+}): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
+  try {
+    const response = await fetch('/api/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (response.status === 201) {
+      const loginResult = await login(input.email, input.password);
+      // 가입(201)은 성공했지만 후속 로그인이 실패한 경우 — 조용히 넘기면
+      // 로그아웃 상태로 /mypage에 보내게 되므로 명시적으로 알린다.
+      if (!loginResult.user) return { error: 'session' };
+      return { user: loginResult.user };
+    }
+    if (response.status === 409) return { error: 'duplicate-email' };
+    if (response.status === 400) return { error: 'invalid-input' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
 }
 
 export function logout(): void {

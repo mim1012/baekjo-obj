@@ -10,7 +10,8 @@ interface Column {
 interface AdminResourcePageProps {
   title: string;
   description: string;
-  actionLabel: string;
+  /** 미지정 시 등록 버튼/폼을 숨긴다(쓰기 API가 없는 조회 전용 화면용). */
+  actionLabel?: string;
   searchPlaceholder: string;
   columns: Column[];
   rows: Array<Record<string, string | number>>;
@@ -79,24 +80,26 @@ export default function AdminResourcePage({
           <h1 className="mt-2 text-3xl font-normal text-[#202521]">{title}</h1>
           <p className="mt-2 text-sm text-[#737A74]">{description}</p>
         </div>
-        <details className="relative">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
-            <Plus className="size-4" /> {actionLabel}
-          </summary>
-          <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
-            <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
-            <p className="mt-2 text-xs text-[#7B827C]">MVP mock 입력 UI이며 실제 서버 저장은 연결되지 않습니다.</p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              {(createFields.length > 0 ? createFields : columns.map(c => c.label)).map((field) => (
-                <label key={field} className="text-xs font-medium text-[#59615B]">
-                  {field}
-                  <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm" placeholder={`${field} 입력`} />
-                </label>
-              ))}
+        {actionLabel && (
+          <details className="relative">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
+              <Plus className="size-4" /> {actionLabel}
+            </summary>
+            <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
+              <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
+              <p className="mt-2 text-xs text-[#7B827C]">MVP mock 입력 UI이며 실제 서버 저장은 연결되지 않습니다.</p>
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                {(createFields.length > 0 ? createFields : columns.map(c => c.label)).map((field) => (
+                  <label key={field} className="text-xs font-medium text-[#59615B]">
+                    {field}
+                    <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm" placeholder={`${field} 입력`} />
+                  </label>
+                ))}
+              </div>
+              <button type="button" className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">저장</button>
             </div>
-            <button type="button" className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">저장</button>
-          </div>
-        </details>
+          </details>
+        )}
       </div>
 
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">

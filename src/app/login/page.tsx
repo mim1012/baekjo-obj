@@ -16,41 +16,39 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const mounted = useMounted();
 
-  // 소셜 로그인 실패로 돌아온 경우(/login?error=...) 이유를 안내한다.
+  const [pending, setPending] = useState(false);
+
+  // 소셜 로그인 실패/미들웨어 리다이렉트로 돌아온 경우(/login?error=...) 이유를 안내한다.
   // setState 없이 렌더 시점에 URL에서 파생 — 마운트 후에만 읽어 hydration 불일치를 피하고,
   // URL은 건드리지 않는다(주소가 곧 상태 — 지우면 다음 리렌더에서 배너가 소리 없이 사라진다).
-  const socialError =
-    mounted && new URLSearchParams(window.location.search).get('error')
-      ? '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
-      : '';
+  const errorParam = mounted ? new URLSearchParams(window.location.search).get('error') : null;
+  const socialError = errorParam
+    ? errorParam === 'admin'
+      ? '관리자 로그인이 필요합니다.'
+      : '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
+    : '';
 
-  const handleLogin = (event: React.FormEvent) => {
+  const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+    setPending(true);
+    const result = await login(email, password);
+    setPending(false);
 
-    // 관리자 로그인 분기 처리
-    if (email === 'admin@naver.com') {
-      if (password === 'admin1234') {
-        login(email);
-        if (typeof window !== 'undefined') {
-          if (remember) localStorage.setItem('baekjo_remember_email', email);
-          else localStorage.removeItem('baekjo_remember_email');
-        }
-        router.push('/admin');
-        return;
-      } else {
-        setError('관리자 비밀번호가 일치하지 않습니다.');
-        return;
-      }
+    if (result.error === 'invalid-credentials') {
+      setError('이메일 또는 비밀번호가 올바르지 않습니다.');
+      return;
+    }
+    if (result.error === 'network' || !result.user) {
+      setError('로그인 처리 중 문제가 발생했어요. 새로고침 후 다시 시도해 주세요.');
+      return;
     }
 
-    // 일반 유저
-    login(email);
     if (typeof window !== 'undefined') {
       if (remember) localStorage.setItem('baekjo_remember_email', email);
       else localStorage.removeItem('baekjo_remember_email');
     }
-    router.push('/');
+    router.push(result.user.role === 'admin' ? '/admin' : '/');
   };
 
   return (
@@ -115,9 +113,10 @@ export default function LoginPage() {
             </label>
             <button
               type="submit"
-              className="mt-2 w-full bg-[#2F3B34] py-3.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#3C4941]"
+              disabled={pending}
+              className="mt-2 w-full bg-[#2F3B34] py-3.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#3C4941] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              로그인
+              {pending ? '로그인 중…' : '로그인'}
             </button>
           </form>
 
