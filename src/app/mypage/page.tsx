@@ -23,6 +23,10 @@ export default function MyPage() {
   const wishlistedIds = getWishlist();
   const wishlist = products.filter((product) => wishlistedIds.includes(product.id));
   const currentUser = getCurrentUser();
+  // 소셜 가입 시 이메일 미제공이면 내부용 플레이스홀더가 저장된다 → 화면에 노출 금지.
+  const isPlaceholderEmail = currentUser?.email.endsWith('@placeholder.baekjo') ?? false;
+  const providerLabel =
+    currentUser?.provider === 'kakao' ? '카카오' : currentUser?.provider === 'naver' ? '네이버' : null;
   return (
     <div className="bg-[#F4F2EC] min-h-dvh py-12">
       <div className="site-container">
@@ -33,12 +37,25 @@ export default function MyPage() {
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 flex items-center gap-4">
-              <div className="h-16 w-16 rounded-full bg-[#E4E8E3] flex items-center justify-center text-[#2F3B34]">
-                <User className="h-8 w-8" />
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#E4E8E3] flex items-center justify-center text-[#2F3B34]">
+                {currentUser?.profileImage ? (
+                  // 외부(카카오/네이버) 프로필 URL이라 next/image 도메인 설정 없이 img 사용
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={currentUser.profileImage} alt="프로필 사진" className="h-full w-full object-cover" />
+                ) : (
+                  <User className="h-8 w-8" />
+                )}
               </div>
               <div>
                 <div className="text-lg font-bold text-gray-900">{currentUser?.name ?? '백조고객'}님</div>
-                <div className="text-sm text-[#68776C] font-medium">{currentUser ? currentUser.email : '로그인 후 맞춤 정보를 확인하세요'}</div>
+                <div className="text-sm text-[#68776C] font-medium">
+                  {currentUser ? (isPlaceholderEmail ? '이메일 미등록' : currentUser.email) : '로그인 후 맞춤 정보를 확인하세요'}
+                </div>
+                {providerLabel && (
+                  <span className="mt-1 inline-block rounded-full bg-[#E4E8E3] px-2 py-0.5 text-[10px] font-semibold text-[#2F3B34]">
+                    {providerLabel}로 연결된 계정
+                  </span>
+                )}
               </div>
             </div>
 
