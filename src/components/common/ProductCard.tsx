@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { Heart, ShoppingBag, Star, Check } from 'lucide-react';
 import { Product } from '@/types';
-import { brands } from '@/data/brands';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { toggleWishlist, isWishlisted } from '@/lib/storage';
 import { addToCart } from '@/lib/cart';
@@ -29,7 +28,9 @@ export default function ProductCard({ product }: Props) {
   const mounted = useMounted();
   const [, refreshWishlist] = useState(0);
   const wishlisted = mounted && isWishlisted(product.id);
-  const brandName = brands.find((brand) => brand.id === product.brandId)?.name ?? product.brandId;
+  // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
+  // 브랜드 전체 목록을 다시 불러올 필요 없이 상품 데이터 자체로 표시한다.
+  const brandName = product.brandName ?? product.brandId;
 
   const handleWishlist = (event: React.MouseEvent) => {
     event.preventDefault();

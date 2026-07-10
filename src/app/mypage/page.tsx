@@ -3,13 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
-import { getMyOrders, getInsuranceApplications, getWishlist, getCurrentUser } from '@/lib/storage';
-import { products } from '@/data/products';
+import { getMyOrders, getInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts } from '@/lib/storage';
 import { reviews } from '@/data/reviews';
 import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
-import type { Order } from '@/types';
+import type { Order, Product } from '@/types';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
@@ -19,6 +18,9 @@ export default function MyPage() {
   // 로딩 중과 '주문 없음'을 구분해야 주문 있는 회원에게 빈 상태가 잠깐 노출되지 않는다.
   const [orders, setOrders] = useState<Order[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+  // 관심 상품 조인용 카탈로그. 위시리스트 자체는 localStorage(동기)라 orders 와 별도로 로딩 관리.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,13 +37,25 @@ export default function MyPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getPublicProducts().then((list) => {
+      if (cancelled) return;
+      setProducts(list);
+      setProductsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   if (!mounted) return null;
 
   const insuranceApps = getInsuranceApplications().sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
   const wishlistedIds = getWishlist();
-  const wishlist = products.filter((product) => wishlistedIds.includes(product.id));
+  const wishlist = productsLoading ? [] : products.filter((product) => wishlistedIds.includes(product.id));
   const currentUser = getCurrentUser();
   // 소셜 가입 시 이메일 미제공이면 내부용 플레이스홀더가 저장된다 → 화면에 노출 금지.
   const isPlaceholderEmail = currentUser?.email.endsWith('@placeholder.baekjo') ?? false;
@@ -187,7 +201,9 @@ export default function MyPage() {
                 </h2>
               </div>
               
-              {wishlist.length === 0 ? (
+              {productsLoading ? (
+                <div className="py-10 text-center text-gray-400 bg-gray-50 rounded-sm">불러오는 중…</div>
+              ) : wishlist.length === 0 ? (
                 <div className="py-10 text-center text-gray-500 bg-gray-50 rounded-sm">관심 상품이 없습니다.</div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">

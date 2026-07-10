@@ -1,24 +1,27 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react';
-import { brands } from '@/data/brands';
-import { products } from '@/data/products';
+import { getBrandById } from '@/lib/brands/repo';
+import { listProductsByBrand } from '@/lib/products/repo';
 import { concerns } from '@/data/concerns';
 import { reviews } from '@/data/reviews';
 import BrandAuditReport from '@/components/common/BrandAuditReport';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const brand = brands.find(b => b.id === resolvedParams.id);
+  const brand = await getBrandById(resolvedParams.id);
 
   if (!brand) {
     notFound();
   }
 
-  const brandProducts = products.filter(p => p.brandId === brand.id);
-  const repProducts = products.filter(p => brand.representativeProductIds.includes(p.id));
+  const brandProducts = await listProductsByBrand(brand.id);
+  const repProducts = brandProducts.filter(p => brand.representativeProductIds.includes(p.id));
   const relatedConcerns = concerns.filter(c => brand.relatedConcernSlugs.includes(c.slug));
   const brandReviews = reviews.filter((review) => brandProducts.some((product) => product.id === review.productId));
 
@@ -128,7 +131,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <ReviewCard
                     key={review.id}
                     review={review}
-                    productName={products.find((product) => product.id === review.productId)?.name}
+                    productName={brandProducts.find((product) => product.id === review.productId)?.name}
                   />
                 ))}
               </div>

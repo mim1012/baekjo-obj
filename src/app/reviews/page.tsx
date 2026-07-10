@@ -1,5 +1,5 @@
 import { reviews } from '@/data/reviews';
-import { products } from '@/data/products';
+import { listProducts } from '@/lib/products/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
 import { Star } from 'lucide-react';
@@ -9,12 +9,16 @@ export const metadata = {
   description: '백조오브제를 경험한 반려가족들의 진솔한 후기를 만나보세요.',
 };
 
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
 export default async function ReviewsPage({
   searchParams,
 }: {
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter = 'all' } = await searchParams;
+  const products = await listProducts();
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'photo') return review.isPhotoReview;
     if (filter === 'all') return true;

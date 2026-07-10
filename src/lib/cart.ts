@@ -1,5 +1,4 @@
-import { CartItem } from '@/types';
-import { products } from '@/data/products';
+import { CartItem, Product } from '@/types';
 
 const CART_KEY = 'baekjo_cart';
 
@@ -69,7 +68,9 @@ export function getCartCount(): number {
   return getCart().reduce((sum, item) => sum + item.quantity, 0);
 }
 
-export function calculateCartTotal(items: CartItem[] = getCart()) {
+// products 는 이 함수를 부르는 화면이 (repo/공개 API 로 읽어온) 최신 카탈로그를 넘긴다.
+// cart.ts 는 클라이언트 번들에 포함되므로 mock 데이터나 서버 repo 를 정적 import 하지 않는다.
+export function calculateCartTotal(products: Product[], items: CartItem[] = getCart()) {
   const productsTotal = items.reduce((total, item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
     if (!product || product.price === null || product.price === undefined) return total;

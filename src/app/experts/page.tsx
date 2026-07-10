@@ -1,6 +1,6 @@
 import { Stethoscope, Utensils, Activity } from 'lucide-react';
 import Link from 'next/link';
-import { products } from '@/data/products';
+import { listProducts } from '@/lib/products/repo';
 import ProductCard from '@/components/common/ProductCard';
 
 export const metadata = {
@@ -8,7 +8,11 @@ export const metadata = {
   description: '수의학, 영양, 행동 관점의 추천 기준과 검수 예정 상품을 안내합니다.',
 };
 
-export default function ExpertsPage() {
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
+export default async function ExpertsPage() {
+  const products = await listProducts();
   const recommendedProducts = products.filter(p => p.isRecommended).slice(0, 4);
 
   return (

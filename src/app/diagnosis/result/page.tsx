@@ -4,15 +4,18 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getSurveyResult } from '@/data/survey';
-import { brands } from '@/data/brands';
-import { products } from '@/data/products';
+import { getPublicBrands, getPublicProducts } from '@/lib/storage';
 import BrandCard from '@/components/common/BrandCard';
 import ProductCard from '@/components/common/ProductCard';
 import { ArrowRight, CheckCircle2, ShieldCheck, HeartHandshake } from 'lucide-react';
+import type { Brand, Product } from '@/types';
 
 export default function DiagnosisResultPage() {
   const router = useRouter();
   const [result, setResult] = useState<ReturnType<typeof getSurveyResult> | null>(null);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
   useEffect(() => {
     const saved = localStorage.getItem('baekjo_survey_answers');
@@ -25,7 +28,20 @@ export default function DiagnosisResultPage() {
     setResult(getSurveyResult(answers));
   }, [router]);
 
-  if (!result) return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC]">분석 중...</div>;
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getPublicBrands(), getPublicProducts()]).then(([brandList, productList]) => {
+      if (cancelled) return;
+      setBrands(brandList);
+      setProducts(productList);
+      setCatalogLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!result || catalogLoading) return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC]">분석 중...</div>;
 
   const recommendedBrands = brands.filter(b => result.recommendation.brandIds.includes(b.id));
   const recommendedProducts = products.filter(p => result.recommendation.productIds.includes(p.id));

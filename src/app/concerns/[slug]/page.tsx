@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Info, CheckCircle, ShieldCheck } from 'lucide-react';
 import { concerns } from '@/data/concerns';
-import { products } from '@/data/products';
-import { brands } from '@/data/brands';
+import { listProducts } from '@/lib/products/repo';
+import { listBrands } from '@/lib/brands/repo';
 import { reviews } from '@/data/reviews';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
@@ -13,6 +13,9 @@ import EmptyState from '@/components/common/EmptyState';
 // But for simplicity in a basic App Router setup, if we don't await, it might throw a warning.
 // Let's use it as a Promise.
 
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
 export default async function ConcernDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = await params;
   const concern = concerns.find(c => c.slug === resolvedParams.slug);
@@ -21,8 +24,9 @@ export default async function ConcernDetailPage({ params }: { params: Promise<{ 
     notFound();
   }
 
-  const recommendedProducts = products.filter(p => concern.recommendedProductIds.includes(p.id));
-  const recommendedBrands = brands.filter(b => concern.recommendedBrandIds.includes(b.id));
+  const [allProducts, allBrands] = await Promise.all([listProducts(), listBrands()]);
+  const recommendedProducts = allProducts.filter(p => concern.recommendedProductIds.includes(p.id));
+  const recommendedBrands = allBrands.filter(b => concern.recommendedBrandIds.includes(b.id));
   // Find reviews for the recommended products
   const relatedReviews = reviews.filter(r => concern.recommendedProductIds.includes(r.productId));
 
@@ -128,7 +132,7 @@ export default async function ConcernDetailPage({ params }: { params: Promise<{ 
               {relatedReviews.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {relatedReviews.slice(0, 4).map(review => {
-                    const product = products.find(p => p.id === review.productId);
+                    const product = allProducts.find(p => p.id === review.productId);
                     return <ReviewCard key={review.id} review={review} productName={product?.name} />;
                   })}
                 </div>
