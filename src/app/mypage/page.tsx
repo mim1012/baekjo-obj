@@ -9,6 +9,7 @@ import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
+import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
 export default function MyPage() {
   const mounted = useMounted();
@@ -82,7 +83,11 @@ export default function MyPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3 space-y-8">
-            
+
+            {currentUser &&
+              (!currentUser.provider || currentUser.provider === 'email') &&
+              currentUser.emailVerified === false && <EmailVerifyBanner />}
+
             {/* Orders */}
             <section id="orders" className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
               <div className="flex items-center justify-between mb-6">

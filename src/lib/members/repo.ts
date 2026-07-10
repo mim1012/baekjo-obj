@@ -27,11 +27,12 @@ interface MemberRow {
   role: 'user' | 'admin';
   status: 'active' | 'inactive';
   profile_image: string | null;
+  email_verified: boolean;
   created_at: string;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, created_at';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -47,6 +48,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     createdAt: row.created_at,
     provider: row.provider,
     profileImage: row.profile_image ?? undefined,
+    emailVerified: row.email_verified,
     passwordHash: row.password_hash,
   };
 }
@@ -66,6 +68,7 @@ export function toUser(record: MemberRecord): User {
     createdAt: record.createdAt,
     provider: record.provider,
     profileImage: record.profileImage,
+    emailVerified: record.emailVerified,
   };
 }
 
@@ -193,6 +196,9 @@ export async function upsertSocialMember(input: UpsertSocialMemberInput): Promis
       provider_id: input.providerId,
       profile_image: input.profileImage,
       role: 'user',
+      // 소셜 제공자가 이미 검증한 실제 이메일이면 인증 완료 상태로 넣는다.
+      // 플레이스홀더 이메일(이메일 미제공 소셜 계정)은 검증할 대상이 없으므로 false.
+      email_verified: Boolean(input.email),
     })
     .select(SELECT_COLUMNS)
     .single();
@@ -217,6 +223,14 @@ export async function updateMemberPassword(id: string, passwordHash: string): Pr
   const { error } = await getSupabase()
     .from('members')
     .update({ password_hash: passwordHash })
+    .eq('id', id);
+  if (error) throw error;
+}
+
+export async function markEmailVerified(id: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('members')
+    .update({ email_verified: true })
     .eq('id', id);
   if (error) throw error;
 }

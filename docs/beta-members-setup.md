@@ -34,9 +34,20 @@
 ```
 SUPABASE_URL=            # https://xxxx.supabase.co — 서버 전용
 SUPABASE_SECRET_KEY=     # sb_secret_... — 절대 NEXT_PUBLIC_ 금지
+APP_BASE_URL=            # https://baekjo-obj.vercel.app — 메일 링크 기준(프로덕션 필수, Host 헤더 신뢰 방지)
+SMTP_GMAIL_USER=         # 발신 구글 계정
+SMTP_GMAIL_APP_PASSWORD= # 구글 앱 비밀번호(2단계 인증 필요)
 ```
 
 `SUPABASE_ACCESS_TOKEN`(sbp_)은 마이그레이션 실행용 — 로컬 전용, 배포에 불필요.
+
+## 이메일 인증 + 비밀번호 찾기 (0002 마이그레이션)
+
+- **소프트 인증**: 가입 시 인증 메일 자동 발송(fire-and-forget), 미인증이어도 가입·로그인은 즉시 허용. 마이페이지 배너에서 재발송. 소셜 로그인은 제공자 검증 이메일이라 `email_verified=true`.
+- **비밀번호 찾기**: `/forgot-password` → 재설정 메일(30분 유효) → `/reset-password?token=`. 토큰은 32바이트 랜덤, DB에는 SHA-256만 저장, 단회용(원자적 소비).
+- 이메일 열거 방지: 재설정 요청은 가입 여부·소셜 여부와 무관하게 항상 200, 발송도 fire-and-forget으로 타이밍 균일.
+- 메일 폭탄 방지: member_tokens 기반 1시간 3건 스로틀(verify는 429, reset은 조용히 생략+200).
+- 메일 발송: Gmail SMTP(nodemailer). 앱 비밀번호 사용 — Gmail 일 ~500통 제한, 공개 런칭 시 Resend+도메인 전환 검토(발송 모듈 `src/lib/email/mailer.ts` 하나만 교체).
 
 ## 운영 절차
 
