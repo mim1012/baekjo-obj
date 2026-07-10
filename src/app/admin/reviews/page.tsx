@@ -1,9 +1,11 @@
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { reviews } from '@/data/reviews';
-import { products } from '@/data/products';
+import { listProducts } from '@/lib/products/repo';
 import { formatDate } from '@/lib/format';
 
-export default function AdminReviewsPage() {
+// 'use client' 가 없는 서버 컴포넌트라 repo 를 직접 부른다(콘센트 예외 — §서버 컴포넌트는 repo 직접).
+export default async function AdminReviewsPage() {
+  const products = await listProducts();
   return (
     <AdminResourcePage
       title="후기 관리"

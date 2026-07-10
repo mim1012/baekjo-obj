@@ -1,25 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getAllOrders, getInsuranceApplications } from '@/lib/storage';
-import { products } from '@/data/products';
+import { getAllOrders, getInsuranceApplications, getAdminProducts } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { Package, FileText, DollarSign, TrendingUp } from 'lucide-react';
 import { useMounted } from '@/lib/useMounted';
-import type { Order } from '@/types';
+import type { Order, Product } from '@/types';
 
 export default function AdminDashboard() {
   const mounted = useMounted();
   // 주문은 서버(관리자)에서 비동기로. 보험 신청은 이번 범위 밖이라 그대로 둔다.
   // 로딩 중과 실제 0건/0원을 구분해야 첫 프레임에 빈 통계가 잠깐 노출되지 않는다.
   const [orders, setOrders] = useState<Order[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    getAllOrders().then((list) => {
+    Promise.all([getAllOrders(), getAdminProducts()]).then(([orderList, productList]) => {
       if (cancelled) return;
-      setOrders(list);
+      setOrders(orderList);
+      setProducts(productList);
       setLoading(false);
     });
     return () => {

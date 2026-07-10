@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Lock, MessageCircle, ShieldCheck } from 'lucide-react';
-import { brands } from '@/data/brands';
-import { products } from '@/data/products';
+import { getProductById, listProducts } from '@/lib/products/repo';
+import { getBrandById } from '@/lib/brands/repo';
 import { qnaList } from '@/data/qna';
 import { reviews } from '@/data/reviews';
 import EmptyState from '@/components/common/EmptyState';
@@ -24,11 +24,14 @@ const defaultCautions = [
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = products.find((candidate) => candidate.id === id);
+  const product = await getProductById(id);
   if (!product) notFound();
 
-  const brand = brands.find((candidate) => candidate.id === product.brandId);
-  const relatedProducts = products
+  const [brand, allProducts] = await Promise.all([
+    getBrandById(product.brandId),
+    listProducts(),
+  ]);
+  const relatedProducts = allProducts
     .filter((candidate) => candidate.id !== product.id && (
       candidate.category === product.category
       || candidate.concernTags.some((tag) => product.concernTags.includes(tag))
@@ -37,7 +40,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const productReviews = reviews.filter((review) => review.productId === product.id);
   const productQna = qnaList.filter((qna) => qna.productId === product.id);
   const brandProducts = brand
-    ? products.filter((candidate) => brand.representativeProductIds.includes(candidate.id)).slice(0, 3)
+    ? allProducts.filter((candidate) => brand.representativeProductIds.includes(candidate.id)).slice(0, 3)
     : [];
   const recommendedFor = product.recommendedFor?.length ? product.recommendedFor : defaultRecommendations;
   const cautions = product.caution?.length ? product.caution : defaultCautions;

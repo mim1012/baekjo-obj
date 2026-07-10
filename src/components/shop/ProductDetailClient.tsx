@@ -8,7 +8,6 @@ import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { toggleWishlist, isWishlisted } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import { brands } from '@/data/brands';
 
 interface Props {
   product: Product;
@@ -21,7 +20,8 @@ export default function ProductDetailClient({ product }: Props) {
   const [selectedOption, setSelectedOption] = useState(product.options?.[0]?.id || '');
   const [, refreshWishlist] = useState(0);
   const wishlisted = mounted && isWishlisted(product.id);
-  const brandName = brands.find((brand) => brand.id === product.brandId)?.name ?? product.brandId;
+  // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
+  const brandName = product.brandName ?? product.brandId;
 
   const handleWishlist = () => {
     toggleWishlist(product.id);

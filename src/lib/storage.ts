@@ -1,4 +1,4 @@
-import { InsuranceApplication, Order, User } from '@/types';
+import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
 import { insuranceApplications } from '@/data/insuranceApplications';
 import { users as mockUsers } from '@/data/users';
 
@@ -203,6 +203,208 @@ export async function updateOrderStatus(
   });
   if (!response.ok) {
     throw new Error('order-update-failed');
+  }
+}
+
+/* ── 상품 / 브랜드 ─────────────────────────────────────────
+ * 공개 화면은 DB(서버 repo)를 GET /api/products·/api/brands 로 읽고, 관리자 화면은
+ * POST/PATCH/DELETE /api/admin/products·brands 로 쓴다. 컴포넌트는 fetch 를 직접 하지
+ * 않고 아래 콘센트만 거친다(§4). 실패는 orders 와 동일하게 빈 배열/undefined 로 접는다.
+ */
+
+/** 공개 상품 목록. GET /api/products(공개). 실패 시 빈 배열. */
+export async function getPublicProducts(filter?: {
+  categorySlug?: string;
+  brandId?: string;
+  petType?: string;
+}): Promise<Product[]> {
+  try {
+    const params = new URLSearchParams();
+    if (filter?.categorySlug) params.set('categorySlug', filter.categorySlug);
+    if (filter?.brandId) params.set('brandId', filter.brandId);
+    if (filter?.petType) params.set('petType', filter.petType);
+    const query = params.toString();
+    const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
+    if (!response.ok) return [];
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return [];
+  }
+}
+
+/** 단건 공개 상품. GET /api/products/[id]. 404·실패는 null. */
+export async function getPublicProductById(id: string): Promise<Product | null> {
+  try {
+    const response = await fetch(`/api/products/${encodeURIComponent(id)}`);
+    if (!response.ok) return null;
+    const { product } = (await response.json()) as { product: Product };
+    return product;
+  } catch {
+    return null;
+  }
+}
+
+/** 공개 브랜드 목록. GET /api/brands. 실패 시 빈 배열. */
+export async function getPublicBrands(): Promise<Brand[]> {
+  try {
+    const response = await fetch('/api/brands');
+    if (!response.ok) return [];
+    const { brands } = (await response.json()) as { brands: Brand[] };
+    return brands;
+  } catch {
+    return [];
+  }
+}
+
+/** 단건 공개 브랜드. GET /api/brands/[id]. 404·실패는 null. */
+export async function getPublicBrandById(id: string): Promise<Brand | null> {
+  try {
+    const response = await fetch(`/api/brands/${encodeURIComponent(id)}`);
+    if (!response.ok) return null;
+    const { brand } = (await response.json()) as { brand: Brand };
+    return brand;
+  } catch {
+    return null;
+  }
+}
+
+/** 관리자 상품 목록(비노출 포함). GET /api/admin/products(관리자 세션 필요). 실패 시 빈 배열. */
+export async function getAdminProducts(): Promise<Product[]> {
+  try {
+    const response = await fetch('/api/admin/products');
+    if (!response.ok) return [];
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return [];
+  }
+}
+
+/** 상품 생성 입력. id 는 서버가 정한다. */
+export type CreateProductInput = Omit<Product, 'id'>;
+export type UpdateProductInput = Partial<Omit<Product, 'id'>>;
+
+/** 상품 생성. POST /api/admin/products. */
+export async function createProduct(
+  input: CreateProductInput,
+): Promise<{ product?: Product; error?: string }> {
+  try {
+    const response = await fetch('/api/admin/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { product } = (await response.json()) as { product: Product };
+    return { product };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 상품 수정. PATCH /api/admin/products/[id]. */
+export async function updateProduct(
+  id: string,
+  updates: UpdateProductInput,
+): Promise<{ product?: Product; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { product } = (await response.json()) as { product: Product };
+    return { product };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 상품 삭제. DELETE /api/admin/products/[id]. */
+export async function deleteProduct(id: string): Promise<{ ok?: true; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) return { error: 'network' };
+    return { ok: true };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열. */
+export async function getAdminBrands(): Promise<Brand[]> {
+  try {
+    const response = await fetch('/api/admin/brands');
+    if (!response.ok) return [];
+    const { brands } = (await response.json()) as { brands: Brand[] };
+    return brands;
+  } catch {
+    return [];
+  }
+}
+
+export type CreateBrandInput = Omit<Brand, 'id'>;
+export type UpdateBrandInput = Partial<Omit<Brand, 'id'>>;
+
+/** 브랜드 생성. POST /api/admin/brands. */
+export async function createBrand(
+  input: CreateBrandInput,
+): Promise<{ brand?: Brand; error?: string }> {
+  try {
+    const response = await fetch('/api/admin/brands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { brand } = (await response.json()) as { brand: Brand };
+    return { brand };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 브랜드 수정. PATCH /api/admin/brands/[id]. */
+export async function updateBrand(
+  id: string,
+  updates: UpdateBrandInput,
+): Promise<{ brand?: Brand; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/brands/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { brand } = (await response.json()) as { brand: Brand };
+    return { brand };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 브랜드 삭제. DELETE /api/admin/brands/[id]. */
+export async function deleteBrand(id: string): Promise<{ ok?: true; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/brands/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) return { error: 'network' };
+    return { ok: true };
+  } catch {
+    return { error: 'network' };
   }
 }
 

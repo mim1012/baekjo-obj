@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react';
-import { brands } from '@/data/brands';
-import { products } from '@/data/products';
+import { getBrandById } from '@/lib/brands/repo';
+import { listProductsByBrand } from '@/lib/products/repo';
 import { concerns } from '@/data/concerns';
 import { reviews } from '@/data/reviews';
 import BrandAuditReport from '@/components/common/BrandAuditReport';
@@ -11,14 +11,14 @@ import ReviewCard from '@/components/common/ReviewCard';
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const brand = brands.find(b => b.id === resolvedParams.id);
+  const brand = await getBrandById(resolvedParams.id);
 
   if (!brand) {
     notFound();
   }
 
-  const brandProducts = products.filter(p => p.brandId === brand.id);
-  const repProducts = products.filter(p => brand.representativeProductIds.includes(p.id));
+  const brandProducts = await listProductsByBrand(brand.id);
+  const repProducts = brandProducts.filter(p => brand.representativeProductIds.includes(p.id));
   const relatedConcerns = concerns.filter(c => brand.relatedConcernSlugs.includes(c.slug));
   const brandReviews = reviews.filter((review) => brandProducts.some((product) => product.id === review.productId));
 
@@ -128,7 +128,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <ReviewCard
                     key={review.id}
                     review={review}
-                    productName={products.find((product) => product.id === review.productId)?.name}
+                    productName={brandProducts.find((product) => product.id === review.productId)?.name}
                   />
                 ))}
               </div>

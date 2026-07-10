@@ -1,20 +1,36 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { getCart, updateCartQuantity, removeFromCart } from '@/lib/cart';
-import { products } from '@/data/products';
+import { getPublicProducts } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
-import { CartItem } from '@/types';
+import { CartItem, Product } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
 
 export default function CartPage() {
   const mounted = useMounted();
   const [, refreshCart] = useState(0);
+  // 카트 항목은 localStorage(클라이언트) 기준이라 어떤 상품이 필요한지 서버에서
+  // 미리 알 수 없다 → 전체 카탈로그를 마운트 시 한 번 불러와 로컬에서 조인한다.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    let cancelled = false;
+    getPublicProducts().then((list) => {
+      if (cancelled) return;
+      setProducts(list);
+      setProductsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!mounted || productsLoading) return null;
 
   const cartItems: CartItem[] = getCart();
 

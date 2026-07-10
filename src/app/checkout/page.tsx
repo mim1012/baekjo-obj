@@ -3,9 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCart, clearCart } from '@/lib/cart';
-import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
-import { createOrder } from '@/lib/storage';
+import { createOrder, getPublicProducts } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 
@@ -17,7 +16,7 @@ interface CheckoutCartItem extends CartItem {
   totalPrice: number;
 }
 
-function getCheckoutItems(): CheckoutCartItem[] {
+function getCheckoutItems(products: Product[]): CheckoutCartItem[] {
   return getCart().flatMap((item) => {
     const product = products.find((candidate) => candidate.id === item.productId);
     if (!product) return [];
@@ -42,7 +41,24 @@ function getCheckoutItems(): CheckoutCartItem[] {
 export default function CheckoutPage() {
   const router = useRouter();
   const mounted = useMounted();
-  
+
+  // 카트와 마찬가지로 어떤 상품이 필요한지 서버에서 미리 알 수 없어 마운트 시
+  // 전체 카탈로그를 한 번 불러온다.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicProducts().then((list) => {
+      if (cancelled) return;
+      setProducts(list);
+      setProductsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Form State
   const [formData, setFormData] = useState({
     customerName: '',
@@ -53,11 +69,12 @@ export default function CheckoutPage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const cartItems = mounted ? getCheckoutItems() : [];
+  const ready = mounted && !productsLoading;
+  const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
 
   useEffect(() => {
-    if (mounted) {
+    if (ready) {
       if (cartItems.length === 0) {
         router.replace('/cart');
       } else if (hasUnpricedItems) {
@@ -65,9 +82,9 @@ export default function CheckoutPage() {
         router.replace('/cart');
       }
     }
-  }, [cartItems.length, hasUnpricedItems, mounted, router]);
+  }, [cartItems.length, hasUnpricedItems, ready, router]);
 
-  if (!mounted) return null;
+  if (!ready) return null;
 
   if (cartItems.length === 0 || hasUnpricedItems) {
     return null;

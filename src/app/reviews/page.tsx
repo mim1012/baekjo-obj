@@ -1,5 +1,5 @@
 import { reviews } from '@/data/reviews';
-import { products } from '@/data/products';
+import { listProducts } from '@/lib/products/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
 import { Star } from 'lucide-react';
@@ -15,6 +15,7 @@ export default async function ReviewsPage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter = 'all' } = await searchParams;
+  const products = await listProducts();
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'photo') return review.isPhotoReview;
     if (filter === 'all') return true;

@@ -1,30 +1,65 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
-import { products as mockProducts } from '@/data/products';
+import {
+  getAdminProducts,
+  getAdminBrands,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+} from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { Plus, Trash2, Edit2, Search, Settings } from 'lucide-react';
+import type { Brand, Product } from '@/types';
+
+interface ProductFormState {
+  name: string;
+  brandId: string;
+  category: string;
+  lifestyleCategory: string;
+  price: string;
+}
+
+const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '' };
 
 export default function AdminProductsDashboard() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
   const [activeCategory, setActiveCategory] = useState<string | null>(null); // null means 'All'
   const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle'>('product');
-  
+
   // Local state for categories
   const [productCats, setProductCats] = useState<string[]>(categorySettings.productCategories);
   const [lifestyleCats, setLifestyleCats] = useState<string[]>(categorySettings.lifestyleCategories);
-  
+
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  // Local state for mock products
-  const [localProducts, setLocalProducts] = useState(mockProducts);
+  // 상품·브랜드는 서버(관리자)에서 비동기로 불러온다(§4 콘센트 — 컴포넌트에서 fetch 직접 금지).
+  const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Add product modal state
+
+  // Add/Edit product modal state
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [form, setForm] = useState<ProductFormState>(emptyForm);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getAdminProducts(), getAdminBrands()]).then(([productList, brandList]) => {
+      if (cancelled) return;
+      setProducts(productList);
+      setBrands(brandList);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSaveCategories = (newCats: string[], type: 'product' | 'lifestyle') => {
     if (type === 'product') {
@@ -74,7 +109,7 @@ export default function AdminProductsDashboard() {
   };
 
   // Filter products
-  const filteredProducts = localProducts.filter(p => {
+  const filteredProducts = products.filter(p => {
     if (searchQuery && !p.name.includes(searchQuery)) return false;
     if (activeCategory) {
       if (activeGroup === 'product' && p.category !== activeCategory) return false;
@@ -82,6 +117,107 @@ export default function AdminProductsDashboard() {
     }
     return true;
   });
+
+  const openAddModal = () => {
+    setForm({
+      name: '',
+      brandId: brands[0]?.id ?? '',
+      category: activeGroup === 'product' && activeCategory ? activeCategory : (productCats[0] ?? ''),
+      lifestyleCategory: activeGroup === 'lifestyle' && activeCategory ? activeCategory : '',
+      price: '',
+    });
+    setEditingProduct(null);
+    setIsAddingProduct(true);
+  };
+
+  const openEditModal = (product: Product) => {
+    setForm({
+      name: product.name,
+      brandId: product.brandId,
+      category: product.category,
+      lifestyleCategory: product.lifestyleCategory ?? '',
+      price: product.price !== null && product.price !== undefined ? String(product.price) : '',
+    });
+    setEditingProduct(product);
+    setIsAddingProduct(true);
+  };
+
+  const closeModal = () => {
+    setIsAddingProduct(false);
+    setEditingProduct(null);
+  };
+
+  const handleDelete = async (product: Product) => {
+    if (!window.confirm(`'${product.name}' 상품을 삭제하시겠습니까?`)) return;
+    const before = products;
+    setProducts((prev) => prev.filter((p) => p.id !== product.id));
+    const { error } = await deleteProduct(product.id);
+    if (error) {
+      alert('상품 삭제에 실패했습니다.');
+      setProducts(before);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim() || !form.brandId || !form.category) {
+      alert('상품명, 브랜드, 카테고리는 필수입니다.');
+      return;
+    }
+    setSaving(true);
+    const brandName = brands.find((b) => b.id === form.brandId)?.name;
+    const price = form.price.trim() ? Number(form.price) : null;
+
+    if (editingProduct) {
+      const { product, error } = await updateProduct(editingProduct.id, {
+        name: form.name.trim(),
+        brandId: form.brandId,
+        brandName,
+        category: form.category,
+        lifestyleCategory: form.lifestyleCategory || form.category,
+        price,
+      });
+      setSaving(false);
+      if (error || !product) {
+        alert('상품 수정에 실패했습니다.');
+        return;
+      }
+      setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
+      closeModal();
+      return;
+    }
+
+    const { product, error } = await createProduct({
+      name: form.name.trim(),
+      brandId: form.brandId,
+      brandName,
+      category: form.category,
+      lifestyleCategory: form.lifestyleCategory || form.category,
+      price,
+      rating: 0,
+      reviewCount: 0,
+      concernTags: [],
+      petType: 'both',
+      ageGroup: 'all',
+      // 이미지 업로드는 이번 범위 밖 — 플레이스홀더 아이콘으로 등록 후 추후 교체.
+      image: '/images/icon-product.svg',
+      stock: 0,
+      description: form.name.trim(),
+      isBest: false,
+      isRecommended: false,
+    });
+    setSaving(false);
+    if (error || !product) {
+      alert('상품 등록에 실패했습니다.');
+      return;
+    }
+    setProducts((prev) => [product, ...prev]);
+    closeModal();
+  };
+
+  if (loading) {
+    return <p className="p-12 text-center text-sm text-[#7B827C]">상품 목록 불러오는 중…</p>;
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)]">
@@ -109,7 +245,7 @@ export default function AdminProductsDashboard() {
               라이프스타일
             </button>
           </div>
-          
+
           <div className="flex-1 overflow-y-auto p-2">
             <button
               onClick={() => setActiveCategory(null)}
@@ -117,9 +253,9 @@ export default function AdminProductsDashboard() {
                 activeCategory === null ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
               }`}
             >
-              전체 보기 <span className="float-right opacity-60 text-xs mt-0.5">{localProducts.length}</span>
+              전체 보기 <span className="float-right opacity-60 text-xs mt-0.5">{products.length}</span>
             </button>
-            
+
             {(activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
               <div key={idx} className="group relative mb-1">
                 {editingIndex === idx ? (
@@ -143,9 +279,9 @@ export default function AdminProductsDashboard() {
                   >
                     <span className="truncate block">{cat}</span>
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 text-xs">
-                      {localProducts.filter(p => activeGroup === 'product' ? p.category === cat : p.lifestyleCategory === cat).length}
+                      {products.filter(p => activeGroup === 'product' ? p.category === cat : p.lifestyleCategory === cat).length}
                     </span>
-                    
+
                     <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${activeCategory === cat ? 'text-white' : 'text-[#4F5751]'}`}>
                       <span onClick={(e) => startEditCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
                       <span onClick={(e) => handleDeleteCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
@@ -181,22 +317,22 @@ export default function AdminProductsDashboard() {
               </h2>
               <p className="mt-1 text-sm text-[#737A74]">총 {filteredProducts.length}개의 상품</p>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <label className="relative">
                 <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                <input 
-                  placeholder="상품명 검색..." 
+                <input
+                  placeholder="상품명 검색..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]" 
+                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
                 />
               </label>
-              <button 
-                onClick={() => setIsAddingProduct(true)}
+              <button
+                onClick={openAddModal}
                 className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
               >
-                <Plus className="size-4" /> 
+                <Plus className="size-4" />
                 {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
               </button>
             </div>
@@ -212,6 +348,7 @@ export default function AdminProductsDashboard() {
                       <th className="px-5 py-3.5 font-semibold">브랜드</th>
                       <th className="px-5 py-3.5 font-semibold">일반 카테고리</th>
                       <th className="px-5 py-3.5 font-semibold">라이프스타일</th>
+                      <th className="px-5 py-3.5 font-semibold">판매가</th>
                       <th className="px-5 py-3.5 text-right font-semibold">관리</th>
                     </tr>
                   </thead>
@@ -219,7 +356,7 @@ export default function AdminProductsDashboard() {
                     {filteredProducts.map((product) => (
                       <tr key={product.id} className="hover:bg-[#FAF9F5] transition-colors">
                         <td className="px-5 py-3 font-medium text-[#202521]">{product.name}</td>
-                        <td className="px-5 py-3 text-[#59615B]">{product.brandId}</td>
+                        <td className="px-5 py-3 text-[#59615B]">{product.brandName ?? product.brandId}</td>
                         <td className="px-5 py-3">
                           <span className="inline-flex bg-[#EDF0EC] border border-[#C9CEC9] px-2 py-0.5 rounded text-[11px] text-[#4F5751]">
                             {product.category}
@@ -232,15 +369,14 @@ export default function AdminProductsDashboard() {
                             </span>
                           ) : <span className="text-slate-300">-</span>}
                         </td>
+                        <td className="px-5 py-3 tabular-nums text-[#4F5751]">
+                          {product.price !== null && product.price !== undefined ? formatPrice(product.salePrice || product.price) : '-'}
+                        </td>
                         <td className="px-5 py-3 text-right">
-                          <button className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
+                          <button onClick={() => openEditModal(product)} className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
                             <Settings className="size-4" />
                           </button>
-                          <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => {
-                            if (window.confirm(`'${product.name}' 상품을 삭제하시겠습니까?`)) {
-                              setLocalProducts(prev => prev.filter(p => p.id !== product.id));
-                            }
-                          }}>
+                          <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => handleDelete(product)}>
                             <Trash2 className="size-4" />
                           </button>
                         </td>
@@ -252,48 +388,89 @@ export default function AdminProductsDashboard() {
             ) : (
               <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-[#D1D0C8] rounded-xl bg-white/50 text-[#7B827C]">
                 <p>해당하는 상품이 없습니다.</p>
-                <button onClick={() => setIsAddingProduct(true)} className="mt-3 text-sm font-semibold text-[#2F3B34] underline underline-offset-4">
+                <button onClick={openAddModal} className="mt-3 text-sm font-semibold text-[#2F3B34] underline underline-offset-4">
                   첫 상품 등록하기
                 </button>
               </div>
             )}
           </div>
 
-          {/* Add Product Modal (Mock) */}
+          {/* Add/Edit Product Modal */}
           {isAddingProduct && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
                 <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
-                  <h3 className="font-bold text-[#202521]">새 상품 등록</h3>
-                  <button onClick={() => setIsAddingProduct(false)} className="text-[#8B928C] hover:text-black">✕</button>
+                  <h3 className="font-bold text-[#202521]">{editingProduct ? '상품 수정' : '새 상품 등록'}</h3>
+                  <button type="button" onClick={closeModal} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
-                    <input type="text" className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="예: 시그니처 연어 사료 2kg" />
+                    <input
+                      type="text"
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
+                      placeholder="예: 시그니처 연어 사료 2kg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">브랜드</label>
+                    <select
+                      required
+                      value={form.brandId}
+                      onChange={(e) => setForm({ ...form, brandId: e.target.value })}
+                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
+                    >
+                      <option value="" disabled>선택...</option>
+                      {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-xs font-semibold text-[#59615B] mb-1.5">일반 카테고리</label>
-                      <select className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white" defaultValue={activeGroup === 'product' && activeCategory ? activeCategory : ''}>
+                      <select
+                        required
+                        value={form.category}
+                        onChange={(e) => setForm({ ...form, category: e.target.value })}
+                        className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
+                      >
                         <option value="" disabled>선택...</option>
                         {productCats.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#59615B] mb-1.5">라이프스타일 카테고리</label>
-                      <select className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white" defaultValue={activeGroup === 'lifestyle' && activeCategory ? activeCategory : ''}>
+                      <select
+                        value={form.lifestyleCategory}
+                        onChange={(e) => setForm({ ...form, lifestyleCategory: e.target.value })}
+                        className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
+                      >
                         <option value="">(없음)</option>
                         {lifestyleCats.map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 상담 후 안내)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
+                      placeholder="예: 32000"
+                    />
+                  </div>
                 </div>
                 <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
-                  <button onClick={() => setIsAddingProduct(false)} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
-                  <button onClick={() => setIsAddingProduct(false)} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823]">등록 완료</button>
+                  <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
+                  <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
+                    {saving ? '저장 중…' : editingProduct ? '수정 완료' : '등록 완료'}
+                  </button>
                 </div>
-              </div>
+              </form>
             </div>
           )}
         </div>
