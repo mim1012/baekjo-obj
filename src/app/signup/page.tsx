@@ -35,6 +35,7 @@ export default function SignupPage() {
     businessNumber: '',
     termsAgree: false,
     privacyAgree: false,
+    keepLoggedIn: true,
   });
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -70,7 +71,7 @@ export default function SignupPage() {
       newUser.businessNumber = formData.businessNumber;
     }
 
-    registerUser(newUser);
+    registerUser(newUser, formData.keepLoggedIn);
 
     if (signupType === 'user') {
       router.push('/mypage');
@@ -222,6 +223,10 @@ export default function SignupPage() {
                 <span><strong>[필수]</strong> 개인정보 수집 및 이용에 동의합니다.</span>
               </label>
             </div>
+            <label className="flex cursor-pointer items-center gap-3 text-sm text-[#5F6761]">
+              <input type="checkbox" name="keepLoggedIn" checked={formData.keepLoggedIn} onChange={handleChange} className="size-4" />
+              로그인 상태 유지 (자동 로그인)
+            </label>
 
             <button type="submit" className="min-h-14 w-full bg-[#2F3B34] px-6 text-base font-semibold text-white">
               {signupType === 'user' ? '회원가입' : '가입 신청하기'}

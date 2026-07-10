@@ -136,6 +136,7 @@ export interface CartItem {
 /* ── 보험 분석 신청 ─────────────────────────── */
 export interface InsuranceApplication {
   id: string;
+  userEmail?: string;
   name: string;
   phone: string;
   petName: string;
@@ -173,6 +174,7 @@ export type InsuranceStatus =
 /* ── 주문 ─────────────────────────────────────── */
 export interface Order {
   id: string;
+  userEmail?: string;
   customerName: string;
   phone: string;
   address: string;

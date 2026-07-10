@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
-import { login, isLoggedIn } from '@/lib/storage';
+import { login, isLoggedIn, setCurrentUser } from '@/lib/storage';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,7 +26,18 @@ export default function LoginPage() {
     // 관리자 로그인 분기 처리
     if (email === 'admin@naver.com') {
       if (password === 'admin1234') {
-        login(email);
+        setCurrentUser(
+          {
+            id: 'admin',
+            name: '관리자',
+            email,
+            phone: '',
+            role: 'admin',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          },
+          remember,
+        );
         if (typeof window !== 'undefined') {
           if (remember) localStorage.setItem('baekjo_remember_email', email);
           else localStorage.removeItem('baekjo_remember_email');
@@ -40,7 +51,7 @@ export default function LoginPage() {
     }
 
     // 일반 유저
-    login(email);
+    login(email, remember);
     if (typeof window !== 'undefined') {
       if (remember) localStorage.setItem('baekjo_remember_email', email);
       else localStorage.removeItem('baekjo_remember_email');
@@ -127,11 +138,23 @@ export default function LoginPage() {
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">
             <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 로그인</p>
             <div className="grid grid-cols-2 gap-2">
-              <button type="button" className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
-                카카오
+              <button
+                type="button"
+                className="flex items-center justify-center gap-2 rounded-md bg-[#FEE500] py-3 text-xs font-semibold text-[#191600] transition-opacity duration-150 hover:opacity-90"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="size-4" aria-hidden="true">
+                  <path d="M12 3C6.5 3 2 6.58 2 11c0 2.86 1.9 5.37 4.76 6.78-.21.75-.76 2.75-.87 3.18-.14.53.19.52.4.38.17-.11 2.66-1.81 3.74-2.55.63.09 1.29.14 1.97.14 5.5 0 10-3.58 10-8S17.5 3 12 3z" />
+                </svg>
+                카카오 로그인
               </button>
-              <button type="button" className="border border-[#CFCFC7] py-3 text-xs font-semibold text-[#475048] hover:bg-[#F0EEE8]">
-                네이버
+              <button
+                type="button"
+                className="flex items-center justify-center gap-2 rounded-md bg-[#03C75A] py-3 text-xs font-semibold text-white transition-opacity duration-150 hover:opacity-90"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="size-3.5" aria-hidden="true">
+                  <path d="M15.9 12.6 8.35 3H3v18h5.1v-9.6L15.65 21H21V3h-5.1z" />
+                </svg>
+                네이버 로그인
               </button>
             </div>
           </div>

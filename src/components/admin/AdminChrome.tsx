@@ -24,7 +24,9 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import BrandMark from '@/components/common/BrandMark';
-import { logout } from '@/lib/storage';
+import { useEffect } from 'react';
+import { logout, isAdmin } from '@/lib/storage';
+import { useMounted } from '@/lib/useMounted';
 
 const adminLinks = [
   { href: '/admin', label: '대시보드', icon: LayoutDashboard },
@@ -47,11 +49,21 @@ const adminLinks = [
 export default function AdminChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const mounted = useMounted();
+
+  useEffect(() => {
+    if (mounted && !isAdmin()) {
+      router.push('/login');
+    }
+  }, [mounted, router]);
 
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
+
+  // 관리자 인증 가드: 미로그인/비관리자는 렌더 차단 후 /login 으로 이동
+  if (!mounted || !isAdmin()) return null;
 
   return (
     <div className="flex min-h-dvh flex-col bg-[#EAE8E1] md:flex-row">

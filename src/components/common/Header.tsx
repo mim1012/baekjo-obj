@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogIn, Menu, Search, ShoppingBag, User, X, ChevronDown } from 'lucide-react';
+import { LogIn, LogOut, Menu, Search, ShoppingBag, User, X, ChevronDown } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import BrandMark from './BrandMark';
 import { getCartCount } from '@/lib/cart';
-import { getCurrentUser, logout } from '@/lib/storage';
+import { isLoggedIn, logout } from '@/lib/storage';
 
 const NAV_LINKS = [
   { label: '고민 해결', href: '/concerns' },
@@ -46,11 +46,21 @@ const subscribeToCart = (callback: () => void) => {
   };
 };
 
+const subscribeToAuth = (callback: () => void) => {
+  window.addEventListener('auth-changed', callback);
+  window.addEventListener('storage', callback);
+  return () => {
+    window.removeEventListener('auth-changed', callback);
+    window.removeEventListener('storage', callback);
+  };
+};
+
 export default function Header() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [shopAccordionOpen, setShopAccordionOpen] = useState(false);
   const cartCount = useSyncExternalStore(subscribeToCart, getCartCount, () => 0);
+  const loggedIn = useSyncExternalStore(subscribeToAuth, isLoggedIn, () => false);
 
   return (
     <header className="sticky top-0 z-50 w-full glass-panel border-b border-[rgba(15,23,42,0.06)] bg-[#FBFAF7]/90 backdrop-blur-md">
@@ -135,22 +145,22 @@ export default function Header() {
           >
             <Search className="size-5" />
           </Link>
-          {getCurrentUser() ? (
+          {loggedIn ? (
             <button
               onClick={() => {
                 logout();
                 window.location.reload();
               }}
               aria-label="로그아웃"
-              className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block text-xs font-semibold"
+              className="rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D]"
             >
-              로그아웃
+              <LogOut className="size-5" />
             </button>
           ) : (
             <Link
               href="/login"
               aria-label="로그인"
-              className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block"
+              className="rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D]"
             >
               <LogIn className="size-5" />
             </Link>
@@ -158,7 +168,7 @@ export default function Header() {
           <Link
             href="/mypage"
             aria-label="마이페이지"
-            className="hidden rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D] md:block"
+            className="rounded-full p-2.5 text-[#334155] transition-colors duration-150 hover:bg-[#FBFAF7] hover:text-[#17211D]"
           >
             <User className="size-5" />
           </Link>
@@ -260,6 +270,18 @@ export default function Header() {
                 </Link>
               );
             })}
+
+            {/* 모바일 전용: 검색(로그인·마이는 헤더 아이콘으로 상시 노출) */}
+            <div className="mt-2 flex flex-col gap-1 border-t border-[rgba(15,23,42,0.06)] pt-3">
+              <Link
+                href="/shop"
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 rounded-[12px] px-4 py-3 text-sm text-[#64748B] hover:bg-slate-50"
+              >
+                <Search className="size-4" />
+                상품 검색
+              </Link>
+            </div>
           </div>
         </nav>
       )}

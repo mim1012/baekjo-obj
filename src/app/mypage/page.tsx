@@ -23,15 +23,15 @@ export default function MyPage() {
 
   if (!mounted || !getCurrentUser()) return null;
 
-  const orders = getOrders().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
-  const insuranceApps = getInsuranceApplications().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  const currentUser = getCurrentUser();
+  const orders = getOrders()
+    .filter((order) => order.userEmail && order.userEmail === currentUser?.email)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const insuranceApps = getInsuranceApplications()
+    .filter((app) => app.userEmail && app.userEmail === currentUser?.email)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const wishlistedIds = getWishlist();
   const wishlist = products.filter((product) => wishlistedIds.includes(product.id));
-  const currentUser = getCurrentUser();
   return (
     <div className="bg-[#F4F2EC] min-h-dvh py-12">
       <div className="site-container">
@@ -48,7 +48,7 @@ export default function MyPage() {
                     <User className="h-8 w-8" />
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-gray-900">{currentUser?.name ?? '백조고객'}님</div>
+                    <div className="text-lg font-bold text-gray-900">{currentUser?.name || currentUser?.email || '회원'}님</div>
                     <div className="text-sm text-[#68776C] font-medium">{currentUser ? currentUser.email : '로그인 후 맞춤 정보를 확인하세요'}</div>
                   </div>
                 </div>

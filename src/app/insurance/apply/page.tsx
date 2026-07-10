@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveInsuranceApplication } from '@/lib/storage';
+import { saveInsuranceApplication, getCurrentUser } from '@/lib/storage';
 
 const coverageOptions = [
   '수술/입원비 집중 보장',
@@ -53,6 +53,7 @@ export default function InsuranceApplyPage() {
 
     saveInsuranceApplication({
       id: `INS-${Date.now()}`,
+      userEmail: getCurrentUser()?.email,
       name: formData.name,
       phone: formData.phone,
       petName: formData.petName,

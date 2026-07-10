@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, clearCart } from '@/lib/cart';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
-import { addOrder } from '@/lib/storage';
+import { addOrder, getCurrentUser } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 
@@ -92,6 +92,7 @@ export default function CheckoutPage() {
     
     addOrder({
       id: orderId,
+      userEmail: getCurrentUser()?.email,
       customerName: formData.customerName,
       phone: formData.phone,
       address: formData.address,

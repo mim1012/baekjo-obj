@@ -131,16 +131,38 @@ const USER_KEY = 'baekjo_user';
 const REGISTERED_USERS_KEY = 'baekjo_registered_users';
 
 export function getCurrentUser(): User | null {
-  return getJSON<User | null>(USER_KEY, null);
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(USER_KEY) ?? localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as User) : null;
+  } catch {
+    return null;
+  }
 }
 
-export function setCurrentUser(user: User | null): void {
+export function setCurrentUser(user: User | null, persist = true): void {
   if (typeof window === 'undefined') return;
-  if (user) {
-    setJSON(USER_KEY, user);
-  } else {
-    localStorage.removeItem(USER_KEY);
+  try {
+    if (user) {
+      const raw = JSON.stringify(user);
+      if (persist) {
+        // 자동로그인: 영속 저장 (브라우저 재시작해도 유지)
+        localStorage.setItem(USER_KEY, raw);
+        sessionStorage.removeItem(USER_KEY);
+      } else {
+        // 세션 전용: 이 탭에서만 유효. 공유 localStorage는 건드리지 않아
+        // 다른 탭의 "자동로그인 유지" 세션을 끊지 않는다.
+        sessionStorage.setItem(USER_KEY, raw);
+      }
+    } else {
+      localStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(USER_KEY);
+    }
+  } catch {
+    // 저장소 사용 불가(시크릿 모드·쿼터 초과 등) — 조용히 실패
   }
+  // 헤더 등 로그인 상태 구독자에게 즉시 알림 (같은 탭에서도 반영)
+  window.dispatchEvent(new Event('auth-changed'));
 }
 
 export function getUsers(): User[] {
@@ -151,11 +173,11 @@ export function getUsers(): User[] {
   );
 }
 
-export function registerUser(user: User): User {
+export function registerUser(user: User, persist = true): User {
   const registered = getJSON<User[]>(REGISTERED_USERS_KEY, []);
   registered.push(user);
   setJSON(REGISTERED_USERS_KEY, registered);
-  setCurrentUser(user);
+  setCurrentUser(user, persist);
   return user;
 }
 
@@ -171,25 +193,29 @@ export function updateUserStatus(id: string, status: User['status'], rejectReaso
   }
 }
 
-export function login(email: string): User {
+export function login(email: string, persist = true): User {
   const existing = getUsers().find(
     (user) => user.email.toLowerCase() === email.toLowerCase(),
   );
   const user: User = existing ?? {
     id: `u-${Date.now()}`,
-    name: email.split('@')[0] || '백조회원',
+    name: email.split('@')[0] || email,
     email,
     phone: '',
     role: 'user',
     status: 'active',
     createdAt: new Date().toISOString(),
   };
-  setCurrentUser(user);
+  setCurrentUser(user, persist);
   return user;
 }
 
 export function logout(): void {
   setCurrentUser(null);
+  // 공용 PC 대비: 기억된 이메일도 함께 정리
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('baekjo_remember_email');
+  }
 }
 
 export function isLoggedIn(): boolean {
