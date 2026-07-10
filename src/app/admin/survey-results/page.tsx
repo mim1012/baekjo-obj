@@ -63,34 +63,36 @@ export default function AdminSurveyResultsPage() {
       </div>
 
       <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50 text-gray-500">
-            <tr>
-              <th className="px-6 py-3 font-medium">참여일시</th>
-              <th className="px-6 py-3 font-medium">참여자</th>
-              <th className="px-6 py-3 font-medium">동물/연령</th>
-              <th className="px-6 py-3 font-medium">주요 고민</th>
-              <th className="px-6 py-3 font-medium">도출 결과(방향)</th>
-              <th className="px-6 py-3 font-medium text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {paginatedResults.map(r => (
-              <tr key={r.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-gray-500">{formatDate(r.date)}</td>
-                <td className="px-6 py-4 font-medium text-gray-900">{r.user}</td>
-                <td className="px-6 py-4 text-gray-500">{r.petType} / {r.age}</td>
-                <td className="px-6 py-4 text-gray-900">{r.concern}</td>
-                <td className="px-6 py-4 text-gray-500">{r.resultDirection}</td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <button onClick={() => setEditingResult(r)} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">상세/수정</button>
-                  <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-left text-sm whitespace-nowrap">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                <th className="px-6 py-3 font-medium">참여일시</th>
+                <th className="px-6 py-3 font-medium">참여자</th>
+                <th className="px-6 py-3 font-medium">동물/연령</th>
+                <th className="px-6 py-3 font-medium">주요 고민</th>
+                <th className="px-6 py-3 font-medium">도출 결과(방향)</th>
+                <th className="px-6 py-3 font-medium text-right">관리</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedResults.map(r => (
+                <tr key={r.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-gray-500">{formatDate(r.date)}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{r.user}</td>
+                  <td className="px-6 py-4 text-gray-500">{r.petType} / {r.age}</td>
+                  <td className="px-6 py-4 text-gray-900">{r.concern}</td>
+                  <td className="px-6 py-4 text-gray-500">{r.resultDirection}</td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <button onClick={() => setEditingResult(r)} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">상세/수정</button>
+                    <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         {results.length === 0 && (
           <div className="py-10 text-center text-gray-500">
             진단 참여 내역이 없습니다.

@@ -205,49 +205,51 @@ export default function AdminProductsDashboard() {
           <div className="flex-1 overflow-y-auto p-6">
             {filteredProducts.length > 0 ? (
               <div className="bg-white border border-[#D1D0C8] rounded-xl overflow-hidden shadow-sm">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#F0EEE8] text-xs text-[#697069] border-b border-[#D1D0C8]">
-                    <tr>
-                      <th className="px-5 py-3.5 font-semibold">상품명</th>
-                      <th className="px-5 py-3.5 font-semibold">브랜드</th>
-                      <th className="px-5 py-3.5 font-semibold">일반 카테고리</th>
-                      <th className="px-5 py-3.5 font-semibold">라이프스타일</th>
-                      <th className="px-5 py-3.5 text-right font-semibold">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#E1DFD8]">
-                    {filteredProducts.map((product) => (
-                      <tr key={product.id} className="hover:bg-[#FAF9F5] transition-colors">
-                        <td className="px-5 py-3 font-medium text-[#202521]">{product.name}</td>
-                        <td className="px-5 py-3 text-[#59615B]">{product.brandId}</td>
-                        <td className="px-5 py-3">
-                          <span className="inline-flex bg-[#EDF0EC] border border-[#C9CEC9] px-2 py-0.5 rounded text-[11px] text-[#4F5751]">
-                            {product.category}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3">
-                          {product.lifestyleCategory ? (
-                            <span className="inline-flex bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] text-slate-600">
-                              {product.lifestyleCategory}
-                            </span>
-                          ) : <span className="text-slate-300">-</span>}
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <button className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
-                            <Settings className="size-4" />
-                          </button>
-                          <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => {
-                            if (window.confirm(`'${product.name}' 상품을 삭제하시겠습니까?`)) {
-                              setLocalProducts(prev => prev.filter(p => p.id !== product.id));
-                            }
-                          }}>
-                            <Trash2 className="size-4" />
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="bg-[#F0EEE8] text-xs text-[#697069] border-b border-[#D1D0C8]">
+                      <tr>
+                        <th className="px-5 py-3.5 font-semibold">상품명</th>
+                        <th className="px-5 py-3.5 font-semibold">브랜드</th>
+                        <th className="px-5 py-3.5 font-semibold">일반 카테고리</th>
+                        <th className="px-5 py-3.5 font-semibold">라이프스타일</th>
+                        <th className="px-5 py-3.5 text-right font-semibold">관리</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-[#E1DFD8]">
+                      {filteredProducts.map((product) => (
+                        <tr key={product.id} className="hover:bg-[#FAF9F5] transition-colors">
+                          <td className="px-5 py-3 font-medium text-[#202521]">{product.name}</td>
+                          <td className="px-5 py-3 text-[#59615B]">{product.brandId}</td>
+                          <td className="px-5 py-3">
+                            <span className="inline-flex bg-[#EDF0EC] border border-[#C9CEC9] px-2 py-0.5 rounded text-[11px] text-[#4F5751]">
+                              {product.category}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {product.lifestyleCategory ? (
+                              <span className="inline-flex bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] text-slate-600">
+                                {product.lifestyleCategory}
+                              </span>
+                            ) : <span className="text-slate-300">-</span>}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            <button className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
+                              <Settings className="size-4" />
+                            </button>
+                            <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => {
+                              if (window.confirm(`'${product.name}' 상품을 삭제하시겠습니까?`)) {
+                                setLocalProducts(prev => prev.filter(p => p.id !== product.id));
+                              }
+                            }}>
+                              <Trash2 className="size-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-[#D1D0C8] rounded-xl bg-white/50 text-[#7B827C]">
