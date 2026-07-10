@@ -130,7 +130,7 @@ export default function Home() {
               {/* Left inside card: 4 Icons & Signature */}
               <div className="flex-1 flex flex-col justify-between p-8 lg:p-10 border-b md:border-b-0 md:border-r border-[#E7E0D5]/60">
                 {/* 4 Icons Grid */}
-                <div className="grid grid-cols-4 gap-2 text-center w-full">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center w-full">
                   {[
                     { icon: Activity, title: settings.audit.icons[0]?.title || '브랜드 운영 방향' },
                     { icon: Leaf, title: settings.audit.icons[1]?.title || '성분·원료 정보' },
