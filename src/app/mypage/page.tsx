@@ -1,24 +1,42 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
-import { getOrders, getInsuranceApplications, getWishlist, getCurrentUser } from '@/lib/storage';
+import { getMyOrders, getInsuranceApplications, getWishlist, getCurrentUser } from '@/lib/storage';
 import { products } from '@/data/products';
 import { reviews } from '@/data/reviews';
 import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
+import type { Order } from '@/types';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
 export default function MyPage() {
   const mounted = useMounted();
+  // 주문은 서버(세션 기준 내 주문)에서 비동기로 불러온다. 세션이 없으면 빈 배열.
+  // 로딩 중과 '주문 없음'을 구분해야 주문 있는 회원에게 빈 상태가 잠깐 노출되지 않는다.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyOrders().then((list) => {
+      if (cancelled) return;
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setOrders(sorted);
+      setOrdersLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!mounted) return null;
 
-  const orders = getOrders().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
   const insuranceApps = getInsuranceApplications().sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
@@ -96,7 +114,9 @@ export default function MyPage() {
                 </h2>
               </div>
               
-              {orders.length === 0 ? (
+              {ordersLoading ? (
+                <div className="py-10 text-center text-gray-400 bg-gray-50 rounded-sm">주문 내역을 불러오는 중…</div>
+              ) : orders.length === 0 ? (
                 <div className="py-10 text-center text-gray-500 bg-gray-50 rounded-sm">주문 내역이 없습니다.</div>
               ) : (
                 <div className="space-y-4">

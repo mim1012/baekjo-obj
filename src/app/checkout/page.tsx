@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getCart, clearCart } from '@/lib/cart';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
-import { addOrder } from '@/lib/storage';
+import { createOrder } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 
@@ -51,6 +51,7 @@ export default function CheckoutPage() {
     memo: '',
     paymentMethod: '무통장입금'
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const cartItems = mounted ? getCheckoutItems() : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
@@ -76,10 +77,11 @@ export default function CheckoutPage() {
   const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
   const finalPrice = totalProductsPrice + deliveryFee;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Create Mock Order
+    if (submitting) return;
+
+    // 주문 항목 구성. id·createdAt·member_id 는 서버가 정하므로 여기서 넘기지 않는다.
     const orderItems: OrderItem[] = cartItems.map(item => ({
       productId: item.productId,
       productName: item.product.name,
@@ -88,23 +90,23 @@ export default function CheckoutPage() {
       price: item.price
     }));
 
-    const orderId = `ORD-${new Date().toISOString().replace(/\D/g, '').slice(0,14)}`;
-    
-    addOrder({
-      id: orderId,
-      customerName: formData.customerName,
-      phone: formData.phone,
-      address: formData.address,
-      items: orderItems,
-      totalPrice: totalProductsPrice,
-      deliveryFee,
-      paymentMethod: formData.paymentMethod,
-      deliveryMemo: formData.memo,
-      orderStatus: '주문접수',
-      paymentStatus: formData.paymentMethod === '무통장입금' ? '입금대기' : '결제완료',
-      deliveryStatus: '배송준비',
-      createdAt: new Date().toISOString()
-    });
+    // totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 는 서버(POST /api/orders)가
+    // 카탈로그 가격으로 재계산·고정하므로 여기서 넘기지 않는다(콘센트 축소 — src/lib/storage.ts 참고).
+    setSubmitting(true);
+    try {
+      await createOrder({
+        customerName: formData.customerName,
+        phone: formData.phone,
+        address: formData.address,
+        items: orderItems,
+        paymentMethod: formData.paymentMethod,
+        deliveryMemo: formData.memo,
+      });
+    } catch {
+      setSubmitting(false);
+      alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
 
     clearCart();
     router.push('/order-complete');
@@ -192,11 +194,12 @@ export default function CheckoutPage() {
                 <span className="text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
               </div>
 
-              <button 
+              <button
                 type="submit"
-                className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90"
+                disabled={submitting}
+                className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {formatPrice(finalPrice)} 결제하기
+                {submitting ? '주문 처리 중…' : `${formatPrice(finalPrice)} 결제하기`}
               </button>
             </div>
           </div>

@@ -1,0 +1,149 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { auth } from '@/lib/auth';
+import { insertOrder, type InsertOrderInput } from '@/lib/orders/repo';
+import { logServerError } from '@/lib/logServerError';
+import { products } from '@/data/products';
+import type { OrderItem, Product } from '@/types';
+
+// 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
+const MAX_ITEMS = 100;
+const MAX_QUANTITY = 999;
+const MAX_NAME = 100;
+const MAX_PHONE = 40;
+const MAX_ADDRESS = 500;
+const MAX_PAYMENT_METHOD = 40;
+const MAX_PRODUCT_ID = 100;
+const MAX_PRODUCT_NAME = 200;
+const MAX_OPTION_NAME = 200;
+const MAX_TRACKING = 100;
+const MAX_MEMO = 1000;
+
+// 배송비 정책은 프론트 checkout(page.tsx)과 동일해야 저장 총액이 어긋나지 않는다(§4 drift 방지).
+const FREE_SHIPPING_THRESHOLD = 50000;
+const SHIPPING_FEE = 3000;
+
+function isStr(v: unknown, min: number, max: number): v is string {
+  return typeof v === 'string' && v.length >= min && v.length <= max;
+}
+
+/** 상품 카탈로그(src/data/products.ts, Phase 1 목업)에서 실제 판매가를 찾는다.
+ *  checkout/page.tsx의 getCheckoutItems()와 동일한 규칙(salePrice 우선, 없으면 price)을 서버에서도 그대로 따라
+ *  화면과 결제 금액이 어긋나지 않게 한다. 가격이 아직 정해지지 않은 상품(price: null)은 구매 불가로 취급한다
+ *  (프론트 hasUnpricedItems 가드와 동일 정책). 실 상품 서비스/DB가 생기면 이 조회를 DB 조회로 교체해야 한다.
+ */
+function resolveCatalogPrice(product: Product): number | null {
+  if (product.price === null || product.price === undefined) return null;
+  return product.salePrice || product.price || 0;
+}
+
+/** 요청 본문에서 안전하게 다룰 필드만 뽑는다. id/createdAt/memberId·price 등은 무시(mass-assignment·가격 위조 차단). */
+function validateItemShape(
+  raw: unknown,
+): Pick<OrderItem, 'productId' | 'quantity' | 'optionName'> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, unknown>;
+  if (!isStr(item.productId, 1, MAX_PRODUCT_ID)) return null;
+  if (
+    typeof item.quantity !== 'number' ||
+    !Number.isInteger(item.quantity) ||
+    item.quantity <= 0 ||
+    item.quantity > MAX_QUANTITY
+  )
+    return null;
+  if (item.optionName !== undefined && !isStr(item.optionName, 0, MAX_OPTION_NAME)) return null;
+  return {
+    productId: item.productId,
+    quantity: item.quantity,
+    ...(typeof item.optionName === 'string' ? { optionName: item.optionName } : {}),
+  };
+}
+
+/**
+ * 신뢰 가능한 입력 필드만 검증해서 뽑고, 신뢰 민감 필드는 본문을 신뢰하지 않고 서버가 결정한다.
+ * - orderStatus/paymentStatus/deliveryStatus: 서버 고정(결제완료·배송완료 위조 차단).
+ * - productName/price: 클라이언트 값은 무시하고 상품 카탈로그(products)에서 productId로 조회한
+ *   실제 값으로 덮어쓴다(상품명 위장·가격 조작 차단). 카탈로그에 없는 productId나 가격 미확정
+ *   상품이 하나라도 섞이면 주문 전체를 400으로 거부한다.
+ * - totalPrice/deliveryFee: 카탈로그 가격 × 수량으로 재계산(0원 위조 차단). 본문 값은 무시한다.
+ */
+function validate(body: unknown): InsertOrderInput | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+
+  if (!isStr(b.customerName, 1, MAX_NAME)) return null;
+  if (!isStr(b.phone, 1, MAX_PHONE)) return null;
+  if (!isStr(b.address, 0, MAX_ADDRESS)) return null;
+  if (!isStr(b.paymentMethod, 1, MAX_PAYMENT_METHOD)) return null;
+  if (b.trackingNumber !== undefined && !isStr(b.trackingNumber, 0, MAX_TRACKING)) return null;
+  if (b.deliveryMemo !== undefined && !isStr(b.deliveryMemo, 0, MAX_MEMO)) return null;
+
+  if (!Array.isArray(b.items) || b.items.length === 0 || b.items.length > MAX_ITEMS) return null;
+  const items: OrderItem[] = [];
+  for (const raw of b.items) {
+    const shape = validateItemShape(raw);
+    if (!shape) return null;
+    const product = products.find((candidate) => candidate.id === shape.productId);
+    if (!product) return null;
+    const unitPrice = resolveCatalogPrice(product);
+    if (unitPrice === null) return null;
+    if (!isStr(product.name, 1, MAX_PRODUCT_NAME)) return null;
+    items.push({
+      productId: shape.productId,
+      productName: product.name,
+      quantity: shape.quantity,
+      price: unitPrice,
+      ...(shape.optionName !== undefined ? { optionName: shape.optionName } : {}),
+    });
+  }
+
+  const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
+  const deliveryFee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_FEE : 0;
+  // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
+  const paymentStatus = b.paymentMethod === '무통장입금' ? '입금대기' : '결제대기';
+
+  return {
+    customerName: b.customerName,
+    phone: b.phone,
+    address: b.address,
+    items,
+    totalPrice: subtotal,
+    deliveryFee,
+    paymentMethod: b.paymentMethod,
+    orderStatus: '주문접수',
+    paymentStatus,
+    deliveryStatus: '배송준비',
+    ...(typeof b.trackingNumber === 'string' ? { trackingNumber: b.trackingNumber } : {}),
+    ...(typeof b.deliveryMemo === 'string' ? { deliveryMemo: b.deliveryMemo } : {}),
+  };
+}
+
+/**
+ * POST /api/orders — 주문 생성(공개, 게스트 결제 허용).
+ * 세션이 있으면 member_id를 서버가 부여하고, 없으면 게스트(null). id/createdAt/member_id 및
+ * 결제·주문·배송 상태와 금액(totalPrice/deliveryFee)은 본문을 신뢰하지 않고 서버가 정한다(mass-assignment·결제 위조 차단).
+ */
+export async function POST(request: NextRequest) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  const validated = validate(body);
+  if (!validated) {
+    return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  try {
+    const session = await auth();
+    const memberId = session?.user?.memberId ?? null;
+    const order = await insertOrder(validated, memberId);
+    // order는 방금 만든 본인/게스트 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
+    // 클라이언트는 Order 필드만 사용하고 나머지는 무시한다.
+    return NextResponse.json({ order }, { status: 201 });
+  } catch (error) {
+    logServerError('[POST /api/orders] 주문 생성 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
