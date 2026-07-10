@@ -491,6 +491,63 @@ export async function registerUser(input: {
   }
 }
 
+/**
+ * B2B/보험/파트너 사업자 회원가입. 승인 전까지 status가 'pending'으로 시작하므로
+ * registerUser와 달리 가입 직후 자동 로그인을 걸지 않고 서버 응답을 그대로 반환한다.
+ */
+export async function registerBusinessMember(input: {
+  role: 'b2b' | 'insurance' | 'partner';
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  companyName?: string;
+  businessNumber?: string;
+  signupData?: Record<string, unknown>;
+}): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (response.status === 201) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 409) return { error: 'duplicate-email' };
+    if (response.status === 400) return { error: 'invalid-input' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 관리자의 회원 승인/반려/상태 변경. */
+export async function updateUserStatus(
+  id: string,
+  status: 'active' | 'inactive' | 'pending' | 'rejected',
+  rejectReason?: string,
+): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'forbidden' | 'network' }> {
+  try {
+    const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, rejectReason }),
+    });
+    if (response.ok) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 400) return { error: 'invalid-input' };
+    if (response.status === 404) return { error: 'not-found' };
+    if (response.status === 401 || response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 /** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */
 export async function changePassword(
   currentPassword: string,

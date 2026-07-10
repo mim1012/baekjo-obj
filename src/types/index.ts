@@ -218,12 +218,16 @@ export interface User {
   petType?: string;
   breed?: string;
   mainConcern?: string;
-  role: 'user' | 'admin';
-  status?: 'active' | 'inactive';
+  role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+  status?: 'active' | 'inactive' | 'pending' | 'rejected';
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
   emailVerified?: boolean;
+  companyName?: string;
+  businessNumber?: string;
+  rejectReason?: string;
+  signupData?: Record<string, unknown>;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

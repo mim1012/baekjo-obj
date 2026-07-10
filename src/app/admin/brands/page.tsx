@@ -262,34 +262,74 @@ export default function AdminBrandsDashboard() {
 
         {/* Main Content: Products of the Brand */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <div className="p-6 pb-0 flex items-end justify-between gap-4 shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#202521]">
-                {activeBrand ? `'${activeBrand.name}' 소속 상품` : '전체 브랜드 소속 상품'}
-              </h2>
-              <p className="mt-1 text-sm text-[#737A74]">
-                총 {filteredProducts.length}개의 상품
-                {activeBrand && ` · 검증 등급: ${activeBrand.auditGrade}`}
-              </p>
-            </div>
+          <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
+            {/* 브랜드 관리 패널 — 활성 브랜드가 있을 때만 노출 */}
+            {activeBrand ? (
+              <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-4 items-center min-w-0">
+                    <div className="w-16 h-16 shrink-0 rounded-lg border border-[#E1DFD8] bg-slate-50 flex items-center justify-center text-2xl font-bold text-slate-300">
+                      {activeBrand.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-xl font-bold text-[#202521]">{activeBrand.name}</h2>
+                        <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-green-50 text-green-700 border border-green-200">
+                          {activeBrand.auditGrade} 등급
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm text-[#59615B] line-clamp-1 max-w-lg">
+                        {activeBrand.description || '브랜드 설명이 없습니다.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => openEditBrandModal(activeBrand, e)}
+                      className="px-3 py-1.5 text-sm font-medium bg-[#F0EEE8] text-[#4F5751] rounded hover:bg-[#E1DFD8] transition-colors flex items-center gap-1.5"
+                    >
+                      <Settings className="size-3.5" /> 정보 수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteBrand(activeBrand.id, e)}
+                      className="px-3 py-1.5 text-sm font-medium bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                    >
+                      <Trash2 className="size-3.5" /> 삭제
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-bold text-[#202521]">전체 브랜드 소속 상품</h2>
+                <p className="mt-1 text-sm text-[#737A74]">모든 브랜드의 상품을 모아봅니다.</p>
+              </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <label className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                <input
-                  placeholder="상품명 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
-                />
-              </label>
-              <button
-                onClick={openAddProductModal}
-                className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
-              >
-                <Plus className="size-4" />
-                {activeBrand ? `'${activeBrand.name}'에 상품 추가` : '새 상품 추가'}
-              </button>
+            <div className="flex items-end justify-between gap-4">
+              <p className="text-sm font-medium text-[#59615B]">
+                총 <span className="font-bold text-[#202521]">{filteredProducts.length}</span>개의 상품
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
+                  <input
+                    placeholder="상품명 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
+                  />
+                </label>
+                <button
+                  onClick={openAddProductModal}
+                  className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
+                >
+                  <Plus className="size-4" />
+                  {activeBrand ? `'${activeBrand.name}'에 상품 추가` : '새 상품 추가'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -347,12 +387,12 @@ export default function AdminBrandsDashboard() {
           {/* Add Product Modal */}
           {isAddingProduct && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <form onSubmit={handleCreateProduct} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
+              <form onSubmit={handleCreateProduct} className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
                   <h3 className="font-bold text-[#202521]">새 상품 등록</h3>
                   <button type="button" onClick={() => setIsAddingProduct(false)} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 overflow-y-auto">
                   <div>
                     <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
                     <input
@@ -389,7 +429,7 @@ export default function AdminBrandsDashboard() {
                     <p className="text-[11px] text-[#8B928C] mt-1">현재 활성화된 브랜드로 기본 선택됩니다.</p>
                   </div>
                 </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
+                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
                   <button type="button" onClick={() => setIsAddingProduct(false)} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
                   <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
                     {saving ? '저장 중…' : '등록 완료'}
@@ -402,12 +442,12 @@ export default function AdminBrandsDashboard() {
           {/* Add/Edit Brand Modal */}
           {isAddingBrand && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <form onSubmit={handleSubmitBrand} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
+              <form onSubmit={handleSubmitBrand} className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
                   <h3 className="font-bold text-[#202521]">{editingBrand ? '브랜드 수정' : '새 브랜드 등록'}</h3>
                   <button type="button" onClick={() => { setIsAddingBrand(false); setEditingBrand(null); }} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 overflow-y-auto">
                   <div>
                     <label className="block text-xs font-semibold text-[#59615B] mb-1.5">브랜드명</label>
                     <input
@@ -455,7 +495,7 @@ export default function AdminBrandsDashboard() {
                     />
                   </div>
                 </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
+                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
                   <button type="button" onClick={() => { setIsAddingBrand(false); setEditingBrand(null); }} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
                   <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
                     {saving ? '저장 중…' : editingBrand ? '수정 완료' : '브랜드 생성'}

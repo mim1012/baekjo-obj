@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Filter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 interface Column {
   key: string;
@@ -17,6 +17,10 @@ interface AdminResourcePageProps {
   rows: Array<Record<string, string | number>>;
   filters?: string[];
   createFields?: string[];
+  /** 관리 셀(수정/삭제 앞)에 행별 커스텀 액션(승인/반려 버튼 등)을 렌더링한다. */
+  customActions?: (row: Record<string, string | number>) => React.ReactNode;
+  /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
+  renderExpandedRow?: (row: Record<string, string | number>) => React.ReactNode;
 }
 
 export default function AdminResourcePage({
@@ -28,12 +32,15 @@ export default function AdminResourcePage({
   rows,
   filters = ['전체 상태'],
   createFields = [],
+  customActions,
+  renderExpandedRow,
 }: AdminResourcePageProps) {
   const [editingRow, setEditingRow] = useState<Record<string, string | number> | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string | number>>(new Set());
   const [activeFilter, setActiveFilter] = useState<string>(filters[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRowId, setExpandedRowId] = useState<string | number | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   const handleEdit = (row: Record<string, string | number>) => {
@@ -154,23 +161,40 @@ export default function AdminResourcePage({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E1DFD8]">
-              {paginatedRows.map((row, index) => (
-                <tr key={String(row.id ?? index)} className="hover:bg-[#FAF9F5]">
-                  {columns.map((column) => (
-                    <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
-                      {column.key === 'status' ? (
-                        <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
-                      ) : (
-                        <span className="line-clamp-2">{row[column.key]}</span>
-                      )}
-                    </td>
-                  ))}
-                  <td className="px-5 py-4 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
-                    <button type="button" onClick={() => handleDelete(row.id as string | number ?? index)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
-                  </td>
-                </tr>
-              ))}
+              {paginatedRows.map((row, index) => {
+                const rowId = row.id as string | number ?? index;
+                const isExpanded = renderExpandedRow != null && expandedRowId === rowId;
+                return (
+                  <Fragment key={String(rowId)}>
+                    <tr
+                      className={`hover:bg-[#FAF9F5] ${renderExpandedRow ? 'cursor-pointer' : ''}`}
+                      onClick={renderExpandedRow ? () => setExpandedRowId((current) => (current === rowId ? null : rowId)) : undefined}
+                    >
+                      {columns.map((column) => (
+                        <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
+                          {column.key === 'status' ? (
+                            <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
+                          ) : (
+                            <span className="line-clamp-2">{row[column.key]}</span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {customActions?.(row)}
+                        <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                        <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={columns.length + 1} className="bg-[#F8F7F2] px-5 py-4">
+                          {renderExpandedRow?.(row)}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

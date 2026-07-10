@@ -118,6 +118,10 @@ export default function AdminProductsDashboard() {
     return true;
   });
 
+  // 카테고리 관리 패널(선택된 카테고리의 사이드바 내 인덱스 — 이름수정/삭제 버튼에 재사용)
+  const activeCategoryList = activeGroup === 'product' ? productCats : lifestyleCats;
+  const activeCategoryIndex = activeCategory ? activeCategoryList.indexOf(activeCategory) : -1;
+
   const openAddModal = () => {
     setForm({
       name: '',
@@ -310,31 +314,69 @@ export default function AdminProductsDashboard() {
 
         {/* Main Content: Products */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <div className="p-6 pb-0 flex items-end justify-between gap-4 shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#202521]">
-                {activeCategory ? `'${activeCategory}' 상품 목록` : '전체 상품 목록'}
-              </h2>
-              <p className="mt-1 text-sm text-[#737A74]">총 {filteredProducts.length}개의 상품</p>
-            </div>
+          <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
+            {/* 카테고리 관리 패널 — 선택된 카테고리가 있을 때만 노출 */}
+            {activeCategory ? (
+              <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-[#202521]">{activeCategory}</h2>
+                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">
+                        {activeGroup === 'product' ? '일반 상품 카테고리' : '라이프스타일 카테고리'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#59615B]">해당 카테고리의 이름을 수정하거나 삭제할 수 있습니다.</p>
+                  </div>
+                  {activeCategoryIndex !== -1 && (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => startEditCategory(activeCategoryIndex, activeGroup, e)}
+                        className="px-3 py-1.5 text-sm font-medium bg-[#F0EEE8] text-[#4F5751] rounded hover:bg-[#E1DFD8] transition-colors flex items-center gap-1.5"
+                      >
+                        <Edit2 className="size-3.5" /> 이름 수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteCategory(activeCategoryIndex, activeGroup, e)}
+                        className="px-3 py-1.5 text-sm font-medium bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                      >
+                        <Trash2 className="size-3.5" /> 삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-bold text-[#202521]">전체 상품 목록</h2>
+                <p className="mt-1 text-sm text-[#737A74]">모든 상품을 한눈에 관리합니다.</p>
+              </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <label className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                <input
-                  placeholder="상품명 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
-                />
-              </label>
-              <button
-                onClick={openAddModal}
-                className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
-              >
-                <Plus className="size-4" />
-                {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
-              </button>
+            <div className="flex items-end justify-between gap-4">
+              <p className="text-sm font-medium text-[#59615B]">
+                총 <span className="font-bold text-[#202521]">{filteredProducts.length}</span>개의 상품
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
+                  <input
+                    placeholder="상품명 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
+                  />
+                </label>
+                <button
+                  onClick={openAddModal}
+                  className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
+                >
+                  <Plus className="size-4" />
+                  {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -400,12 +442,12 @@ export default function AdminProductsDashboard() {
           {/* Add/Edit Product Modal */}
           {isAddingProduct && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
+              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
                   <h3 className="font-bold text-[#202521]">{editingProduct ? '상품 수정' : '새 상품 등록'}</h3>
                   <button type="button" onClick={closeModal} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 overflow-y-auto">
                   <div>
                     <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
                     <input
@@ -466,7 +508,7 @@ export default function AdminProductsDashboard() {
                     />
                   </div>
                 </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
+                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
                   <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
                   <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
                     {saving ? '저장 중…' : editingProduct ? '수정 완료' : '등록 완료'}
