@@ -49,7 +49,9 @@ const initialData = {
   privacyAgreement: false,
 };
 
-export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<string, unknown>) => void }) {
+export type B2BFormData = typeof initialData & { attachedFiles: string[] };
+
+export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: B2BFormData) => void }) {
   const [formData, setFormData] = useState(initialData);
 
   // 임시저장 데이터 불러오기
@@ -104,7 +106,7 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       formData.attachFacilityPhoto ? '시설 사진.jpg' : null,
       formData.attachCert ? '인증서.pdf' : null,
       formData.attachEtc ? '기타 참고자료.zip' : null,
-    ].filter(Boolean);
+    ].filter((f): f is string => f !== null);
 
     onSuccess({ ...formData, attachedFiles: mockFiles });
   };

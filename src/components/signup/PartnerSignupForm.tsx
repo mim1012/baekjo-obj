@@ -65,7 +65,9 @@ const initialData = {
   privacyAgreement: false,
 };
 
-export default function PartnerSignupForm({ onSuccess }: { onSuccess: (data: Record<string, unknown>) => void }) {
+export type PartnerFormData = typeof initialData & { attachedFiles: string[] };
+
+export default function PartnerSignupForm({ onSuccess }: { onSuccess: (data: PartnerFormData) => void }) {
   const [formData, setFormData] = useState(initialData);
 
   // 임시저장 데이터 불러오기
@@ -117,7 +119,7 @@ export default function PartnerSignupForm({ onSuccess }: { onSuccess: (data: Rec
       formData.attachTestReport ? '시험성적서.pdf' : null,
       formData.attachCert ? '인증서.pdf' : null,
       formData.attachEtc ? '기타참고자료.zip' : null,
-    ].filter(Boolean);
+    ].filter((f): f is string => f !== null);
 
     onSuccess({ ...formData, attachedFiles: mockFiles });
   };

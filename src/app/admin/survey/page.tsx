@@ -13,7 +13,7 @@ export default function AdminSurveyPage() {
   const [isAddingQuestion, setIsAddingQuestion] = useState(false);
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newQuestion, setNewQuestion] = useState<Partial<typeof surveyQuestions[0]>>({ type: 'single' });
-  const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } });
+  const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: { direction: '', categorySlug: '', brandIds: [], productIds: [], needInsuranceAnalysis: false, recommendKit: false } });
 
   const [currentQuestionsPage, setCurrentQuestionsPage] = useState(1);
   const [currentRulesPage, setCurrentRulesPage] = useState(1);
@@ -95,7 +95,7 @@ export default function AdminSurveyPage() {
         <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-bold text-gray-900">결과 매핑 룰</h2>
-            <button onClick={() => { setNewRule({ condition: {}, recommendation: { direction: '', brandIds: [], productIds: [] } }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
+            <button onClick={() => { setNewRule({ condition: {}, recommendation: { direction: '', categorySlug: '', brandIds: [], productIds: [], needInsuranceAnalysis: false, recommendKit: false } }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
           </div>
           <div className="space-y-4">
             {paginatedRules.map(r => (
@@ -408,8 +408,11 @@ export default function AdminSurveyPage() {
                   },
                   recommendation: {
                     direction: newRule.recommendation?.direction || '',
+                    categorySlug: newRule.recommendation?.categorySlug || '',
                     brandIds: newRule.recommendation?.brandIds || [],
-                    productIds: newRule.recommendation?.productIds || []
+                    productIds: newRule.recommendation?.productIds || [],
+                    needInsuranceAnalysis: newRule.recommendation?.needInsuranceAnalysis || false,
+                    recommendKit: newRule.recommendation?.recommendKit || false
                   }
                 };
                 setRules([...rules, ruleToAdd]);
