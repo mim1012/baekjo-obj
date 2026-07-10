@@ -196,15 +196,18 @@ export interface OrderItem {
   price: number;
 }
 
-export type OrderStatus =
-  | '주문접수'
-  | '결제완료'
-  | '배송준비'
-  | '배송중'
-  | '배송완료'
-  | '취소요청'
-  | '취소완료'
-  | '환불완료';
+export const ORDER_STATUSES = [
+  '주문접수',
+  '결제완료',
+  '배송준비',
+  '배송중',
+  '배송완료',
+  '취소요청',
+  '취소완료',
+  '환불완료',
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {

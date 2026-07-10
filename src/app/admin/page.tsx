@@ -1,17 +1,36 @@
 'use client';
 
-import { getOrders, getInsuranceApplications } from '@/lib/storage';
+import { useEffect, useState } from 'react';
+import { getAllOrders, getInsuranceApplications } from '@/lib/storage';
 import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
 import { Package, FileText, DollarSign, TrendingUp } from 'lucide-react';
 import { useMounted } from '@/lib/useMounted';
+import type { Order } from '@/types';
 
 export default function AdminDashboard() {
   const mounted = useMounted();
+  // 주문은 서버(관리자)에서 비동기로. 보험 신청은 이번 범위 밖이라 그대로 둔다.
+  // 로딩 중과 실제 0건/0원을 구분해야 첫 프레임에 빈 통계가 잠깐 노출되지 않는다.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!mounted) return null;
+  useEffect(() => {
+    let cancelled = false;
+    getAllOrders().then((list) => {
+      if (cancelled) return;
+      setOrders(list);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const orders = getOrders();
+  if (!mounted || loading) {
+    return <p className="p-12 text-center text-sm text-[#7B827C]">대시보드 불러오는 중…</p>;
+  }
+
   const insuranceApps = getInsuranceApplications();
   const totalSales = orders.reduce((sum, order) => sum + order.totalPrice, 0);
   const pendingOrders = orders.filter((order) => order.orderStatus === '주문접수').length;
@@ -62,8 +81,8 @@ export default function AdminDashboard() {
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-lg font-bold text-gray-900">최근 주문</h3>
           </div>
-          <div className="p-0">
-            <table className="w-full text-left text-sm">
+          <div className="p-0 overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="px-6 py-3 font-medium">주문자</th>
@@ -91,8 +110,8 @@ export default function AdminDashboard() {
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h3 className="text-lg font-bold text-gray-900">최근 보험 분석 신청</h3>
           </div>
-          <div className="p-0">
-            <table className="w-full text-left text-sm">
+          <div className="p-0 overflow-x-auto">
+            <table className="w-full min-w-[480px] text-left text-sm">
               <thead className="bg-gray-50 text-gray-500">
                 <tr>
                   <th className="px-6 py-3 font-medium">반려동물</th>

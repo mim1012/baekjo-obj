@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { getOrders, updateOrderStatus } from '@/lib/storage';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { getAllOrders, updateOrderStatus } from '@/lib/storage';
 import { formatDate, formatPrice } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
 import { FileText, CreditCard, Truck, RefreshCcw } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
+import type { Order } from '@/types';
 
 export default function AdminOrdersPage() {
   const mounted = useMounted();
-  const [, refreshOrders] = useState(0);
-  
+  // 전체 주문은 서버(관리자)에서 비동기로 불러온다. proxy 가 /admin 을 1차 가드하므로
+  // getAllOrders 는 실패를 빈 배열로 접는다 → 여기선 로딩/데이터 상태만 다룬다.
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('전체 상태');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('전체 상태');
@@ -19,13 +23,45 @@ export default function AdminOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  const handleStatusChange = (id: string, field: 'orderStatus' | 'paymentStatus' | 'deliveryStatus', value: string) => {
-    updateOrderStatus(id, { [field]: value });
-    refreshOrders((version) => version + 1);
+  // 이벤트 핸들러(상태변경 실패 시)에서 재조회하기 위한 로더. effect 에서 직접 부르지 않고
+  // effect 는 아래 .then 체인으로 로드한다(effect 내 동기 setState 경고 회피).
+  const loadOrders = useCallback(async () => {
+    const list = await getAllOrders();
+    setOrders(list);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAllOrders().then((list) => {
+      if (cancelled) return;
+      setOrders(list);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 상태 변경: 낙관적으로 즉시 반영하고, 서버 PATCH 실패 시 재조회로 되돌린다.
+  const handleStatusChange = async (
+    id: string,
+    field: 'orderStatus' | 'paymentStatus' | 'deliveryStatus',
+    value: string,
+  ) => {
+    const updates = { [field]: value } as Partial<
+      Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber'>
+    >;
+    setOrders((prev) => prev.map((order) => (order.id === id ? { ...order, ...updates } : order)));
+    try {
+      await updateOrderStatus(id, updates);
+    } catch {
+      alert('상태 변경에 실패했습니다. 최신 상태로 다시 불러옵니다.');
+      void loadOrders();
+    }
   };
 
-  const rawOrders = getOrders();
-  
+  const rawOrders = orders;
+
   const filteredOrders = useMemo(() => {
     let result = [...rawOrders].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -59,7 +95,9 @@ export default function AdminOrdersPage() {
     return filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
-  if (!mounted) return null;
+  if (!mounted || loading) {
+    return <p className="p-12 text-center text-sm text-[#7B827C]">주문 목록 불러오는 중…</p>;
+  }
 
   // 통계 계산
   const totalCount = rawOrders.length;

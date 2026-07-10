@@ -1,6 +1,5 @@
 import { InsuranceApplication, Order, User } from '@/types';
 import { insuranceApplications } from '@/data/insuranceApplications';
-import { orders as mockOrders } from '@/data/orders';
 import { users as mockUsers } from '@/data/users';
 
 function cloneFallback<T>(fallback: T): T {
@@ -91,39 +90,119 @@ export function updateInsuranceContacted(id: string, contacted: boolean): void {
   }
 }
 
-const ORDER_KEY = 'baekjo_orders';
-const LAST_ORDER_KEY = 'baekjo_last_order_id';
+// 주문완료 화면 전용 스냅샷. 서버 재조회 없이 sessionStorage 에서만 읽는다
+// → 게스트 주문의 PII 가 /api/orders/[id] IDOR 로 새지 않게 한다(§보안 요건).
+const LAST_ORDER_KEY = 'baekjo_last_order';
 
-export function getOrders(): Order[] {
-  return getJSON<Order[]>(ORDER_KEY, mockOrders);
+/**
+ * 주문 생성 입력(콘센트). 클라이언트가 실제로 아는 값만 받는다 — id/createdAt/member_id 는
+ * POST /api/orders 가 정하고, totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 는
+ * 서버가 카탈로그 가격 재계산·정책으로 고정한다(§4). 이 필드들을 여기서 받으면 "클라이언트가
+ * 정한 것처럼" 보여 착각을 유발하므로 타입 단계에서부터 제거한다. Order 타입 자체는 그대로 두고
+ * Pick 으로 입력 표면만 좁힌다.
+ */
+export type CreateOrderInput = Pick<
+  Order,
+  'customerName' | 'phone' | 'address' | 'items' | 'paymentMethod' | 'deliveryMemo'
+>;
+
+/**
+ * 주문 생성. POST /api/orders(공개 — 게스트 결제 허용). 서버가 id·createdAt·member_id 및
+ * totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 를 정하므로 클라이언트는
+ * body 로 그것들을 신뢰시키지 않는다(mass-assignment 차단). 반환된 Order 를 sessionStorage 에
+ * 저장해 주문완료 화면이 서버 재조회 없이 쓰게 한다.
+ * 실패 시 throw — 호출부(checkout)가 결제 실패를 사용자에게 알릴 수 있도록.
+ */
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const response = await fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('order-create-failed');
+  }
+  const { order } = (await response.json()) as { order: Order };
+  if (typeof window !== 'undefined') {
+    sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order));
+  }
+  return order;
 }
 
-export function addOrder(order: Order): void {
-  const list = getOrders();
-  list.push(order);
-  setJSON(ORDER_KEY, list);
-  if (typeof window !== 'undefined') localStorage.setItem(LAST_ORDER_KEY, order.id);
+/**
+ * 내 주문 목록. GET /api/orders/mine(세션 필요). 세션이 없거나(401) 요청이 실패하면
+ * 화면이 다루기 쉽도록 일관되게 빈 배열을 반환한다.
+ */
+export async function getMyOrders(): Promise<Order[]> {
+  try {
+    const response = await fetch('/api/orders/mine');
+    if (!response.ok) return [];
+    const { orders } = (await response.json()) as { orders: Order[] };
+    return orders;
+  } catch {
+    return [];
+  }
 }
 
-export function getOrderById(id: string): Order | undefined {
-  return getOrders().find((order) => order.id === id);
+/**
+ * 전체 주문 목록(관리자). GET /api/admin/orders. 권한 없음·실패 시 빈 배열
+ * (getMyOrders 와 동일한 실패 계약).
+ */
+export async function getAllOrders(): Promise<Order[]> {
+  try {
+    const response = await fetch('/api/admin/orders');
+    if (!response.ok) return [];
+    const { orders } = (await response.json()) as { orders: Order[] };
+    return orders;
+  } catch {
+    return [];
+  }
 }
 
-export function getLastOrder(): Order | undefined {
-  if (typeof window === 'undefined') return undefined;
-  const id = localStorage.getItem(LAST_ORDER_KEY);
-  return id ? getOrderById(id) : undefined;
+/**
+ * 단건 주문 조회. GET /api/orders/[id]. 소유자 또는 admin 만 200, 아니면 404
+ * (주문 존재 은폐). 404·실패는 null 로 접는다.
+ */
+export async function getOrderById(id: string): Promise<Order | null> {
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(id)}`);
+    if (!response.ok) return null;
+    const { order } = (await response.json()) as { order: Order };
+    return order;
+  } catch {
+    return null;
+  }
 }
 
-export function updateOrderStatus(
+/**
+ * 최근 주문 스냅샷. sessionStorage 에 저장된 createOrder 응답만 파싱한다
+ * (서버 재조회 없음 → 게스트 PII IDOR 방지). 없으면 null.
+ */
+export async function getLastOrder(): Promise<Order | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(LAST_ORDER_KEY);
+    return raw ? (JSON.parse(raw) as Order) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 주문 상태 변경(관리자). PATCH /api/admin/orders/[id]. 실패 시 throw 해
+ * 호출부가 재조회 없이 낙관적 갱신을 되돌리거나 사용자에게 알릴 수 있게 한다.
+ */
+export async function updateOrderStatus(
   id: string,
   updates: Partial<Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber'>>,
-): void {
-  const list = getOrders();
-  const item = list.find((order) => order.id === id);
-  if (item) {
-    Object.assign(item, updates);
-    setJSON(ORDER_KEY, list);
+): Promise<void> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error('order-update-failed');
   }
 }
 

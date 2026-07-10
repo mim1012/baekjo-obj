@@ -1,16 +1,32 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 import { getLastOrder } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
-import { useMounted } from '@/lib/useMounted';
+import type { Order } from '@/types';
+
+type LoadState =
+  | { status: 'loading' }
+  | { status: 'ready'; order: Order | null };
 
 export default function OrderCompletePage() {
-  const mounted = useMounted();
-  if (!mounted) return null;
+  const [state, setState] = useState<LoadState>({ status: 'loading' });
 
-  const order = getLastOrder();
+  useEffect(() => {
+    let cancelled = false;
+    getLastOrder().then((order) => {
+      if (!cancelled) setState({ status: 'ready', order });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (state.status === 'loading') return null;
+
+  const order = state.order;
 
   return (
     <div className="min-h-dvh bg-[#F4F2EC] py-20">
