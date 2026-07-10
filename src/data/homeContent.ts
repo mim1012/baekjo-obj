@@ -83,8 +83,8 @@ export const defaultHomeSettings: HomeSettings = {
     videoSrc: '/videos/baekjo-objet.mp4',
   },
   howToStart: {
-    title: '백조오브제를<br />시작하는 3가지 방법',
-    description: '우리 아이의 라이프에 꼭 맞는<br />선택을 도와드립니다.',
+    title: '백조오브제가 제안하는<br />3가지 핵심 솔루션',
+    description: '우리 아이의 라이프스타일에 맞춘 가장 확실한 선택 기준을 제공합니다.',
     steps: [
       { 
         num: '01', 

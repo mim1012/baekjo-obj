@@ -79,8 +79,25 @@ main p {
 }
 
 ::selection {
-  background: #cdd3cd;
-  color: #202521;
+  background: #E8DFD1;
+  color: #17211D;
+}
+
+/* Custom Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-beige);
+  border-radius: 10px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C4AE87;
 }
 
 a,
@@ -88,7 +105,7 @@ button,
 input,
 select,
 textarea {
-  outline-color: var(--color-gold-muted);
+  outline-color: var(--color-beige);
 }
 
 a:focus-visible,
@@ -96,14 +113,15 @@ button:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--color-gold-muted);
+  outline: 2px solid var(--color-beige);
   outline-offset: 3px;
+  border-radius: 2px;
 }
 
 input,
 select,
 textarea {
-  accent-color: var(--color-primary-500);
+  accent-color: var(--color-beige);
   background-color: var(--color-surface-50);
 }
 
@@ -155,7 +173,7 @@ textarea {
     @apply transition-all duration-300 ease-[var(--ease-smooth)];
   }
   .hover-lift:hover {
-    @apply -translate-y-1 shadow-[0_8px_24px_rgba(47,59,52,0.08)];
+    @apply -translate-y-1 shadow-[0_8px_24px_rgba(23,33,29,0.08)];
   }
 
   .grid-22 {
@@ -171,4 +189,55 @@ textarea {
     font-family: var(--font-serif);
     letter-spacing: 0.1em;
   }
+
+  /* Premium Design Utilities */
+  .bg-noise {
+    position: relative;
+  }
+  .bg-noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0.04;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#17211D] to-[#4A5B52];
+  }
+
+  .text-gradient-gold {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#A8742E] to-[#D8C4A3];
+  }
+}
+
+/* Premium Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s var(--ease-out-expo) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s var(--ease-smooth) forwards;
 }
