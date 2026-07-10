@@ -234,6 +234,83 @@ export async function changePassword(
   }
 }
 
+/** 비밀번호 재설정 요청. 이메일 존재 여부를 노출하지 않도록 서버는 항상 200을 반환한다. */
+export async function requestPasswordReset(email: string): Promise<{ ok?: true; error?: 'network' }> {
+  try {
+    const response = await fetch('/api/members/password-reset/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (response.ok) return { ok: true };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 비밀번호 재설정 확정. 토큰이 만료·사용됨이면 invalid-token, 새 비밀번호 형식 오류면 invalid-input. */
+export async function confirmPasswordReset(
+  token: string,
+  newPassword: string,
+): Promise<{ ok?: true; error?: 'invalid-token' | 'invalid-input' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/password-reset/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    if (response.ok) return { ok: true };
+    if (response.status === 400) {
+      const { error } = (await response.json()) as { error?: 'invalid-token' | 'invalid-input' };
+      return { error: error ?? 'invalid-input' };
+    }
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 이메일 인증 메일 발송 요청. 로그인 세션(쿠키)이 필요하다. */
+export async function requestEmailVerification(): Promise<{
+  ok?: true;
+  already?: boolean;
+  error?: 'no-session' | 'network';
+}> {
+  try {
+    const response = await fetch('/api/members/verify/request', { method: 'POST' });
+    if (response.ok) {
+      const data = (await response.json()) as { ok: true; already?: boolean };
+      return { ok: true, already: data.already };
+    }
+    if (response.status === 401) return { error: 'no-session' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 이메일 인증 확정. 토큰이 만료·사용됨이면 invalid-token. */
+export async function confirmEmailVerification(
+  token: string,
+): Promise<{ ok?: true; error?: 'invalid-token' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/verify/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    if (response.ok) return { ok: true };
+    if (response.status === 400) {
+      const { error } = (await response.json()) as { error?: 'invalid-token' };
+      return { error: error ?? 'invalid-token' };
+    }
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 export function logout(): void {
   setCurrentUser(null);
   // 소셜(Auth.js 쿠키) 세션도 함께 정리. 동적 import 로 storage.ts 의 모든

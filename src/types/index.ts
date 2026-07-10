@@ -220,6 +220,7 @@ export interface User {
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
+  emailVerified?: boolean;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

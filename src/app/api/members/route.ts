@@ -1,6 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { DuplicateEmailError, insertEmailMember, toUser } from '@/lib/members/repo';
 import { hashPassword } from '@/lib/members/password';
+import { createMemberToken } from '@/lib/members/tokens';
+import { sendMail } from '@/lib/email/mailer';
+import { verificationEmail } from '@/lib/email/templates';
+import { getBaseUrl } from '@/lib/email/base-url';
 import { logServerError } from '@/lib/logServerError';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -55,7 +59,7 @@ function validate(body: SignupBody): ValidatedSignup | null {
 }
 
 /** POST /api/members — 이메일/비밀번호 회원가입. */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let body: SignupBody;
   try {
     body = await request.json();
@@ -79,6 +83,16 @@ export async function POST(request: Request) {
       breed: validated.breed,
       mainConcern: validated.mainConcern,
     });
+
+    // 인증 메일 발송 실패가 가입 성공(201) 응답을 막으면 안 되므로 fire-and-forget으로 보낸다.
+    const baseUrl = getBaseUrl(request);
+    void (async () => {
+      const rawToken = await createMemberToken(member.id, 'verify');
+      const link = `${baseUrl}/verify-email?token=${rawToken}`;
+      const { subject, html } = verificationEmail(link);
+      await sendMail({ to: member.email, subject, html });
+    })().catch((error: unknown) => logServerError('[POST /api/members] 가입 인증 메일 발송 실패', error));
+
     return NextResponse.json({ user: toUser(member) }, { status: 201 });
   } catch (error) {
     if (error instanceof DuplicateEmailError) {
