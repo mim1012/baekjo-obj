@@ -210,6 +210,30 @@ export async function registerUser(input: {
   }
 }
 
+/** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ ok?: true; error?: 'invalid-current' | 'invalid-input' | 'social-account' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/password', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    if (response.ok) return { ok: true };
+    if (response.status === 400) {
+      const { error } = (await response.json()) as {
+        error?: 'invalid-current' | 'invalid-input' | 'social-account';
+      };
+      return { error: error ?? 'invalid-input' };
+    }
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 export function logout(): void {
   setCurrentUser(null);
   // 소셜(Auth.js 쿠키) 세션도 함께 정리. 동적 import 로 storage.ts 의 모든

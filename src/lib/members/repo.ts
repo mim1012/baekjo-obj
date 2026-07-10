@@ -213,6 +213,14 @@ export async function upsertSocialMember(input: UpsertSocialMemberInput): Promis
   return rowToRecord(data as MemberRow);
 }
 
+export async function updateMemberPassword(id: string, passwordHash: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('members')
+    .update({ password_hash: passwordHash })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 const MEMBERS_LIST_CAP = 500;
 
 export async function listMembers(): Promise<MemberRecord[]> {
