@@ -188,7 +188,7 @@ export default function SiteSettingsPage() {
                       <div className="absolute top-0 right-0 bg-[#F8F7F2] text-[#2F3B34] text-[10px] font-bold px-2 py-1 rounded-bl-sm border-b border-l border-gray-200">
                         Step {idx + 1}
                       </div>
-                      <div className="grid grid-cols-2 gap-4 mt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                         {renderInput('넘버 라벨 (num)', step.num, (v) => updateArrayField('howToStart', 'steps', idx, 'num', v))}
                         {renderInput('스텝 제목 (title)', step.title, (v) => updateArrayField('howToStart', 'steps', idx, 'title', v))}
                         <div className="col-span-2">
@@ -214,7 +214,7 @@ export default function SiteSettingsPage() {
                 {renderInput('하단 띠배너 문구 (bannerText)', draft.audit.bannerText, (v) => updateDraft('audit', 'bannerText', v))}
                 
                 <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">4가지 기준 아이콘 설정</h4>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {draft.audit.icons.map((icon, idx) => (
                     <div key={idx} className="bg-gray-50 p-3 rounded-sm border border-gray-200">
                       {renderInput(`아이콘 ${idx + 1} 제목`, icon.title, (v) => updateArrayField('audit', 'icons', idx, 'title', v))}
@@ -232,7 +232,7 @@ export default function SiteSettingsPage() {
                   {renderInput('상단 영문 뱃지 (badge)', draft.curation.badge, (v) => updateDraft('curation', 'badge', v))}
                   {renderInput('메인 타이틀 (title)', draft.curation.title, (v) => updateDraft('curation', 'title', v), true)}
                   {renderInput('상세 설명 (description)', draft.curation.description, (v) => updateDraft('curation', 'description', v), true)}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {renderInput('버튼 1 텍스트', draft.curation.button1Text, (v) => updateDraft('curation', 'button1Text', v))}
                     {renderInput('버튼 2 텍스트', draft.curation.button2Text, (v) => updateDraft('curation', 'button2Text', v))}
                   </div>
@@ -244,7 +244,7 @@ export default function SiteSettingsPage() {
                   {renderInput('보드 상단 설명', draft.curation.boardDesc, (v) => updateDraft('curation', 'boardDesc', v))}
                   
                   <h5 className="text-xs font-bold mt-4 mb-2">고민 4가지 카드</h5>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     {draft.curation.cards.map((card, idx) => (
                       <div key={idx} className="bg-white p-3 border border-gray-200 rounded-sm">
                         {renderInput(`카드 ${idx+1} 제목`, card.title, (v) => updateArrayField('curation', 'cards', idx, 'title', v))}
@@ -254,13 +254,13 @@ export default function SiteSettingsPage() {
                   </div>
 
                   <h5 className="text-xs font-bold mt-4 mb-2">Step 2 (중앙)</h5>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     {renderInput('제목', draft.curation.step2Title, (v) => updateDraft('curation', 'step2Title', v))}
                     {renderInput('설명', draft.curation.step2Desc, (v) => updateDraft('curation', 'step2Desc', v), true)}
                   </div>
 
                   <h5 className="text-xs font-bold mt-4 mb-2">Step 3 (하단 결과)</h5>
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div className="bg-white p-3 border border-gray-200 rounded-sm">
                       {renderInput('좌측 제목', draft.curation.step3LeftTitle, (v) => updateDraft('curation', 'step3LeftTitle', v))}
                       {renderInput('좌측 설명', draft.curation.step3LeftDesc, (v) => updateDraft('curation', 'step3LeftDesc', v), true)}
@@ -333,7 +333,7 @@ export default function SiteSettingsPage() {
               <div className="space-y-4">
                 {renderInput('영문 뱃지 (eyebrow)', draft.trustBoard.eyebrow, (v) => updateDraft('trustBoard', 'eyebrow', v))}
                 {renderInput('섹션 메인 제목 (title)', draft.trustBoard.title, (v) => updateDraft('trustBoard', 'title', v), true)}
-                <div className="grid grid-cols-2 gap-4 mt-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
                   <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
                     {renderInput('후기 영역 제목', draft.trustBoard.reviewsTitle, (v) => updateDraft('trustBoard', 'reviewsTitle', v))}
                     {renderInput('후기 버튼 텍스트', draft.trustBoard.reviewsLinkText, (v) => updateDraft('trustBoard', 'reviewsLinkText', v))}

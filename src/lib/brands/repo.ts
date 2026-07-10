@@ -90,12 +90,13 @@ export async function listBrands(visibleOnly = true): Promise<Brand[]> {
   return (data as BrandRow[]).map(rowToBrand);
 }
 
-export async function getBrandById(id: string): Promise<Brand | null> {
-  const { data, error } = await getSupabase()
-    .from('brands')
-    .select(SELECT_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
+/** 공개 경로는 includeHidden 없이 호출해 비노출(is_visible: false) 브랜드가 단건 URL로도
+ *  새 나가지 않게 한다. 관리자 수정 폼처럼 비노출 브랜드도 봐야 하는 곳만 includeHidden: true. */
+export async function getBrandById(id: string, opts: { includeHidden?: boolean } = {}): Promise<Brand | null> {
+  let query = getSupabase().from('brands').select(SELECT_COLUMNS).eq('id', id);
+  if (!opts.includeHidden) query = query.eq('is_visible', true);
+
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data ? rowToBrand(data as BrandRow) : null;
 }
@@ -126,7 +127,7 @@ export async function insertBrand(input: BrandInsertInput): Promise<Brand> {
  * (read-modify-write, products/repo.ts updateProduct와 동일 패턴). 존재하지 않으면 null.
  */
 export async function updateBrand(id: string, patch: BrandPatchInput): Promise<Brand | null> {
-  const existing = await getBrandById(id);
+  const existing = await getBrandById(id, { includeHidden: true });
   if (!existing) return null;
 
   const merged: Brand = { ...existing, ...patch, id: existing.id };

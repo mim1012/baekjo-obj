@@ -260,6 +260,14 @@ export function validateProductFields(
     out.isRecommended = false;
   }
 
+  // salePrice는 price보다 클 수 없다. 이 패스는 body에 함께 넘어온 값만 교차검증한다
+  // (patch에서 price를 안 건드리고 salePrice만 보내는 경우는 DB의 기존 price와 비교할 수
+  // 없어 여기서는 건너뛴다 — updateProduct의 read-modify-write에서 최종 값으로 합쳐진다).
+  if (out.salePrice !== undefined && out.price !== undefined) {
+    if (out.price === null) return null;
+    if (out.salePrice !== null && out.salePrice > out.price) return null;
+  }
+
   return out;
 }
 

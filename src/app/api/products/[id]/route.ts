@@ -5,8 +5,7 @@ import { logServerError } from '@/lib/logServerError';
 /**
  * GET /api/products/[id] — 단건 상품 조회(공개).
  * DB id는 uuid가 아니라 text라 형식 오류로 500이 새 나갈 일이 없다 — 없으면 그냥 404.
- * 비노출(isVisible: false) 상품도 이 경로에서는 그대로 보여준다(상세 링크를 아는 경우까지
- * 막지는 않음 — 목록 노출 여부만 listProducts의 visibleOnly가 통제).
+ * 비노출(isVisible: false) 상품은 includeHidden 없이 조회해 404로 막는다(직링크 노출 차단).
  */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;

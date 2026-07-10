@@ -41,60 +41,62 @@ export default function AdminInsurancePage() {
       </div>
 
       <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left text-sm whitespace-nowrap">
-          <thead className="bg-gray-50 text-gray-500">
-            <tr>
-              <th className="px-6 py-3 font-medium">신청일시</th>
-              <th className="px-6 py-3 font-medium">신청자</th>
-              <th className="px-6 py-3 font-medium">반려동물</th>
-              <th className="px-6 py-3 font-medium">기존보험유무</th>
-              <th className="px-6 py-3 font-medium">상태</th>
-              <th className="px-6 py-3 font-medium">상태변경</th>
-              <th className="px-6 py-3 font-medium text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {paginatedApps.map(app => (
-              <tr key={app.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 text-gray-500">{formatDate(app.createdAt)}</td>
-                <td className="px-6 py-4 font-medium text-gray-900">{app.ownerName} ({app.phone})</td>
-                <td className="px-6 py-4 text-gray-500">{app.petName} ({app.petBreed}, {app.petAge}살)</td>
-                <td className="px-6 py-4 text-gray-500">
-                  {app.hasCurrentInsurance ? (
-                    <span className="text-blue-600 font-medium">있음 ({app.currentInsuranceName})</span>
-                  ) : (
-                    <span>없음</span>
-                  )}
-                </td>
-                <td className="px-6 py-4">
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    app.status === '신청완료' ? 'bg-orange-100 text-orange-800' :
-                    app.status === '분석중' ? 'bg-blue-100 text-blue-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    {app.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4">
-                  <select 
-                    value={app.status} 
-                    onChange={(e) => handleStatusChange(app.id, e.target.value as InsuranceApplication['status'])}
-                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none"
-                  >
-                    <option value="신청완료">신청완료</option>
-                    <option value="분석중">분석중</option>
-                    <option value="분석완료">분석완료</option>
-                  </select>
-                </td>
-                <td className="px-6 py-4 text-right whitespace-nowrap">
-                  <button onClick={() => alert('상세/수정 팝업이 뜰 예정입니다.')} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">수정</button>
-                  <button onClick={() => { if(window.confirm('정말로 삭제하시겠습니까?')) alert('삭제되었습니다.'); }} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[880px] text-left text-sm whitespace-nowrap">
+            <thead className="bg-gray-50 text-gray-500">
+              <tr>
+                <th className="px-6 py-3 font-medium">신청일시</th>
+                <th className="px-6 py-3 font-medium">신청자</th>
+                <th className="px-6 py-3 font-medium">반려동물</th>
+                <th className="px-6 py-3 font-medium">기존보험유무</th>
+                <th className="px-6 py-3 font-medium">상태</th>
+                <th className="px-6 py-3 font-medium">상태변경</th>
+                <th className="px-6 py-3 font-medium text-right">관리</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedApps.map(app => (
+                <tr key={app.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 text-gray-500">{formatDate(app.createdAt)}</td>
+                  <td className="px-6 py-4 font-medium text-gray-900">{app.ownerName} ({app.phone})</td>
+                  <td className="px-6 py-4 text-gray-500">{app.petName} ({app.petBreed}, {app.petAge}살)</td>
+                  <td className="px-6 py-4 text-gray-500">
+                    {app.hasCurrentInsurance ? (
+                      <span className="text-blue-600 font-medium">있음 ({app.currentInsuranceName})</span>
+                    ) : (
+                      <span>없음</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      app.status === '신청완료' ? 'bg-orange-100 text-orange-800' :
+                      app.status === '분석중' ? 'bg-blue-100 text-blue-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {app.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <select
+                      value={app.status}
+                      onChange={(e) => handleStatusChange(app.id, e.target.value as InsuranceApplication['status'])}
+                      className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none"
+                    >
+                      <option value="신청완료">신청완료</option>
+                      <option value="분석중">분석중</option>
+                      <option value="분석완료">분석완료</option>
+                    </select>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <button onClick={() => alert('상세/수정 팝업이 뜰 예정입니다.')} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">수정</button>
+                    <button onClick={() => { if(window.confirm('정말로 삭제하시겠습니까?')) alert('삭제되었습니다.'); }} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
         {apps.length === 0 && (
           <div className="py-10 text-center text-gray-500">
             보험 분석 신청 내역이 없습니다.

@@ -145,12 +145,13 @@ export async function listProductsByBrand(brandId: string): Promise<Product[]> {
   return listProducts({ brandId });
 }
 
-export async function getProductById(id: string): Promise<Product | null> {
-  const { data, error } = await getSupabase()
-    .from('products')
-    .select(SELECT_COLUMNS)
-    .eq('id', id)
-    .maybeSingle();
+/** 공개 경로는 includeHidden 없이 호출해 비노출(is_visible: false) 상품이 단건 URL로도
+ *  새 나가지 않게 한다. 관리자 수정 폼처럼 비노출 상품도 봐야 하는 곳만 includeHidden: true. */
+export async function getProductById(id: string, opts: { includeHidden?: boolean } = {}): Promise<Product | null> {
+  let query = getSupabase().from('products').select(SELECT_COLUMNS).eq('id', id);
+  if (!opts.includeHidden) query = query.eq('is_visible', true);
+
+  const { data, error } = await query.maybeSingle();
   if (error) throw error;
   return data ? rowToProduct(data as ProductRow) : null;
 }
@@ -181,7 +182,7 @@ export async function insertProduct(input: ProductInsertInput): Promise<Product>
  * (read-modify-write, upsertSocialMember와 동일 패턴). 존재하지 않으면 null.
  */
 export async function updateProduct(id: string, patch: ProductPatchInput): Promise<Product | null> {
-  const existing = await getProductById(id);
+  const existing = await getProductById(id, { includeHidden: true });
   if (!existing) return null;
 
   const merged: Product = { ...existing, ...patch, id: existing.id };

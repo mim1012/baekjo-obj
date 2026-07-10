@@ -222,12 +222,12 @@ export default function AdminSurveyPage() {
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
                   조건: 주요 고민
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={editingRule.condition.concern || ''} 
+                  <input
+                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
+                    value={editingRule.condition.concern || ''}
                     onChange={(e) => setEditingRule({...editingRule, condition: {...editingRule.condition, concern: e.target.value}})} 
                   />
                 </label>
@@ -248,12 +248,12 @@ export default function AdminSurveyPage() {
                   onChange={(e) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, direction: e.target.value}})} 
                 />
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
                   결과: 추천 브랜드 ID (쉼표 구분)
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={editingRule.recommendation.brandIds.join(', ')} 
+                  <input
+                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
+                    value={editingRule.recommendation.brandIds.join(', ')}
                     onChange={(e) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})} 
                   />
                 </label>
@@ -361,12 +361,12 @@ export default function AdminSurveyPage() {
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
                   조건: 주요 고민
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={newRule.condition?.concern || ''} 
+                  <input
+                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
+                    value={newRule.condition?.concern || ''}
                     onChange={(e) => setNewRule({...newRule, condition: {...newRule.condition, concern: e.target.value}})} 
                   />
                 </label>
@@ -387,12 +387,12 @@ export default function AdminSurveyPage() {
                   onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), direction: e.target.value}})}
                 />
               </label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
                   결과: 추천 브랜드 ID (쉼표 구분)
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={newRule.recommendation?.brandIds?.join(', ') || ''} 
+                  <input
+                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
+                    value={newRule.recommendation?.brandIds?.join(', ') || ''}
                     onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})}
                   />
                 </label>

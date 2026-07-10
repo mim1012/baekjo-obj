@@ -9,6 +9,9 @@ import BrandAuditReport from '@/components/common/BrandAuditReport';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
   const brand = await getBrandById(resolvedParams.id);
