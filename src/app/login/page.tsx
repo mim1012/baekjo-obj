@@ -6,6 +6,13 @@ import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
 import { login, isLoggedIn, setCurrentUser } from '@/lib/storage';
 
+// 오픈 리다이렉트 방지: 내부 경로(/...)만 허용, //evil.com 류 차단
+function getSafeRedirect(): string | null {
+  if (typeof window === 'undefined') return null;
+  const target = new URLSearchParams(window.location.search).get('redirect');
+  return target && target.startsWith('/') && !target.startsWith('//') ? target : null;
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -15,7 +22,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isLoggedIn()) {
-      router.push('/mypage');
+      router.push(getSafeRedirect() || '/mypage');
     }
   }, [router]);
 
@@ -56,7 +63,7 @@ export default function LoginPage() {
       if (remember) localStorage.setItem('baekjo_remember_email', email);
       else localStorage.removeItem('baekjo_remember_email');
     }
-    router.push('/');
+    router.push(getSafeRedirect() || '/');
   };
 
   return (

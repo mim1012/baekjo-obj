@@ -57,7 +57,11 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (mounted) {
-      if (cartItems.length === 0) {
+      if (!getCurrentUser()) {
+        // 로그인해야 주문이 계정에 귀속됨 (비로그인 결제 → 주문 유실 방지)
+        // 로그인 후 결제 화면으로 복귀
+        router.replace('/login?redirect=/checkout');
+      } else if (cartItems.length === 0) {
         router.replace('/cart');
       } else if (hasUnpricedItems) {
         alert('가격 확인이 필요한 상품이 포함되어 결제를 진행할 수 없습니다.');
@@ -67,6 +71,10 @@ export default function CheckoutPage() {
   }, [cartItems.length, hasUnpricedItems, mounted, router]);
 
   if (!mounted) return null;
+
+  if (!getCurrentUser()) {
+    return null;
+  }
 
   if (cartItems.length === 0 || hasUnpricedItems) {
     return null;
