@@ -1,13 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck } from 'lucide-react';
+import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
 import { getOrders, getInsuranceApplications, getWishlist, getCurrentUser } from '@/lib/storage';
 import { products } from '@/data/products';
 import { reviews } from '@/data/reviews';
 import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
+import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 
 export default function MyPage() {
   const mounted = useMounted();
@@ -72,6 +73,9 @@ export default function MyPage() {
                 <li><Link href="#reviews" className="flex items-center gap-2 p-4 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#2F3B34]"><Star className="size-4" />구매평 관리</Link></li>
                 <li><Link href="#qna" className="flex items-center gap-2 p-4 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#2F3B34]"><MessageCircle className="size-4" />상품문의 관리</Link></li>
                 <li><Link href="#profile" className="flex items-center gap-2 p-4 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#2F3B34]"><Settings className="size-4" />회원정보 수정</Link></li>
+                {currentUser && currentUser.provider !== 'kakao' && currentUser.provider !== 'naver' && (
+                  <li><Link href="#password" className="flex items-center gap-2 p-4 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#2F3B34]"><Lock className="size-4" />비밀번호 변경</Link></li>
+                )}
               </ul>
             </div>
           </div>
@@ -225,6 +229,10 @@ export default function MyPage() {
               </div>
               <button type="button" className="mt-5 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">변경사항 저장</button>
             </section>
+
+            {currentUser && currentUser.provider !== 'kakao' && currentUser.provider !== 'naver' && (
+              <PasswordChangeSection />
+            )}
 
           </div>
         </div>
