@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { DuplicateEmailError, insertEmailMember, toUser } from '@/lib/members/repo';
 import { hashPassword } from '@/lib/members/password';
 import { createMemberToken } from '@/lib/members/tokens';
@@ -84,14 +84,21 @@ export async function POST(request: NextRequest) {
       mainConcern: validated.mainConcern,
     });
 
-    // 인증 메일 발송 실패가 가입 성공(201) 응답을 막으면 안 되므로 fire-and-forget으로 보낸다.
+    // 인증 메일 발송 실패가 가입 성공(201)을 막으면 안 되므로 응답 이후에 보낸다.
+    // after()를 쓰는 이유: Vercel 서버리스는 응답 후 함수를 얼려 순수 fire-and-forget이
+    // 완료 전에 중단될 수 있다(프로덕션 카나리에서 재설정 메일이 실제로 누락됨을 확인). after()는
+    // 응답 후 작업을 런타임이 보장 실행한다.
     const baseUrl = getBaseUrl(request);
-    void (async () => {
-      const rawToken = await createMemberToken(member.id, 'verify');
-      const link = `${baseUrl}/verify-email?token=${rawToken}`;
-      const { subject, html } = verificationEmail(link);
-      await sendMail({ to: member.email, subject, html });
-    })().catch((error: unknown) => logServerError('[POST /api/members] 가입 인증 메일 발송 실패', error));
+    after(async () => {
+      try {
+        const rawToken = await createMemberToken(member.id, 'verify');
+        const link = `${baseUrl}/verify-email?token=${rawToken}`;
+        const { subject, html } = verificationEmail(link);
+        await sendMail({ to: member.email, subject, html });
+      } catch (error: unknown) {
+        logServerError('[POST /api/members] 가입 인증 메일 발송 실패', error);
+      }
+    });
 
     return NextResponse.json({ user: toUser(member) }, { status: 201 });
   } catch (error) {
