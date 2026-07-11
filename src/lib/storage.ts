@@ -523,6 +523,29 @@ export async function registerBusinessMember(input: {
   }
 }
 
+/**
+ * 관리자 회원 목록(전체). GET /api/admin/members(관리자 세션 필요). 화면이 "로그인 필요"와
+ * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
+ * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
+ */
+export async function getAdminMembers(): Promise<{
+  users?: User[];
+  error?: 'unauthorized' | 'forbidden' | 'network';
+}> {
+  try {
+    const response = await fetch('/api/admin/members');
+    if (response.ok) {
+      const { users } = (await response.json()) as { users: User[] };
+      return { users };
+    }
+    if (response.status === 401) return { error: 'unauthorized' };
+    if (response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 /** 관리자의 회원 승인/반려/상태 변경. */
 export async function updateUserStatus(
   id: string,

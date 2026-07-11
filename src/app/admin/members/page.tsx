@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { updateUserStatus } from '@/lib/storage';
+import { getAdminMembers, updateUserStatus } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import type { User } from '@/types';
 
@@ -39,22 +39,17 @@ export default function AdminMembersPage() {
   const [activeTab, setActiveTab] = useState<MemberTab>('user');
 
   const loadMembers = useCallback(() => {
-    return fetch('/api/admin/members')
-      .then(async (response) => {
-        if (response.status === 401 || response.status === 403) {
-          setState({ status: 'error', message: '관리자 로그인이 필요합니다.', showLoginLink: true });
-          return;
-        }
-        if (!response.ok) {
-          setState({ status: 'error', message: '목록을 불러오지 못했습니다.', showLoginLink: false });
-          return;
-        }
-        const { users } = (await response.json()) as { users: User[] };
-        setState({ status: 'success', users });
-      })
-      .catch(() => {
+    return getAdminMembers().then((result) => {
+      if (result.error === 'unauthorized' || result.error === 'forbidden') {
+        setState({ status: 'error', message: '관리자 로그인이 필요합니다.', showLoginLink: true });
+        return;
+      }
+      if (result.error) {
         setState({ status: 'error', message: '목록을 불러오지 못했습니다.', showLoginLink: false });
-      });
+        return;
+      }
+      setState({ status: 'success', users: result.users ?? [] });
+    });
   }, []);
 
   useEffect(() => {
