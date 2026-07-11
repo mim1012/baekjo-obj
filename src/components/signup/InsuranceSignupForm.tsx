@@ -43,6 +43,7 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
     const saved = localStorage.getItem('insurance_signup_draft');
     if (saved) {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setFormData(JSON.parse(saved));
       } catch {
         // 저장된 임시데이터가 손상된 경우 조용히 무시하고 초기값을 유지한다.
