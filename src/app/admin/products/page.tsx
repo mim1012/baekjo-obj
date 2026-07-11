@@ -81,6 +81,8 @@ export default function AdminProductsDashboard() {
       if (!ok) {
         setProductCats(prev);
         alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        setDirty(false);
       }
     } else {
       const prev = lifestyleCats;
@@ -89,6 +91,8 @@ export default function AdminProductsDashboard() {
       if (!ok) {
         setLifestyleCats(prev);
         alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        setDirty(false);
       }
     }
   };

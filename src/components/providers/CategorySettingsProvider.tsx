@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 
 export interface BrandFilter {
   id: string;
@@ -34,13 +34,16 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
   // 첫 페인트는 defaultCategorySettings 로 카테고리를 보장하고, 마운트 후 GET /api/category-settings 가
   // DB 에 저장된 실제 설정으로 하이드레이트한다(콘센트 경계 — provider 만 fetch, §4).
   const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);
+  // 사용자가 한 번이라도 편집(updateCategorySettings 호출)했으면 true — 늦게 도착하는 초기 GET 이
+  // 그 편집을 덮어쓰지 못하도록 막는 가드(하드 리로드 레이스 방지).
+  const userWrote = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/category-settings')
       .then((res) => res.json())
       .then((data: { settings?: CategorySettings }) => {
-        if (cancelled || !data?.settings) return;
+        if (cancelled || userWrote.current || !data?.settings) return;
         setCategorySettings(data.settings);
       })
       .catch((e) => {
@@ -54,6 +57,8 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
   // 낙관적 갱신: 화면(관리자 편집)은 즉시 반영하고, DB 저장 성공 여부는 Promise<boolean> 으로
   // 반환한다 — 호출부(admin/products/page.tsx)가 실패 시 사용자에게 알릴 수 있도록.
   const updateCategorySettings = (newSettings: CategorySettings): Promise<boolean> => {
+    userWrote.current = true;
+    const prev = categorySettings;
     setCategorySettings(newSettings);
     return fetch('/api/admin/category-settings', {
       method: 'PUT',
@@ -63,12 +68,14 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
       .then((res) => {
         if (!res.ok) {
           console.error('Failed to save category settings to DB', res.status);
+          setCategorySettings(prev);
           return false;
         }
         return true;
       })
       .catch((e) => {
         console.error('Failed to save category settings to /api/admin/category-settings', e);
+        setCategorySettings(prev);
         return false;
       });
   };
