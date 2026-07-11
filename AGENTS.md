@@ -237,7 +237,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ### 8-5. Definition of Done (완료 정의)
 `npm run build` 통과 · `npm run lint` 통과 · debug 로그 제거 · 해당 골든플로우(§7) 스모크 통과 ·
-계약 변경 시 모든 호출부 동반 수정으로 빌드 green · PR 라벨과 브랜치 prefix 일치.
+계약 변경 시 모든 호출부 동반 수정으로 빌드 green · PR 라벨과 브랜치 prefix 일치 · **§8-6 검증 게이트 통과.**
+
+### 8-6. ⭐ 검증 게이트 — 3중 통과해야 "완료" (2026-07-12 확정)
+> 리뷰 findings 를 한 모델이 놓치는 걸 막고(교차검증), 코드가 아니라 **실제 프리뷰에서 동작함**을 증명한다.
+> 작성 lane 과 검증 lane 은 분리한다(작성자·작성 모델의 자기승인 금지). 아래 셋을 **모두** 통과해야
+> 머지·프로모트한다. 통과 증빙(두 리뷰 결론 + Playwright 결과)을 커밋/PR 에 남긴다.
+>
+> 1. **opus 리뷰** — 드리프트·계약(§4)·보안 관점의 적대적 리뷰가 GREEN.
+> 2. **codex(GPT-5.5) 리뷰** — opus 와 독립된 2차 리뷰가 pass. 서로 다른 관점으로 교차검증한다.
+> 3. **Playwright 프리뷰 검증** — 변경이 닿는 골든플로우(§7)를 **실제 프리뷰 배포**에서 구동해 통과.
+>    프리뷰가 Vercel Authentication 뒤에 있으면 protection bypass 토큰(`x-vercel-protection-bypass`
+>    헤더 / `?x-vercel-set-bypass-cookie`)으로 접근한다.
+>
+> 셋 중 하나라도 findings·실패가 나오면 **수정 후 재검증**한다(빌드 green 만으로는 완료가 아니다).
+> 이 게이트는 어떤 IDE(Antigravity/Claude/Codex)로 짰든 동일하게 적용된다.
 
 ## 9. 명령어
 ```bash
