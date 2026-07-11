@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getInsuranceApplications, updateInsuranceStatus } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import { InsuranceApplication } from '@/types';
@@ -9,21 +9,41 @@ import Pagination from '@/components/admin/Pagination';
 
 export default function AdminInsurancePage() {
   const mounted = useMounted();
-  const [, refreshApplications] = useState(0);
+  // 목록은 서버(관리자)에서 비동기로. 로딩 중과 실제 0건을 구분해 빈 상태가 잠깐 노출되지 않게 한다.
+  const [apps, setApps] = useState<InsuranceApplication[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  const handleStatusChange = (id: string, newStatus: InsuranceApplication['status']) => {
-    updateInsuranceStatus(id, newStatus);
-    refreshApplications((version) => version + 1);
+  // await 후 setState 하면 react-hooks/set-state-in-effect 가 걸리므로 .then() 체인으로 처리한다.
+  const loadApplications = useCallback(() => {
+    return getInsuranceApplications().then((list) => {
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setApps(sorted);
+      setLoading(false);
+    });
+  }, []);
+
+  useEffect(() => {
+    loadApplications();
+  }, [loadApplications]);
+
+  const handleStatusChange = async (id: string, newStatus: InsuranceApplication['status']) => {
+    try {
+      await updateInsuranceStatus(id, newStatus);
+    } catch {
+      alert('상태 변경에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+    await loadApplications();
   };
 
-  if (!mounted) return null;
-
-  const apps = getInsuranceApplications().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  if (!mounted || loading) {
+    return <p className="p-12 text-center text-sm text-[#7B827C]">보험 신청 목록 불러오는 중…</p>;
+  }
 
   const totalPages = Math.max(1, Math.ceil(apps.length / ITEMS_PER_PAGE));
   const paginatedApps = apps.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);

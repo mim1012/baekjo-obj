@@ -3,12 +3,12 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
-import { getMyOrders, getInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts } from '@/lib/storage';
+import { getMyOrders, getMyInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts } from '@/lib/storage';
 import { reviews } from '@/data/reviews';
 import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
-import type { Order, Product } from '@/types';
+import type { InsuranceApplication, Order, Product } from '@/types';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
@@ -21,6 +21,9 @@ export default function MyPage() {
   // 관심 상품 조인용 카탈로그. 위시리스트 자체는 localStorage(동기)라 orders 와 별도로 로딩 관리.
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  // 보험 신청은 세션 기준 내 신청만(getMyInsuranceApplications). orders 와 동일한 비동기 로딩 패턴.
+  const [insuranceApps, setInsuranceApps] = useState<InsuranceApplication[]>([]);
+  const [insuranceLoading, setInsuranceLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,6 +34,21 @@ export default function MyPage() {
       );
       setOrders(sorted);
       setOrdersLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getMyInsuranceApplications().then((list) => {
+      if (cancelled) return;
+      const sorted = [...list].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setInsuranceApps(sorted);
+      setInsuranceLoading(false);
     });
     return () => {
       cancelled = true;
@@ -51,9 +69,6 @@ export default function MyPage() {
 
   if (!mounted) return null;
 
-  const insuranceApps = getInsuranceApplications().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
   const wishlistedIds = getWishlist();
   const wishlist = productsLoading ? [] : products.filter((product) => wishlistedIds.includes(product.id));
   const currentUser = getCurrentUser();
@@ -171,7 +186,9 @@ export default function MyPage() {
                 </h2>
               </div>
               
-              {insuranceApps.length === 0 ? (
+              {insuranceLoading ? (
+                <div className="py-10 text-center text-gray-400 bg-gray-50 rounded-sm">보험 분석 내역을 불러오는 중…</div>
+              ) : insuranceApps.length === 0 ? (
                 <div className="py-10 text-center text-gray-500 bg-gray-50 rounded-sm">보험 분석 신청 내역이 없습니다.</div>
               ) : (
                 <div className="space-y-4">

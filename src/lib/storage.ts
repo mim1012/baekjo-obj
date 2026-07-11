@@ -1,5 +1,4 @@
 import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
-import { insuranceApplications } from '@/data/insuranceApplications';
 import { users as mockUsers } from '@/data/users';
 
 function cloneFallback<T>(fallback: T): T {
@@ -44,49 +43,114 @@ export function isWishlisted(productId: string): boolean {
   return getWishlist().includes(productId);
 }
 
-const INSURANCE_KEY = 'baekjo_insurance';
+/* ── 보험 분석 신청 ─────────────────────────────────────────
+ * 관리자 목록은 GET /api/admin/insurance, 내 신청은 GET /api/insurance/mine,
+ * 생성은 POST /api/insurance(공개·게스트 허용), 상태 변경은 PATCH /api/admin/insurance/[id].
+ * 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4). 실패는 orders 와 동일하게
+ * 읽기=빈 배열, 쓰기=throw 로 접는다.
+ */
 
-export function getInsuranceApplications(): InsuranceApplication[] {
-  return getJSON<InsuranceApplication[]>(INSURANCE_KEY, insuranceApplications);
+/**
+ * 신청 생성 입력(콘센트). id/createdAt/member_id 와 status 는 서버(POST /api/insurance)가 정하므로
+ * 클라이언트는 신뢰시키지 않는다(mass-assignment·상태 위조 차단). 화면 타입 InsuranceApplication 은
+ * 그대로 두고 Omit 으로 입력 표면만 좁힌다.
+ */
+export type CreateInsuranceInput = Omit<InsuranceApplication, 'id' | 'createdAt' | 'status'>;
+
+/**
+ * 전체 보험 신청 목록(관리자). GET /api/admin/insurance. 권한 없음·실패 시 빈 배열
+ * (getAllOrders 와 동일한 실패 계약).
+ */
+export async function getInsuranceApplications(): Promise<InsuranceApplication[]> {
+  try {
+    const response = await fetch('/api/admin/insurance');
+    if (!response.ok) return [];
+    const { applications } = (await response.json()) as { applications: InsuranceApplication[] };
+    return applications;
+  } catch {
+    return [];
+  }
 }
 
-export function addInsuranceApplication(application: InsuranceApplication): void {
-  const list = getInsuranceApplications();
-  list.push(application);
-  setJSON(INSURANCE_KEY, list);
+/**
+ * 내 보험 신청 목록. GET /api/insurance/mine(세션 필요). 세션이 없거나(401) 실패하면
+ * 화면이 다루기 쉽도록 일관되게 빈 배열을 반환한다(getMyOrders 와 동일).
+ */
+export async function getMyInsuranceApplications(): Promise<InsuranceApplication[]> {
+  try {
+    const response = await fetch('/api/insurance/mine');
+    if (!response.ok) return [];
+    const { applications } = (await response.json()) as { applications: InsuranceApplication[] };
+    return applications;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 신청 생성. POST /api/insurance(공개 — 게스트 신청 허용). 서버가 id·createdAt·member_id·status 를
+ * 정하므로 클라이언트는 그것들을 body 로 신뢰시키지 않는다. 실패 시 throw — 호출부(apply)가
+ * 사용자에게 실패를 알릴 수 있도록(createOrder 와 동일 계약).
+ */
+export async function addInsuranceApplication(
+  input: CreateInsuranceInput,
+): Promise<InsuranceApplication> {
+  const response = await fetch('/api/insurance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('insurance-create-failed');
+  }
+  const { application } = (await response.json()) as { application: InsuranceApplication };
+  return application;
 }
 
 export const saveInsuranceApplication = addInsuranceApplication;
 
-export function updateInsuranceStatus(
+/**
+ * 신청 상태 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw 해
+ * 호출부가 사용자에게 알리거나 재조회할 수 있게 한다(updateOrderStatus 와 동일 계약).
+ */
+export async function updateInsuranceStatus(
   id: string,
   status: InsuranceApplication['status'],
   memo?: string,
-): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.status = status;
-    if (memo !== undefined) item.memo = memo;
-    setJSON(INSURANCE_KEY, list);
+): Promise<void> {
+  const body: { status: InsuranceApplication['status']; memo?: string } = { status };
+  if (memo !== undefined) body.memo = memo;
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
-export function updateInsuranceMemo(id: string, memo: string): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.memo = memo;
-    setJSON(INSURANCE_KEY, list);
+/** 신청 메모 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw. */
+export async function updateInsuranceMemo(id: string, memo: string): Promise<void> {
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memo }),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
-export function updateInsuranceContacted(id: string, contacted: boolean): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.contacted = contacted;
-    setJSON(INSURANCE_KEY, list);
+/** 신청 연락여부 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw. */
+export async function updateInsuranceContacted(id: string, contacted: boolean): Promise<void> {
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contacted }),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
