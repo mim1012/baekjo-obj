@@ -125,8 +125,8 @@ export default function ProductCard({ product }: Props) {
               )}
             </>
           ) : (
-            <span className="font-semibold tabular-nums text-slate-400 text-[13px] tracking-tight">
-              상담 후 안내
+            <span className="font-semibold tabular-nums text-text-main tracking-tight">
+              {formatPrice(0)}
             </span>
           )}
         </div>

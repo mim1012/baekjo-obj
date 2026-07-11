@@ -26,7 +26,7 @@ const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifes
 export default function AdminProductsDashboard() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
   const [activeCategory, setActiveCategory] = useState<string | null>(null); // null means 'All'
-  const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle'>('product');
+  const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle' | 'brand'>('product');
 
   // Local state for categories
   const [productCats, setProductCats] = useState<string[]>(categorySettings.productCategories);
@@ -114,18 +114,29 @@ export default function AdminProductsDashboard() {
     if (activeCategory) {
       if (activeGroup === 'product' && p.category !== activeCategory) return false;
       if (activeGroup === 'lifestyle' && p.lifestyleCategory !== activeCategory) return false;
+      // brand 모드: activeCategory 는 브랜드 id 를 담는다(§ 이중 의미 주의).
+      if (activeGroup === 'brand' && p.brandId !== activeCategory) return false;
     }
     return true;
   });
 
   // 카테고리 관리 패널(선택된 카테고리의 사이드바 내 인덱스 — 이름수정/삭제 버튼에 재사용)
+  // 카테고리 관리 함수는 'product' | 'lifestyle' 만 받는다. brand 모드에서는 카테고리 UI 가
+  // 렌더되지 않지만, 콜백에 넘길 좁혀진 그룹값이 필요하므로 여기서 브랜드를 product 로 접는다.
+  const categoryGroup: 'product' | 'lifestyle' = activeGroup === 'lifestyle' ? 'lifestyle' : 'product';
   const activeCategoryList = activeGroup === 'product' ? productCats : lifestyleCats;
   const activeCategoryIndex = activeCategory ? activeCategoryList.indexOf(activeCategory) : -1;
+
+  // brand 모드에서 선택된 업체 이름(라벨/헤더 표기용). activeCategory 는 브랜드 id.
+  const selectedBrandName =
+    activeGroup === 'brand' && activeCategory
+      ? brands.find((b) => b.id === activeCategory)?.name ?? null
+      : null;
 
   const openAddModal = () => {
     setForm({
       name: '',
-      brandId: brands[0]?.id ?? '',
+      brandId: activeGroup === 'brand' && activeCategory ? activeCategory : (brands[0]?.id ?? ''),
       category: activeGroup === 'product' && activeCategory ? activeCategory : (productCats[0] ?? ''),
       lifestyleCategory: activeGroup === 'lifestyle' && activeCategory ? activeCategory : '',
       price: '',
@@ -248,6 +259,12 @@ export default function AdminProductsDashboard() {
             >
               라이프스타일
             </button>
+            <button
+              onClick={() => { setActiveGroup('brand'); setActiveCategory(null); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${activeGroup === 'brand' ? 'bg-white shadow-sm text-[#202521]' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              업체
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
@@ -260,7 +277,24 @@ export default function AdminProductsDashboard() {
               전체 보기 <span className="float-right opacity-60 text-xs mt-0.5">{products.length}</span>
             </button>
 
-            {(activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
+            {activeGroup === 'brand' ? (
+              brands.map((brand) => (
+                <div key={brand.id} className="group relative mb-1">
+                  <button
+                    onClick={() => setActiveCategory(brand.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors pr-16 ${
+                      activeCategory === brand.id ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
+                    }`}
+                  >
+                    <span className="truncate block">{brand.name}</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 text-xs">
+                      {products.filter(p => p.brandId === brand.id).length}
+                    </span>
+                  </button>
+                </div>
+              ))
+            ) : (
+              (activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
               <div key={idx} className="group relative mb-1">
                 {editingIndex === idx ? (
                   <div className="flex items-center px-2 py-1.5 bg-[#F0EEE8] rounded-md">
@@ -268,8 +302,8 @@ export default function AdminProductsDashboard() {
                       type="text"
                       value={editValue}
                       onChange={e => setEditValue(e.target.value)}
-                      onBlur={() => saveEditCategory(activeGroup)}
-                      onKeyDown={e => e.key === 'Enter' && saveEditCategory(activeGroup)}
+                      onBlur={() => saveEditCategory(categoryGroup)}
+                      onKeyDown={e => e.key === 'Enter' && saveEditCategory(categoryGroup)}
                       className="flex-1 bg-white border border-[#D1D0C8] rounded px-2 py-1 text-sm outline-none"
                       autoFocus
                     />
@@ -287,17 +321,18 @@ export default function AdminProductsDashboard() {
                     </span>
 
                     <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${activeCategory === cat ? 'text-white' : 'text-[#4F5751]'}`}>
-                      <span onClick={(e) => startEditCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
-                      <span onClick={(e) => handleDeleteCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
+                      <span onClick={(e) => startEditCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
+                      <span onClick={(e) => handleDeleteCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
                     </div>
                   </button>
                 )}
               </div>
-            ))}
+            )))}
           </div>
 
+          {activeGroup !== 'brand' && (
           <div className="p-4 border-t border-[#D1D0C8] bg-[#F8F7F2]">
-            <form onSubmit={(e) => handleAddCategory(e, activeGroup)} className="flex gap-2">
+            <form onSubmit={(e) => handleAddCategory(e, categoryGroup)} className="flex gap-2">
               <input
                 type="text"
                 placeholder={`${activeGroup === 'product' ? '일반' : '라이프스타일'} 카테고리 추가`}
@@ -310,13 +345,23 @@ export default function AdminProductsDashboard() {
               </button>
             </form>
           </div>
+          )}
         </div>
 
         {/* Main Content: Products */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
           <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
-            {/* 카테고리 관리 패널 — 선택된 카테고리가 있을 때만 노출 */}
-            {activeCategory ? (
+            {/* brand 모드: 업체 헤더만 노출(카테고리 관리 없음) */}
+            {activeGroup === 'brand' && selectedBrandName ? (
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-[#202521]">{selectedBrandName}</h2>
+                  <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">업체</span>
+                </div>
+                <p className="mt-1 text-sm text-[#59615B]">해당 업체의 상품을 등록·수정·삭제할 수 있습니다.</p>
+              </div>
+            ) : /* 카테고리 관리 패널 — 선택된 카테고리가 있을 때만 노출 */
+            activeCategory && activeGroup !== 'brand' ? (
               <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
@@ -374,7 +419,9 @@ export default function AdminProductsDashboard() {
                   className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
                 >
                   <Plus className="size-4" />
-                  {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
+                  {activeGroup === 'brand'
+                    ? (selectedBrandName ? `'${selectedBrandName}'에 상품 등록` : '새 상품 등록')
+                    : (activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록')}
                 </button>
               </div>
             </div>
@@ -413,7 +460,7 @@ export default function AdminProductsDashboard() {
                             ) : <span className="text-slate-300">-</span>}
                           </td>
                           <td className="px-5 py-3 tabular-nums text-[#4F5751]">
-                            {product.price !== null && product.price !== undefined ? formatPrice(product.salePrice || product.price) : '-'}
+                            {formatPrice(product.salePrice ?? product.price ?? 0)}
                           </td>
                           <td className="px-5 py-3 text-right">
                             <button onClick={() => openEditModal(product)} className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
@@ -497,7 +544,7 @@ export default function AdminProductsDashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 상담 후 안내)</label>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 0원 표시)</label>
                     <input
                       type="number"
                       min={0}
