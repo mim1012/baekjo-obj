@@ -1,5 +1,6 @@
 import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
 import { users as mockUsers } from '@/data/users';
+import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -469,6 +470,40 @@ export async function deleteBrand(id: string): Promise<{ ok?: true; error?: stri
     return { ok: true };
   } catch {
     return { error: 'network' };
+  }
+}
+
+/* ── 맞춤 진단 설문 ─────────────────────────────────────────
+ * 공개 진단 화면(/diagnosis·/diagnosis/result)은 GET /api/survey 로 설문 config 를 읽고,
+ * 관리자 화면은 PUT /api/admin/survey 로 통째로 저장한다. 컴포넌트는 fetch 를 직접 하지 않고
+ * 아래 콘센트만 거친다(§4). 공개 조회는 category-settings 와 동일하게 실패·빈응답을
+ * defaultSurveyConfig 로 접어 진단 화면이 절대 빈 문항으로 깨지지 않게 한다(Golden Flow #1).
+ */
+
+/** 공개 설문 config. GET /api/survey. 실패·미저장 시 defaultSurveyConfig 로 폴백. */
+export async function getSurveyConfig(): Promise<SurveyConfig> {
+  try {
+    const response = await fetch('/api/survey');
+    if (!response.ok) return defaultSurveyConfig;
+    const { questions, rules } = (await response.json()) as SurveyConfig;
+    if (!Array.isArray(questions) || !Array.isArray(rules)) return defaultSurveyConfig;
+    return { questions, rules };
+  } catch {
+    return defaultSurveyConfig;
+  }
+}
+
+/** 설문 config 저장(관리자). PUT /api/admin/survey. 성공/실패를 boolean 으로 돌려 화면이 알림을 띄운다. */
+export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/survey', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
   }
 }
 
