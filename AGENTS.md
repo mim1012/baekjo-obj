@@ -62,6 +62,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Lint | **ESLint 9** | `npm run lint` |
 | 데이터(현재) | `src/data/*.ts` 가짜데이터 + `localStorage`(`src/lib/storage.ts`) | → 실 API로 교체 예정 |
 
+## 스킬 & 워크플로우 프로파일 (이 프로젝트 전용 라우팅)
+
+> 글로벌 스킬 수백 개 중 아래 목록을 먼저 집는다. 수주 프로젝트 — 배포 게이트·납품 증빙(§8·§9) 적용.
+
+- **도메인**: Next.js 16 App Router · React 19 · Tailwind v4 · framer-motion 12 · 프리미엄 펫커머스 · Quiet Luxury 디자인
+- **DAILY 스킬**: `nextjs-turbopack`, `react-patterns`, `react-performance`, `react-testing`, `frontend-patterns`, `frontend-design-direction`, `motion-ui`, `motion-patterns`, `design-system`, `make-interfaces-feel-better`, `ecc:react-review`, `ecc:react-build`(빌드 실패 시)
+- **워크플로우**: 디자인·표현 변경 = `frontend-design-direction` → `design-review` / 계약(types·storage) 변경 = §4 콘센트 규칙 준수 / 완료 전 `npm run lint`+`npm run build`+`verify` / 리뷰 = `ecc:react-review`
+- **재사용 먼저(위키 D:\Project\_wiki)**: [[웹앱-인증-세션-계층]] · [[반응형-오프캔버스-모바일]] · [[카카오-네이버-소셜로그인-AuthJS]]
+- **무시**: Android/Kotlin·트레이딩·네트워크·무거운 백엔드 계열(현재 Phase1 = FE+mock)
+
 ## 3. 역할 경계 — 디렉토리가 아니라 레이어로 나눈다
 > ⚠️ **왜 바뀌었나:** 예전엔 "dad=`src/app/**`, mim=`src/lib/**`"로 폴더로 나눴는데, 백엔드 연동은
 > dad가 디자인한 바로 그 페이지 파일(`page.tsx`)을 건드릴 수밖에 없어 **같은 파일이 충돌**했다.
@@ -70,6 +80,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **핵심 분리 규칙 (충돌이 구조적으로 불가능해지는 지점):**
 페이지는 **서버 wrapper `page.tsx`(mim: 데이터 주입) + 클라이언트 표현 `*Client.tsx`(dad: UI)** 로 쪼갠다.
 각자 자기 레이어 파일만 편집한다.
+
+> **언제 쪼개나 — 전부 쪼개지 않는다 (2026-07-12 기준 명확화):**
+> - **쪼갠다:** 서버 데이터(상품·브랜드·주문 등 DB)를 읽어 **첫 화면에 그려야 하는** page.
+>   → 홈이 완료 사례: `page.tsx`(서버, `repo` 직접 호출) + `HomeClient.tsx`(표현). 서버 wrapper는
+>   storage(클라용 fetch 콘센트)가 아니라 **`src/lib/*/repo.ts`를 직접 호출**한다(자기 `/api` HTTP 왕복 방지).
+> - **안 쪼갠다:** 순수 폼·상태 페이지(`login`·`signup`·`cart`·`checkout`·`forgot-password` 등)는
+>   통짜 `'use client'`가 오히려 맞다. 억지로 분리하지 말 것.
+> - **남은 분리 대상(현황):** 서버 데이터를 client `useEffect`로 늦게 읽는 **admin 목록들**과
+>   `diagnosis/result`. 여기가 dad·mim 충돌이 재발하기 쉬운 지점이므로 순차적으로 wrapper 분리한다.
 
 ### Role: dad — PM · UX · Frontend
 - **책임(제품 관점):** 무엇을 왜 만드는지, 화면 표현·인터랙션·기획 기능 연결(핸들러·상태·플로우).
@@ -90,6 +109,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **`src/types/index.ts`(데이터 설계도)** + **`src/lib/storage.ts`(콘센트 = 함수 시그니처)**.
 시그니처 변경은 §0-2 ②(`contract/*` + `contract-change` 라벨, 확정=mim)로만. §4 규칙 준수.
 
+### 데이터(콘텐츠) 오너십 — "누가 값을 채우나" (2026-07-12 추가)
+> 코드 연동과 **콘텐츠 채우기는 별개다.** 연동이 끝나도 DB/데이터가 비어 있으면 화면은 그대로다
+> (실제 겪음: 홈을 DB로 연동했지만 seed의 `price=null`·로고 placeholder 때문에 화면 무변화). 그래서
+> "이 값을 누가 넣는지"를 못 박는다.
+
+| 데이터 | 오너 | 넣는 위치 | 미정일 때 |
+|--------|------|-----------|-----------|
+| 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` + `brands` 데이터/seed `logo` 경로 | placeholder → 채우면 즉시 표시 |
+| 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 또는 seed `price` | 카드에 `0원` 표시(저장값은 `null` 유지) |
+| 정적 콘텐츠(공지·후기·케어가이드) | **dad** | `src/data/*` (아직 API 라우트 없음) | 해당 없음 |
+
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
 프론트는 가짜 데이터로, 백엔드는 진짜 데이터로 만든다. **둘이 따로 놀아(=drift) 화면이 조용히 깨지는 것**이
 가장 위험하다. 이 리포엔 이미 그걸 막는 구조가 있으니 아래를 지키면 drift가 구조적으로 불가능해진다.
@@ -106,6 +136,27 @@ This version has breaking changes — APIs, conventions, and file structure may 
    - PR에 `contract-change` 라벨 → 양쪽 인지. `src/types/index.ts` diff는 항상 리뷰 필수.
 5. **동기/비동기 결정(지뢰).** 진짜 API는 비동기다. 나중에 `storage` 함수를 async로 바꾸면 모든 호출부가
    깨진다 → **처음부터 async-ready로 갈지 팀이 먼저 합의**(권장). 합의 전엔 시그니처 변경 금지.
+6. **⭐ 약속이 아니라 기계가 막는다 (2026-07-12 추가).** "컴포넌트에서 `@/data/*` 직접 import 금지"는
+   사람 약속으로는 안 지켜졌다 — dad `ProductCard`가 `@/data/brands`를 직접 import한 채 CI를 통과했고,
+   그 결과 두 브랜치의 카드가 로고/문구로 조용히 갈라지는 drift가 실제로 발생했다. 그러니 `eslint.config.mjs`에
+   `no-restricted-imports` 규칙으로 **관리자가 실시간 변경하는 데이터(`@/data/products`·`@/data/brands`)의
+   컴포넌트 import를 에러로 막고**, CI lint 게이트가 잡게 한다. 서버 컴포넌트/`page.tsx` wrapper는 이 데이터를
+   `@/data/*`가 아니라 `src/lib/*/repo.ts`(또는 storage 콘센트)로 읽는다. 예외: `concerns/notices/reviews/
+   homeContent/shopFilters` 등 **API 라우트가 없는 정적 콘텐츠**는 관리자가 실시간 변경하지 않아 drift 위험이
+   없으므로 규칙에서 제외한다.
+
+   ```js
+   // eslint.config.mjs 에 추가할 규칙(제안)
+   {
+     files: ["src/components/**", "src/app/**/*Client.tsx"],
+     rules: {
+       "no-restricted-imports": ["error", { patterns: [
+         { group: ["@/data/products", "@/data/brands"],
+           message: "실시간 데이터는 콘센트(storage) 또는 repo 로만 읽으세요 — 컴포넌트 직접 import 금지(§4)." },
+       ]}],
+     },
+   }
+   ```
 
 ## 5. 코드 규약
 - 파일 200–400줄 권장, 800줄 초과 금지. 불변성(기존 객체 mutate 금지, 새 객체 반환).
@@ -173,8 +224,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ```
 
 ### 8-4. CI · 배포
-- **CI 게이트(IDE 무관·자동)**: 모든 PR에서 `.github/workflows/ci.yml`가 **typecheck+build+lint** 실행.
-  실패하면 머지 불가 → drift가 프로덕션에 못 샌다. **어떤 IDE로 짰든 GitHub에서 똑같이 걸린다.**
+- **CI 게이트(IDE 무관·자동)**: `.github/workflows/ci.yml`가 **typecheck+build+lint** 실행.
+  실패하면 머지 불가 → drift가 프로덕션에 못 샌다. **어떤 IDE(Antigravity/Claude/Codex)로 짰든 GitHub에서 똑같이 걸린다.**
+  - ⚠️ **갭 (2026-07-12 발견 — 고칠 것)**: 현재 트리거가 `on: [pull_request, push] branches: [main]` 뿐이라
+    **실제 통합이 일어나는 통합 브랜치(예: `integrate/*`)로 dad PR이 들어올 땐 CI가 돌지 않는다.** 통합 지점에
+    게이트가 없다는 뜻 → `on.pull_request.branches`에 통합 브랜치를 추가해 **통합 전에** 걸리게 한다.
+  - ⚠️ **branch protection은 아직 미설정(§8-1 TODO)**: ci.yml이 있어도 GitHub Settings→Branches에서
+    해당 잡을 **"required status check"로 지정하지 않으면 실패해도 머지가 된다.** 이걸 실제로 켜야 게이트가
+    "권고"가 아니라 "차단"이 된다. — **크로스 IDE 협업에서 신뢰할 수 있는 유일한 공통 심판이 이 CI다.**
 - **배포**: preview → 골든플로우 스모크 → 프로모트. 직접 prod 배포 금지. 세션당 1배치.
 - **납품 증빙**: 마일스톤마다 골든플로우 수동 1회 + 스크린샷/녹화 → `docs/` 보관(분쟁 방어).
 
