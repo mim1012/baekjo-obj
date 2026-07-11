@@ -11,11 +11,10 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useState, useSyncExternalStore } from 'react';
-import { brands } from '@/data/brands';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { getCartCount } from '@/lib/cart';
-import { getCurrentUser, logout } from '@/lib/storage';
+import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import BrandMark from './BrandMark';
 
@@ -32,12 +31,6 @@ const STORY_LINKS = [
 ];
 
 const SHOP_LINKS = {
-  brands: brands
-    .filter((brand) => brand.isVisible !== false)
-    .map((brand) => ({
-      label: brand.name.split(' (')[0],
-      href: `/brands/${brand.id}`,
-    })),
   categories: shopCategoryFilters.map((category) => ({
     label: category.label,
     href: `/shop?category=${category.slug}`,
@@ -60,8 +53,24 @@ export default function Header() {
   const mounted = useMounted();
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>(null);
+  const [brandLinks, setBrandLinks] = useState<Array<{ label: string; href: string }>>([]);
   const cartCount = useSyncExternalStore(subscribeToCart, getCartCount, () => 0);
   const currentUser = mounted ? getCurrentUser() : null;
+
+  useEffect(() => {
+    getPublicBrands()
+      .then((list) =>
+        setBrandLinks(
+          list
+            .filter((brand) => brand.isVisible !== false)
+            .map((brand) => ({
+              label: brand.name.split(' (')[0],
+              href: `/brands/${brand.id}`,
+            })),
+        ),
+      )
+      .catch(() => {});
+  }, []);
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
   const storyActive = STORY_LINKS.some((link) => isActive(link.href));
@@ -98,7 +107,7 @@ export default function Header() {
             </Link>
             <div className="absolute left-1/2 top-full z-40 hidden w-[520px] -translate-x-1/2 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
               <div className="grid grid-cols-2 gap-8 p-8">
-                <DropdownColumn title="브랜드로 둘러보기" links={SHOP_LINKS.brands} />
+                <DropdownColumn title="브랜드로 둘러보기" links={brandLinks} />
                 <DropdownColumn title="필요한 것으로 찾기" links={SHOP_LINKS.categories} />
               </div>
               <Link
