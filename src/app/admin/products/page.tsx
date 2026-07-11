@@ -31,6 +31,17 @@ export default function AdminProductsDashboard() {
   // Local state for categories
   const [productCats, setProductCats] = useState<string[]>(categorySettings.productCategories);
   const [lifestyleCats, setLifestyleCats] = useState<string[]>(categorySettings.lifestyleCategories);
+  // 관리자가 카테고리를 편집하기 시작하면(dirty) provider 하이드레이트가 편집 내용을 덮지 않도록 막는다.
+  const [dirty, setDirty] = useState(false);
+
+  // provider 가 GET /api/category-settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) 로컬
+  // 카테고리를 그 값에 맞춘다. 단 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
+  useEffect(() => {
+    if (dirty) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProductCats(categorySettings.productCategories);
+    setLifestyleCats(categorySettings.lifestyleCategories);
+  }, [categorySettings, dirty]);
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -61,13 +72,24 @@ export default function AdminProductsDashboard() {
     };
   }, []);
 
-  const handleSaveCategories = (newCats: string[], type: 'product' | 'lifestyle') => {
+  const handleSaveCategories = async (newCats: string[], type: 'product' | 'lifestyle') => {
+    setDirty(true);
     if (type === 'product') {
+      const prev = productCats;
       setProductCats(newCats);
-      updateCategorySettings({ ...categorySettings, productCategories: newCats });
+      const ok = await updateCategorySettings({ ...categorySettings, productCategories: newCats });
+      if (!ok) {
+        setProductCats(prev);
+        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } else {
+      const prev = lifestyleCats;
       setLifestyleCats(newCats);
-      updateCategorySettings({ ...categorySettings, lifestyleCategories: newCats });
+      const ok = await updateCategorySettings({ ...categorySettings, lifestyleCategories: newCats });
+      if (!ok) {
+        setLifestyleCats(prev);
+        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     }
   };
 

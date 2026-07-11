@@ -25,34 +25,52 @@ export const defaultCategorySettings: CategorySettings = {
 
 interface CategorySettingsContextType {
   categorySettings: CategorySettings;
-  updateCategorySettings: (newSettings: CategorySettings) => void;
+  updateCategorySettings: (newSettings: CategorySettings) => Promise<boolean>;
 }
 
 export const CategorySettingsContext = createContext<CategorySettingsContextType | undefined>(undefined);
 
 export function CategorySettingsProvider({ children }: { children: ReactNode }) {
+  // 첫 페인트는 defaultCategorySettings 로 카테고리를 보장하고, 마운트 후 GET /api/category-settings 가
+  // DB 에 저장된 실제 설정으로 하이드레이트한다(콘센트 경계 — provider 만 fetch, §4).
   const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('categorySettings');
-      if (saved) {
-        // localStorage is client-only; loading after mount keeps SSR hydration consistent
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCategorySettings(JSON.parse(saved));
-      }
-    } catch (e) {
-      console.error('Failed to load category settings from localStorage', e);
-    }
+    let cancelled = false;
+    fetch('/api/category-settings')
+      .then((res) => res.json())
+      .then((data: { settings?: CategorySettings }) => {
+        if (cancelled || !data?.settings) return;
+        setCategorySettings(data.settings);
+      })
+      .catch((e) => {
+        console.error('Failed to load category settings from /api/category-settings', e);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const updateCategorySettings = (newSettings: CategorySettings) => {
+  // 낙관적 갱신: 화면(관리자 편집)은 즉시 반영하고, DB 저장 성공 여부는 Promise<boolean> 으로
+  // 반환한다 — 호출부(admin/products/page.tsx)가 실패 시 사용자에게 알릴 수 있도록.
+  const updateCategorySettings = (newSettings: CategorySettings): Promise<boolean> => {
     setCategorySettings(newSettings);
-    try {
-      localStorage.setItem('categorySettings', JSON.stringify(newSettings));
-    } catch (e) {
-      console.error('Failed to save category settings to localStorage', e);
-    }
+    return fetch('/api/admin/category-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newSettings),
+    })
+      .then((res) => {
+        if (!res.ok) {
+          console.error('Failed to save category settings to DB', res.status);
+          return false;
+        }
+        return true;
+      })
+      .catch((e) => {
+        console.error('Failed to save category settings to /api/admin/category-settings', e);
+        return false;
+      });
   };
 
   return (
@@ -65,7 +83,7 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
 export function useCategorySettings() {
   const context = useContext(CategorySettingsContext);
   if (context === undefined) {
-    return { categorySettings: defaultCategorySettings, updateCategorySettings: () => {} };
+    return { categorySettings: defaultCategorySettings, updateCategorySettings: () => Promise.resolve(false) };
   }
   return context;
 }
