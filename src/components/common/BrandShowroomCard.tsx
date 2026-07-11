@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Check, Star } from 'lucide-react';
+import { ArrowRight, Star } from 'lucide-react';
 import { Brand, Product } from '@/types';
 import { formatPrice } from '@/lib/format';
 
@@ -16,10 +16,6 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
         <span className="font-editorial text-7xl italic text-slate-200 transition-transform duration-700 group-hover:scale-110">
           {brand.name.slice(0, 1)}
         </span>
-        <div className="absolute top-5 left-5 bg-[#1D3E2F] text-white px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-wide flex items-center gap-1.5 shadow-sm">
-          <Check className="size-3.5" />
-          Baekjo Audit
-        </div>
       </div>
 
       {/* 2. Brand Info & Curation */}
@@ -41,15 +37,6 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
           <p className="text-sm lg:text-base leading-relaxed text-[#334155] mb-6 line-clamp-3 lg:pr-8">
             {brand.description}
           </p>
-
-          <div className="flex flex-wrap gap-2 mb-8">
-            {['성분 100% 투명 공개', '제조 시설 점검 완료', '오딧 등급 ' + brand.auditGrade].map((badge) => (
-              <span key={badge} className="inline-flex items-center gap-1 rounded-sm border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] px-2.5 py-1 text-[11px] font-medium text-[#64748B]">
-                <Check className="size-3 text-[#1D3E2F]/60" />
-                {badge}
-              </span>
-            ))}
-          </div>
         </div>
 
         {/* 3. Product Previews */}

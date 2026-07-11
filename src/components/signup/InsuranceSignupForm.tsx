@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
-const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
-const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
+const fieldClass = 'h-[52px] w-full rounded-md border border-[#C9C8C0] bg-white px-4 text-base text-[#17211D] outline-none transition-colors placeholder:text-[#9A9F99] focus:border-[#A8742E] focus:ring-2 focus:ring-[#A8742E]/15';
+const textareaClass = 'min-h-24 w-full resize-y rounded-md border border-[#C9C8C0] bg-white px-4 py-3 text-base text-[#17211D] outline-none transition-colors placeholder:text-[#9A9F99] focus:border-[#A8742E] focus:ring-2 focus:ring-[#A8742E]/15';
 
 const initialData = {
   // 1. 기본 정보
@@ -93,10 +93,10 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-9 space-y-12">
+    <form onSubmit={handleSubmit} className="auth-role-form mt-7 space-y-8">
       {/* 1. 입력 항목 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">1. 기본 정보</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">1. 기본 정보</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="성명 *"><input required name="name" value={formData.name} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="연락처 *"><input required name="contact" value={formData.contact} onChange={handleChange} className={fieldClass} placeholder="010-0000-0000" /></Field>
@@ -111,8 +111,8 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
       </section>
 
       {/* 2. 첨부파일 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">2. 인증 자료 첨부 (필수)</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">2. 인증 자료 첨부 (필수)</h2>
         <p className="text-sm text-[#747B75] mb-2">아래 서류 중 1개 이상 업로드해주세요.</p>
         <ul className="text-sm text-[#5F6761] list-disc list-inside mb-4 bg-white p-4 border border-[#D1D0C8]">
           <li>보험설계사 등록증</li>
@@ -128,8 +128,8 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
       </section>
 
       {/* 9. 개인정보 및 자료 활용 동의 */}
-      <section className="space-y-5 border-t border-[#D1D0C8] pt-6">
-        <h2 className="text-xl font-bold text-[#202521] mb-2">3. 개인정보 수집 및 이용 동의</h2>
+      <section className="space-y-4 rounded-lg border border-[#E7E0D5] bg-[#FAF8F3] p-4">
+        <h2 className="text-[17px] font-semibold tracking-tight text-[#17211D]">3. 개인정보 수집 및 이용 동의</h2>
         <div className="bg-white p-4 border border-[#D1D0C8] text-sm text-[#5F6761] mb-3">
           제출한 자료는 백조 오브제의 보험설계사 자격 확인 및 승인 절차를 위한 용도로만 활용됩니다.<br />
           외부 공개 또는 제3자 제공은 별도 협의 없이 진행되지 않습니다.
@@ -137,11 +137,11 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
         <Checkbox label="[필수] 위 내용에 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />
       </section>
 
-      <div className="flex gap-3 pt-6 border-t border-[#D1D0C8]">
-        <button type="button" onClick={handleSaveDraft} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5]">
+      <div className="flex gap-3 border-t border-[#E1DDD4] pt-6">
+        <button type="button" onClick={handleSaveDraft} className="min-h-[54px] flex-1 rounded-lg border border-[#D1D0C8] bg-white text-[15px] font-semibold text-[#17211D] hover:bg-[#FAF8F3]">
           임시저장
         </button>
-        <button type="submit" className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white">
+        <button type="submit" className="min-h-[54px] flex-[2] rounded-lg bg-[#17211D] text-[15px] font-semibold text-[#FBFAF7] hover:bg-[#2F3B34]">
           자격 인증 신청하기
         </button>
       </div>
@@ -152,7 +152,7 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4F5751]">{label}</span>
+      <span className="mb-2 block text-[13px] font-medium text-[#4F5751]">{label}</span>
       {children}
     </label>
   );

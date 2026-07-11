@@ -110,9 +110,6 @@ export default function AdminBrandsDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-xl font-bold text-[#202521]">{activeBrand.name}</h2>
-                        <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-green-50 text-green-700 border border-green-200">
-                          {activeBrand.auditGrade} 등급
-                        </span>
                       </div>
                       <p className="mt-1 text-sm text-[#59615B] line-clamp-1 max-w-lg">
                         {activeBrand.description || '브랜드 설명이 없습니다.'}
@@ -308,7 +305,6 @@ export default function AdminBrandsDashboard() {
                     e.preventDefault();
                     const formData = new FormData(e.currentTarget);
                     const name = formData.get('name') as string;
-                    const grade = formData.get('grade') as "A+" | "A" | "B+" | "B";
                     
                     if (!name.trim()) return;
                     
@@ -319,7 +315,6 @@ export default function AdminBrandsDashboard() {
                       philosophy: '',
                       relatedConcernSlugs: [],
                       description: '새로 등록된 브랜드입니다.',
-                      auditGrade: grade,
                       auditPoints: [],
                       representativeProductIds: [],
                       isRecommended: false,
@@ -333,14 +328,6 @@ export default function AdminBrandsDashboard() {
                     <div>
                       <label className="block text-xs font-semibold text-[#59615B] mb-1.5">브랜드명 <span className="text-red-500">*</span></label>
                       <input name="name" type="text" className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm" placeholder="예: 백조오브제" required />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">검증 등급</label>
-                      <select name="grade" className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white">
-                        <option value="A+">A+ 등급</option>
-                        <option value="A">A 등급</option>
-                        <option value="B">B 등급</option>
-                      </select>
                     </div>
                   </form>
                 </div>

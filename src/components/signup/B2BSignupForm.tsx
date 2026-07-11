@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
-const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
-const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
+const fieldClass = 'h-[52px] w-full rounded-md border border-[#C9C8C0] bg-white px-4 text-base text-[#17211D] outline-none transition-colors placeholder:text-[#9A9F99] focus:border-[#A8742E] focus:ring-2 focus:ring-[#A8742E]/15';
+const textareaClass = 'min-h-24 w-full resize-y rounded-md border border-[#C9C8C0] bg-white px-4 py-3 text-base text-[#17211D] outline-none transition-colors placeholder:text-[#9A9F99] focus:border-[#A8742E] focus:ring-2 focus:ring-[#A8742E]/15';
 
 const initialData = {
   // 1. 기본 정보
@@ -49,7 +49,9 @@ const initialData = {
   privacyAgreement: false,
 };
 
-export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<string, unknown>) => void }) {
+type B2BFormData = typeof initialData & { attachedFiles?: string[] };
+
+export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: B2BFormData) => void }) {
   const [formData, setFormData] = useState(initialData);
 
   // 임시저장 데이터 불러오기
@@ -104,16 +106,16 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       formData.attachFacilityPhoto ? '시설 사진.jpg' : null,
       formData.attachCert ? '인증서.pdf' : null,
       formData.attachEtc ? '기타 참고자료.zip' : null,
-    ].filter(Boolean);
+    ].filter((file): file is string => Boolean(file));
 
     onSuccess({ ...formData, attachedFiles: mockFiles });
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-9 space-y-12">
+    <form onSubmit={handleSubmit} className="auth-role-form mt-7 space-y-8">
       {/* 1. 기본 정보 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">1. 기본 정보</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">1. 기본 정보</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="업체명 *"><input required name="companyName" value={formData.companyName} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="대표자명 *"><input required name="ceoName" value={formData.ceoName} onChange={handleChange} className={fieldClass} /></Field>
@@ -133,8 +135,8 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       </section>
 
       {/* 2. 업체 소개 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">2. 업체 소개</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">2. 업체 소개</h2>
         <Field label="업체를 한 문장으로 소개해주세요. *">
           <textarea required name="companyTagline" value={formData.companyTagline} onChange={handleChange} className={textareaClass} />
         </Field>
@@ -147,8 +149,8 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       </section>
 
       {/* 3. 인증 자료 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">3. 인증 자료</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">3. 인증 자료</h2>
         <p className="text-sm text-[#747B75] mb-2">업종별 해당하는 인증 자료를 체크하고 업로드해주세요.</p>
         <div className="flex flex-wrap gap-4">
           <Checkbox label="사업자등록증 (필수)" name="attachBizLicense" checked={formData.attachBizLicense} onChange={handleChange} required />
@@ -161,8 +163,8 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       </section>
 
       {/* 4. 추가 첨부자료 (선택) */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">4. 추가 첨부자료 (선택)</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">4. 추가 첨부자료 (선택)</h2>
         <div className="flex flex-wrap gap-4">
           <Checkbox label="회사소개서" name="attachCompanyIntro" checked={formData.attachCompanyIntro} onChange={handleChange} />
           <Checkbox label="서비스 소개서" name="attachServiceIntro" checked={formData.attachServiceIntro} onChange={handleChange} />
@@ -179,8 +181,8 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       </section>
 
       {/* 5. 운영 정보 */}
-      <section className="space-y-5">
-        <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">5. 운영 정보</h2>
+      <section className="space-y-4">
+        <h2 className="border-b border-[#E1DDD4] pb-3 text-[17px] font-semibold tracking-tight text-[#17211D]">5. 운영 정보</h2>
         <Field label="운영 시간 *">
           <textarea required name="operationHours" value={formData.operationHours} onChange={handleChange} className={textareaClass} placeholder="예: 평일 09:00 - 18:00 (주말/공휴일 휴무)" />
         </Field>
@@ -193,8 +195,8 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
       </section>
 
       {/* 6. 개인정보 및 자료 활용 동의 */}
-      <section className="space-y-5 border-t border-[#D1D0C8] pt-6">
-        <h2 className="text-xl font-bold text-[#202521] mb-2">6. 개인정보 및 자료 활용 동의</h2>
+      <section className="space-y-4 rounded-lg border border-[#E7E0D5] bg-[#FAF8F3] p-4">
+        <h2 className="text-[17px] font-semibold tracking-tight text-[#17211D]">6. 개인정보 및 자료 활용 동의</h2>
         <div className="bg-white p-4 border border-[#D1D0C8] text-sm text-[#5F6761] mb-3">
           제출한 자료는 백조 오브제의 B2B 인증 및 제휴 심사를 위한 용도로만 활용됩니다.<br />
           외부 공개 또는 제3자 제공은 별도 협의 없이 진행되지 않습니다.
@@ -202,11 +204,11 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
         <Checkbox label="[필수] 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />
       </section>
 
-      <div className="flex gap-3 pt-6 border-t border-[#D1D0C8]">
-        <button type="button" onClick={handleSaveDraft} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5]">
+      <div className="flex gap-3 border-t border-[#E1DDD4] pt-6">
+        <button type="button" onClick={handleSaveDraft} className="min-h-[54px] flex-1 rounded-lg border border-[#D1D0C8] bg-white text-[15px] font-semibold text-[#17211D] hover:bg-[#FAF8F3]">
           임시저장
         </button>
-        <button type="submit" className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white">
+        <button type="submit" className="min-h-[54px] flex-[2] rounded-lg bg-[#17211D] text-[15px] font-semibold text-[#FBFAF7] hover:bg-[#2F3B34]">
           가입 신청하기
         </button>
       </div>
@@ -217,7 +219,7 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4F5751]">{label}</span>
+      <span className="mb-2 block text-[13px] font-medium text-[#4F5751]">{label}</span>
       {children}
     </label>
   );

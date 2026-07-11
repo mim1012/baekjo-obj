@@ -21,7 +21,7 @@ export const concerns: Concern[] = [
       '식이 알레르기 또는 첨가물 반응',
       '환경적 자극(먼지, 꽃가루 등)',
     ],
-    recommendedProductIds: ['p1', 'p2', 'p5'],
+    recommendedProductIds: [],
     recommendedBrandIds: ['b1', 'b2'],
     insuranceCta: '눈물 관련 진료비가 부담되시나요? 무료 보험 분석을 통해 보장 범위를 확인해보세요.',
     faq: [
@@ -50,7 +50,7 @@ export const concerns: Concern[] = [
       '과체중으로 인한 관절 부담',
       '외상 또는 과도한 운동',
     ],
-    recommendedProductIds: ['p3', 'p4', 'p6'],
+    recommendedProductIds: [],
     recommendedBrandIds: ['b1', 'b3'],
     insuranceCta: '슬개골 수술비는 200만원 이상 소요될 수 있습니다. 보장 범위를 미리 확인하세요.',
     faq: [
@@ -78,7 +78,7 @@ export const concerns: Concern[] = [
       '아토피 피부염',
       '기생충(진드기, 벼룩)',
     ],
-    recommendedProductIds: ['p1', 'p7', 'p8'],
+    recommendedProductIds: ['p4', 'p5', 'p20'],
     recommendedBrandIds: ['b2', 'b4'],
     insuranceCta: '피부 질환은 만성화될 수 있습니다. 보험으로 통원비 부담을 줄여보세요.',
     faq: [
@@ -106,7 +106,7 @@ export const concerns: Concern[] = [
       '갑상선 기능 저하',
       '부적절한 사료 급여량',
     ],
-    recommendedProductIds: ['p1', 'p9', 'p10'],
+    recommendedProductIds: [],
     recommendedBrandIds: ['b1', 'b5'],
     insuranceCta: '비만으로 인한 합병증 치료비가 걱정되시나요? 보장 범위를 확인하세요.',
     faq: [
@@ -133,7 +133,7 @@ export const concerns: Concern[] = [
       '구강 질환(치석, 잇몸 질환)',
       '소화기 질환',
     ],
-    recommendedProductIds: ['p1', 'p2', 'p11'],
+    recommendedProductIds: ['p1', 'p2', 'p3'],
     recommendedBrandIds: ['b2', 'b5'],
     insuranceCta: '편식이 건강 문제의 신호일 수 있습니다. 검진비 보장 범위를 확인해보세요.',
     faq: [
@@ -160,7 +160,7 @@ export const concerns: Concern[] = [
       '장 질환(IBD, 대장염)',
       '이물질 섭취',
     ],
-    recommendedProductIds: ['p1', 'p5', 'p12'],
+    recommendedProductIds: ['p4', 'p5', 'p6'],
     recommendedBrandIds: ['b1', 'b3'],
     insuranceCta: '소화기 질환 치료비 부담을 줄여보세요. 무료 보험 분석을 신청하세요.',
     faq: [
@@ -187,7 +187,7 @@ export const concerns: Concern[] = [
       '소음 공포(천둥, 불꽃놀이)',
       '운동 부족',
     ],
-    recommendedProductIds: ['p10', 'p11', 'p12'],
+    recommendedProductIds: ['p9', 'p10', 'p11'],
     recommendedBrandIds: ['b4', 'b5'],
     insuranceCta: '행동 치료 상담비도 보험으로 보장받을 수 있습니다.',
     faq: [
@@ -214,7 +214,7 @@ export const concerns: Concern[] = [
       '면역력 약화',
       '인지 기능 장애 증후군',
     ],
-    recommendedProductIds: ['p3', 'p4', 'p6'],
+    recommendedProductIds: [],
     recommendedBrandIds: ['b1', 'b3'],
     insuranceCta: '노령 반려동물의 의료비는 급격히 증가합니다. 보장 범위를 꼭 확인하세요.',
     faq: [

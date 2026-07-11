@@ -7,6 +7,10 @@ export interface Product {
   id: string;
   brandId: string;
   name: string;
+  /** 브랜드 페이지는 상품 정보 수집용으로만 보관하며 고객 화면에는 노출하지 않습니다. */
+  sourceUrl?: string;
+  sourceVerifiedAt?: string;
+  catalogStatus?: 'draft' | 'ready' | 'sold_out';
   price: number | null;
   salePrice?: number | null;
   rating: number;
@@ -26,6 +30,9 @@ export interface Product {
   summary?: string;
   description: string;
   shippingNotice?: string;
+  deliveryEstimate?: string;
+  returnNotice?: string;
+  sellerName?: string;
   tags?: string[];
   brandName?: string;
   isMembersOnlyPrice?: boolean;
@@ -52,10 +59,11 @@ export interface ProductOption {
 export interface Brand {
   id: string;
   name: string;
+  officialUrl?: string;
+  sourceUrls?: string[];
   logo: string;
   description: string;
   philosophy: string;
-  auditGrade: 'A+' | 'A' | 'B+' | 'B';
   auditPoints: string[];
   auditReport?: BrandAuditReport;
   representativeProductIds: string[];
@@ -321,7 +329,7 @@ export interface CareKit {
 export interface Partner {
   id: string;
   name: string;
-  type: 'hospital' | 'funeral' | 'brand' | 'petshop' | 'etc';
+  type: 'hospital' | 'funeral' | 'brand' | 'petshop' | 'hotel' | 'etc';
   contactPerson: string;
   phone: string;
   address: string;

@@ -1,98 +1,75 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Lock, MessageCircle, ShieldCheck } from 'lucide-react';
-import { brands } from '@/data/brands';
-import { products } from '@/data/products';
-import { qnaList } from '@/data/qna';
-import { reviews } from '@/data/reviews';
 import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
+import { brands } from '@/data/brands';
+import { products } from '@/data/products';
+import { qnaList } from '@/data/qna';
+import { reviews } from '@/data/reviews';
 import { formatDate } from '@/lib/format';
 
 const defaultRecommendations = [
-  '눈물 고민이 있는 아이',
-  '편식이 있는 아이',
-  '영양 보충이 필요한 아이',
+  '상품 설명과 사용 방법을 충분히 확인하고 싶은 보호자',
+  '우리 아이의 취향과 생활 습관을 살펴 천천히 고르고 싶은 보호자',
 ];
+
 const defaultCautions = [
-  '특정 성분 알레르기가 있는 아이',
-  '치료 중인 질환이 있는 아이',
-  '수의사 처방식 급여 중인 아이',
+  '특정 성분에 민감하거나 알레르기 경험이 있는 아이',
+  '치료 중인 질환이 있거나 처방식을 먹고 있는 아이',
 ];
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const product = products.find((candidate) => candidate.id === id);
-  if (!product) notFound();
+  if (!product || product.isVisible === false) notFound();
 
   const brand = brands.find((candidate) => candidate.id === product.brandId);
+  if (brand?.isVisible === false) notFound();
+  const visibleBrandIds = new Set(brands.filter((candidate) => candidate.isVisible !== false).map((candidate) => candidate.id));
   const relatedProducts = products
-    .filter((candidate) => candidate.id !== product.id && (
-      candidate.category === product.category
-      || candidate.concernTags.some((tag) => product.concernTags.includes(tag))
-    ))
+    .filter(
+      (candidate) =>
+        candidate.isVisible !== false &&
+        visibleBrandIds.has(candidate.brandId) &&
+        candidate.id !== product.id &&
+        (candidate.category === product.category ||
+          candidate.concernTags.some((tag) => product.concernTags.includes(tag))),
+    )
     .slice(0, 4);
   const productReviews = reviews.filter((review) => review.productId === product.id);
   const productQna = qnaList.filter((qna) => qna.productId === product.id);
   const brandProducts = brand
-    ? products.filter((candidate) => brand.representativeProductIds.includes(candidate.id)).slice(0, 3)
+    ? products
+        .filter((candidate) => candidate.isVisible !== false && brand.representativeProductIds.includes(candidate.id))
+        .slice(0, 3)
     : [];
   const recommendedFor = product.recommendedFor?.length ? product.recommendedFor : defaultRecommendations;
   const cautions = product.caution?.length ? product.caution : defaultCautions;
 
   const tabs = [
-    ['상세정보', 'tab-0'],
-    ['추천대상', 'tab-1'],
-    ['성분/소재', 'tab-2'],
-    ['급여/사용방법', 'tab-3'],
-    ['브랜드스토리', 'tab-4'],
-    [`구매평 (${product.reviewCount})`, 'tab-5'],
-    [`Q&A (${productQna.length})`, 'tab-6'],
-    ['추천상품', 'tab-7'],
+    ['상품 이야기', 'story'],
+    ['성분·사용법', 'details'],
+    ['살펴본 기준', 'standard'],
+    [`후기 ${productReviews.length}`, 'reviews'],
+    [`문의 ${productQna.length}`, 'qna'],
   ];
 
   return (
-    <div className="bg-white pb-20">
-      <div className="site-container py-10">
+    <div className="page-canvas pb-16">
+      <div className="site-container-wide py-8 lg:py-12">
         <ProductDetailClient product={product} />
 
-        {/* Audit Summary Card */}
-        {brand && (
-          <div className="mt-16 sm:mt-24 rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] p-8 sm:p-10 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-8 opacity-[0.03]">
-              <ShieldCheck className="size-48" />
-            </div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <span className="flex items-center justify-center size-10 rounded-full bg-white shadow-sm border border-[rgba(15,23,42,0.04)] text-[#17211D]">
-                  <ShieldCheck className="size-5" />
-                </span>
-                <h2 className="text-2xl font-editorial font-bold text-[#17211D] tracking-tight">Audit Summary</h2>
-              </div>
-              <p className="text-sm font-semibold text-[#17211D] mb-4">백조오브제 3단계 검증을 통과한 신뢰할 수 있는 제품입니다.</p>
-              <ul className="grid sm:grid-cols-2 gap-3 text-sm text-[#334155]">
-                {brand.auditPoints.map((point) => (
-                  <li key={point} className="flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-[#17211D]" /> {point}
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-6 text-xs text-slate-400">*본 평가는 브랜드로부터 제공받은 자료와 자체 기준을 바탕으로 한 가상 데이터입니다.</p>
-            </div>
-          </div>
-        )}
-
-        <div className="sticky top-[72px] z-40 mt-16 sm:mt-24 border-b border-[rgba(15,23,42,0.06)] bg-white/80 backdrop-blur-md">
-          <nav aria-label="상품 상세 메뉴" className="-mb-px flex gap-7 overflow-x-auto hide-scrollbar px-2">
-            {tabs.map(([label, target], index) => (
+        <div className="sticky top-16 z-20 mt-12 border-b border-[#E7E0D5] bg-[#FBFAF7]/95 backdrop-blur-xl lg:top-[72px]">
+          <nav aria-label="상품 상세 메뉴" className="hide-scrollbar -mb-px flex gap-6 overflow-x-auto">
+            {tabs.map(([label, target]) => (
               <a
                 key={target}
                 href={`#${target}`}
-                className={`whitespace-nowrap border-b-2 py-4 text-sm font-semibold transition-colors ${
-                  index === 0 ? 'border-[#17211D] text-[#17211D]' : 'border-transparent text-slate-400 hover:text-[#17211D]'
-                }`}
+                className="shrink-0 border-b-2 border-transparent py-4 text-sm font-semibold text-[#6F766F] transition-colors duration-500 hover:border-[#17211D] hover:text-[#17211D] focus:border-[#17211D] focus:text-[#17211D]"
               >
                 {label}
               </a>
@@ -100,157 +77,217 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </nav>
         </div>
 
-        <div className="space-y-32 py-16 sm:py-24">
-          <section id="tab-0" className="mx-auto max-w-3xl text-center scroll-mt-36">
-            <p className="font-editorial text-lg italic text-slate-400">Product details</p>
-            <h2 className="mt-4 text-3xl font-normal leading-tight text-[#17211D] tracking-tight text-balance">{product.description}</h2>
-            <div className="mt-12 flex aspect-[3/4] w-full items-center justify-center rounded-[24px] border border-[rgba(15,23,42,0.06)] bg-[#FBFAF7] shadow-sm">
-              <div className="text-center">
-                <span className="font-editorial text-6xl italic text-slate-200">{product.category.slice(0, 1)}</span>
-                <p className="mt-5 text-xs font-semibold text-slate-400">교체 가능한 상세 이미지 영역</p>
-                <p className="mt-2 text-[10px] text-slate-300">{product.image}</p>
+        <div className="space-y-20 py-12 lg:space-y-28 lg:py-20">
+          <section id="story" className="scroll-mt-36">
+            <div className="mx-auto max-w-3xl">
+              <p className="page-eyebrow">상품 이야기</p>
+              <h2 className="section-title mt-3">일상에서 이렇게 만나보세요.</h2>
+              <p className="body-copy mt-5">{product.description}</p>
+              <div className="relative mt-8 aspect-[4/5] overflow-hidden rounded-3xl bg-[#F3EEE6] sm:aspect-[4/3]">
+                {product.image ? (
+                  <Image
+                    src={product.image}
+                    alt={product.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 768px"
+                    className="object-contain p-8 sm:p-12"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-[#6F766F]">상세 이미지를 준비하고 있어요.</div>
+                )}
               </div>
             </div>
           </section>
 
-          <section id="tab-1" className="mx-auto grid max-w-4xl gap-6 scroll-mt-36 md:grid-cols-2">
-            <div className="rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-8 sm:p-10 shadow-sm">
-              <h2 className="flex items-center text-2xl font-bold text-[#17211D] tracking-tight">
-                <span className="flex items-center justify-center size-10 rounded-full bg-[#FBFAF7] mr-4 text-[#17211D]">
-                  <CheckCircle2 className="size-5" />
-                </span>
-                이런 아이에게 추천해요
-              </h2>
-              <ul className="mt-8 space-y-5">
-                {recommendedFor.map((recommendation) => (
-                  <li key={recommendation} className="flex items-start gap-3 text-sm font-medium text-[#334155]">
-                    <span className="mt-2 size-1.5 rounded-full bg-[#17211D] shrink-0" />
-                    {recommendation}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div className="rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] p-8 sm:p-10 shadow-sm">
-              <h2 className="flex items-center text-2xl font-bold text-[#17211D] tracking-tight">
-                <span className="flex items-center justify-center size-10 rounded-full bg-white mr-4 text-red-500 shadow-sm border border-[rgba(15,23,42,0.04)]">
-                  !
-                </span>
-                이런 경우 확인이 필요해요
-              </h2>
-              <ul className="mt-8 space-y-5">
-                {cautions.map((caution) => (
-                  <li key={caution} className="flex items-start gap-3 text-sm font-medium text-[#334155]">
-                    <span className="mt-2 size-1.5 rounded-full bg-red-400 shrink-0" />
-                    {caution}
-                  </li>
-                ))}
-              </ul>
+          <section id="details" className="scroll-mt-36">
+            <div className="mx-auto max-w-4xl">
+              <div className="mb-8">
+                <p className="page-eyebrow">성분과 사용법</p>
+                <h2 className="section-title mt-3">아이에게 닿는 정보부터 확인해요.</h2>
+              </div>
+              <div className="grid gap-5 md:grid-cols-2">
+                <InfoCard
+                  title="성분·소재"
+                  description={product.ingredients || '상품 패키지에 표시된 성분과 소재 정보를 확인해 정리하고 있어요.'}
+                />
+                <InfoCard
+                  title="급여·사용 방법"
+                  description={
+                    product.howToUse ||
+                    '아이의 체중과 건강 상태를 살피고, 패키지에 안내된 권장량과 사용 방법을 먼저 확인해 주세요.'
+                  }
+                />
+              </div>
+
+              <div className="mt-5 grid gap-5 md:grid-cols-2">
+                <ChecklistCard title="함께 확인하면 좋아요" items={recommendedFor} tone="positive" />
+                <ChecklistCard title="조금 더 주의해 주세요" items={cautions} tone="caution" />
+              </div>
             </div>
           </section>
 
-          <section id="tab-2" className="mx-auto max-w-3xl scroll-mt-36">
-            <h2 className="text-2xl font-bold text-[#17211D] tracking-tight">성분 / 소재</h2>
-            <p className="mt-6 rounded-[16px] border border-[rgba(15,23,42,0.06)] bg-[#FBFAF7] p-8 text-sm leading-8 text-[#334155] shadow-sm">
-              {product.ingredients || '상세 성분과 소재 정보는 상품 패키지 표기 기준으로 준비 중입니다.'}
-            </p>
-          </section>
-
-          <section id="tab-3" className="mx-auto max-w-3xl scroll-mt-36">
-            <h2 className="text-2xl font-bold text-[#17211D] tracking-tight">급여 / 사용방법</h2>
-            <p className="mt-6 rounded-[16px] border border-[rgba(15,23,42,0.06)] bg-[#FBFAF7] p-8 text-sm leading-8 text-[#334155] shadow-sm">
-              {product.howToUse || '반려동물의 체중과 건강 상태를 고려해 패키지에 안내된 권장량과 사용법을 확인해 주세요.'}
-            </p>
-          </section>
-
-          {brand && (
-            <section id="tab-4" className="mx-auto max-w-5xl scroll-mt-36">
-              <div className="grid gap-8 rounded-[24px] bg-[#17211D] p-10 text-white lg:grid-cols-[0.8fr_1.2fr] lg:p-14 shadow-lg overflow-hidden relative">
-                <div className="absolute -right-20 -top-20 opacity-5">
-                  <span className="font-editorial text-[300px] italic">{brand.name.slice(0, 1)}</span>
+          <section id="standard" className="scroll-mt-36">
+            <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-[#202521] p-7 text-[#FBFAF7] sm:p-10">
+              <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+                <div>
+                  <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">백조가 살펴본 내용</p>
+                  <h2 className="mt-3 break-keep text-2xl font-bold tracking-tight text-[#FBFAF7] sm:text-3xl">
+                    {brand?.auditReport ? '확인한 내용을 솔직하게 전해요.' : '브랜드 자료를 차근차근 살펴보고 있어요.'}
+                  </h2>
+                  <p className="mt-5 break-keep text-sm leading-7 text-[#FBFAF7]/70">
+                    {brand?.auditReport
+                      ? '브랜드가 제공한 자료와 공개 정보를 바탕으로 정리한 내용이에요. 새로운 정보가 확인되면 계속 업데이트할게요.'
+                      : '아직 모든 확인이 끝나지 않았어요. 판매를 시작하기 전에 필요한 자료와 상품 정보를 더 살펴볼게요.'}
+                  </p>
+                  {brand && (
+                    <Link href={`/brands/${brand.id}`} className="btn-secondary mt-7 border-[#FBFAF7]/25 text-[#FBFAF7] hover:border-[#FBFAF7]/50 hover:bg-[#FBFAF7]/10">
+                      브랜드 이야기 더 보기
+                      <ArrowRight className="size-4" />
+                    </Link>
+                  )}
                 </div>
-                <div className="relative z-10">
-                  <p className="font-editorial text-lg italic text-slate-400">Brand story</p>
-                  <h2 className="mt-3 text-3xl font-bold tracking-tight">{brand.name}</h2>
-                  <p className="mt-6 text-sm leading-8 text-slate-300">{brand.description}</p>
-                  <Link href={`/brands/${brand.id}`} className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-[#17211D] hover:bg-slate-100 transition-colors">
-                    브랜드관 이동 <ArrowRight className="size-4" />
-                  </Link>
-                </div>
-                <div className="relative z-10 pt-4 lg:pt-0 lg:border-l border-slate-700 lg:pl-12">
-                  <h3 className="flex items-center text-sm font-semibold text-white">
-                    <ShieldCheck className="mr-2 size-4" /> 백조 검증 {brand.auditGrade}
-                  </h3>
-                  <ul className="mt-5 grid gap-3 sm:grid-cols-2">
-                    {brand.auditPoints.map((point) => (
-                      <li key={point} className="rounded-md border border-slate-700 bg-slate-800/30 px-4 py-3 text-xs text-slate-300 font-medium leading-relaxed">{point}</li>
+                <div className="lg:border-l lg:border-[#FBFAF7]/10 lg:pl-10">
+                  <ul className="space-y-3">
+                    {(brand?.auditPoints ?? ['브랜드 운영 자료 확인 중', '상품 정보와 판매 조건 확인 중']).map((point) => (
+                      <li key={point} className="flex items-start gap-3 rounded-2xl bg-[#FBFAF7]/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
+                        <ShieldCheck className="mt-1 size-4 shrink-0 text-[#D8C4A3]" />
+                        {point}
+                      </li>
                     ))}
                   </ul>
-                  <div className="mt-8 flex flex-wrap gap-2">
-                    {brandProducts.map((item) => (
-                      <Link key={item.id} href={`/shop/${item.id}`} className="rounded-md border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-800 transition-colors">
-                        {item.name}
-                      </Link>
-                    ))}
-                  </div>
+                  {brandProducts.length > 0 && (
+                    <div className="mt-6 flex flex-wrap gap-2">
+                      {brandProducts.map((item) => (
+                        <Link key={item.id} href={`/shop/${item.id}`} className="rounded-full border border-[#FBFAF7]/15 px-3 py-2 text-xs text-[#FBFAF7]/65 transition-colors duration-500 hover:border-[#FBFAF7]/40 hover:text-[#FBFAF7]">
+                          {item.name}
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
-            </section>
-          )}
+            </div>
+          </section>
 
-          <section id="tab-5" className="scroll-mt-36">
-            <div className="mb-8 flex items-end justify-between border-b border-[rgba(15,23,42,0.06)] pb-4">
-              <h2 className="text-2xl font-bold text-[#17211D] tracking-tight">구매평 <span className="text-slate-400 ml-1">{product.reviewCount}</span></h2>
-              <Link href="/login" className="text-sm font-semibold text-[#17211D] hover:text-slate-500 transition-colors">후기 작성하기</Link>
+          <section id="reviews" className="scroll-mt-36">
+            <div className="mb-6 flex items-end justify-between border-b border-[#E7E0D5] pb-4">
+              <div>
+                <p className="page-eyebrow">반려가족 이야기</p>
+                <h2 className="mt-2 text-xl font-bold text-[#17211D]">이 상품을 써본 이야기</h2>
+              </div>
+              <Link href="/login" className="text-sm font-semibold text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]">
+                후기 남기기
+              </Link>
             </div>
             {productReviews.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {productReviews.map((review) => <ReviewCard key={review.id} review={review} />)}
+              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {productReviews.map((review) => (
+                  <ReviewCard key={review.id} review={review} productName={product.name} />
+                ))}
               </div>
             ) : (
-              <EmptyState title="아직 구매평이 없습니다." description="구매 후 첫 사용 경험을 남겨주세요." actionLabel="쇼핑 계속하기" actionHref="/shop" />
+              <EmptyState
+                title="이 상품의 이야기는 아직 없어요."
+                description="먼저 사용해 본 경험이 쌓이면 이곳에 차곡차곡 소개할게요."
+                actionLabel="다른 셀렉션 보기"
+                actionHref="/shop"
+              />
             )}
           </section>
 
-          <section id="tab-6" className="scroll-mt-36">
-            <div className="mb-8 flex items-end justify-between border-b border-[rgba(15,23,42,0.06)] pb-4">
+          <section id="qna" className="scroll-mt-36">
+            <div className="mb-6 flex items-end justify-between border-b border-[#E7E0D5] pb-4">
               <div>
-                <p className="font-editorial text-lg italic text-slate-400 leading-none mb-2">Product Q&A</p>
-                <h2 className="text-2xl font-bold text-[#17211D] tracking-tight">상품문의</h2>
+                <p className="page-eyebrow">상품 문의</p>
+                <h2 className="mt-2 text-xl font-bold text-[#17211D]">궁금한 점을 남겨주세요.</h2>
               </div>
-              <Link href="/login" className="inline-flex items-center gap-2 rounded-full border border-[rgba(15,23,42,0.12)] bg-white px-5 py-2.5 text-sm font-semibold text-[#17211D] hover:bg-slate-50 transition-colors shadow-sm">
-                <MessageCircle className="size-4" /> 1:1 문의
+              <Link href="/login" className="btn-secondary min-h-10 px-4 py-2 text-xs">
+                <MessageCircle className="size-4" />
+                문의하기
               </Link>
             </div>
             {productQna.length > 0 ? (
-              <div className="border-t-2 border-[#17211D]">
+              <div className="border-t border-[#E7E0D5]">
                 {productQna.map((qna) => (
-                  <article key={qna.id} className="border-b border-[rgba(15,23,42,0.06)] py-6">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className={`rounded-sm px-2.5 py-1 text-[10px] font-bold tracking-wide ${qna.status === '답변완료' ? 'bg-[#17211D] text-white' : 'bg-[#FBFAF7] text-slate-500 border border-[rgba(15,23,42,0.08)]'}`}>
+                  <article key={qna.id} className="border-b border-[#E7E0D5] py-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="rounded-full bg-[#F3EEE6] px-2.5 py-1 text-[10px] font-bold text-[#6F766F]">
                         {qna.status}
                       </span>
-                      <h3 className="flex items-center gap-2 text-sm font-semibold text-[#17211D]">
-                        {qna.isSecret && <Lock className="size-3.5 text-slate-400" />} {qna.question}
+                      <h3 className="flex items-center gap-1.5 break-keep text-sm font-semibold text-[#17211D]">
+                        {qna.isSecret && <Lock className="size-3 text-[#6F766F]" />}
+                        {qna.question}
                       </h3>
-                      <time className="ml-auto text-xs font-medium tabular-nums text-slate-400">{formatDate(qna.createdAt)}</time>
+                      <time className="ml-auto text-xs tabular-nums text-[#8A918B]">{formatDate(qna.createdAt)}</time>
                     </div>
-                    {qna.answer && <p className="mt-5 rounded-[12px] bg-[#FBFAF7] p-5 text-sm leading-6 text-[#334155] font-medium">{qna.answer}</p>}
+                    {qna.answer && <p className="mt-4 rounded-2xl bg-[#FAF8F3] p-4 text-sm leading-6 text-[#6F766F]">{qna.answer}</p>}
                   </article>
                 ))}
               </div>
             ) : (
-              <EmptyState title="등록된 문의가 없습니다." description="상품에 대해 궁금한 점을 남겨주세요." actionLabel="로그인 후 문의하기" actionHref="/login" />
+              <EmptyState
+                title="아직 등록된 문의가 없어요."
+                description="상품에 대해 궁금한 점이 있다면 편하게 남겨주세요."
+                actionLabel="로그인하고 문의하기"
+                actionHref="/login"
+              />
             )}
           </section>
 
-          <section id="tab-7" className="scroll-mt-36">
-            <h2 className="mb-8 text-2xl font-bold text-[#17211D] tracking-tight">함께 살펴볼 상품</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {relatedProducts.map((item) => <ProductCard key={item.id} product={item} />)}
-            </div>
-          </section>
+          {relatedProducts.length > 0 && (
+            <section>
+              <div className="mb-8">
+                <p className="page-eyebrow">함께 둘러보기</p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17211D]">이런 상품도 함께 살펴보세요.</h2>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:gap-6">
+                {relatedProducts.map((item) => (
+                  <ProductCard key={item.id} product={item} variant="shop" />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+interface InfoCardProps {
+  title: string;
+  description: string;
+}
+
+function InfoCard({ title, description }: InfoCardProps) {
+  return (
+    <div className="premium-card p-6 sm:p-8">
+      <h3 className="text-base font-bold text-[#17211D]">{title}</h3>
+      <p className="mt-4 break-keep text-sm leading-7 text-[#6F766F]">{description}</p>
+    </div>
+  );
+}
+
+interface ChecklistCardProps {
+  title: string;
+  items: string[];
+  tone: 'positive' | 'caution';
+}
+
+function ChecklistCard({ title, items, tone }: ChecklistCardProps) {
+  return (
+    <div className="rounded-3xl border border-[#E7E0D5] bg-[#FAF8F3] p-6 sm:p-8">
+      <h3 className="flex items-center gap-2 text-base font-bold text-[#17211D]">
+        <CheckCircle2 className={`size-4 ${tone === 'positive' ? 'text-[#A8742E]' : 'text-[#9E3939]'}`} />
+        {title}
+      </h3>
+      <ul className="mt-5 space-y-3">
+        {items.map((item) => (
+          <li key={item} className="flex items-start gap-3 break-keep text-sm leading-6 text-[#6F766F]">
+            <span className={`mt-2 size-1.5 shrink-0 rounded-full ${tone === 'positive' ? 'bg-[#A8742E]' : 'bg-[#9E3939]'}`} />
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { Product } from '@/types';
+import { normalizeShopCategory } from '@/data/shopFilters';
 
 export function filterProducts(
   products: Product[],
@@ -17,8 +18,16 @@ export function filterProducts(
 ): Product[] {
   return products.filter((p) => {
     if (filters.petType && filters.petType !== 'all' && p.petType !== filters.petType && p.petType !== 'both') return false;
-    if (filters.category && filters.category !== 'all' && p.category !== filters.category) return false;
-    if (filters.lifestyleCategory && filters.lifestyleCategory !== 'all' && p.lifestyleCategory !== filters.lifestyleCategory) return false;
+    if (
+      filters.category &&
+      filters.category !== 'all' &&
+      normalizeShopCategory(p.categorySlug ?? p.category) !== normalizeShopCategory(filters.category)
+    ) return false;
+    if (
+      filters.lifestyleCategory &&
+      filters.lifestyleCategory !== 'all' &&
+      normalizeShopCategory(p.categorySlug ?? p.lifestyleCategory) !== normalizeShopCategory(filters.lifestyleCategory)
+    ) return false;
     if (filters.concern && filters.concern !== 'all' && !p.concernTags.includes(filters.concern)) return false;
     if (filters.brandId && filters.brandId !== 'all' && p.brandId !== filters.brandId) return false;
     if (filters.ageGroup && filters.ageGroup !== 'all' && p.ageGroup !== filters.ageGroup && p.ageGroup !== 'all') return false;
@@ -27,7 +36,8 @@ export function filterProducts(
     if (filters.minRating && p.rating < filters.minRating) return false;
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      if (!p.name.toLowerCase().includes(q) && !p.description.toLowerCase().includes(q)) return false;
+      const searchableText = `${p.name} ${p.brandName ?? ''} ${p.description}`.toLowerCase();
+      if (!searchableText.includes(q)) return false;
     }
     return true;
   });

@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { shopCategoryFilters, toShopCategoryOption } from '@/data/shopFilters';
 
 export interface BrandFilter {
   id: string;
@@ -14,15 +15,27 @@ export interface CategorySettings {
 }
 
 export const defaultCategorySettings: CategorySettings = {
-  productCategories: ['사료', '간식', '영양제', '위생용품', '생활용품', '장난감', '산책용품', '미용용품'],
-  lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
+  productCategories: shopCategoryFilters.map((category) => category.label),
+  lifestyleCategories: shopCategoryFilters.map((category) => category.label),
   brandFilters: [
-    { id: 'all', label: '전체 브랜드' },
-    { id: 'audit', label: '백조 인증 (A등급 이상)' },
+    { id: 'all', label: '전체' },
     { id: 'recommended', label: '전문가 추천' },
     { id: 'new', label: '신규 입점' },
   ],
 };
+
+function normalizeCategorySettings(settings: CategorySettings): CategorySettings {
+  const normalizeList = (values: string[]) => Array.from(new Set(
+    values.map((value) => toShopCategoryOption(value).label).filter(label => !label.includes('A등급') && !label.includes('A 등급') && !label.includes('인증'))
+  ));
+
+  return {
+    ...settings,
+    productCategories: normalizeList(settings.productCategories || []),
+    lifestyleCategories: normalizeList(settings.lifestyleCategories || []),
+    brandFilters: (settings.brandFilters || defaultCategorySettings.brandFilters).filter(f => !f.label.includes('A등급') && !f.label.includes('A 등급') && !f.label.includes('인증')),
+  };
+}
 
 interface CategorySettingsContextType {
   categorySettings: CategorySettings;
@@ -35,20 +48,25 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
   const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('categorySettings');
-      if (saved) {
-        setCategorySettings(JSON.parse(saved));
+    const timer = window.setTimeout(() => {
+      try {
+        const saved = localStorage.getItem('categorySettings');
+        if (saved) {
+          setCategorySettings(normalizeCategorySettings(JSON.parse(saved) as CategorySettings));
+        }
+      } catch (e) {
+        console.error('Failed to load category settings from localStorage', e);
       }
-    } catch (e) {
-      console.error('Failed to load category settings from localStorage', e);
-    }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
   }, []);
 
   const updateCategorySettings = (newSettings: CategorySettings) => {
-    setCategorySettings(newSettings);
+    const normalizedSettings = normalizeCategorySettings(newSettings);
+    setCategorySettings(normalizedSettings);
     try {
-      localStorage.setItem('categorySettings', JSON.stringify(newSettings));
+      localStorage.setItem('categorySettings', JSON.stringify(normalizedSettings));
     } catch (e) {
       console.error('Failed to save category settings to localStorage', e);
     }
