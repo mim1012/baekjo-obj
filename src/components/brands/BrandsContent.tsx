@@ -17,7 +17,6 @@ function BrandsInner({ brands }: Props) {
   const { categorySettings } = useCategorySettings();
 
   const filteredBrands = brands.filter(b => {
-    if (filter === 'audit') return b.auditGrade.includes('A');
     if (filter === 'recommended') return b.isRecommended;
     if (filter === 'new') return b.isNew;
     return true;

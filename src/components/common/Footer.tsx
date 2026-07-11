@@ -1,55 +1,87 @@
 import Link from 'next/link';
 import BrandMark from './BrandMark';
 
+const exploreLinks = [
+  { label: '고민별 케어', href: '/concerns' },
+  { label: '브랜드', href: '/brands' },
+  { label: '셀렉션', href: '/shop' },
+  { label: '보험 분석', href: '/insurance' },
+];
+
+const storyLinks = [
+  { label: '전문가의 기준', href: '/experts' },
+  { label: '반려가족 이야기', href: '/reviews' },
+  { label: '백조 소식', href: '/notices' },
+  { label: '파트너 회원가입', href: '/signup' },
+];
+
 export default function Footer() {
   return (
-    <footer className="border-t border-[rgba(15,23,42,0.06)] bg-[#F4EFE8] pb-20 text-[#64748B] md:pb-0">
-      <div className="site-container py-14 lg:py-20">
-        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-4">
-          <div className="lg:col-span-2">
-            <Link href="/" aria-label="백조오브제 홈" className="inline-flex text-[#17211D]">
-              <BrandMark />
+    <footer className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
+      <div className="site-container-wide py-16 lg:py-20">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-[1.5fr_0.7fr_0.7fr_0.9fr]">
+          <div>
+            <Link href="/" aria-label="백조오브제 홈" className="inline-flex text-[#FBFAF7]">
+              <BrandMark inverse />
             </Link>
-            <p className="mt-6 max-w-md text-pretty text-sm leading-7 text-[#334155]">
-              반려동물과 함께하는 평범한 하루가 오래도록 아름답도록.
-              백조오브제는 성분, 쓰임, 지속 가능성을 살펴 좋은 기준만을 제안합니다.
+            <p className="mt-6 max-w-md break-keep text-sm leading-7 text-[#FBFAF7]/70">
+              좋은 선택이 오래 함께하는 시간을 만든다고 믿어요. 성분과 쓰임, 브랜드가 지켜 온 태도까지 살펴
+              반려생활에 꼭 필요한 것만 차분히 소개합니다.
             </p>
-            <div className="mt-7 flex gap-5 text-sm text-[#64748B]">
-              <a href="#" className="hover:text-[#17211D] transition-colors">Instagram</a>
-              <a href="#" className="hover:text-[#17211D] transition-colors">YouTube</a>
-              <Link href="/notices" className="hover:text-[#17211D] transition-colors">Notice</Link>
-            </div>
+            <p className="mt-6 font-editorial text-sm italic tracking-wide text-[#D8C4A3]">
+              Chosen with care, shared with love.
+            </p>
           </div>
 
-          <div>
-            <h2 className="font-editorial text-lg text-[#17211D]">Customer care</h2>
-            <ul className="mt-5 space-y-2 text-sm leading-6 text-[#64748B]">
-              <li className="tabular-nums text-base text-[#17211D] font-semibold">1644-0000</li>
-              <li>평일 10:00 — 17:00</li>
-              <li>점심 12:00 — 13:00</li>
-              <li>주말 및 공휴일 휴무</li>
-            </ul>
-          </div>
+          <FooterNav title="둘러보기" links={exploreLinks} />
+          <FooterNav title="백조 이야기" links={storyLinks} />
 
           <div>
-            <h2 className="font-editorial text-lg text-[#17211D]">Baekjo Company</h2>
-            <ul className="mt-5 space-y-2 text-xs leading-6 text-[#64748B]">
-              <li>대표 김백조</li>
-              <li>사업자등록번호 123-45-67890</li>
-              <li>통신판매업신고 2023-서울강남-1234</li>
-              <li>서울특별시 강남구 테헤란로 123</li>
+            <h2 className="text-sm font-semibold text-[#FBFAF7]">도움이 필요하신가요?</h2>
+            <p className="mt-5 text-xl font-semibold tabular-nums text-[#FBFAF7]">1644-0000</p>
+            <ul className="mt-3 space-y-1 text-xs leading-6">
+              <li>평일 오전 10시 — 오후 5시</li>
+              <li>점심 오후 12시 — 1시</li>
+              <li>주말과 공휴일은 쉬어가요</li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-14 flex flex-col gap-4 border-t border-[rgba(15,23,42,0.06)] pt-7 text-xs text-[#64748B] md:flex-row md:items-center md:justify-between">
-          <div className="flex gap-5">
-            <Link href="#" className="hover:text-[#17211D] transition-colors">이용약관</Link>
-            <Link href="#" className="font-semibold text-[#334155] hover:text-[#17211D] transition-colors">개인정보처리방침</Link>
+        <div className="mt-14 flex flex-col gap-6 border-t border-[#FBFAF7]/10 pt-8 text-xs md:flex-row md:items-end md:justify-between">
+          <div>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              <Link href="#" className="transition-colors duration-500 hover:text-[#FBFAF7]">이용약관</Link>
+              <Link href="#" className="font-semibold text-[#FBFAF7]/85 transition-colors duration-500 hover:text-[#FBFAF7]">개인정보처리방침</Link>
+            </div>
+            <p className="mt-4 max-w-2xl leading-6 text-[#FBFAF7]/45">
+              백조컴퍼니 · 대표 김백조 · 사업자등록번호 123-45-67890 · 통신판매업신고 2023-서울강남-1234
+            </p>
           </div>
-          <p>© 2026 Baekjo Company. All rights reserved.</p>
+          <p className="shrink-0 text-[#FBFAF7]/45">© 2026 Baekjo Company.</p>
         </div>
       </div>
     </footer>
+  );
+}
+
+interface FooterNavProps {
+  title: string;
+  links: Array<{ label: string; href: string }>;
+}
+
+function FooterNav({ title, links }: FooterNavProps) {
+  return (
+    <nav aria-label={title}>
+      <h2 className="text-sm font-semibold text-[#FBFAF7]">{title}</h2>
+      <ul className="mt-5 space-y-3 text-sm">
+        {links.map((link) => (
+          <li key={link.href}>
+            <Link href={link.href} className="transition-colors duration-500 hover:text-[#FBFAF7]">
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

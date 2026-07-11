@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
 import { concerns } from '@/data/concerns';
@@ -43,10 +43,6 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               </div>
               <div>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">{brand.name}</h1>
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/10 backdrop-blur-md px-4 py-2 text-sm font-semibold text-white border border-white/20">
-                  <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                  검증 등급: {brand.auditGrade}
-                </div>
               </div>
             </div>
             <div className="hidden md:flex h-48 w-full max-w-md items-center justify-center rounded-[24px] border border-white/10 bg-white/5 backdrop-blur-sm shadow-inner relative overflow-hidden group">

@@ -2,7 +2,7 @@ import { reviews } from '@/data/reviews';
 import { listProducts } from '@/lib/products/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
-import { Star } from 'lucide-react';
+import { Image as ImageIcon, MessageCircle, Star } from 'lucide-react';
 
 export const metadata = {
   title: '구매후기 | 백조오브제',
@@ -28,34 +28,40 @@ export default async function ReviewsPage({
   const photoReviewsCount = reviews.filter(r => r.isPhotoReview).length;
 
   return (
-    <div className="bg-[#F4F2EC] min-h-dvh py-16">
-      <div className="site-container">
-        <div className="mb-12 text-center">
-          <h1 className="text-3xl font-bold text-[#202521] md:text-4xl">반려가족의 리얼 후기</h1>
-          <p className="mt-4 text-gray-500">백조오브제와 함께한 우리 아이들의 이야기를 확인하세요.</p>
+    <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
+        <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">Voices from the home</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] md:text-[42px]">반려가족의 리얼 후기</h1>
+            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제와 함께한 우리 아이들의 이야기를 확인하세요.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
+            <MessageCircle className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
+            실제 구매 후기를 모았습니다
+          </div>
         </div>
 
-        {/* 요약 대시보드 */}
-        <div className="mb-12 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white rounded-sm p-6 flex flex-col items-center justify-center text-center shadow-sm">
-            <div className="text-gray-500 text-sm font-medium mb-2">총 리뷰 수</div>
-            <div className="text-3xl font-bold text-[#202521]">{reviews.length}개</div>
+        <div className="mb-6 grid grid-cols-3 divide-x divide-[#E7E0D5] border-b border-[#E7E0D5] bg-white">
+          <div className="flex min-h-[88px] flex-col justify-center px-3 py-3 sm:px-5">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6F766F] sm:text-[11px]">Total voices</div>
+            <div className="text-[24px] font-bold leading-none tracking-tight text-[#17211D] sm:text-[28px]">{reviews.length}<span className="ml-1 text-[12px] font-medium text-[#6F766F]">개</span></div>
           </div>
-          <div className="bg-white rounded-sm p-6 flex flex-col items-center justify-center text-center shadow-sm">
-            <div className="text-gray-500 text-sm font-medium mb-2">평균 별점</div>
-            <div className="flex items-center gap-2">
-              <Star className="h-8 w-8 fill-[#8A6D3B] text-[#8A6D3B]" />
-              <span className="text-3xl font-bold text-[#202521]">{avgRating}</span>
+          <div className="flex min-h-[88px] flex-col justify-center px-3 py-3 sm:px-5">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6F766F] sm:text-[11px]">Average rating</div>
+            <div className="flex items-center gap-1.5">
+              <Star className="size-4 fill-[#A8742E] text-[#A8742E] sm:size-[18px]" aria-hidden="true" />
+              <span className="text-[24px] font-bold leading-none tracking-tight text-[#17211D] sm:text-[28px]">{avgRating}</span>
             </div>
           </div>
-          <div className="bg-white rounded-sm p-6 flex flex-col items-center justify-center text-center shadow-sm">
-            <div className="text-gray-500 text-sm font-medium mb-2">포토 리뷰</div>
-            <div className="text-3xl font-bold text-[#2F3B34]">{photoReviewsCount}개</div>
+          <div className="flex min-h-[88px] flex-col justify-center px-3 py-3 sm:px-5">
+            <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6F766F] sm:text-[11px]"><ImageIcon className="size-3.5 text-[#A8742E]" aria-hidden="true" />Photo reviews</div>
+            <div className="text-[24px] font-bold leading-none tracking-tight text-[#17211D] sm:text-[28px]">{photoReviewsCount}<span className="ml-1 text-[12px] font-medium text-[#6F766F]">개</span></div>
           </div>
         </div>
         
         {/* 필터 */}
-        <div className="mb-8 flex flex-wrap justify-center gap-2">
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="후기 필터">
           {[
             ['all', '전체'],
             ['photo', '사진 후기'],
@@ -68,7 +74,7 @@ export default async function ReviewsPage({
             <Link
               key={id}
               href={id === 'all' ? '/reviews' : `/reviews?filter=${id}`}
-              className={`border px-4 py-2.5 text-sm ${filter === id ? 'border-[#2F3B34] bg-[#2F3B34] text-white' : 'border-[#D8D6CE] bg-[#FAF9F5] text-[#626A64]'}`}
+              className={`flex h-9 shrink-0 items-center rounded-md border px-4 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 ${filter === id ? 'border-[#17211D] bg-[#17211D] text-[#FBFAF7]' : 'border-[#D8D6CE] bg-white text-[#59615B] hover:border-[#A8742E] hover:bg-[#F3EEE6] hover:text-[#17211D]'}`}
             >
               {label}
             </Link>
@@ -77,7 +83,7 @@ export default async function ReviewsPage({
 
         {/* 리뷰 그리드 */}
         {filteredReviews.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredReviews.map(review => {
               const product = products.find(p => p.id === review.productId);
               return (

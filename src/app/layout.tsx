@@ -31,7 +31,7 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="flex min-h-full flex-col bg-[#F4F2EC] font-sans text-[#202521]">
+      <body className="flex min-h-full flex-col bg-[#FBFAF7] font-sans text-[#17211D]">
         <SiteSettingsProvider>
           <CategorySettingsProvider>
             <AppShell>{children}</AppShell>

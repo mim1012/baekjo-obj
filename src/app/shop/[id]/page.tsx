@@ -184,7 +184,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 </div>
                 <div className="relative z-10 pt-4 lg:pt-0 lg:border-l border-slate-700 lg:pl-12">
                   <h3 className="flex items-center text-sm font-semibold text-white">
-                    <ShieldCheck className="mr-2 size-4" /> 백조 검증 {brand.auditGrade}
+                    <ShieldCheck className="mr-2 size-4" /> 백조가 확인한 점
                   </h3>
                   <ul className="mt-5 grid gap-3 sm:grid-cols-2">
                     {brand.auditPoints.map((point) => (

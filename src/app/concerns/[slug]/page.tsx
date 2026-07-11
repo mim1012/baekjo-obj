@@ -175,7 +175,6 @@ export default async function ConcernDetailPage({ params }: { params: Promise<{ 
                     </div>
                     <div>
                       <div className="font-bold text-gray-900 group-hover:text-[#2F3B34]">{brand.name}</div>
-                      <div className="text-xs text-gray-500">검증 등급: {brand.auditGrade}</div>
                     </div>
                   </Link>
                 ))}

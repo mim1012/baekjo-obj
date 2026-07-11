@@ -18,7 +18,6 @@ export const defaultCategorySettings: CategorySettings = {
   lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
   brandFilters: [
     { id: 'all', label: '전체 브랜드' },
-    { id: 'audit', label: '백조 인증 (A등급 이상)' },
     { id: 'recommended', label: '전문가 추천' },
     { id: 'new', label: '신규 입점' },
   ],

@@ -12,6 +12,36 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > 규칙을 바꾸려면 여기만 고치세요. (`CLAUDE.md`는 `@AGENTS.md` 포인터라 자동으로 따라옵니다.)
 > 상세 협업 절차는 [`COLLABORATION.md`](./COLLABORATION.md).
 
+## 0. 운영 원칙 & Decision Flow (⭐ 작업 시작 전 필독)
+
+### 0-1. 원칙 (Principles) — 규칙보다 먼저
+1. **역할은 나눠도 코드베이스는 절대 안 나눈다.** 하나의 레포, 하나의 `main`.
+2. **`main` = 항상 배포 가능한 단일 진실(SSOT).** 여기서 갈라져 나가 여기로 돌아온다.
+3. **장기 브랜치 금지.** 브랜치는 하루살이다 — 목적 1개만 담고, 매일 `main`을 동기화하고, 끝나면 지운다.
+4. **화면은 콘센트에만 꽂는다.** 데이터는 오직 `src/lib/storage.ts` 함수로만 흐른다(§4).
+
+### 0-2. Decision Flow — "이 작업, 어디로 가야 하나"
+작업을 시작하면 **규칙을 뒤지기 전에** 이 순서로 판단해 브랜치·라벨·담당을 정한다.
+
+```
+작업 요청
+│
+├─ ① 사용자에게 보이는 변경인가?
+│     ├─ 화면 표현(마크업·스타일·애니메이션) ─→ fe/design-*     담당: dad   라벨: design
+│     └─ 화면 동작(핸들러·상태·플로우)        ─→ fe/behavior-*   담당: dad   라벨: behavior
+│
+├─ ② types/index.ts 또는 storage.ts 시그니처를 바꾸나?
+│     └─ 예 ─→ contract/*   라벨: contract-change   제안: 누구나 · 확정/머지: mim
+│              (가짜데이터 + 모든 호출부를 같은 PR에서 함께 고쳐 빌드 green 유지 — §4)
+│
+├─ ③ API·DB·인증·결제 연결인가?  ─→ be/*    담당: mim   라벨: data-integration
+│
+└─ ④ 겉보기 무변경 내부 성능인가? ─→ perf/*  담당: mim   라벨: perf-internal
+```
+
+- **한 작업이 여러 갈래에 걸치면 쪼갠다.** 표현+계약이 섞이면 계약 PR을 먼저 직렬로 머지한 뒤 표현 PR을 올린다.
+- **의존 순서**: `feature(fe·be 병렬) → contract(직렬화 지점) → integration → perf`. contract는 항상 단독 머지.
+
 ## 1. 프로젝트 한 줄 정의
 프리미엄 반려생활 큐레이션 + 펫슈어런스(펫보험) + B2B 케어키트 **에코시스템 커머스 플랫폼**.
 브랜드 비전: *"우리 아이에게 정말 필요한 선택만 남기는 곳."* 톤: **Quiet Luxury**(조용한 럭셔리).
@@ -32,12 +62,33 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Lint | **ESLint 9** | `npm run lint` |
 | 데이터(현재) | `src/data/*.ts` 가짜데이터 + `localStorage`(`src/lib/storage.ts`) | → 실 API로 교체 예정 |
 
-## 3. 역할 경계 (누가 무엇을 소유하나)
-| 담당 | 사람 / 도구 | 소유 영역 |
-|------|-------------|-----------|
-| **프론트 전체** | **dad041566** (Codex · Antigravity IDE) | 화면·UI·애니메이션 + **가짜(mock) 데이터**(`src/data/**`) + **기획 기능 연결**(화면 동작·핸들러·상태). 경로: `src/app/**`, `src/components/**`, `src/data/**`, `src/app/globals.css`, `public/**` |
-| **백엔드 / 실데이터 / 인프라 / main 관리** | **mim1012 (나)** (Claude Code + Codex) | 진짜 데이터·서버 로직·DB 연동·인프라·배포: `src/lib/**`(콘센트 속 구현), `src/app/api/**`(생성 예정), 인증·결제·주문 처리·검증. **`main` 브랜치 관리자** |
-| **공유 접점 = 계약** | 양쪽 합의 필요 | **`src/types/index.ts`(데이터 설계도)** + **`src/lib/storage.ts`(콘센트 = 함수 시그니처)**. §4 규칙 준수 |
+## 3. 역할 경계 — 디렉토리가 아니라 레이어로 나눈다
+> ⚠️ **왜 바뀌었나:** 예전엔 "dad=`src/app/**`, mim=`src/lib/**`"로 폴더로 나눴는데, 백엔드 연동은
+> dad가 디자인한 바로 그 페이지 파일(`page.tsx`)을 건드릴 수밖에 없어 **같은 파일이 충돌**했다.
+> 경계는 폴더가 아니라 **"한 파일 안에서 누가 무엇을"** = 레이어로 긋는다.
+
+**핵심 분리 규칙 (충돌이 구조적으로 불가능해지는 지점):**
+페이지는 **서버 wrapper `page.tsx`(mim: 데이터 주입) + 클라이언트 표현 `*Client.tsx`(dad: UI)** 로 쪼갠다.
+각자 자기 레이어 파일만 편집한다.
+
+### Role: dad — PM · UX · Frontend
+- **책임(제품 관점):** 무엇을 왜 만드는지, 화면 표현·인터랙션·기획 기능 연결(핸들러·상태·플로우).
+- **변경 가능:** `*Client.tsx`·`src/components/**`·`src/app/globals.css`·`src/data/**`(mock)·`public/**`.
+- **변경 금지:** `page.tsx`의 **서버 컴포넌트 wrapper**, `src/lib/**`, `src/app/api/**`,
+  그리고 **`types/index.ts`·`storage.ts`의 시그니처**(=계약). 필요하면 고치지 말고 §0-2 ② 경로로 요청.
+- **PR 체크리스트:** ☐ Decision Flow 라벨(design/behavior) ☐ 콘센트 경유(직접 fetch/localStorage 없음)
+  ☐ 계약 파일 무변경 ☐ 도메인 규칙(§6) 준수 ☐ 디자인 변경 시 스크린샷 ☐ build·lint green.
+
+### Role: mim — Backend · DB · API · Infra · Performance
+- **책임(기술 관점):** 진짜 데이터·서버 로직·DB·인증·결제·주문 처리·검증·성능, 그리고 **`main` 관리**.
+- **변경 가능:** `src/lib/**`(콘센트 본문)·`src/app/api/**`·`page.tsx` 서버 wrapper·계약 파일 **본문/구현**.
+- **변경 금지:** 디자인 마크업·표현 컴포넌트(`*Client.tsx`)의 임의 변경. UI가 필요하면 dad에게 요청.
+- **PR 체크리스트:** ☐ Decision Flow 라벨(data-integration/perf/contract) ☐ 콘센트 시그니처 불변(또는 §4 계약 절차)
+  ☐ 골든플로우(§7) 스모크 ☐ 성능 변경은 겉보기 무변경 증명 ☐ build·lint green.
+
+### 공유 접점 = 계약 (양쪽 합의 필요)
+**`src/types/index.ts`(데이터 설계도)** + **`src/lib/storage.ts`(콘센트 = 함수 시그니처)**.
+시그니처 변경은 §0-2 ②(`contract/*` + `contract-change` 라벨, 확정=mim)로만. §4 규칙 준수.
 
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
 프론트는 가짜 데이터로, 백엔드는 진짜 데이터로 만든다. **둘이 따로 놀아(=drift) 화면이 조용히 깨지는 것**이
@@ -85,19 +136,51 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > ⚠️ **관리자 화면(#7)은 클라이언트의 주 사용 surface.** "코드가 바뀐 곳"이 아니라 "클라이언트가 쓰는 곳" 기준으로 검증.
 
 ## 8. Git · 배포 · 자동 검증
-- **브랜치**: **`main` = 통합 브랜치**(항상 배포 가능). **main 관리자 = mim1012(나)** — main 머지 수행·최종 책임.
-  - **dad041566(프론트)**: 자기 작업 브랜치(현재 `codex/baekjo-site-launch`, 새 작업은 `fe/*` 권장)에서 작업
-    → **main 반영은 반드시 PR로. main 직접 push 금지.** PR을 올리면 CI가 돌고, 머지는 mim1012가 한다.
-  - **mim1012(백엔드)**: `be/*`(feat/fix)에서 작업 → PR로 main 머지.
-  - push 전 항상 `git pull --rebase origin main`. 서로의 레인에 직접 push 금지.
-  - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소(dad041566-hue/BAGJO1)는 이관 완료.
-  - **하드 강제(TODO)**: mim1012 계정으로 `baekjo-obj` Settings → Branches에서 `main` 보호 규칙(PR 필수 + CI 통과 필수) 설정.
-    절차는 `docs/dad041566-워크플로우-안내.md` §4.
+
+### 8-1. 브랜치 전략 (Atomic — §0 원칙 3 강제)
+- **`main` = 통합 브랜치**(항상 배포 가능). **main 관리자 = mim1012** — 머지 수행·최종 책임.
+- **모든 작업은 `main`에서 딴 짧은 브랜치. 장기 브랜치 금지.** 목적 1개 = 브랜치 1개, 끝나면 삭제.
+- **브랜치 네이밍 (Decision Flow §0-2와 1:1):**
+  | 유형 | prefix | 담당 | 예 |
+  |------|--------|------|----|
+  | 화면 표현 | `fe/design-*` | dad | `fe/design-hero-video` |
+  | 화면 동작 | `fe/behavior-*` | dad | `fe/behavior-cart-guard` |
+  | 계약 변경 | `contract/*` | 확정=mim | `contract/insurance-quote` |
+  | API·DB 연결 | `be/*` | mim | `be/orders-supabase` |
+  | 내부 성능 | `perf/*` | mim | `perf/rsc-brand-list` |
+- **main 직접 push 금지(양쪽 다).** 반드시 PR. push 전 항상 `git pull --rebase origin main`.
+  하루 1회 이상 `git merge origin/main`으로 동기화(발산 방지).
+- **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소는 이관 완료.
+- **하드 강제(TODO)**: `baekjo-obj` Settings → Branches에서 `main` 보호 규칙(PR 필수 + CI 통과 필수).
+
+### 8-2. Commit 규칙 (Atomic Commit)
+- 형식: `type(scope): 설명` — type = `feat/fix/refactor/perf/docs/test/chore`.
+- 커밋 1개 = **독립적으로 검증 가능한 최소 변경.** 이전 세션 작업물을 한 방에 묶어 커밋 금지.
+
+### 8-3. PR 규칙 & 템플릿 (Atomic PR)
+- PR 1개 = 리뷰 가능한 단위. **작성자 ≠ 리뷰어**(자기승인 금지). 계약 PR은 **양쪽 리뷰 필수**.
+```markdown
+## 유형
+- [ ] design  [ ] behavior  [ ] contract-change  [ ] data-integration  [ ] perf-internal
+## 변경 요약
+(무엇을 왜)
+## 콘센트 영향
+- 계약(types/storage 시그니처) 변경? [ ] 없음  [ ] 있음 → 모든 호출부 동반 수정 완료
+## 골든플로우(§7) 영향
+(해당 번호 / 없음)
+## 검증
+- [ ] npm run build  [ ] npm run lint  [ ] (디자인 변경 시) 스크린샷 첨부
+```
+
+### 8-4. CI · 배포
 - **CI 게이트(IDE 무관·자동)**: 모든 PR에서 `.github/workflows/ci.yml`가 **typecheck+build+lint** 실행.
   실패하면 머지 불가 → drift가 프로덕션에 못 샌다. **어떤 IDE로 짰든 GitHub에서 똑같이 걸린다.**
 - **배포**: preview → 골든플로우 스모크 → 프로모트. 직접 prod 배포 금지. 세션당 1배치.
-- **커밋**: `type: 설명`(feat/fix/refactor/docs/test/chore). PR은 작성자≠리뷰어(자기승인 금지).
 - **납품 증빙**: 마일스톤마다 골든플로우 수동 1회 + 스크린샷/녹화 → `docs/` 보관(분쟁 방어).
+
+### 8-5. Definition of Done (완료 정의)
+`npm run build` 통과 · `npm run lint` 통과 · debug 로그 제거 · 해당 골든플로우(§7) 스모크 통과 ·
+계약 변경 시 모든 호출부 동반 수정으로 빌드 green · PR 라벨과 브랜치 prefix 일치.
 
 ## 9. 명령어
 ```bash

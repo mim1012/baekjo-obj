@@ -4,8 +4,8 @@ interface BrandMarkProps {
 }
 
 export default function BrandMark({ inverse = false, compact = false }: BrandMarkProps) {
-  const ink = inverse ? "#F8F7F2" : "#2F3B34";
-  const muted = inverse ? "#C9CEC9" : "#68776C";
+  const ink = inverse ? "#FBFAF7" : "#17211D";
+  const muted = inverse ? "#FBFAF7" : "#6F766F";
 
   return (
     <span className="inline-flex items-center gap-3">

@@ -7,6 +7,10 @@ export interface Product {
   id: string;
   brandId: string;
   name: string;
+  /** 브랜드 페이지는 상품 정보 수집용으로만 보관하며 고객 화면에는 노출하지 않습니다. */
+  sourceUrl?: string;
+  sourceVerifiedAt?: string;
+  catalogStatus?: 'draft' | 'ready' | 'sold_out';
   price: number | null;
   salePrice?: number | null;
   rating: number;
@@ -26,6 +30,9 @@ export interface Product {
   summary?: string;
   description: string;
   shippingNotice?: string;
+  deliveryEstimate?: string;
+  returnNotice?: string;
+  sellerName?: string;
   tags?: string[];
   brandName?: string;
   isMembersOnlyPrice?: boolean;
@@ -52,10 +59,15 @@ export interface ProductOption {
 export interface Brand {
   id: string;
   name: string;
+  officialUrl?: string;
+  sourceUrls?: string[];
   logo: string;
   description: string;
   philosophy: string;
-  auditGrade: 'A+' | 'A' | 'B+' | 'B';
+  // 데이터/백엔드 전용 필드. 사용자 화면의 등급 배지는 제거되었으나 repo/validate/admin
+  // (src/lib/brands/repo.ts, validate.ts, admin/brands)가 이 값을 계속 읽고 관리한다.
+  // 정적 목데이터(data/brands.ts)에는 값이 없을 수 있어 선택적. DB repo 는 누락 시 'B' 로 보정.
+  auditGrade?: 'A+' | 'A' | 'B+' | 'B';
   auditPoints: string[];
   auditReport?: BrandAuditReport;
   representativeProductIds: string[];
@@ -320,7 +332,7 @@ export interface CareKit {
 export interface Partner {
   id: string;
   name: string;
-  type: 'hospital' | 'funeral' | 'brand' | 'petshop' | 'etc';
+  type: 'hospital' | 'funeral' | 'brand' | 'petshop' | 'hotel' | 'etc';
   contactPerson: string;
   phone: string;
   address: string;
