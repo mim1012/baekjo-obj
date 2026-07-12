@@ -19,6 +19,7 @@
 - 2026-07-12 브랜드 정적↔DB drift 전수 대조·정정: `0014`(로고)·`0015`(b2·b5 philosophy/description)·`0016`(b2·b3·b5 auditPoints, b2 relatedConcernSlugs) → DB==정본 `src/data/brands.ts` 검증 완료. 정본=static, force-dynamic이라 프리뷰 즉시 반영.
 - 2026-07-12 **b4 캣코드 노출 = 숨김 확정**(사용자 결정): 정본 `isVisible:false`대로 `0017`이 DB `is_visible=false` 정정. 제품 미등록 미준비 브랜드라 `/brands` 목록에서 제외. DB 검증 완료(b4만 false).
 - 2026-07-12 로드맵(사용자 확인): 제품은 아직 미등록(의도). 공식 바로가기(`officialUrl`/`sourceUrls`)는 **나중에 노출 예정** → 그때 `repo.ts rowToBrand` unpack + DB 시드 함께. `auditGrade`는 DB만 有·뱃지 UI 제거(b99d770)로 화면 무영향(방치).
+- 2026-07-12 브랜드 상세 섹션별 텍스트 대조: (a) **감사 리포트 섹션은 정본상 b1만 존재 → b2~b5 '확인 중' 플레이스홀더 유지**(의도된 설계, 사용자 결정). (b) **고민 태그 갭 해소**: 브랜드가 참조하나 concerns.ts에 없던 `nutrition·oral·grooming·living` 4종을 `src/data/concerns.ts`에 추가(커밋 aee80ae) → 이제 모든 브랜드 relatedConcernSlugs 매칭·칩 렌더·`/concerns/[slug]` 페이지 생성. 빌드·타입·린트 green.
 - 2026-07-12 권한 로드맵: 현재 **회원 + 최고관리자** 2단계 → 추후 **입점 업체 관리자 / B2B 업체 관리자** 역할 추가 예정(RBAC 확장 대비).
 - 2026-07-12 서버 컴포넌트/page.tsx wrapper는 storage(클라 fetch 콘센트)가 아니라 `src/lib/*/repo.ts` **직접 호출**(자기 /api 왕복 방지). 홈이 첫 사례.
 - 2026-07-12 설정류(settings/category/survey/kits/partners/qna)는 **싱글턴 jsonb config**(`id='default'`, `value {items|...}`) 패턴. 관리자 화면은 **draft 배치 저장**(자동저장 금지 — CategorySettings hard-reload race 교훈).
