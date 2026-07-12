@@ -330,6 +330,13 @@ function OrderCompleteInner() {
       clearTimeout(autoRetryTimerRef.current);
       autoRetryTimerRef.current = null;
     }
+    // 새 키가 수락되는 순간 어떤 분기로 가든(유효 쿼리/invalid/무쿼리) 이전 세대를 무조건
+    // 무효화한다. 이걸 유효 쿼리 분기(performConfirm 호출) 안에서만 증가시키면, invalid나
+    // 무쿼리로 빠지는 분기는 attemptRef를 안 건드리므로 진행 중이던 이전 유효 쿼리의 confirm이
+    // "attemptId === attemptRef.current" 세대 가드를 그대로 통과해 화면 갱신·clearPendingTossState
+    // (카트·세션 마커 정리)를 실행할 수 있었다(HIGH). 유효 경로에서는 performConfirm이 곧이어
+    // 또 증가시키지만 단조 증가라 가드 의미는 그대로라 무해하다.
+    attemptRef.current += 1;
 
     if (showInvalidQuery) return; // 렌더가 직접 처리 — 비동기 작업 불필요.
 
