@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { Filter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
 interface Column {
   key: string;
@@ -17,6 +17,23 @@ interface AdminResourcePageProps {
   rows: Array<Record<string, string | number>>;
   filters?: string[];
   createFields?: string[];
+  /** 관리 셀(수정/삭제 앞)에 행별 커스텀 액션(승인/반려 버튼 등)을 렌더링한다. */
+  customActions?: (row: Record<string, string | number>) => React.ReactNode;
+  /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
+  renderExpandedRow?: (row: Record<string, string | number>) => React.ReactNode;
+  /**
+   * 지정 시 삭제가 내부 로컬 Set(비영속)이 아니라 이 콜백으로 위임된다 — 부모(관리자 page)가
+   * draft 에서 항목을 제거하고 rows 를 다시 내려보내 화면에 반영한다. 미지정 시 기존 동작
+   * (로컬 숨김)을 유지한다(concerns/notices/reviews 화면 하위호환).
+   */
+  onDeleteRow?: (id: string | number) => void;
+  /**
+   * 지정 시 헤더에 명시적 저장 버튼을 렌더링한다. 클릭 시 부모가 현재 draft 를 통째로 저장하고
+   * 성공/실패를 boolean 으로 돌려준다(per-edit auto-save 가 아니라 batch save — CategorySettings 교훈).
+   */
+  onSave?: () => Promise<{ ok: boolean }>;
+  /** 저장 버튼 라벨(기본 '변경사항 저장'). */
+  saveLabel?: string;
 }
 
 export default function AdminResourcePage({
@@ -28,12 +45,20 @@ export default function AdminResourcePage({
   rows,
   filters = ['전체 상태'],
   createFields = [],
+  customActions,
+  renderExpandedRow,
+  onDeleteRow,
+  onSave,
+  saveLabel = '변경사항 저장',
 }: AdminResourcePageProps) {
   const [editingRow, setEditingRow] = useState<Record<string, string | number> | null>(null);
   const [deletedIds, setDeletedIds] = useState<Set<string | number>>(new Set());
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>(filters[0]);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedRowId, setExpandedRowId] = useState<string | number | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   const handleEdit = (row: Record<string, string | number>) => {
@@ -57,8 +82,22 @@ export default function AdminResourcePage({
 
   const handleDelete = (id: string | number) => {
     if (window.confirm('정말로 삭제하시겠습니까?')) {
+      // 부모가 draft 를 소유하면(onDeleteRow) 로컬 숨김 대신 부모에 위임한다.
+      if (onDeleteRow) {
+        onDeleteRow(id);
+        return;
+      }
       setDeletedIds(prev => new Set(prev).add(id));
     }
+  };
+
+  const handleSave = async () => {
+    if (!onSave || saving) return;
+    setSaving(true);
+    setSaveMessage(null);
+    const { ok } = await onSave();
+    setSaving(false);
+    setSaveMessage(ok ? '저장되었습니다.' : '저장에 실패했습니다. 다시 시도해 주세요.');
   };
 
   const visibleRows = rows.filter(r => !deletedIds.has(r.id as string | number));
@@ -80,25 +119,42 @@ export default function AdminResourcePage({
           <h1 className="mt-2 text-3xl font-normal text-[#202521]">{title}</h1>
           <p className="mt-2 text-sm text-[#737A74]">{description}</p>
         </div>
-        {actionLabel && (
-          <details className="relative">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
-              <Plus className="size-4" /> {actionLabel}
-            </summary>
-            <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
-              <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
-              <p className="mt-2 text-xs text-[#7B827C]">MVP mock 입력 UI이며 실제 서버 저장은 연결되지 않습니다.</p>
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                {(createFields.length > 0 ? createFields : columns.map(c => c.label)).map((field) => (
-                  <label key={field} className="text-xs font-medium text-[#59615B]">
-                    {field}
-                    <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm" placeholder={`${field} 입력`} />
-                  </label>
-                ))}
+        {(actionLabel || onSave) && (
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+            {onSave && (
+              <div className="flex items-center justify-end gap-3">
+                {saveMessage && <span className="text-xs text-[#59615B]">{saveMessage}</span>}
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex min-h-11 items-center justify-center gap-2 border border-[#2F3B34] bg-white px-5 text-sm font-semibold text-[#2F3B34] disabled:opacity-50"
+                >
+                  {saving ? '저장 중…' : saveLabel}
+                </button>
               </div>
-              <button type="button" className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">저장</button>
-            </div>
-          </details>
+            )}
+            {actionLabel && (
+              <details className="relative">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
+                  <Plus className="size-4" /> {actionLabel}
+                </summary>
+                <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
+                  <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
+                  <p className="mt-2 text-xs text-[#7B827C]">MVP mock 입력 UI이며 실제 서버 저장은 연결되지 않습니다.</p>
+                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                    {(createFields.length > 0 ? createFields : columns.map(c => c.label)).map((field) => (
+                      <label key={field} className="text-xs font-medium text-[#59615B]">
+                        {field}
+                        <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm" placeholder={`${field} 입력`} />
+                      </label>
+                    ))}
+                  </div>
+                  <button type="button" className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">저장</button>
+                </div>
+              </details>
+            )}
+          </div>
         )}
       </div>
 
@@ -154,23 +210,40 @@ export default function AdminResourcePage({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E1DFD8]">
-              {paginatedRows.map((row, index) => (
-                <tr key={String(row.id ?? index)} className="hover:bg-[#FAF9F5]">
-                  {columns.map((column) => (
-                    <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
-                      {column.key === 'status' ? (
-                        <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
-                      ) : (
-                        <span className="line-clamp-2">{row[column.key]}</span>
-                      )}
-                    </td>
-                  ))}
-                  <td className="px-5 py-4 text-right whitespace-nowrap">
-                    <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
-                    <button type="button" onClick={() => handleDelete(row.id as string | number ?? index)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
-                  </td>
-                </tr>
-              ))}
+              {paginatedRows.map((row, index) => {
+                const rowId = row.id as string | number ?? index;
+                const isExpanded = renderExpandedRow != null && expandedRowId === rowId;
+                return (
+                  <Fragment key={String(rowId)}>
+                    <tr
+                      className={`hover:bg-[#FAF9F5] ${renderExpandedRow ? 'cursor-pointer' : ''}`}
+                      onClick={renderExpandedRow ? () => setExpandedRowId((current) => (current === rowId ? null : rowId)) : undefined}
+                    >
+                      {columns.map((column) => (
+                        <td key={column.key} className="max-w-xs px-5 py-4 text-[#4F5751]">
+                          {column.key === 'status' ? (
+                            <span className="inline-flex border border-[#C9CEC9] bg-[#EDF0EC] px-2 py-1 text-[10px] font-semibold text-[#536057]">{row[column.key]}</span>
+                          ) : (
+                            <span className="line-clamp-2">{row[column.key]}</span>
+                          )}
+                        </td>
+                      ))}
+                      <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {customActions?.(row)}
+                        <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                        <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr>
+                        <td colSpan={columns.length + 1} className="bg-[#F8F7F2] px-5 py-4">
+                          {renderExpandedRow?.(row)}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

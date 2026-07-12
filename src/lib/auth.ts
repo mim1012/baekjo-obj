@@ -33,7 +33,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
         // bcrypt는 이미 위에서 실행됐으므로 이 분기는 타이밍 오라클과 무관하다.
-        if (member.status === 'inactive') return null;
+        // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)는 차단.
+        if (member.status !== 'active') return null;
 
         // 반환값을 변수에 먼저 담아 반환한다 — 리턴문에서 바로 리터럴을 넘기면
         // next-auth의 User 타입(id/name/email/image)에 없는 role 필드가 excess-property로 막힌다.

@@ -1,6 +1,9 @@
 import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
-import { insuranceApplications } from '@/data/insuranceApplications';
 import { users as mockUsers } from '@/data/users';
+import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
+import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
+import { defaultPartnersConfig, type PartnersConfig } from '@/lib/partners/config';
+import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -44,49 +47,114 @@ export function isWishlisted(productId: string): boolean {
   return getWishlist().includes(productId);
 }
 
-const INSURANCE_KEY = 'baekjo_insurance';
+/* ── 보험 분석 신청 ─────────────────────────────────────────
+ * 관리자 목록은 GET /api/admin/insurance, 내 신청은 GET /api/insurance/mine,
+ * 생성은 POST /api/insurance(공개·게스트 허용), 상태 변경은 PATCH /api/admin/insurance/[id].
+ * 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4). 실패는 orders 와 동일하게
+ * 읽기=빈 배열, 쓰기=throw 로 접는다.
+ */
 
-export function getInsuranceApplications(): InsuranceApplication[] {
-  return getJSON<InsuranceApplication[]>(INSURANCE_KEY, insuranceApplications);
+/**
+ * 신청 생성 입력(콘센트). id/createdAt/member_id 와 status 는 서버(POST /api/insurance)가 정하므로
+ * 클라이언트는 신뢰시키지 않는다(mass-assignment·상태 위조 차단). 화면 타입 InsuranceApplication 은
+ * 그대로 두고 Omit 으로 입력 표면만 좁힌다.
+ */
+export type CreateInsuranceInput = Omit<InsuranceApplication, 'id' | 'createdAt' | 'status'>;
+
+/**
+ * 전체 보험 신청 목록(관리자). GET /api/admin/insurance. 권한 없음·실패 시 빈 배열
+ * (getAllOrders 와 동일한 실패 계약).
+ */
+export async function getInsuranceApplications(): Promise<InsuranceApplication[]> {
+  try {
+    const response = await fetch('/api/admin/insurance');
+    if (!response.ok) return [];
+    const { applications } = (await response.json()) as { applications: InsuranceApplication[] };
+    return applications;
+  } catch {
+    return [];
+  }
 }
 
-export function addInsuranceApplication(application: InsuranceApplication): void {
-  const list = getInsuranceApplications();
-  list.push(application);
-  setJSON(INSURANCE_KEY, list);
+/**
+ * 내 보험 신청 목록. GET /api/insurance/mine(세션 필요). 세션이 없거나(401) 실패하면
+ * 화면이 다루기 쉽도록 일관되게 빈 배열을 반환한다(getMyOrders 와 동일).
+ */
+export async function getMyInsuranceApplications(): Promise<InsuranceApplication[]> {
+  try {
+    const response = await fetch('/api/insurance/mine');
+    if (!response.ok) return [];
+    const { applications } = (await response.json()) as { applications: InsuranceApplication[] };
+    return applications;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 신청 생성. POST /api/insurance(공개 — 게스트 신청 허용). 서버가 id·createdAt·member_id·status 를
+ * 정하므로 클라이언트는 그것들을 body 로 신뢰시키지 않는다. 실패 시 throw — 호출부(apply)가
+ * 사용자에게 실패를 알릴 수 있도록(createOrder 와 동일 계약).
+ */
+export async function addInsuranceApplication(
+  input: CreateInsuranceInput,
+): Promise<InsuranceApplication> {
+  const response = await fetch('/api/insurance', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('insurance-create-failed');
+  }
+  const { application } = (await response.json()) as { application: InsuranceApplication };
+  return application;
 }
 
 export const saveInsuranceApplication = addInsuranceApplication;
 
-export function updateInsuranceStatus(
+/**
+ * 신청 상태 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw 해
+ * 호출부가 사용자에게 알리거나 재조회할 수 있게 한다(updateOrderStatus 와 동일 계약).
+ */
+export async function updateInsuranceStatus(
   id: string,
   status: InsuranceApplication['status'],
   memo?: string,
-): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.status = status;
-    if (memo !== undefined) item.memo = memo;
-    setJSON(INSURANCE_KEY, list);
+): Promise<void> {
+  const body: { status: InsuranceApplication['status']; memo?: string } = { status };
+  if (memo !== undefined) body.memo = memo;
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
-export function updateInsuranceMemo(id: string, memo: string): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.memo = memo;
-    setJSON(INSURANCE_KEY, list);
+/** 신청 메모 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw. */
+export async function updateInsuranceMemo(id: string, memo: string): Promise<void> {
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ memo }),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
-export function updateInsuranceContacted(id: string, contacted: boolean): void {
-  const list = getInsuranceApplications();
-  const item = list.find((application) => application.id === id);
-  if (item) {
-    item.contacted = contacted;
-    setJSON(INSURANCE_KEY, list);
+/** 신청 연락여부 변경(관리자). PATCH /api/admin/insurance/[id]. 실패 시 throw. */
+export async function updateInsuranceContacted(id: string, contacted: boolean): Promise<void> {
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contacted }),
+  });
+  if (!response.ok) {
+    throw new Error('insurance-update-failed');
   }
 }
 
@@ -408,6 +476,130 @@ export async function deleteBrand(id: string): Promise<{ ok?: true; error?: stri
   }
 }
 
+/* ── 맞춤 진단 설문 ─────────────────────────────────────────
+ * 공개 진단 화면(/diagnosis·/diagnosis/result)은 GET /api/survey 로 설문 config 를 읽고,
+ * 관리자 화면은 PUT /api/admin/survey 로 통째로 저장한다. 컴포넌트는 fetch 를 직접 하지 않고
+ * 아래 콘센트만 거친다(§4). 공개 조회는 category-settings 와 동일하게 실패·빈응답을
+ * defaultSurveyConfig 로 접어 진단 화면이 절대 빈 문항으로 깨지지 않게 한다(Golden Flow #1).
+ */
+
+/** 공개 설문 config. GET /api/survey. 실패·미저장 시 defaultSurveyConfig 로 폴백. */
+export async function getSurveyConfig(): Promise<SurveyConfig> {
+  try {
+    const response = await fetch('/api/survey');
+    if (!response.ok) return defaultSurveyConfig;
+    const { questions, rules } = (await response.json()) as SurveyConfig;
+    if (!Array.isArray(questions) || !Array.isArray(rules)) return defaultSurveyConfig;
+    return { questions, rules };
+  } catch {
+    return defaultSurveyConfig;
+  }
+}
+
+/** 설문 config 저장(관리자). PUT /api/admin/survey. 성공/실패를 boolean 으로 돌려 화면이 알림을 띄운다. */
+export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/survey', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 케어 키트 / B2B 제휴처 / Q&A (관리자 싱글턴 config) ───────
+ * 세 화면 모두 예전엔 page.tsx 인라인 mock 또는 정적 @/data 라 관리자가 편집해도 저장되지 않았다
+ * (drift). 이제 각각 싱글턴 config 로 DB 에 담고, 관리자 화면은 아래 콘센트로 읽고(get*) 통째로
+ * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
+ *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
+ *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
+ * 공개/관리자 조회 모두 실패·미저장을 default* 로 접어 화면이 빈 목록으로 조용히 깨지지 않게 한다.
+ */
+
+/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·미저장 시 defaultKitsConfig 로 폴백. */
+export async function getKitsConfig(): Promise<KitsConfig> {
+  try {
+    const response = await fetch('/api/admin/kits');
+    if (!response.ok) return defaultKitsConfig;
+    const { items } = (await response.json()) as KitsConfig;
+    if (!Array.isArray(items)) return defaultKitsConfig;
+    return { items };
+  } catch {
+    return defaultKitsConfig;
+  }
+}
+
+/** 케어 키트 config 저장(관리자). PUT /api/admin/kits. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/kits', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 관리자 제휴처 config. GET /api/admin/partners. 실패·미저장 시 defaultPartnersConfig 로 폴백. */
+export async function getPartnersConfig(): Promise<PartnersConfig> {
+  try {
+    const response = await fetch('/api/admin/partners');
+    if (!response.ok) return defaultPartnersConfig;
+    const { items } = (await response.json()) as PartnersConfig;
+    if (!Array.isArray(items)) return defaultPartnersConfig;
+    return { items };
+  } catch {
+    return defaultPartnersConfig;
+  }
+}
+
+/** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/partners', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 공개 Q&A config. GET /api/qna. 실패·미저장 시 defaultQnaConfig 로 폴백(상품상세 Q&A 탭이 안 깨진다). */
+export async function getQnaConfig(): Promise<QnaConfig> {
+  try {
+    const response = await fetch('/api/qna');
+    if (!response.ok) return defaultQnaConfig;
+    const { items } = (await response.json()) as QnaConfig;
+    if (!Array.isArray(items)) return defaultQnaConfig;
+    return { items };
+  } catch {
+    return defaultQnaConfig;
+  }
+}
+
+/** Q&A config 저장(관리자). PUT /api/admin/qna. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/qna', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
 const USER_KEY = 'baekjo_user';
 const REGISTERED_USERS_KEY = 'baekjo_registered_users';
 
@@ -485,6 +677,86 @@ export async function registerUser(input: {
     }
     if (response.status === 409) return { error: 'duplicate-email' };
     if (response.status === 400) return { error: 'invalid-input' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/**
+ * B2B/보험/파트너 사업자 회원가입. 승인 전까지 status가 'pending'으로 시작하므로
+ * registerUser와 달리 가입 직후 자동 로그인을 걸지 않고 서버 응답을 그대로 반환한다.
+ */
+export async function registerBusinessMember(input: {
+  role: 'b2b' | 'insurance' | 'partner';
+  name: string;
+  email: string;
+  password: string;
+  phone: string;
+  companyName?: string;
+  businessNumber?: string;
+  signupData?: Record<string, unknown>;
+}): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/business', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (response.status === 201) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 409) return { error: 'duplicate-email' };
+    if (response.status === 400) return { error: 'invalid-input' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/**
+ * 관리자 회원 목록(전체). GET /api/admin/members(관리자 세션 필요). 화면이 "로그인 필요"와
+ * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
+ * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
+ */
+export async function getAdminMembers(): Promise<{
+  users?: User[];
+  error?: 'unauthorized' | 'forbidden' | 'network';
+}> {
+  try {
+    const response = await fetch('/api/admin/members');
+    if (response.ok) {
+      const { users } = (await response.json()) as { users: User[] };
+      return { users };
+    }
+    if (response.status === 401) return { error: 'unauthorized' };
+    if (response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 관리자의 회원 승인/반려/상태 변경. */
+export async function updateUserStatus(
+  id: string,
+  status: 'active' | 'inactive' | 'pending' | 'rejected',
+  rejectReason?: string,
+): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'forbidden' | 'network' }> {
+  try {
+    const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status, rejectReason }),
+    });
+    if (response.ok) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 400) return { error: 'invalid-input' };
+    if (response.status === 404) return { error: 'not-found' };
+    if (response.status === 401 || response.status === 403) return { error: 'forbidden' };
     return { error: 'network' };
   } catch {
     return { error: 'network' };

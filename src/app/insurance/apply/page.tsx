@@ -47,35 +47,41 @@ export default function InsuranceApplyPage() {
     }));
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!formData.privacyAgree || !formData.thirdPartyAgree) return;
+  const [submitting, setSubmitting] = useState(false);
 
-    saveInsuranceApplication({
-      id: `INS-${Date.now()}`,
-      name: formData.name,
-      phone: formData.phone,
-      petName: formData.petName,
-      petType: formData.petType,
-      breed: formData.breed,
-      petBreed: formData.breed,
-      petAge: Number(formData.petAge) || 0,
-      coverageNeeds: formData.coverageNeeds,
-      message: formData.message,
-      concerns: formData.message,
-      privacyAgree: formData.privacyAgree,
-      thirdPartyAgree: formData.thirdPartyAgree,
-      hasCurrentInsurance: formData.hasCurrentInsurance === 'yes',
-      currentInsuranceName: formData.currentInsuranceName,
-      medicalHistory: formData.medicalHistory,
-      targetPremium: formData.targetPremium,
-      neutered: formData.neutered === 'yes',
-      gender: formData.gender,
-      ownerName: formData.name,
-      status: '접수',
-      contacted: false,
-      createdAt: new Date().toISOString(),
-    });
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!formData.privacyAgree || !formData.thirdPartyAgree || submitting) return;
+
+    // id/createdAt/status/member_id 는 서버(POST /api/insurance)가 정한다 — 콘센트만 거친다(§4).
+    setSubmitting(true);
+    try {
+      await saveInsuranceApplication({
+        name: formData.name,
+        phone: formData.phone,
+        petName: formData.petName,
+        petType: formData.petType,
+        breed: formData.breed,
+        petBreed: formData.breed,
+        petAge: Number(formData.petAge) || 0,
+        coverageNeeds: formData.coverageNeeds,
+        message: formData.message,
+        concerns: formData.message,
+        privacyAgree: formData.privacyAgree,
+        thirdPartyAgree: formData.thirdPartyAgree,
+        hasCurrentInsurance: formData.hasCurrentInsurance === 'yes',
+        currentInsuranceName: formData.currentInsuranceName,
+        medicalHistory: formData.medicalHistory,
+        targetPremium: formData.targetPremium,
+        neutered: formData.neutered === 'yes',
+        gender: formData.gender,
+        ownerName: formData.name,
+      });
+    } catch {
+      setSubmitting(false);
+      alert('신청 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
 
     router.push('/insurance/complete');
   };
@@ -204,8 +210,8 @@ export default function InsuranceApplyPage() {
             </section>
           </div>
 
-          <button type="submit" disabled={formData.coverageNeeds.length === 0} className="mt-10 min-h-14 w-full bg-[#2F3B34] px-6 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
-            무료 분석 신청하기
+          <button type="submit" disabled={formData.coverageNeeds.length === 0 || submitting} className="mt-10 min-h-14 w-full bg-[#2F3B34] px-6 text-base font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            {submitting ? '신청 접수 중…' : '무료 분석 신청하기'}
           </button>
         </form>
       </div>

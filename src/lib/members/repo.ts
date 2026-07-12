@@ -24,15 +24,19 @@ interface MemberRow {
   pet_type: string | null;
   breed: string | null;
   main_concern: string | null;
-  role: 'user' | 'admin';
-  status: 'active' | 'inactive';
+  role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+  status: 'active' | 'inactive' | 'pending' | 'rejected';
   profile_image: string | null;
   email_verified: boolean;
   created_at: string;
+  company_name: string | null;
+  business_number: string | null;
+  reject_reason: string | null;
+  signup_data: Record<string, unknown>;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -50,6 +54,10 @@ function rowToRecord(row: MemberRow): MemberRecord {
     profileImage: row.profile_image ?? undefined,
     emailVerified: row.email_verified,
     passwordHash: row.password_hash,
+    companyName: row.company_name ?? undefined,
+    businessNumber: row.business_number ?? undefined,
+    rejectReason: row.reject_reason ?? undefined,
+    signupData: row.signup_data,
   };
 }
 
@@ -69,6 +77,10 @@ export function toUser(record: MemberRecord): User {
     provider: record.provider,
     profileImage: record.profileImage,
     emailVerified: record.emailVerified,
+    companyName: record.companyName,
+    businessNumber: record.businessNumber,
+    rejectReason: record.rejectReason,
+    signupData: record.signupData,
   };
 }
 
@@ -245,4 +257,63 @@ export async function listMembers(): Promise<MemberRecord[]> {
     .limit(MEMBERS_LIST_CAP);
   if (error) throw error;
   return (data as MemberRow[]).map(rowToRecord);
+}
+
+export interface InsertBusinessMemberInput {
+  role: 'b2b' | 'insurance' | 'partner';
+  name: string;
+  email: string;
+  phone: string;
+  passwordHash: string;
+  companyName?: string;
+  businessNumber?: string;
+  signupData?: Record<string, unknown>;
+}
+
+/** B2B/보험/파트너 사업자 회원가입. 승인 전까지 status는 항상 'pending'으로 시작한다. */
+export async function insertBusinessMember(input: InsertBusinessMemberInput): Promise<MemberRecord> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .insert({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      password_hash: input.passwordHash,
+      provider: 'email',
+      role: input.role,
+      status: 'pending',
+      company_name: input.companyName ?? null,
+      business_number: input.businessNumber ?? null,
+      signup_data: input.signupData ?? {},
+    })
+    .select(SELECT_COLUMNS)
+    .single();
+
+  if (error) {
+    if (isUniqueViolation(error)) throw new DuplicateEmailError();
+    throw error;
+  }
+  return rowToRecord(data as MemberRow);
+}
+
+/**
+ * 관리자 승인/반려 처리. 대상이 없거나, 현재 상태가 expectedCurrentStatus와 다르면(동시 처리
+ * 레이스) null을 반환한다 — `.eq('status', expectedCurrentStatus)`로 조건부 업데이트를 걸어
+ * "이미 결정된 건을 또 뒤집는" 경쟁 상태를 DB 레벨에서 막는다.
+ */
+export async function updateMemberStatus(
+  id: string,
+  status: 'active' | 'inactive' | 'pending' | 'rejected',
+  rejectReason: string | undefined,
+  expectedCurrentStatus: 'active' | 'inactive' | 'pending' | 'rejected',
+): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .update({ status, reject_reason: rejectReason ?? null })
+    .eq('id', id)
+    .eq('status', expectedCurrentStatus)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToRecord(data as MemberRow) : null;
 }

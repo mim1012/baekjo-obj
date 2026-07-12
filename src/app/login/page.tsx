@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
-import { login } from '@/lib/storage';
+import { login, isLoggedIn } from '@/lib/storage';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import { useMounted } from '@/lib/useMounted';
 
@@ -17,6 +17,15 @@ export default function LoginPage() {
   const mounted = useMounted();
 
   const [pending, setPending] = useState(false);
+
+  // 이미 로그인된 상태로 로그인 화면에 오면 마이페이지로 보낸다(기획 방향).
+  // 단, 관리자 접근 거부 등 ?error=... 안내가 있을 땐 배너를 보여줘야 하므로 자동이동하지 않는다.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (isLoggedIn() && !params.get('error')) {
+      router.replace('/mypage');
+    }
+  }, [router]);
 
   // 소셜 로그인 실패/미들웨어 리다이렉트로 돌아온 경우(/login?error=...) 이유를 안내한다.
   // setState 없이 렌더 시점에 URL에서 파생 — 마운트 후에만 읽어 hydration 불일치를 피하고,
@@ -121,9 +130,11 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#777E78]">
-            <Link href="/forgot-password" className="hover:text-[#2F3B34]">비밀번호 찾기</Link>
-            <span className="h-3 w-px bg-[#D3D2CA]" />
             <Link href="/signup" className="hover:text-[#2F3B34]">회원가입</Link>
+            <span className="h-3 w-px bg-[#D3D2CA]" />
+            <Link href="#" className="hover:text-[#2F3B34]">아이디 찾기</Link>
+            <span className="h-3 w-px bg-[#D3D2CA]" />
+            <Link href="/forgot-password" className="hover:text-[#2F3B34]">비밀번호 찾기</Link>
           </div>
 
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">

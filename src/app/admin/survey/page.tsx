@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { surveyQuestions, surveyResultRules } from '@/data/survey';
+import { getSurveyConfig, saveSurveyConfig } from '@/lib/storage';
+import type { SurveyQuestion, SurveyResultRule } from '@/types';
 import { X } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
 
-const EMPTY_RECOMMENDATION: typeof surveyResultRules[0]['recommendation'] = {
+const EMPTY_RECOMMENDATION: SurveyResultRule['recommendation'] = {
   direction: '',
   categorySlug: '',
   brandIds: [],
@@ -15,14 +16,43 @@ const EMPTY_RECOMMENDATION: typeof surveyResultRules[0]['recommendation'] = {
 };
 
 export default function AdminSurveyPage() {
-  const [questions, setQuestions] = useState(surveyQuestions);
-  const [rules, setRules] = useState(surveyResultRules);
-  const [editingQuestion, setEditingQuestion] = useState<typeof surveyQuestions[0] | null>(null);
-  const [editingRule, setEditingRule] = useState<typeof surveyResultRules[0] | null>(null);
+  // 화면은 로컬 드래프트(questions/rules)만 편집한다. 편집 단위로 자동 저장하지 않고(=드리프트 원인)
+  // "설정 저장" 버튼으로 드래프트 전체를 한 번에 PUT /api/admin/survey 로 올린다.
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [rules, setRules] = useState<SurveyResultRule[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<SurveyQuestion | null>(null);
+  const [editingRule, setEditingRule] = useState<SurveyResultRule | null>(null);
   const [isAddingQuestion, setIsAddingQuestion] = useState(false);
   const [isAddingRule, setIsAddingRule] = useState(false);
-  const [newQuestion, setNewQuestion] = useState<Partial<typeof surveyQuestions[0]>>({ type: 'single' });
-  const [newRule, setNewRule] = useState<Partial<typeof surveyResultRules[0]>>({ condition: {}, recommendation: EMPTY_RECOMMENDATION });
+  const [newQuestion, setNewQuestion] = useState<Partial<SurveyQuestion>>({ type: 'single' });
+  const [newRule, setNewRule] = useState<Partial<SurveyResultRule>>({ condition: {}, recommendation: EMPTY_RECOMMENDATION });
+
+  useEffect(() => {
+    let cancelled = false;
+    getSurveyConfig().then((config) => {
+      if (cancelled) return;
+      setQuestions(config.questions);
+      setRules(config.rules);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSave = () => {
+    setSaving(true);
+    saveSurveyConfig({ questions, rules }).then(({ ok }) => {
+      setSaving(false);
+      if (ok) {
+        alert('진단 설문 설정을 저장했습니다.');
+      } else {
+        alert('저장에 실패했습니다. 권한 또는 네트워크를 확인해주세요.');
+      }
+    });
+  };
 
   const [currentQuestionsPage, setCurrentQuestionsPage] = useState(1);
   const [currentRulesPage, setCurrentRulesPage] = useState(1);
@@ -59,11 +89,18 @@ export default function AdminSurveyPage() {
     }
   };
 
+  if (loading) {
+    return <div className="py-20 text-center text-sm text-gray-500">설문 설정을 불러오는 중...</div>;
+  }
+
   return (
     <div>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-900">맞춤 진단 관리</h1>
-        <button onClick={() => { setNewQuestion({ type: 'single' }); setIsAddingQuestion(true); }} className="bg-[#2F3B34] text-white px-4 py-2 text-sm font-semibold rounded-sm hover:bg-[#2F3B34]/90">문항 추가</button>
+        <div className="flex gap-2">
+          <button onClick={() => { setNewQuestion({ type: 'single' }); setIsAddingQuestion(true); }} className="border border-gray-300 text-gray-700 px-4 py-2 text-sm font-semibold rounded-sm hover:bg-gray-50">문항 추가</button>
+          <button onClick={handleSave} disabled={saving} className="bg-[#2F3B34] text-white px-4 py-2 text-sm font-semibold rounded-sm hover:bg-[#2F3B34]/90 disabled:opacity-50">{saving ? '저장 중...' : '설정 저장'}</button>
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-8">

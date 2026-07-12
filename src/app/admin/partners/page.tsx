@@ -1,36 +1,32 @@
-import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { Partner } from '@/types';
+'use client';
 
-const mockPartners: Partner[] = [
-  {
-    id: 'pt1',
-    name: '서울 동물 메디컬센터',
-    type: 'hospital',
-    contactPerson: '김원장',
-    phone: '02-1234-5678',
-    address: '서울시 강남구',
-    cooperationType: '병원 케어 키트 비치',
-    providedKits: ['k1'],
-    status: '운영중',
-    isContracted: true,
-    isDelivered: true,
-  },
-  {
-    id: 'pt2',
-    name: '펫프렌들리 호텔 마리나',
-    type: 'etc',
-    contactPerson: '이매니저',
-    phone: '032-987-6543',
-    address: '인천시 중구',
-    cooperationType: '투숙객 웰컴 키트',
-    providedKits: ['k1'],
-    status: '상담중',
-    isContracted: false,
-    isDelivered: false,
-  },
-];
+import { useEffect, useState } from 'react';
+import AdminResourcePage from '@/components/admin/AdminResourcePage';
+import { getPartnersConfig, savePartnersConfig } from '@/lib/storage';
+import { defaultPartnersConfig } from '@/lib/partners/config';
+import type { Partner } from '@/types';
 
 export default function AdminPartnersPage() {
+  // draft = 현재 편집 중인 제휴처 목록. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다.
+  const [items, setItems] = useState<Partner[]>(defaultPartnersConfig.items);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPartnersConfig().then((config) => {
+      if (cancelled) return;
+      setItems(config.items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleDelete = (id: string | number) => {
+    setItems((prev) => prev.filter((partner) => partner.id !== id));
+  };
+
+  const handleSave = () => savePartnersConfig({ items });
+
   return (
     <AdminResourcePage
       title="B2B 제휴 관리"
@@ -45,7 +41,7 @@ export default function AdminPartnersPage() {
         { key: 'contact', label: '담당자/연락처' },
         { key: 'status', label: '상태' },
       ]}
-      rows={mockPartners.map((partner) => ({
+      rows={items.map((partner) => ({
         id: partner.id,
         name: partner.name,
         type: partner.type === 'hospital' ? '동물병원' : '호텔',
@@ -54,6 +50,8 @@ export default function AdminPartnersPage() {
         status: partner.status,
       }))}
       createFields={['제휴처명', '분류', '제휴 형태', '담당자', '연락처', '주소', '제공 키트', '상태']}
+      onDeleteRow={handleDelete}
+      onSave={handleSave}
     />
   );
 }

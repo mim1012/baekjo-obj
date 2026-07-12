@@ -25,12 +25,21 @@ type TabId = typeof TABS[number]['id'];
 export default function SiteSettingsPage() {
   const { settings, updateSettings } = useSiteSettings();
   const [draft, setDraft] = useState<HomeSettings>(settings);
+  const [dirty, setDirty] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('intro');
   // 미리보기는 홈 화면(HomeClient)을 그대로 재사용한다 — repo(서버 전용)는 클라이언트
   // 컴포넌트에서 못 부르므로, 미리보기를 열 때 공개 API 로 상품·브랜드를 읽어 props 로 넘긴다.
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const [previewBrands, setPreviewBrands] = useState<Brand[]>([]);
+
+  // provider 가 GET /api/settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) draft 를 그 값에
+  // 맞춘다. 단 관리자가 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
+  useEffect(() => {
+    if (dirty) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraft(settings);
+  }, [settings, dirty]);
 
   useEffect(() => {
     if (!isPreviewOpen) return;
@@ -45,12 +54,18 @@ export default function SiteSettingsPage() {
     };
   }, [isPreviewOpen]);
 
-  const handleSave = () => {
-    updateSettings(draft);
-    alert('설정이 저장되었습니다.');
+  const handleSave = async () => {
+    const ok = await updateSettings(draft);
+    if (ok) {
+      setDirty(false);
+      alert('설정이 저장되었습니다.');
+    } else {
+      alert('설정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
   };
 
   const updateDraft = (section: keyof HomeSettings, field: string, value: unknown) => {
+    setDirty(true);
     setDraft((prev) => {
       const sectionData = prev[section] as unknown;
       if (typeof sectionData === 'object' && sectionData !== null) {
@@ -73,6 +88,7 @@ export default function SiteSettingsPage() {
   // Array Handlers
   // ----------------------------------------------------
   const updateArrayField = (section: keyof HomeSettings, arrayField: string, index: number, itemField: string, value: string) => {
+    setDirty(true);
     setDraft((prev) => {
       const sectionData = prev[section] as Record<string, unknown>;
       const newArray = [...(sectionData[arrayField] as Array<Record<string, string>>)];

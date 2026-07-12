@@ -1,14 +1,32 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { CareKit } from '@/types';
-
-const mockKits: CareKit[] = [
-  { id: 'k1', name: '병원 회복 케어 키트', type: 'hospital', target: '퇴원 보호자', location: '제휴 동물병원', items: ['영양 캔', '유산균', '가이드북'], purpose: '치료 후 회복 지원', stock: 150, isVisible: true },
-  { id: 'k2', name: '시니어 활력 키트', type: 'vitality', target: '시니어 강아지', location: '온라인 신청', items: ['관절 영양 앰플', '부드러운 간식'], purpose: '노령견 활력 증진', stock: 50, isVisible: true },
-];
+import { getKitsConfig, saveKitsConfig } from '@/lib/storage';
+import { defaultKitsConfig } from '@/lib/kits/config';
+import type { CareKit } from '@/types';
 
 export default function AdminKitsPage() {
+  // draft = 현재 편집 중인 키트 목록. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다.
+  const [items, setItems] = useState<CareKit[]>(defaultKitsConfig.items);
+
+  useEffect(() => {
+    let cancelled = false;
+    getKitsConfig().then((config) => {
+      if (cancelled) return;
+      setItems(config.items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleDelete = (id: string | number) => {
+    setItems((prev) => prev.filter((kit) => kit.id !== id));
+  };
+
+  const handleSave = () => saveKitsConfig({ items });
+
   return (
     <AdminResourcePage
       title="케어 키트 관리"
@@ -25,7 +43,7 @@ export default function AdminKitsPage() {
         { key: 'stock', label: '재고 상태' },
         { key: 'status', label: '노출 상태' },
       ]}
-      rows={mockKits.map((kit) => ({
+      rows={items.map((kit) => ({
         id: kit.id,
         name: kit.name,
         type: kit.type === 'hospital' ? '병원 비치용' : '이벤트 증정용',
@@ -36,6 +54,8 @@ export default function AdminKitsPage() {
         status: kit.isVisible ? '노출중' : '숨김',
       }))}
       createFields={['키트명', '키트 유형', '제공 대상', '제공 목적', '주요 구성품', '배포처', '재고 수량', '노출 상태']}
+      onDeleteRow={handleDelete}
+      onSave={handleSave}
     />
   );
 }

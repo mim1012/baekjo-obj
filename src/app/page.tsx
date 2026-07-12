@@ -2,12 +2,15 @@ import { listProducts } from '@/lib/products/repo';
 import { listBrands } from '@/lib/brands/repo';
 import HomeClient from '@/components/home/HomeClient';
 
-// 홈은 useSiteSettings 등 클라이언트 훅이 많아 클라이언트 컴포넌트로 유지하고,
-// 상품·브랜드 데이터만 서버에서 repo 로 읽어 props 로 내려준다(콘센트).
-// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+// 서버 컴포넌트이므로 storage(클라용 fetch 콘센트)를 거치지 않고 DB repo 를 직접 읽는다
+// (자기 /api 로의 HTTP 왕복·셀프콜 타임아웃 제거). 필터는 /api/products·/api/brands 의
+// 공개 목록과 동일하게 맞춘다(visibleOnly). 요청 시점 DB 조회라 정적 프리렌더 대상에서 제외.
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [products, brands] = await Promise.all([listProducts(), listBrands()]);
+  const [products, brands] = await Promise.all([
+    listProducts({ visibleOnly: true }),
+    listBrands(true),
+  ]);
   return <HomeClient products={products} brands={brands} />;
 }

@@ -1,151 +1,226 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, ShoppingBag, Star, Check } from 'lucide-react';
-import { Product } from '@/types';
-import { formatPrice, calcDiscount } from '@/lib/format';
-import { toggleWishlist, isWishlisted } from '@/lib/storage';
-import { addToCart } from '@/lib/cart';
+import { Heart, ShoppingBag, Star } from 'lucide-react';
 import { useState } from 'react';
+import { addToCart } from '@/lib/cart';
+import { calcDiscount, formatPrice } from '@/lib/format';
+import { isWishlisted, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
+import type { Product } from '@/types';
 
-interface Props {
+interface ProductCardProps {
   product: Product;
+  variant?: 'default' | 'shop';
 }
 
 const concernLabels: Record<string, string> = {
   tear: '눈물',
   joint: '관절',
   skin: '피부',
-  obesity: '비만',
+  obesity: '체중',
   picky: '편식',
   digestion: '배변',
   stress: '스트레스',
-  senior: '노령',
+  senior: '시니어',
+  nutrition: '영양',
+  oral: '구강',
+  grooming: '그루밍',
+  living: '생활',
 };
 
-export default function ProductCard({ product }: Props) {
+export default function ProductCard({ product, variant = 'default' }: ProductCardProps) {
   const mounted = useMounted();
   const [, refreshWishlist] = useState(0);
+  const [cartMessage, setCartMessage] = useState('');
   const wishlisted = mounted && isWishlisted(product.id);
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
-  // 브랜드 전체 목록을 다시 불러올 필요 없이 상품 데이터 자체로 표시한다.
+  // 브랜드 전체 목록을 다시 불러올 필요 없이 상품 데이터 자체로 텍스트 라벨만 표시한다(§4 — @/data/brands 직접 import 금지).
   const brandName = product.brandName ?? product.brandId;
+  const hasPrice = product.price !== null && product.price !== undefined;
+  const isSellable = hasPrice && product.stock > 0;
+  const isShopCard = variant === 'shop';
+  const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
+  const detailHref = `/shop/${product.id}`;
 
-  const handleWishlist = (event: React.MouseEvent) => {
-    event.preventDefault();
+  const handleWishlist = () => {
     toggleWishlist(product.id);
     refreshWishlist((version) => version + 1);
   };
 
-  const handleCart = (event: React.MouseEvent) => {
-    event.preventDefault();
+  const handleCart = () => {
+    if (!isSellable) return;
     addToCart({
       productId: product.id,
       optionId: product.options?.[0]?.id,
       quantity: 1,
     });
-    alert('장바구니에 담겼습니다.');
+    setCartMessage('장바구니에 담았어요.');
+    window.setTimeout(() => setCartMessage(''), 1800);
   };
 
-  const discount = product.price !== null && product.price !== undefined 
-    ? calcDiscount(product.price!, product.salePrice ?? undefined) 
-    : 0;
+  const availabilityLabel = !hasPrice ? '판매 준비 중' : product.stock <= 0 ? '잠시 품절' : null;
 
   return (
-    <Link href={`/shop/${product.id}`} className="group block w-full rounded-[16px] bg-card border border-border overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-md">
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-sub">
-        {product.image ? (
-          <img src={product.image} alt={product.name} className="w-full h-full object-contain mix-blend-multiply" />
+    <article className="group flex h-full min-w-0 flex-col">
+      <div
+        className={`relative w-full overflow-hidden rounded-2xl bg-[#F3EEE6] ${
+          isShopCard ? 'aspect-square' : 'aspect-[4/3]'
+        }`}
+      >
+        <Link href={detailHref} aria-label={`${product.name} 상세 보기`} className="absolute inset-0 block">
+          {product.image ? (
+            <Image
+              src={product.image}
+              alt={product.name}
+              fill
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+              className="object-contain p-5 transition-transform duration-[1500ms] ease-out group-hover:scale-105"
+            />
+          ) : (
+            <span className="flex h-full flex-col items-center justify-center px-4 text-center">
+              <ShoppingBag className="mb-2 size-5 text-[#A8742E]/55" strokeWidth={1.5} />
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#8A7A64]">
+                Baekjo selection
+              </span>
+            </span>
+          )}
+        </Link>
+
+        <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {product.isBest && (
+            <span className="rounded-full bg-[#17211D] px-2.5 py-1 text-[9px] font-bold tracking-wide text-[#FBFAF7]">
+              BEST
+            </span>
+          )}
+          {product.isRecommended && (
+            <span className="rounded-full border border-[#E7E0D5] bg-white/90 px-2.5 py-1 text-[9px] font-bold tracking-wide text-[#17211D]">
+              SELECTED
+            </span>
+          )}
+          {availabilityLabel && (
+            <span className="rounded-full bg-[#FBFAF7]/95 px-2.5 py-1 text-[9px] font-bold text-[#6F766F]">
+              {availabilityLabel}
+            </span>
+          )}
+        </div>
+
+        {isShopCard ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault(); // Prevent Link click
+              handleWishlist();
+            }}
+            aria-pressed={wishlisted}
+            aria-label={`${product.name} ${wishlisted ? '관심 상품에서 빼기' : '관심 상품에 담기'}`}
+            className="absolute right-3 top-3 z-10 flex size-[38px] items-center justify-center rounded-full border border-[#E7E0D5] bg-white/90 text-[#17211D] shadow-sm transition-colors duration-500 hover:bg-[#F3EEE6]"
+          >
+            <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
+          </button>
         ) : (
-          <div className="flex h-full flex-col items-center justify-center px-3 text-center opacity-50">
-            <ShoppingBag className="size-5 text-[#A8742E]/40 mb-1.5" strokeWidth={1.5} />
-            <span className="text-[9px] font-semibold uppercase tracking-widest text-[#8A7A64]">BAEKJO SELECTION</span>
+          <div className="absolute bottom-3 right-3 flex gap-2 opacity-100 transition-all duration-500 lg:translate-y-1 lg:opacity-0 lg:group-focus-within:translate-y-0 lg:group-focus-within:opacity-100 lg:group-hover:translate-y-0 lg:group-hover:opacity-100">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                handleCart();
+              }}
+              disabled={!isSellable}
+              aria-label={
+                isSellable
+                  ? `${product.name} 장바구니에 담기`
+                  : `${product.name} ${availabilityLabel ?? '구매할 수 없음'}`
+              }
+              className="flex size-9 items-center justify-center rounded-full border border-[#E7E0D5] bg-white/95 text-[#17211D] shadow-sm transition-colors duration-500 hover:bg-[#F3EEE6] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              <ShoppingBag className="size-4" />
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                handleWishlist();
+              }}
+              aria-pressed={wishlisted}
+              aria-label={`${product.name} ${wishlisted ? '관심 상품에서 빼기' : '관심 상품에 담기'}`}
+              className="flex size-9 items-center justify-center rounded-full border border-[#E7E0D5] bg-white/95 text-[#17211D] shadow-sm transition-colors duration-500 hover:bg-[#F3EEE6]"
+            >
+              <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
+            </button>
           </div>
         )}
 
-        <div className="absolute left-3 top-3 flex flex-col gap-1.5">
-          {product.isBest && (
-            <span className="bg-navy px-2.5 py-1 text-[9px] font-bold text-white rounded-sm">BEST</span>
-          )}
-          {product.isRecommended && (
-            <span className="bg-card/90 backdrop-blur-sm border border-border px-2.5 py-1 text-[9px] font-bold text-text-sub rounded-sm">
-              CURATED
-            </span>
-          )}
-        </div>
-
-        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 transition-opacity duration-150 group-focus-within:opacity-100 group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={handleCart}
-            aria-label={`${product.name} 장바구니에 담기`}
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-text-main shadow-sm hover:bg-bg transition-colors"
+        {cartMessage && (
+          <div
+            role="status"
+            className="absolute inset-x-3 bottom-3 rounded-full bg-[#17211D] px-4 py-2 text-center text-xs font-semibold text-[#FBFAF7]"
           >
-            <ShoppingBag className="size-4" />
-          </button>
-          <button
-            type="button"
-            onClick={handleWishlist}
-            aria-label={`${product.name} 찜하기`}
-            className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-text-main shadow-sm hover:bg-bg transition-colors"
-          >
-            <Heart className={`size-4 ${wishlisted ? 'fill-error text-error' : ''}`} />
-          </button>
-        </div>
+            {cartMessage}
+          </div>
+        )}
       </div>
 
-      <div className="p-4 pt-4">
-        <p className="text-[10px] font-medium text-text-sub">
-          {brandName} · {product.category}
-        </p>
-        <h3 className="mt-1 line-clamp-2 min-h-[36px] text-pretty text-[13px] font-medium leading-relaxed text-text-main tracking-tight">
-          {product.name}
-        </h3>
+      <div className="px-0.5 pb-1 pt-3">
+        <span className="text-[11px] font-medium text-[#6F766F]">{brandName}</span>
+        <Link href={detailHref} className="block">
+          <h3 className="mt-1 line-clamp-2 min-h-10 break-keep text-sm font-medium leading-5 tracking-tight text-[#17211D] transition-colors duration-500 hover:text-[#A8742E]">
+            {product.name}
+          </h3>
+        </Link>
 
-        <div className="mt-2 flex flex-wrap gap-1">
-          {product.concernTags.slice(0, 2).map((tag) => (
-            <span key={tag} className="border border-border bg-bg rounded-sm px-2 py-0.5 text-[9px] text-text-sub">
-              {concernLabels[tag] ?? tag}
-            </span>
-          ))}
-        </div>
-
-        <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          {product.price !== null && product.price !== undefined ? (
+        <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          {hasPrice ? (
             <>
-              {discount > 0 && <span className="text-[13px] font-bold text-[#A8742E] tracking-tight">{discount}%</span>}
-              <span className="font-semibold tabular-nums text-text-main tracking-tight">
+              {discount > 0 && <span className="text-sm font-bold text-[#A8742E]">{discount}%</span>}
+              <span className="text-base font-bold tabular-nums tracking-tight text-[#17211D]">
                 {formatPrice(product.salePrice || product.price!)}
               </span>
               {discount > 0 && (
-                <span className="text-xs tabular-nums text-text-sub line-through tracking-tight">
-                  {formatPrice(product.price!)}
-                </span>
+                <span className="text-xs tabular-nums text-[#8A918B] line-through">{formatPrice(product.price!)}</span>
               )}
             </>
           ) : (
-            <span className="font-semibold tabular-nums text-slate-400 text-[13px] tracking-tight">
-              상담 후 안내
-            </span>
+            <span className="text-base font-bold tabular-nums tracking-tight text-[#17211D]">{formatPrice(0)}</span>
           )}
         </div>
 
-        <div className="mt-2 flex items-center gap-1 text-[11px] text-text-sub">
-          <Star className="size-3 fill-slate-300 text-slate-300" />
-          <span className="font-medium tabular-nums text-text-sub">{product.rating}</span>
-          <span className="tabular-nums">({product.reviewCount})</span>
+        <div className="mt-2 flex items-center gap-1 text-xs text-[#6F766F]">
+          <Star className="size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
+          <span className="font-medium tabular-nums">{product.rating}</span>
+          <span className="tabular-nums">후기 {product.reviewCount}</span>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-1.5 pt-4 border-t border-border">
-          {['안전성 검증 완료', '품질 오딧 통과'].map((badge) => (
-            <span key={badge} className="inline-flex items-center gap-1 rounded-sm bg-bg border border-border px-1.5 py-0.5 text-[9px] font-medium text-text-sub transition-all duration-300 hover:bg-navy hover:text-white hover:border-navy cursor-default">
-              <Check className="size-2.5" />
-              {badge}
-            </span>
-          ))}
-        </div>
+        {!isShopCard && (
+          <>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {product.concernTags.slice(0, 2).map((tag) => (
+                <span key={tag} className="rounded-full bg-[#FAF8F3] px-2.5 py-1 text-[10px] text-[#6F766F]">
+                  {concernLabels[tag] ?? tag}
+                </span>
+              ))}
+            </div>
+          </>
+        )}
       </div>
-    </Link>
+
+      {isShopCard && (
+        <div className="mt-auto px-0.5 pt-4">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              handleCart();
+            }}
+            disabled={!isSellable}
+            className="flex min-h-[42px] w-full items-center justify-center gap-1.5 rounded-xl border border-[#E7E0D5] bg-white text-sm font-semibold text-[#17211D] transition-colors duration-500 hover:bg-[#F3EEE6] disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-[44px]"
+          >
+            <ShoppingBag className="size-4" />
+            {isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}
+          </button>
+        </div>
+      )}
+    </article>
   );
 }

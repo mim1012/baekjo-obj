@@ -83,8 +83,8 @@ export const defaultHomeSettings: HomeSettings = {
     videoSrc: '/videos/baekjo-objet.mp4',
   },
   howToStart: {
-    title: '백조오브제를<br />시작하는 3가지 방법',
-    description: '우리 아이의 라이프에 꼭 맞는<br />선택을 도와드립니다.',
+    title: '백조오브제가 제안하는<br />3가지 핵심 솔루션',
+    description: '우리 아이의 라이프스타일에 맞춘 가장 확실한 선택 기준을 제공합니다.',
     steps: [
       { 
         num: '01', 
@@ -146,10 +146,10 @@ export const defaultHomeSettings: HomeSettings = {
     bottomGuide: '맞춤 진단은 왼쪽의 "1분 맞춤 진단 시작" 버튼에서 시작할 수 있습니다.'
   },
   brands: {
-    eyebrow: 'Verified brands',
-    title: '검증된 브랜드, 한눈에 둘러보기',
-    description: '검증보다 감동을 먼저 생각합니다. 제품 데이터, 철학, 제조 품질, 성분 안정성을 직접 확인한 브랜드만 큐레이션합니다.',
-    buttonText: '모든 검증 브랜드 보기'
+    eyebrow: 'Baekjo brand edit',
+    title: '반려생활의 취향과 기준을 함께 고른 브랜드',
+    description: '백조오브제가 수집한 상품 정보와 브랜드 철학을 바탕으로, 각자의 반려생활에 맞는 브랜드와 상품을 한곳에서 살펴보세요.',
+    buttonText: '브랜드 전체 보기'
   },
   bestProducts: {
     eyebrow: 'The daily edit',
@@ -186,3 +186,4 @@ export const defaultHomeSettings: HomeSettings = {
 
 // Keep backwards compatibility for existing imports
 export const homeContent = defaultHomeSettings;
+

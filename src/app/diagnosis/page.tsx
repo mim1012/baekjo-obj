@@ -1,17 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { surveyQuestions } from '@/data/survey';
+import { getSurveyConfig } from '@/lib/storage';
+import type { SurveyQuestion } from '@/types';
 
 export default function DiagnosisPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState(0);
   const [direction, setDirection] = useState(1);
   const [answers, setAnswers] = useState<Record<string, string | string[]>>({});
+  const [questions, setQuestions] = useState<SurveyQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const question = surveyQuestions[currentStep];
+  useEffect(() => {
+    let cancelled = false;
+    getSurveyConfig().then((config) => {
+      if (cancelled) return;
+      setQuestions(config.questions);
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const question = questions[currentStep];
 
   const handleSelect = (value: string) => {
     if (question.type === 'single') {
@@ -28,7 +43,7 @@ export default function DiagnosisPage() {
   };
 
   const handleNext = () => {
-    if (currentStep < surveyQuestions.length - 1) {
+    if (currentStep < questions.length - 1) {
       setDirection(1);
       setCurrentStep(currentStep + 1);
     } else {
@@ -43,7 +58,7 @@ export default function DiagnosisPage() {
     setCurrentStep(Math.max(0, currentStep - 1));
   };
 
-  const isNextDisabled = !answers[question.id] || (Array.isArray(answers[question.id]) && answers[question.id].length === 0);
+  const isNextDisabled = !question || !answers[question.id] || (Array.isArray(answers[question.id]) && answers[question.id].length === 0);
 
   const slideVariants = {
     enter: (direction: number) => ({
@@ -62,6 +77,14 @@ export default function DiagnosisPage() {
     }),
   };
 
+  if (loading) {
+    return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC] text-[#59615B]">진단 문항을 불러오는 중...</div>;
+  }
+
+  if (!question) {
+    return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC] text-[#59615B]">등록된 진단 문항이 없습니다.</div>;
+  }
+
   return (
     <div className="min-h-dvh bg-[#F4F2EC] flex flex-col items-center justify-center py-20 px-5 overflow-hidden">
       <div className="max-w-xl w-full">
@@ -69,12 +92,12 @@ export default function DiagnosisPage() {
         <div className="mb-10">
           <div className="flex justify-between text-xs font-semibold text-[#8A918B] mb-3">
             <span>진행률</span>
-            <span>{currentStep + 1} / {surveyQuestions.length}</span>
+            <span>{currentStep + 1} / {questions.length}</span>
           </div>
           <div className="h-1 bg-[#D8D6CE] w-full rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-[#2F3B34] transition-all duration-[var(--ease-out-expo)]" 
-              style={{ width: `${((currentStep + 1) / surveyQuestions.length) * 100}%`, transitionDuration: '600ms' }}
+            <div
+              className="h-full bg-[#2F3B34] transition-all duration-[var(--ease-out-expo)]"
+              style={{ width: `${((currentStep + 1) / questions.length) * 100}%`, transitionDuration: '600ms' }}
             />
           </div>
         </div>
@@ -135,7 +158,7 @@ export default function DiagnosisPage() {
               disabled={isNextDisabled}
               className="bg-[#2F3B34] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#3D4A42] disabled:opacity-40 rounded-sm"
             >
-              {currentStep === surveyQuestions.length - 1 ? '결과 확인하기' : '다음'}
+              {currentStep === questions.length - 1 ? '결과 확인하기' : '다음'}
             </button>
           </div>
         </div>

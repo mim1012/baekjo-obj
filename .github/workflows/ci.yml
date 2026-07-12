@@ -6,9 +6,9 @@ name: CI (drift gate)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "integrate/**"]
   push:
-    branches: [main]
+    branches: [main, "integrate/**"]
 
 jobs:
   verify:
@@ -32,3 +32,24 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # 마이그레이션 자동 적용 — 빌드가 통과한 실제 push(머지)에서만 실행한다.
+  # PR 에는 돌지 않아(머지 전 DB 를 건드리지 않음), 깨진 코드가 DB 스키마를 바꾸지 못한다.
+  # 러너(scripts/apply-migrations.mjs)는 public._migrations 로 적용 이력을 추적해 미적용만 돌리고,
+  # 끝에 주요 테이블 존재를 검증한다. 어떤 IDE로 짰든 GitHub 에서 동일하게 적용·검증된다.
+  migrate:
+    runs-on: ubuntu-latest
+    needs: verify
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Apply migrations (미적용만) + 검증
+        run: node scripts/apply-migrations.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

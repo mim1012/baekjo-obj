@@ -50,6 +50,10 @@ next-env.d.ts
 .idea/
 .omc/
 
+# 고객사 원본 자료 (6.9GB — 웹 가공 전 소스. 커밋 금지, 가공본만 public/에 커밋)
+/백조오브제/
+cookies.txt
+
 # playwright (골든플로우 E2E 산출물)
 /test-results/
 /playwright-report/

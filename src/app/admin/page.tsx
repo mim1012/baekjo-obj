@@ -5,24 +5,28 @@ import { getAllOrders, getInsuranceApplications, getAdminProducts } from '@/lib/
 import { formatPrice } from '@/lib/format';
 import { Package, FileText, DollarSign, TrendingUp } from 'lucide-react';
 import { useMounted } from '@/lib/useMounted';
-import type { Order, Product } from '@/types';
+import type { InsuranceApplication, Order, Product } from '@/types';
 
 export default function AdminDashboard() {
   const mounted = useMounted();
-  // 주문은 서버(관리자)에서 비동기로. 보험 신청은 이번 범위 밖이라 그대로 둔다.
+  // 주문·상품·보험 신청 모두 서버(관리자)에서 비동기로.
   // 로딩 중과 실제 0건/0원을 구분해야 첫 프레임에 빈 통계가 잠깐 노출되지 않는다.
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [insuranceApps, setInsuranceApps] = useState<InsuranceApplication[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getAllOrders(), getAdminProducts()]).then(([orderList, productList]) => {
-      if (cancelled) return;
-      setOrders(orderList);
-      setProducts(productList);
-      setLoading(false);
-    });
+    Promise.all([getAllOrders(), getAdminProducts(), getInsuranceApplications()]).then(
+      ([orderList, productList, insuranceList]) => {
+        if (cancelled) return;
+        setOrders(orderList);
+        setProducts(productList);
+        setInsuranceApps(insuranceList);
+        setLoading(false);
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -32,7 +36,6 @@ export default function AdminDashboard() {
     return <p className="p-12 text-center text-sm text-[#7B827C]">대시보드 불러오는 중…</p>;
   }
 
-  const insuranceApps = getInsuranceApplications();
   const totalSales = orders.reduce((sum, order) => sum + order.totalPrice, 0);
   const pendingOrders = orders.filter((order) => order.orderStatus === '주문접수').length;
   const pendingInsurance = insuranceApps.filter(a => a.status === '신청완료').length;

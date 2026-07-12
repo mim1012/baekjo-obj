@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { getSurveyResult } from '@/data/survey';
-import { getPublicBrands, getPublicProducts } from '@/lib/storage';
+import { getSurveyResult } from '@/lib/survey/match';
+import { getPublicBrands, getPublicProducts, getSurveyConfig } from '@/lib/storage';
 import BrandCard from '@/components/common/BrandCard';
 import ProductCard from '@/components/common/ProductCard';
 import { ArrowRight, CheckCircle2, ShieldCheck, HeartHandshake } from 'lucide-react';
-import type { Brand, Product } from '@/types';
+import type { Brand, Product, SurveyResultRule } from '@/types';
 
 export default function DiagnosisResultPage() {
   const router = useRouter();
-  const [result, setResult] = useState<ReturnType<typeof getSurveyResult> | null>(null);
+  const [result, setResult] = useState<SurveyResultRule | null>(null);
+  const [surveyLoading, setSurveyLoading] = useState(true);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -24,8 +25,16 @@ export default function DiagnosisResultPage() {
       return;
     }
     const answers = JSON.parse(saved);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setResult(getSurveyResult(answers));
+    let cancelled = false;
+    // 룰은 정적 데이터가 아니라 DB(GET /api/survey)에서 온 것으로 계산한다. 매칭 로직은 동일.
+    getSurveyConfig().then((config) => {
+      if (cancelled) return;
+      setResult(getSurveyResult(answers, config.rules) ?? null);
+      setSurveyLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   useEffect(() => {
@@ -41,7 +50,29 @@ export default function DiagnosisResultPage() {
     };
   }, []);
 
-  if (!result || catalogLoading) return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC]">분석 중...</div>;
+  if (surveyLoading || catalogLoading) {
+    return <div className="min-h-dvh flex items-center justify-center bg-[#F4F2EC]">분석 중...</div>;
+  }
+
+  // 설문 config는 로드됐지만 매칭되는 룰이 없는 경우(예: 관리자가 룰을 비워 저장한 레거시 데이터).
+  // 무한 로딩 대신 안내와 함께 되돌아갈 경로를 보여준다.
+  if (!result) {
+    return (
+      <div className="min-h-dvh flex flex-col items-center justify-center gap-6 bg-[#F4F2EC] px-5 text-center">
+        <p className="text-[#202521] text-lg font-medium">
+          진단 결과를 불러오지 못했습니다.<br />잠시 후 다시 시도해주세요.
+        </p>
+        <div className="flex gap-4">
+          <Link href="/diagnosis" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F3B34] hover:underline">
+            진단 다시 하기 <ArrowRight className="size-4" />
+          </Link>
+          <Link href="/shop" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F3B34] hover:underline">
+            스토어 둘러보기 <ArrowRight className="size-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const recommendedBrands = brands.filter(b => result.recommendation.brandIds.includes(b.id));
   const recommendedProducts = products.filter(p => result.recommendation.productIds.includes(p.id));

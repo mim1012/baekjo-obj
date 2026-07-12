@@ -1,6 +1,8 @@
 import Link from 'next/link';
+import { ArrowUpRight, Bell } from 'lucide-react';
 import { notices } from '@/data/notices';
 import { formatDate } from '@/lib/format';
+import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
 
 export const metadata = {
   title: '공지사항 | 백조오브제',
@@ -9,44 +11,67 @@ export const metadata = {
 
 export default function NoticesPage() {
   return (
-    <div className="bg-[#F4F2EC] min-h-dvh py-16">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-12 text-center">
-          <h1 className="text-3xl font-bold text-[#202521]">공지사항</h1>
-          <p className="mt-4 text-gray-500">백조오브제의 새로운 소식과 이벤트를 안내해 드립니다.</p>
+    <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
+      <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
+        <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">Baekjo archive</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">공지사항</h1>
+            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제의 새로운 소식과 이벤트를 안내해 드립니다.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
+            <Bell className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
+            {notices.length}개의 소식
+          </div>
         </div>
 
-        <div className="bg-white rounded-sm shadow-sm border border-gray-100 overflow-hidden">
-          <div className="hidden sm:grid sm:grid-cols-12 bg-gray-50 border-b border-gray-100 p-4 text-xs font-bold text-gray-500 text-center">
+        <div className="overflow-hidden rounded-xl border border-[#E7E0D5] bg-white">
+          <div className="hidden h-[52px] items-center bg-[#FAF8F3] px-4 text-[12px] font-bold text-[#59615B] lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_128px_120px_84px_84px] lg:text-center">
             <div>No</div>
-            <div className="sm:col-span-5 text-left">제목</div>
-            <div className="sm:col-span-2">글쓴이</div>
-            <div className="sm:col-span-2">작성시간</div>
+            <div>분류</div>
+            <div className="text-left">제목</div>
+            <div>글쓴이</div>
+            <div>작성시간</div>
             <div>조회수</div>
             <div>좋아요</div>
           </div>
           
-          <ul className="divide-y divide-gray-100">
+          <ul className="divide-y divide-[#E1DDD4]">
             {notices.map((notice, index) => (
               <li key={notice.id}>
-                <Link href={`/notices/${notice.id}`} className="block p-4 sm:p-5 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col sm:grid sm:grid-cols-12 items-start sm:items-center gap-2 sm:gap-0">
-                    <div className="hidden text-center text-xs tabular-nums text-gray-400 sm:block">
+                <Link href={`/notices/${notice.id}`} title={notice.title} className="group block px-4 py-4 transition-colors hover:bg-[#FAF8F3] lg:px-4 lg:py-0">
+                  <div className="lg:hidden">
+                    <div className="flex items-center justify-between gap-3">
+                      <NoticeCategoryBadge category={notice.category} />
+                      <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
+                    </div>
+                    <h2 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
+                      {notice.title}
+                    </h2>
+                    <div className="mt-3 flex items-center gap-3 text-[12px] text-[#59615B]">
+                      <span>{notice.writer}</span>
+                      <span className="text-[#B1ADA4]" aria-hidden="true">·</span>
+                      <span>조회 {notice.views}</span>
+                      <span className="text-[#B1ADA4]" aria-hidden="true">·</span>
+                      <span>좋아요 {notice.likes}</span>
+                      <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">No. {notices.length - index}</span>
+                    </div>
+                  </div>
+
+                  <div className="hidden min-h-[68px] items-center lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_128px_120px_84px_84px] lg:text-center">
+                    <div className="text-[13px] tabular-nums text-[#59615B]">
                       {notices.length - index}
                     </div>
-
-                    <div className="w-full truncate font-medium text-gray-900 sm:col-span-5">
-                      <span className="mr-2 text-[10px] font-bold text-[#68776C]">
-                        {notice.category === 'notice' ? '공지' : notice.category === 'event' ? '이벤트' : '브랜드'}
-                      </span>
+                    <div className="flex justify-center">
+                      <NoticeCategoryBadge category={notice.category} />
+                    </div>
+                    <div className="min-w-0 truncate pr-5 text-left text-[15px] font-medium text-[#17211D] group-hover:text-[#A8742E]">
                       {notice.title}
                     </div>
-                    <div className="hidden text-center text-xs text-gray-500 sm:col-span-2 sm:block">{notice.writer}</div>
-                    <div className="text-xs text-gray-400 sm:col-span-2 sm:text-center">
-                      {formatDate(notice.date)}
-                    </div>
-                    <div className="hidden text-center text-xs tabular-nums text-gray-400 sm:block">{notice.views}</div>
-                    <div className="hidden text-center text-xs tabular-nums text-gray-400 sm:block">{notice.likes}</div>
+                    <div className="text-[13px] text-[#59615B]">{notice.writer}</div>
+                    <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
+                    <div className="text-[13px] tabular-nums text-[#59615B]">{notice.views}</div>
+                    <div className="flex items-center justify-center text-[13px] tabular-nums text-[#59615B]">{notice.likes}<ArrowUpRight className="ml-1 size-3 text-[#A8742E] opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" /></div>
                   </div>
                 </Link>
               </li>
@@ -54,9 +79,8 @@ export default function NoticesPage() {
           </ul>
         </div>
 
-        {/* Pagination mock */}
-        <div className="mt-10 flex justify-center gap-2">
-          <button className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white font-medium text-gray-500 hover:bg-gray-50">1</button>
+        <div className="mt-6 flex justify-center gap-2">
+          <button type="button" aria-current="page" className="flex size-9 items-center justify-center rounded-md border border-[#17211D] bg-[#17211D] text-sm font-semibold text-[#FBFAF7]">1</button>
         </div>
 
       </div>

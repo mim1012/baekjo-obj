@@ -125,31 +125,3 @@ export const surveyResultRules: SurveyResultRule[] = [
     }
   }
 ];
-
-export const getSurveyResult = (answers: Record<string, string | string[]>): SurveyResultRule => {
-  // 간단한 매칭 로직 (실제로는 더 복잡한 가중치 적용 필요)
-  let bestRule = surveyResultRules[surveyResultRules.length - 1]; // default fallback (none)
-  let maxScore = 0;
-
-  for (const rule of surveyResultRules) {
-    let score = 0;
-    
-    if (rule.condition.concern) {
-      const concerns = (answers['q3'] || []) as string[];
-      if (concerns.includes(rule.condition.concern)) {
-        score += 3; // 고민이 일치하면 높은 점수
-      }
-    }
-    
-    if (rule.condition.ageGroup && answers['q2'] === rule.condition.ageGroup) {
-      score += 2;
-    }
-    
-    if (score > maxScore) {
-      maxScore = score;
-      bestRule = rule;
-    }
-  }
-
-  return bestRule;
-};

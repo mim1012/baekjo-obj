@@ -19,18 +19,30 @@ interface ProductFormState {
   category: string;
   lifestyleCategory: string;
   price: string;
+  stock: string;
 }
 
-const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '' };
+const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '', stock: '' };
 
 export default function AdminProductsDashboard() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
   const [activeCategory, setActiveCategory] = useState<string | null>(null); // null means 'All'
-  const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle'>('product');
+  const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle' | 'brand'>('product');
 
   // Local state for categories
   const [productCats, setProductCats] = useState<string[]>(categorySettings.productCategories);
   const [lifestyleCats, setLifestyleCats] = useState<string[]>(categorySettings.lifestyleCategories);
+  // 관리자가 카테고리를 편집하기 시작하면(dirty) provider 하이드레이트가 편집 내용을 덮지 않도록 막는다.
+  const [dirty, setDirty] = useState(false);
+
+  // provider 가 GET /api/category-settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) 로컬
+  // 카테고리를 그 값에 맞춘다. 단 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
+  useEffect(() => {
+    if (dirty) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setProductCats(categorySettings.productCategories);
+    setLifestyleCats(categorySettings.lifestyleCategories);
+  }, [categorySettings, dirty]);
 
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -61,13 +73,28 @@ export default function AdminProductsDashboard() {
     };
   }, []);
 
-  const handleSaveCategories = (newCats: string[], type: 'product' | 'lifestyle') => {
+  const handleSaveCategories = async (newCats: string[], type: 'product' | 'lifestyle') => {
+    setDirty(true);
     if (type === 'product') {
+      const prev = productCats;
       setProductCats(newCats);
-      updateCategorySettings({ ...categorySettings, productCategories: newCats });
+      const ok = await updateCategorySettings({ ...categorySettings, productCategories: newCats });
+      if (!ok) {
+        setProductCats(prev);
+        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        setDirty(false);
+      }
     } else {
+      const prev = lifestyleCats;
       setLifestyleCats(newCats);
-      updateCategorySettings({ ...categorySettings, lifestyleCategories: newCats });
+      const ok = await updateCategorySettings({ ...categorySettings, lifestyleCategories: newCats });
+      if (!ok) {
+        setLifestyleCats(prev);
+        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        setDirty(false);
+      }
     }
   };
 
@@ -114,17 +141,33 @@ export default function AdminProductsDashboard() {
     if (activeCategory) {
       if (activeGroup === 'product' && p.category !== activeCategory) return false;
       if (activeGroup === 'lifestyle' && p.lifestyleCategory !== activeCategory) return false;
+      // brand 모드: activeCategory 는 브랜드 id 를 담는다(§ 이중 의미 주의).
+      if (activeGroup === 'brand' && p.brandId !== activeCategory) return false;
     }
     return true;
   });
 
+  // 카테고리 관리 패널(선택된 카테고리의 사이드바 내 인덱스 — 이름수정/삭제 버튼에 재사용)
+  // 카테고리 관리 함수는 'product' | 'lifestyle' 만 받는다. brand 모드에서는 카테고리 UI 가
+  // 렌더되지 않지만, 콜백에 넘길 좁혀진 그룹값이 필요하므로 여기서 브랜드를 product 로 접는다.
+  const categoryGroup: 'product' | 'lifestyle' = activeGroup === 'lifestyle' ? 'lifestyle' : 'product';
+  const activeCategoryList = activeGroup === 'product' ? productCats : lifestyleCats;
+  const activeCategoryIndex = activeCategory ? activeCategoryList.indexOf(activeCategory) : -1;
+
+  // brand 모드에서 선택된 업체 이름(라벨/헤더 표기용). activeCategory 는 브랜드 id.
+  const selectedBrandName =
+    activeGroup === 'brand' && activeCategory
+      ? brands.find((b) => b.id === activeCategory)?.name ?? null
+      : null;
+
   const openAddModal = () => {
     setForm({
       name: '',
-      brandId: brands[0]?.id ?? '',
+      brandId: activeGroup === 'brand' && activeCategory ? activeCategory : (brands[0]?.id ?? ''),
       category: activeGroup === 'product' && activeCategory ? activeCategory : (productCats[0] ?? ''),
       lifestyleCategory: activeGroup === 'lifestyle' && activeCategory ? activeCategory : '',
       price: '',
+      stock: '',
     });
     setEditingProduct(null);
     setIsAddingProduct(true);
@@ -137,6 +180,7 @@ export default function AdminProductsDashboard() {
       category: product.category,
       lifestyleCategory: product.lifestyleCategory ?? '',
       price: product.price !== null && product.price !== undefined ? String(product.price) : '',
+      stock: product.stock !== null && product.stock !== undefined ? String(product.stock) : '',
     });
     setEditingProduct(product);
     setIsAddingProduct(true);
@@ -167,6 +211,8 @@ export default function AdminProductsDashboard() {
     setSaving(true);
     const brandName = brands.find((b) => b.id === form.brandId)?.name;
     const price = form.price.trim() ? Number(form.price) : null;
+    const parsedStock = Number(form.stock.trim());
+    const stock = Number.isFinite(parsedStock) ? Math.max(0, Math.trunc(parsedStock)) : 0;
 
     if (editingProduct) {
       const { product, error } = await updateProduct(editingProduct.id, {
@@ -176,6 +222,7 @@ export default function AdminProductsDashboard() {
         category: form.category,
         lifestyleCategory: form.lifestyleCategory || form.category,
         price,
+        stock,
       });
       setSaving(false);
       if (error || !product) {
@@ -201,7 +248,7 @@ export default function AdminProductsDashboard() {
       ageGroup: 'all',
       // 이미지 업로드는 이번 범위 밖 — 플레이스홀더 아이콘으로 등록 후 추후 교체.
       image: '/images/icon-product.svg',
-      stock: 0,
+      stock,
       description: form.name.trim(),
       isBest: false,
       isRecommended: false,
@@ -244,6 +291,12 @@ export default function AdminProductsDashboard() {
             >
               라이프스타일
             </button>
+            <button
+              onClick={() => { setActiveGroup('brand'); setActiveCategory(null); }}
+              className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${activeGroup === 'brand' ? 'bg-white shadow-sm text-[#202521]' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              업체
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-2">
@@ -256,7 +309,24 @@ export default function AdminProductsDashboard() {
               전체 보기 <span className="float-right opacity-60 text-xs mt-0.5">{products.length}</span>
             </button>
 
-            {(activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
+            {activeGroup === 'brand' ? (
+              brands.map((brand) => (
+                <div key={brand.id} className="group relative mb-1">
+                  <button
+                    onClick={() => setActiveCategory(brand.id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors pr-16 ${
+                      activeCategory === brand.id ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
+                    }`}
+                  >
+                    <span className="truncate block">{brand.name}</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 text-xs">
+                      {products.filter(p => p.brandId === brand.id).length}
+                    </span>
+                  </button>
+                </div>
+              ))
+            ) : (
+              (activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
               <div key={idx} className="group relative mb-1">
                 {editingIndex === idx ? (
                   <div className="flex items-center px-2 py-1.5 bg-[#F0EEE8] rounded-md">
@@ -264,8 +334,8 @@ export default function AdminProductsDashboard() {
                       type="text"
                       value={editValue}
                       onChange={e => setEditValue(e.target.value)}
-                      onBlur={() => saveEditCategory(activeGroup)}
-                      onKeyDown={e => e.key === 'Enter' && saveEditCategory(activeGroup)}
+                      onBlur={() => saveEditCategory(categoryGroup)}
+                      onKeyDown={e => e.key === 'Enter' && saveEditCategory(categoryGroup)}
                       className="flex-1 bg-white border border-[#D1D0C8] rounded px-2 py-1 text-sm outline-none"
                       autoFocus
                     />
@@ -283,17 +353,18 @@ export default function AdminProductsDashboard() {
                     </span>
 
                     <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${activeCategory === cat ? 'text-white' : 'text-[#4F5751]'}`}>
-                      <span onClick={(e) => startEditCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
-                      <span onClick={(e) => handleDeleteCategory(idx, activeGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
+                      <span onClick={(e) => startEditCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
+                      <span onClick={(e) => handleDeleteCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
                     </div>
                   </button>
                 )}
               </div>
-            ))}
+            )))}
           </div>
 
+          {activeGroup !== 'brand' && (
           <div className="p-4 border-t border-[#D1D0C8] bg-[#F8F7F2]">
-            <form onSubmit={(e) => handleAddCategory(e, activeGroup)} className="flex gap-2">
+            <form onSubmit={(e) => handleAddCategory(e, categoryGroup)} className="flex gap-2">
               <input
                 type="text"
                 placeholder={`${activeGroup === 'product' ? '일반' : '라이프스타일'} 카테고리 추가`}
@@ -306,35 +377,85 @@ export default function AdminProductsDashboard() {
               </button>
             </form>
           </div>
+          )}
         </div>
 
         {/* Main Content: Products */}
         <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <div className="p-6 pb-0 flex items-end justify-between gap-4 shrink-0">
-            <div>
-              <h2 className="text-xl font-bold text-[#202521]">
-                {activeCategory ? `'${activeCategory}' 상품 목록` : '전체 상품 목록'}
-              </h2>
-              <p className="mt-1 text-sm text-[#737A74]">총 {filteredProducts.length}개의 상품</p>
-            </div>
+          <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
+            {/* brand 모드: 업체 헤더만 노출(카테고리 관리 없음) */}
+            {activeGroup === 'brand' && selectedBrandName ? (
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-[#202521]">{selectedBrandName}</h2>
+                  <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">업체</span>
+                </div>
+                <p className="mt-1 text-sm text-[#59615B]">해당 업체의 상품을 등록·수정·삭제할 수 있습니다.</p>
+              </div>
+            ) : /* 카테고리 관리 패널 — 선택된 카테고리가 있을 때만 노출 */
+            activeCategory && activeGroup !== 'brand' ? (
+              <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-xl font-bold text-[#202521]">{activeCategory}</h2>
+                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">
+                        {activeGroup === 'product' ? '일반 상품 카테고리' : '라이프스타일 카테고리'}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-[#59615B]">해당 카테고리의 이름을 수정하거나 삭제할 수 있습니다.</p>
+                  </div>
+                  {activeCategoryIndex !== -1 && (
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => startEditCategory(activeCategoryIndex, activeGroup, e)}
+                        className="px-3 py-1.5 text-sm font-medium bg-[#F0EEE8] text-[#4F5751] rounded hover:bg-[#E1DFD8] transition-colors flex items-center gap-1.5"
+                      >
+                        <Edit2 className="size-3.5" /> 이름 수정
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => handleDeleteCategory(activeCategoryIndex, activeGroup, e)}
+                        className="px-3 py-1.5 text-sm font-medium bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors flex items-center gap-1.5"
+                      >
+                        <Trash2 className="size-3.5" /> 삭제
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h2 className="text-xl font-bold text-[#202521]">전체 상품 목록</h2>
+                <p className="mt-1 text-sm text-[#737A74]">모든 상품을 한눈에 관리합니다.</p>
+              </div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <label className="relative">
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                <input
-                  placeholder="상품명 검색..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
-                />
-              </label>
-              <button
-                onClick={openAddModal}
-                className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
-              >
-                <Plus className="size-4" />
-                {activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록'}
-              </button>
+            <div className="flex items-end justify-between gap-4">
+              <p className="text-sm font-medium text-[#59615B]">
+                총 <span className="font-bold text-[#202521]">{filteredProducts.length}</span>개의 상품
+              </p>
+              <div className="flex items-center gap-3">
+                <label className="relative">
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
+                  <input
+                    placeholder="상품명 검색..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
+                  />
+                </label>
+                <button
+                  onClick={openAddModal}
+                  className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
+                >
+                  <Plus className="size-4" />
+                  {activeGroup === 'brand'
+                    ? (selectedBrandName ? `'${selectedBrandName}'에 상품 등록` : '새 상품 등록')
+                    : (activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록')}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -371,7 +492,7 @@ export default function AdminProductsDashboard() {
                             ) : <span className="text-slate-300">-</span>}
                           </td>
                           <td className="px-5 py-3 tabular-nums text-[#4F5751]">
-                            {product.price !== null && product.price !== undefined ? formatPrice(product.salePrice || product.price) : '-'}
+                            {formatPrice(product.salePrice ?? product.price ?? 0)}
                           </td>
                           <td className="px-5 py-3 text-right">
                             <button onClick={() => openEditModal(product)} className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
@@ -400,12 +521,12 @@ export default function AdminProductsDashboard() {
           {/* Add/Edit Product Modal */}
           {isAddingProduct && (
             <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center">
+              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
                   <h3 className="font-bold text-[#202521]">{editingProduct ? '상품 수정' : '새 상품 등록'}</h3>
                   <button type="button" onClick={closeModal} className="text-[#8B928C] hover:text-black">✕</button>
                 </div>
-                <div className="p-6 space-y-4">
+                <div className="p-6 space-y-4 overflow-y-auto">
                   <div>
                     <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
                     <input
@@ -455,7 +576,7 @@ export default function AdminProductsDashboard() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 상담 후 안내)</label>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 0원 표시)</label>
                     <input
                       type="number"
                       min={0}
@@ -465,8 +586,20 @@ export default function AdminProductsDashboard() {
                       placeholder="예: 32000"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">재고</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={form.stock}
+                      onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
+                      placeholder="예: 100"
+                    />
+                  </div>
                 </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2">
+                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
                   <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
                   <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
                     {saving ? '저장 중…' : editingProduct ? '수정 완료' : '등록 완료'}
