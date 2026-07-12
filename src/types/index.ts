@@ -208,6 +208,10 @@ export interface Order {
   paymentKey?: string;
   paidAt?: string;
   expiresAt?: string;
+  /** '승인중' 고아 대사(reconcile) 재시도 횟수. 웹훅 웨이브(dead-letter) 전용 — 기계만 갱신. */
+  reclaimAttempts?: number;
+  /** 마지막 reconcile 재시도 실패 사유(진단용). 기계만 갱신. */
+  reclaimError?: string;
 }
 
 export interface OrderItem {

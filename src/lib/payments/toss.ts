@@ -6,6 +6,10 @@
  */
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
+const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
+// 응답이 없는 요청이 무한정 매달려 cron/confirm 라우트를 막지 않도록 상한을 둔다.
+// 타임아웃은 fetch가 AbortError를 던지므로 아래 catch에서 network-error와 동일하게 "불명"(httpStatus null)로 흡수된다.
+const TOSS_FETCH_TIMEOUT_MS = 10_000;
 
 export class TossConfirmError extends Error {
   constructor(
@@ -50,6 +54,7 @@ export async function confirmTossPayment(params: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
+      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);
@@ -61,6 +66,48 @@ export async function confirmTossPayment(params: {
 
   if (!response.ok || !data) {
     throw new TossConfirmError(data?.message ?? 'toss-confirm-failed', data?.code ?? null, response.status);
+  }
+
+  return {
+    paymentKey: data.paymentKey,
+    orderId: data.orderId,
+    totalAmount: data.totalAmount,
+    status: data.status,
+  };
+}
+
+/**
+ * GET /v1/payments/{paymentKey} — 토스에 결제 실제 상태를 직접 재조회(권위 소스).
+ * reconcile cron(U6)·webhook(U5)이 페이로드/claim 시점 정보를 신뢰하지 않고 이 조회 결과로만
+ * 확정·취소를 판단한다. Basic 인증은 confirmTossPayment와 동일. 404(결제 없음)도 토스가 응답을
+ * 완료한 것이므로 TossConfirmError(httpStatus=404)로 던져 호출부가 "거절/미존재"와 "불명"을
+ * 구분할 수 있게 한다.
+ */
+export async function queryTossPayment(paymentKey: string): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`, {
+      method: 'GET',
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | (TossConfirmResult & { code?: string; message?: string })
+    | null;
+
+  if (!response.ok || !data) {
+    throw new TossConfirmError(data?.message ?? 'toss-query-failed', data?.code ?? null, response.status);
   }
 
   return {

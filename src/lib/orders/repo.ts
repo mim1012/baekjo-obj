@@ -15,7 +15,7 @@ function normalizeOrderStatus(raw: string): OrderStatus {
  * memberId는 소유권 검증(내 주문 / IDOR 방지)에만 쓰이고 Order의 상위집합이므로
  * 그대로 화면 타입 자리에 넘겨도 안전하다.
  */
-export type OrderRecord = Order & { memberId: string | null };
+export type OrderRecord = Order & { memberId: string | null; reclaimDead: boolean };
 
 interface OrderRow {
   id: string;
@@ -37,10 +37,13 @@ interface OrderRow {
   payment_key: string | null;
   paid_at: string | null;
   expires_at: string | null;
+  reclaim_attempts: number;
+  last_reclaim_error: string | null;
+  reclaim_dead: boolean;
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -69,6 +72,9 @@ function rowToRecord(row: OrderRow): OrderRecord {
     paymentKey: row.payment_key ?? undefined,
     paidAt: row.paid_at ?? undefined,
     expiresAt: row.expires_at ?? undefined,
+    reclaimAttempts: row.reclaim_attempts,
+    reclaimError: row.last_reclaim_error ?? undefined,
+    reclaimDead: row.reclaim_dead,
   };
 }
 
@@ -193,9 +199,14 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
 }
 
 /**
- * 토스 결제 승인 확정. WHERE payment_status='결제대기' 조건으로 최초 1회만 성공시킨다
- * (이중승인 방어 핵심 — 같은 paymentKey로 두 번 호출돼도 두 번째는 0행 매치).
- * 반환값 = 영향받은 행 수. 1이면 이번 호출이 확정시킨 것, 0이면 이미 처리됨(idempotency 신호).
+ * 토스 결제 승인 확정. WHERE payment_status='승인중' AND payment_key=? 조건으로 claim이
+ * 발급한 바로 그 승인중 시도만 확정시킨다(이중승인 방어 핵심 — 같은 주문에 다른 paymentKey로
+ * 재시도가 끼어들었거나 이미 확정된 행은 매치되지 않는다).
+ * 반환값 = 영향받은 행 수. 1이면 이번 호출이 확정시킨 것, 0이면 이미 처리됐거나(idempotency 신호)
+ * WHERE 불일치(R6 — 승인 성공·확정 실패 경합).
+ * ⚠️ 웹훅/reconcile(W2)이 '결제대기' 주문(사용자 이탈로 claim 자체가 없었던 건)을 확정하려면
+ * 반드시 claimOrderForConfirmation을 먼저 호출해 '승인중'으로 전이시켜야 한다 — '결제대기' 주문에
+ * 이 함수를 직접 호출하면 WHERE payment_status='승인중' 불일치로 0행 무성 실패(조용한 미확정)가 된다.
  */
 export async function setOrderPaid(
   id: string,
@@ -210,20 +221,19 @@ export async function setOrderPaid(
       order_status: '결제완료',
     })
     .eq('id', id)
-    .eq('payment_status', '결제대기')
+    .eq('payment_status', '승인중')
+    .eq('payment_key', payment.paymentKey)
     .select('id');
   if (error) throw error;
   return data?.length ?? 0;
 }
 
 /**
- * 재고 선점 취소 + 복원(결제 실패·이탈·만료). 0024 마이그레이션 rpc — 취소 UPDATE와
- * restore_stock_for_order 호출이 **같은 DB 트랜잭션**으로 묶여 있어, 구버전의
- * "cancelOrderReservation 먼저 → 반환 1일 때만 restoreStockForOrder" 2단계 호출 순서 계약이
- * 통째로 필요 없어졌다. cancel 라우트와 만료 cron이 같은 주문을 동시에 집어도 트랜잭션
- * 하나만 커밋되므로 이중 복원 자체가 구조적으로 불가능하다.
- * 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리된 주문(확정/취소)이라 no-op.
- * (구 cancelOrderReservation/restoreStockForOrder 2단계 함수는 이 함수로 대체돼 제거됨.)
+ * 재고 선점 취소 + 복원(결제 실패·이탈·만료, '결제대기' 주문 전용). 0024 마이그레이션 rpc —
+ * 취소 UPDATE와 restore_stock_for_order 호출이 **같은 DB 트랜잭션**으로 묶여 있어 부분 커밋이
+ * 불가능하다. cancel 라우트와 만료 cron이 호출하며, WHERE payment_status='결제대기'이므로
+ * '승인중' 주문은 이 함수가 절대 건드리지 못한다(상태기계 불변식 — cancelConfirmingAndRestore와
+ * 상호배타). 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리된 주문이라 no-op.
  */
 export async function cancelReservationAndRestore(id: string): Promise<boolean> {
   const { data, error } = await getSupabase().rpc('cancel_order_reservation_and_restore', {
@@ -234,20 +244,62 @@ export async function cancelReservationAndRestore(id: string): Promise<boolean> 
 }
 
 /**
- * 결제 승인 착수 선언(confirm 라우트가 토스 승인 API를 호출하기 **직전에** 반드시 호출).
- * expires_at을 조건부로 연장해, 토스 API 응답을 기다리는 동안 만료 cron이 같은 주문을
- * 먼저 집어 취소해버리는 경합을 차단한다(승인 중 크래시 창 보호).
- * 반환 1 = 이번 호출이 선점을 갱신함(승인 진행 가능), 0 = 이미 취소·확정된 주문이라
- * 토스 승인 API를 호출하면 안 된다(호출부는 409로 응답).
+ * '승인중' 주문 취소 + 재고 복원(0026 rpc). confirm 거절(402)·reconcile(토스=CANCELED 등)·webhook
+ * 전용 — WHERE payment_status='승인중'이라 cancelReservationAndRestore(0024, WHERE '결제대기')와
+ * 상호배타적이다. 같은 주문이 두 함수 모두에서 true를 반환할 수 없다(한 시점엔 둘 중 한 상태만 가능).
+ * 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리됐거나 승인중이 아니라 no-op.
  */
-export async function claimOrderForConfirmation(id: string): Promise<number> {
+export async function cancelConfirmingAndRestore(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc('cancel_confirming_and_restore', {
+    p_order_id: id,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+/** claimOrderForConfirmation이 payment_key unique 제약(0022) 충돌을 만났을 때 던지는 전용
+ *  에러 — 호출부가 일반 500이 아니라 409(같은 paymentKey가 다른 주문에 이미 묶임)로 구분
+ *  응답할 수 있게 한다. */
+export class ClaimPaymentKeyConflictError extends Error {
+  constructor(message = 'claim-payment-key-conflict') {
+    super(message);
+    this.name = 'ClaimPaymentKeyConflictError';
+  }
+}
+
+/**
+ * 결제 승인 착수 선언(confirm 라우트가 토스 승인 API를 호출하기 **직전에** 반드시 호출) —
+ * '결제대기'→'승인중' 배타적 상태전이로 승격(재수술, 웹훅 웨이브 W1). paymentKey를 이 시점에
+ * 기록해 reconcile(U6)이 이 키로 토스 조회할 수 있게 한다. expires_at도 함께 연장해, 토스 API
+ * 응답을 기다리는 동안 만료 cron이 같은 주문을 먼저 집어 취소해버리는 경합을 차단한다(승인 중
+ * 크래시 창 보호) — WHERE가 '결제대기'뿐이라 cron은 어차피 '승인중'을 못 건드리지만, 전이 자체가
+ * 원자적이라 두 confirm 요청이 동시에 '결제대기'를 보고 있어도 하나만 '승인중' 전이에 성공한다.
+ * 반환 1 = 이번 호출이 이 주문을 승인중으로 전이시킴(승인 진행 가능), 0 = 이미 취소·승인중·확정된
+ * 주문이라 이번 호출은 전이하지 못했다(호출부가 멱등/409로 분기).
+ * ⚠️ 웹훅 경로(W2): 미claim '결제대기' 주문(사용자 이탈로 confirm이 안 온 건)을 웹훅으로 확정하려면
+ * 이 함수로 먼저 '승인중' 선전이한 뒤 setOrderPaid를 호출해야 한다 — 순서를 건너뛰면 setOrderPaid의
+ * WHERE 조건과 맞물려 조용히 no-op된다.
+ */
+export async function claimOrderForConfirmation(id: string, paymentKey: string): Promise<number> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .update({ expires_at: new Date(Date.now() + CLAIM_EXTENSION_MS).toISOString() })
+    .update({
+      payment_status: '승인중',
+      payment_key: paymentKey,
+      expires_at: new Date(Date.now() + CLAIM_EXTENSION_MS).toISOString(),
+    })
     .eq('id', id)
     .eq('payment_status', '결제대기')
     .select('id');
-  if (error) throw error;
+  if (error) {
+    // 23505 = postgres unique_violation. 0022가 orders.payment_key에 unique 제약을 걸어뒀으므로
+    // 극히 드물게 이미 다른 주문에 묶인 paymentKey로 claim이 들어오면 여기서 걸린다(위조/재사용
+    // 의심 또는 클라이언트 버그) — 500으로 흘리지 않고 라우트가 409로 구분 응답하게 한다.
+    if (error.code === '23505') {
+      throw new ClaimPaymentKeyConflictError();
+    }
+    throw error;
+  }
   return data?.length ?? 0;
 }
 
@@ -256,21 +308,66 @@ export async function claimOrderForConfirmation(id: string): Promise<number> {
 const CLAIM_EXTENSION_MS = 10 * 60 * 1000;
 
 const EXPIRED_PENDING_ORDERS_CAP = 100;
+const ORPHANED_CONFIRMING_ORDERS_CAP = 100;
 
-/** 만료된 선점 주문 목록(카드결제 PENDING이 10분 내 승인/취소 콜백을 못 받은 건).
+/** 만료된 선점 주문 목록(카드결제 PENDING이 10분 내 승인/취소 콜백을 못 받은 건, '결제대기' 전용).
  *  cron이 순회하며 재고를 복원한다. listAllOrders(ORDERS_LIST_CAP)와 동일하게 배치 상한을
  *  둬 한 번의 cron 실행이 무제한 행을 끌어오지 않게 한다. expires_at 오름차순 정렬로 배치 상한이
  *  걸릴 때 항상 가장 오래 만료된 건부터 결정적으로 처리한다(정렬 없으면 DB가 임의 순서로 잘라
- *  같은 100건이 반복 누락될 수 있음). 재시도 횟수 추적/dead-letter 처리는 웹훅 후속 웨이브 스코프. */
+ *  같은 100건이 반복 누락될 수 있음). reclaim_dead=false로 좁혀 dead-letter 처리된 건은 cron이
+ *  더 이상 반복 조회하지 않는다(U7). '승인중' 주문은 이 목록에서 항상 제외된다 — 그건 U6 담당. */
 export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()
     .from('orders')
     .select(SELECT_COLUMNS)
     .eq('payment_status', '결제대기')
+    .eq('reclaim_dead', false)
     .not('expires_at', 'is', null)
     .lt('expires_at', new Date().toISOString())
     .order('expires_at', { ascending: true })
     .limit(EXPIRED_PENDING_ORDERS_CAP);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
+}
+
+/** '승인중' 상태로 만료된 고아 주문 목록(claim 이후 토스 응답을 못 받고 죽은 세션 — 웹훅
+ *  미등록 기간엔 이게 유일한 정산 경로). reconcile cron(U6)이 순회하며 토스에 실제 상태를
+ *  재조회해 확정하거나 복원한다. reclaim_dead=false로 좁혀 dead-letter 처리된 건은 제외.
+ *  cancel/cron/0024는 '승인중'을 절대 못 건드리므로 이 고아들은 오직 이 목록 → reconcile로만
+ *  회수된다(상태기계 불변식). */
+export async function listOrphanedConfirmingOrders(): Promise<OrderRecord[]> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .select(SELECT_COLUMNS)
+    .eq('payment_status', '승인중')
+    .eq('reclaim_dead', false)
+    .not('expires_at', 'is', null)
+    .lt('expires_at', new Date().toISOString())
+    .order('expires_at', { ascending: true })
+    .limit(ORPHANED_CONFIRMING_ORDERS_CAP);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
+/**
+ * 재시도 실패 기록(카운트 원자 +1, 사유 저장, 0027 rpc). reconcile(U6)·reclaim-stock cron(U7)
+ * 공용 — 조회 후 증가하는 2단계 방식(구버전)은 겹친 cron 실행 사이에 lost update가 날 수 있어
+ * update ... set reclaim_attempts = reclaim_attempts + 1 단일 문 RPC로 교체됐다.
+ * 반환값 = 갱신된 reclaim_attempts. 호출부(cron)가 이 값으로 dead-letter 임계치를 판정한다
+ * (실제 markReclaimDead 호출 여부는 호출부 책임).
+ */
+export async function recordReclaimAttempt(id: string, errorMessage: string): Promise<number> {
+  const { data, error } = await getSupabase().rpc('increment_reclaim_attempts', {
+    p_order_id: id,
+    p_error: errorMessage,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? 0;
+}
+
+/** 재시도 임계치 초과 주문을 dead-letter로 표시 — 이후 listExpiredPendingOrders /
+ *  listOrphanedConfirmingOrders 양쪽 모두에서 제외되어 cron이 더 이상 반복 조회하지 않는다. */
+export async function markReclaimDead(id: string): Promise<void> {
+  const { error } = await getSupabase().from('orders').update({ reclaim_dead: true }).eq('id', id);
+  if (error) throw error;
 }
