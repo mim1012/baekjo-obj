@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
 import { Product } from '@/types';
@@ -19,6 +20,8 @@ export default function ProductDetailClient({ product }: Props) {
   const [quantity, setQuantity] = useState(1);
   const [selectedOption, setSelectedOption] = useState(product.options?.[0]?.id || '');
   const [, refreshWishlist] = useState(0);
+  const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
+  const [activeImage, setActiveImage] = useState(0);
   const wishlisted = mounted && isWishlisted(product.id);
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
@@ -70,20 +73,44 @@ export default function ProductDetailClient({ product }: Props) {
     <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
       {/* Image Gallery */}
       <div className="w-full lg:w-1/2">
-        <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-12 shadow-sm overflow-hidden relative group">
-          <div className="flex h-full w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
-            <span className="font-editorial text-6xl italic text-slate-300">{product.category.slice(0, 1)}</span>
-            <span className="mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
-            <span className="mt-2 text-[10px] text-slate-400">{product.name}</span>
-          </div>
-        </div>
-        <div className="mt-4 flex gap-4 overflow-x-auto hide-scrollbar pb-2">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="aspect-square w-20 shrink-0 rounded-[12px] bg-white border border-[rgba(15,23,42,0.08)] shadow-sm flex items-center justify-center text-[10px] font-medium text-slate-400 hover:border-[#17211D] transition-colors cursor-pointer">
-              VIEW {i}
+        {gallery.length > 0 ? (
+          <>
+            <div className="relative aspect-square w-full overflow-hidden rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-[#F3EEE6] shadow-sm">
+              <Image
+                src={gallery[activeImage]}
+                alt={product.name}
+                fill
+                sizes="(max-width:1024px) 100vw, 50vw"
+                className="object-contain p-8 sm:p-12"
+              />
             </div>
-          ))}
-        </div>
+            {gallery.length > 1 && (
+              <div className="mt-4 flex gap-4 overflow-x-auto hide-scrollbar pb-2">
+                {gallery.map((src, i) => (
+                  <button
+                    key={src + i}
+                    type="button"
+                    onClick={() => setActiveImage(i)}
+                    aria-label={`${product.name} 이미지 ${i + 1}`}
+                    className={`relative aspect-square w-20 shrink-0 overflow-hidden rounded-[12px] bg-[#F3EEE6] border shadow-sm transition-colors ${
+                      i === activeImage ? 'border-[#17211D]' : 'border-[rgba(15,23,42,0.08)] hover:border-[#17211D]'
+                    }`}
+                  >
+                    <Image src={src} alt="" fill sizes="80px" className="object-contain p-1.5" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-12 shadow-sm overflow-hidden relative group">
+            <div className="flex h-full w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
+              <span className="font-editorial text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
+              <span className="mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
+              <span className="mt-2 text-[10px] text-[#6F766F]">{product.name}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
