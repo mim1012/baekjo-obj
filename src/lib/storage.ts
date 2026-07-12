@@ -1,4 +1,4 @@
-import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
+import { Brand, ConfirmedOrderSummary, InsuranceApplication, Order, Product, User } from '@/types';
 import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
@@ -283,12 +283,14 @@ export async function updateOrderStatus(
  * 토스 결제 승인 확정. successUrl(paymentKey·orderId·amount 쿼리)에서 호출한다.
  * 서버가 DB 총액과 amount를 대조 후 토스에 승인 요청 → setOrderPaid로 조건부 확정한다
  * (§ 이중승인 방어). amount는 클라이언트 쿼리값을 신뢰하지 않고 서버가 재검증한다.
+ * 반환 order는 전체 Order가 아니라 ConfirmedOrderSummary(가산 타입) — 무인증 공개
+ * 엔드포인트라 서버가 customerName/phone/address/items 같은 PII를 내려주지 않는다.
  */
 export async function confirmTossPayment(payment: {
   paymentKey: string;
   orderId: string;
   amount: number;
-}): Promise<{ ok: true; order: Order } | { ok: false; error: string }> {
+}): Promise<{ ok: true; order: ConfirmedOrderSummary } | { ok: false; error: string }> {
   try {
     const response = await fetch('/api/payments/confirm', {
       method: 'POST',
@@ -298,7 +300,7 @@ export async function confirmTossPayment(payment: {
     if (!response.ok) {
       return { ok: false, error: 'payment-confirm-failed' };
     }
-    const { order } = (await response.json()) as { order: Order };
+    const { order } = (await response.json()) as { order: ConfirmedOrderSummary };
     return { ok: true, order };
   } catch {
     return { ok: false, error: 'payment-confirm-failed' };

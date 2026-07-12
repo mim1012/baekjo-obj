@@ -4,9 +4,11 @@ import {
   setOrderPaid,
   claimOrderForConfirmation,
   cancelReservationAndRestore,
+  type OrderRecord,
 } from '@/lib/orders/repo';
 import { confirmTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { logServerError } from '@/lib/logServerError';
+import type { ConfirmedOrderSummary } from '@/types';
 
 const MAX_PAYMENT_KEY = 200;
 const MAX_ORDER_ID = 100;
@@ -25,6 +27,18 @@ function validate(body: unknown): ConfirmBody | null {
   if (typeof b.orderId !== 'string' || b.orderId.length < 1 || b.orderId.length > MAX_ORDER_ID) return null;
   if (typeof b.amount !== 'number' || !Number.isInteger(b.amount) || b.amount <= 0) return null;
   return { paymentKey: b.paymentKey, orderId: b.orderId, amount: b.amount };
+}
+
+/** 응답 최소화 — 무인증 공개 엔드포인트라 PII(customerName/phone/address/items)를 내려주지 않는다. */
+function toSummary(order: OrderRecord): ConfirmedOrderSummary {
+  return {
+    id: order.id,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    totalPrice: order.totalPrice,
+    deliveryFee: order.deliveryFee,
+    paidAt: order.paidAt,
+  };
 }
 
 /**
@@ -72,7 +86,16 @@ export async function POST(request: NextRequest) {
     //    호출하지 않고 현재 주문을 그대로 반환한다. claim보다 먼저 둬야 한다: 순서가 바뀌면
     //    정상 결제 완료건의 재확인 요청이 claim=0(이미 결제대기 아님) → 409로 잘못 분류된다.
     if (order.paymentStatus === '결제완료' || order.paymentKey) {
-      return NextResponse.json({ order }, { status: 200 });
+      // 키 바인딩 — 저장된 payment_key가 있는데 이번 요청의 paymentKey와 다르면 다른 결제건으로
+      // 이 주문을 흡수시키려는 시도(대체 공격)일 수 있다. 무조건 200으로 흡수하지 않고 거부한다.
+      if (order.paymentKey && order.paymentKey !== paymentKey) {
+        logServerError(
+          `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${paymentKey} storedKey=${order.paymentKey}`,
+          {},
+        );
+        return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
+      }
+      return NextResponse.json({ order: toSummary(order) }, { status: 200 });
     }
 
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. 0이면 이미 취소/만료 처리된
@@ -162,7 +185,7 @@ export async function POST(request: NextRequest) {
     }
 
     const confirmedOrder = await getOrderById(orderId);
-    return NextResponse.json({ order: confirmedOrder ?? order }, { status: 200 });
+    return NextResponse.json({ order: toSummary(confirmedOrder ?? order) }, { status: 200 });
   } catch (error) {
     logServerError('[POST /api/payments/confirm] 승인 처리 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
