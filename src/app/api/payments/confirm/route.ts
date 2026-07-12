@@ -42,6 +42,52 @@ function toSummary(order: OrderRecord): ConfirmedOrderSummary {
 }
 
 /**
+ * 이미 '결제대기'를 벗어난 주문(승인중/결제완료/취소 등)을 다시 confirm하려는 요청에 무엇을
+ * 응답할지 상태별로 명시 분기한다(opus HIGH#2 — `|| order.paymentKey` 존재 여부만으로 뭉뚱그려
+ * 판단하면 취소된 주문도 키가 남아있다는 이유로 200을 돌려줄 여지가 생긴다). ③ 멱등 흡수와
+ * ③-b claim 패자 재조회(경합) 양쪽이 공유 — 둘 다 "이 주문 지금 무슨 상태냐"라는 같은 질문이다.
+ */
+function respondForObservedState(order: OrderRecord, paymentKey: string, orderId: string) {
+  const keyMatches = order.paymentKey === paymentKey;
+
+  if (order.paymentStatus === '결제완료') {
+    if (!keyMatches) {
+      logServerError(
+        `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${paymentKey} storedKey=${order.paymentKey}`,
+        {},
+      );
+      return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
+    }
+    return NextResponse.json({ order: toSummary(order) }, { status: 200 });
+  }
+
+  if (order.paymentStatus === '승인중') {
+    if (!keyMatches) {
+      logServerError(
+        `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${paymentKey} storedKey=${order.paymentKey}`,
+        {},
+      );
+      return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
+    }
+    // 같은 paymentKey로 이미 '승인중'인 재진입(재시도/경합) — 아직 확정 전이므로 취소 금지.
+    return NextResponse.json({ error: 'payment-confirming' }, { status: 202 });
+  }
+
+  if (order.paymentStatus === '결제취소') {
+    // 취소된 주문은 키 일치 여부와 무관하게 200으로 흡수하면 안 된다(거짓 성공 방지).
+    return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
+  }
+
+  // 그 외 비정상 조합(환불완료 등 예상 밖 상태에서 재요청) — 정상 흐름이면 도달하지 않는다.
+  // 조용히 200/202로 흡수하지 않고 시끄럽게 로그 후 거부한다.
+  logServerError(
+    `[POST /api/payments/confirm] 예상 밖 주문 상태에서 confirm 재요청 orderId=${orderId} paymentStatus=${order.paymentStatus}`,
+    {},
+  );
+  return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
+}
+
+/**
  * POST /api/payments/confirm — 토스 결제위젯 successUrl에서 호출하는 승인 게이트.
  * 게스트 결제도 있어 세션 불요(주문 소유권은 orderId를 아는 사람만 확인 가능한 결제 흐름이므로
  * checkout→successUrl 리다이렉트 경로 밖에서는 orderId를 알 수 없다 — order-complete 스냅샷과 동일 전제).
@@ -82,25 +128,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'amount-mismatch' }, { status: 400 });
     }
 
-    // ③ 멱등 흡수 — 이미 결제완료거나 payment_key가 이미 있으면(중복 콜백/재방문) 토스를 다시
-    //    호출하지 않고 현재 주문을 그대로 반환한다. claim보다 먼저 둬야 한다: 순서가 바뀌면
-    //    정상 결제 완료건의 재확인 요청이 claim=0(이미 결제대기 아님) → 409로 잘못 분류된다.
-    if (order.paymentStatus === '결제완료' || order.paymentKey) {
-      // 키 바인딩 — 저장된 payment_key가 있는데 이번 요청의 paymentKey와 다르면 다른 결제건으로
-      // 이 주문을 흡수시키려는 시도(대체 공격)일 수 있다. 무조건 흡수하지 않고 거부한다.
-      if (order.paymentKey && order.paymentKey !== paymentKey) {
-        logServerError(
-          `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${paymentKey} storedKey=${order.paymentKey}`,
-          {},
-        );
-        return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
-      }
-      if (order.paymentStatus === '승인중') {
-        // 같은 paymentKey로 이미 '승인중' 전이가 끝난 재진입 요청(같은 클라이언트 재시도 등) —
-        // 아직 확정 전이므로 취소하지 않고 "확인 중"으로 응답한다(승인중은 절대 취소 금지 불변식).
-        return NextResponse.json({ error: 'payment-confirming' }, { status: 202 });
-      }
-      return NextResponse.json({ order: toSummary(order) }, { status: 200 });
+    // ③ 멱등 흡수 — 이미 '결제대기'를 벗어난 주문(결제완료/승인중/취소 등)은 상태별로 명시
+    //    분기한다(respondForObservedState). claim보다 먼저 둬야 한다: 순서가 바뀌면 정상
+    //    결제 완료건의 재확인 요청이 claim=0(이미 결제대기 아님) → 409로 잘못 분류된다.
+    //    ★ `|| order.paymentKey` 조건은 쓰지 않는다 — paymentStatus만으로 갈라야 취소된
+    //    주문이 키가 남아있다는 이유로 거짓 200을 돌려주는 경로가 생기지 않는다.
+    if (order.paymentStatus !== '결제대기') {
+      return respondForObservedState(order, paymentKey, orderId);
     }
 
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. '결제대기'→'승인중' 배타적 전이이므로
