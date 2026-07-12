@@ -259,7 +259,9 @@ const EXPIRED_PENDING_ORDERS_CAP = 100;
 
 /** 만료된 선점 주문 목록(카드결제 PENDING이 10분 내 승인/취소 콜백을 못 받은 건).
  *  cron이 순회하며 재고를 복원한다. listAllOrders(ORDERS_LIST_CAP)와 동일하게 배치 상한을
- *  둬 한 번의 cron 실행이 무제한 행을 끌어오지 않게 한다. */
+ *  둬 한 번의 cron 실행이 무제한 행을 끌어오지 않게 한다. expires_at 오름차순 정렬로 배치 상한이
+ *  걸릴 때 항상 가장 오래 만료된 건부터 결정적으로 처리한다(정렬 없으면 DB가 임의 순서로 잘라
+ *  같은 100건이 반복 누락될 수 있음). 재시도 횟수 추적/dead-letter 처리는 웹훅 후속 웨이브 스코프. */
 export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()
     .from('orders')
@@ -267,6 +269,7 @@ export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
     .eq('payment_status', '결제대기')
     .not('expires_at', 'is', null)
     .lt('expires_at', new Date().toISOString())
+    .order('expires_at', { ascending: true })
     .limit(EXPIRED_PENDING_ORDERS_CAP);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
