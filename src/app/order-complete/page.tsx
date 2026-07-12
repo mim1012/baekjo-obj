@@ -24,7 +24,7 @@ function clearPendingTossState(): void {
   }
 }
 
-type ConfirmIssueKind = 'pending' | 'declined' | 'expired' | 'delayed' | 'failed';
+type ConfirmIssueKind = 'pending' | 'declined' | 'expired' | 'delayed' | 'failed' | 'invalid';
 
 type LoadState =
   | { status: 'loading' }
@@ -64,6 +64,12 @@ const ISSUE_COPY: Record<ConfirmIssueKind, { title: string; desc: string; showRe
     title: '결제 확인에 실패했습니다',
     desc: '결제 확인 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.',
     showRetry: true,
+    showCheckoutLink: true,
+  },
+  invalid: {
+    title: '결제 확인 정보가 올바르지 않습니다',
+    desc: '결제 확인에 필요한 정보가 일부 누락되었습니다. 주문을 다시 진행해 주세요.',
+    showRetry: false,
     showCheckoutLink: true,
   },
 };
@@ -187,17 +193,111 @@ function ConfirmIssueBlock({ kind, onRetry }: { kind: ConfirmIssueKind; onRetry:
   );
 }
 
+/** performConfirm이 갱신하는 실행 상태 — 컴포넌트 리렌더와 무관하게 값을 들고 있어야 하는
+ * 것들이라 훅이 아니라 일반 ref 객체(useRef가 반환하는 {current} 모양과 구조적으로 호환)로
+ * 전달받는다. 모듈 최상위 함수라 React Compiler의 메모이제이션 분석 대상이 아니다. */
+interface ConfirmRefs {
+  isMountedRef: { current: boolean };
+  attemptRef: { current: number };
+  autoRetriedRef: { current: boolean };
+  autoRetryTimerRef: { current: ReturnType<typeof setTimeout> | null };
+  inFlightRef: { current: boolean };
+}
+
+/** 승인 확정의 단일 진입점 — 최초 자동 시도·자동 재시도(202/502)·수동 재시도가 전부 이 함수를
+ * 거친다(경합 정리 Codex #2). attemptId(세대 카운터)로 가장 최근 시도만 상태를 갱신하게 하고,
+ * inFlightRef로 동시 실행을 막는다. params는 호출 시점에 캡처한 값을 재시도에도 그대로 재사용한다
+ * — 재시도는 "같은 요청을 다시 확인"하는 것이지 쿼리를 다시 읽는 게 아니다. */
+async function performConfirm(
+  params: { paymentKey: string | null; orderId: string | null; amount: number },
+  refs: ConfirmRefs,
+  setState: (state: LoadState) => void,
+): Promise<void> {
+  if (refs.inFlightRef.current) return;
+  const { paymentKey, orderId, amount } = params;
+  if (!paymentKey || !orderId || !Number.isFinite(amount) || amount <= 0) {
+    if (refs.isMountedRef.current) setState({ status: 'confirm-issue', kind: 'invalid' });
+    return;
+  }
+
+  // 수동 재시도가 시작되면 예약돼 있던 자동 재시도 타이머는 취소한다(Codex #2 — 경합 정리).
+  if (refs.autoRetryTimerRef.current) {
+    clearTimeout(refs.autoRetryTimerRef.current);
+    refs.autoRetryTimerRef.current = null;
+  }
+
+  refs.inFlightRef.current = true;
+  const attemptId = ++refs.attemptRef.current;
+  if (refs.isMountedRef.current) setState({ status: 'confirming' });
+
+  try {
+    const result = await confirmTossPayment({ paymentKey, orderId, amount });
+    // 이 응답이 도착한 사이 더 최근 시도(수동 재시도 등)가 이미 시작됐으면 화면을 덮어쓰지 않는다.
+    if (!refs.isMountedRef.current || attemptId !== refs.attemptRef.current) return;
+
+    if (result.ok) {
+      clearPendingTossState();
+      const snapshot = await getLastOrder();
+      if (!refs.isMountedRef.current || attemptId !== refs.attemptRef.current) return;
+      setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
+      return;
+    }
+
+    const kind = classifyConfirmError(result.error);
+    setState({ status: 'confirm-issue', kind });
+
+    // 자동 재시도는 페이지당 최초 1회만. 202(확인중)는 몇 초 후, 502/네트워크성(지연)은 즉시.
+    if (!refs.autoRetriedRef.current && (kind === 'pending' || kind === 'delayed')) {
+      refs.autoRetriedRef.current = true;
+      if (kind === 'delayed') {
+        void performConfirm(params, refs, setState);
+        return;
+      }
+      refs.autoRetryTimerRef.current = setTimeout(() => {
+        refs.autoRetryTimerRef.current = null;
+        if (refs.isMountedRef.current && attemptId === refs.attemptRef.current) {
+          void performConfirm(params, refs, setState);
+        }
+      }, AUTO_RETRY_DELAY_MS);
+    }
+  } finally {
+    refs.inFlightRef.current = false;
+  }
+}
+
 function OrderCompleteInner() {
   const searchParams = useSearchParams();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
-  const ranRef = useRef(false);
-  const autoRetriedRef = useRef(false);
   const isMountedRef = useRef(true);
+  // 가장 최근에 시작한 승인 시도의 세대 번호(performConfirm이 증가시킨다).
+  const attemptRef = useRef(0);
+  // 페이지당 자동 재시도는 최초 1회만(수동 재시도는 이 예산과 무관하게 항상 허용).
+  const autoRetriedRef = useRef(false);
+  // 예약된 자동 재시도(202 몇 초 후)의 setTimeout 핸들 — 수동 재시도나 언마운트 시 취소한다.
+  const autoRetryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 같은 쿼리 조합에 대해 확정 로직을 중복 시작하지 않기 위한 마지막 처리 키(StrictMode 이중
+  // 마운트 방어 겸용). confirmKey가 실제로 바뀌면(다른 쿼리로 재진입) 새로 시작한다.
+  const lastKeyRef = useRef<string | null>(null);
+  // 동시 실행 방지 — 버튼은 'confirm-issue' 상태에서만 렌더돼 구조적으로도 in-flight 중엔 안
+  // 보이지만, 같은 틱에서의 중복 클릭까지 막는 동기 락(performConfirm 내부에서 검사).
+  const inFlightRef = useRef(false);
 
-  const paymentKey = searchParams.get('paymentKey');
-  const orderId = searchParams.get('orderId');
-  const amountParam = searchParams.get('amount');
-  const hasConfirmQuery = Boolean(paymentKey && orderId && amountParam);
+  const paymentKeyRaw = searchParams.get('paymentKey');
+  const orderIdRaw = searchParams.get('orderId');
+  const amountRaw = searchParams.get('amount');
+  const confirmKey = `${paymentKeyRaw ?? ''}|${orderIdRaw ?? ''}|${amountRaw ?? ''}`;
+
+  // 토스 파라미터가 "하나라도" 있으면 결제 리다이렉트로 간주한다 — 셋 다 있어야만 승인 경로로
+  // 들어가던 이전 로직은, 파라미터 일부가 누락되거나 빈 문자열인 부분 쿼리를 "쿼리 없음"으로
+  // 오인해 무통장 스냅샷(=정상 완료 화면)으로 조용히 흘려보내는 우회 경로가 있었다(HIGH).
+  const hasAnyTossParam = paymentKeyRaw !== null || orderIdRaw !== null || amountRaw !== null;
+  const parsedAmount = amountRaw ? Number(amountRaw) : NaN;
+  const hasValidConfirmQuery = Boolean(
+    paymentKeyRaw && orderIdRaw && amountRaw && Number.isFinite(parsedAmount) && parsedAmount > 0,
+  );
+  // 파라미터가 있긴 하지만 일부 누락·빈 문자열 — confirmTossPayment를 호출하지 않고 렌더에서
+  // 곧바로 에러 화면을 보여준다(effect의 setState 왕복 없이 순수 파생값으로 처리).
+  const showInvalidQuery = hasAnyTossParam && !hasValidConfirmQuery;
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -207,72 +307,52 @@ function OrderCompleteInner() {
   }, []);
 
   useEffect(() => {
-    // 승인 처리 1회 실행 가드 — StrictMode 이중 마운트 포함. 서버(confirm)는 멱등이지만
-    // 클라이언트가 같은 요청을 중복 발사하지 않도록 ref로 최초 1회만 진입시킨다.
-    if (ranRef.current) return;
-    ranRef.current = true;
+    // confirmKey(쿼리 조합) 단위 1회 가드 — 같은 키로는 StrictMode 이중 마운트를 포함해 재진입하지
+    // 않고, 키가 실제로 바뀌면(다른 orderId/paymentKey로 재방문) 상태를 리셋하고 새로 시작한다.
+    if (lastKeyRef.current === confirmKey) return;
+    lastKeyRef.current = confirmKey;
+    autoRetriedRef.current = false;
+    if (autoRetryTimerRef.current) {
+      clearTimeout(autoRetryTimerRef.current);
+      autoRetryTimerRef.current = null;
+    }
 
-    if (!hasConfirmQuery) {
+    if (showInvalidQuery) return; // 렌더가 직접 처리 — 비동기 작업 불필요.
+
+    if (!hasAnyTossParam) {
       getLastOrder().then((order) => {
         if (isMountedRef.current) setState({ status: 'ready', order });
       });
       return;
     }
 
-    void runConfirm();
+    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef, inFlightRef };
+    void performConfirm({ paymentKey: paymentKeyRaw, orderId: orderIdRaw, amount: parsedAmount }, refs, setState);
 
-    async function runConfirm() {
-      const amount = Number(amountParam);
-      if (!paymentKey || !orderId || !Number.isFinite(amount) || amount <= 0) {
-        if (isMountedRef.current) setState({ status: 'confirm-issue', kind: 'failed' });
-        return;
+    return () => {
+      if (autoRetryTimerRef.current) {
+        clearTimeout(autoRetryTimerRef.current);
+        autoRetryTimerRef.current = null;
       }
-
-      if (isMountedRef.current) setState({ status: 'confirming' });
-      const result = await confirmTossPayment({ paymentKey, orderId, amount });
-      if (!isMountedRef.current) return;
-
-      if (result.ok) {
-        clearPendingTossState();
-        const snapshot = await getLastOrder();
-        if (!isMountedRef.current) return;
-        setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
-        return;
-      }
-
-      const kind = classifyConfirmError(result.error);
-      setState({ status: 'confirm-issue', kind });
-
-      // 자동 재시도는 페이지당 최초 1회만. 202(확인중)는 몇 초 후, 502/네트워크성(지연)은 즉시.
-      if (!autoRetriedRef.current && (kind === 'pending' || kind === 'delayed')) {
-        autoRetriedRef.current = true;
-        if (kind === 'pending') {
-          await new Promise((resolve) => setTimeout(resolve, AUTO_RETRY_DELAY_MS));
-          if (!isMountedRef.current) return;
-        }
-        await runConfirm();
-      }
-    }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [confirmKey]);
 
   const handleManualRetry = () => {
-    if (state.status !== 'confirm-issue' || !paymentKey || !orderId || !amountParam) return;
-    const amount = Number(amountParam);
-    if (!Number.isFinite(amount) || amount <= 0) return;
-    setState({ status: 'confirming' });
-    confirmTossPayment({ paymentKey, orderId, amount }).then(async (result) => {
-      if (!isMountedRef.current) return;
-      if (result.ok) {
-        clearPendingTossState();
-        const snapshot = await getLastOrder();
-        if (!isMountedRef.current) return;
-        setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
-        return;
-      }
-      setState({ status: 'confirm-issue', kind: classifyConfirmError(result.error) });
-    });
+    if (state.status !== 'confirm-issue') return;
+    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef, inFlightRef };
+    void performConfirm({ paymentKey: paymentKeyRaw, orderId: orderIdRaw, amount: parsedAmount }, refs, setState);
   };
+
+  if (showInvalidQuery) {
+    return (
+      <div className="min-h-dvh bg-[#F4F2EC] py-20">
+        <div className="mx-auto max-w-2xl px-5">
+          <ConfirmIssueBlock kind="invalid" onRetry={handleManualRetry} />
+        </div>
+      </div>
+    );
+  }
 
   if (state.status === 'loading') return null;
 
