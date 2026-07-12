@@ -15,7 +15,7 @@ const CARRIERS = ['cj', 'hanjin', 'lotte', 'post', 'logen'] as const;
 const MAX_TRACKING = 100;
 const MAX_CARRIER = 40;
 
-/** 허용 필드(orderStatus/paymentStatus/deliveryStatus/trackingNumber)만 추려낸다. 하나도 없으면 null. */
+/** 허용 필드(orderStatus/paymentStatus/deliveryStatus/trackingNumber/carrier)만 추려낸다. 하나도 없으면 null. */
 function validate(body: unknown): OrderStatusUpdate | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
