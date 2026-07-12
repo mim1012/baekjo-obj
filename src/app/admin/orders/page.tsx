@@ -181,6 +181,7 @@ export default function AdminOrdersPage() {
             >
               <option>전체 상태</option>
               <option>결제대기</option>
+              <option>승인중</option>
               <option>결제완료</option>
               <option>결제취소</option>
               <option>환불완료</option>
@@ -265,11 +266,13 @@ export default function AdminOrdersPage() {
                         onChange={(e) => handleStatusChange(order.id, 'paymentStatus', e.target.value)}
                         className={`border border-gray-300 rounded-full px-3 py-1 text-xs font-medium focus:outline-none ${
                           order.paymentStatus === '결제대기' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                          order.paymentStatus === '승인중' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                           order.paymentStatus === '결제완료' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                           'bg-red-50 text-red-700 border-red-200'
                         }`}
                       >
                         <option value="결제대기">결제대기</option>
+                        <option value="승인중" disabled>승인중(자동)</option>
                         <option value="결제완료">결제완료</option>
                         <option value="결제취소">결제취소</option>
                         <option value="환불완료">환불완료</option>
