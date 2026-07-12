@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProductInquiries, answerProductInquiry, getAdminProducts, STORAGE_EVENTS } from '@/lib/storage';
+import { getCurrentUser, getProductInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
@@ -34,7 +34,13 @@ export default function AdminInquiriesPage() {
       return;
     }
     setUser(currentUser);
-    getAdminProducts().then(setProducts);
+    // /api/admin/products 는 requireAdmin() 전용 — partner 세션은 403(빈 배열)으로 조용히 깨진다.
+    // TODO(RBAC): partner는 자기 브랜드 상품 전용 인가 엔드포인트로 교체(현 단계 partner 계정 미운영 — 최소 안전 폴백).
+    if (currentUser.role === 'admin') {
+      getAdminProducts().then(setProducts);
+    } else {
+      getPublicProducts().then(setProducts);
+    }
 
     const allInquiries = getProductInquiries();
 

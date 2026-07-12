@@ -9,6 +9,7 @@ import {
   getMyInsuranceApplications,
   getWishlist,
   getPublicProducts,
+  getMyHistoryProducts,
   getProductReviewsByUser,
   addProductReview,
   updateProductReview,
@@ -77,7 +78,14 @@ function MypageContent() {
     // getMyOrders/getMyInsuranceApplications 는 세션 기준으로 이미 내 것만 반환한다.
     getMyOrders().then(setOrders);
     getMyInsuranceApplications().then(setInsuranceApps);
-    getPublicProducts().then(setProducts);
+    // 공개 상품(노출) + 과거 주문 이력 상품(비노출 포함)을 병렬 로드 후 id 기준 병합한다.
+    // 관리자가 상품을 숨겨도 이미 구매한 상품은 주문내역·구매평에서 계속 보여야 하므로
+    // history 쪽을 우선한다(같은 id 면 history 값으로 덮어씀).
+    Promise.all([getPublicProducts(), getMyHistoryProducts()]).then(([publicProducts, historyProducts]) => {
+      const merged = new Map(publicProducts.map((product) => [product.id, product]));
+      historyProducts.forEach((product) => merged.set(product.id, product));
+      setProducts(Array.from(merged.values()));
+    });
     setWishlist(getWishlist());
     setReviews(getProductReviewsByUser(currentUser.id));
     setInquiries(getProductInquiriesByUser(currentUser.id));

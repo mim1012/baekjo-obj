@@ -74,6 +74,10 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     };
   }, [product.id]);
 
+  // reviews 는 아래 본문에서 직접 읽지 않지만(항상 getProductReviewsByUser 로 최신값을
+  // 다시 조회), 리뷰 작성/삭제 시 이 effect 를 재실행시키는 신호로 deps 에 명시한다.
+  // orders 갱신에만 의존하면 리뷰만 바뀌고 orders 가 그대로일 때 writableItems 가
+  // stale 해지는 문제가 있었다(codex 지적).
   useEffect(() => {
     if (!user || !orders.length) {
       // user/orders 가 아직 없을 때 이전 값이 남지 않도록 초기화(dad 동작 보존,
@@ -103,7 +107,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     return () => {
       cancelled = true;
     };
-  }, [user, orders, product.id]);
+  }, [user, orders, product.id, reviews]);
 
   if (!isMounted) return null;
 

@@ -304,6 +304,23 @@ export async function getPublicProducts(filter?: {
   }
 }
 
+/**
+ * 내 과거 주문 이력에 등장한 상품(비노출 상품 포함). GET /api/orders/mine/products
+ * (세션 필요). 관리자가 상품을 숨겨도 이미 구매한 회원의 마이페이지에서는 상품명·
+ * 이미지가 계속 보여야 하므로 getPublicProducts 와 별도로 둔다. 실패·비로그인 시
+ * getMyOrders 와 동일하게 빈 배열.
+ */
+export async function getMyHistoryProducts(): Promise<Product[]> {
+  try {
+    const response = await fetch('/api/orders/mine/products');
+    if (!response.ok) return [];
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return [];
+  }
+}
+
 /** 단건 공개 상품. GET /api/products/[id]. 404·실패는 null. */
 export async function getPublicProductById(id: string): Promise<Product | null> {
   try {
