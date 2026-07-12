@@ -33,10 +33,14 @@ interface OrderRow {
   tracking_number: string | null;
   delivery_memo: string | null;
   created_at: string;
+  carrier: string | null;
+  payment_key: string | null;
+  paid_at: string | null;
+  expires_at: string | null;
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -61,6 +65,10 @@ function rowToRecord(row: OrderRow): OrderRecord {
     trackingNumber: row.tracking_number ?? undefined,
     deliveryMemo: row.delivery_memo ?? undefined,
     createdAt: row.created_at,
+    carrier: row.carrier ?? undefined,
+    paymentKey: row.payment_key ?? undefined,
+    paidAt: row.paid_at ?? undefined,
+    expiresAt: row.expires_at ?? undefined,
   };
 }
 
@@ -87,6 +95,10 @@ export async function insertOrder(
       delivery_status: input.deliveryStatus,
       tracking_number: input.trackingNumber ?? null,
       delivery_memo: input.deliveryMemo ?? null,
+      carrier: input.carrier ?? null,
+      payment_key: input.paymentKey ?? null,
+      paid_at: input.paidAt ?? null,
+      expires_at: input.expiresAt ?? null,
     })
     .select(SELECT_COLUMNS)
     .single();
@@ -147,7 +159,7 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
 
 /** 관리자 주문 상태 변경. 허용 필드만 반영한다(라우트에서 화이트리스트 검증됨). */
 export type OrderStatusUpdate = Partial<
-  Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber'>
+  Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
 >;
 
 export async function updateOrderStatus(id: string, updates: OrderStatusUpdate): Promise<void> {
@@ -156,8 +168,71 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
   if (updates.paymentStatus !== undefined) patch.payment_status = updates.paymentStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
   if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber ?? null;
+  if (updates.carrier !== undefined) patch.carrier = updates.carrier ?? null;
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await getSupabase().from('orders').update(patch).eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * 토스 결제 승인 확정. WHERE payment_status='결제대기' 조건으로 최초 1회만 성공시킨다
+ * (이중승인 방어 핵심 — 같은 paymentKey로 두 번 호출돼도 두 번째는 0행 매치).
+ * 반환값 = 영향받은 행 수. 1이면 이번 호출이 확정시킨 것, 0이면 이미 처리됨(idempotency 신호).
+ */
+export async function setOrderPaid(
+  id: string,
+  payment: { paymentKey: string; paidAt: string },
+): Promise<number> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update({
+      payment_status: '결제완료',
+      payment_key: payment.paymentKey,
+      paid_at: payment.paidAt,
+      order_status: '결제완료',
+    })
+    .eq('id', id)
+    .eq('payment_status', '결제대기')
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/** 주문 항목만큼 상품 재고를 원자적으로 복원(0023 마이그레이션 rpc, decrementStockForOrder의 대칭).
+ *  재고 부족 같은 실패 케이스가 없어 조건부 검증이 필요 없다 — 항상 성공한다. */
+export async function restoreStockForOrder(
+  items: Pick<OrderItem, 'productId' | 'quantity'>[],
+): Promise<void> {
+  const { error } = await getSupabase().rpc('restore_stock_for_order', {
+    p_items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+  });
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * 재고 선점 취소(결제 실패·이탈·만료). WHERE payment_status='결제대기'로 선점 중인 주문만
+ * 대상으로 삼아 이미 확정된 주문을 실수로 취소하지 않는다. 조건 불일치(이미 처리됨)는
+ * no-op으로 조용히 넘어간다 — 호출부(cancel 라우트·cron)가 멱등하게 재시도할 수 있게.
+ */
+export async function cancelOrderReservation(id: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from('orders')
+    .update({ order_status: '취소완료', payment_status: '결제취소' })
+    .eq('id', id)
+    .eq('payment_status', '결제대기');
+  if (error) throw error;
+}
+
+/** 만료된 선점 주문 목록(카드결제 PENDING이 10분 내 승인/취소 콜백을 못 받은 건).
+ *  cron이 순회하며 재고를 복원한다. */
+export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .select(SELECT_COLUMNS)
+    .eq('payment_status', '결제대기')
+    .not('expires_at', 'is', null)
+    .lt('expires_at', new Date().toISOString());
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
 }
