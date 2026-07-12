@@ -308,13 +308,17 @@ export async function confirmTossPayment(payment: {
 /**
  * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
  * 서버가 payment_status='결제대기'인 선점 주문만 대상으로 재고를 복원한다(확정건은 no-op).
+ * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
  */
 export async function cancelReservation(orderId: string): Promise<void> {
-  await fetch('/api/payments/cancel', {
+  const response = await fetch('/api/payments/cancel', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ orderId }),
   });
+  if (!response.ok) {
+    throw new Error('reservation-cancel-failed');
+  }
 }
 
 /* ── 상품 / 브랜드 ─────────────────────────────────────────

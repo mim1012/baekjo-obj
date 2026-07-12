@@ -72,8 +72,28 @@ function rowToRecord(row: OrderRow): OrderRecord {
   };
 }
 
-/** 주문 생성 입력. id/createdAt/memberId는 서버가 정하므로 여기서 받지 않는다(mass-assignment 차단). */
-export type InsertOrderInput = Omit<Order, 'id' | 'createdAt'>;
+/**
+ * 주문 생성 입력. id/createdAt/memberId는 서버가 정하므로 여기서 받지 않는다(mass-assignment 차단).
+ * Omit이 아니라 명시 Pick으로 좁힌다 — carrier/paymentKey/paidAt은 생성 시점엔 존재할 수 없는 값이라
+ * (택배 발송·결제 승인은 주문 생성 이후 이벤트) 여기 섞이면 "생성할 때부터 이미 결제됐다"는 위조 경로가
+ * 생긴다. carrier는 updateOrderStatus, paymentKey/paidAt은 setOrderPaid 전용 — 이 함수는 손대지 않는다.
+ */
+export type InsertOrderInput = Pick<
+  Order,
+  | 'customerName'
+  | 'phone'
+  | 'address'
+  | 'items'
+  | 'totalPrice'
+  | 'deliveryFee'
+  | 'paymentMethod'
+  | 'orderStatus'
+  | 'paymentStatus'
+  | 'deliveryStatus'
+  | 'trackingNumber'
+  | 'deliveryMemo'
+  | 'expiresAt'
+>;
 
 export async function insertOrder(
   input: InsertOrderInput,
@@ -95,9 +115,6 @@ export async function insertOrder(
       delivery_status: input.deliveryStatus,
       tracking_number: input.trackingNumber ?? null,
       delivery_memo: input.deliveryMemo ?? null,
-      carrier: input.carrier ?? null,
-      payment_key: input.paymentKey ?? null,
-      paid_at: input.paidAt ?? null,
       expires_at: input.expiresAt ?? null,
     })
     .select(SELECT_COLUMNS)
@@ -199,38 +216,44 @@ export async function setOrderPaid(
   return data?.length ?? 0;
 }
 
-/** 주문 항목만큼 상품 재고를 원자적으로 복원(0023 마이그레이션 rpc, decrementStockForOrder의 대칭).
- *  재고 부족 같은 실패 케이스가 없어 조건부 검증이 필요 없다 — 항상 성공한다. */
-export async function restoreStockForOrder(
-  items: Pick<OrderItem, 'productId' | 'quantity'>[],
-): Promise<void> {
-  const { error } = await getSupabase().rpc('restore_stock_for_order', {
-    p_items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+/**
+ * 재고 선점 취소 + 복원(결제 실패·이탈·만료). 0024 마이그레이션 rpc — 취소 UPDATE와
+ * restore_stock_for_order 호출이 **같은 DB 트랜잭션**으로 묶여 있어, 구버전의
+ * "cancelOrderReservation 먼저 → 반환 1일 때만 restoreStockForOrder" 2단계 호출 순서 계약이
+ * 통째로 필요 없어졌다. cancel 라우트와 만료 cron이 같은 주문을 동시에 집어도 트랜잭션
+ * 하나만 커밋되므로 이중 복원 자체가 구조적으로 불가능하다.
+ * 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리된 주문(확정/취소)이라 no-op.
+ * (구 cancelOrderReservation/restoreStockForOrder 2단계 함수는 이 함수로 대체돼 제거됨.)
+ */
+export async function cancelReservationAndRestore(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc('cancel_order_reservation_and_restore', {
+    p_order_id: id,
   });
   if (error) throw new Error(error.message);
+  return data === true;
 }
 
 /**
- * 재고 선점 취소(결제 실패·이탈·만료). WHERE payment_status='결제대기'로 선점 중인 주문만
- * 대상으로 삼아 이미 확정된 주문을 실수로 취소하지 않는다. setOrderPaid와 동일 패턴으로
- * 영향행수를 반환한다 — 이중 취소만이 아니라 **이중 복원까지** 막아야 하기 때문이다.
- *
- * ★호출 계약(반드시 지킬 것): 이 함수를 먼저 호출해 반환값이 1(이번 호출이 취소 승자)일
- * 때만 restoreStockForOrder를 실행한다. cancel 라우트와 만료 cron이 같은 주문을 동시에
- * 집으면 둘 다 조건부 UPDATE를 시도하지만 하나만 1행을 매치한다 — 그 승자만 재고를 복원해야
- * 재고가 2배로 복원되는 사고를 막는다. 순서를 뒤집어 restore를 먼저 실행하면 이 방어선이
- * 무력화된다(Wave 1 U6·U7 작업자 필독).
+ * 결제 승인 착수 선언(confirm 라우트가 토스 승인 API를 호출하기 **직전에** 반드시 호출).
+ * expires_at을 조건부로 연장해, 토스 API 응답을 기다리는 동안 만료 cron이 같은 주문을
+ * 먼저 집어 취소해버리는 경합을 차단한다(승인 중 크래시 창 보호).
+ * 반환 1 = 이번 호출이 선점을 갱신함(승인 진행 가능), 0 = 이미 취소·확정된 주문이라
+ * 토스 승인 API를 호출하면 안 된다(호출부는 409로 응답).
  */
-export async function cancelOrderReservation(id: string): Promise<number> {
+export async function claimOrderForConfirmation(id: string): Promise<number> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .update({ order_status: '취소완료', payment_status: '결제취소' })
+    .update({ expires_at: new Date(Date.now() + CLAIM_EXTENSION_MS).toISOString() })
     .eq('id', id)
     .eq('payment_status', '결제대기')
     .select('id');
   if (error) throw error;
   return data?.length ?? 0;
 }
+
+// claimOrderForConfirmation이 연장하는 선점 시간. 원래 선점 만료(10분)와 동일한 폭으로 둬
+// "승인 착수 = 처음부터 다시 10분 여유"로 통일한다(토스 API 왕복 지연을 흡수).
+const CLAIM_EXTENSION_MS = 10 * 60 * 1000;
 
 const EXPIRED_PENDING_ORDERS_CAP = 100;
 
