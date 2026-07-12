@@ -48,8 +48,10 @@ jobs:
         with:
           node-version: 22
 
+      # 환경 체계(2026-07-12): main push → prod DB, 그 외(integrate/**) push → staging DB.
+      # Vercel 도 동일 매핑: main=Production(prod DB) / Preview=staging DB.
       - name: Apply migrations (미적용만) + 검증
         run: node scripts/apply-migrations.mjs
         env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.SUPABASE_URL || secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
