@@ -31,6 +31,7 @@ export default function ProductDetailClient({ product }: Props) {
     setPrevProductId(product.id);
     setActiveImage(0);
     setQuantity(1);
+    setSelectedOption(product.options?.[0]?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
@@ -47,7 +48,9 @@ export default function ProductDetailClient({ product }: Props) {
   const optionPrice = currentOption?.priceDiff ?? currentOption?.price ?? 0;
 
   const finalPrice = basePrice + optionPrice;
-  const totalPrice = finalPrice * quantity;
+  // 표시·계산·핸들러 전달 수량 일원화 — stock 이 줄어도 화면과 담기는 값이 어긋나지 않게 클램프
+  const displayQty = Math.min(quantity, Math.max(1, product.stock));
+  const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
   // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
@@ -64,11 +67,10 @@ export default function ProductDetailClient({ product }: Props) {
       alert('일시 품절된 상품입니다.');
       return;
     }
-    const qty = Math.min(quantity, product.stock);
     addToCart({
       productId: product.id,
       optionId: selectedOption || undefined,
-      quantity: qty,
+      quantity: displayQty,
     });
     alert('장바구니에 담겼습니다.');
   };
@@ -83,11 +85,10 @@ export default function ProductDetailClient({ product }: Props) {
       alert('일시 품절된 상품입니다.');
       return;
     }
-    const qty = Math.min(quantity, product.stock);
     addToCart({
       productId: product.id,
       optionId: selectedOption || undefined,
-      quantity: qty,
+      quantity: displayQty,
     });
     router.push('/checkout');
   };
@@ -212,18 +213,18 @@ export default function ProductDetailClient({ product }: Props) {
             <button 
               type="button"
               aria-label="수량 줄이기"
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              onClick={() => setQuantity(Math.max(1, displayQty - 1))}
               className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
             >
               <Minus className="h-4 w-4" />
             </button>
             <span className="flex h-10 w-12 items-center justify-center text-sm font-semibold text-[#17211D] border-x border-[rgba(15,23,42,0.06)]">
-              {quantity}
+              {displayQty}
             </span>
             <button 
               type="button"
               aria-label="수량 늘리기"
-              onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+              onClick={() => setQuantity(Math.min(product.stock, displayQty + 1))}
               className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
             >
               <Plus className="h-4 w-4" />
