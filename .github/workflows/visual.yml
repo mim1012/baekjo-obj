@@ -1,0 +1,42 @@
+name: visual (골든플로우 시각 회귀)
+
+# Vercel Preview 배포가 성공한 시점에 그 배포 URL을 대상으로 시각 회귀(14장)를 돌린다.
+# 표현(마크업·스타일)이 병합에서 유실되면 픽셀 diff로 잡는 게이트 — AGENTS.md §8-1.
+# 베이스라인 갱신은 update-baselines.yml(라벨 `update-baselines` 또는 수동 dispatch).
+on:
+  deployment_status:
+
+jobs:
+  visual:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Preview'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual regression (vs baseline)
+        run: npx playwright test tests/golden/visual.spec.ts --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+
+      - name: Upload diff artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: test-results/
+          retention-days: 7

@@ -1,0 +1,7 @@
+# 표현(마크업·스타일) 파일 소유자 = dad (AGENTS.md §3).
+# mim은 이 파일들에 데이터 배선(import·props)만 얹는다 — 마크업·스타일 변경은 dad 리뷰 대상.
+# branch protection의 "Require review from Code Owners"를 켜야 실제 강제된다(§8-1).
+
+src/components/**          @dad041566-hue
+src/app/**/*Client.tsx     @dad041566-hue
+src/app/globals.css        @dad041566-hue

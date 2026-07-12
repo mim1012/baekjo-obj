@@ -1,0 +1,80 @@
+name: update-baselines (시각 회귀 베이스라인 갱신)
+
+# 의도된 디자인/콘텐츠 변경 시 베이스라인 스냅샷을 CI(Linux)에서 재생성해 브랜치에 커밋한다.
+# ⚠️ 베이스라인은 반드시 여기(Linux 러너)서 생성 — 로컬 Windows 스냅샷은 폰트 렌더 차이로 전부 오탐.
+# 트리거 2가지:
+#   1) PR에 `update-baselines` 라벨 부착 → PR 브랜치의 Preview 배포 URL을 자동 해석해 갱신·커밋
+#   2) 수동 dispatch(브랜치 선택 + base_url 입력)
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Vercel Preview URL (https://...)'
+        required: true
+  pull_request:
+    types: [labeled]
+
+jobs:
+  update:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.label.name == 'update-baselines'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve preview URL
+        id: preview
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          SHA="${{ github.event.pull_request.head.sha }}"
+          DEP=$(gh api "repos/${{ github.repository }}/deployments?sha=$SHA&per_page=5" --jq '.[0].id')
+          if [ -z "$DEP" ] || [ "$DEP" = "null" ]; then
+            echo "::error::이 커밋($SHA)의 Vercel Preview 배포를 찾지 못했습니다. 배포 완료 후 라벨을 다시 붙이세요."
+            exit 1
+          fi
+          URL=$(gh api "repos/${{ github.repository }}/deployments/$DEP/statuses" \
+            --jq '[.[] | select(.state=="success")][0].environment_url')
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "::error::Preview 배포($DEP)가 아직 success 상태가 아닙니다."
+            exit 1
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate baselines
+        run: npx playwright test tests/golden/visual.spec.ts --update-snapshots --reporter=line
+        env:
+          E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+
+      - name: Commit & push baselines
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tests/golden/visual.spec.ts-snapshots
+          if git diff --cached --quiet; then
+            echo "베이스라인 변경 없음 — 커밋 생략"
+          else
+            git commit -m "test(visual): 베이스라인 갱신 (CI Linux, ${{ steps.preview.outputs.url }})"
+            git push
+          fi

@@ -224,6 +224,18 @@ This version has breaking changes — APIs, conventions, and file structure may 
   3. **작업 시작 선언.** 통합 브랜치에 영향 주는 작업은 시작 전에 SESSION.md(또는 팀 채널)에
      "누가 · 어떤 파일/영역 · 어느 브랜치" 한 줄을 남긴다. 같은 파일이 겹치면 먼저 선언한 쪽 우선, 뒤쪽은 rebase 책임.
   4. **push 전 `git pull --rebase origin integrate/<name>`** — integrate에서도 main과 동일하게 적용.
+- ⭐ **병합·시각 회귀 프로토콜 (2026-07-12 — 드리프트 전수조사 사고의 재발 방지 게이트):**
+  1. **표현 파일 충돌 = 기계적 해소.** `*Client.tsx`·`src/components/**`·`globals.css` 병합 충돌은
+     **dad-side 채택 + 데이터 배선(import·props)만 재적용**하고, 병합 커밋에 "충돌 N개 전부 dad-side" 명기
+     (`b7e895e` 검증 패턴). mim의 역할은 표현 파일에 배선만 — 마크업·스타일 판단은 하지 않는다.
+  2. **시각 회귀 게이트.** `tests/golden/visual.spec.ts`가 골든플로우 7경로 × 데스크톱/모바일 = 14장을
+     Vercel Preview 배포 대상으로 픽셀 비교(`.github/workflows/visual.yml`, `deployment_status` 트리거).
+     표현 유실이 병합에 섞이면 사람 전수조사 없이 CI가 잡는다.
+  3. **베이스라인은 CI(Linux)에서만 생성.** 로컬 Windows 스냅샷은 폰트 렌더 차이로 전부 오탐 — 커밋 금지.
+     갱신 = PR에 `update-baselines` 라벨 부착 또는 `update-baselines.yml` 수동 dispatch(CI가 재생성·커밋).
+  4. **콘텐츠 변경 PR(재시드·썸네일 교체 등)은 베이스라인 갱신 커밋을 같은 PR에 포함.** DB가 화면의
+     진실 소스라 콘텐츠 변경도 화면을 바꾼다 — 안 넣으면 정상 재시드가 visual 빨간불로 오탐.
+  5. **표현 파일 소유권은 `.github/CODEOWNERS`(dad)로 명시.**
 - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소는 이관 완료.
 - **하드 강제(✅ 2026-07-12 적용, 같은 날 개정)**: `main` 보호 규칙 활성 — PR 필수 + `verify` required status check(strict) +
   force-push/삭제 차단 + **enforce_admins ON**(admin 포함 직접 push 불가).
