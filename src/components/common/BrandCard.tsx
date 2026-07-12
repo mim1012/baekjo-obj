@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
 
-type BrandCardVariant = 'default' | 'brand-page';
+type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
 interface Props {
   brand: Brand;
@@ -64,6 +64,37 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
               ? `등록 상품 ${linkedProductCount}개 · 둘러보기`
               : '브랜드 이야기 보기'}
             <ArrowRight className="size-3.5 text-[#A8742E] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+          </span>
+        </Link>
+      </article>
+    );
+  }
+
+  if (variant === 'care-related') {
+    return (
+      <article className="group flex flex-col rounded-2xl border border-[#DED8CC] bg-[#FFFDF9] p-5 md:p-6 transition-all duration-300 hover:border-[#B99562] hover:shadow-sm">
+        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none">
+          {/* Logo Stage */}
+          <div className="mb-5 flex h-[62px] w-full items-center justify-start rounded-xl border border-[#E7E1D7] bg-white p-3 md:h-[68px]">
+            <BrandLogo 
+              brand={brand} 
+              size="md" 
+              surface={false} 
+              className="!h-auto !w-auto !max-h-[38px] !max-w-[150px] object-contain md:!max-h-[42px] md:!max-w-[160px]"
+            />
+          </div>
+
+          <h3 className="mb-2 break-keep text-[18px] font-bold leading-[1.35] tracking-tight text-[#18231F] md:text-[20px]">
+            {brand.name}
+          </h3>
+          <p className="line-clamp-2 text-[14px] leading-[1.65] text-[#68716C]">
+            {brand.description}
+          </p>
+
+          {/* Bottom CTA */}
+          <span className="mt-auto pt-6 flex items-center gap-1.5 text-[14px] font-semibold text-[#18231F]">
+            브랜드 이야기 보기
+            <ArrowRight className="size-4 text-[#B99562] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
           </span>
         </Link>
       </article>
