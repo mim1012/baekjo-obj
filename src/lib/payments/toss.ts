@@ -6,6 +6,7 @@
  */
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
+const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
 
 export class TossConfirmError extends Error {
   constructor(
@@ -61,6 +62,47 @@ export async function confirmTossPayment(params: {
 
   if (!response.ok || !data) {
     throw new TossConfirmError(data?.message ?? 'toss-confirm-failed', data?.code ?? null, response.status);
+  }
+
+  return {
+    paymentKey: data.paymentKey,
+    orderId: data.orderId,
+    totalAmount: data.totalAmount,
+    status: data.status,
+  };
+}
+
+/**
+ * GET /v1/payments/{paymentKey} — 토스에 결제 실제 상태를 직접 재조회(권위 소스).
+ * reconcile cron(U6)·webhook(U5)이 페이로드/claim 시점 정보를 신뢰하지 않고 이 조회 결과로만
+ * 확정·취소를 판단한다. Basic 인증은 confirmTossPayment와 동일. 404(결제 없음)도 토스가 응답을
+ * 완료한 것이므로 TossConfirmError(httpStatus=404)로 던져 호출부가 "거절/미존재"와 "불명"을
+ * 구분할 수 있게 한다.
+ */
+export async function queryTossPayment(paymentKey: string): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`, {
+      method: 'GET',
+      headers: { Authorization: authHeader },
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | (TossConfirmResult & { code?: string; message?: string })
+    | null;
+
+  if (!response.ok || !data) {
+    throw new TossConfirmError(data?.message ?? 'toss-query-failed', data?.code ?? null, response.status);
   }
 
   return {
