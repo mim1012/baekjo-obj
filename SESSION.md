@@ -3,7 +3,15 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
-## 현재 상태 (2026-07-12 마감)
+## 현재 상태 (2026-07-12 2차 마감)
+- **main발 짧은 브랜치 체계 복귀 완료**: integrate/approval-and-design 소임 종료·삭제(PR #13). 이후 모든 작업이 main발 하루살이 브랜치 + PR로 진행됨(#14~#17 전부 당일 생성·머지·삭제).
+- **시각 회귀 게이트 가동(PR #14)**: `tests/golden/visual.spec.ts` 골든플로우 7경로×2뷰포트=14장, Vercel Preview `deployment_status` 트리거(`.github/workflows/visual.yml`), 베이스라인 갱신 = PR `update-baselines` 라벨(`update-baselines.yml`). `visual`이 main **required status check**(verify와 2중). 고의 훼손 실증: login 배경색 변경 → 정확히 2장 빨간불(diff 20%) → revert → green. dad 운영법: 디자인 PR 빨간불 = 정상, diff 확인 후 라벨 부착이 기준 갱신.
+- **§4-6 lint 기계 강제(PR #15)**: `no-restricted-imports`로 `@/data/products·brands` 컴포넌트 직접 import 에러 차단 + `.claude/**` ignore(로컬 lint 노이즈 3523건 해소).
+- **주문 재고 차감 가동(PR #16)**: 0021 `decrement_stock_for_order`(원자적 조건부 감소, staging·prod 모두 적용) + 주문가격 정적 카탈로그→DB 전환(admin 가격수정 미반영 잠복 drift 해소). 프리뷰 실측: 주문 시 재고 25→23, 초과 주문 409 out-of-stock·재고 불변. opus GREEN / codex 비차단.
+- **shop.spec 노후 해소(PR #17)**: '사료' 고정 라벨 → 구조 검증(카테고리 그룹 '전체' 외 ≥1). 카테고리 라벨은 admin 실시간 데이터라 고정 금지.
+- GitHub secrets 신규: `E2E_ADMIN_EMAIL/PASSWORD`(visual admin 촬영용), (선택 대기) `VERCEL_AUTOMATION_BYPASS`.
+
+## (이전 스냅샷) 현재 상태 (2026-07-12 마감)
 - **🎉 main 머지 완료**: PR #12(integrate/approval-and-design → main, ~80커밋) CI(verify×2·migrate·Vercel) 전부 초록 후 머지(`8b2d71a`). **프로덕션 카나리 PASS**: baekjo-obj.vercel.app에서 admin@naver.com 로그인 → /admin/products 진입 실구동 성공(12초), 상세 페이지 새 빌드(배지 제거·PurchaseInfo) 서빙 확인. main 보호 규칙 개정: 사람 리뷰 승인 요건 제거(승인 기준 = CI + §8-6 삼중검증, AGENTS.md `23ef524`).
 - **환경 3계층 분리 완료**: prod(main→baekjo-obj.vercel.app→`baekjo` DB) / stag(integrate·PR 프리뷰→`baekjo-staging` DB, 마이그레이션 0001~0020 클린 적용) / local(.env.local=staging). 센티널 로그인으로 프리뷰↔staging 배선 실증. **admin@naver.com/admin1234 3환경 전부 로그인 가능**(prod·stag DB 각각 계정 생성, Preview AUTH_SECRET 등록).
 - ⚠️ **후속 결정 필요**: integrate 브랜치 이제 소임 끝 — 다른 세션 사용 여부 확인 후 삭제하고 main발 짧은 브랜치 체계로 복귀. main 보호로 SESSION.md 갱신도 이제 PR 경유 필요(운영 방식 결정). 단 main 머지 이후 integrate에 docs·ci 커밋 5건(`eb471f5`~`17dd4e1`)이 쌓였으니 **다음 main PR에 함께 태울 것**.
@@ -15,7 +23,18 @@
 - **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
-## 다음 단계 (mim 액션 / 남은 것)
+## 다음 단계 (2026-07-12 2차 마감 기준)
+0. **⭐ dad 미통합 커밋 2개 통합(최우선)** — `dad-origin/feature/remove-audit-badges`의 `8d7f880`(A등급 필터 제거)·`1ce3b19`(리뷰·QnA·마이페이지 통합, 28파일 +3,577줄). ⚠️ **계약 파일 포함**(`types/index.ts` +79 / `storage.ts` +201 / `adapters.ts` 신설) — dad 브랜치는 DB 통합 이전 기반이라 storage 추가분은 목 방식일 가능성 높음. 통합 방식: **dad 마크업·섹션 배치 = 정본**(§8-1 표현 범위 확정 반영), 데이터 배선만 DB 콘센트로 재작업. 계약 변경은 §0-2 ② contract 레인으로 mim 확정. 신규 표면(리뷰·QnA)은 테이블/마이그레이션 신설 필요. 통합 후 visual 빨간불 → diff 확인 → `update-baselines` 라벨로 기준 갱신.
+1. **checkout 품절 UX** — `src/app/checkout/page.tsx:122` catch가 모든 에러를 일반 alert 처리. `storage.createOrder`가 이제 409→`Error('out-of-stock')`을 던지므로 품절 구분 문구 노출(dad behavior 레인, `fe/behavior-*`).
+2. **옵션 단위 재고 결정** — 0021은 `products.stock`(총재고)만 차감. `ProductOption.stock`은 미검사·미차감(기존 잠복 갭). 옵션 재고를 실 판매 단위로 쓸지 사용자/기획 결정 후 별도 rpc 확장.
+3. **주문+차감 단일 트랜잭션화(선택)** — 현 구조는 INSERT→RPC→실패 시 보상 DELETE(비원자, 크래시 창에서 유령 미결제 주문 가능·재고는 안전 방향). 견고화하려면 insert+decrement를 하나의 plpgsql 함수로. 결제 취소/타임아웃 시 재고 복원 경로도 이때 함께.
+4. purchase/admin.spec `test.fixme` 스텁 실구현. `tests/golden/__smoke-*-temp.spec.ts` 2개 삭제(세션 권한으로 삭제 불가였음 — 사용자가 직접 삭제 필요).
+5. **런칭 전 필수**: admin 비밀번호(prod·stag) 교체 + 리포 public 여부 결정 — SESSION.md·docs에 평문 자격증명 이력 있음(2026-07-12 사용자 결정: 런칭 전이라 보류).
+6. 인증 클러스터 재스타일(`#E9E7E0`·signup aside 삭제 등) dad 확인 / admin brands 상품설정 데드 버튼 / admin members 집계 3컬럼(이전 마감분 이월).
+7. (선택) Vercel Deployment Protection 재활성화 시 `VERCEL_AUTOMATION_BYPASS` secret 등록 — visual·update-baselines 워크플로는 이미 대응돼 있음.
+8. (선택) opus M5: visual.spec에 shop/brand-detail 콘텐츠 마스크 추가 — 재시드 잦아지면.
+
+## (이전) 다음 단계 (mim 액션 / 남은 것)
 -1. **프리뷰 스모크 잔여분**: ① ~~구매 완결 여정(#2)~~ **완주 PASS**(2026-07-12 — admin에서 p15 재고 25 입력·API 재검증 → 상세→장바구니→체크아웃→/order-complete). ② ~~#7 admin 자격증명~~ 해소. ③ `tests/golden/shop.spec.ts:20` 스펙 노후 — dad 리디자인이 카테고리를 라이프스타일 라벨('식사와 영양' 등)로 매핑해 '사료' 링크가 화면에 없음. **테스트 수정 = 결정 이벤트(사용자 확인 필요)**: 스펙을 새 라벨로 갱신할지 결정. ④ purchase/admin.spec은 `test.fixme` 스텁 — 실 구현 필요. ⑤ `tests/golden/__smoke-pdp-temp.spec.ts` 빈 껍데기 삭제(권한 정책으로 세션 내 삭제 불가였음).
 -0.5. **미결 후속(이번 리뷰에서 비차단 판정)**: ⓪ **주문이 재고를 차감하지 않음**(구매 후 p15 stock 25 그대로 — createOrder에 차감 로직 없음, 설계 결정 필요: 차감 시점·동시성) ⓪-2 재고 저장 직후 수 초간 상세가 구값(품절) 렌더되는 순간 관찰(force-dynamic인데도 — repo/엣지 캐시 반영 지연 추정, 재현 불명확·비차단) ① 옵션 재고 미게이트(상품 stock만 보고 ProductOption.stock 무시 — Opus MEDIUM, 기존 잠복 갭. 스모크에서도 옵션 재고 전부 0인데 구매 진행됨 확인) ② admin brands 상품설정 버튼 onClick 소실(데드 버튼) ③ admin members 집계 3컬럼 축소 사용자 확인 ④ 인증 클러스터 재스타일·`#E9E7E0`·signup aside 삭제·업체폼 임시저장 소실 — dad 확인 필요(드리프트 조사 심각 1건).
 0. **[새 세션 예약] 드리프트 사전 차단 게이트 구축** — 브랜치 `chore/visual-regression-gate`(목적 1개), 산출물 2개:
@@ -63,6 +82,12 @@
 - 2026-07-12 **골든플로우 #2 구매 여정 완주 PASS(스테이징 프리뷰)**: admin UI로 p15 재고 25 입력(모달 저장 → GET /api/products/p15 로 stock:25 재검증) → /shop/p15 품절 해제 → 장바구니 → /checkout 폼 → **/order-complete 도달**. #7 admin CRUD(수정 모달 실사용)도 동일 런에서 검증됨. 관찰 2건(비차단): 주문이 stock 미차감(설계 결정 필요), 재고 저장 직후 수 초 구값 렌더 순간 — 다음 단계 -0.5에 등재.
 - 2026-07-12 재고 데이터 흐름 확정: Product.stock은 type·repo·DB에 전부 있었으나 **admin 폼만 미배선**(stock:0 하드코딩)이었음 → 입력 추가로 체인 완성. 레거시 null stock 상품은 edit 시 빈 입력→저장 시 0 정규화로 품절 고착 해제 가능(Codex 확인). 재고 게이트와 admin 입력은 같은 배치 배포 필수(단독 게이트 배포 시 신규상품 영구 품절).
 
+- 2026-07-12 **(2차) "표현"의 범위 사용자 확정**: 색상·뱃지·텍스트 방식 + **섹션별 위치·배치·순서까지 dad 기준** — AGENTS.md §8-1 병합 프로토콜 1항에 명문화. 백엔드 배선 중 섹션 이동/순서 변경도 표현 변경.
+- 2026-07-12 **(2차) 재고 차감 방식 사용자 결정**: 주문 생성 시 원자적 조건부 감소(0021). 옵션 단위 재고는 미차감(기존 갭, 별도 결정 대기). shop.spec은 새 화면 기준 갱신 결정 → 라벨이 admin 실시간 데이터라 구조 검증으로 구현.
+- 2026-07-12 **(2차) 공개 리포 자격증명 노출 = 런칭 전 보류(사용자 결정)**: SESSION.md 등에 admin 평문 자격증명 이력 존재. 런칭 전 비밀번호 교체 + 공개범위 결정 필수(다음 단계 5).
+- 2026-07-12 **(2차) 교훈 — PostgrestError 처리**: supabase-js rpc 에러를 그대로 throw하면 라우트의 `instanceof Error`/`String()` 검사에서 메시지가 유실된다(프리뷰 실측: 재고부족이 409 대신 500). repo 계층에서 `new Error(error.message)`로 감싸는 게 정석. 소스 정적 분석(codex "extends Error라 문제없음")과 실측이 갈렸고 **실측이 정본**.
+- 2026-07-12 **(2차) 교훈 — Vercel Preview에서 Playwright `networkidle` 금지**: 프리뷰 툴바 웹소켓이 상시 연결이라 idle이 영원히 안 옴(14/14 타임아웃 실측). `load` + 고정 정착 대기 사용.
+
 ## 파일 흔적 (추가만)
 - 커밋(브랜치 `integrate/approval-and-design`): `4f9f1b9` 홈·헤더 / `f0a0eb8` 0원+업체필터 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`·`23189c2` CategorySettings(+fix) / `040cf2f` survey+게이트 / `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 로그인 가드+하드코딩 제거.
 - 마이그레이션: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(전부 실 DB 적용됨).
@@ -70,4 +95,7 @@
 - Playwright: `playwright.config.ts`, `tests/golden/{home,shop,diagnosis,insurance}.spec.ts`(프리뷰 4/4 PASS). 프리뷰 URL alias: `baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app`.
 - 콘센트 추가: `storage.ts`의 getAdminMembers/insurance·survey·kits·partners·qna get/save. repo: `src/lib/{insurance,settings,categorySettings,survey,kits,partners,qna}/`.
 - SSOT: `AGENTS.md`(§3 분리기준·데이터오너십 / §4-6 lint강제 / §8-6 검증게이트).
+- (2차 마감) main 머지 PR 5건: `#13`(1ccca8c, integrate 잔여 docs/ci) / `#14`(2f4ed45, 시각 회귀 게이트: `.github/CODEOWNERS`·`.github/workflows/{visual,update-baselines}.yml`·`tests/golden/visual.spec.ts`+스냅샷14장·AGENTS §8-1) / `#15`(0d4a138, `eslint.config.mjs` no-restricted-imports+.claude ignore·AGENTS §0-1-1) / `#16`(33f62c2, `supabase/migrations/0021_decrement_stock_for_order.sql`·`src/app/api/orders/route.ts`·`src/lib/{orders,products}/repo.ts`·`src/lib/storage.ts` 409 분기) / `#17`(8ce12d7, `tests/golden/shop.spec.ts` 구조 검증화). 브랜치 전부 하루살이로 삭제.
+- (2차 마감) 보호 규칙: main required checks = `verify`+`visual`(strict). GitHub secrets 추가: `E2E_ADMIN_EMAIL`·`E2E_ADMIN_PASSWORD`. 라벨 신설: `update-baselines`.
+- (2차 마감) 0021 적용: staging(로컬 러너 `scripts/apply-migrations.mjs` — CI migrate가 be/* push에 안 도는 갭 때문) + prod(main push CI). ⚠️ CI migrate 갭: be/* 브랜치 마이그레이션은 머지 전 staging 수동 적용 필요(또는 ci.yml 분기 확장 검토).
 - 상품상세 배치(2026-07-12, push `1291f8a..e3e1518`): `src/components/shop/ProductDetailClient.tsx` 8커밋 `68d5b09`(배지 제거)→`e2075a7`(갤러리 배선)→`c8cd729`(§6 토큰)→`c002215`(재고 게이트)→`f1c8f42`·`b90fd63`·`2eb32a1`·`c7d9e2a`(Codex findings 픽스 4연) / `src/app/shop/[id]/page.tsx`+`src/app/admin/products/page.tsx` 3커밋 `25a0af9`(PurchaseInfo 재배치)→`17fad71`(admin stock 입력)→`16ddfaa`(음수·소수 클램프) / 머지커밋 `e3e1518`. 작업 브랜치 `fe/design-product-detail-wiring`·`be/product-detail-server`는 머지 후 삭제(하루살이 규칙).

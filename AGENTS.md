@@ -234,6 +234,9 @@ This version has breaking changes — APIs, conventions, and file structure may 
   1. **표현 파일 충돌 = 기계적 해소.** `*Client.tsx`·`src/components/**`·`globals.css` 병합 충돌은
      **dad-side 채택 + 데이터 배선(import·props)만 재적용**하고, 병합 커밋에 "충돌 N개 전부 dad-side" 명기
      (`b7e895e` 검증 패턴). mim의 역할은 표현 파일에 배선만 — 마크업·스타일 판단은 하지 않는다.
+     **"표현"의 범위(2026-07-12 사용자 확정): 색상·뱃지·텍스트 표기 방식뿐 아니라 섹션별 위치·배치·순서
+     (페이지 내 레이아웃 구조)까지 전부 dad 기준이다.** 백엔드 배선 중 섹션을 옮기거나 순서를 바꾸는 것도
+     표현 변경이며 dad 정본을 따른다.
   2. **시각 회귀 게이트.** `tests/golden/visual.spec.ts`가 골든플로우 7경로 × 데스크톱/모바일 = 14장을
      Vercel Preview 배포 대상으로 픽셀 비교(`.github/workflows/visual.yml`, `deployment_status` 트리거).
      표현 유실이 병합에 섞이면 사람 전수조사 없이 CI가 잡는다.
