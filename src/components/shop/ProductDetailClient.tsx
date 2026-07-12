@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star, Check } from 'lucide-react';
+import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
@@ -90,20 +90,6 @@ export default function ProductDetailClient({ product }: Props) {
       <div className="w-full lg:w-1/2 flex flex-col pt-2">
         <div className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">{brandName}</div>
         <h1 className="text-3xl font-bold text-[#17211D] tracking-tight text-balance leading-tight">{product.name}</h1>
-        
-        {/* Compact Audit Summary */}
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 rounded-sm bg-[#1D3E2F] px-2 py-1 text-[11px] font-bold text-white">
-            <Check className="size-3" />
-            Audit 통과
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-sm border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] px-2 py-1 text-[11px] font-medium text-[#334155]">
-            유해 성분 0%
-          </span>
-          <span className="inline-flex items-center gap-1 rounded-sm border border-[rgba(15,23,42,0.08)] bg-[#FBFAF7] px-2 py-1 text-[11px] font-medium text-[#334155]">
-            제조 시설 최고 등급
-          </span>
-        </div>
 
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
           <Star className="size-4 fill-[#17211D]" />
