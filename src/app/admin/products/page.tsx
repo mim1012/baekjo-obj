@@ -19,9 +19,10 @@ interface ProductFormState {
   category: string;
   lifestyleCategory: string;
   price: string;
+  stock: string;
 }
 
-const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '' };
+const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '', stock: '' };
 
 export default function AdminProductsDashboard() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
@@ -166,6 +167,7 @@ export default function AdminProductsDashboard() {
       category: activeGroup === 'product' && activeCategory ? activeCategory : (productCats[0] ?? ''),
       lifestyleCategory: activeGroup === 'lifestyle' && activeCategory ? activeCategory : '',
       price: '',
+      stock: '',
     });
     setEditingProduct(null);
     setIsAddingProduct(true);
@@ -178,6 +180,7 @@ export default function AdminProductsDashboard() {
       category: product.category,
       lifestyleCategory: product.lifestyleCategory ?? '',
       price: product.price !== null && product.price !== undefined ? String(product.price) : '',
+      stock: product.stock !== null && product.stock !== undefined ? String(product.stock) : '',
     });
     setEditingProduct(product);
     setIsAddingProduct(true);
@@ -208,6 +211,8 @@ export default function AdminProductsDashboard() {
     setSaving(true);
     const brandName = brands.find((b) => b.id === form.brandId)?.name;
     const price = form.price.trim() ? Number(form.price) : null;
+    const parsedStock = Number(form.stock.trim());
+    const stock = Number.isFinite(parsedStock) ? Math.max(0, Math.trunc(parsedStock)) : 0;
 
     if (editingProduct) {
       const { product, error } = await updateProduct(editingProduct.id, {
@@ -217,6 +222,7 @@ export default function AdminProductsDashboard() {
         category: form.category,
         lifestyleCategory: form.lifestyleCategory || form.category,
         price,
+        stock,
       });
       setSaving(false);
       if (error || !product) {
@@ -242,7 +248,7 @@ export default function AdminProductsDashboard() {
       ageGroup: 'all',
       // 이미지 업로드는 이번 범위 밖 — 플레이스홀더 아이콘으로 등록 후 추후 교체.
       image: '/images/icon-product.svg',
-      stock: 0,
+      stock,
       description: form.name.trim(),
       isBest: false,
       isRecommended: false,
@@ -578,6 +584,18 @@ export default function AdminProductsDashboard() {
                       onChange={(e) => setForm({ ...form, price: e.target.value })}
                       className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
                       placeholder="예: 32000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">재고</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={form.stock}
+                      onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
+                      placeholder="예: 100"
                     />
                   </div>
                 </div>

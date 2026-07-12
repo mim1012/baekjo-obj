@@ -12,6 +12,7 @@ import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
+import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
 import { formatDate } from '@/lib/format';
 
 const defaultRecommendations = [
@@ -157,6 +158,8 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               </div>
             </div>
           </section>
+
+          <ProductPurchaseInfo product={product} />
 
           <section id="standard" className="scroll-mt-36">
             <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-[#202521] p-7 text-[#FBFAF7] sm:p-10">
