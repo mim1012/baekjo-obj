@@ -258,7 +258,17 @@ export interface User {
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
+  insuranceCompany?: string;
+  insuranceRegNumber?: string;
+  activityArea?: string;
+  specialty?: string;
+  attachedFiles?: string[];
   rejectReason?: string;
+  b2bData?: Record<string, unknown>;
+  insuranceData?: Record<string, unknown>;
+  partnerData?: Record<string, unknown>;
+  /** 입점업체(partner)가 관리하는 브랜드 ID 목록 */
+  managedBrandIds?: string[];
   signupData?: Record<string, unknown>;
 }
 
@@ -276,6 +286,84 @@ export interface QnA {
   answeredAt?: string;
   isVisible?: boolean;
 }
+
+/* ── 사용자 작성 구매평 ───────────────────────── */
+export interface ProductReview {
+  id: string;
+  userId: string;
+  orderId: string;
+  /** OrderItem 고유 id 도입 시 채움 — 현재는 reviewTargetKey(주문+상품+옵션)로 유일성을 보장한다. */
+  orderItemId?: string;
+  /** 중복 방지용 복합 키: `${orderId}:${productId}:${optionName ?? 'default'}` */
+  reviewTargetKey: string;
+  productId: string;
+  brandId: string;
+  rating: number;
+  title?: string;
+  content: string;
+  status: 'published' | 'hidden';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ── 사용자 작성 상품문의 ─────────────────────── */
+export interface ProductInquiry {
+  id: string;
+  userId: string;
+  productId: string;
+  brandId: string;
+  title: string;
+  content: string;
+  isSecret?: boolean;
+  status: 'waiting' | 'answered';
+  answer?: string;
+  answeredBy?: string;
+  answeredAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ── 통합 구매평 뷰 어댑터 ───────────────────── */
+export type ReviewViewItem = {
+  id: string;
+  source: 'seed' | 'user';
+  productId: string;
+  brandId?: string;
+  userId?: string;
+  rating: number;
+  title?: string;
+  content: string;
+  createdAt: string;
+  status?: 'published' | 'hidden';
+  editable: boolean;
+  /** 시드 리뷰 전용 */
+  breed?: string;
+  age?: string;
+  usePeriod?: string;
+  image?: string;
+  isPhotoReview?: boolean;
+  isBest?: boolean;
+};
+
+/* ── 통합 문의 뷰 어댑터 ─────────────────────── */
+export type InquiryViewItem = {
+  id: string;
+  source: 'seed' | 'user';
+  productId: string;
+  brandId?: string;
+  userId?: string;
+  title?: string;
+  question?: string;
+  content: string;
+  answer?: string;
+  answeredBy?: string;
+  answeredAt?: string;
+  status: 'waiting' | 'answered';
+  isSecret?: boolean;
+  writerName?: string;
+  createdAt: string;
+  editable: boolean;
+};
 
 /* ── 라이프스타일 카테고리 ─────────────────── */
 export interface LifestyleCategory {

@@ -161,14 +161,20 @@ export async function listAllProductsForAdmin(): Promise<Product[]> {
   return listProducts({ visibleOnly: false });
 }
 
-/** 주문 검증용 다건 조회(공개 상품만). 존재하지 않는 id는 결과에서 빠지므로 호출부가 개수를 대조한다. */
-export async function listProductsByIds(ids: string[]): Promise<Product[]> {
+/**
+ * 다건 조회. 기본은 공개 상품만(주문 검증용). 존재하지 않는 id는 결과에서 빠지므로
+ * 호출부가 개수를 대조한다. includeHidden: true 는 "본인 소유 주문에 등장한 상품"처럼
+ * 인가가 이미 다른 기준(소유권)으로 확보된 곳에서만 사용한다 — 비노출 상품을 일반
+ * 공개 목록에 노출하는 용도가 아니다.
+ */
+export async function listProductsByIds(
+  ids: string[],
+  opts: { includeHidden?: boolean } = {},
+): Promise<Product[]> {
   if (ids.length === 0) return [];
-  const { data, error } = await getSupabase()
-    .from('products')
-    .select(SELECT_COLUMNS)
-    .in('id', ids)
-    .eq('is_visible', true);
+  let query = getSupabase().from('products').select(SELECT_COLUMNS).in('id', ids);
+  if (!opts.includeHidden) query = query.eq('is_visible', true);
+  const { data, error } = await query;
   if (error) throw error;
   return (data as ProductRow[]).map(rowToProduct);
 }

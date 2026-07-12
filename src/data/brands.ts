@@ -19,6 +19,7 @@ export const brands: Brand[] = [
       '소분 또는 샘플 형태 구매 흐름에 적합',
       '보호자가 급여 반응을 확인하기 쉬운 제품 구조'
     ],
+    // DB(brands.audit_report)에만 있던 실데이터를 정본에 백포트 (2026-07-13, drift 해소)
     auditReport: {
       reportNo: 'BOA-2026-004',
       auditedAt: '2026.06',

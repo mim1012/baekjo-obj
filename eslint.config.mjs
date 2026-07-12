@@ -15,7 +15,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   {
-    files: ["src/components/**/*.{js,jsx,ts,tsx}", "src/app/**/*Client.{js,jsx,ts,tsx}"],
+    // page.tsx·비-Client 파일명이 규칙을 우회하던 사각지대 봉합(2026-07-13 opus 리뷰 H1).
+    // 서버 wrapper도 @/data/products·brands 는 repo 경유가 원칙이라 예외가 필요 없다.
+    files: ["src/app/**/*.{js,jsx,ts,tsx}", "src/components/**/*.{js,jsx,ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",

@@ -297,13 +297,31 @@ export async function confirmTossPayment(payment: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payment),
     });
-    if (!response.ok) {
+    // 200(진짜 승인 확정)만 성공으로 본다 — 202(payment-confirming)는 response.ok 범위(200-299)에
+    // 들어가지만 바디에 order가 없어(라우트가 {error:'payment-confirming'}만 반환) ok:true로
+    // 잘못 흡수되면 호출부가 undefined order를 승인완료로 오인한다. 실패/확인중 응답은 바디의
+    // error 코드를 그대로 전달해 호출부가 402/409/502/'payment-confirming' 등을 구분하게 한다.
+    // 서버가 error 필드를 안 준 경우(예상 밖 응답 형태)에만 폴백한다. 502/503은 라우트 자체가
+    // 아니라 그 앞단 인프라(Vercel/프록시 게이트웨이)가 논-JSON 에러 페이지를 내려줄 수 있어,
+    // 그런 경우엔 라우트가 원래 의도하는 'payment-unconfirmed'(재시도 가능·취소 안 함)로
+    // 매핑해 완전히 낯선 502/503까지 거부성 실패로 잘못 분류되지 않게 한다.
+    if (response.status !== 200) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (body?.error) {
+        return { ok: false, error: body.error };
+      }
+      if (response.status === 502 || response.status === 503) {
+        return { ok: false, error: 'payment-unconfirmed' };
+      }
       return { ok: false, error: 'payment-confirm-failed' };
     }
     const { order } = (await response.json()) as { order: ConfirmedOrderSummary };
     return { ok: true, order };
   } catch {
-    return { ok: false, error: 'payment-confirm-failed' };
+    // fetch 자체가 throw(오프라인·CORS·타임아웃 등) — 서버가 뭘 했는지 전혀 알 수 없는 네트워크
+    // 예외다. 'payment-confirm-failed'(거부성 실패)와 구분해 호출부가 502(불명·재시도 가능)와
+    // 같은 "지연" UX로 흡수하도록 별도 코드로 반환한다.
+    return { ok: false, error: 'network' };
   }
 }
 
@@ -342,6 +360,23 @@ export async function getPublicProducts(filter?: {
     if (filter?.petType) params.set('petType', filter.petType);
     const query = params.toString();
     const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
+    if (!response.ok) return [];
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 내 과거 주문 이력에 등장한 상품(비노출 상품 포함). GET /api/orders/mine/products
+ * (세션 필요). 관리자가 상품을 숨겨도 이미 구매한 회원의 마이페이지에서는 상품명·
+ * 이미지가 계속 보여야 하므로 getPublicProducts 와 별도로 둔다. 실패·비로그인 시
+ * getMyOrders 와 동일하게 빈 배열.
+ */
+export async function getMyHistoryProducts(): Promise<Product[]> {
+  try {
+    const response = await fetch('/api/orders/mine/products');
     if (!response.ok) return [];
     const { products } = (await response.json()) as { products: Product[] };
     return products;
@@ -926,4 +961,205 @@ export function isLoggedIn(): boolean {
 
 export function isAdmin(): boolean {
   return getCurrentUser()?.role === 'admin';
+}
+
+/* ── 공통 유틸 ─────────────────────────────────── */
+
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** 주문상품의 안정적인 복합 키 생성 (OrderItem에 고유 id가 없으므로) */
+export function buildReviewTargetKey(
+  orderId: string,
+  productId: string,
+  optionName?: string,
+): string {
+  return `${orderId}:${productId}:${optionName ?? 'default'}`;
+}
+
+/** 입점업체 브랜드 관리 권한 확인 (목업 수준) */
+export function canManageBrand(user: User, brandId: string): boolean {
+  if (user.role === 'admin') return true;
+  return user.role === 'partner' && (user.managedBrandIds?.includes(brandId) ?? false);
+}
+
+/* ── localStorage 같은 탭 동기화 ─────────────── */
+
+export const STORAGE_EVENTS = {
+  REVIEWS_CHANGED: 'product-reviews-changed',
+  INQUIRIES_CHANGED: 'product-inquiries-changed',
+} as const;
+
+function emitStorageEvent(eventName: string): void {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(eventName));
+  }
+}
+
+/* ── 사용자 작성 구매평 CRUD ─────────────────── */
+
+import type { ProductReview, ProductInquiry } from '@/types';
+
+const PRODUCT_REVIEWS_KEY = 'baekjo_product_reviews';
+
+export function getProductReviews(): ProductReview[] {
+  return getJSON<ProductReview[]>(PRODUCT_REVIEWS_KEY, []);
+}
+
+export function getProductReviewsByProduct(productId: string): ProductReview[] {
+  return getProductReviews().filter((r) => r.productId === productId);
+}
+
+export function getProductReviewsByUser(userId: string): ProductReview[] {
+  return getProductReviews().filter((r) => r.userId === userId);
+}
+
+export function getProductReviewByOrderItem(reviewTargetKey: string): ProductReview | undefined {
+  return getProductReviews().find((r) => r.reviewTargetKey === reviewTargetKey);
+}
+
+export function addProductReview(
+  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
+): ProductReview {
+  const list = getProductReviews();
+
+  // 중복 검증
+  const duplicated = list.some(
+    (r) => r.userId === input.userId && r.reviewTargetKey === input.reviewTargetKey,
+  );
+  if (duplicated) {
+    throw new Error('이미 구매평을 작성한 주문상품입니다.');
+  }
+
+  const now = new Date().toISOString();
+  const review: ProductReview = {
+    ...input,
+    id: `pr-${generateId()}`,
+    status: 'published',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  list.push(review);
+  setJSON(PRODUCT_REVIEWS_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
+  return review;
+}
+
+export function updateProductReview(
+  id: string,
+  userId: string,
+  updates: Partial<Pick<ProductReview, 'rating' | 'title' | 'content'>>,
+): void {
+  const list = getProductReviews();
+  const item = list.find((r) => r.id === id && r.userId === userId);
+  if (!item) return;
+  Object.assign(item, updates, { updatedAt: new Date().toISOString() });
+  setJSON(PRODUCT_REVIEWS_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
+}
+
+export function deleteProductReview(id: string, userId: string): void {
+  const list = getProductReviews();
+  const idx = list.findIndex((r) => r.id === id && r.userId === userId);
+  if (idx < 0) return;
+  list.splice(idx, 1);
+  setJSON(PRODUCT_REVIEWS_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
+}
+
+/** 관리자 전용 — 노출 상태 변경 */
+export function setProductReviewStatus(id: string, status: 'published' | 'hidden'): void {
+  const list = getProductReviews();
+  const item = list.find((r) => r.id === id);
+  if (!item) return;
+  item.status = status;
+  item.updatedAt = new Date().toISOString();
+  setJSON(PRODUCT_REVIEWS_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
+}
+
+/* ── 사용자 작성 상품문의 CRUD ───────────────── */
+
+const PRODUCT_INQUIRIES_KEY = 'baekjo_product_inquiries';
+
+export function getProductInquiries(): ProductInquiry[] {
+  return getJSON<ProductInquiry[]>(PRODUCT_INQUIRIES_KEY, []);
+}
+
+export function getProductInquiriesByProduct(productId: string): ProductInquiry[] {
+  return getProductInquiries().filter((i) => i.productId === productId);
+}
+
+export function getProductInquiriesByUser(userId: string): ProductInquiry[] {
+  return getProductInquiries().filter((i) => i.userId === userId);
+}
+
+export function getProductInquiriesByBrand(brandId: string): ProductInquiry[] {
+  return getProductInquiries().filter((i) => i.brandId === brandId);
+}
+
+export function addProductInquiry(
+  input: Omit<ProductInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
+): ProductInquiry {
+  const now = new Date().toISOString();
+  const inquiry: ProductInquiry = {
+    ...input,
+    id: `pi-${generateId()}`,
+    status: 'waiting',
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const list = getProductInquiries();
+  list.push(inquiry);
+  setJSON(PRODUCT_INQUIRIES_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+  return inquiry;
+}
+
+export function updateProductInquiry(
+  id: string,
+  userId: string,
+  updates: Partial<Pick<ProductInquiry, 'title' | 'content' | 'isSecret'>>,
+): void {
+  const list = getProductInquiries();
+  const item = list.find((i) => i.id === id && i.userId === userId);
+  if (!item) return;
+  // 답변 완료 후 수정 불가
+  if (item.status === 'answered') return;
+  Object.assign(item, updates, { updatedAt: new Date().toISOString() });
+  setJSON(PRODUCT_INQUIRIES_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+}
+
+export function deleteProductInquiry(id: string, userId: string): void {
+  const list = getProductInquiries();
+  const idx = list.findIndex((i) => i.id === id && i.userId === userId);
+  if (idx < 0) return;
+  list.splice(idx, 1);
+  setJSON(PRODUCT_INQUIRIES_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+}
+
+/** 관리자 또는 브랜드 담당자 — 답변 작성/수정 */
+export function answerProductInquiry(
+  id: string,
+  answer: string,
+  answeredBy: string,
+): void {
+  const list = getProductInquiries();
+  const item = list.find((i) => i.id === id);
+  if (!item) return;
+  item.answer = answer;
+  item.answeredBy = answeredBy;
+  item.answeredAt = new Date().toISOString();
+  item.status = 'answered';
+  item.updatedAt = new Date().toISOString();
+  setJSON(PRODUCT_INQUIRIES_KEY, list);
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
