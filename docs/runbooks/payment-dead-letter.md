@@ -4,6 +4,10 @@
 > 웨이브 W1)에서 자동 정산(reconcile-confirming cron)이 5회 재시도 후 포기한 건.
 > 자동 알림 연동(admin 대시보드/메일)은 이 runbook의 범위 밖 — 후속 웨이브 항목이다.
 > 현재는 이 문서의 절차를 **사람이 직접 수행**해야 한다.
+> '결제대기' 주문이 reclaim-stock cron에서 5회 연속 복원 실패로 dead-letter 처리된 경우도
+> 동일한 절차(②~④)를 따른다 — 로그 검색어의 라우트 이름(`reclaim-stock`)만 다르고, SQL
+> 조회·정산·리셋 정책은 동일하다(단, ③(b)는 `cancel_confirming_and_restore` 대신 0024
+> `cancel_order_reservation_and_restore`를 쓴다 — '결제대기' 전용이므로).
 
 ## ① dead-letter가 발생하는 조건
 
