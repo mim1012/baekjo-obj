@@ -31,6 +31,9 @@ export default function ProductDetailClient({ product }: Props) {
     setPrevProductId(product.id);
     setActiveImage(0);
     setQuantity(1);
+    // 파생 검증(validOption)만으론 다른 상품이 같은 옵션 id 를 쓸 때 이전 선택이 유효 매치로
+    // 넘어오므로, 상품 전환 시점 리셋을 병행한다.
+    setSelectedOption(product.options?.[0]?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
