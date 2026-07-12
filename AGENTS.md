@@ -202,7 +202,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - **main 직접 push 금지(양쪽 다).** 반드시 PR. push 전 항상 `git pull --rebase origin main`.
   하루 1회 이상 `git merge origin/main`으로 동기화(발산 방지).
 - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소는 이관 완료.
-- **하드 강제(TODO)**: `baekjo-obj` Settings → Branches에서 `main` 보호 규칙(PR 필수 + CI 통과 필수).
+- **하드 강제(✅ 2026-07-12 적용 완료)**: `main` 보호 규칙 활성 — PR 필수 + `verify` required status check(strict) +
+  리뷰 승인 1명 + force-push/삭제 차단 + **enforce_admins ON**(admin 포함 직접 push 불가).
 
 ### 8-2. Commit 규칙 (Atomic Commit)
 - 형식: `type(scope): 설명` — type = `feat/fix/refactor/perf/docs/test/chore`.
@@ -226,12 +227,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ### 8-4. CI · 배포
 - **CI 게이트(IDE 무관·자동)**: `.github/workflows/ci.yml`가 **typecheck+build+lint** 실행.
   실패하면 머지 불가 → drift가 프로덕션에 못 샌다. **어떤 IDE(Antigravity/Claude/Codex)로 짰든 GitHub에서 똑같이 걸린다.**
-  - ⚠️ **갭 (2026-07-12 발견 — 고칠 것)**: 현재 트리거가 `on: [pull_request, push] branches: [main]` 뿐이라
-    **실제 통합이 일어나는 통합 브랜치(예: `integrate/*`)로 dad PR이 들어올 땐 CI가 돌지 않는다.** 통합 지점에
-    게이트가 없다는 뜻 → `on.pull_request.branches`에 통합 브랜치를 추가해 **통합 전에** 걸리게 한다.
-  - ⚠️ **branch protection은 아직 미설정(§8-1 TODO)**: ci.yml이 있어도 GitHub Settings→Branches에서
-    해당 잡을 **"required status check"로 지정하지 않으면 실패해도 머지가 된다.** 이걸 실제로 켜야 게이트가
-    "권고"가 아니라 "차단"이 된다. — **크로스 IDE 협업에서 신뢰할 수 있는 유일한 공통 심판이 이 CI다.**
+  - ✅ **통합 브랜치 게이트 (2026-07-12 해소)**: `on.pull_request/push.branches`에 `integrate/**` 추가됨 —
+    통합 브랜치로 들어오는 PR/push에서도 CI가 돈다(integrate 브랜치 push 3건 초록불로 검증).
+  - ✅ **branch protection (2026-07-12 적용 완료)**: `verify` 잡이 **required status check**(strict)로 지정됨.
+    CI 빨간불이면 머지 불가 — 게이트가 "권고"가 아니라 "차단"이다. enforce_admins ON이라 admin도 예외 없음.
+    — **크로스 IDE 협업에서 신뢰할 수 있는 유일한 공통 심판이 이 CI다.**
 - **배포**: preview → 골든플로우 스모크 → 프로모트. 직접 prod 배포 금지. 세션당 1배치.
 - **납품 증빙**: 마일스톤마다 골든플로우 수동 1회 + 스크린샷/녹화 → `docs/` 보관(분쟁 방어).
 
