@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface Props {
@@ -16,6 +17,15 @@ export default function Pagination({
   onPageChange,
 }: Props) {
   const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // 항목 삭제 등으로 현재 페이지가 범위를 벗어나면(예: 마지막 페이지의 마지막 항목 삭제)
+  // 빈 페이지가 보이지 않도록 마지막 유효 페이지로 되돌린다.
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      onPageChange(totalPages);
+    }
+  }, [currentPage, totalPages, onPageChange]);
 
   if (totalPages <= 1) return null;
 

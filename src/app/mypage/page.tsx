@@ -8,6 +8,7 @@ import {
   getMyOrders,
   getMyInsuranceApplications,
   getWishlist,
+  getPublicProducts,
   getProductReviewsByUser,
   addProductReview,
   updateProductReview,
@@ -16,9 +17,9 @@ import {
   addProductInquiry,
   updateProductInquiry,
   deleteProductInquiry,
+  buildReviewTargetKey,
   STORAGE_EVENTS,
 } from '@/lib/storage';
-import { products } from '@/data/products';
 
 import MypageSidebar from './components/MypageSidebar';
 import MypageMobileNav from './components/MypageMobileNav';
@@ -52,6 +53,8 @@ function MypageContent() {
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [inquiries, setInquiries] = useState<ProductInquiry[]>([]);
+  // 정적 @/data/products 직접 import 대신 콘센트(getPublicProducts)로 로드(§4 drift 방지).
+  const [products, setProducts] = useState<Product[]>([]);
   
   const [isMounted, setIsMounted] = useState(false);
 
@@ -74,6 +77,7 @@ function MypageContent() {
     // getMyOrders/getMyInsuranceApplications 는 세션 기준으로 이미 내 것만 반환한다.
     getMyOrders().then(setOrders);
     getMyInsuranceApplications().then(setInsuranceApps);
+    getPublicProducts().then(setProducts);
     setWishlist(getWishlist());
     setReviews(getProductReviewsByUser(currentUser.id));
     setInquiries(getProductInquiriesByUser(currentUser.id));
@@ -124,14 +128,15 @@ function MypageContent() {
     writableReviews: orders
       .filter(o => o.orderStatus === '배송완료')
       .flatMap(o => o.items.map(item => ({ orderId: o.id, item })))
-      .filter(data => !reviews.some(r => r.reviewTargetKey === `${data.orderId}:${data.item.productId}:${data.item.optionName ?? 'default'}`))
+      .filter(data => !reviews.some(r => r.reviewTargetKey === buildReviewTargetKey(data.orderId, data.item.productId, data.item.optionName)))
       .length,
     waitingInquiries: inquiries.filter(i => i.status === 'waiting').length,
     insuranceCount: insuranceApps.filter(a => !['완료', '분석완료'].includes(a.status)).length,
   };
 
   // Handlers
-  const handleWriteReview = (product: Product, orderId: string, orderItemId: string, optionName?: string) => {
+  // orderItemId: OrderItem 고유 id 도입 시 채움 — 지금은 reviewTargetKey 로 유일성을 보장하므로 optional.
+  const handleWriteReview = (product: Product, orderId: string, orderItemId?: string, optionName?: string) => {
     setReviewProduct({ ...product, orderId, orderItemId, optionName });
     setReviewInitialData(null);
     setReviewModalOpen(true);
@@ -146,13 +151,13 @@ function MypageContent() {
   const submitReview = (data: { rating: number; title: string; content: string }) => {
     if (reviewInitialData) {
       updateProductReview(reviewInitialData.id, user.id, data);
-    } else if (reviewProduct?.orderId && reviewProduct.orderItemId) {
+    } else if (reviewProduct?.orderId) {
       addProductReview({
         ...data,
         userId: user.id,
         orderId: reviewProduct.orderId,
         orderItemId: reviewProduct.orderItemId,
-        reviewTargetKey: `${reviewProduct.orderId}:${reviewProduct.id}:${reviewProduct.optionName ?? 'default'}`,
+        reviewTargetKey: buildReviewTargetKey(reviewProduct.orderId, reviewProduct.id, reviewProduct.optionName),
         productId: reviewProduct.id,
         brandId: reviewProduct.brandId,
       });
@@ -187,14 +192,15 @@ function MypageContent() {
   const renderContent = () => {
     switch (tab) {
       case 'orders':
-        return <OrdersSection orders={orders} reviews={reviews} onWriteReview={handleWriteReview} />;
+        return <OrdersSection orders={orders} reviews={reviews} products={products} onWriteReview={handleWriteReview} />;
       case 'wishlist':
-        return <WishlistSection wishlistIds={wishlist} onWishlistChange={() => setWishlist(getWishlist())} />;
+        return <WishlistSection wishlistIds={wishlist} products={products} onWishlistChange={() => setWishlist(getWishlist())} />;
       case 'reviews':
         return (
           <ReviewsSection
             orders={orders}
             reviews={reviews}
+            products={products}
             onWriteReview={handleWriteReview}
             onEditReview={handleEditReview}
             onDeleteReview={handleDeleteReview}
@@ -204,6 +210,7 @@ function MypageContent() {
         return (
           <InquiriesSection
             inquiries={inquiries}
+            products={products}
             onWriteInquiry={() => { setInquiryInitialData(null); setInquiryModalOpen(true); }}
             onEditInquiry={(inquiry) => { setInquiryInitialData(inquiry); setInquiryModalOpen(true); }}
             onDeleteInquiry={handleDeleteInquiry}

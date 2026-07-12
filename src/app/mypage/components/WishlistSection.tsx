@@ -3,21 +3,22 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { products } from '@/data/products';
 import { formatPrice } from '@/lib/format';
 import { toggleWishlist } from '@/lib/storage';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { Heart, ShoppingBag, X } from 'lucide-react';
+import type { Product } from '@/types';
 
 interface WishlistSectionProps {
   wishlistIds: string[];
+  products: Product[];
   onWishlistChange: () => void;
 }
 
 const ITEMS_PER_PAGE = 20;
 
-export default function WishlistSection({ wishlistIds, onWishlistChange }: WishlistSectionProps) {
+export default function WishlistSection({ wishlistIds, products, onWishlistChange }: WishlistSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   const wishlistProducts = wishlistIds

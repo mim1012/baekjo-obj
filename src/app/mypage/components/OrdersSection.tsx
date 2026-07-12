@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Order, ProductReview, Product } from '@/types';
-import { products } from '@/data/products';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
 import Pagination from './Pagination';
@@ -14,12 +13,13 @@ import { PackageSearch } from 'lucide-react';
 interface OrdersSectionProps {
   orders: Order[];
   reviews: ProductReview[];
-  onWriteReview: (product: Product, orderId: string, orderItemId: string, optionName?: string) => void;
+  products: Product[];
+  onWriteReview: (product: Product, orderId: string, orderItemId?: string, optionName?: string) => void;
 }
 
 const ITEMS_PER_PAGE = 20;
 
-export default function OrdersSection({ orders, reviews, onWriteReview }: OrdersSectionProps) {
+export default function OrdersSection({ orders, reviews, products, onWriteReview }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
 
   // 주문 역순 정렬 (최신순)
@@ -124,7 +124,7 @@ export default function OrdersSection({ orders, reviews, onWriteReview }: Orders
                       </span>
                       {canWriteReview ? (
                         <button
-                          onClick={() => product && onWriteReview(product, order.id, 'temp-item-id', item.optionName)}
+                          onClick={() => product && onWriteReview(product, order.id, undefined, item.optionName)}
                           className="mp-btn-secondary h-8 px-3 text-xs"
                         >
                           구매평 작성

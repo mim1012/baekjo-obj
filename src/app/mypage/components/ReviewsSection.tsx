@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Order, ProductReview, Product } from '@/types';
-import { products } from '@/data/products';
 import { formatPrice, formatDate, ratingStars } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
 import Pagination from './Pagination';
@@ -14,7 +13,8 @@ import { Star, Edit2, Trash2 } from 'lucide-react';
 interface ReviewsSectionProps {
   orders: Order[];
   reviews: ProductReview[];
-  onWriteReview: (product: Product, orderId: string, orderItemId: string, optionName?: string) => void;
+  products: Product[];
+  onWriteReview: (product: Product, orderId: string, orderItemId?: string, optionName?: string) => void;
   onEditReview: (review: ProductReview, product: Product, optionName?: string) => void;
   onDeleteReview: (reviewId: string) => void;
 }
@@ -24,6 +24,7 @@ const ITEMS_PER_PAGE = 20;
 export default function ReviewsSection({
   orders,
   reviews,
+  products,
   onWriteReview,
   onEditReview,
   onDeleteReview,
@@ -130,7 +131,7 @@ export default function ReviewsSection({
                       </div>
                     </div>
                     <button
-                      onClick={() => product && onWriteReview(product, data.order.id, 'temp-item-id', data.item.optionName)}
+                      onClick={() => product && onWriteReview(product, data.order.id, undefined, data.item.optionName)}
                       className="mp-btn-primary shrink-0"
                     >
                       구매평 작성

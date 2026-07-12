@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ProductInquiry, Product } from '@/types';
-import { products } from '@/data/products';
 import { formatDate } from '@/lib/format';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
@@ -12,6 +11,7 @@ import { MessageCircle, Edit2, Trash2, Lock } from 'lucide-react';
 
 interface InquiriesSectionProps {
   inquiries: ProductInquiry[];
+  products: Product[];
   onWriteInquiry: () => void;
   onEditInquiry: (inquiry: ProductInquiry, product: Product) => void;
   onDeleteInquiry: (inquiryId: string) => void;
@@ -21,6 +21,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function InquiriesSection({
   inquiries,
+  products,
   onWriteInquiry,
   onEditInquiry,
   onDeleteInquiry,

@@ -278,7 +278,8 @@ export interface ProductReview {
   id: string;
   userId: string;
   orderId: string;
-  orderItemId: string;
+  /** OrderItem 고유 id 도입 시 채움 — 현재는 reviewTargetKey(주문+상품+옵션)로 유일성을 보장한다. */
+  orderItemId?: string;
   /** 중복 방지용 복합 키: `${orderId}:${productId}:${optionName ?? 'default'}` */
   reviewTargetKey: string;
   productId: string;

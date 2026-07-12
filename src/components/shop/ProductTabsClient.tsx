@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product } from '@/types';
 import { getMergedReviews, getMergedInquiries } from '@/lib/adapters';
-import { getCurrentUser, getMyOrders, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
+import { getCurrentUser, getMyOrders, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
 import { Lock, MessageCircle, Star } from 'lucide-react';
 import { formatDate, formatPrice, ratingStars } from '@/lib/format';
 import EmptyState from '@/components/common/EmptyState';
@@ -21,7 +21,8 @@ interface ProductTabsClientProps {
 /** 배송완료 후 아직 구매평을 쓰지 않은 주문상품 — 후기 작성 모달에 넘길 최소 컨텍스트. */
 interface WritableItem {
   orderId: string;
-  orderItemId: string;
+  /** OrderItem 고유 id 도입 시 채움 — 지금은 reviewTargetKey 로 유일성을 보장하므로 optional. */
+  orderItemId?: string;
   optionName?: string;
 }
 
@@ -82,44 +83,27 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
       return;
     }
 
-    // Find all delivered items for this product
-    const items: WritableItem[] = [];
+    let cancelled = false;
+    const rawReviews = getProductReviewsByUser(user.id);
+    const writable: WritableItem[] = [];
     orders.forEach(order => {
       if (order.orderStatus === '배송완료') {
         order.items.forEach(item => {
           if (item.productId === product.id) {
             const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
-            // Check if user already reviewed this exact item
-            const hasReviewed = reviews.some(
-              r => r.source === 'user' && r.userId === user.id && r.id.includes(reviewTargetKey) // In a real app we'd query by reviewTargetKey but we don't have it in ReviewViewItem, so we need a better check.
-            );
-            // Actually, getMergedReviews doesn't include reviewTargetKey. We can just use the storage function directly, or assume we check via raw getProductReviews()
+            if (!rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)) {
+              writable.push({ orderId: order.id, optionName: item.optionName });
+            }
           }
         });
       }
     });
-    // For simplicity in the mock, we will check writable in a simpler way:
-    // Fetch raw reviews to check properly
-    import('@/lib/storage').then(({ getProductReviewsByUser }) => {
-      const rawReviews = getProductReviewsByUser(user.id);
-      
-      const writable: WritableItem[] = [];
-      orders.forEach(order => {
-        if (order.orderStatus === '배송완료') {
-          order.items.forEach(item => {
-            if (item.productId === product.id) {
-              const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
-              if (!rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)) {
-                writable.push({ orderId: order.id, orderItemId: 'temp-item-id', optionName: item.optionName });
-              }
-            }
-          });
-        }
-      });
-      setWritableItems(writable);
-    });
+    if (!cancelled) setWritableItems(writable);
 
-  }, [user, orders, product.id, reviews]);
+    return () => {
+      cancelled = true;
+    };
+  }, [user, orders, product.id]);
 
   if (!isMounted) return null;
 
@@ -163,7 +147,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         ...data,
         userId: user.id,
         orderId: target.orderId,
-        orderItemId: target.orderItemId,
+        // orderItemId: OrderItem 고유 id 도입 시 채움 — reviewTargetKey 로 유일성 보장.
         reviewTargetKey: buildReviewTargetKey(target.orderId, product.id, target.optionName),
         productId: product.id,
         brandId: product.brandId,

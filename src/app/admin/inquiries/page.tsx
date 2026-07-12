@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProductInquiries, answerProductInquiry, STORAGE_EVENTS } from '@/lib/storage';
-import { products } from '@/data/products';
+import { getCurrentUser, getProductInquiries, answerProductInquiry, getAdminProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import type { User, ProductInquiry } from '@/types';
+import type { User, ProductInquiry, Product } from '@/types';
 
 /**
  * 이 화면은 레거시 QnA 뷰(question/writerName/editable)와 같은 모양으로 문의를 렌더한다.
@@ -24,6 +23,8 @@ export default function AdminInquiriesPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [inquiries, setInquiries] = useState<AdminInquiryRow[]>([]);
+  // 정적 @/data/products 직접 import 대신 콘센트(getAdminProducts)로 로드(§4 drift 방지, 비노출 상품 포함).
+  const [products, setProducts] = useState<Product[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
   const loadData = () => {
@@ -33,16 +34,17 @@ export default function AdminInquiriesPage() {
       return;
     }
     setUser(currentUser);
+    getAdminProducts().then(setProducts);
 
     const allInquiries = getProductInquiries();
-    
+
     // 파트너인 경우 자기 브랜드 문의만 볼 수 있음
     let filteredInquiries = allInquiries;
     if (currentUser.role === 'partner') {
       const managedBrandIds = currentUser.managedBrandIds || [];
       filteredInquiries = allInquiries.filter(i => managedBrandIds.includes(i.brandId));
     }
-    
+
     // Sort by latest
     filteredInquiries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     setInquiries(filteredInquiries);
