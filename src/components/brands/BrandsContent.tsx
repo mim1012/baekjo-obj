@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Suspense, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Brand } from '@/types';
 import BrandCard from '@/components/common/BrandCard';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
@@ -11,138 +11,176 @@ interface Props {
   brands: Brand[];
 }
 
+const PAGE_SIZE = 12;
+
+const selectionStandards = [
+  { number: '01', title: '브랜드 철학', description: '아이와 보호자를 바라보는 마음' },
+  { number: '02', title: '원료와 소재', description: '무엇으로 만들었는지' },
+  { number: '03', title: '제조와 유통', description: '어떻게 만들고 전하는지' },
+  { number: '04', title: '생활 속 사용성', description: '매일 편안하게 쓸 수 있는지' },
+  { number: '05', title: '확인 기록', description: '새로운 정보도 꾸준히 반영하는지' },
+];
+
+const filterLabels: Record<string, string> = {
+  all: '모든 브랜드',
+  recommended: '백조 추천',
+  new: '새로 만난 브랜드',
+};
+
 function BrandsInner({ brands }: Props) {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
   const { categorySettings } = useCategorySettings();
+  const [pagination, setPagination] = useState({ filter: 'all', visibleCount: PAGE_SIZE });
 
-  const filteredBrands = brands.filter(b => {
-    if (filter === 'recommended') return b.isRecommended;
-    if (filter === 'new') return b.isNew;
+  // Reset pagination if filter changes
+  const visibleCount = pagination.filter === filter ? pagination.visibleCount : PAGE_SIZE;
+
+  const visibleBrands = brands
+    .filter((brand) => brand.isVisible !== false)
+    .sort((a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER));
+
+  const filteredBrands = visibleBrands.filter((brand) => {
+    if (filter === 'recommended') return brand.isRecommended;
+    if (filter === 'new') return brand.isNew;
     return true;
   });
 
+  const displayedBrands = filteredBrands.slice(0, visibleCount);
+  const hasMore = visibleCount < filteredBrands.length;
+
+  const handleLoadMore = () => {
+    setPagination({ filter, visibleCount: visibleCount + PAGE_SIZE });
+  };
+
   return (
-    <div className="bg-[#FBFAF7] min-h-dvh">
-      {/* Hero Section */}
-      <section className="bg-[#17211D] aspect-[4/3] sm:aspect-[2/1] lg:aspect-[2.5/1] min-h-[360px] flex flex-col justify-center text-center text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/images/brands-hero-bg.png')] bg-cover bg-center opacity-50"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-[#17211D] via-[#17211D]/70 to-[#17211D]/20"></div>
-        <div className="site-container relative z-10 w-full px-4 sm:px-6">
-          <p className="text-sm font-semibold tracking-widest text-slate-400 mb-4 uppercase">Baekjo Audit Brand</p>
-          <h1 className="text-4xl sm:text-5xl font-editorial tracking-tight text-white mb-6 leading-[1.2]">백조오브제가 고른 검증 브랜드</h1>
-          <p className="text-slate-200 leading-[1.8] max-w-4xl mx-auto text-[14px] sm:text-[16px] break-keep">
-            자극적인 마케팅보다 실제 기준을 먼저 봅니다. 성분, 제조, 철학, 사용성, 후기, 반려가족의 생활 흐름을 기준으로 믿고 선택할 수 있는 브랜드만 소개합니다.
+    <main className="brand-page pb-14 md:pb-20">
+      {/* 1. 컴팩트한 브랜드관 인트로 */}
+      <section className="brand-intro pt-16 pb-10 md:pt-[72px] md:pb-11">
+        <div className="brand-container">
+          <p className="font-editorial text-sm italic tracking-wide text-[#B99562] mb-3">BRAND CURATION</p>
+          <h1 className="max-w-[720px] break-keep text-[32px] font-bold leading-[1.25] tracking-[-0.035em] text-[#18231F] sm:text-[40px] md:text-[44px]">
+            좋은 선택은<br />브랜드를 이해하는 것부터 시작됩니다.
+          </h1>
+          <p className="mt-5 max-w-[620px] break-keep text-[15px] leading-7 text-[#68716C] md:text-[16px]">
+            백조오브제는 브랜드 철학과 제품 기준을 살펴보고<br className="hidden sm:block" />
+            우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
           </p>
         </div>
       </section>
 
-      {/* The Audit Checkpoints Section (Compact Premium Layout) */}
-      <section className="py-24 bg-[#FBFAF7] border-b border-[#E7E0D5]">
-        <div className="site-container-wide">
-          <div className="mb-16 md:mb-24 text-center md:text-left flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-            <div>
-              <h2 className="text-[36px] sm:text-[48px] font-editorial font-bold text-[#17211D] mb-4 tracking-tight leading-[1.1]">
-                The Audit Checkpoints
-              </h2>
-              <div className="w-12 h-[2px] bg-[#A8742E] mx-auto md:mx-0"></div>
-            </div>
-            <p className="text-[#6F766F] text-[15px] max-w-[400px] text-center md:text-right leading-[1.7]">
-              백조오브제는 판매 가능성보다 반려가족이 믿고 선택할 수 있는 기준을 먼저 확인합니다.<br className="hidden md:block" />
-              깐깐한 5단계 검증을 통해 오직 최상의 제품만을 큐레이션합니다.
+      {/* 2. 브랜드 선정 기준 가로 인덱스 */}
+      <section className="mb-16 md:mb-[72px]">
+        <div className="brand-container">
+          <ol className="audit-index">
+            {selectionStandards.map((item) => (
+              <li key={item.number} className="audit-index-item flex flex-col justify-between">
+                <span className="font-editorial text-sm italic text-[#B99562]">{item.number}</span>
+                <div className="mt-4">
+                  <h3 className="break-keep text-[15px] font-bold tracking-tight text-[#18231F]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-1.5 break-keep text-[13px] leading-5 text-[#68716C]">
+                    {item.description}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </section>
+
+      {/* 3. 브랜드 목록 및 필터 */}
+      <section>
+        <div className="brand-container">
+          <div className="mb-7 md:mb-9">
+            <h2 className="text-[24px] font-bold text-[#18231F] mb-2 tracking-tight">
+              마음이 가는 브랜드부터 만나보세요.
+            </h2>
+            <p className="text-[15px] text-[#68716C] mb-6">
+              브랜드가 중요하게 생각하는 가치와 제품의 기준을 확인해보세요.
             </p>
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <nav aria-label="브랜드 분류" className="flex flex-wrap gap-2">
+                {categorySettings.brandFilters.map((tab) => {
+                  const active = filter === tab.id || (filter === 'all' && tab.id === 'all');
+                  return (
+                    <Link
+                      key={tab.id}
+                      href={tab.id === 'all' ? '/brands' : `/brands?filter=${tab.id}`}
+                      scroll={false}
+                      aria-current={active ? 'page' : undefined}
+                      className={`flex h-[40px] items-center rounded-full px-5 text-sm font-semibold transition-colors duration-300 ${
+                        active
+                          ? 'bg-[#18231F] text-[#FFFDF9]'
+                          : 'bg-[#F2EEE5] text-[#68716C] hover:bg-[#DED8CC] hover:text-[#18231F]'
+                      }`}
+                    >
+                      {filterLabels[tab.id] ?? tab.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="text-sm font-semibold text-[#B99562]">
+                {filterLabels[filter] || '전체 브랜드'} <span className="text-[#18231F]">{filteredBrands.length}개</span>
+              </div>
+            </div>
           </div>
 
-          {/* 5-Column Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-y-12 gap-x-6 lg:gap-x-10">
-            {/* Item 1 */}
-            <div className="group border-t border-[#E7E0D5] pt-6 hover:border-[#17211D] transition-colors duration-500">
-              <div className="font-editorial text-[60px] leading-none text-[#E7E0D5] group-hover:text-[#17211D] transition-colors duration-500 mb-6">01</div>
-              <h3 className="text-[20px] font-editorial font-bold text-[#17211D] mb-1 group-hover:-translate-y-1 transition-transform duration-500">Expert Formulation</h3>
-              <p className="text-[13px] font-bold text-[#A8742E] mb-4 group-hover:-translate-y-1 transition-transform duration-500 delay-75">전문 설계</p>
-              <p className="text-[#6F766F] text-[14px] leading-[1.6] break-keep group-hover:-translate-y-1 transition-transform duration-500 delay-150">
-                단순한 트렌드가 아닌, 수의학적 지식과 연구개발 데이터를 기반으로 설계된 제품인지 꼼꼼하게 따져봅니다.
-              </p>
+          {/* 4. 브랜드 카드 그리드 */}
+          {displayedBrands.length > 0 ? (
+            <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 md:gap-[18px] lg:grid-cols-3 lg:gap-[24px]">
+              {displayedBrands.map((brand) => (
+                <BrandCard key={brand.id} brand={brand} variant="brand-page" />
+              ))}
             </div>
-
-            {/* Item 2 */}
-            <div className="group border-t border-[#E7E0D5] pt-6 hover:border-[#17211D] transition-colors duration-500">
-              <div className="font-editorial text-[60px] leading-none text-[#E7E0D5] group-hover:text-[#17211D] transition-colors duration-500 mb-6">02</div>
-              <h3 className="text-[20px] font-editorial font-bold text-[#17211D] mb-1 group-hover:-translate-y-1 transition-transform duration-500">Reliable Production</h3>
-              <p className="text-[13px] font-bold text-[#A8742E] mb-4 group-hover:-translate-y-1 transition-transform duration-500 delay-75">신뢰 가능한 생산</p>
-              <p className="text-[#6F766F] text-[14px] leading-[1.6] break-keep group-hover:-translate-y-1 transition-transform duration-500 delay-150">
-                안전하고 깨끗한 제조 시설, 투명한 유통 과정, 엄격한 품질 관리 시스템을 갖춘 브랜드인지 검증합니다.
-              </p>
-            </div>
-
-            {/* Item 3 */}
-            <div className="group border-t border-[#E7E0D5] pt-6 hover:border-[#17211D] transition-colors duration-500">
-              <div className="font-editorial text-[60px] leading-none text-[#E7E0D5] group-hover:text-[#17211D] transition-colors duration-500 mb-6">03</div>
-              <h3 className="text-[20px] font-editorial font-bold text-[#17211D] mb-1 group-hover:-translate-y-1 transition-transform duration-500">Balanced Gourmet</h3>
-              <p className="text-[13px] font-bold text-[#A8742E] mb-4 group-hover:-translate-y-1 transition-transform duration-500 delay-75">균형 잡힌 기호성</p>
-              <p className="text-[#6F766F] text-[14px] leading-[1.6] break-keep group-hover:-translate-y-1 transition-transform duration-500 delay-150">
-                아이들이 즐겁게 먹을 수 있는 기호성은 물론, 장기적인 영양 밸런스까지 함께 고려된 제품인지 확인합니다.
-              </p>
-            </div>
-
-            {/* Item 4 */}
-            <div className="group border-t border-[#E7E0D5] pt-6 hover:border-[#17211D] transition-colors duration-500">
-              <div className="font-editorial text-[60px] leading-none text-[#E7E0D5] group-hover:text-[#17211D] transition-colors duration-500 mb-6">04</div>
-              <h3 className="text-[20px] font-editorial font-bold text-[#17211D] mb-1 group-hover:-translate-y-1 transition-transform duration-500">Sustained Vitality</h3>
-              <p className="text-[13px] font-bold text-[#A8742E] mb-4 group-hover:-translate-y-1 transition-transform duration-500 delay-75">지속 가능한 건강</p>
-              <p className="text-[#6F766F] text-[14px] leading-[1.6] break-keep group-hover:-translate-y-1 transition-transform duration-500 delay-150">
-                반려견의 생애주기 전반에 걸쳐 지속적으로 도움을 주는 건강한 제품을 찾습니다.
-              </p>
-            </div>
-
-            {/* Item 5 */}
-            <div className="group border-t border-[#E7E0D5] pt-6 hover:border-[#17211D] transition-colors duration-500">
-              <div className="font-editorial text-[60px] leading-none text-[#E7E0D5] group-hover:text-[#17211D] transition-colors duration-500 mb-6">05</div>
-              <h3 className="text-[20px] font-editorial font-bold text-[#17211D] mb-1 group-hover:-translate-y-1 transition-transform duration-500">Mindful Record</h3>
-              <p className="text-[13px] font-bold text-[#A8742E] mb-4 group-hover:-translate-y-1 transition-transform duration-500 delay-75">기록과 관리</p>
-              <p className="text-[#6F766F] text-[14px] leading-[1.6] break-keep group-hover:-translate-y-1 transition-transform duration-500 delay-150">
-                아이의 신체 변화를 쉽게 관찰하고, 일상을 체계적으로 기록하며 관리할 수 있는 편의성을 고려합니다.
-              </p>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* Brand List Section */}
-      <section className="py-24">
-        <div className="site-container">
-          {/* 필터 탭 */}
-          <div className="mb-16 flex flex-wrap justify-center gap-3">
-            {categorySettings.brandFilters.map(tab => (
-              <Link
-                key={tab.id}
-                href={`/brands?filter=${tab.id}`}
-                className={`rounded-full px-6 py-3 text-sm font-semibold transition-all ${
-                  filter === tab.id
-                    ? 'bg-[#17211D] text-white shadow-md'
-                    : 'bg-white text-slate-500 border border-[rgba(15,23,42,0.08)] hover:bg-slate-50 hover:text-[#17211D]'
-                }`}
-              >
-                {tab.label}
+          ) : (
+            <div className="mt-10 rounded-2xl border border-dashed border-[#DED8CC] bg-[#FFFDF9] px-6 py-16 text-center">
+              <p className="break-keep text-[16px] font-semibold text-[#18231F]">조건에 맞는 브랜드가 없어요.</p>
+              <p className="mt-2 break-keep text-[14px] leading-6 text-[#68716C]">다른 브랜드 이야기도 천천히 둘러보세요.</p>
+              <Link href="/brands" className="mt-6 inline-flex h-[44px] items-center rounded-full bg-[#F2EEE5] px-6 text-sm font-semibold text-[#18231F] transition-colors hover:bg-[#DED8CC]">
+                전체 브랜드 보기
               </Link>
-            ))}
-          </div>
+            </div>
+          )}
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-            {filteredBrands.map(brand => (
-              <BrandCard key={brand.id} brand={brand} />
-            ))}
-          </div>
+          {/* 더 보기 버튼 */}
+          {hasMore && (
+            <div className="mt-10 flex justify-center">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                className="inline-flex h-[48px] items-center rounded-full border border-[#DED8CC] bg-[#FFFDF9] px-8 text-[15px] font-semibold text-[#18231F] transition-colors hover:bg-[#F2EEE5]"
+              >
+                브랜드 더 보기
+              </button>
+            </div>
+          )}
         </div>
       </section>
-    </div>
+    </main>
   );
 }
 
 export default function BrandsContent({ brands }: Props) {
   return (
-    <Suspense fallback={<div className="p-10 text-center">Loading...</div>}>
+    <Suspense
+      fallback={(
+        <main className="brand-page min-h-[60dvh] pt-16 pb-20" aria-label="브랜드 목록을 불러오는 중">
+          <div className="brand-container animate-pulse">
+            <div className="h-10 w-64 rounded-xl bg-[#DED8CC]/50 mb-4" />
+            <div className="h-6 w-96 rounded-lg bg-[#DED8CC]/30 mb-12" />
+            <div className="h-[120px] w-full rounded-2xl bg-[#DED8CC]/40 mb-[72px]" />
+            <div className="grid gap-[24px] md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="h-[280px] rounded-2xl bg-[#DED8CC]/30" />
+              ))}
+            </div>
+          </div>
+        </main>
+      )}
+    >
       <BrandsInner brands={brands} />
     </Suspense>
   );
