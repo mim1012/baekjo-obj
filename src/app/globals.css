@@ -817,3 +817,304 @@ main.public-main h2 {
   outline: 2px solid var(--brand-dark);
   outline-offset: 3px;
 }
+
+/* --------------------------------------------------------------------------
+   Care Guide Detail Page Dedicated System
+-------------------------------------------------------------------------- */
+.care-detail-page {
+  --care-detail-bg: #F8F6F0;
+  --care-detail-surface: #FFFDF9;
+  --care-detail-surface-muted: #F2EEE5;
+  --care-detail-text: #18231F;
+  --care-detail-text-muted: #68716C;
+  --care-detail-border: #DED8CC;
+  --care-detail-border-hover: #BDAE95;
+  --care-detail-accent: #B99562;
+  --care-detail-dark: #14211C;
+
+  background: var(--care-detail-bg);
+}
+
+.care-detail-page .care-detail-container {
+  width: calc(100% - 40px);
+  max-width: 1180px;
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .care-detail-page .care-detail-container {
+    width: calc(100% - 48px);
+  }
+}
+
+.care-detail-page .care-detail-hero {
+  padding-top: 40px;
+  padding-bottom: 30px;
+}
+
+@media (min-width: 768px) {
+  .care-detail-page .care-detail-hero {
+    padding-top: 52px;
+    padding-bottom: 36px;
+  }
+}
+
+.care-detail-page .care-detail-nav {
+  height: 54px;
+}
+
+@media (min-width: 768px) {
+  .care-detail-page .care-detail-nav {
+    height: 58px;
+  }
+}
+
+.care-detail-page .care-detail-section {
+  padding-block: 52px;
+}
+@media (min-width: 768px) {
+  .care-detail-page .care-detail-section {
+    padding-block: 64px;
+  }
+}
+@media (min-width: 1024px) {
+  .care-detail-page .care-detail-section {
+    padding-block: 72px;
+  }
+}
+
+/* Add scroll margin for active tab tracking */
+.care-detail-page [id] {
+  scroll-margin-top: 130px; /* Adjust based on sticky nav height + header height */
+}
+
+/* 7:5 Layout for Signals and Causes */
+@media (min-width: 1024px) {
+  .care-detail-page .care-insight-layout {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 28px;
+    align-items: flex-start;
+  }
+  .care-detail-page .care-signal-panel {
+    grid-column: span 7 / span 7;
+  }
+  .care-detail-page .care-cause-panel {
+    grid-column: span 5 / span 5;
+  }
+}
+@media (min-width: 1200px) {
+  .care-detail-page .care-insight-layout {
+    gap: 36px;
+  }
+}
+
+/* Brand Grid */
+.care-detail-page .related-brand-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (min-width: 768px) {
+  .care-detail-page .related-brand-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  .care-detail-page .related-brand-grid {
+    gap: 24px;
+  }
+}
+
+/* Product Grid */
+.care-detail-page .related-product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .care-detail-page .related-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+}
+@media (min-width: 1024px) {
+  .care-detail-page .related-product-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+
+/* Compact Empty State */
+.care-detail-page .related-product-empty {
+  margin-top: 28px;
+  padding: 30px 24px;
+  border: 1px solid var(--care-detail-border);
+  border-radius: 16px;
+  background: var(--care-detail-surface);
+  text-align: center;
+}
+@media (min-width: 768px) {
+  .care-detail-page .related-product-empty {
+    padding: 38px 30px;
+  }
+}
+
+/* ==========================================================================
+   마이페이지 전용 스타일 (.mypage-page)
+   ========================================================================== */
+.mypage-page {
+  --mp-bg: #F8F6F0;
+  --mp-card-bg: #FFFDF9;
+  --mp-card-hover: #FBF9F4;
+  --mp-text-primary: #18231F;
+  --mp-text-secondary: #68716C;
+  --mp-border: #DED8CC;
+  --mp-border-light: #EBE6DC;
+  --mp-point: #B99562;
+  --mp-button-dark: #14211C;
+  
+  background-color: var(--mp-bg);
+  min-height: 100vh;
+  color: var(--mp-text-primary);
+}
+
+.mypage-page .mypage-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+@media (min-width: 1024px) {
+  .mypage-page .mypage-container {
+    padding: 40px 32px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 32px;
+  }
+}
+
+/* 사이드바 */
+.mypage-page .mypage-sidebar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .mypage-page .mypage-sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 240px;
+    flex-shrink: 0;
+    gap: 24px;
+    position: sticky;
+    top: 120px; /* 헤더 고려 */
+  }
+}
+
+/* 콘텐츠 영역 */
+.mypage-page .mypage-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* 공통 카드 */
+.mypage-page .mypage-card {
+  background-color: var(--mp-card-bg);
+  border: 1px solid var(--mp-border);
+  border-radius: 16px;
+  padding: 24px;
+}
+
+/* 빈 상태 */
+.mypage-page .mypage-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background-color: transparent;
+  border: 1px solid var(--mp-border);
+  border-radius: 16px;
+  padding: 40px 24px;
+  color: var(--mp-text-secondary);
+}
+
+/* 버튼 유틸 */
+.mypage-page .mp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--mp-button-dark);
+  color: white;
+  border-radius: 8px;
+  padding: 0 16px;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+.mypage-page .mp-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.mypage-page .mp-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  color: var(--mp-text-primary);
+  border: 1px solid var(--mp-border);
+  border-radius: 8px;
+  padding: 0 16px;
+  height: 44px;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+.mypage-page .mp-btn-secondary:hover {
+  background-color: var(--mp-card-hover);
+}
+
+/* 페이지네이션 */
+.mypage-page .mypage-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  margin-top: 32px;
+}
+
+.mypage-page .mypage-pagination button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--mp-text-secondary);
+  transition: all 0.2s;
+}
+
+.mypage-page .mypage-pagination button:hover:not(:disabled) {
+  background-color: rgba(0,0,0,0.05);
+  color: var(--mp-text-primary);
+}
+
+.mypage-page .mypage-pagination button[aria-current="page"] {
+  background-color: var(--mp-text-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.mypage-page .mypage-pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
