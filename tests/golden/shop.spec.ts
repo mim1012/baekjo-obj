@@ -16,8 +16,13 @@ test.describe('골든플로우 #2: 스토어', () => {
     await expect(sidebar.locator('summary', { hasText: '카테고리' })).toBeVisible();
     await expect(sidebar.locator('summary', { hasText: '브랜드' })).toBeVisible();
 
-    // 카테고리 필터 항목이 default 로 폴백되어 렌더되는지(예: '사료') — {} 응답에도 필터가 비지 않음.
-    await expect(sidebar.getByRole('link', { name: '사료', exact: true })).toBeVisible();
+    // 카테고리 필터 항목 렌더 검증 — 라벨은 admin(categorySettings)이 실시간 변경하는 데이터라
+    // 특정 라벨('사료' 등)을 고정하면 admin 변경마다 스펙이 깨진다. '전체' 외 항목이 1개 이상
+    // 렌더되는 구조만 검증한다(2026-07-12 사용자 결정: 스펙을 현재 화면 기준으로 갱신).
+    const categoryGroup = sidebar.locator('details', {
+      has: page.locator('summary', { hasText: '카테고리' }),
+    });
+    expect(await categoryGroup.getByRole('link').count()).toBeGreaterThan(1);
 
     // 상품 카드(/shop/:id 링크) 최소 1개 렌더.
     const productCards = page.locator('a[href^="/shop/"]');
