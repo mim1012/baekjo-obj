@@ -42,5 +42,16 @@ export const users: User[] = [
     role: 'insurance',
     status: 'pending',
     createdAt: '2023-12-16T14:20:00Z'
+  },
+  {
+    id: 'u5',
+    name: '페네핏 담당자',
+    email: 'partner@penefit.co.kr',
+    phone: '010-3333-4444',
+    companyName: '페네핏',
+    role: 'partner',
+    status: 'active',
+    managedBrandIds: ['b1'],
+    createdAt: '2024-01-05T09:00:00Z'
   }
 ];

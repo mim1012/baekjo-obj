@@ -4,8 +4,8 @@ import { ArrowLeft, ArrowRight, Search, ShieldCheck } from 'lucide-react';
 import BrandAuditReport from '@/components/common/BrandAuditReport';
 import BrandLogo from '@/components/common/BrandLogo';
 import { SectionHeading } from '@/components/common/EditorialHeading';
-import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import BrandProductsClient from '@/components/brands/BrandProductsClient';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
 import { concerns } from '@/data/concerns';
@@ -25,12 +25,6 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
 
   const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
   const brandProducts = await listProductsByBrand(brand.id);
-  const representativeProducts = brandProducts.filter((product) =>
-    brand.representativeProductIds.includes(product.id),
-  );
-  const additionalProducts = brandProducts.filter(
-    (product) => !brand.representativeProductIds.includes(product.id),
-  );
   const relatedConcerns = concerns.filter((concern) =>
     brand.relatedConcernSlugs.includes(concern.slug),
   );
@@ -113,50 +107,11 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
 
         <BrandAuditReport brand={brand} />
 
-        <div id="brand-products" className="scroll-mt-24 space-y-20 pt-20">
-          <section>
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-              <SectionHeading
-                eyebrow="먼저 만나볼 상품"
-                title="이 브랜드에서 먼저 보여드리고 싶은 것들"
-                description="브랜드의 방향을 잘 보여주는 상품부터 차분히 모았어요. 판매 준비 중인 상품은 현재 상태를 그대로 안내합니다."
-              />
-              {brandProducts.length > 0 && (
-                <Link href={`/shop?brandId=${brand.id}`} className="btn-secondary shrink-0 self-start sm:self-auto">
-                  쇼핑에서 모두 보기
-                  <ArrowRight className="size-4" aria-hidden="true" />
-                </Link>
-              )}
-            </div>
-
-            {representativeProducts.length > 0 ? (
-              <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
-                {representativeProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            ) : (
-              <div className="mt-10 rounded-3xl border border-dashed border-[#D8C4A3] bg-[#FAF8F3] px-6 py-12 text-center sm:py-16">
-                <p className="break-keep text-base font-semibold text-[#17211D]">먼저 소개할 상품을 고르고 있어요.</p>
-                <p className="mt-2 break-keep text-sm leading-6 text-[#6F766F]">상품 정보가 준비되는 대로 이곳에 차근차근 채워둘게요.</p>
-              </div>
-            )}
-          </section>
-
-          {additionalProducts.length > 0 && (
-            <section>
-              <SectionHeading
-                eyebrow="조금 더 둘러보기"
-                title={`${shortBrandName}의 다른 상품`}
-                description="같은 마음으로 만든 다른 상품도 함께 살펴보세요."
-              />
-              <div className="mt-10 grid grid-cols-2 gap-4 lg:grid-cols-3 lg:gap-6">
-                {additionalProducts.slice(0, 6).map((product) => (
-                  <ProductCard key={product.id} product={product} />
-                ))}
-              </div>
-            </section>
-          )}
+        <BrandProductsClient 
+          brand={brand} 
+          initialProducts={brandProducts} 
+          shortBrandName={shortBrandName} 
+        />
 
           <section>
             <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
@@ -188,7 +143,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
           </section>
-        </div>
+
       </div>
     </div>
   );
