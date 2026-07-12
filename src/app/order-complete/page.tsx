@@ -5,8 +5,24 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { confirmTossPayment, getLastOrder } from '@/lib/storage';
+import { clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
 import type { ConfirmedOrderSummary, Order } from '@/types';
+
+// checkout PENDING_ORDER_KEY와 동기화 — 토스 위젯 진입 시 checkout이 심어두는 미완료 결제
+// 표식. 리터럴 값을 그대로 맞춰야 승인 성공 후 정리가 실제로 지워진다(계약 파일 아님 — 값만 동기화).
+const PENDING_TOSS_ORDER_KEY = 'baekjo_pending_toss_order';
+
+/** 승인 성공(200) 확정 후에만 호출 — 장바구니와 checkout의 미완료 결제 표식을 정리한다.
+ * 202/실패 경로에서는 정리하지 않는다(재시도·재확인에 필요한 상태이므로 지우면 안 된다).
+ * 정리 누락 시 이후 무관한 /checkout?fail=1 방문이 stale 키를 소비해 거짓 취소 안내를 하거나
+ * 결제 완료된 장바구니가 그대로 남는 문제가 생긴다. */
+function clearPendingTossState(): void {
+  clearCart();
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(PENDING_TOSS_ORDER_KEY);
+  }
+}
 
 type ConfirmIssueKind = 'pending' | 'declined' | 'expired' | 'delayed' | 'failed';
 
@@ -217,6 +233,7 @@ function OrderCompleteInner() {
       if (!isMountedRef.current) return;
 
       if (result.ok) {
+        clearPendingTossState();
         const snapshot = await getLastOrder();
         if (!isMountedRef.current) return;
         setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
@@ -247,6 +264,7 @@ function OrderCompleteInner() {
     confirmTossPayment({ paymentKey, orderId, amount }).then(async (result) => {
       if (!isMountedRef.current) return;
       if (result.ok) {
+        clearPendingTossState();
         const snapshot = await getLastOrder();
         if (!isMountedRef.current) return;
         setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
