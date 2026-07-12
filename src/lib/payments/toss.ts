@@ -7,6 +7,9 @@
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
+// 응답이 없는 요청이 무한정 매달려 cron/confirm 라우트를 막지 않도록 상한을 둔다.
+// 타임아웃은 fetch가 AbortError를 던지므로 아래 catch에서 network-error와 동일하게 "불명"(httpStatus null)로 흡수된다.
+const TOSS_FETCH_TIMEOUT_MS = 10_000;
 
 export class TossConfirmError extends Error {
   constructor(
@@ -51,6 +54,7 @@ export async function confirmTossPayment(params: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
+      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);
@@ -92,6 +96,7 @@ export async function queryTossPayment(paymentKey: string): Promise<TossConfirmR
     response = await fetch(`${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`, {
       method: 'GET',
       headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);
