@@ -55,3 +55,26 @@ jobs:
         env:
           SUPABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.SUPABASE_URL || secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  # 결제 상태기계 DB 스펙(tests/payments/state-machine.db.spec.ts) — staging 전용, prod는 절대 사용하지 않는다.
+  # 합성 __test_* 레코드로 0021/0024/0026 계약을 검증한다(브라우저 불필요, API 테스트). PR/push 모두 실행 —
+  # staging에만 쓰기 때문에 머지 전에 돌려도 안전하고, 다음 리팩터(R2~R5)의 회귀 안전망이 된다.
+  payments-db-spec:
+    runs-on: ubuntu-latest
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: 결제 상태기계 DB 스펙 (staging)
+        run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
