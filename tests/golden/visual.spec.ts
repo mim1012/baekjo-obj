@@ -15,9 +15,10 @@ const VIEWPORTS = [
   { name: 'mobile', width: 390, height: 844 },
 ] as const;
 
-// 스테이징 전용 테스트 계정(docs/beta-members-setup.md) — 프로덕션 자격증명 아님.
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@naver.com';
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin1234';
+// 관리자 자격증명은 CI secret(E2E_ADMIN_*)으로만 주입 — 공개 리포이므로 하드코딩 폴백 금지.
+// 미주입 시 admin 촬영만 skip(공개 12장은 정상 실행).
+const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
 
 // Vercel Deployment Protection이 켜진 프리뷰 접근용(§8-6). secret 미설정 시 헤더 생략(프로텍션 OFF 상태).
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS;
@@ -77,9 +78,10 @@ test.describe('시각 회귀 — 골든플로우', () => {
       }
 
       test(`#7 관리자 /admin/products`, async ({ page }) => {
+        test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — admin 촬영 생략');
         await page.goto('/login');
-        await page.locator('input[type="email"]').fill(ADMIN_EMAIL);
-        await page.locator('input[type="password"]').fill(ADMIN_PASSWORD);
+        await page.locator('input[type="email"]').fill(ADMIN_EMAIL!);
+        await page.locator('input[type="password"]').fill(ADMIN_PASSWORD!);
         await page
           .getByRole('button', { name: /로그인/ })
           .first()

@@ -39,6 +39,9 @@ jobs:
           E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
           # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+          # 공개 리포 — admin 자격증명은 secret으로만 주입(미등록 시 admin 촬영 skip)
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
 
       - name: Upload diff artifacts
         uses: actions/upload-artifact@v4
