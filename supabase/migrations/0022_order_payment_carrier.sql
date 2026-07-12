@@ -13,3 +13,9 @@ alter table public.orders
 -- 스캔하므로 인덱스를 건다. expires_at이 null인 무통장입금 행은 인덱스에서 자연히 제외된다.
 create index if not exists orders_expires_at_idx on public.orders (expires_at)
   where expires_at is not null;
+
+-- 이중 승인 기록을 DB 레벨에서도 차단한다(애플리케이션의 setOrderPaid WHERE 조건부 전이가
+-- 1차 방어, 이 유니크 인덱스가 2차 방어). 같은 payment_key가 두 주문에 기록되는 경우는
+-- 정상 흐름에서 절대 발생하지 않으므로(토스 paymentKey는 결제 1건당 1개) 위반은 곧 버그다.
+create unique index if not exists orders_payment_key_uniq on public.orders (payment_key)
+  where payment_key is not null;
