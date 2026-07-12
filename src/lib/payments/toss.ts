@@ -11,6 +11,9 @@ export class TossConfirmError extends Error {
   constructor(
     message: string,
     public readonly tossCode: string | null,
+    /** 토스 응답 HTTP status. 네트워크 실패·시크릿키 미설정처럼 응답 자체를 못 받은 경우 null —
+     *  호출부가 "확정 거절(4xx)"과 "결과 불명(네트워크/5xx)"을 구분하는 데 쓴다. */
+    public readonly httpStatus: number | null,
   ) {
     super(message);
     this.name = 'TossConfirmError';
@@ -32,7 +35,8 @@ export async function confirmTossPayment(params: {
 }): Promise<TossConfirmResult> {
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) {
-    throw new TossConfirmError('toss-secret-key-missing', null);
+    // 설정 오류 — 토스에 요청 자체가 안 나갔으니 network-error와 동일하게 "결과 불명"(httpStatus null)로 던진다.
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
   }
 
   const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
@@ -48,7 +52,7 @@ export async function confirmTossPayment(params: {
       body: JSON.stringify(params),
     });
   } catch {
-    throw new TossConfirmError('toss-network-error', null);
+    throw new TossConfirmError('toss-network-error', null, null);
   }
 
   const data = (await response.json().catch(() => null)) as
@@ -56,7 +60,7 @@ export async function confirmTossPayment(params: {
     | null;
 
   if (!response.ok || !data) {
-    throw new TossConfirmError(data?.message ?? 'toss-confirm-failed', data?.code ?? null);
+    throw new TossConfirmError(data?.message ?? 'toss-confirm-failed', data?.code ?? null, response.status);
   }
 
   return {

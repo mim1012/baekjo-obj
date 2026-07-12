@@ -55,8 +55,16 @@ export async function POST(request: NextRequest) {
     }
 
     // ② 금액검증 — successUrl 쿼리(amount)는 위조 가능하므로 DB 총액과 대조 후 거부.
-    //    승인 요청 자체는 DB 값으로만 보낸다(④).
-    if (order.totalPrice + order.deliveryFee !== amount) {
+    //    승인 요청(④)은 요청 amount가 아니라 이 expectedAmount만 토스에 보낸다.
+    const expectedAmount = order.totalPrice + order.deliveryFee;
+    if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0) {
+      logServerError(
+        `[POST /api/payments/confirm] 주문 금액 데이터 이상 orderId=${orderId} expectedAmount=${expectedAmount}`,
+        {},
+      );
+      return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    }
+    if (expectedAmount !== amount) {
       return NextResponse.json({ error: 'amount-mismatch' }, { status: 400 });
     }
 
@@ -74,13 +82,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
     }
 
-    // ④ 토스 승인 API 호출(DB 금액 기준).
+    // ④ 토스 승인 API 호출 — expectedAmount(DB 값)만 보낸다. 클라이언트가 보낸 amount 변수는
+    //    ②에서 이미 expectedAmount와 동일함이 확인됐지만, 요청 필드 자체를 서버 값으로 고정해
+    //    "클라이언트 변수가 실제로 무엇을 승인시켰는지"에 대한 여지를 남기지 않는다.
     let tossResult;
     try {
-      tossResult = await confirmTossPayment({ paymentKey, orderId, amount });
+      tossResult = await confirmTossPayment({ paymentKey, orderId, amount: expectedAmount });
     } catch (tossError) {
-      if (tossError instanceof TossConfirmError && tossError.tossCode !== null) {
-        // 진짜 토스 거절(카드사 거부 등, tossCode 있음) — 토스가 결제를 캡처하지 않았으므로
+      // 확정 거절 = tossCode 있음 && httpStatus가 4xx(진짜 클라이언트 오류로 토스가 응답을 완료함).
+      // httpStatus가 5xx면 tossCode가 실려 있어도 토스 내부 사정으로 캡처 여부가 불확실하므로
+      // "불명" 경로로 보낸다(§ 확장1 — 5xx도 불명 취급).
+      const isConfirmedDecline =
+        tossError instanceof TossConfirmError &&
+        tossError.tossCode !== null &&
+        tossError.httpStatus !== null &&
+        tossError.httpStatus < 500;
+
+      if (isConfirmedDecline) {
+        // 진짜 토스 거절(카드사 거부 등) — 토스가 결제를 캡처하지 않았으므로
         // 재고를 즉시 회수해 다음 구매자가 기다리지 않게 한다.
         await cancelReservationAndRestore(orderId).catch((restoreError) => {
           logServerError(
@@ -92,19 +111,37 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'payment-declined' }, { status: 402 });
       }
       if (tossError instanceof TossConfirmError) {
-        // tossCode===null: 네트워크/타임아웃/시크릿키 설정 오류 등 "토스가 실제로 뭘 했는지 불명".
+        // 불명(네트워크/타임아웃/시크릿키 설정 오류/토스 5xx) — "토스가 실제로 뭘 했는지 불명".
         // 이 경우 토스가 이미 결제를 캡처했을 가능성을 배제할 수 없으므로 여기서 취소·복원하면
         // 안 된다(캡처된 결제인데 재고를 풀어버리는 반대 방향 리스크가 생김). 주문을 결제대기로
         // 남겨두면 ① 사용자가 같은 successUrl로 재시도할 때 동일 paymentKey로 토스 confirm이
         // 멱등하게 재확정할 수 있고, ② 진짜 미결제였다면 claim이 연장한 10분 뒤 만료 cron이
         // 재고를 회수한다 — 두 경로 모두 이 분기에서 취소하지 않아야 안전하다.
         logServerError(
-          `[POST /api/payments/confirm] 토스 승인 응답 불명(네트워크/설정) orderId=${orderId} paymentKey=${paymentKey}`,
+          `[POST /api/payments/confirm] 토스 승인 응답 불명(네트워크/설정/5xx) orderId=${orderId} paymentKey=${paymentKey} httpStatus=${tossError.httpStatus}`,
           tossError,
         );
         return NextResponse.json({ error: 'payment-unconfirmed' }, { status: 502 });
       }
       throw tossError;
+    }
+
+    // ④-b 토스 2xx 성공 응답 런타임 검증 — 캐스팅만으로는 응답 위조·불일치를 잡지 못한다.
+    //    orderId·paymentKey·금액·상태 넷 다 일치해야만 "진짜 이 요청에 대한 승인"으로 인정한다.
+    //    하나라도 어긋나면 성공으로도, 취소 사유로도 삼지 않고 불명 경로(취소 금지·502)로 보낸다.
+    const tossResponseValid =
+      tossResult.orderId === orderId &&
+      tossResult.paymentKey === paymentKey &&
+      tossResult.totalAmount === expectedAmount &&
+      tossResult.status === 'DONE';
+
+    if (!tossResponseValid) {
+      logServerError(
+        `[POST /api/payments/confirm] 토스 성공응답 필드 불일치 orderId=${orderId} paymentKey=${paymentKey} ` +
+          `tossOrderId=${tossResult.orderId} tossPaymentKey=${tossResult.paymentKey} tossAmount=${tossResult.totalAmount} tossStatus=${tossResult.status}`,
+        {},
+      );
+      return NextResponse.json({ error: 'payment-unconfirmed' }, { status: 502 });
     }
 
     // ⑤ 승인 확정 — WHERE payment_status='결제대기' 조건으로 최초 1회만 성공(이중승인 방어).
