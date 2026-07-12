@@ -36,15 +36,20 @@ export default function ProductDetailClient({ product }: Props) {
   const hasPrice = product.price !== null && product.price !== undefined;
   const basePrice = hasPrice ? (product.salePrice ?? product.price!) : 0;
   const optionPrice = currentOption?.priceDiff ?? currentOption?.price ?? 0;
-  
+
   const finalPrice = basePrice + optionPrice;
   const totalPrice = finalPrice * quantity;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
+  const isSellable = hasPrice && product.stock > 0;
 
   const handleAddToCart = () => {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
+      return;
+    }
+    if (product.stock <= 0) {
+      alert('일시 품절된 상품입니다.');
       return;
     }
     addToCart({
@@ -59,6 +64,10 @@ export default function ProductDetailClient({ product }: Props) {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
+      return;
+    }
+    if (product.stock <= 0) {
+      alert('일시 품절된 상품입니다.');
       return;
     }
     addToCart({
@@ -229,19 +238,21 @@ export default function ProductDetailClient({ product }: Props) {
           
           {hasPrice ? (
             <>
-              <button 
+              <button
                 type="button"
                 onClick={handleAddToCart}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm"
+                disabled={!isSellable}
+                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <ShoppingCart className="mr-2 h-5 w-5" /> 장바구니
+                <ShoppingCart className="mr-2 h-5 w-5" /> {isSellable ? '장바구니' : '품절'}
               </button>
               <button
                 type="button"
                 onClick={handleBuyNow}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md"
+                disabled={!isSellable}
+                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <CreditCard className="mr-2 h-5 w-5" /> 바로구매
+                <CreditCard className="mr-2 h-5 w-5" /> {isSellable ? '바로구매' : '품절'}
               </button>
             </>
           ) : (
