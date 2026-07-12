@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
@@ -38,8 +39,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           </Link>
           <div className="flex flex-col md:flex-row md:items-end gap-12 justify-between">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-8">
-              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-[24px] bg-white text-slate-300 font-bold shadow-xl text-sm">
-                <span className="font-editorial text-4xl italic">{brand.name.slice(0, 1)}</span>
+              <div className="flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-[24px] bg-white p-4 shadow-xl">
+                {brand.logo ? (
+                  <Image src={brand.logo} alt={`${brand.name} 로고`} width={112} height={112} unoptimized className="h-full w-full object-contain" />
+                ) : (
+                  <span className="font-editorial text-4xl italic text-slate-300">{brand.name.slice(0, 1)}</span>
+                )}
               </div>
               <div>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-6">{brand.name}</h1>
