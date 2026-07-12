@@ -11,22 +11,33 @@ const baseURL =
 const isLocal = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
 
 export default defineConfig({
-  testDir: './tests/golden',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: 1,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['line'], ['html', { open: 'never' }]],
-  use: {
-    baseURL,
-    navigationTimeout: 30_000,
-    actionTimeout: 15_000,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'off',
-  },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      testDir: './tests/golden',
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      // 결제 상태기계 DB/라우트 스펙 — Supabase Management API·fetch API 테스트, 브라우저 불필요.
+      name: 'payments',
+      testDir: './tests/payments',
+      use: {},
+    },
+  ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
   ...(isLocal
     ? {
