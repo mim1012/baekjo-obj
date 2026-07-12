@@ -212,27 +212,39 @@ export async function restoreStockForOrder(
 
 /**
  * 재고 선점 취소(결제 실패·이탈·만료). WHERE payment_status='결제대기'로 선점 중인 주문만
- * 대상으로 삼아 이미 확정된 주문을 실수로 취소하지 않는다. 조건 불일치(이미 처리됨)는
- * no-op으로 조용히 넘어간다 — 호출부(cancel 라우트·cron)가 멱등하게 재시도할 수 있게.
+ * 대상으로 삼아 이미 확정된 주문을 실수로 취소하지 않는다. setOrderPaid와 동일 패턴으로
+ * 영향행수를 반환한다 — 이중 취소만이 아니라 **이중 복원까지** 막아야 하기 때문이다.
+ *
+ * ★호출 계약(반드시 지킬 것): 이 함수를 먼저 호출해 반환값이 1(이번 호출이 취소 승자)일
+ * 때만 restoreStockForOrder를 실행한다. cancel 라우트와 만료 cron이 같은 주문을 동시에
+ * 집으면 둘 다 조건부 UPDATE를 시도하지만 하나만 1행을 매치한다 — 그 승자만 재고를 복원해야
+ * 재고가 2배로 복원되는 사고를 막는다. 순서를 뒤집어 restore를 먼저 실행하면 이 방어선이
+ * 무력화된다(Wave 1 U6·U7 작업자 필독).
  */
-export async function cancelOrderReservation(id: string): Promise<void> {
-  const { error } = await getSupabase()
+export async function cancelOrderReservation(id: string): Promise<number> {
+  const { data, error } = await getSupabase()
     .from('orders')
     .update({ order_status: '취소완료', payment_status: '결제취소' })
     .eq('id', id)
-    .eq('payment_status', '결제대기');
+    .eq('payment_status', '결제대기')
+    .select('id');
   if (error) throw error;
+  return data?.length ?? 0;
 }
 
+const EXPIRED_PENDING_ORDERS_CAP = 100;
+
 /** 만료된 선점 주문 목록(카드결제 PENDING이 10분 내 승인/취소 콜백을 못 받은 건).
- *  cron이 순회하며 재고를 복원한다. */
+ *  cron이 순회하며 재고를 복원한다. listAllOrders(ORDERS_LIST_CAP)와 동일하게 배치 상한을
+ *  둬 한 번의 cron 실행이 무제한 행을 끌어오지 않게 한다. */
 export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()
     .from('orders')
     .select(SELECT_COLUMNS)
     .eq('payment_status', '결제대기')
     .not('expires_at', 'is', null)
-    .lt('expires_at', new Date().toISOString());
+    .lt('expires_at', new Date().toISOString())
+    .limit(EXPIRED_PENDING_ORDERS_CAP);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
 }
