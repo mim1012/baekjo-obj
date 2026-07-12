@@ -31,6 +31,8 @@ import InsuranceSection from './components/InsuranceSection';
 import ProfileSection from './components/ProfileSection';
 import ReviewFormModal from '@/components/reviews/ReviewFormModal';
 import InquiryFormModal from '@/components/inquiries/InquiryFormModal';
+import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
+import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
 /** 구매평 작성/수정 모달에 전달되는 상품 + 주문 컨텍스트. 신규 작성 시에만 orderId/orderItemId 를 채운다. */
 type ReviewTargetProduct = Product & {
@@ -210,10 +212,20 @@ function MypageContent() {
       case 'insurance':
         return <InsuranceSection applications={insuranceApps} />;
       case 'profile':
-        return <ProfileSection user={user} />;
+        return (
+          <>
+            <ProfileSection user={user} />
+            {user.provider !== 'kakao' && user.provider !== 'naver' && <PasswordChangeSection />}
+          </>
+        );
       case 'overview':
       default:
-        return <OverviewSection stats={stats} />;
+        return (
+          <>
+            {(!user.provider || user.provider === 'email') && user.emailVerified === false && <EmailVerifyBanner />}
+            <OverviewSection stats={stats} />
+          </>
+        );
     }
   };
 
