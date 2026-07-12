@@ -1,0 +1,116 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import {
+  getOrderById,
+  setOrderPaid,
+  claimOrderForConfirmation,
+  cancelReservationAndRestore,
+} from '@/lib/orders/repo';
+import { confirmTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { logServerError } from '@/lib/logServerError';
+
+const MAX_PAYMENT_KEY = 200;
+const MAX_ORDER_ID = 100;
+
+interface ConfirmBody {
+  paymentKey: string;
+  orderId: string;
+  amount: number;
+}
+
+function validate(body: unknown): ConfirmBody | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as Record<string, unknown>;
+  if (typeof b.paymentKey !== 'string' || b.paymentKey.length < 1 || b.paymentKey.length > MAX_PAYMENT_KEY)
+    return null;
+  if (typeof b.orderId !== 'string' || b.orderId.length < 1 || b.orderId.length > MAX_ORDER_ID) return null;
+  if (typeof b.amount !== 'number' || !Number.isInteger(b.amount) || b.amount <= 0) return null;
+  return { paymentKey: b.paymentKey, orderId: b.orderId, amount: b.amount };
+}
+
+/**
+ * POST /api/payments/confirm — 토스 결제위젯 successUrl에서 호출하는 승인 게이트.
+ * 게스트 결제도 있어 세션 불요(주문 소유권은 orderId를 아는 사람만 확인 가능한 결제 흐름이므로
+ * checkout→successUrl 리다이렉트 경로 밖에서는 orderId를 알 수 없다 — order-complete 스냅샷과 동일 전제).
+ * 순서가 이중승인·금액조작·crash window 방어의 핵심이라 재배치 금지(§ 리뷰 인계사항).
+ */
+export async function POST(request: NextRequest) {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  const validated = validate(body);
+  if (!validated) {
+    return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+  const { paymentKey, orderId, amount } = validated;
+
+  try {
+    // ① 주문 존재 확인.
+    const order = await getOrderById(orderId);
+    if (!order) {
+      return NextResponse.json({ error: 'order-not-found' }, { status: 404 });
+    }
+
+    // ② 금액검증 — successUrl 쿼리(amount)는 위조 가능하므로 DB 총액과 대조 후 거부.
+    //    승인 요청 자체는 DB 값으로만 보낸다(④).
+    if (order.totalPrice + order.deliveryFee !== amount) {
+      return NextResponse.json({ error: 'amount-mismatch' }, { status: 400 });
+    }
+
+    // ③ 멱등 흡수 — 이미 결제완료거나 payment_key가 이미 있으면(중복 콜백/재방문) 토스를 다시
+    //    호출하지 않고 현재 주문을 그대로 반환한다. claim보다 먼저 둬야 한다: 순서가 바뀌면
+    //    정상 결제 완료건의 재확인 요청이 claim=0(이미 결제대기 아님) → 409로 잘못 분류된다.
+    if (order.paymentStatus === '결제완료' || order.paymentKey) {
+      return NextResponse.json({ order }, { status: 200 });
+    }
+
+    // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. 0이면 이미 취소/만료 처리된
+    //    주문이라 토스 승인 API를 호출하면 안 된다(승인해봐야 확정 못 함 = 이중 리스크만 증가).
+    const claimed = await claimOrderForConfirmation(orderId);
+    if (claimed === 0) {
+      return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
+    }
+
+    // ④ 토스 승인 API 호출(DB 금액 기준).
+    let tossResult;
+    try {
+      tossResult = await confirmTossPayment({ paymentKey, orderId, amount });
+    } catch (tossError) {
+      // 승인 실패 — 재고를 즉시 회수해 다음 구매자가 기다리지 않게 한다.
+      await cancelReservationAndRestore(orderId).catch((restoreError) => {
+        logServerError('[POST /api/payments/confirm] 토스 승인 실패 후 재고 복원 실패', restoreError);
+      });
+      if (tossError instanceof TossConfirmError) {
+        logServerError('[POST /api/payments/confirm] 토스 승인 거부', tossError);
+        return NextResponse.json({ error: 'payment-declined' }, { status: 402 });
+      }
+      throw tossError;
+    }
+
+    // ⑤ 승인 확정 — WHERE payment_status='결제대기' 조건으로 최초 1회만 성공(이중승인 방어).
+    const affected = await setOrderPaid(orderId, {
+      paymentKey: tossResult.paymentKey,
+      paidAt: new Date().toISOString(),
+    });
+
+    if (affected === 0) {
+      // 토스 승인은 성공했는데 DB 확정이 0행(승인 처리 도중 만료 취소가 먼저 커밋된 극단적 경합).
+      // 웹훅 없이는 이 잔존 리스크를 완전히 닫을 수 없다(스코프 밖, R6) — 실결제와 DB 불일치를
+      // 조용히 흘리지 않도록 반드시 로그를 남기고, 클라이언트에는 확정 실패가 아니라 "확인 중"으로 응답한다.
+      logServerError(
+        '[POST /api/payments/confirm] 토스 승인 성공, DB 확정 0행(주문 상태 변경됨) — 웹훅 후속 필요',
+        { orderId, paymentKey: tossResult.paymentKey },
+      );
+      return NextResponse.json({ error: 'payment-confirming' }, { status: 202 });
+    }
+
+    const confirmedOrder = await getOrderById(orderId);
+    return NextResponse.json({ order: confirmedOrder ?? order }, { status: 200 });
+  } catch (error) {
+    logServerError('[POST /api/payments/confirm] 승인 처리 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
