@@ -315,7 +315,7 @@ function ShopInner({ products, brands }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-6">
             {recommendedProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+              <ProductCard key={product.id} product={product} variant="shop" />
             ))}
           </div>
         </section>
@@ -398,7 +398,7 @@ function ShopInner({ products, brands }: Props) {
             <>
               <div className="shop-product-grid grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
                 {paginatedProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard key={product.id} product={product} variant="shop" />
                 ))}
               </div>
 
