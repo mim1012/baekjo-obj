@@ -1,17 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import {
-  getOrderById,
-  setOrderPaid,
-  claimOrderForConfirmation,
-  cancelConfirmingAndRestore,
-} from '@/lib/orders/repo';
+import { getOrderById, setOrderPaid, claimOrderForConfirmation } from '@/lib/orders/repo';
 import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { decidePaymentAction } from '@/lib/payments/decide';
+import { applyPaymentAction } from '@/lib/payments/execute';
 import { logServerError } from '@/lib/logServerError';
 
 const MAX_BODY_BYTES = 20_000;
 const MAX_ORDER_ID = 100;
 const MAX_PAYMENT_KEY = 200;
-const RESTORABLE_TOSS_STATUSES = new Set(['CANCELED', 'EXPIRED', 'ABORTED']);
 // 토스가 웹훅에 요구하는 10초 응답 데드라인 안에 여유를 두려고 confirm/reconcile(10초)보다
 // 짧게 잡는다 — 재조회 자체가 오래 걸려 우리가 못 지키면 토스가 재전송하게 되므로 5초 컷.
 const WEBHOOK_TOSS_TIMEOUT_MS = 5_000;
@@ -159,12 +155,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    if (tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount) {
-      if (order.paymentStatus === '결제완료') {
-        // 이미 확정됨 — 멱등 no-op.
-        return NextResponse.json({ ok: true }, { status: 200 });
-      }
+    const isDoneSignal = tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount;
+    const action = decidePaymentAction(
+      order.paymentStatus,
+      order.paymentKey,
+      { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount },
+      'webhook',
+    );
 
+    if (action.kind === 'settled') {
+      // 이미 확정됨 — 멱등 no-op.
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    if (action.kind === 'confirm') {
       if (order.paymentStatus === '결제대기') {
         // ★Fable 정정(2026-07-12): claim된 적 없는 주문(사용자 이탈로 confirm 미도달) — 이게
         // 바로 웹훅이 존재하는 이유다. claim으로 먼저 '승인중' 선전이한 뒤 setOrderPaid를 호출해야
@@ -181,7 +185,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true }, { status: 200 });
           }
           if (latest?.paymentStatus === '승인중' && latest.paymentKey === paymentKey) {
-            await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+            await applyPaymentAction(action, orderId, paymentKey);
             return NextResponse.json({ ok: true }, { status: 200 });
           }
           // 그 사이 취소된 경우 등 — 재확정할 수 없는 상태. 사람이 봐야 하므로 시끄럽게 로그.
@@ -191,72 +195,61 @@ export async function POST(request: NextRequest) {
           );
           return NextResponse.json({ ok: true }, { status: 200 });
         }
-        await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+        await applyPaymentAction(action, orderId, paymentKey);
         return NextResponse.json({ ok: true }, { status: 200 });
       }
 
-      if (order.paymentStatus === '승인중') {
-        // ★키 바인딩 필수 — setOrderPaid의 WHERE(payment_status='승인중' AND payment_key=?)가
-        // 이미 방어하므로 이 체크가 없어도 DB는 안전하지만, 체크 없이 호출부만 보면 "왜 안전한지"가
-        // 라우트 코드만으로 드러나지 않는다. 명시적으로 검증해 라우트 레벨에서도 의도를 보증한다.
-        if (order.paymentKey !== paymentKey) {
-          logServerError(
-            `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치 orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`,
-            {},
-          );
-          return NextResponse.json({ ok: true }, { status: 200 });
-        }
-        await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
-        return NextResponse.json({ ok: true }, { status: 200 });
-      }
+      // order.paymentStatus === '승인중' — decide가 이미 keyMatches를 확인했으므로(불일치면
+      // 'ignore'로 갈라짐) 여기 도달했다는 것 자체가 키 바인딩이 맞다는 뜻이다. setOrderPaid의
+      // WHERE(payment_status='승인중' AND payment_key=?)도 동일 조건으로 한번 더 방어한다.
+      await applyPaymentAction(action, orderId, paymentKey);
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
 
-      // 결제취소/환불완료 등 이미 종결된 상태인데 DONE 웹훅이 옴 — 상충하는 신호. 확정하지 않고
-      // 시끄럽게 로그만 남긴다(사람이 토스 상점관리자와 대조 필요).
+    if (action.kind === 'restoreConfirming') {
+      // ★키 바인딩 필수 — cancelConfirmingAndRestore(0026 rpc)는 payment_key를 보지 않고
+      // WHERE payment_status='승인중'만 본다. decide가 keyMatches를 이미 확인했으므로(불일치면
+      // 'ignore') 여기 도달했다는 것 자체가 옛 paymentKey의 취소류 웹훅이 새 claim을 잘못
+      // 취소시키는 사고가 아님을 보증한다.
+      await applyPaymentAction(action, orderId, paymentKey);
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+
+    if (action.kind === 'ignore' && action.reason === 'key-mismatch') {
       logServerError(
-        `[POST /api/payments/webhook] 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId}`,
+        isDoneSignal
+          ? `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치 orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`
+          : `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치(취소 시도) orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`,
         {},
       );
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    if (RESTORABLE_TOSS_STATUSES.has(tossResult.status)) {
-      if (order.paymentStatus === '승인중') {
-        // ★키 바인딩 필수 — cancelConfirmingAndRestore(0026 rpc)는 payment_key를 보지 않고
-        // WHERE payment_status='승인중'만 본다. 그래서 이 취소 경로는 setOrderPaid와 달리
-        // DB의 WHERE로 방어되지 않는다 — 라우트가 직접 키 일치를 검증하지 않으면, 이미 claim이
-        // 새 paymentKey로 재시도를 시작한 주문을 옛 paymentKey의 취소류 웹훅이 잘못 취소시킬 수
-        // 있다. 이 체크가 이 함수를 호출하는 유일한 방어선이다.
-        if (order.paymentKey !== paymentKey) {
-          logServerError(
-            `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치(취소 시도) orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`,
-            {},
-          );
-          return NextResponse.json({ ok: true }, { status: 200 });
-        }
-        await cancelConfirmingAndRestore(orderId);
-        return NextResponse.json({ ok: true }, { status: 200 });
-      }
-
-      // ★CRITICAL 수정(Codex 리뷰, 이번 커밋) — '결제대기' 주문을 이 웹훅으로 취소시키는 경로를
-      // 완전히 제거했다. orderId는 클라이언트(성공/실패 리다이렉트, 웹훅 페이로드)가 지정하는
-      // 값이라, 공격자가 피해자의 실제 orderId를 자신의 새 결제 시도에 끼워 넣고 그 결제를
-      // 중단(CANCELED)시키면, 이 라우트가 "토스가 그 orderId로 취소 웹훅을 보냈다"는 이유만으로
-      // 피해자의 정상 '결제대기' 주문을 취소해버리는 벡터가 있었다(신원검증은 토스 응답의
-      // orderId/paymentKey가 우리가 물어본 값과 같은지만 볼 뿐, 그 결제가 애초에 이 주문 소유였는지는
-      // 보장하지 못한다). '결제대기' 만료 주문의 취소는 reclaim-stock cron이 10분 내 자동으로
-      // 이미 전담하므로, 이 라우트가 손대는 것은 중복 기능이자 불필요한 공격 표면이었다.
-      if (order.paymentStatus === '결제완료') {
-        // 결제완료 확정건에 취소류 웹훅이 온 경우(회귀 방지) — 이미 확정된 결제를 취소·복원하지
-        // 않는다. 실제 환불이 필요하면 별도 관리자 플로우로 처리한다(이 라우트의 스코프 밖).
+    if (action.kind === 'ignore' && action.reason === 'conflicting-terminal-state') {
+      if (isDoneSignal) {
+        // 결제취소/환불완료 등 이미 종결된 상태인데 DONE 웹훅이 옴 — 상충하는 신호. 확정하지 않고
+        // 시끄럽게 로그만 남긴다(사람이 토스 상점관리자와 대조 필요).
+        logServerError(
+          `[POST /api/payments/webhook] 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId}`,
+          {},
+        );
+      } else if (order.paymentStatus === '결제완료') {
+        // ★CRITICAL 수정(Codex 리뷰) — '결제대기' 주문은 이 웹훅으로 취소시키지 않는다(decide.ts
+        // 참고: orderId 위조로 피해자의 정상 결제대기 주문을 취소시키는 벡터 차단). 결제완료
+        // 확정건에 취소류 웹훅이 온 경우(회귀 방지)만 로그를 남긴다 — 이미 확정된 결제는
+        // 취소·복원하지 않는다. 실제 환불이 필요하면 별도 관리자 플로우로 처리한다(스코프 밖).
         logServerError(
           `[POST /api/payments/webhook] 결제완료 확정건에 취소류(${tossResult.status}) 웹훅 수신, 취소 생략 orderId=${orderId}`,
           {},
         );
       }
+      // '결제대기' 등 그 외 상태는 의도적으로 무로그(원래 동작 보존).
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    // 그 외(DONE인데 금액 불일치, WAITING_FOR_DEPOSIT 등 미처리 상태) — 불명 취급, 아무것도 하지 않는다.
+    // action.kind === 'ignore' && reason === 'unknown-status' (도달 불가 — DECLINED는
+    // confirm 전용 합성 상태라 웹훅엔 없음) 또는 'retryLater' — 그 외(DONE인데 금액 불일치,
+    // WAITING_FOR_DEPOSIT 등 미처리 상태) 불명 취급, 아무것도 하지 않는다.
     logServerError(
       `[POST /api/payments/webhook] 처리 대상 아닌 토스 상태 orderId=${orderId} tossStatus=${tossResult.status} ` +
         `tossAmount=${tossResult.totalAmount} expected=${expectedAmount}`,

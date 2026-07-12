@@ -1,13 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   getOrderById,
-  setOrderPaid,
   claimOrderForConfirmation,
-  cancelConfirmingAndRestore,
   ClaimPaymentKeyConflictError,
   type OrderRecord,
 } from '@/lib/orders/repo';
 import { confirmTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { decidePaymentAction } from '@/lib/payments/decide';
+import { applyPaymentAction } from '@/lib/payments/execute';
 import { logServerError } from '@/lib/logServerError';
 import type { ConfirmedOrderSummary } from '@/types';
 
@@ -196,7 +196,15 @@ export async function POST(request: NextRequest) {
         // 진짜 토스 거절(카드사 거부 등) — 토스가 결제를 캡처하지 않았으므로
         // 재고를 즉시 회수해 다음 구매자가 기다리지 않게 한다. claim이 이미 '승인중'으로
         // 전이시켰으므로 0024(WHERE '결제대기')는 no-op이 된다 — 반드시 0026을 호출한다.
-        await cancelConfirmingAndRestore(orderId).catch((restoreError) => {
+        // decide.ts의 합성 상태 'DECLINED'로 표현한다 — source==='confirm'에서만 곧장
+        // restoreConfirming으로 판정되는 정책(주문 상태 재확인 불필요, claim의 배타성이 보증).
+        const action = decidePaymentAction(
+          order.paymentStatus,
+          order.paymentKey,
+          { paymentKey, status: 'DECLINED', amountMatches: false },
+          'confirm',
+        );
+        await applyPaymentAction(action, orderId, paymentKey).catch((restoreError) => {
           logServerError(
             `[POST /api/payments/confirm] 토스 승인 거부 후 재고 복원 실패 orderId=${orderId}`,
             restoreError,
@@ -255,11 +263,18 @@ export async function POST(request: NextRequest) {
     }
 
     // ⑤ 승인 확정 — WHERE payment_status='승인중' AND payment_key=? 조건으로 claim이 발급한
-    //    이 시도만 확정(이중승인 방어).
-    const affected = await setOrderPaid(orderId, {
-      paymentKey: tossResult.paymentKey,
-      paidAt: new Date().toISOString(),
-    });
+    //    이 시도만 확정(이중승인 방어). tossResponseValid가 이미 status==='DONE'·금액 일치를
+    //    확인했으므로 decide는 항상 'confirm'을 반환한다. 여기서 order 변수는 ①에서 조회한
+    //    claim 이전 스냅샷('결제대기')이라 그대로 넘기지 않는다 — claim(③-b)이 이미 이 orderId를
+    //    '승인중'·payment_key=paymentKey로 전이시켰다는 사실을 알고 있으므로 그 현재 상태를 넘긴다.
+    const action = decidePaymentAction(
+      '승인중',
+      paymentKey,
+      { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount },
+      'confirm',
+    );
+    const result = await applyPaymentAction(action, orderId, tossResult.paymentKey);
+    const affected = result.applied === 'confirm' ? result.affected : 0;
 
     if (affected === 0) {
       // 토스 승인은 성공했는데 DB 확정이 0행(승인 처리 도중 만료 취소가 먼저 커밋된 극단적 경합).

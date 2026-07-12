@@ -1,17 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   listOrphanedConfirmingOrders,
-  setOrderPaid,
   cancelConfirmingAndRestore,
   recordReclaimAttempt,
   markReclaimDead,
 } from '@/lib/orders/repo';
 import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { decidePaymentAction } from '@/lib/payments/decide';
+import { applyPaymentAction } from '@/lib/payments/execute';
 import { logServerError } from '@/lib/logServerError';
 
 // recordReclaimAttempt 임계치 — reclaim-stock cron(U7)과 동일 상수(dead-letter 판정 기준).
 const MAX_RECLAIM_ATTEMPTS = 5;
-const RESTORABLE_TOSS_STATUSES = new Set(['CANCELED', 'EXPIRED', 'ABORTED']);
 
 /**
  * GET /api/cron/reconcile-confirming — Vercel Cron 전용(5분 주기, reclaim-stock과 동일한
@@ -99,22 +99,28 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      if (tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount) {
-        const affected = await setOrderPaid(order.id, {
-          paymentKey: order.paymentKey,
-          paidAt: new Date().toISOString(),
-        });
-        if (affected > 0) confirmed += 1;
+      const action = decidePaymentAction(
+        order.paymentStatus,
+        order.paymentKey,
+        { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount },
+        'reconcile',
+      );
+
+      if (action.kind === 'confirm') {
+        const result = await applyPaymentAction(action, order.id, order.paymentKey);
+        if (result.applied === 'confirm' && result.affected > 0) confirmed += 1;
         continue;
       }
 
-      if (RESTORABLE_TOSS_STATUSES.has(tossResult.status)) {
-        const didRestore = await cancelConfirmingAndRestore(order.id);
-        if (didRestore) restored += 1;
+      if (action.kind === 'restoreConfirming') {
+        const result = await applyPaymentAction(action, order.id, order.paymentKey);
+        if (result.applied === 'restore' && result.restored) restored += 1;
         continue;
       }
 
-      // 토스=DONE인데 금액 불일치, 혹은 알 수 없는 status — 불명 취급, 절대 취소하지 않는다.
+      // settled/ignore/retryLater — 오직 승인중 주문만 순회하므로(listOrphanedConfirmingOrders)
+      // 정상 흐름에선 여기 도달할 수 없다(settled·ignore는 결제완료/취소 등 다른 상태 전제).
+      // 그래도 decide가 방어적으로 반환할 수 있으니 불명 취급으로 동일하게 처리한다.
       logServerError(
         `[GET /api/cron/reconcile-confirming] 승인중 주문 재조회 결과 불명 orderId=${order.id} ` +
           `tossStatus=${tossResult.status} tossAmount=${tossResult.totalAmount} expected=${expectedAmount}`,
