@@ -161,6 +161,18 @@ export async function listAllProductsForAdmin(): Promise<Product[]> {
   return listProducts({ visibleOnly: false });
 }
 
+/** 주문 검증용 다건 조회(공개 상품만). 존재하지 않는 id는 결과에서 빠지므로 호출부가 개수를 대조한다. */
+export async function listProductsByIds(ids: string[]): Promise<Product[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await getSupabase()
+    .from('products')
+    .select(SELECT_COLUMNS)
+    .in('id', ids)
+    .eq('is_visible', true);
+  if (error) throw error;
+  return (data as ProductRow[]).map(rowToProduct);
+}
+
 /** 상품 생성 입력. id는 서버가 생성한다(mass-assignment 차단, seed 'p1' 스타일과 충돌 방지). */
 export type ProductInsertInput = Omit<Product, 'id'>;
 export type ProductPatchInput = Partial<Omit<Product, 'id'>>;

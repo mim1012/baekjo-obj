@@ -188,6 +188,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     body: JSON.stringify(input),
   });
   if (response.status !== 201) {
+    if (response.status === 409) {
+      throw new Error('out-of-stock');
+    }
     throw new Error('order-create-failed');
   }
   const { order } = (await response.json()) as { order: Order };
