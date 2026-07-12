@@ -3,7 +3,14 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
-## 현재 상태 (2026-07-13 마감)
+## 현재 상태 (2026-07-13 결제 세션 마감)
+- **🎉 토스페이먼츠 결제 시스템 전량 main 머지(9 PR)**: `#19`(계약: Order 결제필드·0022~0024·콘센트) → `#21`(admin carrier) → `#22`(reclaim cron) → `#23`(confirm/cancel 라우트) → `#25`(admin '승인중' 표시) → `#26`(order-complete 승인) → `#27`(checkout 위젯) → `#28`('승인중' 배타 상태기계+reconcile+dead-letter, 0025~0027) → `#29`(웹훅 수신+reclaim dead-letter). main HEAD `b993a90`.
+- **상태기계 확정**: 결제대기 →(claim 배타전이·payment_key 기록)→ 승인중 →(setOrderPaid WHERE 승인중+키)→ 결제완료. 취소 RPC 상호배타: 0024=결제대기 전용(cancel라우트·reclaim cron) / 0026=승인중 전용(confirm거절·reconcile·웹훅). **핵심 불변식: 불명(네트워크/5xx/신원·금액 불일치)에서는 어떤 경로도 취소·복원 금지** — reconcile cron(*/5)이 토스 조회로 대사, 5회 실패 시 dead-letter(`docs/runbooks/payment-dead-letter.md`).
+- **검증 실적**: 파이프라인 = Sonnet 구현 → Opus+Codex 교차리뷰(총 8라운드씩) → 실측. CRITICAL 3건(취소·복원 비원자 / 승인중 고아 / 웹훅 위조취소 벡터)·HIGH 십여 건 머지 전 전량 수정. 실측: staging DB 15+16 PASS, 프리뷰 라우트 22 PASS(오버셀·금액조작·불명 비취소·멱등), 골든#7 admin carrier 8 PASS, 웹훅 시뮬 5 PASS. 마이그레이션 0022~0027 staging 적용 완료(prod는 main push CI migrate).
+- **⚠️ 실가동 전제(사용자 액션)**: Vercel env `TOSS_SECRET_KEY`·`NEXT_PUBLIC_TOSS_CLIENT_KEY`(계약 전엔 토스 문서 테스트 키)·`CRON_SECRET` 등록 — 미등록 시 전부 fail-closed(카드결제 "준비중" 표시). 분단위 크론 2개 = **Vercel Pro 필요**. 등록 후 골든#2 위젯 E2E 실측 필요.
+- 로컬 잔존물: `D:\Project\BAGJO1-wt\` 워크트리들(파일 잠금으로 세션 내 삭제 실패 — 탐색기 삭제 가능). 스크래치패드 테스트 스크립트 4종(wave0/wave1/w1sm/golden7 — 세션 임시).
+
+## (이전 스냅샷) 현재 상태 (2026-07-13 마감)
 - **🎉 dad 리뷰·QnA·마이페이지 통합 main 머지 완료(PR #20, 머지커밋 `0bb79d7`)**: dad 커밋 2개(`8d7f880`·`1ce3b19`, +3,577줄) — 상품상세 리뷰/문의 섹션(ProductTabsClient), 모달 2종, mypage 섹션 10종, admin 상품문의 페이지, 케어가이드 리디자인. §8-1 원칙(충돌 5개 전부 dad-side 정본 + 배선만 재적용, merge 커밋으로 dad 저작자 보존).
 - **검증 3종 완료**: 픽셀 크로스체킹 47라우트×PC/모바일(기준: dad 정본 로컬빌드 + main 스냅샷 프리뷰(동일 staging DB) — 예상 밖 변화 0건) / 인터랙션 14동선 PASS·콘솔 에러 0 / opus 2라운드 GREEN + codex 3라운드 PASS(findings 13건 전부 수정). 뷰어: scratchpad `routes-viewer.html`·`crosscheck-viewer.html`(세션 임시 산출물).
 - **mim 의도적 가산 2건(dad 화면 확인 요망)**: mypage 이메일 인증 배너(요약 상단) + 비밀번호 변경 섹션(회원정보 수정 탭) — 통합에서 소실됐던 main 기능 복원(`ff98e2e`).
@@ -32,7 +39,12 @@
 - **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
-## 다음 단계 (2026-07-13 마감 기준)
+## 다음 단계 (2026-07-13 결제 마감 기준)
+0. **⭐ 결제 실가동**: ① Vercel env 3종(TOSS_SECRET_KEY/NEXT_PUBLIC_TOSS_CLIENT_KEY/CRON_SECRET) 등록 ② Pro 플랜(분단위 크론) 확인 ③ 프리뷰 골든#2 위젯 E2E 실측(테스트카드 결제→승인→완료). 토스 전자결제 계약 승인 후: 웹훅 URL 실등록(PAYMENT_STATUS_CHANGED — 서명은 이 이벤트에 미제공, 재조회가 권위) + Vercel WAF 룰(웹훅 경로) + 라이브 키 교체.
+0-1. **dad U10 잔여**: mypage 주문내역 배송조회 링크 — carrier 5종(cj/hanjin/lotte/post/logen) 조회 URL 매핑 전부 커버(누락=drift). 계획서 `.omc/plans/toss-payment-parallel-worktree.md` U10 brief 참조(ConfirmedOrderSummary 반환 계약 주의).
+0-2. **결제 후속(계획서 이월)**: 가상계좌(웹훅 eventType 확장) / dead-letter admin 가시화·알림 / 결제 상태기계 mock 테스트 스위트 / checkout 품절 UX 세분화. 계획서 `.omc/plans/toss-webhook-wave.md`.
+
+(이하 #24 마감분 이월)
 1. **리뷰·문의 데이터 DB 전환(be/*)** — 현재 localStorage 목(키 `baekjo_product_reviews`/`_inquiries`, 브라우저 로컬이라 타인/관리자에게 안 보임). 테이블+마이그레이션 신설, **서버측 권한 강제**(answerProductInquiry/setProductReviewStatus — opus MEDIUM), **async-ready 계약 합의 후 전환**(§4-5: 동기 목→async로 바뀌면 호출부 전체 영향), isSecret 제목 노출 여부 결정.
 2. **dad 확인 2건** — mypage 이메일 인증 배너·비밀번호 변경 섹션(mim 가산) 화면 승인. 크로스체킹 뷰어 공유.
 3. **BrandProductsClient 상품 CRUD 실배선** — 사용자 확인(2026-07-12): 추후 업체 관리자용 미리 올려둔 UI가 맞음 → RBAC 확장 때 partner 전용 상품 인가 엔드포인트(admin/inquiries TODO 포함)와 함께.
@@ -109,6 +121,13 @@
 - 2026-07-13 **BrandProductsClient 상품 추가/수정/삭제 = 로컬 미리보기 확정(사용자)**: 추후 업체 관리자 기능의 사전 UI. RBAC 확장 때 실배선.
 - 2026-07-12 **(2차 마감분 이후) dad 통합 리뷰 findings 13건 전량 수정**: §4 drift 6곳(getPublicProducts/getAdminProducts+props), lint 글롭 확대, ProductTabsClient 경쟁상태·죽은코드, buildReviewTargetKey DRY, Pagination clamp, orderItemId optional화(temp-item-id 제거 — 신규 구매평 분기 조건 수정 포함), 인가 회귀 2건.
 
+- 2026-07-13 **재고 선점 방식(a) 사용자 승인**: 결제 전 PENDING 생성+차감(expires_at=+10분) → 승인 확정 / 실패·이탈·만료 시 복원. 대안(승인 시 차감=결제 후 품절 환불)보다 UX 우위 판단.
+- 2026-07-13 **취소+복원 단일 트랜잭션 확정(codex CRITICAL)**: 2단계 호출(cancel→restore)은 크래시 창·이중복원 — 0024/0026 RPC로 원자화. "조건부 전이가 이중가산 방지"라는 초기 논리는 오류였음(이중취소만 방지).
+- 2026-07-13 **claim = 배타 상태전이로 승격(웹훅 웨이브 W1)**: expires_at 연장 방식의 confirm/cancel 경쟁 창을 '승인중' 상태 도입으로 원천 차단. U6 reconcile cron을 W1에 편입해 "승인중 고아" 창을 코드 레벨에서 제거(배포 순서 약속 대신 구조 해소 — opus 게이트·codex CRITICAL 수렴).
+- 2026-07-13 **웹훅 보안 판정(codex CRITICAL)**: 토스 orderId=클라이언트 지정값이라 위조 결제로 타인 주문 취소 가능 → 웹훅의 '결제대기' 취소 경로 **삭제**(reclaim cron 전담·중복이었음), 승인중 변이는 저장 payment_key 바인딩 필수. tosspayments-webhook-signature는 payout/seller 전용(결제 웹훅 미제공) → HMAC 분기 제거, 재조회가 인증 권위.
+- 2026-07-13 **교훈 — 교차리뷰 역할 분담 실증**: Opus는 불변식·전 분기 추적(정적), Codex는 실행 경로 시뮬레이션(동적 — "재시도가 한 번도 발사 안 됨"·위조 시나리오)에 강함. 총 16라운드에서 서로 못 잡은 결함을 상호 보완 — 단일 리뷰어였으면 CRITICAL 최소 2건이 머지됐음.
+- 2026-07-13 **교훈 — React 진입 락 안티패턴**: 재시도 로직에 in-flight 진입 락을 걸면 자기 재시도까지 막는다(delayed 재시도가 죽은 코드였음). 세대(generation) 카운터 단일 통제 + 서버 멱등 + UI disabled가 정석.
+
 ## 파일 흔적 (추가만)
 - 커밋(브랜치 `integrate/approval-and-design`): `4f9f1b9` 홈·헤더 / `f0a0eb8` 0원+업체필터 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`·`23189c2` CategorySettings(+fix) / `040cf2f` survey+게이트 / `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 로그인 가드+하드코딩 제거.
 - 마이그레이션: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(전부 실 DB 적용됨).
@@ -120,4 +139,5 @@
 - (2차 마감) main 머지 PR 5건: `#13`(1ccca8c, integrate 잔여 docs/ci) / `#14`(2f4ed45, 시각 회귀 게이트: `.github/CODEOWNERS`·`.github/workflows/{visual,update-baselines}.yml`·`tests/golden/visual.spec.ts`+스냅샷14장·AGENTS §8-1) / `#15`(0d4a138, `eslint.config.mjs` no-restricted-imports+.claude ignore·AGENTS §0-1-1) / `#16`(33f62c2, `supabase/migrations/0021_decrement_stock_for_order.sql`·`src/app/api/orders/route.ts`·`src/lib/{orders,products}/repo.ts`·`src/lib/storage.ts` 409 분기) / `#17`(8ce12d7, `tests/golden/shop.spec.ts` 구조 검증화). 브랜치 전부 하루살이로 삭제.
 - (2차 마감) 보호 규칙: main required checks = `verify`+`visual`(strict). GitHub secrets 추가: `E2E_ADMIN_EMAIL`·`E2E_ADMIN_PASSWORD`. 라벨 신설: `update-baselines`.
 - (2차 마감) 0021 적용: staging(로컬 러너 `scripts/apply-migrations.mjs` — CI migrate가 be/* push에 안 도는 갭 때문) + prod(main push CI). ⚠️ CI migrate 갭: be/* 브랜치 마이그레이션은 머지 전 staging 수동 적용 필요(또는 ci.yml 분기 확장 검토).
+- (2026-07-13 결제 마감) **토스 결제 PR 9건**: `#19`(5ea0a1b) `src/types/index.ts`+`src/lib/orders/repo.ts`+`src/lib/storage.ts`+`supabase/migrations/0022~0024` / `#21`(659a855) `src/app/api/admin/orders/[id]/route.ts` / `#22` `src/app/api/cron/reclaim-stock/route.ts`+`vercel.json` / `#23`(42219a3) `src/lib/payments/toss.ts`+`src/app/api/payments/{confirm,cancel}/route.ts`+`src/app/api/orders/route.ts` / `#25`(bc52424) admin orders '승인중' / `#26`(02842bb) `src/app/order-complete/page.tsx` / `#27`(7819942) `src/app/checkout/page.tsx`+`@tosspayments/tosspayments-sdk` / `#28`(dc3535c) `0025~0027`+repo 상태기계+`src/app/api/cron/reconcile-confirming/route.ts`+`docs/runbooks/payment-dead-letter.md` / `#29`(b993a90) `src/app/api/payments/webhook/route.ts`. 라벨 신설: `data-integration`·`behavior`. 계획서: `.omc/plans/toss-payment-parallel-worktree.md`·`toss-webhook-wave.md`(리뷰 정정 이력 포함).
 - 상품상세 배치(2026-07-12, push `1291f8a..e3e1518`): `src/components/shop/ProductDetailClient.tsx` 8커밋 `68d5b09`(배지 제거)→`e2075a7`(갤러리 배선)→`c8cd729`(§6 토큰)→`c002215`(재고 게이트)→`f1c8f42`·`b90fd63`·`2eb32a1`·`c7d9e2a`(Codex findings 픽스 4연) / `src/app/shop/[id]/page.tsx`+`src/app/admin/products/page.tsx` 3커밋 `25a0af9`(PurchaseInfo 재배치)→`17fad71`(admin stock 입력)→`16ddfaa`(음수·소수 클램프) / 머지커밋 `e3e1518`. 작업 브랜치 `fe/design-product-detail-wiring`·`be/product-detail-server`는 머지 후 삭제(하루살이 규칙).
