@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
 import { getMyOrders, getMyInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts, getQnaConfig } from '@/lib/storage';
-import { reviews } from '@/data/reviews';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
 import type { InsuranceApplication, Order, Product, QnA } from '@/types';
@@ -13,6 +13,7 @@ import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
 export default function MyPage() {
   const mounted = useMounted();
+  const router = useRouter();
   // 주문은 서버(세션 기준 내 주문)에서 비동기로 불러온다. 세션이 없으면 빈 배열.
   // 로딩 중과 '주문 없음'을 구분해야 주문 있는 회원에게 빈 상태가 잠깐 노출되지 않는다.
   const [orders, setOrders] = useState<Order[]>([]);
@@ -79,13 +80,28 @@ export default function MyPage() {
     };
   }, []);
 
+  // 로그인 가드: 마운트 후 세션이 없으면 회원 데이터를 렌더하지 않고 /login 으로 보낸다.
+  // getCurrentUser 는 클라이언트 전용(SSR 시 null)이라 mounted 이후에만 판정한다.
+  useEffect(() => {
+    if (!mounted) return;
+    if (getCurrentUser() === null) {
+      router.replace('/login');
+    }
+  }, [mounted, router]);
+
   if (!mounted) return null;
+
+  const currentUser = getCurrentUser();
+  // 비로그인 상태에서는 리다이렉트가 진행되는 동안 회원 데이터가 잠깐 노출되지 않도록 아무것도 렌더하지 않는다.
+  if (!currentUser) return null;
 
   const wishlistedIds = getWishlist();
   const wishlist = productsLoading ? [] : products.filter((product) => wishlistedIds.includes(product.id));
-  const currentUser = getCurrentUser();
   // 소셜 가입 시 이메일 미제공이면 내부용 플레이스홀더가 저장된다 → 화면에 노출 금지.
-  const isPlaceholderEmail = currentUser?.email.endsWith('@placeholder.baekjo') ?? false;
+  const isPlaceholderEmail = currentUser.email.endsWith('@placeholder.baekjo') ?? false;
+  // 상품문의: 소유자 식별 필드(memberId)가 QnA 모델에 없어, 유일한 소유 신호인 작성자 이름으로 best-effort 필터.
+  // TODO(계약): QnA/Review 에 memberId 필드를 추가하는 것이 정식 해법(지금은 타입 변경 금지 — §4).
+  const myQnaItems = qnaItems.filter((qna) => qna.writerName === currentUser.name);
   const providerLabel =
     currentUser?.provider === 'kakao' ? '카카오' : currentUser?.provider === 'naver' ? '네이버' : null;
   return (
@@ -257,16 +273,11 @@ export default function MyPage() {
               <h2 className="flex items-center text-lg font-bold text-[#202521]">
                 <Star className="mr-2 size-5 text-[#2F3B34]" /> 구매평 관리
               </h2>
-              <div className="mt-6 divide-y divide-gray-100 border-t border-gray-100">
-                {reviews.slice(0, 3).map((review) => (
-                  <div key={review.id} className="flex items-center justify-between gap-5 py-4 text-sm">
-                    <div>
-                      <p className="line-clamp-1 text-gray-800">{review.content}</p>
-                      <p className="mt-1 text-xs text-gray-400">{review.breed} · 별점 {review.rating}</p>
-                    </div>
-                    <Link href={`/shop/${review.productId}#tab-5`} className="shrink-0 text-xs font-semibold text-[#2F3B34]">보기</Link>
-                  </div>
-                ))}
+              {/* Review 모델에 소유자 필드(userId/memberId)가 없어 '내 구매평'을 필터할 수 없다.
+                  전역 mock 구매평을 내 것처럼 노출하지 않도록 빈 상태만 렌더한다(§4 — @/data 직접 참조 금지).
+                  TODO(계약): Review 에 memberId 필드 추가가 정식 해법(지금은 타입 변경 금지). */}
+              <div className="mt-6 border-t border-gray-100">
+                <div className="py-10 text-center text-gray-500">작성한 구매평이 없습니다.</div>
               </div>
             </section>
 
@@ -274,17 +285,23 @@ export default function MyPage() {
               <h2 className="flex items-center text-lg font-bold text-[#202521]">
                 <MessageCircle className="mr-2 size-5 text-[#2F3B34]" /> 상품문의 관리
               </h2>
-              <div className="mt-6 divide-y divide-gray-100 border-t border-gray-100">
-                {qnaItems.map((qna) => (
-                  <div key={qna.id} className="flex items-center justify-between gap-5 py-4 text-sm">
-                    <div>
-                      <p className="text-gray-800">{qna.question}</p>
-                      <p className="mt-1 text-xs text-gray-400">{qna.productName}</p>
+              {myQnaItems.length === 0 ? (
+                <div className="mt-6 border-t border-gray-100">
+                  <div className="py-10 text-center text-gray-500">작성한 상품문의가 없습니다.</div>
+                </div>
+              ) : (
+                <div className="mt-6 divide-y divide-gray-100 border-t border-gray-100">
+                  {myQnaItems.map((qna) => (
+                    <div key={qna.id} className="flex items-center justify-between gap-5 py-4 text-sm">
+                      <div>
+                        <p className="text-gray-800">{qna.question}</p>
+                        <p className="mt-1 text-xs text-gray-400">{qna.productName}</p>
+                      </div>
+                      <span className="shrink-0 border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-600">{qna.status}</span>
                     </div>
-                    <span className="shrink-0 border border-gray-200 px-2 py-1 text-[10px] font-semibold text-gray-600">{qna.status}</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <section id="profile" className="border border-gray-100 bg-white p-8 shadow-sm">
