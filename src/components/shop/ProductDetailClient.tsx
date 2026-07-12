@@ -23,6 +23,15 @@ export default function ProductDetailClient({ product }: Props) {
   const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
   const [activeImage, setActiveImage] = useState(0);
   const wishlisted = mounted && isWishlisted(product.id);
+
+  // 상품 전환 시 로컬 state 재동기화(이전 상품의 인덱스·수량 잔존 방지)
+  // — effect 내 동기 setState 는 lint(cascading render) 에러라 렌더 단계 리셋 패턴 사용.
+  const [prevProductId, setPrevProductId] = useState(product.id);
+  if (prevProductId !== product.id) {
+    setPrevProductId(product.id);
+    setActiveImage(0);
+    setQuantity(1);
+  }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
 
@@ -41,6 +50,9 @@ export default function ProductDetailClient({ product }: Props) {
   const totalPrice = finalPrice * quantity;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
+  // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
+  const safeIndex = Math.min(activeImage, gallery.length - 1);
+  const currentImage = gallery[safeIndex];
 
   const handleAddToCart = () => {
     if (!hasPrice) {
@@ -52,10 +64,11 @@ export default function ProductDetailClient({ product }: Props) {
       alert('일시 품절된 상품입니다.');
       return;
     }
+    const qty = Math.min(quantity, product.stock);
     addToCart({
       productId: product.id,
       optionId: selectedOption || undefined,
-      quantity,
+      quantity: qty,
     });
     alert('장바구니에 담겼습니다.');
   };
@@ -70,10 +83,11 @@ export default function ProductDetailClient({ product }: Props) {
       alert('일시 품절된 상품입니다.');
       return;
     }
+    const qty = Math.min(quantity, product.stock);
     addToCart({
       productId: product.id,
       optionId: selectedOption || undefined,
-      quantity,
+      quantity: qty,
     });
     router.push('/checkout');
   };
@@ -86,7 +100,7 @@ export default function ProductDetailClient({ product }: Props) {
           <>
             <div className="relative aspect-square w-full overflow-hidden rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-[#F3EEE6] shadow-sm">
               <Image
-                src={gallery[activeImage]}
+                src={currentImage}
                 alt={product.name}
                 fill
                 sizes="(max-width:1024px) 100vw, 50vw"
@@ -102,7 +116,7 @@ export default function ProductDetailClient({ product }: Props) {
                     onClick={() => setActiveImage(i)}
                     aria-label={`${product.name} 이미지 ${i + 1}`}
                     className={`relative aspect-square w-20 shrink-0 overflow-hidden rounded-[12px] bg-[#F3EEE6] border shadow-sm transition-colors ${
-                      i === activeImage ? 'border-[#17211D]' : 'border-[rgba(15,23,42,0.08)] hover:border-[#17211D]'
+                      i === safeIndex ? 'border-[#17211D]' : 'border-[rgba(15,23,42,0.08)] hover:border-[#17211D]'
                     }`}
                   >
                     <Image src={src} alt="" fill sizes="80px" className="object-contain p-1.5" />
