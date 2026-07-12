@@ -1,7 +1,7 @@
 // category_settings 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 // 카테고리 설정(CategorySettings)을 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
-import type { CategorySettings } from '@/components/providers/CategorySettingsProvider';
+import type { CategorySettings } from '@/lib/categorySettings/config';
 
 const SETTINGS_ROW_ID = 'default';
 

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import { saveCategorySettings } from '@/lib/categorySettings/repo';
-import type { CategorySettings } from '@/components/providers/CategorySettingsProvider';
+import type { CategorySettings } from '@/lib/categorySettings/config';
 import { logServerError } from '@/lib/logServerError';
 
 /**

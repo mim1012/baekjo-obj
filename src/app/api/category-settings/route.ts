@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import {
-  defaultCategorySettings,
-  type CategorySettings,
-} from '@/components/providers/CategorySettingsProvider';
+import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';
 import { getCategorySettings } from '@/lib/categorySettings/repo';
 import { logServerError } from '@/lib/logServerError';
 
