@@ -204,6 +204,10 @@ export interface Order {
   trackingNumber?: string;
   deliveryMemo?: string;
   createdAt: string;
+  carrier?: string;
+  paymentKey?: string;
+  paidAt?: string;
+  expiresAt?: string;
 }
 
 export interface OrderItem {
@@ -213,6 +217,16 @@ export interface OrderItem {
   quantity: number;
   price: number;
 }
+
+/**
+ * POST /api/payments/confirm 응답 전용 축소 필드(가산 타입, Order 본체는 무변경).
+ * 무인증 공개 엔드포인트라 PII(customerName/phone/address/items)는 내려주지 않고
+ * 화면(order-complete)이 승인 결과를 표시하는 데 필요한 최소 필드만 담는다.
+ */
+export type ConfirmedOrderSummary = Pick<
+  Order,
+  'id' | 'orderStatus' | 'paymentStatus' | 'totalPrice' | 'deliveryFee' | 'paidAt'
+>;
 
 export const ORDER_STATUSES = [
   '주문접수',

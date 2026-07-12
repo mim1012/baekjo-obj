@@ -1,4 +1,4 @@
-import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
+import { Brand, ConfirmedOrderSummary, InsuranceApplication, Order, Product, User } from '@/types';
 import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
@@ -265,7 +265,9 @@ export async function getLastOrder(): Promise<Order | null> {
  */
 export async function updateOrderStatus(
   id: string,
-  updates: Partial<Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber'>>,
+  updates: Partial<
+    Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
+  >,
 ): Promise<void> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -274,6 +276,50 @@ export async function updateOrderStatus(
   });
   if (!response.ok) {
     throw new Error('order-update-failed');
+  }
+}
+
+/**
+ * 토스 결제 승인 확정. successUrl(paymentKey·orderId·amount 쿼리)에서 호출한다.
+ * 서버가 DB 총액과 amount를 대조 후 토스에 승인 요청 → setOrderPaid로 조건부 확정한다
+ * (§ 이중승인 방어). amount는 클라이언트 쿼리값을 신뢰하지 않고 서버가 재검증한다.
+ * 반환 order는 전체 Order가 아니라 ConfirmedOrderSummary(가산 타입) — 무인증 공개
+ * 엔드포인트라 서버가 customerName/phone/address/items 같은 PII를 내려주지 않는다.
+ */
+export async function confirmTossPayment(payment: {
+  paymentKey: string;
+  orderId: string;
+  amount: number;
+}): Promise<{ ok: true; order: ConfirmedOrderSummary } | { ok: false; error: string }> {
+  try {
+    const response = await fetch('/api/payments/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payment),
+    });
+    if (!response.ok) {
+      return { ok: false, error: 'payment-confirm-failed' };
+    }
+    const { order } = (await response.json()) as { order: ConfirmedOrderSummary };
+    return { ok: true, order };
+  } catch {
+    return { ok: false, error: 'payment-confirm-failed' };
+  }
+}
+
+/**
+ * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
+ * 서버가 payment_status='결제대기'인 선점 주문만 대상으로 재고를 복원한다(확정건은 no-op).
+ * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
+ */
+export async function cancelReservation(orderId: string): Promise<void> {
+  const response = await fetch('/api/payments/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId }),
+  });
+  if (!response.ok) {
+    throw new Error('reservation-cancel-failed');
   }
 }
 
