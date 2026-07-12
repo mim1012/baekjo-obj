@@ -4,6 +4,8 @@
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
 ## 현재 상태 (2026-07-12 마감)
+- **🎉 main 머지 완료**: PR #12(integrate/approval-and-design → main, ~80커밋) CI(verify×2·migrate·Vercel) 전부 초록 후 머지(`8b2d71a`). **프로덕션 카나리 PASS**: baekjo-obj.vercel.app에서 admin@naver.com 로그인 → /admin/products 진입 실구동 성공(12초), 상세 페이지 새 빌드(배지 제거·PurchaseInfo) 서빙 확인. main 보호 규칙 개정: 사람 리뷰 승인 요건 제거(승인 기준 = CI + §8-6 삼중검증, AGENTS.md `23ef524`).
+- ⚠️ **후속 결정 필요**: integrate 브랜치 이제 소임 끝 — 다른 세션 사용 여부 확인 후 삭제하고 main발 짧은 브랜치 체계로 복귀. main 보호로 SESSION.md 갱신도 이제 PR 경유 필요(운영 방식 결정).
 - **상품상세 5개 미배선 항목 구현·검증·머지 완료**: 갤러리 실사진 배선 / audit 배지 제거 / §6 어스톤 토큰 정합 / ProductPurchaseInfo 재배치 / 재고 게이트(+admin stock 입력). 병렬 워크트리 Sonnet 구현 → Opus·Haiku·Codex 5.5 교차리뷰(§8-6) → Codex 5라운드 반복 끝 PASS → integrate 머지·push(`1291f8a..e3e1518`, CI 트리거됨). 미완: 프리뷰 골든플로우 #2·#7 Playwright 스모크(아래 다음 단계).
 - (이전 스냅샷)
 - **모든 admin/공개 drift 제거 완료**: 홈·헤더 / P1 members / P2 insurance / P3 settings / CategorySettings / survey / **kits·partners·qna**.
