@@ -5,7 +5,8 @@
 
 ## 현재 상태 (2026-07-12 마감)
 - **🎉 main 머지 완료**: PR #12(integrate/approval-and-design → main, ~80커밋) CI(verify×2·migrate·Vercel) 전부 초록 후 머지(`8b2d71a`). **프로덕션 카나리 PASS**: baekjo-obj.vercel.app에서 admin@naver.com 로그인 → /admin/products 진입 실구동 성공(12초), 상세 페이지 새 빌드(배지 제거·PurchaseInfo) 서빙 확인. main 보호 규칙 개정: 사람 리뷰 승인 요건 제거(승인 기준 = CI + §8-6 삼중검증, AGENTS.md `23ef524`).
-- ⚠️ **후속 결정 필요**: integrate 브랜치 이제 소임 끝 — 다른 세션 사용 여부 확인 후 삭제하고 main발 짧은 브랜치 체계로 복귀. main 보호로 SESSION.md 갱신도 이제 PR 경유 필요(운영 방식 결정).
+- **환경 3계층 분리 완료**: prod(main→baekjo-obj.vercel.app→`baekjo` DB) / stag(integrate·PR 프리뷰→`baekjo-staging` DB, 마이그레이션 0001~0020 클린 적용) / local(.env.local=staging). 센티널 로그인으로 프리뷰↔staging 배선 실증. **admin@naver.com/admin1234 3환경 전부 로그인 가능**(prod·stag DB 각각 계정 생성, Preview AUTH_SECRET 등록).
+- ⚠️ **후속 결정 필요**: integrate 브랜치 이제 소임 끝 — 다른 세션 사용 여부 확인 후 삭제하고 main발 짧은 브랜치 체계로 복귀. main 보호로 SESSION.md 갱신도 이제 PR 경유 필요(운영 방식 결정). 단 main 머지 이후 integrate에 docs·ci 커밋 5건(`eb471f5`~`17dd4e1`)이 쌓였으니 **다음 main PR에 함께 태울 것**.
 - **상품상세 5개 미배선 항목 구현·검증·머지 완료**: 갤러리 실사진 배선 / audit 배지 제거 / §6 어스톤 토큰 정합 / ProductPurchaseInfo 재배치 / 재고 게이트(+admin stock 입력). 병렬 워크트리 Sonnet 구현 → Opus·Haiku·Codex 5.5 교차리뷰(§8-6) → Codex 5라운드 반복 끝 PASS → integrate 머지·push(`1291f8a..e3e1518`, CI 트리거됨). 미완: 프리뷰 골든플로우 #2·#7 Playwright 스모크(아래 다음 단계).
 - (이전 스냅샷)
 - **모든 admin/공개 drift 제거 완료**: 홈·헤더 / P1 members / P2 insurance / P3 settings / CategorySettings / survey / **kits·partners·qna**.
@@ -15,7 +16,7 @@
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
 ## 다음 단계 (mim 액션 / 남은 것)
--1. **프리뷰 스모크 잔여분**: ① 구매 완결 여정(#2 장바구니→주문완료) — **판매 가능(가격>0 && stock>0) 상품이 프리뷰에 0개라 구동 불가(데이터 사유)**. 가격 입력(오너: mim/기획, /admin/products) 후 재실행. ② #7 admin 스모크 — admin 로그인 자격증명 필요(세션에 없음). ③ `tests/golden/shop.spec.ts:20` 스펙 노후 — dad 리디자인이 카테고리를 라이프스타일 라벨('식사와 영양' 등)로 매핑해 '사료' 링크가 화면에 없음. **테스트 수정 = 결정 이벤트(사용자 확인 필요)**: 스펙을 새 라벨로 갱신할지 결정. ④ purchase/admin.spec은 `test.fixme` 스텁 — 실 구현 필요. ⑤ `tests/golden/__smoke-pdp-temp.spec.ts` 빈 껍데기 삭제(권한 정책으로 세션 내 삭제 불가였음).
+-1. **프리뷰 스모크 잔여분**: ① 구매 완결 여정(#2 장바구니→주문완료) — 판매 가능(가격>0 && stock>0) 상품이 0개라 미구동. **이제 staging이라 부담 없음**: 프리뷰 `/admin/products`(admin@naver.com/admin1234)에서 아무 상품에 가격·재고 입력 후 재실행. ② ~~#7 admin 자격증명~~ 해소(admin 로그인 → /admin/products 진입 PASS 완료). ③ `tests/golden/shop.spec.ts:20` 스펙 노후 — dad 리디자인이 카테고리를 라이프스타일 라벨('식사와 영양' 등)로 매핑해 '사료' 링크가 화면에 없음. **테스트 수정 = 결정 이벤트(사용자 확인 필요)**: 스펙을 새 라벨로 갱신할지 결정. ④ purchase/admin.spec은 `test.fixme` 스텁 — 실 구현 필요. ⑤ `tests/golden/__smoke-pdp-temp.spec.ts` 빈 껍데기 삭제(권한 정책으로 세션 내 삭제 불가였음).
 -0.5. **미결 후속(이번 리뷰에서 비차단 판정)**: ① 옵션 재고 미게이트(상품 stock만 보고 ProductOption.stock 무시 — Opus MEDIUM, 기존 잠복 갭) ② admin brands 상품설정 버튼 onClick 소실(데드 버튼) ③ admin members 집계 3컬럼 축소 사용자 확인 ④ 인증 클러스터 재스타일·`#E9E7E0`·signup aside 삭제·업체폼 임시저장 소실 — dad 확인 필요(드리프트 조사 심각 1건).
 0. **[새 세션 예약] 드리프트 사전 차단 게이트 구축** — 브랜치 `chore/visual-regression-gate`(목적 1개), 산출물 2개:
    - **`.github/CODEOWNERS`**: `src/components/**` + `src/app/**/*Client.tsx` + `src/app/globals.css` → dad 리뷰 필수. (2인 팀 + enforce_admins ON이라 dad 부재 시 머지 블록 감수 — 사용자 인지됨)
