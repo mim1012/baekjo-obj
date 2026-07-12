@@ -204,6 +204,10 @@ export interface Order {
   trackingNumber?: string;
   deliveryMemo?: string;
   createdAt: string;
+  carrier?: string;
+  paymentKey?: string;
+  paidAt?: string;
+  expiresAt?: string;
 }
 
 export interface OrderItem {
