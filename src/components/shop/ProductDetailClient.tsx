@@ -31,7 +31,6 @@ export default function ProductDetailClient({ product }: Props) {
     setPrevProductId(product.id);
     setActiveImage(0);
     setQuantity(1);
-    setSelectedOption(product.options?.[0]?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
@@ -41,15 +40,17 @@ export default function ProductDetailClient({ product }: Props) {
     refreshWishlist((version) => version + 1);
   };
 
-  const currentOption = product.options?.find(o => o.id === selectedOption);
-  
+  // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
+  const validOption = product.options?.find(o => o.id === selectedOption) ?? product.options?.[0];
+  const effectiveOptionId = validOption?.id ?? '';
+
   const hasPrice = product.price !== null && product.price !== undefined;
   const basePrice = hasPrice ? (product.salePrice ?? product.price!) : 0;
-  const optionPrice = currentOption?.priceDiff ?? currentOption?.price ?? 0;
+  const optionPrice = validOption?.priceDiff ?? validOption?.price ?? 0;
 
   const finalPrice = basePrice + optionPrice;
-  // 표시·계산·핸들러 전달 수량 일원화 — stock 이 줄어도 화면과 담기는 값이 어긋나지 않게 클램프
-  const displayQty = Math.min(quantity, Math.max(1, product.stock));
+  // 표시·계산·핸들러 전달 수량 일원화 — stock 변동과 무관하게 항상 1 이상으로 클램프
+  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, product.stock)));
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
@@ -69,7 +70,7 @@ export default function ProductDetailClient({ product }: Props) {
     }
     addToCart({
       productId: product.id,
-      optionId: selectedOption || undefined,
+      optionId: effectiveOptionId || undefined,
       quantity: displayQty,
     });
     alert('장바구니에 담겼습니다.');
@@ -87,7 +88,7 @@ export default function ProductDetailClient({ product }: Props) {
     }
     addToCart({
       productId: product.id,
-      optionId: selectedOption || undefined,
+      optionId: effectiveOptionId || undefined,
       quantity: displayQty,
     });
     router.push('/checkout');
@@ -187,7 +188,7 @@ export default function ProductDetailClient({ product }: Props) {
             <label className="block text-sm font-semibold text-[#17211D] mb-3">옵션 선택</label>
             <div className="relative">
               <select 
-                value={selectedOption}
+                value={effectiveOptionId}
                 onChange={(e) => setSelectedOption(e.target.value)}
                 className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
               >
@@ -214,7 +215,8 @@ export default function ProductDetailClient({ product }: Props) {
               type="button"
               aria-label="수량 줄이기"
               onClick={() => setQuantity(Math.max(1, displayQty - 1))}
-              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
+              disabled={!isSellable}
+              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -225,7 +227,8 @@ export default function ProductDetailClient({ product }: Props) {
               type="button"
               aria-label="수량 늘리기"
               onClick={() => setQuantity(Math.min(product.stock, displayQty + 1))}
-              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
+              disabled={!isSellable}
+              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Plus className="h-4 w-4" />
             </button>
