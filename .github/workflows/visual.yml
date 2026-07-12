@@ -1,0 +1,52 @@
+name: visual (골든플로우 시각 회귀)
+
+# Vercel Preview 배포가 성공한 시점에 그 배포 URL을 대상으로 시각 회귀(14장)를 돌린다.
+# 표현(마크업·스타일)이 병합에서 유실되면 픽셀 diff로 잡는 게이트 — AGENTS.md §8-1.
+# 베이스라인 갱신은 update-baselines.yml(라벨 `update-baselines` 또는 수동 dispatch).
+on:
+  deployment_status:
+
+# 동일 SHA 중복 deployment_status 이벤트로 인한 중복 실행 방지
+concurrency:
+  group: visual-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Preview'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Visual regression (vs baseline)
+        run: npx playwright test tests/golden/visual.spec.ts --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+          # 공개 리포 — admin 자격증명은 secret으로만 주입(미등록 시 admin 촬영 skip)
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+
+      - name: Upload diff artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-diff
+          path: test-results/
+          retention-days: 7
