@@ -9,8 +9,14 @@ import { logServerError } from '@/lib/logServerError';
  * 같은 주문을 집어도 트랜잭션 하나만 커밋되므로 이중 복원은 구조적으로 불가능하다.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret) {
+    // 미설정을 401(정상 거부)로 흡수하면 "Bearer undefined"가 통과 문자열이 돼 인증 우회로 이어진다.
+    // 조용히 막지 않고 500으로 시끄럽게 실패시켜 운영자가 크론 대시보드에서 바로 알아채게 한다.
+    logServerError('[GET /api/cron/reclaim-stock] CRON_SECRET 미설정', new Error('CRON_SECRET missing'));
+    return NextResponse.json({ error: 'misconfigured' }, { status: 500 });
+  }
+  if (request.headers.get('authorization') !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
