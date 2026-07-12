@@ -301,10 +301,19 @@ export async function confirmTossPayment(payment: {
     // 들어가지만 바디에 order가 없어(라우트가 {error:'payment-confirming'}만 반환) ok:true로
     // 잘못 흡수되면 호출부가 undefined order를 승인완료로 오인한다. 실패/확인중 응답은 바디의
     // error 코드를 그대로 전달해 호출부가 402/409/502/'payment-confirming' 등을 구분하게 한다.
-    // 서버가 error 필드를 안 준 경우(예상 밖 응답 형태)에만 'payment-confirm-failed'로 폴백.
+    // 서버가 error 필드를 안 준 경우(예상 밖 응답 형태)에만 폴백한다. 502/503은 라우트 자체가
+    // 아니라 그 앞단 인프라(Vercel/프록시 게이트웨이)가 논-JSON 에러 페이지를 내려줄 수 있어,
+    // 그런 경우엔 라우트가 원래 의도하는 'payment-unconfirmed'(재시도 가능·취소 안 함)로
+    // 매핑해 완전히 낯선 502/503까지 거부성 실패로 잘못 분류되지 않게 한다.
     if (response.status !== 200) {
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      return { ok: false, error: body?.error ?? 'payment-confirm-failed' };
+      if (body?.error) {
+        return { ok: false, error: body.error };
+      }
+      if (response.status === 502 || response.status === 503) {
+        return { ok: false, error: 'payment-unconfirmed' };
+      }
+      return { ok: false, error: 'payment-confirm-failed' };
     }
     const { order } = (await response.json()) as { order: ConfirmedOrderSummary };
     return { ok: true, order };
