@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
   let restored = 0;
   let skipped = 0;
   let dead = 0;
+  const deadOrderIds: string[] = [];
 
   /** 재시도 실패 기록(0027 rpc — 원자 증가) + 임계치 초과 시 dead-letter 표시. RPC가 갱신 후의
    *  실제 카운트를 반환하므로 겹친 cron 실행 사이의 lost update 없이 정확히 판정할 수 있다. */
@@ -58,6 +59,7 @@ export async function GET(request: NextRequest) {
           {},
         );
         dead += 1;
+        deadOrderIds.push(orderId);
       }
     } catch (recordError) {
       logServerError(`[GET /api/cron/reconcile-confirming] 재시도 기록 실패 orderId=${orderId}`, recordError);
@@ -66,11 +68,14 @@ export async function GET(request: NextRequest) {
 
   for (const order of orphaned) {
     if (!order.paymentKey) {
-      // claim이 반드시 payment_key를 기록하므로 이론상 불가능 — 그래도 방어적으로 skip.
+      // claim이 반드시 payment_key를 기록하므로 이론상 불가능 — 그래도 방어적으로 재시도
+      // 기록에 합류시킨다(그냥 skip만 하면 이 주문은 dead-letter 경로에 절대 못 들어가
+      // 무한히 조용히 조회만 반복되는 루프가 생긴다).
       logServerError(
         `[GET /api/cron/reconcile-confirming] 승인중 주문에 payment_key 없음 orderId=${order.id}`,
         {},
       );
+      await recordFailureAndMaybeDead(order.id, 'missing-payment-key');
       skipped += 1;
       continue;
     }
@@ -78,6 +83,21 @@ export async function GET(request: NextRequest) {
     try {
       const tossResult = await queryTossPayment(order.paymentKey);
       const expectedAmount = order.totalPrice + order.deliveryFee;
+
+      // 신원 바인딩 — 라이브 confirm 라우트의 ④-b 검증과 대칭이 되게, 조회 결과를 쓰기 전에
+      // orderId·paymentKey가 우리가 물어본 대상과 정확히 일치하는지 확인한다. 하나라도 어긋나면
+      // DONE이든 CANCELED든 신뢰할 수 없으므로 확정도 취소도 하지 않고 불명 처리한다.
+      const identityMatches = tossResult.orderId === order.id && tossResult.paymentKey === order.paymentKey;
+      if (!identityMatches) {
+        logServerError(
+          `[GET /api/cron/reconcile-confirming] 토스 응답 신원 불일치 orderId=${order.id} paymentKey=${order.paymentKey} ` +
+            `tossOrderId=${tossResult.orderId} tossPaymentKey=${tossResult.paymentKey} tossStatus=${tossResult.status}`,
+          {},
+        );
+        await recordFailureAndMaybeDead(order.id, `identity-mismatch:tossOrderId=${tossResult.orderId}`);
+        skipped += 1;
+        continue;
+      }
 
       if (tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount) {
         const affected = await setOrderPaid(order.id, {
@@ -123,5 +143,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ checked: orphaned.length, confirmed, restored, skipped, dead });
+  return NextResponse.json({ checked: orphaned.length, confirmed, restored, skipped, dead, deadOrderIds });
 }

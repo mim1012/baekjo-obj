@@ -79,13 +79,15 @@ function respondForObservedState(order: OrderRecord, paymentKey: string, orderId
     return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
   }
 
-  // 그 외 비정상 조합(환불완료 등 예상 밖 상태에서 재요청) — 정상 흐름이면 도달하지 않는다.
-  // 조용히 200/202로 흡수하지 않고 시끄럽게 로그 후 거부한다.
+  // 그 외 비정상 조합(환불완료·입금대기 등 예상 밖 상태에서 재요청) — 정상 흐름이면 도달하지
+  // 않는다. 조용히 200/202로 흡수하지 않고 시끄럽게 로그 후 거부한다. 'reservation-expired'는
+  // "선점이 만료됐다"는 의미라 이 케이스엔 부정확하므로 별도 에러코드로 의미를 정확히 한다
+  // (상태 안전성은 409 거부로 동일하게 유지).
   logServerError(
     `[POST /api/payments/confirm] 예상 밖 주문 상태에서 confirm 재요청 orderId=${orderId} paymentStatus=${order.paymentStatus}`,
     {},
   );
-  return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
+  return NextResponse.json({ error: 'payment-not-confirmable' }, { status: 409 });
 }
 
 /**
