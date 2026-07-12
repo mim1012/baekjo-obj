@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Package, FileText, Heart, User, ChevronRight, MessageCircle, Star, Settings, ShoppingBag, Truck, Lock } from 'lucide-react';
-import { getMyOrders, getMyInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts } from '@/lib/storage';
+import { getMyOrders, getMyInsuranceApplications, getWishlist, getCurrentUser, getPublicProducts, getQnaConfig } from '@/lib/storage';
 import { reviews } from '@/data/reviews';
-import { qnaList } from '@/data/qna';
 import { formatPrice, formatDate } from '@/lib/format';
 import { useMounted } from '@/lib/useMounted';
-import type { InsuranceApplication, Order, Product } from '@/types';
+import type { InsuranceApplication, Order, Product, QnA } from '@/types';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
 
@@ -24,6 +23,8 @@ export default function MyPage() {
   // 보험 신청은 세션 기준 내 신청만(getMyInsuranceApplications). orders 와 동일한 비동기 로딩 패턴.
   const [insuranceApps, setInsuranceApps] = useState<InsuranceApplication[]>([]);
   const [insuranceLoading, setInsuranceLoading] = useState(true);
+  // 상품문의는 콘센트(getQnaConfig)로 DB 싱글턴 config 를 읽는다(정적 @/data/qna 직접 참조 제거 — §4).
+  const [qnaItems, setQnaItems] = useState<QnA[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,6 +62,17 @@ export default function MyPage() {
       if (cancelled) return;
       setProducts(list);
       setProductsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getQnaConfig().then((config) => {
+      if (cancelled) return;
+      setQnaItems(config.items);
     });
     return () => {
       cancelled = true;
@@ -263,7 +275,7 @@ export default function MyPage() {
                 <MessageCircle className="mr-2 size-5 text-[#2F3B34]" /> 상품문의 관리
               </h2>
               <div className="mt-6 divide-y divide-gray-100 border-t border-gray-100">
-                {qnaList.map((qna) => (
+                {qnaItems.map((qna) => (
                   <div key={qna.id} className="flex items-center justify-between gap-5 py-4 text-sm">
                     <div>
                       <p className="text-gray-800">{qna.question}</p>

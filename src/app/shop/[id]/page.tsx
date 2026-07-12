@@ -3,8 +3,10 @@ import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, Lock, MessageCircle, ShieldCheck } from 'lucide-react';
 import { getProductById, listProducts } from '@/lib/products/repo';
 import { getBrandById } from '@/lib/brands/repo';
-import { qnaList } from '@/data/qna';
+import { getQnaConfig } from '@/lib/qna/repo';
+import { defaultQnaConfig } from '@/lib/qna/config';
 import { reviews } from '@/data/reviews';
+import { logServerError } from '@/lib/logServerError';
 import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
@@ -41,7 +43,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     ))
     .slice(0, 4);
   const productReviews = reviews.filter((review) => review.productId === product.id);
-  const productQna = qnaList.filter((qna) => qna.productId === product.id);
+  // Q&A 는 DB 싱글턴 config(콘센트=서버 repo)에서 읽고, 공개 화면이라 실패 시 기본 문의로 폴백한다(500 금지).
+  let qnaItems = defaultQnaConfig.items;
+  try {
+    const savedQna = await getQnaConfig();
+    if (savedQna && Array.isArray(savedQna.items)) qnaItems = savedQna.items;
+  } catch (error) {
+    logServerError('[GET /shop/[id]] Q&A 조회 실패 — defaultQnaConfig 로 폴백', error);
+  }
+  const productQna = qnaItems.filter((qna) => qna.productId === product.id);
   const brandProducts = brand
     ? allProducts.filter((candidate) => brand.representativeProductIds.includes(candidate.id)).slice(0, 3)
     : [];

@@ -1,6 +1,9 @@
 import { Brand, InsuranceApplication, Order, Product, User } from '@/types';
 import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
+import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
+import { defaultPartnersConfig, type PartnersConfig } from '@/lib/partners/config';
+import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -497,6 +500,96 @@ export async function getSurveyConfig(): Promise<SurveyConfig> {
 export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/survey', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 케어 키트 / B2B 제휴처 / Q&A (관리자 싱글턴 config) ───────
+ * 세 화면 모두 예전엔 page.tsx 인라인 mock 또는 정적 @/data 라 관리자가 편집해도 저장되지 않았다
+ * (drift). 이제 각각 싱글턴 config 로 DB 에 담고, 관리자 화면은 아래 콘센트로 읽고(get*) 통째로
+ * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
+ *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
+ *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
+ * 공개/관리자 조회 모두 실패·미저장을 default* 로 접어 화면이 빈 목록으로 조용히 깨지지 않게 한다.
+ */
+
+/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·미저장 시 defaultKitsConfig 로 폴백. */
+export async function getKitsConfig(): Promise<KitsConfig> {
+  try {
+    const response = await fetch('/api/admin/kits');
+    if (!response.ok) return defaultKitsConfig;
+    const { items } = (await response.json()) as KitsConfig;
+    if (!Array.isArray(items)) return defaultKitsConfig;
+    return { items };
+  } catch {
+    return defaultKitsConfig;
+  }
+}
+
+/** 케어 키트 config 저장(관리자). PUT /api/admin/kits. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/kits', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 관리자 제휴처 config. GET /api/admin/partners. 실패·미저장 시 defaultPartnersConfig 로 폴백. */
+export async function getPartnersConfig(): Promise<PartnersConfig> {
+  try {
+    const response = await fetch('/api/admin/partners');
+    if (!response.ok) return defaultPartnersConfig;
+    const { items } = (await response.json()) as PartnersConfig;
+    if (!Array.isArray(items)) return defaultPartnersConfig;
+    return { items };
+  } catch {
+    return defaultPartnersConfig;
+  }
+}
+
+/** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/partners', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 공개 Q&A config. GET /api/qna. 실패·미저장 시 defaultQnaConfig 로 폴백(상품상세 Q&A 탭이 안 깨진다). */
+export async function getQnaConfig(): Promise<QnaConfig> {
+  try {
+    const response = await fetch('/api/qna');
+    if (!response.ok) return defaultQnaConfig;
+    const { items } = (await response.json()) as QnaConfig;
+    if (!Array.isArray(items)) return defaultQnaConfig;
+    return { items };
+  } catch {
+    return defaultQnaConfig;
+  }
+}
+
+/** Q&A config 저장(관리자). PUT /api/admin/qna. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/qna', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
