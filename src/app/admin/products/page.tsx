@@ -212,7 +212,7 @@ export default function AdminProductsDashboard() {
     const brandName = brands.find((b) => b.id === form.brandId)?.name;
     const price = form.price.trim() ? Number(form.price) : null;
     const parsedStock = Number(form.stock.trim());
-    const stock = Number.isFinite(parsedStock) ? parsedStock : 0;
+    const stock = Number.isFinite(parsedStock) ? Math.max(0, Math.trunc(parsedStock)) : 0;
 
     if (editingProduct) {
       const { product, error } = await updateProduct(editingProduct.id, {
@@ -591,6 +591,7 @@ export default function AdminProductsDashboard() {
                     <input
                       type="number"
                       min={0}
+                      step={1}
                       value={form.stock}
                       onChange={(e) => setForm({ ...form, stock: e.target.value })}
                       className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
