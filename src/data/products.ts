@@ -1,4 +1,11 @@
-import { Product } from '@/types';
+import { Product, ProductDetailBlock } from '@/types';
+
+const detailImageBlocks = (group: string, count: number, altPrefix: string): ProductDetailBlock[] =>
+  Array.from({ length: count }, (_, i) => ({
+    type: 'image' as const,
+    src: `/products/detail/${group}/${String(i + 1).padStart(2, '0')}.webp`,
+    alt: `${altPrefix} 상세 ${i + 1}`,
+  }));
 
 export const products: Product[] = [
   {
@@ -20,6 +27,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p1.webp',
     images: ['/products/p1.webp', '/products/p1-1.webp', '/products/p1-2.webp'],
+    detailBlocks: detailImageBlocks('penefit-palette', 22, '페네핏 팔레트파우더 2.0 루틴 케어 5종'),
     stock: 100,
     summary: '밥 안 먹는 강아지 고양이 필수품, 영양간식 밥꾸템',
     description: '아이의 기호성과 영양 균형을 함께 고려한 파우더 형태의 제품을 통해, 매일의 식사가 더 부드럽고 지속 가능한 관리로 이어질 수 있도록 돕습니다.',
@@ -54,6 +62,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p2.webp',
     images: ['/products/p2.webp', '/products/p2-1.webp', '/products/p2-2.webp'],
+    detailBlocks: detailImageBlocks('penefit-palette', 22, '페네핏 팔레트파우더 2.0 올인원 케어 박스'),
     stock: 200,
     summary: '다양한 맛을 한 번에 경험할 수 있는 영양 파우더 샘플 구성',
     description: '아이의 기호성과 영양 균형을 함께 고려한 파우더 형태의 제품을 통해, 매일의 식사가 더 부드럽고 지속 가능한 관리로 이어질 수 있도록 돕습니다.',
@@ -83,6 +92,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p3.webp',
     images: ['/products/p3.webp', '/products/p3-1.webp', '/products/p3-2.webp'],
+    detailBlocks: detailImageBlocks('penefit-palette', 22, '페네핏 팔레트파우더 2.0 30일 스타터 키트'),
     stock: 50,
     summary: '우리 아이의 기호를 가볍게 확인할 수 있는 3구 구성',
     description: '아이의 기호성과 영양 균형을 함께 고려한 파우더 형태의 제품을 통해, 매일의 식사가 더 부드럽고 지속 가능한 관리로 이어질 수 있도록 돕습니다.',
@@ -117,6 +127,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p4.webp',
     images: ['/products/p4.webp', '/products/p4-1.webp', '/products/p4-2.webp'],
+    detailBlocks: detailImageBlocks('omipro', 15, '오미프로 OMIPRO-D 강아지용 냄새 케어 간식'),
     stock: 30,
     summary: '강아지 사료에 섞거나 간식처럼 급여하는 냄새 케어 제품',
     description: '오미프로가 공개한 강아지용 사료형 간식 후보입니다. 백조오브제에서는 성분표와 기능성 표시 자료를 확인한 뒤 체취·분변 냄새 관리 범위에서 안내합니다.',
@@ -145,6 +156,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p5.webp',
     images: ['/products/p5.webp', '/products/p5-1.webp', '/products/p5-2.webp'],
+    detailBlocks: detailImageBlocks('omipro', 15, '오미프로 OMIPRO-C 고양이용 냄새 케어 간식'),
     stock: 150,
     summary: '고양이 사료에 섞거나 간식처럼 급여하는 냄새 케어 제품',
     description: '오미프로가 공개한 고양이용 사료형 간식 후보입니다. 백조오브제에서는 고양이 급여법과 성분 자료를 확인한 뒤 생활 관리 상품으로 안내합니다.',
@@ -173,6 +185,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p6.webp',
     images: ['/products/p6.webp', '/products/p6-1.webp', '/products/p6-2.webp'],
+    detailBlocks: detailImageBlocks('omipro', 15, '오미프로 반려동물 냄새 케어 세트'),
     stock: 200,
     summary: '강아지용·고양이용 라인을 함께 비교하는 냄새 케어 구성',
     description: '오미프로의 공개 제품군을 백조오브제에서 강아지용과 고양이용으로 나누어 판매하기 위한 내부 구성입니다.',
@@ -202,6 +215,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p7.webp',
     images: ['/products/p7.webp'],
+    detailBlocks: detailImageBlocks('nobledog-toothpaste', 12, '노블독 냥치하개 뿌리는 치약 100ml'),
     stock: 80,
     summary: '강아지와 고양이에게 사용하는 무색무취 타입 구강 케어 스프레이',
     description: '노블독 공개 판매 페이지에서 확인한 뿌리는 치약 상품입니다. 백조오브제에서는 제조·성분·시험 자료 확인 후 구취와 플라그 관리 범위로 안내합니다.',
@@ -586,6 +600,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p21.webp',
     images: ['/products/p21.webp', '/products/p21-1.webp', '/products/p21-2.webp'],
+    detailBlocks: detailImageBlocks('ssup-ointment', 14, '애니마크 반려동물 피부 연고'),
     stock: 0,
     summary: '발바닥·턱 주변 등 반려동물 피부 보습 케어 상품',
     description: '써니 사이드업 공식몰의 애니마크 피부 연고 상품입니다. 백조오브제에서는 적용 부위와 사용 주의사항을 공식 자료 기준으로 안내합니다.',
@@ -613,6 +628,7 @@ export const products: Product[] = [
     ageGroup: 'all',
     image: '/products/p22.webp',
     images: ['/products/p22.webp', '/products/p22-1.webp'],
+    detailBlocks: detailImageBlocks('ssup-parfum', 15, '퍼르르펙트 고양이 캣닢 향수'),
     stock: 0,
     summary: '써니 사이드업 공식몰에서 확인한 고양이용 향수·캣닢 상품 후보',
     description: '써니 사이드업 공식몰의 고양이 제품군에서 확인한 퍼르르펙트 상품 후보입니다. 사용 대상과 분사 방법을 확인한 뒤 백조오브제 내부 상품으로 확정합니다.',

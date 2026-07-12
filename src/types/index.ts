@@ -25,6 +25,7 @@ export interface Product {
   ageGroup: string;
   image: string;
   images?: string[];
+  detailBlocks?: ProductDetailBlock[];
   options?: ProductOption[];
   stock: number;
   summary?: string;
@@ -54,6 +55,11 @@ export interface ProductOption {
   priceDiff?: number;
   stock: number;
 }
+
+/** 상품 상세 본문 블록 — 네이버식 상세(텍스트·이미지 순차 삽입). 추후 업체 관리자 에디터가 편집. */
+export type ProductDetailBlock =
+  | { type: 'text'; content: string }
+  | { type: 'image'; src: string; alt?: string };
 
 /* ── 브랜드 ─────────────────────────────────────── */
 export interface Brand {

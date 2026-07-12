@@ -1,7 +1,7 @@
 // products 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
-import type { Product, ProductOption } from '@/types';
+import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 
 const PET_TYPES = new Set(['dog', 'cat', 'both']);
 
@@ -60,6 +60,7 @@ function rowToProduct(row: ProductRow): Product {
     ageGroup: typeof d.ageGroup === 'string' ? d.ageGroup : 'all',
     image: typeof d.image === 'string' ? d.image : '',
     images: Array.isArray(d.images) ? (d.images as string[]) : undefined,
+    detailBlocks: Array.isArray(d.detailBlocks) ? (d.detailBlocks as ProductDetailBlock[]) : undefined,
     options: Array.isArray(d.options) ? (d.options as ProductOption[]) : undefined,
     stock: row.stock,
     summary: typeof d.summary === 'string' ? d.summary : undefined,

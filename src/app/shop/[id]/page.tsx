@@ -91,19 +91,43 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
               <p className="page-eyebrow">상품 이야기</p>
               <h2 className="section-title mt-3">일상에서 이렇게 만나보세요.</h2>
               <p className="body-copy mt-5">{product.description}</p>
-              <div className="relative mt-8 aspect-[4/5] overflow-hidden rounded-3xl bg-[#F3EEE6] sm:aspect-[4/3]">
-                {product.image ? (
-                  <Image
-                    src={product.image}
-                    alt={product.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 768px"
-                    className="object-contain p-8 sm:p-12"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center text-sm text-[#6F766F]">상세 이미지를 준비하고 있어요.</div>
-                )}
-              </div>
+              {product.detailBlocks && product.detailBlocks.length > 0 ? (
+                <div className="mt-8 overflow-hidden rounded-3xl">
+                  {product.detailBlocks.map((block, index) =>
+                    block.type === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={`${block.type}-${index}`}
+                        src={block.src}
+                        alt={block.alt ?? product.name}
+                        className="w-full block"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <p
+                        key={`${block.type}-${index}`}
+                        className="whitespace-pre-line text-sm leading-7 text-[#334155] my-8"
+                      >
+                        {block.content}
+                      </p>
+                    ),
+                  )}
+                </div>
+              ) : (
+                <div className="relative mt-8 aspect-[4/5] overflow-hidden rounded-3xl bg-[#F3EEE6] sm:aspect-[4/3]">
+                  {product.image ? (
+                    <Image
+                      src={product.image}
+                      alt={product.name}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 768px"
+                      className="object-contain p-8 sm:p-12"
+                    />
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-[#6F766F]">상세 이미지를 준비하고 있어요.</div>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
