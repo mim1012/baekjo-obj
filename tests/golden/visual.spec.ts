@@ -22,7 +22,10 @@ const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin1234';
 // framer-motion whileInView 등장 애니메이션을 전부 트리거하기 위해 끝까지 스크롤 후 상단 복귀.
 // fullPage 스크린샷이 숨김/이동 상태의 요소를 찍는 오탐을 막는다.
 async function settlePage(page: Page) {
-  await page.waitForLoadState('networkidle');
+  // 'networkidle' 금지: Vercel Preview 툴바가 웹소켓을 상시 유지해 idle이 영원히 안 온다
+  // (2026-07-12 실측 — 14/14 타임아웃). load + 고정 정착 대기로 충분.
+  await page.waitForLoadState('load');
+  await page.waitForTimeout(1_000);
   await page.evaluate(async () => {
     const step = window.innerHeight;
     for (let y = 0; y < document.body.scrollHeight; y += step) {
