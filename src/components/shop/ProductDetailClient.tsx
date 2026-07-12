@@ -115,15 +115,15 @@ export default function ProductDetailClient({ product }: Props) {
 
       {/* Product Info */}
       <div className="w-full lg:w-1/2 flex flex-col pt-2">
-        <div className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">{brandName}</div>
+        <div className="mb-3 text-sm font-semibold tracking-wide text-[#6F766F] uppercase">{brandName}</div>
         <h1 className="text-3xl font-bold text-[#17211D] tracking-tight text-balance leading-tight">{product.name}</h1>
 
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
           <Star className="size-4 fill-[#17211D]" />
           <span className="font-semibold tabular-nums">{product.rating}</span>
-          <span className="text-slate-400 ml-1">구매평 {product.reviewCount}개</span>
+          <span className="text-[#8A918B] ml-1">구매평 {product.reviewCount}개</span>
         </div>
-        
+
         <div className="mt-8 flex items-end gap-3 pb-8 border-b border-[rgba(15,23,42,0.06)]">
           {!hasPrice ? (
             <span className="text-3xl font-bold text-[#17211D] tracking-tight">
@@ -132,11 +132,11 @@ export default function ProductDetailClient({ product }: Props) {
           ) : (
             <>
               {discount > 0 && (
-                <span className="text-3xl font-bold text-red-600 tracking-tight">{discount}%</span>
+                <span className="text-3xl font-bold text-[#A8742E] tracking-tight">{discount}%</span>
               )}
               <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(product.salePrice || product.price!)}</span>
               {discount > 0 && (
-                <span className="text-lg text-slate-400 line-through pb-1 ml-1 font-medium">{formatPrice(product.price!)}</span>
+                <span className="text-lg text-[#8A918B] line-through pb-1 ml-1 font-medium">{formatPrice(product.price!)}</span>
               )}
             </>
           )}
@@ -144,16 +144,16 @@ export default function ProductDetailClient({ product }: Props) {
 
         <div className="mt-8 space-y-4 text-sm">
           <div className="flex">
-            <span className="w-24 text-slate-500 font-medium">배송비</span>
-            <span className="text-[#334155]">
+            <span className="w-24 text-[#6F766F] font-medium">배송비</span>
+            <span className="text-[#6F766F]">
               {product.shippingFee !== undefined
                 ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
                 : '공식 판매가 확인 후 안내'}
             </span>
           </div>
           <div className="flex">
-            <span className="w-24 text-slate-500 font-medium">적립금</span>
-            <span className="text-[#334155]">최대 5% 적립</span>
+            <span className="w-24 text-[#6F766F] font-medium">적립금</span>
+            <span className="text-[#6F766F]">최대 5% 적립</span>
           </div>
         </div>
 
@@ -173,7 +173,7 @@ export default function ProductDetailClient({ product }: Props) {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#6F766F]">
                 <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                 </svg>
@@ -190,7 +190,7 @@ export default function ProductDetailClient({ product }: Props) {
               type="button"
               aria-label="수량 줄이기"
               onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="flex h-10 w-10 items-center justify-center text-slate-400 hover:text-[#17211D] hover:bg-slate-50 transition-colors"
+              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
             >
               <Minus className="h-4 w-4" />
             </button>
@@ -201,7 +201,7 @@ export default function ProductDetailClient({ product }: Props) {
               type="button"
               aria-label="수량 늘리기"
               onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-              className="flex h-10 w-10 items-center justify-center text-slate-400 hover:text-[#17211D] hover:bg-slate-50 transition-colors"
+              className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors"
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -211,7 +211,7 @@ export default function ProductDetailClient({ product }: Props) {
         {/* Total */}
         {hasPrice && (
           <div className="mt-8 flex items-end justify-between pt-6 border-t border-[rgba(15,23,42,0.06)]">
-            <span className="text-base font-semibold text-[#334155]">총 상품금액</span>
+            <span className="text-base font-semibold text-[#6F766F]">총 상품금액</span>
             <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(totalPrice)}</span>
           </div>
         )}
@@ -222,7 +222,7 @@ export default function ProductDetailClient({ product }: Props) {
             type="button"
             aria-label={wishlisted ? '찜 해제' : '찜하기'}
             onClick={handleWishlist}
-            className={`flex h-[60px] w-[60px] items-center justify-center shrink-0 rounded-[16px] border transition-all shadow-sm ${wishlisted ? 'border-red-500 bg-red-50 text-red-500' : 'border-[rgba(15,23,42,0.12)] bg-white text-slate-400 hover:border-[#17211D] hover:text-[#17211D]'}`}
+            className={`flex h-[60px] w-[60px] items-center justify-center shrink-0 rounded-[16px] border transition-all shadow-sm ${wishlisted ? 'border-[#9E3939]/30 bg-[#9E3939]/5 text-[#9E3939]' : 'border-[rgba(15,23,42,0.12)] bg-white text-[#8A918B] hover:border-[#17211D] hover:text-[#17211D]'}`}
           >
             <Heart className={`h-6 w-6 ${wishlisted ? 'fill-current' : ''}`} strokeWidth={wishlisted ? 1.5 : 2} />
           </button>
@@ -232,23 +232,23 @@ export default function ProductDetailClient({ product }: Props) {
               <button 
                 type="button"
                 onClick={handleAddToCart}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#17211D] hover:bg-slate-50 hover:border-[#17211D] transition-all shadow-sm"
+                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm"
               >
                 <ShoppingCart className="mr-2 h-5 w-5" /> 장바구니
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={handleBuyNow}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#334155] transition-all shadow-md"
+                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md"
               >
                 <CreditCard className="mr-2 h-5 w-5" /> 바로구매
               </button>
             </>
           ) : (
-            <button 
+            <button
               type="button"
               onClick={() => router.push('/login')}
-              className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#334155] transition-all shadow-md"
+              className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md"
             >
               로그인 후 가격 확인
             </button>
