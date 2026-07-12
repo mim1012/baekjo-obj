@@ -46,16 +46,15 @@ export async function GET(request: NextRequest) {
   let skipped = 0;
   let dead = 0;
 
-  /** 재시도 실패 기록 + 임계치 초과 시 dead-letter 표시. order.reclaimAttempts는 이번 조회
-   *  시점 값이라 +1이 이번 실패 반영 후 카운트다(recordReclaimAttempt는 U4 기준 void 반환). */
-  async function recordFailureAndMaybeDead(orderId: string, currentAttempts: number, message: string) {
+  /** 재시도 실패 기록(0027 rpc — 원자 증가) + 임계치 초과 시 dead-letter 표시. RPC가 갱신 후의
+   *  실제 카운트를 반환하므로 겹친 cron 실행 사이의 lost update 없이 정확히 판정할 수 있다. */
+  async function recordFailureAndMaybeDead(orderId: string, message: string) {
     try {
-      await recordReclaimAttempt(orderId, message);
-      const nextAttempts = currentAttempts + 1;
-      if (nextAttempts >= MAX_RECLAIM_ATTEMPTS) {
+      const attempts = await recordReclaimAttempt(orderId, message);
+      if (attempts >= MAX_RECLAIM_ATTEMPTS) {
         await markReclaimDead(orderId);
         logServerError(
-          `[GET /api/cron/reconcile-confirming] dead-letter 처리 orderId=${orderId} attempts=${nextAttempts}`,
+          `[GET /api/cron/reconcile-confirming] dead-letter 처리 orderId=${orderId} attempts=${attempts}`,
           {},
         );
         dead += 1;
@@ -101,7 +100,7 @@ export async function GET(request: NextRequest) {
           `tossStatus=${tossResult.status} tossAmount=${tossResult.totalAmount} expected=${expectedAmount}`,
         {},
       );
-      await recordFailureAndMaybeDead(order.id, order.reclaimAttempts ?? 0, `unexpected-status:${tossResult.status}`);
+      await recordFailureAndMaybeDead(order.id, `unexpected-status:${tossResult.status}`);
       skipped += 1;
     } catch (error) {
       if (error instanceof TossConfirmError && error.httpStatus === 404) {
@@ -119,7 +118,7 @@ export async function GET(request: NextRequest) {
       // 불명(네트워크·타임아웃·5xx) — 절대 취소하지 않는다(불변식). 재시도 기록만 남기고 다음 회차로.
       logServerError(`[GET /api/cron/reconcile-confirming] 주문 ${order.id} 재조회 실패(불명)`, error);
       const message = error instanceof Error ? error.message : String(error);
-      await recordFailureAndMaybeDead(order.id, order.reclaimAttempts ?? 0, message);
+      await recordFailureAndMaybeDead(order.id, message);
       skipped += 1;
     }
   }

@@ -349,22 +349,20 @@ export async function listOrphanedConfirmingOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
-/** 재시도 실패 기록(카운트 +1, 사유 저장). reconcile(U6)·reclaim-stock cron(U7) 공용 —
- *  실제 dead-letter 판정(임계치 초과 시 markReclaimDead 호출)은 호출부(cron) 책임. */
-export async function recordReclaimAttempt(id: string, errorMessage: string): Promise<void> {
-  const { data: current, error: fetchError } = await getSupabase()
-    .from('orders')
-    .select('reclaim_attempts')
-    .eq('id', id)
-    .maybeSingle();
-  if (fetchError) throw fetchError;
-  const nextAttempts = (current?.reclaim_attempts ?? 0) + 1;
-
-  const { error } = await getSupabase()
-    .from('orders')
-    .update({ reclaim_attempts: nextAttempts, last_reclaim_error: errorMessage })
-    .eq('id', id);
-  if (error) throw error;
+/**
+ * 재시도 실패 기록(카운트 원자 +1, 사유 저장, 0027 rpc). reconcile(U6)·reclaim-stock cron(U7)
+ * 공용 — 조회 후 증가하는 2단계 방식(구버전)은 겹친 cron 실행 사이에 lost update가 날 수 있어
+ * update ... set reclaim_attempts = reclaim_attempts + 1 단일 문 RPC로 교체됐다.
+ * 반환값 = 갱신된 reclaim_attempts. 호출부(cron)가 이 값으로 dead-letter 임계치를 판정한다
+ * (실제 markReclaimDead 호출 여부는 호출부 책임).
+ */
+export async function recordReclaimAttempt(id: string, errorMessage: string): Promise<number> {
+  const { data, error } = await getSupabase().rpc('increment_reclaim_attempts', {
+    p_order_id: id,
+    p_error: errorMessage,
+  });
+  if (error) throw new Error(error.message);
+  return data ?? 0;
 }
 
 /** 재시도 임계치 초과 주문을 dead-letter로 표시 — 이후 listExpiredPendingOrders /
