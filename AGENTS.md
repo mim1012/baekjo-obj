@@ -225,15 +225,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
      "누가 · 어떤 파일/영역 · 어느 브랜치" 한 줄을 남긴다. 같은 파일이 겹치면 먼저 선언한 쪽 우선, 뒤쪽은 rebase 책임.
   4. **push 전 `git pull --rebase origin integrate/<name>`** — integrate에서도 main과 동일하게 적용.
 - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소는 이관 완료.
-- **하드 강제(✅ 2026-07-12 적용 완료)**: `main` 보호 규칙 활성 — PR 필수 + `verify` required status check(strict) +
-  리뷰 승인 1명 + force-push/삭제 차단 + **enforce_admins ON**(admin 포함 직접 push 불가).
+- **하드 강제(✅ 2026-07-12 적용, 같은 날 개정)**: `main` 보호 규칙 활성 — PR 필수 + `verify` required status check(strict) +
+  force-push/삭제 차단 + **enforce_admins ON**(admin 포함 직접 push 불가).
+  **사람 리뷰 승인 요건은 제거(2026-07-12, mim 결정)** — 머지 승인 기준은 CI(`verify`) green + **§8-6 삼중 검증**(opus·codex·Playwright)이다.
+  코드 리뷰 가능 인력이 mim뿐인 팀 구성에서 사람 승인 요건은 자기승인 모순이라 게이트에서 제외. dad의 리뷰는 코드가 아니라
+  **화면(스크린샷·프리뷰)** 기준으로 한다.
 
 ### 8-2. Commit 규칙 (Atomic Commit)
 - 형식: `type(scope): 설명` — type = `feat/fix/refactor/perf/docs/test/chore`.
 - 커밋 1개 = **독립적으로 검증 가능한 최소 변경.** 이전 세션 작업물을 한 방에 묶어 커밋 금지.
 
 ### 8-3. PR 규칙 & 템플릿 (Atomic PR)
-- PR 1개 = 리뷰 가능한 단위. **작성자 ≠ 리뷰어**(자기승인 금지). 계약 PR은 **양쪽 리뷰 필수**.
+- PR 1개 = 리뷰 가능한 단위. **작성 lane ≠ 검증 lane**(자기승인 금지) — 검증 lane = §8-6 삼중 검증(opus·codex·Playwright), 사람 승인은 요건 아님(2026-07-12 개정).
+  계약(contract-change) PR은 **dad·mim 양쪽 인지 필수**(dad는 화면/스크린샷 기준으로 확인).
 ```markdown
 ## 유형
 - [ ] design  [ ] behavior  [ ] contract-change  [ ] data-integration  [ ] perf-internal
