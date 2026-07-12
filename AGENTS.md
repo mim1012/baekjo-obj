@@ -109,6 +109,13 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **`src/types/index.ts`(데이터 설계도)** + **`src/lib/storage.ts`(콘센트 = 함수 시그니처)**.
 시그니처 변경은 §0-2 ②(`contract/*` + `contract-change` 라벨, 확정=mim)로만. §4 규칙 준수.
 
+> **계약 현행판 공지 (2026-07-12, dad 필독):**
+> - `Product.detailBlocks?: ProductDetailBlock[]` 신설(optional 가산) — **네이버식 상세 본문**(text|image 블록 순차 렌더).
+>   상세 페이지 `#story` 섹션이 이 블록을 렌더한다(블록 없으면 기존 단일 이미지 폴백). 상세 영역 디자인을 다듬을 때
+>   **블록 순회 구조는 유지**하고 스타일만 바꿀 것. 이미지 블록 사이에 여백을 넣으면 통상세가 끊겨 보이니 주의.
+> - 상품 `image`/`images`는 12개 상품이 실사진 webp(`/products/p*.webp`), 9개 상품은 상세 슬라이스
+>   78장(`/products/detail/<group>/NN.webp`)까지 시드됨. 브랜드 b2·b3·b5는 `auditReport` 실데이터 채워짐.
+
 ### 데이터(콘텐츠) 오너십 — "누가 값을 채우나" (2026-07-12 추가)
 > 코드 연동과 **콘텐츠 채우기는 별개다.** 연동이 끝나도 DB/데이터가 비어 있으면 화면은 그대로다
 > (실제 겪음: 홈을 DB로 연동했지만 seed의 `price=null`·로고 placeholder 때문에 화면 무변화). 그래서
@@ -119,6 +126,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` + `brands` 데이터/seed `logo` 경로 | placeholder → 채우면 즉시 표시 |
 | 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 또는 seed `price` | 카드에 `0원` 표시(저장값은 `null` 유지) |
 | 정적 콘텐츠(공지·후기·케어가이드) | **dad** | `src/data/*` (아직 API 라우트 없음) | 해당 없음 |
+| 상품 상세 본문(detailBlocks)·썸네일 | **mim**(시드) → 추후 업체 관리자 | `src/data/products.ts` + 재시드 | 폴백: 단일 image 박스 |
+
+> ⭐ **products·brands 는 이제 DB가 화면의 진실 소스다 (2026-07-12, 0018~0020 재시드 이후).**
+> `src/data/{products,brands}.ts`만 고치면 **화면은 안 바뀐다** — 정본(파일)과 DB를 함께 맞춰야 한다.
+> 콘텐츠를 바꾸려면 ① `/admin`에서 수정(즉시 반영, 단 정본 파일과 drift 생기니 mim에게 공유) 또는
+> ② 정본 `src/data/*.ts` 수정 후 **mim에게 재시드 요청**(gen 스크립트로 `00XX` 마이그레이션 기계 생성 — 수기 SQL 금지).
 
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
 프론트는 가짜 데이터로, 백엔드는 진짜 데이터로 만든다. **둘이 따로 놀아(=drift) 화면이 조용히 깨지는 것**이
@@ -201,6 +214,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
   | 내부 성능 | `perf/*` | mim | `perf/rsc-brand-list` |
 - **main 직접 push 금지(양쪽 다).** 반드시 PR. push 전 항상 `git pull --rebase origin main`.
   하루 1회 이상 `git merge origin/main`으로 동기화(발산 방지).
+- ⭐ **통합 브랜치(`integrate/*`) 동시 작업 프로토콜 (2026-07-12 — 실제 사고 2건에서 도출):**
+  1. **통합 브랜치 위 직접 작업 금지(양쪽 다).** dad는 `integrate/*`에서 `fe/design-*`를 따서 작업하고
+     **PR로 integrate에 머지**한다(CI가 `integrate/**`에도 돌므로 게이트 유효). mim의 데이터/마이그레이션
+     작업도 오래 걸리면 `be/*`로 딴다. — 근거: 통합 커밋 `b85e723`에서 dad 리디자인이 병합 유실된 사고.
+  2. **하나의 로컬 작업트리(체크아웃 폴더) = 한 시점에 한 세션.** 두 IDE/세션이 같은 폴더를 동시에 만지면
+     서로의 미커밋 파일을 오인한다(실제: 다른 세션이 0018 마이그레이션을 "정체불명 파일"로 보류 처리).
+     동시에 하려면 `git worktree`로 폴더를 분리할 것.
+  3. **작업 시작 선언.** 통합 브랜치에 영향 주는 작업은 시작 전에 SESSION.md(또는 팀 채널)에
+     "누가 · 어떤 파일/영역 · 어느 브랜치" 한 줄을 남긴다. 같은 파일이 겹치면 먼저 선언한 쪽 우선, 뒤쪽은 rebase 책임.
+  4. **push 전 `git pull --rebase origin integrate/<name>`** — integrate에서도 main과 동일하게 적용.
 - **공식 저장소**: `https://github.com/mim1012/baekjo-obj` (소유 = mim1012). 구 저장소는 이관 완료.
 - **하드 강제(✅ 2026-07-12 적용 완료)**: `main` 보호 규칙 활성 — PR 필수 + `verify` required status check(strict) +
   리뷰 승인 1명 + force-push/삭제 차단 + **enforce_admins ON**(admin 포함 직접 push 불가).
