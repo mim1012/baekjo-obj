@@ -1,12 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { createOrder, getPublicProducts } from '@/lib/storage';
+import { createOrder, cancelReservation, getPublicProducts } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
+
+const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+// 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
+// React state 로는 살아남지 않는다 — sessionStorage 로만 다음 로드에 전달한다.
+const PENDING_ORDER_KEY = 'baekjo_pending_toss_order';
 
 interface CheckoutCartItem extends CartItem {
   product: Product;
@@ -39,7 +45,16 @@ function getCheckoutItems(products: Product[]): CheckoutCartItem[] {
 }
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckoutForm />
+    </Suspense>
+  );
+}
+
+function CheckoutForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const mounted = useMounted();
 
   // 카트와 마찬가지로 어떤 상품이 필요한지 서버에서 미리 알 수 없어 마운트 시
@@ -68,10 +83,14 @@ export default function CheckoutPage() {
     paymentMethod: '무통장입금'
   });
   const [submitting, setSubmitting] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
+  const [widgetError, setWidgetError] = useState(false);
+  const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
 
   const ready = mounted && !productsLoading;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
+  const isCardPayment = formData.paymentMethod === '카드결제';
 
   useEffect(() => {
     if (ready) {
@@ -83,6 +102,74 @@ export default function CheckoutPage() {
       }
     }
   }, [cartItems.length, hasUnpricedItems, ready, router]);
+
+  // 결제창에서 실패/취소로 돌아온 경우: 직전에 만들어둔 PENDING 주문의 재고 선점을 해제한다.
+  // 토스가 failUrl에 붙여주는 orderId 쿼리를 우선 신뢰하고, 없을 때만 세션 키를 폴백으로 쓴다
+  // (관계없는 stale 세션 키로 엉뚱한 주문을 취소하지 않도록).
+  useEffect(() => {
+    if (searchParams.get('fail') !== '1') return;
+    const pendingOrderId = typeof window !== 'undefined' ? sessionStorage.getItem(PENDING_ORDER_KEY) : null;
+    const queryOrderId = searchParams.get('orderId');
+    const targetOrderId = queryOrderId || pendingOrderId;
+    if (!targetOrderId) return;
+
+    cancelReservation(targetOrderId)
+      .then(() => {
+        // 세션 키가 이번에 취소한 주문과 같을 때만 지운다. 쿼리 orderId 가 세션 키와 다르면
+        // 세션 키는 다른(아직 미처리) PENDING 을 가리킬 수 있으니 보존한다.
+        if (pendingOrderId === targetOrderId) sessionStorage.removeItem(PENDING_ORDER_KEY);
+      })
+      .catch(() => {
+        // 취소 실패 — 이미 만료 cron/confirm 이 처리했을 수도, 아직 안 됐을 수도 있다.
+        // 세션 키를 지우지 않고 남겨 다음 fail 방문이나 cron 이 재시도할 수 있게 한다.
+      })
+      .finally(() => {
+        alert('결제가 취소되었습니다.');
+        router.replace('/checkout');
+      });
+  }, [router, searchParams]);
+
+  const finalPriceForWidget = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const deliveryFeeForWidget = finalPriceForWidget > 0 && finalPriceForWidget < 50000 ? 3000 : 0;
+  const widgetAmount = finalPriceForWidget + deliveryFeeForWidget;
+
+  // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
+  useEffect(() => {
+    if (!isCardPayment || !ready || cartItems.length === 0 || hasUnpricedItems) return;
+    if (!TOSS_CLIENT_KEY) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setWidgetError(false);
+        const tossPayments = await loadTossPayments(TOSS_CLIENT_KEY);
+        if (cancelled) return;
+        const widgets = tossPayments.widgets({ customerKey: ANONYMOUS });
+        if (cancelled) return;
+        widgetsRef.current = widgets;
+        await widgets.setAmount({ currency: 'KRW', value: widgetAmount });
+        if (cancelled) return;
+        await widgets.renderPaymentMethods({ selector: '#toss-payment-method' });
+        if (cancelled) return;
+        await widgets.renderAgreement({ selector: '#toss-agreement' });
+        if (cancelled) return;
+        setWidgetReady(true);
+      } catch {
+        if (cancelled) return;
+        widgetsRef.current = null;
+        setWidgetReady(false);
+        setWidgetError(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      widgetsRef.current = null;
+      setWidgetReady(false);
+    };
+    // widgetAmount 는 카트 확정 후에만 바뀌므로 위젯 재마운트 트리거로 쓰지 않는다(중복 렌더 방지).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCardPayment, ready, cartItems.length, hasUnpricedItems]);
 
   if (!ready) return null;
 
@@ -109,9 +196,16 @@ export default function CheckoutPage() {
 
     // totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 는 서버(POST /api/orders)가
     // 카탈로그 가격으로 재계산·고정하므로 여기서 넘기지 않는다(콘센트 축소 — src/lib/storage.ts 참고).
+    if (isCardPayment && (!widgetsRef.current || !widgetReady)) {
+      alert('결제 위젯을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+
     setSubmitting(true);
+    let orderId: string;
+    let authoritativePrice: number;
     try {
-      await createOrder({
+      const order = await createOrder({
         customerName: formData.customerName,
         phone: formData.phone,
         address: formData.address,
@@ -119,14 +213,65 @@ export default function CheckoutPage() {
         paymentMethod: formData.paymentMethod,
         deliveryMemo: formData.memo,
       });
-    } catch {
+      orderId = order.id;
+      authoritativePrice = order.totalPrice + order.deliveryFee;
+    } catch (error) {
       setSubmitting(false);
-      alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      if (error instanceof Error && error.message === 'out-of-stock') {
+        alert('일부 상품의 재고가 부족합니다. 장바구니를 확인해주세요.');
+      } else {
+        alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
+      }
       return;
     }
 
-    clearCart();
-    router.push('/order-complete');
+    if (!isCardPayment) {
+      clearCart();
+      router.push('/order-complete');
+      return;
+    }
+
+    // 화면 표시 finalPrice(위젯 초기 setAmount 값)는 위젯 렌더 시점 기준이라 stale 할 수 있다.
+    // 서버가 방금 카탈로그 가격으로 재계산·고정한 authoritativePrice 와 다르면 결제를 진행하지 않고
+    // 선점을 즉시 해제한다(가격 조작·동시 가격변경 방어).
+    if (authoritativePrice !== finalPrice) {
+      setSubmitting(false);
+      try {
+        await cancelReservation(orderId);
+      } catch {
+        // 취소 실패해도 사용자에게는 재확인을 요구하는 것이 우선 — cron 이 만료 시 복원한다.
+      }
+      alert('결제 금액이 갱신되었습니다. 다시 확인해 주세요.');
+      return;
+    }
+
+    // 카드결제: 결제창으로 리다이렉트되므로 여기서부터는 페이지가 이동한다.
+    // successUrl 로 못 돌아오는(이탈·크래시) 경우를 대비해 선점 해제 대상 주문을 세션에 남긴다.
+    // (성공 시 이 키 정리는 order-complete 담당 — 여기서는 지우지 않는다.)
+    sessionStorage.setItem(PENDING_ORDER_KEY, orderId);
+    const orderName = orderItems.length > 1
+      ? `${orderItems[0].productName} 외 ${orderItems.length - 1}건`
+      : orderItems[0].productName;
+    try {
+      // 결제 직전 서버 확정 금액으로 위젯 금액을 다시 맞춘다(초기 렌더 값이 stale 해도 안전).
+      await widgetsRef.current!.setAmount({ currency: 'KRW', value: authoritativePrice });
+      await widgetsRef.current!.requestPayment({
+        orderId,
+        orderName,
+        successUrl: `${window.location.origin}/order-complete`,
+        failUrl: `${window.location.origin}/checkout?fail=1`,
+      });
+    } catch {
+      // 사용자가 결제창을 직접 닫은 경우 등 — failUrl 리다이렉트 없이 여기로 돌아온다.
+      setSubmitting(false);
+      try {
+        await cancelReservation(orderId);
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
+      } catch {
+        // 취소 실패 — 세션 키를 보존해 다음 fail 방문이나 cron 이 복원하게 한다.
+      }
+      alert('결제가 취소되었습니다.');
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -167,13 +312,44 @@ export default function CheckoutPage() {
             <section className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
               <h2 className="text-lg font-bold text-[#202521] mb-6">결제 수단</h2>
               <div className="grid grid-cols-2 gap-4">
-                {['무통장입금', '카드결제 준비중', '가상 결제 테스트'].map(method => (
-                  <label key={method} className={`border p-4 rounded-sm cursor-pointer flex items-center justify-center transition-colors ${formData.paymentMethod === method ? 'border-[#2F3B34] bg-[#E4E8E3] text-[#2F3B34] font-bold' : 'border-gray-200 hover:border-gray-300'}`}>
-                    <input type="radio" name="paymentMethod" value={method} checked={formData.paymentMethod === method} onChange={handleChange} className="hidden" />
-                    {method}
-                  </label>
-                ))}
+                {(['무통장입금', '카드결제'] as const).map(method => {
+                  const disabled = method === '카드결제' && !TOSS_CLIENT_KEY;
+                  return (
+                    <label
+                      key={method}
+                      className={`border p-4 rounded-sm flex items-center justify-center transition-colors ${disabled ? 'cursor-not-allowed border-gray-100 text-gray-400' : 'cursor-pointer'} ${formData.paymentMethod === method && !disabled ? 'border-[#2F3B34] bg-[#E4E8E3] text-[#2F3B34] font-bold' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={method}
+                        checked={formData.paymentMethod === method}
+                        onChange={handleChange}
+                        disabled={disabled}
+                        className="hidden"
+                      />
+                      {disabled ? '카드결제 준비중' : method}
+                    </label>
+                  );
+                })}
               </div>
+              {isCardPayment && TOSS_CLIENT_KEY && (
+                <div className="mt-6">
+                  {widgetError ? (
+                    <p className="text-sm text-red-600">
+                      결제 위젯을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.
+                    </p>
+                  ) : (
+                    <>
+                      <div id="toss-payment-method" />
+                      <div id="toss-agreement" className="mt-4" />
+                      {!widgetReady && (
+                        <p className="mt-2 text-xs text-gray-400">결제 위젯을 불러오는 중…</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </section>
 
           </div>
@@ -213,7 +389,7 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || (isCardPayment && !widgetReady)}
                 className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? '주문 처리 중…' : `${formatPrice(finalPrice)} 결제하기`}
