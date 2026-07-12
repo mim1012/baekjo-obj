@@ -257,6 +257,16 @@ export async function cancelConfirmingAndRestore(id: string): Promise<boolean> {
   return data === true;
 }
 
+/** claimOrderForConfirmation이 payment_key unique 제약(0022) 충돌을 만났을 때 던지는 전용
+ *  에러 — 호출부가 일반 500이 아니라 409(같은 paymentKey가 다른 주문에 이미 묶임)로 구분
+ *  응답할 수 있게 한다. */
+export class ClaimPaymentKeyConflictError extends Error {
+  constructor(message = 'claim-payment-key-conflict') {
+    super(message);
+    this.name = 'ClaimPaymentKeyConflictError';
+  }
+}
+
 /**
  * 결제 승인 착수 선언(confirm 라우트가 토스 승인 API를 호출하기 **직전에** 반드시 호출) —
  * '결제대기'→'승인중' 배타적 상태전이로 승격(재수술, 웹훅 웨이브 W1). paymentKey를 이 시점에
@@ -281,7 +291,15 @@ export async function claimOrderForConfirmation(id: string, paymentKey: string):
     .eq('id', id)
     .eq('payment_status', '결제대기')
     .select('id');
-  if (error) throw error;
+  if (error) {
+    // 23505 = postgres unique_violation. 0022가 orders.payment_key에 unique 제약을 걸어뒀으므로
+    // 극히 드물게 이미 다른 주문에 묶인 paymentKey로 claim이 들어오면 여기서 걸린다(위조/재사용
+    // 의심 또는 클라이언트 버그) — 500으로 흘리지 않고 라우트가 409로 구분 응답하게 한다.
+    if (error.code === '23505') {
+      throw new ClaimPaymentKeyConflictError();
+    }
+    throw error;
+  }
   return data?.length ?? 0;
 }
 

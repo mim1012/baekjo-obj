@@ -4,6 +4,7 @@ import {
   setOrderPaid,
   claimOrderForConfirmation,
   cancelConfirmingAndRestore,
+  ClaimPaymentKeyConflictError,
   type OrderRecord,
 } from '@/lib/orders/repo';
 import { confirmTossPayment, TossConfirmError } from '@/lib/payments/toss';
@@ -140,10 +141,29 @@ export async function POST(request: NextRequest) {
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. '결제대기'→'승인중' 배타적 전이이므로
     //    claimed=0이면 이미 다른 요청이 먼저 승인중으로 전이시켰거나(경합 패자) 취소/만료된
     //    주문이라 토스 승인 API를 호출하면 안 된다(승인해봐야 확정 못 함 = 이중 리스크만 증가).
-    //    경합 패자는 아래 ALREADY_PROCESSED_PAYMENT 분기가 아니라 여기서 409로 먼저 걸러진다
-    //    (재수술 전엔 claim이 상태전이가 아니어서 이 경합을 못 닫았음 — 이번 웨이브의 핵심).
-    const claimed = await claimOrderForConfirmation(orderId, paymentKey);
+    let claimed: number;
+    try {
+      claimed = await claimOrderForConfirmation(orderId, paymentKey);
+    } catch (claimError) {
+      if (claimError instanceof ClaimPaymentKeyConflictError) {
+        // 이 paymentKey가 이미 다른 주문에 묶여 있음(0022 unique 충돌) — 위조/재사용 의심.
+        logServerError(
+          `[POST /api/payments/confirm] claim payment_key 충돌 orderId=${orderId} paymentKey=${paymentKey}`,
+          claimError,
+        );
+        return NextResponse.json({ error: 'payment-key-already-bound' }, { status: 409 });
+      }
+      throw claimError;
+    }
     if (claimed === 0) {
+      // 경합 패자 — "이미 결제대기가 아니다"라는 사실만 알 뿐 실제로 무슨 상태가 됐는지는
+      // 아직 모른다. 무조건 409로 뭉뚱그리지 않고 재조회해 respondForObservedState로 정확히
+      // 안내한다(승자가 confirm 중이면 202, 이미 확정됐으면 200, 취소됐으면 409 등).
+      const latest = await getOrderById(orderId);
+      if (latest) {
+        return respondForObservedState(latest, paymentKey, orderId);
+      }
+      logServerError(`[POST /api/payments/confirm] claim 실패 후 재조회에서도 주문을 찾지 못함 orderId=${orderId}`, {});
       return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
     }
 
