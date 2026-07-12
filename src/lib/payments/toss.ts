@@ -81,9 +81,13 @@ export async function confirmTossPayment(params: {
  * reconcile cron(U6)·webhook(U5)이 페이로드/claim 시점 정보를 신뢰하지 않고 이 조회 결과로만
  * 확정·취소를 판단한다. Basic 인증은 confirmTossPayment와 동일. 404(결제 없음)도 토스가 응답을
  * 완료한 것이므로 TossConfirmError(httpStatus=404)로 던져 호출부가 "거절/미존재"와 "불명"을
- * 구분할 수 있게 한다.
+ * 구분할 수 있게 한다. timeoutMs 기본값은 TOSS_FETCH_TIMEOUT_MS(10초, cron 무영향) — 웹훅은
+ * 토스가 요구하는 10초 응답 데드라인 안에 여유를 두려고 더 짧은 값(5초)을 넘긴다.
  */
-export async function queryTossPayment(paymentKey: string): Promise<TossConfirmResult> {
+export async function queryTossPayment(
+  paymentKey: string,
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) {
     throw new TossConfirmError('toss-secret-key-missing', null, null);
@@ -96,7 +100,7 @@ export async function queryTossPayment(paymentKey: string): Promise<TossConfirmR
     response = await fetch(`${TOSS_PAYMENT_QUERY_URL}/${encodeURIComponent(paymentKey)}`, {
       method: 'GET',
       headers: { Authorization: authHeader },
-      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);

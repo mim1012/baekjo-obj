@@ -1,11 +1,9 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   getOrderById,
   setOrderPaid,
   claimOrderForConfirmation,
   cancelConfirmingAndRestore,
-  cancelReservationAndRestore,
 } from '@/lib/orders/repo';
 import { queryTossPayment } from '@/lib/payments/toss';
 import { logServerError } from '@/lib/logServerError';
@@ -13,7 +11,6 @@ import { logServerError } from '@/lib/logServerError';
 const MAX_BODY_BYTES = 20_000;
 const MAX_ORDER_ID = 100;
 const MAX_PAYMENT_KEY = 200;
-const SIGNATURE_HEADER = 'tosspayments-webhook-signature';
 const RESTORABLE_TOSS_STATUSES = new Set(['CANCELED', 'EXPIRED', 'ABORTED']);
 
 interface TossWebhookBody {
@@ -35,29 +32,20 @@ function extractIdentifiers(body: TossWebhookBody): { orderId: string; paymentKe
 }
 
 /**
- * HMAC-SHA256(rawBody, TOSS_WEBHOOK_SECRET) base64를 tosspayments-webhook-signature 헤더와
- * timingSafeEqual로 비교한다. SECRET 미설정(웹훅 실등록=계약 전) 시 스킵 — 이 경우 아래 재조회가
- * 유일한 권위 소스가 된다(페이로드를 신뢰하지 않는 설계이므로 서명 없이도 안전).
- * ★정확한 서명 알고리즘/헤더 포맷은 토스 웹훅 실등록 시 개발자센터 문서로 재확인 필요 — 지금은
- * SECRET이 없어 이 분기 자체가 비활성이므로 알고리즘 오류가 있어도 즉시 드러나지 않는다.
- */
-function isValidSignature(rawBody: string, header: string | null, secret: string): boolean {
-  if (!header) return false;
-  const expected = createHmac('sha256', secret).update(rawBody).digest('base64');
-  const expectedBuf = Buffer.from(expected);
-  const headerBuf = Buffer.from(header);
-  if (expectedBuf.length !== headerBuf.length) return false;
-  return timingSafeEqual(expectedBuf, headerBuf);
-}
-
-/**
  * POST /api/payments/webhook — 토스 웹훅 수신(PAYMENT_STATUS_CHANGED). 결제 직후 사용자가
  * successUrl에 도달하지 못하고 이탈한 경우(브라우저 종료 등)를 확정시키는 최후의 경로 —
  * confirm 라우트가 못 닫는 R6/R5b 잔존 리스크를 여기서 닫는다.
  *
  * 페이로드는 절대 신뢰하지 않는다: data.{orderId,paymentKey}로 "무엇을 조회할지"만 얻고,
  * 실제 상태·금액 판단은 전부 queryTossPayment(토스 권위 조회) 결과로만 한다 —
- * reconcile-confirming(U6, 이미 main)의 재조회+신원검증 패턴과 대칭이다.
+ * reconcile-confirming(U6, main)의 재조회+신원검증 패턴과 대칭이다.
+ *
+ * ★결제 웹훅 인증은 서명이 아니라 재조회가 권위다 — tosspayments-webhook-signature 헤더는
+ * 토스 문서상 PAYOUT_STATUS_CHANGED 등 정산/셀러 이벤트 전용이고 PAYMENT_STATUS_CHANGED(이
+ * 라우트가 처리하는 이벤트)엔 제공되지 않는다(Codex 리뷰로 확인, 2026-07). 예전 구현은
+ * TOSS_WEBHOOK_SECRET을 설정하면 정상 결제 웹훅 전량이 서명 불일치로 401 거부되는 함정이
+ * 있었다 — 그래서 서명 검증 분기를 아예 두지 않는다. 인증은 이 라우트가 페이로드를 신뢰하지
+ * 않고 토스 결제 조회 API로 직접 재확인하는 것 자체로 성립한다.
  *
  * 항상 10초 내 응답한다(토스가 그 이상이면 재전송). 우리가 예상하는 상태(주문 없음/eventType
  * 불일치/신원 불일치/이미 처리됨 등)는 200으로 흡수해 재전송을 유도하지 않는다. DB/네트워크 오류
@@ -73,15 +61,6 @@ export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   if (rawBody.length > MAX_BODY_BYTES) {
     return NextResponse.json({ error: 'payload-too-large' }, { status: 413 });
-  }
-
-  const webhookSecret = process.env.TOSS_WEBHOOK_SECRET;
-  if (webhookSecret) {
-    const signatureHeader = request.headers.get(SIGNATURE_HEADER);
-    if (!isValidSignature(rawBody, signatureHeader, webhookSecret)) {
-      logServerError('[POST /api/payments/webhook] 서명 불일치', {});
-      return NextResponse.json({ error: 'invalid-signature' }, { status: 401 });
-    }
   }
 
   let body: TossWebhookBody;
@@ -136,6 +115,10 @@ export async function POST(request: NextRequest) {
         // ★Fable 정정(2026-07-12): claim된 적 없는 주문(사용자 이탈로 confirm 미도달) — 이게
         // 바로 웹훅이 존재하는 이유다. claim으로 먼저 '승인중' 선전이한 뒤 setOrderPaid를 호출해야
         // 한다(repo.setOrderPaid JSDoc breadcrumb 참고) — 순서를 건너뛰면 WHERE 불일치로 no-op.
+        // ★Codex 검토(위해성 없음 확인): 이 경로는 attacker가 자기 주문의 orderId를 조작해도
+        // 악용할 수 없다 — DONE·금액일치를 통과하려면 attacker가 피해자 주문 "전액"을 실제로
+        // 결제해야 하고, 그 돈은 우리 가맹점 계좌로 실수령된다(공격자에게 손해, 우리에게 이득).
+        // 그래서 이 분기는 그대로 유지한다.
         const claimed = await claimOrderForConfirmation(orderId, paymentKey);
         if (claimed === 0) {
           // 경합 패자 — 다른 경로(confirm/reconcile)가 그 사이 먼저 처리했을 수 있다. 재조회 후 수렴.
@@ -144,8 +127,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ ok: true }, { status: 200 });
           }
           if (latest?.paymentStatus === '승인중' && latest.paymentKey === paymentKey) {
-            const affected = await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
-            return NextResponse.json({ ok: true, confirmed: affected > 0 }, { status: 200 });
+            await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+            return NextResponse.json({ ok: true }, { status: 200 });
           }
           // 그 사이 취소된 경우 등 — 재확정할 수 없는 상태. 사람이 봐야 하므로 시끄럽게 로그.
           logServerError(
@@ -154,21 +137,23 @@ export async function POST(request: NextRequest) {
           );
           return NextResponse.json({ ok: true }, { status: 200 });
         }
-        const affected = await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
-        return NextResponse.json({ ok: true, confirmed: affected > 0 }, { status: 200 });
+        await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+        return NextResponse.json({ ok: true }, { status: 200 });
       }
 
       if (order.paymentStatus === '승인중') {
+        // ★키 바인딩 필수 — setOrderPaid의 WHERE(payment_status='승인중' AND payment_key=?)가
+        // 이미 방어하므로 이 체크가 없어도 DB는 안전하지만, 체크 없이 호출부만 보면 "왜 안전한지"가
+        // 라우트 코드만으로 드러나지 않는다. 명시적으로 검증해 라우트 레벨에서도 의도를 보증한다.
         if (order.paymentKey !== paymentKey) {
-          // 이 주문은 다른 paymentKey로 이미 승인중 — 위조/재사용 의심, 확정하지 않는다.
           logServerError(
             `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치 orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`,
             {},
           );
           return NextResponse.json({ ok: true }, { status: 200 });
         }
-        const affected = await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
-        return NextResponse.json({ ok: true, confirmed: affected > 0 }, { status: 200 });
+        await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+        return NextResponse.json({ ok: true }, { status: 200 });
       }
 
       // 결제취소/환불완료 등 이미 종결된 상태인데 DONE 웹훅이 옴 — 상충하는 신호. 확정하지 않고
@@ -181,19 +166,36 @@ export async function POST(request: NextRequest) {
     }
 
     if (RESTORABLE_TOSS_STATUSES.has(tossResult.status)) {
-      if (order.paymentStatus === '승인중' && order.paymentKey === paymentKey) {
+      if (order.paymentStatus === '승인중') {
+        // ★키 바인딩 필수 — cancelConfirmingAndRestore(0026 rpc)는 payment_key를 보지 않고
+        // WHERE payment_status='승인중'만 본다. 그래서 이 취소 경로는 setOrderPaid와 달리
+        // DB의 WHERE로 방어되지 않는다 — 라우트가 직접 키 일치를 검증하지 않으면, 이미 claim이
+        // 새 paymentKey로 재시도를 시작한 주문을 옛 paymentKey의 취소류 웹훅이 잘못 취소시킬 수
+        // 있다. 이 체크가 이 함수를 호출하는 유일한 방어선이다.
+        if (order.paymentKey !== paymentKey) {
+          logServerError(
+            `[POST /api/payments/webhook] 승인중 주문 paymentKey 불일치(취소 시도) orderId=${orderId} webhookKey=${paymentKey} storedKey=${order.paymentKey}`,
+            {},
+          );
+          return NextResponse.json({ ok: true }, { status: 200 });
+        }
         await cancelConfirmingAndRestore(orderId);
         return NextResponse.json({ ok: true }, { status: 200 });
       }
-      if (order.paymentStatus === '결제대기') {
-        await cancelReservationAndRestore(orderId);
-        return NextResponse.json({ ok: true }, { status: 200 });
-      }
-      // 결제완료 확정건에 취소류 웹훅이 온 경우(회귀 방지) — 이미 확정된 결제를 취소·복원하지
-      // 않는다. 실제 환불이 필요하면 별도 관리자 플로우로 처리한다(이 라우트의 스코프 밖).
-      if (order.paymentStatus !== '결제취소' && order.paymentStatus !== '환불완료') {
+
+      // ★CRITICAL 수정(Codex 리뷰, 이번 커밋) — '결제대기' 주문을 이 웹훅으로 취소시키는 경로를
+      // 완전히 제거했다. orderId는 클라이언트(성공/실패 리다이렉트, 웹훅 페이로드)가 지정하는
+      // 값이라, 공격자가 피해자의 실제 orderId를 자신의 새 결제 시도에 끼워 넣고 그 결제를
+      // 중단(CANCELED)시키면, 이 라우트가 "토스가 그 orderId로 취소 웹훅을 보냈다"는 이유만으로
+      // 피해자의 정상 '결제대기' 주문을 취소해버리는 벡터가 있었다(신원검증은 토스 응답의
+      // orderId/paymentKey가 우리가 물어본 값과 같은지만 볼 뿐, 그 결제가 애초에 이 주문 소유였는지는
+      // 보장하지 못한다). '결제대기' 만료 주문의 취소는 reclaim-stock cron이 10분 내 자동으로
+      // 이미 전담하므로, 이 라우트가 손대는 것은 중복 기능이자 불필요한 공격 표면이었다.
+      if (order.paymentStatus === '결제완료') {
+        // 결제완료 확정건에 취소류 웹훅이 온 경우(회귀 방지) — 이미 확정된 결제를 취소·복원하지
+        // 않는다. 실제 환불이 필요하면 별도 관리자 플로우로 처리한다(이 라우트의 스코프 밖).
         logServerError(
-          `[POST /api/payments/webhook] ${order.paymentStatus} 상태에서 취소류(${tossResult.status}) 웹훅 수신, 취소 생략 orderId=${orderId}`,
+          `[POST /api/payments/webhook] 결제완료 확정건에 취소류(${tossResult.status}) 웹훅 수신, 취소 생략 orderId=${orderId}`,
           {},
         );
       }
