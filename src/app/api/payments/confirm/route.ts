@@ -100,6 +100,9 @@ export async function POST(request: NextRequest) {
 
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. 0이면 이미 취소/만료 처리된
     //    주문이라 토스 승인 API를 호출하면 안 된다(승인해봐야 확정 못 함 = 이중 리스크만 증가).
+    //    claim은 cron 배제(만료 복원과의 경합 차단) 용도이지 동시 confirm 요청끼리의 상호배제는
+    //    아니다 — 두 confirm 요청이 동시에 claim=성공을 받는 경합은 후속 '승인중' 상태기계
+    //    스코프(웹훅 웨이브)에서 닫는다. 지금은 아래 ALREADY_PROCESSED_PAYMENT 분기로 완화한다.
     const claimed = await claimOrderForConfirmation(orderId);
     if (claimed === 0) {
       return NextResponse.json({ error: 'reservation-expired' }, { status: 409 });
@@ -112,14 +115,21 @@ export async function POST(request: NextRequest) {
     try {
       tossResult = await confirmTossPayment({ paymentKey, orderId, amount: expectedAmount });
     } catch (tossError) {
-      // 확정 거절 = tossCode 있음 && httpStatus가 4xx(진짜 클라이언트 오류로 토스가 응답을 완료함).
-      // httpStatus가 5xx면 tossCode가 실려 있어도 토스 내부 사정으로 캡처 여부가 불확실하므로
-      // "불명" 경로로 보낸다(§ 확장1 — 5xx도 불명 취급).
+      // ALREADY_PROCESSED_PAYMENT는 4xx+코드가 실려 있어도 "이 주문을 다른 confirm 요청이
+      // 이미 캡처했다"는 신호다 — 이걸 확정 거절로 잘못 묶으면 동시 이중 confirm의 패자가
+      // 승자의 결제 완료 주문을 취소+재고 과복원시킬 수 있다. 확정 거절 판정에서 반드시 제외.
+      const alreadyProcessed =
+        tossError instanceof TossConfirmError && tossError.tossCode === 'ALREADY_PROCESSED_PAYMENT';
+
+      // 확정 거절 = tossCode 있음 && httpStatus가 4xx(진짜 클라이언트 오류로 토스가 응답을 완료함)
+      // && ALREADY_PROCESSED_PAYMENT가 아님. httpStatus가 5xx면 tossCode가 실려 있어도 토스
+      // 내부 사정으로 캡처 여부가 불확실하므로 "불명" 경로로 보낸다(§ 확장1 — 5xx도 불명 취급).
       const isConfirmedDecline =
         tossError instanceof TossConfirmError &&
         tossError.tossCode !== null &&
         tossError.httpStatus !== null &&
-        tossError.httpStatus < 500;
+        tossError.httpStatus < 500 &&
+        !alreadyProcessed;
 
       if (isConfirmedDecline) {
         // 진짜 토스 거절(카드사 거부 등) — 토스가 결제를 캡처하지 않았으므로
@@ -133,6 +143,21 @@ export async function POST(request: NextRequest) {
         logServerError(`[POST /api/payments/confirm] 토스 승인 거부 orderId=${orderId}`, tossError);
         return NextResponse.json({ error: 'payment-declined' }, { status: 402 });
       }
+
+      if (alreadyProcessed) {
+        // 취소·복원 금지 — 이 결제는 이미 다른 confirm 요청이 승자로 처리했다. 재조회해
+        // 승자가 확정을 끝냈으면 멱등하게 수렴시키고, 아직이면(레이스 윈도우) 확인 중으로 응답한다.
+        const latest = await getOrderById(orderId);
+        if (latest && latest.paymentStatus === '결제완료') {
+          return NextResponse.json({ order: toSummary(latest) }, { status: 200 });
+        }
+        logServerError(
+          `[POST /api/payments/confirm] ALREADY_PROCESSED_PAYMENT — 승자 확정 대기 orderId=${orderId} paymentKey=${paymentKey}`,
+          {},
+        );
+        return NextResponse.json({ error: 'payment-confirming' }, { status: 202 });
+      }
+
       if (tossError instanceof TossConfirmError) {
         // 불명(네트워크/타임아웃/시크릿키 설정 오류/토스 5xx) — "토스가 실제로 뭘 했는지 불명".
         // 이 경우 토스가 이미 결제를 캡처했을 가능성을 배제할 수 없으므로 여기서 취소·복원하면
