@@ -13,7 +13,7 @@
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
 ## 다음 단계 (mim 액션 / 남은 것)
--1. **프리뷰 골든플로우 스모크(§8-6 3번 게이트, 이번 머지분)**: push `e3e1518`의 Vercel 프리뷰에서 #2(상세→장바구니→체크아웃: 갤러리 실사진·품절 게이트·PurchaseInfo 렌더 확인) + #7(admin products 재고 입력 저장→재조회) Playwright 구동. CI(verify) 초록 확인도 함께.
+-1. **프리뷰 스모크 잔여분**: ① 구매 완결 여정(#2 장바구니→주문완료) — **판매 가능(가격>0 && stock>0) 상품이 프리뷰에 0개라 구동 불가(데이터 사유)**. 가격 입력(오너: mim/기획, /admin/products) 후 재실행. ② #7 admin 스모크 — admin 로그인 자격증명 필요(세션에 없음). ③ `tests/golden/shop.spec.ts:20` 스펙 노후 — dad 리디자인이 카테고리를 라이프스타일 라벨('식사와 영양' 등)로 매핑해 '사료' 링크가 화면에 없음. **테스트 수정 = 결정 이벤트(사용자 확인 필요)**: 스펙을 새 라벨로 갱신할지 결정. ④ purchase/admin.spec은 `test.fixme` 스텁 — 실 구현 필요. ⑤ `tests/golden/__smoke-pdp-temp.spec.ts` 빈 껍데기 삭제(권한 정책으로 세션 내 삭제 불가였음).
 -0.5. **미결 후속(이번 리뷰에서 비차단 판정)**: ① 옵션 재고 미게이트(상품 stock만 보고 ProductOption.stock 무시 — Opus MEDIUM, 기존 잠복 갭) ② admin brands 상품설정 버튼 onClick 소실(데드 버튼) ③ admin members 집계 3컬럼 축소 사용자 확인 ④ 인증 클러스터 재스타일·`#E9E7E0`·signup aside 삭제·업체폼 임시저장 소실 — dad 확인 필요(드리프트 조사 심각 1건).
 0. **[새 세션 예약] 드리프트 사전 차단 게이트 구축** — 브랜치 `chore/visual-regression-gate`(목적 1개), 산출물 2개:
    - **`.github/CODEOWNERS`**: `src/components/**` + `src/app/**/*Client.tsx` + `src/app/globals.css` → dad 리뷰 필수. (2인 팀 + enforce_admins ON이라 dad 부재 시 머지 블록 감수 — 사용자 인지됨)
@@ -54,6 +54,7 @@
   - **커머스(cart·checkout·order-complete) = 유실 없음(A, main 직접 대조 — 에이전트 무응답으로 diff 직접 검독)**: cart/checkout은 `@/data/products`→`getPublicProducts()` 마운트 로드+로컬 조인, checkout `addOrder`(mock)→`createOrder`(서버가 가격 재계산·상태 결정, 콘센트 축소), order-complete `getLastOrder()` async화. 마크업·팔레트 무변경. 표현 가산 1건뿐: 결제 버튼 submitting 상태(`disabled` + "주문 처리 중…", #2F3B34 유지). 실패 시 `alert()` 사용은 shop 상세와 같은 계열의 경미한 UX 노트.
 
 - 2026-07-12 **상품상세 5건 구현 파이프라인(병렬 워크트리+교차리뷰) 완료·머지**. Opus 계획(plan-pdp-fix) → Sonnet 2워커(worktree 격리) → 리뷰 Opus GREEN·Haiku PASS 양 브랜치 + **Codex 5.5가 5라운드에 걸쳐 HIGH 4건 연쇄 발굴**(수량-stock 미클램프 → activeImage 미리셋 → selectedOption 미리셋 → 상품 간 옵션 id 충돌 이월) — Claude 리뷰어들이 GREEN 준 것을 Codex가 잡음(§8-6 교차검증 실효 재실증). 최종 구조: **리셋(prevProductId 블록: activeImage·quantity·selectedOption) + 매 렌더 파생 검증(validOption/effectiveOptionId·displayQty 하한1) 병행** — 리셋=상품 전환, 파생=동일 상품 옵션 목록 변경 담당. 교훈: state 시점-패치 반복은 같은 부류 버그를 양산, 파생값 검증과 병행해야 종결. 부수 사고 2건: 에이전트 워크트리가 integrate 아닌 main 머지베이스에서 생성돼 재기점 필요했음 / 워크트리 checkout 중 외부 제거로 부모 리포 브랜치 포인터 일시 이동(즉시 복원, 검증 완료).
+- 2026-07-12 **프리뷰 스모크(push e3e1518 배포분) 실측**: 임시 Playwright 스펙으로 상세 신기능 검증 — ✅ p1 갤러리 `/products/*` 실사진 렌더 + "Audit 통과"·"유해 성분 0%"·"BAEKJO CURATION" 0건 + PurchaseInfo 렌더(미입력 필드는 "판매 일정과 함께 안내할게요" 폴백 정상) / ✅ p15 품절 게이트: `품절` 버튼 disabled + 가격(68,600원) 표시 유지. ❌ 구매 완결 여정은 프리뷰 데이터에 판매 가능 상품(가격>0∧stock>0)이 0개라 미구동 — p15·p21은 가격만(재고0), p1~p14는 재고만(가격 null, "판매가 회원공개" 로그인 유도 렌더 정상). 코드 회귀 아닌 데이터 상태. 기존 shop.spec 1건 실패는 스펙 노후(카테고리 라벨 체계 변경) — 스펙 수정 여부는 사용자 결정 대기.
 - 2026-07-12 재고 데이터 흐름 확정: Product.stock은 type·repo·DB에 전부 있었으나 **admin 폼만 미배선**(stock:0 하드코딩)이었음 → 입력 추가로 체인 완성. 레거시 null stock 상품은 edit 시 빈 입력→저장 시 0 정규화로 품절 고착 해제 가능(Codex 확인). 재고 게이트와 admin 입력은 같은 배치 배포 필수(단독 게이트 배포 시 신규상품 영구 품절).
 
 ## 파일 흔적 (추가만)
