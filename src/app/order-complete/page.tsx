@@ -34,6 +34,7 @@ type LoadState =
   | { status: 'confirm-issue'; kind: ConfirmIssueKind };
 
 const AUTO_RETRY_DELAY_MS = 4000;
+const DELAYED_RETRY_DELAY_MS = 500;
 
 const ISSUE_COPY: Record<ConfirmIssueKind, { title: string; desc: string; showRetry: boolean; showCheckoutLink: boolean }> = {
   pending: {
@@ -164,7 +165,15 @@ function ConfirmingBlock() {
   );
 }
 
-function ConfirmIssueBlock({ kind, onRetry }: { kind: ConfirmIssueKind; onRetry: () => void }) {
+function ConfirmIssueBlock({
+  kind,
+  onRetry,
+  retryDisabled,
+}: {
+  kind: ConfirmIssueKind;
+  onRetry: () => void;
+  retryDisabled: boolean;
+}) {
   const copy = ISSUE_COPY[kind];
   return (
     <div className="text-center">
@@ -178,7 +187,8 @@ function ConfirmIssueBlock({ kind, onRetry }: { kind: ConfirmIssueKind; onRetry:
           <button
             type="button"
             onClick={onRetry}
-            className="flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white"
+            disabled={retryDisabled}
+            className="flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white disabled:opacity-50"
           >
             재확인
           </button>
@@ -195,73 +205,77 @@ function ConfirmIssueBlock({ kind, onRetry }: { kind: ConfirmIssueKind; onRetry:
 
 /** performConfirm이 갱신하는 실행 상태 — 컴포넌트 리렌더와 무관하게 값을 들고 있어야 하는
  * 것들이라 훅이 아니라 일반 ref 객체(useRef가 반환하는 {current} 모양과 구조적으로 호환)로
- * 전달받는다. 모듈 최상위 함수라 React Compiler의 메모이제이션 분석 대상이 아니다. */
+ * 전달받는다. 모듈 최상위 함수라 React Compiler의 메모이제이션 분석 대상이 아니다.
+ * 진입 락(inFlightRef)은 두지 않는다 — attemptId(세대 카운터)만으로 통제한다(아래 설명). */
 interface ConfirmRefs {
   isMountedRef: { current: boolean };
   attemptRef: { current: number };
   autoRetriedRef: { current: boolean };
   autoRetryTimerRef: { current: ReturnType<typeof setTimeout> | null };
-  inFlightRef: { current: boolean };
 }
 
-/** 승인 확정의 단일 진입점 — 최초 자동 시도·자동 재시도(202/502)·수동 재시도가 전부 이 함수를
- * 거친다(경합 정리 Codex #2). attemptId(세대 카운터)로 가장 최근 시도만 상태를 갱신하게 하고,
- * inFlightRef로 동시 실행을 막는다. params는 호출 시점에 캡처한 값을 재시도에도 그대로 재사용한다
- * — 재시도는 "같은 요청을 다시 확인"하는 것이지 쿼리를 다시 읽는 게 아니다. */
+/** 승인 확정의 단일 진입점 — 최초 자동 시도·자동 재시도(202/지연)·수동 재시도가 전부 이 함수를
+ * 거친다. attemptId(세대 카운터)로 가장 최근 시도만 상태를 갱신하게 한다: 새 호출이 시작되는
+ * 순간 attemptRef가 증가하고, 이전 세대의 모든 await-뒤 가드(`attemptId !== refs.attemptRef.current`)
+ * 가 자동으로 무효화된다. 서버 confirm은 멱등이라 동시 호출 2건이 겹쳐도 안전 — 그래서 진입 락
+ * (inFlightRef)을 두지 않는다. 예전에 진입 락을 뒀을 때는 두 가지 결함이 있었다:
+ *  ① delayed(502/네트워크) 자동재시도가 바깥 performConfirm의 락이 풀리기 전에 동기 재귀
+ *     호출돼 즉시 no-op되고 autoRetriedRef만 소진됐다(재시도가 죽어 있었다).
+ *  ② 쿼리 변경 시 새 호출이 락에 막히면 구세대 attemptRef가 무효화되지 않아 stale 응답이
+ *     화면·정리(clearPendingTossState)를 커밋할 수 있었다.
+ * 이제 동시 클릭 방지는 진입 락이 아니라 UI(재확인 버튼 disabled, 아래 컴포넌트)로 처리한다.
+ * params는 호출 시점에 캡처한 값을 재시도에도 그대로 재사용한다 — 재시도는 "같은 요청을 다시
+ * 확인"하는 것이지 쿼리를 다시 읽는 게 아니다. */
 async function performConfirm(
   params: { paymentKey: string | null; orderId: string | null; amount: number },
   refs: ConfirmRefs,
   setState: (state: LoadState) => void,
 ): Promise<void> {
-  if (refs.inFlightRef.current) return;
   const { paymentKey, orderId, amount } = params;
   if (!paymentKey || !orderId || !Number.isFinite(amount) || amount <= 0) {
     if (refs.isMountedRef.current) setState({ status: 'confirm-issue', kind: 'invalid' });
     return;
   }
 
-  // 수동 재시도가 시작되면 예약돼 있던 자동 재시도 타이머는 취소한다(Codex #2 — 경합 정리).
+  // 새 시도가 시작되면 예약돼 있던 이전 자동 재시도 타이머는 취소한다(안 하면 그 타이머가
+  // 나중에 발사돼 이 새 시도와 경합할 수 있다).
   if (refs.autoRetryTimerRef.current) {
     clearTimeout(refs.autoRetryTimerRef.current);
     refs.autoRetryTimerRef.current = null;
   }
 
-  refs.inFlightRef.current = true;
   const attemptId = ++refs.attemptRef.current;
   if (refs.isMountedRef.current) setState({ status: 'confirming' });
 
-  try {
-    const result = await confirmTossPayment({ paymentKey, orderId, amount });
-    // 이 응답이 도착한 사이 더 최근 시도(수동 재시도 등)가 이미 시작됐으면 화면을 덮어쓰지 않는다.
+  const result = await confirmTossPayment({ paymentKey, orderId, amount });
+  // 이 응답이 도착한 사이 더 최근 시도(수동 재시도·쿼리 변경 등)가 이미 시작됐으면 화면을
+  // 덮어쓰지 않는다 — 진입 락이 아니라 세대 번호로 stale 응답을 걸러낸다.
+  if (!refs.isMountedRef.current || attemptId !== refs.attemptRef.current) return;
+
+  if (result.ok) {
+    clearPendingTossState();
+    const snapshot = await getLastOrder();
     if (!refs.isMountedRef.current || attemptId !== refs.attemptRef.current) return;
+    setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
+    return;
+  }
 
-    if (result.ok) {
-      clearPendingTossState();
-      const snapshot = await getLastOrder();
-      if (!refs.isMountedRef.current || attemptId !== refs.attemptRef.current) return;
-      setState({ status: 'confirmed', order: mergeConfirmedOrder(snapshot, result.order), summary: result.order });
-      return;
-    }
+  const kind = classifyConfirmError(result.error);
+  setState({ status: 'confirm-issue', kind });
 
-    const kind = classifyConfirmError(result.error);
-    setState({ status: 'confirm-issue', kind });
-
-    // 자동 재시도는 페이지당 최초 1회만. 202(확인중)는 몇 초 후, 502/네트워크성(지연)은 즉시.
-    if (!refs.autoRetriedRef.current && (kind === 'pending' || kind === 'delayed')) {
-      refs.autoRetriedRef.current = true;
-      if (kind === 'delayed') {
+  // 자동 재시도는 페이지당 최초 1회만. 202(확인중)는 4초 후, 502/네트워크성(지연)은 0.5초 후 —
+  // 둘 다 반드시 타이머를 거친다(동기 재귀 금지). 타이머 콜백은 현재 실행 스택이 끝난 뒤
+  // 실행되므로 예전의 진입 락 문제 자체가 없다. 소진(autoRetriedRef=true)은 "예약 시점"이 아니라
+  // "타이머가 실제로 발사되는 시점"에 기록한다 — 예약만 해놓고 못 쏘는 일이 없게 하기 위함이다.
+  if (!refs.autoRetriedRef.current && (kind === 'pending' || kind === 'delayed')) {
+    const delay = kind === 'pending' ? AUTO_RETRY_DELAY_MS : DELAYED_RETRY_DELAY_MS;
+    refs.autoRetryTimerRef.current = setTimeout(() => {
+      refs.autoRetryTimerRef.current = null;
+      if (refs.isMountedRef.current && attemptId === refs.attemptRef.current) {
+        refs.autoRetriedRef.current = true;
         void performConfirm(params, refs, setState);
-        return;
       }
-      refs.autoRetryTimerRef.current = setTimeout(() => {
-        refs.autoRetryTimerRef.current = null;
-        if (refs.isMountedRef.current && attemptId === refs.attemptRef.current) {
-          void performConfirm(params, refs, setState);
-        }
-      }, AUTO_RETRY_DELAY_MS);
-    }
-  } finally {
-    refs.inFlightRef.current = false;
+    }, delay);
   }
 }
 
@@ -278,14 +292,14 @@ function OrderCompleteInner() {
   // 같은 쿼리 조합에 대해 확정 로직을 중복 시작하지 않기 위한 마지막 처리 키(StrictMode 이중
   // 마운트 방어 겸용). confirmKey가 실제로 바뀌면(다른 쿼리로 재진입) 새로 시작한다.
   const lastKeyRef = useRef<string | null>(null);
-  // 동시 실행 방지 — 버튼은 'confirm-issue' 상태에서만 렌더돼 구조적으로도 in-flight 중엔 안
-  // 보이지만, 같은 틱에서의 중복 클릭까지 막는 동기 락(performConfirm 내부에서 검사).
-  const inFlightRef = useRef(false);
 
   const paymentKeyRaw = searchParams.get('paymentKey');
   const orderIdRaw = searchParams.get('orderId');
   const amountRaw = searchParams.get('amount');
-  const confirmKey = `${paymentKeyRaw ?? ''}|${orderIdRaw ?? ''}|${amountRaw ?? ''}`;
+  // JSON.stringify로 조합 — 원시 구분자('|')로 이어붙이면 파라미터 값 자체에 그 구분자가
+  // 섞여 들어올 때(이론상 URL 인코딩된 리터럴 파이프 등) 서로 다른 조합이 같은 키로 충돌할 수
+  // 있다(LOW). 배열 JSON 인코딩은 각 요소 경계가 명확해 그 충돌이 없다.
+  const confirmKey = JSON.stringify([paymentKeyRaw, orderIdRaw, amountRaw]);
 
   // 토스 파라미터가 "하나라도" 있으면 결제 리다이렉트로 간주한다 — 셋 다 있어야만 승인 경로로
   // 들어가던 이전 로직은, 파라미터 일부가 누락되거나 빈 문자열인 부분 쿼리를 "쿼리 없음"으로
@@ -326,7 +340,7 @@ function OrderCompleteInner() {
       return;
     }
 
-    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef, inFlightRef };
+    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef };
     void performConfirm({ paymentKey: paymentKeyRaw, orderId: orderIdRaw, amount: parsedAmount }, refs, setState);
 
     return () => {
@@ -338,9 +352,14 @@ function OrderCompleteInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [confirmKey]);
 
+  // 이중 클릭 방지는 진입 락이 아니라 UI로 — 재확인 버튼은 'confirming' 동안 disabled.
+  // ('confirm-issue' 상태에서만 이 블록이 렌더되므로 구조적으로도 이미 대부분 커버되지만,
+  // 재확인 버튼 자체에도 명시적으로 disabled를 걸어 같은 틱의 연속 클릭까지 막는다.)
+  const isConfirmActionPending: boolean = state.status === 'confirming';
+
   const handleManualRetry = () => {
     if (state.status !== 'confirm-issue') return;
-    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef, inFlightRef };
+    const refs: ConfirmRefs = { isMountedRef, attemptRef, autoRetriedRef, autoRetryTimerRef };
     void performConfirm({ paymentKey: paymentKeyRaw, orderId: orderIdRaw, amount: parsedAmount }, refs, setState);
   };
 
@@ -348,7 +367,7 @@ function OrderCompleteInner() {
     return (
       <div className="min-h-dvh bg-[#F4F2EC] py-20">
         <div className="mx-auto max-w-2xl px-5">
-          <ConfirmIssueBlock kind="invalid" onRetry={handleManualRetry} />
+          <ConfirmIssueBlock kind="invalid" onRetry={handleManualRetry} retryDisabled={isConfirmActionPending} />
         </div>
       </div>
     );
@@ -370,7 +389,7 @@ function OrderCompleteInner() {
     return (
       <div className="min-h-dvh bg-[#F4F2EC] py-20">
         <div className="mx-auto max-w-2xl px-5">
-          <ConfirmIssueBlock kind={state.kind} onRetry={handleManualRetry} />
+          <ConfirmIssueBlock kind={state.kind} onRetry={handleManualRetry} retryDisabled={isConfirmActionPending} />
         </div>
       </div>
     );
