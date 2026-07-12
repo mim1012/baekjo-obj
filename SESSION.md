@@ -3,7 +3,16 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
-## 현재 상태 (2026-07-12 2차 마감)
+## 현재 상태 (2026-07-13 마감)
+- **🎉 dad 리뷰·QnA·마이페이지 통합 main 머지 완료(PR #20, 머지커밋 `0bb79d7`)**: dad 커밋 2개(`8d7f880`·`1ce3b19`, +3,577줄) — 상품상세 리뷰/문의 섹션(ProductTabsClient), 모달 2종, mypage 섹션 10종, admin 상품문의 페이지, 케어가이드 리디자인. §8-1 원칙(충돌 5개 전부 dad-side 정본 + 배선만 재적용, merge 커밋으로 dad 저작자 보존).
+- **검증 3종 완료**: 픽셀 크로스체킹 47라우트×PC/모바일(기준: dad 정본 로컬빌드 + main 스냅샷 프리뷰(동일 staging DB) — 예상 밖 변화 0건) / 인터랙션 14동선 PASS·콘솔 에러 0 / opus 2라운드 GREEN + codex 3라운드 PASS(findings 13건 전부 수정). 뷰어: scratchpad `routes-viewer.html`·`crosscheck-viewer.html`(세션 임시 산출물).
+- **mim 의도적 가산 2건(dad 화면 확인 요망)**: mypage 이메일 인증 배너(요약 상단) + 비밀번호 변경 섹션(회원정보 수정 탭) — 통합에서 소실됐던 main 기능 복원(`ff98e2e`).
+- **lint 가드 강화**: no-restricted-imports files 글롭 `src/app/**` 전체 확대(page.tsx·비Client 사각지대 봉합 — opus H1). config-protection 훅 차단은 가드 강화 목적으로 셸 반영(투명 기록).
+- **visual 베이스라인**: dad 새 화면 기준으로 라벨 갱신(`c1e9cb1`, 변경분 brand-detail 2장).
+- **스테이징 테스트 계정**: `member-e2e@test.baekjo`/`member1234`(role=user·active, SQL 직생성) — 정리 시 `delete from members where email like '%@test.baekjo'`.
+- ⚠️ 로컬 작업트리 특이사항: main이 별도 worktree(`D:\Project\BAGJO1-wt\wt-contract`)에 체크아웃됨(다른 세션). 이 폴더엔 다른 세션(Codex)의 미커밋 파일 존재(`scripts/codex-*.ps1`·`session-close.ps1`, AGENTS §0-1-1 4항 수정, `.gitignore` `.codex-home/`) — 해당 세션이 커밋해야 함.
+
+## (이전 스냅샷) 현재 상태 (2026-07-12 2차 마감)
 - **main발 짧은 브랜치 체계 복귀 완료**: integrate/approval-and-design 소임 종료·삭제(PR #13). 이후 모든 작업이 main발 하루살이 브랜치 + PR로 진행됨(#14~#17 전부 당일 생성·머지·삭제).
 - **시각 회귀 게이트 가동(PR #14)**: `tests/golden/visual.spec.ts` 골든플로우 7경로×2뷰포트=14장, Vercel Preview `deployment_status` 트리거(`.github/workflows/visual.yml`), 베이스라인 갱신 = PR `update-baselines` 라벨(`update-baselines.yml`). `visual`이 main **required status check**(verify와 2중). 고의 훼손 실증: login 배경색 변경 → 정확히 2장 빨간불(diff 20%) → revert → green. dad 운영법: 디자인 PR 빨간불 = 정상, diff 확인 후 라벨 부착이 기준 갱신.
 - **§4-6 lint 기계 강제(PR #15)**: `no-restricted-imports`로 `@/data/products·brands` 컴포넌트 직접 import 에러 차단 + `.claude/**` ignore(로컬 lint 노이즈 3523건 해소).
@@ -23,7 +32,14 @@
 - **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
-## 다음 단계 (2026-07-12 2차 마감 기준)
+## 다음 단계 (2026-07-13 마감 기준)
+1. **리뷰·문의 데이터 DB 전환(be/*)** — 현재 localStorage 목(키 `baekjo_product_reviews`/`_inquiries`, 브라우저 로컬이라 타인/관리자에게 안 보임). 테이블+마이그레이션 신설, **서버측 권한 강제**(answerProductInquiry/setProductReviewStatus — opus MEDIUM), **async-ready 계약 합의 후 전환**(§4-5: 동기 목→async로 바뀌면 호출부 전체 영향), isSecret 제목 노출 여부 결정.
+2. **dad 확인 2건** — mypage 이메일 인증 배너·비밀번호 변경 섹션(mim 가산) 화면 승인. 크로스체킹 뷰어 공유.
+3. **BrandProductsClient 상품 CRUD 실배선** — 사용자 확인(2026-07-12): 추후 업체 관리자용 미리 올려둔 UI가 맞음 → RBAC 확장 때 partner 전용 상품 인가 엔드포인트(admin/inquiries TODO 포함)와 함께.
+4. **mypage 도메인 갭(2026-07-13 점검에서 발굴, 결정 필요)**: ① 게스트 주문 조회 수단 없음(주문번호+연락처 조회) ② 배송지/주소록 관리 없음 ③ 회원 탈퇴 없음(개인정보보호 — 런칭 전 필수급) ④ 위시리스트 localStorage 전용(DB 미영속).
+5. (이월) checkout 품절 UX(out-of-stock 구분 문구, dad behavior 레인) / 옵션 단위 재고 결정 / 주문+차감 단일 트랜잭션화 / purchase·admin.spec 스텁 / 임시 스모크 스펙 2개 삭제 / 런칭 전 admin 비밀번호 교체+리포 공개범위.
+
+## (이전) 다음 단계 (2026-07-12 2차 마감 기준)
 0. **⭐ dad 미통합 커밋 2개 통합(최우선)** — `dad-origin/feature/remove-audit-badges`의 `8d7f880`(A등급 필터 제거)·`1ce3b19`(리뷰·QnA·마이페이지 통합, 28파일 +3,577줄). ⚠️ **계약 파일 포함**(`types/index.ts` +79 / `storage.ts` +201 / `adapters.ts` 신설) — dad 브랜치는 DB 통합 이전 기반이라 storage 추가분은 목 방식일 가능성 높음. 통합 방식: **dad 마크업·섹션 배치 = 정본**(§8-1 표현 범위 확정 반영), 데이터 배선만 DB 콘센트로 재작업. 계약 변경은 §0-2 ② contract 레인으로 mim 확정. 신규 표면(리뷰·QnA)은 테이블/마이그레이션 신설 필요. 통합 후 visual 빨간불 → diff 확인 → `update-baselines` 라벨로 기준 갱신.
 1. **checkout 품절 UX** — `src/app/checkout/page.tsx:122` catch가 모든 에러를 일반 alert 처리. `storage.createOrder`가 이제 409→`Error('out-of-stock')`을 던지므로 품절 구분 문구 노출(dad behavior 레인, `fe/behavior-*`).
 2. **옵션 단위 재고 결정** — 0021은 `products.stock`(총재고)만 차감. `ProductOption.stock`은 미검사·미차감(기존 잠복 갭). 옵션 재고를 실 판매 단위로 쓸지 사용자/기획 결정 후 별도 rpc 확장.
@@ -88,6 +104,11 @@
 - 2026-07-12 **(2차) 교훈 — PostgrestError 처리**: supabase-js rpc 에러를 그대로 throw하면 라우트의 `instanceof Error`/`String()` 검사에서 메시지가 유실된다(프리뷰 실측: 재고부족이 409 대신 500). repo 계층에서 `new Error(error.message)`로 감싸는 게 정석. 소스 정적 분석(codex "extends Error라 문제없음")과 실측이 갈렸고 **실측이 정본**.
 - 2026-07-12 **(2차) 교훈 — Vercel Preview에서 Playwright `networkidle` 금지**: 프리뷰 툴바 웹소켓이 상시 연결이라 idle이 영원히 안 옴(14/14 타임아웃 실측). `load` + 고정 정착 대기 사용.
 
+- 2026-07-13 **교훈 — 정적 데이터→콘센트 전환 시 인가 범위를 함께 설계**: mypage/admin의 `@/data/products`→콘센트 전환에서 회귀 2건 발생(partner가 admin 전용 API에 403 / 비노출 상품의 구매 이력 소실). 콘센트 선택 = "누가(role)·어떤 범위(노출여부)까지 보나"의 인가 결정이다. 해법 패턴: 소유 리소스 기준 인가 엔드포인트(`/api/orders/mine/products` — 본인 주문의 productId만 includeHidden 조회).
+- 2026-07-13 **교훈 — dad 정본 크로스체킹 워크플로 확립**: ① dad 브랜치를 우리 레포에 `dad/*`로 보존 ② `git worktree`+로컬 목 실행으로 정본 화면 촬영 ③ main 스냅샷 브랜치(빈 커밋으로 Vercel 스킵 우회)를 동일 staging DB 프리뷰로 배포해 순수 코드 diff만 측정 ④ pixelmatch 뷰어(main/dad정본/통합/diff 4열). 오탐 주의 2건: PowerShell이 경로 `[slug]`를 와일드카드로 해석(파일 못 읽어 "구조 유실" 오판 — git show가 정본) / Playwright 셀렉터가 헤더 GNB를 오클릭(케어가이드 앵커 FAIL 오탐).
+- 2026-07-13 **BrandProductsClient 상품 추가/수정/삭제 = 로컬 미리보기 확정(사용자)**: 추후 업체 관리자 기능의 사전 UI. RBAC 확장 때 실배선.
+- 2026-07-12 **(2차 마감분 이후) dad 통합 리뷰 findings 13건 전량 수정**: §4 drift 6곳(getPublicProducts/getAdminProducts+props), lint 글롭 확대, ProductTabsClient 경쟁상태·죽은코드, buildReviewTargetKey DRY, Pagination clamp, orderItemId optional화(temp-item-id 제거 — 신규 구매평 분기 조건 수정 포함), 인가 회귀 2건.
+
 ## 파일 흔적 (추가만)
 - 커밋(브랜치 `integrate/approval-and-design`): `4f9f1b9` 홈·헤더 / `f0a0eb8` 0원+업체필터 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`·`23189c2` CategorySettings(+fix) / `040cf2f` survey+게이트 / `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 로그인 가드+하드코딩 제거.
 - 마이그레이션: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(전부 실 DB 적용됨).
@@ -95,6 +116,7 @@
 - Playwright: `playwright.config.ts`, `tests/golden/{home,shop,diagnosis,insurance}.spec.ts`(프리뷰 4/4 PASS). 프리뷰 URL alias: `baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app`.
 - 콘센트 추가: `storage.ts`의 getAdminMembers/insurance·survey·kits·partners·qna get/save. repo: `src/lib/{insurance,settings,categorySettings,survey,kits,partners,qna}/`.
 - SSOT: `AGENTS.md`(§3 분리기준·데이터오너십 / §4-6 lint강제 / §8-6 검증게이트).
+- (2026-07-13 마감) **PR #20**(`0bb79d7`, merge 커밋): dad 통합 — 신규 `src/components/shop/ProductTabsClient.tsx`·`src/components/{reviews,inquiries}/*Modal.tsx`·`src/components/brands/BrandProductsClient.tsx`·`src/app/mypage/components/`(10파일)·`src/app/admin/inquiries/page.tsx`·`src/app/concerns/[slug]/components/CareDetailNav.tsx`·`src/lib/adapters.ts` / 개편 `src/app/{shop/[id],brands/[id],concerns/[slug],mypage}/page.tsx`·`globals.css`(.care-detail 스코프) / 계약 가산 `types/index.ts`(+79)·`storage.ts`(리뷰·문의 목 콘센트 + getMyHistoryProducts) / 신규 API `src/app/api/orders/mine/products/route.ts` / repo 가산 `listProductsByIds(ids, {includeHidden})` / `eslint.config.mjs` files 글롭 확대 / dad 정본 보존 브랜치 `origin/dad/remove-audit-badges`(`1ce3b19`). 주요 커밋: `4576dce`(머지)·`cd0c96a`(b1 감사 백포트)·`ff98e2e`(기능 복원)·`5587fb3`·`3cb8395`(리뷰 픽스)·`c1e9cb1`(베이스라인).
 - (2차 마감) main 머지 PR 5건: `#13`(1ccca8c, integrate 잔여 docs/ci) / `#14`(2f4ed45, 시각 회귀 게이트: `.github/CODEOWNERS`·`.github/workflows/{visual,update-baselines}.yml`·`tests/golden/visual.spec.ts`+스냅샷14장·AGENTS §8-1) / `#15`(0d4a138, `eslint.config.mjs` no-restricted-imports+.claude ignore·AGENTS §0-1-1) / `#16`(33f62c2, `supabase/migrations/0021_decrement_stock_for_order.sql`·`src/app/api/orders/route.ts`·`src/lib/{orders,products}/repo.ts`·`src/lib/storage.ts` 409 분기) / `#17`(8ce12d7, `tests/golden/shop.spec.ts` 구조 검증화). 브랜치 전부 하루살이로 삭제.
 - (2차 마감) 보호 규칙: main required checks = `verify`+`visual`(strict). GitHub secrets 추가: `E2E_ADMIN_EMAIL`·`E2E_ADMIN_PASSWORD`. 라벨 신설: `update-baselines`.
 - (2차 마감) 0021 적용: staging(로컬 러너 `scripts/apply-migrations.mjs` — CI migrate가 be/* push에 안 도는 갭 때문) + prod(main push CI). ⚠️ CI migrate 갭: be/* 브랜치 마이그레이션은 머지 전 staging 수동 적용 필요(또는 ci.yml 분기 확장 검토).
