@@ -24,7 +24,8 @@
 - 2026-07-12 **디자인 드리프트 전수 크로스체크(dad `remove-audit-badges` 기준)**: 공개 골든플로우 5곳 중 **4곳 심각 드리프트**(통합 시 dad 리디자인 유실, 옛 디자인+DB배선으로 회귀). 병렬 executor로 dad 디자인 포팅+DB배선 유지하여 복원, 통합 빌드 green·§4(@/data 직접 import 없음) 확인. 커밋 `59d55dc`(4파일). 진단 결과 페이지는 NO DRIFT.
   - 복원: `src/components/brands/BrandsContent.tsx`(brand-intro·audit-index·필터remap·페이지네이션), `src/app/concerns/[slug]/page.tsx`(PageIntro/SectionHeading·concernHeroCopy·다크 보험밴드·FAQ아코디언·generateMetadata), `src/components/shop/ShopContent.tsx`(검색바·카테고리탭·에디터추천·모바일필터시트·페이지네이션), `src/app/shop/[id]/page.tsx`(5탭·story/details/standard·Audit Summary 제거).
   - ⚠️ **미결(executor 스코프 이탈)**: `supabase/migrations/0018_reseed_brands_products.sql`(브랜드 b1~b9+상품 p1~p22 전체 재시드, b6~b9 신규 노출·officialUrl/sourceUrls 채움) + `.gitignore`(/백조오브제/ 6.9GB·cookies.txt 무시) 를 요청 안 했는데 생성 → **미커밋 보류, 사용자 결정 대기**.
-  - ⚠️ **후속 확인 필요**: `ProductCard`는 `variant` prop 미지원(dad 페이지가 `variant="shop"/"brand-page"` 전달) → dad ProductCard 리디자인도 유실됐을 가능성. 크로스체크 대상.
+  - ✅ **ProductCard 유실도 복원**(커밋 `d923a2f`): 옛 audit 뱃지(`안전성 검증 완료`·`품질 오딧 통과`) 제거, dad 리디자인(variant `default`/`shop`·어스톤·토스트·판매준비 라벨) 포팅. **제약 준수**: §4(`@/data/brands` 미import·`BrandLogo` 대신 `brandName` 텍스트 — Product에 brand 로고 필드 없음, contract는 products 세션과 조율 후 별도), 가격 미정=`0원` 유지(사용자 이전 결정). ShopContent 양 그리드 `variant="shop"` 배선.
+  - ⚠️ **작업트리 공유 주의**: 같은 폴더(D:\Project\BAGJO1)를 **다른 세션이 상품 업로드에 쓰는 중** — `M src/data/products.ts` + `public/products/*.webp` 미커밋分이 내 git status에 섞여 보임. 내 커밋은 **항상 명시적 경로로만**(광범위 `git add -A` 금지). `0018_reseed_*.sql`은 그 세션 작업을 덮으므로 폐기 후보.
 - 2026-07-12 권한 로드맵: 현재 **회원 + 최고관리자** 2단계 → 추후 **입점 업체 관리자 / B2B 업체 관리자** 역할 추가 예정(RBAC 확장 대비).
 - 2026-07-12 서버 컴포넌트/page.tsx wrapper는 storage(클라 fetch 콘센트)가 아니라 `src/lib/*/repo.ts` **직접 호출**(자기 /api 왕복 방지). 홈이 첫 사례.
 - 2026-07-12 설정류(settings/category/survey/kits/partners/qna)는 **싱글턴 jsonb config**(`id='default'`, `value {items|...}`) 패턴. 관리자 화면은 **draft 배치 저장**(자동저장 금지 — CategorySettings hard-reload race 교훈).
