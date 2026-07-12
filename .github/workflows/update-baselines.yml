@@ -14,11 +14,18 @@ on:
   pull_request:
     types: [labeled]
 
+# 라벨 재부착·수동 dispatch 동시 실행 시 baseline push 충돌(non-fast-forward) 방지 — 브랜치당 직렬화
+concurrency:
+  group: update-baselines-${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   update:
+    # fork PR의 GITHUB_TOKEN은 read-only라 push 불가 — 같은 리포 브랜치에서만 실행
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'update-baselines'
+      (github.event.label.name == 'update-baselines' &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -43,17 +50,21 @@ jobs:
         id: preview
         env:
           GH_TOKEN: ${{ github.token }}
+          INPUT_BASE_URL: ${{ inputs.base_url }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
+            echo "url=$INPUT_BASE_URL" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           SHA="${{ github.event.pull_request.head.sha }}"
-          DEP=$(gh api "repos/${{ github.repository }}/deployments?sha=$SHA&per_page=5" --jq '.[0].id')
+          # environment=Preview 필터 필수 — sha에 다른 환경 배포가 섞이면 잘못된 URL을 집는다.
+          # GitHub API는 최신순 정렬이므로 [0] = 최신 Preview 배포.
+          DEP=$(gh api "repos/${{ github.repository }}/deployments?sha=$SHA&environment=Preview&per_page=10" --jq '.[0].id')
           if [ -z "$DEP" ] || [ "$DEP" = "null" ]; then
             echo "::error::이 커밋($SHA)의 Vercel Preview 배포를 찾지 못했습니다. 배포 완료 후 라벨을 다시 붙이세요."
             exit 1
           fi
+          # statuses도 최신순 — 첫 success = 최신 성공 상태
           URL=$(gh api "repos/${{ github.repository }}/deployments/$DEP/statuses" \
             --jq '[.[] | select(.state=="success")][0].environment_url')
           if [ -z "$URL" ] || [ "$URL" = "null" ]; then
@@ -66,6 +77,8 @@ jobs:
         run: npx playwright test tests/golden/visual.spec.ts --update-snapshots --reporter=line
         env:
           E2E_BASE_URL: ${{ steps.preview.outputs.url }}
+          # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Commit & push baselines
         run: |

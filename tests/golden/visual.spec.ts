@@ -19,6 +19,9 @@ const VIEWPORTS = [
 const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'admin@naver.com';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'admin1234';
 
+// Vercel Deployment Protection이 켜진 프리뷰 접근용(§8-6). secret 미설정 시 헤더 생략(프로텍션 OFF 상태).
+const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS;
+
 // framer-motion whileInView 등장 애니메이션을 전부 트리거하기 위해 끝까지 스크롤 후 상단 복귀.
 // fullPage 스크린샷이 숨김/이동 상태의 요소를 찍는 오탐을 막는다.
 async function settlePage(page: Page) {
@@ -47,6 +50,10 @@ const PUBLIC_PAGES = [
 ] as const;
 
 test.describe('시각 회귀 — 골든플로우', () => {
+  test.use({
+    extraHTTPHeaders: BYPASS_SECRET ? { 'x-vercel-protection-bypass': BYPASS_SECRET } : {},
+  });
+
   // CI(Linux) 전용. 로컬 강제 실행: VISUAL_LOCAL=1 (단, 생성된 스냅샷 커밋 금지)
   test.skip(
     process.platform !== 'linux' && !process.env.VISUAL_LOCAL,

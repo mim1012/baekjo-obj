@@ -6,6 +6,11 @@ name: visual (골든플로우 시각 회귀)
 on:
   deployment_status:
 
+# 동일 SHA 중복 deployment_status 이벤트로 인한 중복 실행 방지
+concurrency:
+  group: visual-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
+
 jobs:
   visual:
     if: >-
@@ -32,6 +37,8 @@ jobs:
         run: npx playwright test tests/golden/visual.spec.ts --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Upload diff artifacts
         uses: actions/upload-artifact@v4
