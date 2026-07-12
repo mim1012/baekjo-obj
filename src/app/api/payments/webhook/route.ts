@@ -5,13 +5,35 @@ import {
   claimOrderForConfirmation,
   cancelConfirmingAndRestore,
 } from '@/lib/orders/repo';
-import { queryTossPayment } from '@/lib/payments/toss';
+import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { logServerError } from '@/lib/logServerError';
 
 const MAX_BODY_BYTES = 20_000;
 const MAX_ORDER_ID = 100;
 const MAX_PAYMENT_KEY = 200;
 const RESTORABLE_TOSS_STATUSES = new Set(['CANCELED', 'EXPIRED', 'ABORTED']);
+// 토스가 웹훅에 요구하는 10초 응답 데드라인 안에 여유를 두려고 confirm/reconcile(10초)보다
+// 짧게 잡는다 — 재조회 자체가 오래 걸려 우리가 못 지키면 토스가 재전송하게 되므로 5초 컷.
+const WEBHOOK_TOSS_TIMEOUT_MS = 5_000;
+
+// 베스트에포트 레이트리밋 — 같은 orderId로 60초 내 10회 초과 요청은 토스 조회 없이 무시한다.
+// 인스턴스(서버리스 함수 컨테이너) 로컬 메모리라 여러 컨테이너에 분산되면 우회될 수 있는
+// 한계가 있다(전역 보장 아님) — 운영 레벨의 원천 차단은 Vercel WAF/방화벽 룰로 별도 구성할 것.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_HITS = 10;
+const rateLimitHits = new Map<string, { count: number; windowStart: number }>();
+
+/** true면 이번 요청을 처리해도 됨(한도 이내), false면 한도 초과 — 호출부가 조용히 200 무시. */
+function checkRateLimit(orderId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitHits.get(orderId);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitHits.set(orderId, { count: 1, windowStart: now });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX_HITS;
+}
 
 interface TossWebhookBody {
   eventType?: string;
@@ -53,13 +75,22 @@ function extractIdentifiers(body: TossWebhookBody): { orderId: string; paymentKe
  * (모든 분기가 멱등이라 재전송이 안전하다).
  */
 export async function POST(request: NextRequest) {
-  const contentLength = request.headers.get('content-length');
-  if (contentLength && Number(contentLength) > MAX_BODY_BYTES) {
-    return NextResponse.json({ error: 'payload-too-large' }, { status: 413 });
+  const contentLengthHeader = request.headers.get('content-length');
+  if (contentLengthHeader) {
+    const contentLength = Number(contentLengthHeader);
+    // 숫자가 아니거나 음수인 Content-Length는 위조/이상 요청 — 신뢰하지 않고 거부한다.
+    if (!Number.isFinite(contentLength) || contentLength < 0) {
+      return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+    if (contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'payload-too-large' }, { status: 413 });
+    }
   }
 
   const rawBody = await request.text();
-  if (rawBody.length > MAX_BODY_BYTES) {
+  // 문자 길이(rawBody.length)가 아니라 실제 UTF-8 바이트 수로 재확인한다 — 멀티바이트 문자가
+  // 섞이면 .length(코드 유닛 수)가 실제 바이트 수보다 작게 나와 제한을 우회할 수 있다.
+  if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) {
     return NextResponse.json({ error: 'payload-too-large' }, { status: 413 });
   }
 
@@ -82,6 +113,12 @@ export async function POST(request: NextRequest) {
   }
   const { orderId, paymentKey } = identifiers;
 
+  if (!checkRateLimit(orderId)) {
+    // 같은 orderId로 60초 내 10회 초과 — 토스 조회조차 하지 않고 조용히 무시한다(200).
+    logServerError(`[POST /api/payments/webhook] 레이트리밋 초과 orderId=${orderId}`, {});
+    return NextResponse.json({ ok: true }, { status: 200 });
+  }
+
   try {
     const order = await getOrderById(orderId);
     if (!order) {
@@ -89,8 +126,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    // 토스 권위 조회 — 페이로드의 status는 절대 쓰지 않는다.
-    const tossResult = await queryTossPayment(paymentKey);
+    // 토스 권위 조회 — 페이로드의 status는 절대 쓰지 않는다. 웹훅은 confirm/reconcile(10초)보다
+    // 짧은 타임아웃(5초)을 넘겨 토스의 10초 응답 데드라인 안에 여유를 둔다.
+    let tossResult;
+    try {
+      tossResult = await queryTossPayment(paymentKey, WEBHOOK_TOSS_TIMEOUT_MS);
+    } catch (queryError) {
+      if (queryError instanceof TossConfirmError && queryError.httpStatus !== null && queryError.httpStatus < 500) {
+        // 토스가 4xx로 응답을 완료함(404=결제 없음 포함) — 영구 실패다. 재전송해도 나아지지
+        // 않으므로 500 poison 루프(토스가 최대 7회까지 계속 재시도)를 만들지 않고 200으로 흡수한다.
+        logServerError(
+          `[POST /api/payments/webhook] 토스 조회 4xx(영구 실패, 재전송 무의미) orderId=${orderId} paymentKey=${paymentKey} httpStatus=${queryError.httpStatus}`,
+          queryError,
+        );
+        return NextResponse.json({ ok: true }, { status: 200 });
+      }
+      // 네트워크/타임아웃/시크릿키 미설정(httpStatus null)·토스 5xx — 다시 시도하면 나아질 수
+      // 있는 실패이므로 바깥 catch로 넘겨 500 → 토스 재전송을 유도한다.
+      throw queryError;
+    }
     const expectedAmount = order.totalPrice + order.deliveryFee;
 
     // 신원 검증 — 조회 결과를 쓰기 전에 orderId·paymentKey가 우리가 물어본 대상과 정확히
