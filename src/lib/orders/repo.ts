@@ -204,6 +204,9 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
  * 재시도가 끼어들었거나 이미 확정된 행은 매치되지 않는다).
  * 반환값 = 영향받은 행 수. 1이면 이번 호출이 확정시킨 것, 0이면 이미 처리됐거나(idempotency 신호)
  * WHERE 불일치(R6 — 승인 성공·확정 실패 경합).
+ * ⚠️ 웹훅/reconcile(W2)이 '결제대기' 주문(사용자 이탈로 claim 자체가 없었던 건)을 확정하려면
+ * 반드시 claimOrderForConfirmation을 먼저 호출해 '승인중'으로 전이시켜야 한다 — '결제대기' 주문에
+ * 이 함수를 직접 호출하면 WHERE payment_status='승인중' 불일치로 0행 무성 실패(조용한 미확정)가 된다.
  */
 export async function setOrderPaid(
   id: string,
@@ -263,6 +266,9 @@ export async function cancelConfirmingAndRestore(id: string): Promise<boolean> {
  * 원자적이라 두 confirm 요청이 동시에 '결제대기'를 보고 있어도 하나만 '승인중' 전이에 성공한다.
  * 반환 1 = 이번 호출이 이 주문을 승인중으로 전이시킴(승인 진행 가능), 0 = 이미 취소·승인중·확정된
  * 주문이라 이번 호출은 전이하지 못했다(호출부가 멱등/409로 분기).
+ * ⚠️ 웹훅 경로(W2): 미claim '결제대기' 주문(사용자 이탈로 confirm이 안 온 건)을 웹훅으로 확정하려면
+ * 이 함수로 먼저 '승인중' 선전이한 뒤 setOrderPaid를 호출해야 한다 — 순서를 건너뛰면 setOrderPaid의
+ * WHERE 조건과 맞물려 조용히 no-op된다.
  */
 export async function claimOrderForConfirmation(id: string, paymentKey: string): Promise<number> {
   const { data, error } = await getSupabase()
