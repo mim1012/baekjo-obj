@@ -27,6 +27,10 @@ const MAX_MEMO = 1000;
 const FREE_SHIPPING_THRESHOLD = 50000;
 const SHIPPING_FEE = 3000;
 
+// 카드결제(토스) PENDING 주문의 재고 선점 유효시간. claimOrderForConfirmation의
+// CLAIM_EXTENSION_MS(orders/repo.ts)와 동일한 폭 — 승인 착수 시 "처음부터 다시 10분"으로 통일한다.
+const PENDING_RESERVATION_MS = 10 * 60 * 1000;
+
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
 }
@@ -104,7 +108,13 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
   const deliveryFee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_FEE : 0;
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
-  const paymentStatus = b.paymentMethod === '무통장입금' ? '입금대기' : '결제대기';
+  const isBankTransfer = b.paymentMethod === '무통장입금';
+  const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';
+  // 무통장입금은 만료 복원 대상이 아니다(사람이 입금 확인 처리) — expiresAt 없이 생성.
+  // 카드결제(토스)만 10분 선점 만료를 부여해 미승인/이탈 시 cron이 재고를 복원할 수 있게 한다.
+  const expiresAt = isBankTransfer
+    ? undefined
+    : new Date(Date.now() + PENDING_RESERVATION_MS).toISOString();
 
   return {
     customerName: b.customerName,
@@ -119,6 +129,7 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
     deliveryStatus: '배송준비',
     ...(typeof b.trackingNumber === 'string' ? { trackingNumber: b.trackingNumber } : {}),
     ...(typeof b.deliveryMemo === 'string' ? { deliveryMemo: b.deliveryMemo } : {}),
+    ...(expiresAt !== undefined ? { expiresAt } : {}),
   };
 }
 
