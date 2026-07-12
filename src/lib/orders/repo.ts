@@ -94,6 +94,23 @@ export async function insertOrder(
   return rowToRecord(data as OrderRow);
 }
 
+/** 재고 차감 실패 시 방금 만든 주문을 되돌리는 보상용. 생성 직후 자기 주문에만 사용한다. */
+export async function deleteOrderById(id: string): Promise<void> {
+  const { error } = await getSupabase().from('orders').delete().eq('id', id);
+  if (error) throw error;
+}
+
+/** 주문 항목만큼 상품 재고를 원자적으로 차감(0021 마이그레이션 rpc). 재고 부족 시
+ *  'INSUFFICIENT_STOCK:<productId>' 메시지를 담은 에러를 던지고 DB 트랜잭션은 롤백된다. */
+export async function decrementStockForOrder(
+  items: Pick<OrderItem, 'productId' | 'quantity'>[],
+): Promise<void> {
+  const { error } = await getSupabase().rpc('decrement_stock_for_order', {
+    p_items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+  });
+  if (error) throw error;
+}
+
 export async function getOrderById(id: string): Promise<OrderRecord | null> {
   const { data, error } = await getSupabase()
     .from('orders')
