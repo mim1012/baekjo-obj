@@ -61,7 +61,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
+    <div className="flex min-h-dvh items-center justify-center bg-[#404040] px-5 py-20">
       <div className="grid w-full max-w-4xl border border-[#D1D0C8] bg-[#FAF9F5] shadow-sm md:grid-cols-[0.85fr_1.15fr]">
         <div className="hidden border-r border-[#D1D0C8] bg-[#687069] p-10 text-white md:flex md:flex-col md:justify-between">
           <BrandMark inverse />
