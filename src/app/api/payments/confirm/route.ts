@@ -79,13 +79,30 @@ export async function POST(request: NextRequest) {
     try {
       tossResult = await confirmTossPayment({ paymentKey, orderId, amount });
     } catch (tossError) {
-      // 승인 실패 — 재고를 즉시 회수해 다음 구매자가 기다리지 않게 한다.
-      await cancelReservationAndRestore(orderId).catch((restoreError) => {
-        logServerError('[POST /api/payments/confirm] 토스 승인 실패 후 재고 복원 실패', restoreError);
-      });
-      if (tossError instanceof TossConfirmError) {
-        logServerError('[POST /api/payments/confirm] 토스 승인 거부', tossError);
+      if (tossError instanceof TossConfirmError && tossError.tossCode !== null) {
+        // 진짜 토스 거절(카드사 거부 등, tossCode 있음) — 토스가 결제를 캡처하지 않았으므로
+        // 재고를 즉시 회수해 다음 구매자가 기다리지 않게 한다.
+        await cancelReservationAndRestore(orderId).catch((restoreError) => {
+          logServerError(
+            `[POST /api/payments/confirm] 토스 승인 거부 후 재고 복원 실패 orderId=${orderId}`,
+            restoreError,
+          );
+        });
+        logServerError(`[POST /api/payments/confirm] 토스 승인 거부 orderId=${orderId}`, tossError);
         return NextResponse.json({ error: 'payment-declined' }, { status: 402 });
+      }
+      if (tossError instanceof TossConfirmError) {
+        // tossCode===null: 네트워크/타임아웃/시크릿키 설정 오류 등 "토스가 실제로 뭘 했는지 불명".
+        // 이 경우 토스가 이미 결제를 캡처했을 가능성을 배제할 수 없으므로 여기서 취소·복원하면
+        // 안 된다(캡처된 결제인데 재고를 풀어버리는 반대 방향 리스크가 생김). 주문을 결제대기로
+        // 남겨두면 ① 사용자가 같은 successUrl로 재시도할 때 동일 paymentKey로 토스 confirm이
+        // 멱등하게 재확정할 수 있고, ② 진짜 미결제였다면 claim이 연장한 10분 뒤 만료 cron이
+        // 재고를 회수한다 — 두 경로 모두 이 분기에서 취소하지 않아야 안전하다.
+        logServerError(
+          `[POST /api/payments/confirm] 토스 승인 응답 불명(네트워크/설정) orderId=${orderId} paymentKey=${paymentKey}`,
+          tossError,
+        );
+        return NextResponse.json({ error: 'payment-unconfirmed' }, { status: 502 });
       }
       throw tossError;
     }
@@ -101,8 +118,8 @@ export async function POST(request: NextRequest) {
       // 웹훅 없이는 이 잔존 리스크를 완전히 닫을 수 없다(스코프 밖, R6) — 실결제와 DB 불일치를
       // 조용히 흘리지 않도록 반드시 로그를 남기고, 클라이언트에는 확정 실패가 아니라 "확인 중"으로 응답한다.
       logServerError(
-        '[POST /api/payments/confirm] 토스 승인 성공, DB 확정 0행(주문 상태 변경됨) — 웹훅 후속 필요',
-        { orderId, paymentKey: tossResult.paymentKey },
+        `[POST /api/payments/confirm] R6 승인성공·확정0행 orderId=${orderId} paymentKey=${tossResult.paymentKey} — 웹훅 후속 필요`,
+        { tossStatus: tossResult.status },
       );
       return NextResponse.json({ error: 'payment-confirming' }, { status: 202 });
     }
