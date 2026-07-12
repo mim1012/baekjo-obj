@@ -108,7 +108,9 @@ export async function decrementStockForOrder(
   const { error } = await getSupabase().rpc('decrement_stock_for_order', {
     p_items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
   });
-  if (error) throw error;
+  // PostgrestError는 instanceof Error가 아니어서 String() 검사에서 '[object Object]'로 유실된다 —
+  // 진짜 Error로 감싸 'INSUFFICIENT_STOCK:<id>' 메시지를 라우트까지 보존한다(프리뷰 실측으로 발견).
+  if (error) throw new Error(error.message);
 }
 
 export async function getOrderById(id: string): Promise<OrderRecord | null> {
