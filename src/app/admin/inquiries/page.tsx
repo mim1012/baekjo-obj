@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProductInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
+import { getCurrentUser, getAdminInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
@@ -27,6 +27,11 @@ export default function AdminInquiriesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isMounted, setIsMounted] = useState(false);
 
+  // loadData 는 mount·STORAGE_EVENTS 리스너에서 독립적으로 재호출된다(단일 useEffect cleanup으로는
+  // 못 잡는 범위) — 마지막 호출 번호만 신뢰해 먼저 시작했지만 늦게 응답한 요청이 최신 상태를
+  // 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
+  const loadSeqRef = useRef(0);
+
   const loadData = () => {
     const currentUser = getCurrentUser();
     if (!currentUser || !['admin', 'partner'].includes(currentUser.role)) {
@@ -34,26 +39,24 @@ export default function AdminInquiriesPage() {
       return;
     }
     setUser(currentUser);
+
+    const seq = ++loadSeqRef.current;
     // /api/admin/products 는 requireAdmin() 전용 — partner 세션은 403(빈 배열)으로 조용히 깨진다.
     // TODO(RBAC): partner는 자기 브랜드 상품 전용 인가 엔드포인트로 교체(현 단계 partner 계정 미운영 — 최소 안전 폴백).
-    if (currentUser.role === 'admin') {
-      getAdminProducts().then(setProducts);
-    } else {
-      getPublicProducts().then(setProducts);
-    }
+    const productsPromise = currentUser.role === 'admin' ? getAdminProducts() : getPublicProducts();
+    productsPromise.then((products) => {
+      if (loadSeqRef.current === seq) setProducts(products);
+    });
 
-    const allInquiries = getProductInquiries();
-
-    // 파트너인 경우 자기 브랜드 문의만 볼 수 있음
-    let filteredInquiries = allInquiries;
-    if (currentUser.role === 'partner') {
-      const managedBrandIds = currentUser.managedBrandIds || [];
-      filteredInquiries = allInquiries.filter(i => managedBrandIds.includes(i.brandId));
-    }
-
-    // Sort by latest
-    filteredInquiries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setInquiries(filteredInquiries);
+    // 브랜드 스코프 필터링은 서버(/api/admin/inquiries)가 처리한다(§4 drift 방지) —
+    // admin은 전체, partner는 TODO(RBAC) 반영 전까지 안전 폴백(빈 배열)을 받는다.
+    getAdminInquiries().then((allInquiries) => {
+      if (loadSeqRef.current !== seq) return;
+      const sorted = [...allInquiries].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setInquiries(sorted);
+    });
   };
 
   useEffect(() => {
@@ -73,13 +76,17 @@ export default function AdminInquiriesPage() {
 
   if (!isMounted || !user) return null;
 
-  const handleAnswerSubmit = (inquiryId: string, answer: string) => {
+  const handleAnswerSubmit = async (inquiryId: string, answer: string) => {
     if (!answer.trim()) {
       alert('답변을 입력해주세요.');
       return;
     }
-    answerProductInquiry(inquiryId, answer, user.name);
-    alert('답변이 등록되었습니다.');
+    try {
+      await answerProductInquiry(inquiryId, answer);
+      alert('답변이 등록되었습니다.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '답변 등록에 실패했습니다.');
+    }
   };
 
   // Convert inquiries to rows for AdminResourcePage

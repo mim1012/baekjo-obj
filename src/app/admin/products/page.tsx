@@ -197,7 +197,11 @@ export default function AdminProductsDashboard() {
     setProducts((prev) => prev.filter((p) => p.id !== product.id));
     const { error } = await deleteProduct(product.id);
     if (error) {
-      alert('상품 삭제에 실패했습니다.');
+      alert(
+        error === 'product-has-history'
+          ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
+          : '상품 삭제에 실패했습니다.',
+      );
       setProducts(before);
     }
   };

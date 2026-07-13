@@ -1,12 +1,12 @@
 import { ReviewViewItem, InquiryViewItem } from '@/types';
 import { reviews as seedReviews } from '@/data/reviews';
 import { qnaList as seedQna } from '@/data/qna';
-import { getProductReviews, getProductInquiries } from './storage';
+import { getProductReviewsByProduct, getProductInquiriesByProduct } from './storage';
 
-/** 
- * 특정 상품의 통합 구매평 (시드 + 사용자 작성) 반환 
+/**
+ * 특정 상품의 통합 구매평 (시드 + 사용자 작성) 반환
  */
-export function getMergedReviews(productId: string): ReviewViewItem[] {
+export async function getMergedReviews(productId: string): Promise<ReviewViewItem[]> {
   // 1. 시드 데이터
   const seed = seedReviews
     .filter((r) => r.productId === productId)
@@ -26,9 +26,8 @@ export function getMergedReviews(productId: string): ReviewViewItem[] {
       isBest: r.isBest,
     }));
 
-  // 2. 사용자 작성 데이터
-  const userReviews = getProductReviews()
-    .filter((r) => r.productId === productId && r.status === 'published')
+  // 2. 사용자 작성 데이터(DB, 노출 상태만 — /api/products/[id]/reviews 가 이미 published 로 좁혀 반환)
+  const userReviews = (await getProductReviewsByProduct(productId))
     .map((r): ReviewViewItem => ({
       id: r.id,
       source: 'user',
@@ -48,10 +47,10 @@ export function getMergedReviews(productId: string): ReviewViewItem[] {
   );
 }
 
-/** 
- * 특정 상품의 통합 문의 (시드 + 사용자 작성) 반환 
+/**
+ * 특정 상품의 통합 문의 (시드 + 사용자 작성) 반환
  */
-export function getMergedInquiries(productId: string): InquiryViewItem[] {
+export async function getMergedInquiries(productId: string): Promise<InquiryViewItem[]> {
   // 1. 시드 데이터
   const seed = seedQna
     .filter((q) => q.productId === productId)
@@ -70,9 +69,8 @@ export function getMergedInquiries(productId: string): InquiryViewItem[] {
       editable: false,
     }));
 
-  // 2. 사용자 작성 데이터
-  const userInquiries = getProductInquiries()
-    .filter((i) => i.productId === productId)
+  // 2. 사용자 작성 데이터(DB — 비밀글 content/answer 는 서버가 열람 권한에 따라 이미 redaction)
+  const userInquiries = (await getProductInquiriesByProduct(productId))
     .map((i): InquiryViewItem => ({
       id: i.id,
       source: 'user',
