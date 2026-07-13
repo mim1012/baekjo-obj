@@ -491,15 +491,24 @@ export async function deleteProduct(id: string): Promise<{ ok?: true; error?: st
   }
 }
 
-/** 파트너/관리자 본인 관리 브랜드의 상품 목록(비노출 포함). GET /api/partner/products. 실패 시 빈 배열. */
-export async function getPartnerProducts(brandId: string): Promise<Product[]> {
+/**
+ * 파트너/관리자 본인 관리 브랜드의 상품 목록(비노출 포함). GET /api/partner/products.
+ * 실패를 error로 구분해 반환한다 — 호출부(BrandProductsClient)가 실패를 빈 배열과 혼동해
+ * 기존에 보여주던 목록을 조용히 비우지 않도록(§4) getAdminProducts와 다르게 설계했다.
+ */
+export async function getPartnerProducts(
+  brandId: string,
+): Promise<{ products?: Product[]; error?: string }> {
   try {
     const response = await fetch(`/api/partner/products?brandId=${encodeURIComponent(brandId)}`);
-    if (!response.ok) return [];
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
     const { products } = (await response.json()) as { products: Product[] };
-    return products;
+    return { products };
   } catch {
-    return [];
+    return { error: 'network' };
   }
 }
 

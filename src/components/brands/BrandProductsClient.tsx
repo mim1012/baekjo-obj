@@ -18,6 +18,7 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [user, setUser] = useState<User | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deletingIds, setDeletingIds] = useState<Set<string>>(new Set());
 
   // Modals state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -38,8 +39,15 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
     // 판매 준비 중인 상품도 이 화면에서 편집할 수 있게 한다.
     if (!hasAdminRights) return;
     let cancelled = false;
-    getPartnerProducts(brand.id).then((full) => {
-      if (!cancelled) setProducts(full);
+    getPartnerProducts(brand.id).then(({ products: full, error }) => {
+      if (cancelled) return;
+      if (error || !full) {
+        // 실패 시 기존 목록(서버가 내려준 공개 목록 또는 직전 성공 목록)을 그대로 유지한다 —
+        // 빈 배열로 덮어써 "상품이 없다"로 보이면 관리자가 실수로 전부 지운 것처럼 오인할 수 있다.
+        alert('상품 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.');
+        return;
+      }
+      setProducts(full);
     });
     return () => {
       cancelled = true;
@@ -50,13 +58,24 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
   const additionalProducts = products.filter((p) => !brand.representativeProductIds.includes(p.id));
 
   const handleDelete = async (id: string, name: string) => {
+    if (deletingIds.has(id)) return; // 이미 삭제 요청이 진행 중 — 더블클릭으로 중복 요청/오탐 알림 방지
     if (!window.confirm(`'${name}' 상품을 삭제하시겠습니까?`)) return;
-    const { error } = await deletePartnerProduct(id);
-    if (error) {
-      alert('상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
-      return;
+
+    setDeletingIds(prev => new Set(prev).add(id));
+    try {
+      const { error } = await deletePartnerProduct(id);
+      if (error) {
+        alert('상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
+      setProducts(prev => prev.filter(p => p.id !== id));
+    } finally {
+      setDeletingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
-    setProducts(prev => prev.filter(p => p.id !== id));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -92,7 +111,7 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
           reviewCount: 0,
           stock: 100,
           isVisible: true,
-          image: '',
+          image: '/images/icon-product.svg',
           description: '설명이 없습니다.',
           concernTags: [],
           ingredients: '',
@@ -161,9 +180,10 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
                     >
                       <Edit2 className="size-4" />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => { e.preventDefault(); handleDelete(product.id, product.name); }}
-                      className="flex size-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm hover:bg-red-50 backdrop-blur-sm"
+                      disabled={deletingIds.has(product.id)}
+                      className="flex size-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm hover:bg-red-50 backdrop-blur-sm disabled:opacity-60"
                       title="삭제"
                     >
                       <Trash2 className="size-4" />
@@ -201,9 +221,10 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
                     >
                       <Edit2 className="size-4" />
                     </button>
-                    <button 
+                    <button
                       onClick={(e) => { e.preventDefault(); handleDelete(product.id, product.name); }}
-                      className="flex size-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm hover:bg-red-50 backdrop-blur-sm"
+                      disabled={deletingIds.has(product.id)}
+                      className="flex size-8 items-center justify-center rounded-full bg-white/90 text-red-500 shadow-sm hover:bg-red-50 backdrop-blur-sm disabled:opacity-60"
                       title="삭제"
                     >
                       <Trash2 className="size-4" />
