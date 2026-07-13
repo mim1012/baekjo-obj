@@ -29,28 +29,41 @@ export async function sweepStaleFixtures(): Promise<void> {
   await q(`delete from public.products where id like '\\_\\_test\\_%' escape '\\' and created_at < now() - interval '1 hour';`);
 }
 
+// Management API는 분당 요청 상한이 있어 병렬 워커 + 재시도가 겹치면 429(ThrottlerException)를
+// 던진다(CI 실측: 8 passed에 429로 2 failed). 429는 쿼리 실패가 아니라 "기다렸다 다시"이므로
+// 여기서 흡수한다 — Retry-After 헤더가 있으면 그대로, 없으면 지수 백오프.
+const THROTTLE_MAX_ATTEMPTS = 6;
+
 export async function q(sql: string): Promise<Record<string, unknown>[]> {
   const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
   const TOKEN = process.env.SUPABASE_ACCESS_TOKEN ?? '';
   const ref = SUPABASE_URL.replace(/^https?:\/\/([^.]+)\..*$/, '$1');
   const API = `https://api.supabase.com/v1/projects/${ref}/database/query`;
 
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'User-Agent': 'Mozilla/5.0 (baekjo-payments-spec/1.0)',
-    },
-    body: JSON.stringify({ query: sql }),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${text}`);
-  try {
-    return JSON.parse(text);
-  } catch {
-    return [];
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'User-Agent': 'Mozilla/5.0 (baekjo-payments-spec/1.0)',
+      },
+      body: JSON.stringify({ query: sql }),
+    });
+    const text = await res.text();
+    if (res.status === 429 && attempt < THROTTLE_MAX_ATTEMPTS) {
+      const retryAfter = Number(res.headers.get('retry-after'));
+      const waitMs = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter * 1000 : 1000 * 2 ** (attempt - 1);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${text}`);
+    try {
+      return JSON.parse(text);
+    } catch {
+      return [];
+    }
   }
 }
 

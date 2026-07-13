@@ -1,24 +1,33 @@
 name: visual (골든플로우 시각 회귀)
 
-# Vercel Preview 배포가 성공한 시점에 그 배포 URL을 대상으로 시각 회귀(14장)를 돌린다.
-# 표현(마크업·스타일)이 병합에서 유실되면 픽셀 diff로 잡는 게이트 — AGENTS.md §8-1.
-# 베이스라인 갱신은 update-baselines.yml(라벨 `update-baselines` 또는 수동 dispatch).
+# Vercel Preview 배포가 성공한 시점에 그 배포 URL을 대상으로 시각 회귀(14장) + 결제 라우트
+# 통합 스펙을 돈다. 표현(마크업·스타일)이 병합에서 유실되면 픽셀 diff로 잡는 게이트
+# (AGENTS.md §8-1). 베이스라인 갱신은 update-baselines.yml(라벨 `update-baselines` 또는 수동 dispatch).
 on:
   deployment_status:
 
-# payments-routes.yml과 동일 그룹 키를 공유해 같은 프리뷰(=같은 staging DB)를 대상으로 하는 두
-# 워크플로가 절대 동시에 돌지 않고 큐잉되어 순차 실행되게 한다. 이유: 결제 라우트 스펙
-# (payment-routes.spec.ts)이 staging DB에 합성 상품(주문 생성을 위해 is_visible=true 필수 — 비노출
-# 상품 주문은 정책상 차단, src/app/api/orders/route.ts)을 만드는데, 이게 같은 DB를 스크린샷하는
-# 이 워크플로와 겹치면 그 합성 상품이 /shop 시각 회귀에 찍혀 오탐이 난다(실측: PR #32, /shop 데스크톱
-# 4% diff).
-# cancel-in-progress: false 필수 — 같은 그룹에서 true면 나중 워크플로가 상대를 취소해버려 required
-# check(visual)가 영영 안 돌고 머지가 막힌다. 트레이드오프: 기존 cancel-in-progress: true가 노리던
-# "동일 SHA 중복 deployment_status 이벤트 중복 실행 방지"는 약해진다(중복 이벤트가 취소 대신 큐잉돼
-# 중복 실행된다). 대신 두 워크플로가 절대 겹치지 않는다 — 시각 회귀 오탐이 더 비싼 문제라 이 교환이 옳다.
+# ★payments-routes를 별도 워크플로가 아니라 이 워크플로 안의 순차 잡으로 둔다(2026-07-13
+# 구조 변경 — 이전엔 두 워크플로가 concurrency 그룹만 공유했었다). 이유: GitHub Actions는
+# 한 concurrency 그룹에 "실행 중(running) 1개 + 대기(pending) 1개"만 유지한다. Vercel이 같은
+# SHA로 deployment_status를 여러 번 쏘면, 큐에 있던 워크플로가 새로 들어온 워크플로에 밀려
+# **취소**된다(cancel-in-progress: false는 "실행 중인 것"만 보호하지 "대기 중인 것"은 못
+# 지킨다) — 실측: payments-routes가 최근 실행 전부 cancelled로 찍혀 결제 라우트 스펙이
+# 아예 안 돌고 있었다. 같은 워크플로 안의 순차 잡(needs:)으로 합치면 이 취소 경합 자체가
+# 구조적으로 사라진다(잡 간 경합이 아니라 같은 실행 안의 순서일 뿐이므로).
+#
+# payments-routes가 staging DB에 합성 상품(주문 생성을 위해 is_visible=true 필수)을 만드는데,
+# 이게 같은 DB를 스크린샷하는 visual과 겹치면 그 합성 상품이 /shop 시각 회귀에 찍혀 오탐이
+# 난다(실측: PR #32, /shop 데스크톱 4% diff) — payments-routes를 `needs: visual`로 visual
+# **다음에만** 돌게 해 오염 창을 없앤다. /admin/products는 그 자체로 관리자 목록(비노출 포함
+# DB 상품을 그대로 렌더)이라 별개로 tbody를 mask한다(tests/golden/visual.spec.ts, PR #14부터
+# 이미 적용돼 있음 — 재시드 등 콘텐츠 변화에 원래부터 취약해서였지 payments-routes 때문이 아님).
+#
+# cancel-in-progress: true — 이제 워크플로가 하나뿐이라 자기 자신의 이전 실행만 취소한다(같은
+# SHA 중복 deployment_status 이벤트 dedupe). visual↔payments-routes 사이의 취소는 더 이상
+# 있을 수 없다(같은 워크플로 실행 안의 순차 잡이므로 서로를 취소할 방법이 없다).
 concurrency:
-  group: preview-db-${{ github.event.deployment.sha }}
-  cancel-in-progress: false
+  group: preview-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
 
 jobs:
   visual:
@@ -57,5 +66,42 @@ jobs:
         if: failure()
         with:
           name: visual-diff
+          path: test-results/
+          retention-days: 7
+
+  # tests/payments/payment-routes.spec.ts는 PAYMENTS_PREVIEW_URL이 없으면 skip하도록 짜여
+  # 있어(로컬 실행 편의) — 이 잡이 그 값을 실제로 채워 넣는 배선이다.
+  payments-routes:
+    needs: visual
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Preview'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: 결제 라우트 통합 스펙 (프리뷰=staging DB)
+        run: npx playwright test --project=payments tests/payments/payment-routes.spec.ts --reporter=line
+        env:
+          # Preview 배포는 staging DB를 본다(AGENTS.md §8-4 환경 매핑) — DB 검증도 staging 시크릿으로 일관.
+          PAYMENTS_PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Upload failure artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: payments-routes-failure
           path: test-results/
           retention-days: 7

@@ -7,6 +7,7 @@
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
+const TOSS_PAYMENT_QUERY_BY_ORDER_URL = 'https://api.tosspayments.com/v1/payments/orders';
 // 응답이 없는 요청이 무한정 매달려 cron/confirm 라우트를 막지 않도록 상한을 둔다.
 // 타임아웃은 fetch가 AbortError를 던지므로 아래 catch에서 network-error와 동일하게 "불명"(httpStatus null)로 흡수된다.
 const TOSS_FETCH_TIMEOUT_MS = 10_000;
@@ -24,19 +25,54 @@ export class TossConfirmError extends Error {
   }
 }
 
-interface TossConfirmResult {
+export interface TossConfirmResult {
   paymentKey: string;
   orderId: string;
   totalAmount: number;
   status: string;
 }
 
-/** POST /v1/payments/confirm — Basic 인증(시크릿키:빈 password, base64). amount는 원 단위 정수. */
-export async function confirmTossPayment(params: {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-}): Promise<TossConfirmResult> {
+/**
+ * 토스 2xx 응답 바디의 런타임 검증 — confirmPayment.ts의 바인딩 검증/이중승인 판단이 이 결과의
+ * orderId·paymentKey·totalAmount·status를 그대로 신뢰하므로(claim 여부·재고 복원 여부를 이 값들로
+ * 결정한다), 필드가 기대 타입이 아닌 응답을 그냥 캐스팅해서 넘기면 그 판단 전체가 흔들린다
+ * (Codex 재검증 HIGH — "queryTossPayment가 임의 JSON을 캐스팅만 한다"). 응답을 unknown으로 받아
+ * 이 함수를 반드시 통과해야만 TossConfirmResult로 좁혀진다.
+ */
+function isValidTossConfirmResult(data: unknown): data is TossConfirmResult {
+  if (!data || typeof data !== 'object') return false;
+  const d = data as Record<string, unknown>;
+  return (
+    typeof d.paymentKey === 'string' &&
+    d.paymentKey.length > 0 &&
+    typeof d.orderId === 'string' &&
+    d.orderId.length > 0 &&
+    typeof d.totalAmount === 'number' &&
+    Number.isFinite(d.totalAmount) &&
+    typeof d.status === 'string' &&
+    d.status.length > 0
+  );
+}
+
+/** 실패 응답(비-2xx)에서 에러 코드/메시지만 느슨하게 읽는다 — 사람이 읽는 로그용이라 형식이
+ *  달라도 안전하게 undefined로 흡수한다(성공 응답과 달리 이 값들로 판단·전이를 결정하지 않는다). */
+function readErrorFields(data: unknown): { code: string | null; message: string | null } {
+  if (!data || typeof data !== 'object') return { code: null, message: null };
+  const d = data as Record<string, unknown>;
+  return {
+    code: typeof d.code === 'string' ? d.code : null,
+    message: typeof d.message === 'string' ? d.message : null,
+  };
+}
+
+/** POST /v1/payments/confirm — Basic 인증(시크릿키:빈 password, base64). amount는 원 단위 정수.
+ *  timeoutMs 기본값은 TOSS_FETCH_TIMEOUT_MS(10초, 기존 confirm/reconcile 경로 무영향) —
+ *  successUrl(GET /api/payments/return, R4)처럼 사용자가 브라우저에서 결과를 기다리는 경로는
+ *  더 짧은 값을 넘겨 최악 대기시간을 줄인다(queryTossPayment와 동일 패턴). */
+export async function confirmTossPayment(
+  params: { paymentKey: string; orderId: string; amount: number },
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) {
     // 설정 오류 — 토스에 요청 자체가 안 나갔으니 network-error와 동일하게 "결과 불명"(httpStatus null)로 던진다.
@@ -54,26 +90,27 @@ export async function confirmTossPayment(params: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);
   }
 
-  const data = (await response.json().catch(() => null)) as
-    | (TossConfirmResult & { code?: string; message?: string })
-    | null;
+  const data: unknown = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
-    throw new TossConfirmError(data?.message ?? 'toss-confirm-failed', data?.code ?? null, response.status);
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-confirm-failed', code, response.status);
   }
 
-  return {
-    paymentKey: data.paymentKey,
-    orderId: data.orderId,
-    totalAmount: data.totalAmount,
-    status: data.status,
-  };
+  if (!isValidTossConfirmResult(data)) {
+    // 2xx인데 기대한 필드 형태가 아님 — 토스가 응답은 완료했지만 우리가 신뢰할 수 있는 모양이
+    // 아니다. 승인됐는지 여부를 판단할 근거가 없으므로 취소·확정 어느 쪽도 하지 않는 "불명"으로
+    // 던진다(httpStatus는 그대로 넘겨 호출부가 4xx/2xx 구분 로직에 흔들리지 않게 한다).
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return data;
 }
 
 /**
@@ -106,18 +143,62 @@ export async function queryTossPayment(
     throw new TossConfirmError('toss-network-error', null, null);
   }
 
-  const data = (await response.json().catch(() => null)) as
-    | (TossConfirmResult & { code?: string; message?: string })
-    | null;
+  const data: unknown = await response.json().catch(() => null);
 
   if (!response.ok || !data) {
-    throw new TossConfirmError(data?.message ?? 'toss-query-failed', data?.code ?? null, response.status);
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-query-failed', code, response.status);
   }
 
-  return {
-    paymentKey: data.paymentKey,
-    orderId: data.orderId,
-    totalAmount: data.totalAmount,
-    status: data.status,
-  };
+  if (!isValidTossConfirmResult(data)) {
+    // confirmTossPayment와 동일한 근거 — 형태가 안 맞는 2xx는 신뢰할 수 없으니 불명으로 던진다.
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return data;
+}
+
+/**
+ * GET /v1/payments/orders/{orderId} — 주문번호로 토스 결제를 역조회한다(권위 소스,
+ * paymentKey 불필요). reclaim-stock cron(U7, R4 최종 라운드)이 만료된 '결제대기' 주문을
+ * 취소하기 **전에** 이걸로 실제 결제 여부를 확인한다 — claim/successUrl 미도달로 paymentKey를
+ * 아직 모르는 상태에서도 "이 orderId로 결제가 이미 끝났는지"를 물을 수 있는 유일한 방법이다
+ * (이게 없으면 브라우저가 successUrl 도달 전에 죽은 실결제 주문이 만료 cron에 그냥 취소돼
+ * 돈이 빠져나간 채 재고만 복원되는 손실이 생긴다). Basic 인증·타임아웃·런타임 스키마 검증은
+ * queryTossPayment와 동일 — 형태가 안 맞는 응답은 신뢰하지 않고 "불명"으로 던진다.
+ */
+export async function queryTossPaymentByOrderId(
+  orderId: string,
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_PAYMENT_QUERY_BY_ORDER_URL}/${encodeURIComponent(orderId)}`, {
+      method: 'GET',
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !data) {
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-query-by-order-failed', code, response.status);
+  }
+
+  if (!isValidTossConfirmResult(data)) {
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return data;
 }

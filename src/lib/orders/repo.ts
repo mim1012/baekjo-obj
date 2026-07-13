@@ -373,8 +373,15 @@ export async function recordReclaimAttempt(id: string, errorMessage: string): Pr
 }
 
 /** 재시도 임계치 초과 주문을 dead-letter로 표시 — 이후 listExpiredPendingOrders /
- *  listOrphanedConfirmingOrders 양쪽 모두에서 제외되어 cron이 더 이상 반복 조회하지 않는다. */
+ *  listOrphanedConfirmingOrders 양쪽 모두에서 제외되어 cron이 더 이상 반복 조회하지 않는다.
+ *  ★0행 갱신을 성공으로 취급하지 않는다(Codex 라운드6) — .select('id')로 실제 갱신 행 수를
+ *  확인해, 주문이 삭제됐거나 id가 잘못돼 아무것도 안 바뀌었는데 호출부가 "재무 예외를 durable
+ *  하게 기록했다"고 오신하지 않게 한다. 0행이면 throw — 호출부(recordPaymentFinancialException
+ *  등)가 이 실패를 삼키지 않고 500/재시도로 이어가게 한다. */
 export async function markReclaimDead(id: string): Promise<void> {
-  const { error } = await getSupabase().from('orders').update({ reclaim_dead: true }).eq('id', id);
+  const { data, error } = await getSupabase().from('orders').update({ reclaim_dead: true }).eq('id', id).select('id');
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error(`markReclaimDead: 0행 갱신(orderId=${id}) — 주문을 찾지 못했거나 예상 밖 상태`);
+  }
 }

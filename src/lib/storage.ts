@@ -280,7 +280,12 @@ export async function updateOrderStatus(
 }
 
 /**
- * 토스 결제 승인 확정. successUrl(paymentKey·orderId·amount 쿼리)에서 호출한다.
+ * 토스 결제 승인 확정(수동 재확인용). R4 이전에는 successUrl(order-complete)이 이 함수를
+ * 직접 호출해 승인을 오케스트레이션했으나, 지금은 successUrl이 GET /api/payments/return(서버)을
+ * 가리켜 서버가 승인을 끝낸 뒤 결과만 리다이렉트로 넘긴다 — 그래서 이 함수는 현재 어떤 화면에서도
+ * 호출되지 않는다(콘센트로 삭제하지 않고 남겨둠: POST /api/payments/confirm 라우트 자체는 웹훅
+ * 없이도 사람이 수동으로 재확인할 수 있는 안전판으로 의도적으로 유지되고 있고, 이 함수가 그 유일한
+ * 클라이언트 접근 경로이기 때문이다 — 라우트만 남기고 이 래퍼를 지우면 사실상 curl 전용이 된다).
  * 서버가 DB 총액과 amount를 대조 후 토스에 승인 요청 → setOrderPaid로 조건부 확정한다
  * (§ 이중승인 방어). amount는 클라이언트 쿼리값을 신뢰하지 않고 서버가 재검증한다.
  * 반환 order는 전체 Order가 아니라 ConfirmedOrderSummary(가산 타입) — 무인증 공개
@@ -325,10 +330,41 @@ export async function confirmTossPayment(payment: {
   }
 }
 
+export type PaymentStatusResult =
+  | { kind: 'ok'; paymentStatus: string; orderStatus: string }
+  | { kind: 'rate-limited' }
+  | { kind: 'error' };
+
+/**
+ * 결제 상태 읽기 전용 폴링(R4 라운드2·라운드3). GET /api/payments/status — order-complete의
+ * pending/unconfirmed 화면이 승인 완료 여부를 확인하는 데 쓴다. 변이 없음(claim·confirm·
+ * 취소 어느 것도 호출하지 않음) — 승인 판정 권위는 여전히 서버(webhook/reconcile/return
+ * 라우트)에만 있고, 이 함수는 그 결과가 DB에 반영되길 기다렸다가 읽기만 한다.
+ * ★429(레이트리밋)를 'error'로 뭉뚱그리지 않고 'rate-limited'로 구분해 반환한다(opus 최종
+ * 재검증 LOW) — 예전엔 !response.ok를 전부 null로 흡수해서, 레이트리밋에 걸려도 화면이
+ * 아무 말 없이 "확인 중"만 보여주는 조용한 실패였다. 호출부가 이 구분으로 사용자에게
+ * "요청이 많다"고 안내할 수 있게 한다.
+ */
+export async function getPaymentStatus(orderId: string): Promise<PaymentStatusResult> {
+  try {
+    const response = await fetch(`/api/payments/status?orderId=${encodeURIComponent(orderId)}`);
+    if (response.status === 429) return { kind: 'rate-limited' };
+    if (!response.ok) return { kind: 'error' };
+    const body = (await response.json()) as { paymentStatus: string; orderStatus: string };
+    return { kind: 'ok', paymentStatus: body.paymentStatus, orderStatus: body.orderStatus };
+  } catch {
+    return { kind: 'error' };
+  }
+}
+
 /**
  * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
- * 서버가 payment_status='결제대기'인 선점 주문만 대상으로 재고를 복원한다(확정건은 no-op).
+ * 서버가 실제로 결제 안 됐음을 확인한 선점 주문만 취소·재고복원한다(확정건은 no-op).
  * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
+ * ★200만 성공으로 본다(R4 최종 라운드) — 202(cancel-pending)는 response.ok 범위(200~299)에
+ * 들어가지만 "과도기 상태·조회 불명이라 이번 요청에선 취소하지 않았다"는 뜻이다. 여기서 성공으로
+ * 흡수하면 호출부(checkout의 fail 핸들러)가 아직 확정 중이거나 대사가 안 끝난 주문을 취소된
+ * 것으로 오인해 pending 표식을 지우고 "결제가 취소되었습니다"라고 거짓 안내할 수 있다.
  */
 export async function cancelReservation(orderId: string): Promise<void> {
   const response = await fetch('/api/payments/cancel', {
@@ -336,7 +372,7 @@ export async function cancelReservation(orderId: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ orderId }),
   });
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('reservation-cancel-failed');
   }
 }
