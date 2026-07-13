@@ -4,6 +4,28 @@ import { logServerError } from '@/lib/logServerError';
 
 const MAX_ORDER_ID = 100;
 
+// 베스트에포트 레이트리밋(webhook U5와 동일 패턴 재사용) — 같은 orderId로 60초 내 10회 초과
+// 요청은 DB 조회 없이 429로 거절한다. 무인증 GET(orderId capability)이라 대량 조회로 orderId를
+// 스캔하거나 폴링을 남용하는 걸 막는다(Codex 재검증 MEDIUM-4). order-complete의 정상 폴링은
+// 3초 간격 최대 10회(=30초, PendingIssueBlock)라 이 한도 안에 있다 — 정상 사용은 안 막힌다.
+// 인스턴스(서버리스 함수 컨테이너) 로컬 메모리라 여러 컨테이너에 분산되면 우회될 수 있는 한계가
+// 있다(전역 보장 아님) — 운영 레벨의 원천 차단은 Vercel WAF/방화벽 룰로 별도 구성할 것.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_HITS = 10;
+const rateLimitHits = new Map<string, { count: number; windowStart: number }>();
+
+/** true면 이번 요청을 처리해도 됨(한도 이내), false면 한도 초과. */
+function checkRateLimit(orderId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitHits.get(orderId);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitHits.set(orderId, { count: 1, windowStart: now });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX_HITS;
+}
+
 /**
  * GET /api/payments/status?orderId=... — 읽기 전용 상태 조회(R4 라운드2, Codex HIGH#4).
  * order-complete의 pending/unconfirmed 화면이 폴링하는 용도다 — claim·confirm·취소 등
@@ -19,6 +41,10 @@ export async function GET(request: NextRequest) {
   const orderId = request.nextUrl.searchParams.get('orderId');
   if (!orderId || orderId.length < 1 || orderId.length > MAX_ORDER_ID) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  if (!checkRateLimit(orderId)) {
+    return NextResponse.json({ error: 'rate-limited' }, { status: 429 });
   }
 
   try {
