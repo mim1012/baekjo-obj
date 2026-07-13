@@ -3,7 +3,25 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
-## 현재 상태 (2026-07-13 결제 세션 마감)
+## 현재 상태 (2026-07-13 개선 세션 마감)
+
+### 🚨 최우선 경고 — **TOSS 키를 등록하지 마시오(PR #33 머지 전까지)**
+main(8b305ae)에는 **실제 돈이 사라질 수 있는 경로 3개가 남아 있다.** 전부 리뷰에서 발견됐고 수정은 **PR #33(미머지)** 안에만 있다. 카드 결제가 열리는 순간 실현된다.
+1. **reclaim cron이 토스에 묻지 않고 취소한다** — 사용자가 결제를 마쳤는데 브라우저가 죽어 successUrl 미도달 시, 10분 뒤 cron이 **돈이 빠져나간 주문을 취소·재고복원**한다.
+2. **위조 paymentKey로 남의 결제대기 주문을 취소할 수 있다** — orderId+금액만 알면(토스 orderId는 클라이언트 지정값·clientKey 공개) 승인 불가 상태 키를 만들어 confirm을 치면 "확정 거절"로 분류돼 피해자 주문이 취소된다. 가상계좌면 **돈 한 푼 안 내고** 가능.
+3. **`/api/payments/cancel`도 동일** — orderId만 알면 토스 확인 없이 취소.
+→ 셋 다 **PR #33에서 수정 완료**(claim 이전 4필드 바인딩 검증, 취소는 종결 화이트리스트에서만, cancel·cron 정책 통합, 키 미설정 시 fail-closed). **#33을 머지한 뒤에 키를 등록할 것.**
+
+### 오늘 머지된 개선 (아키텍처 피드백 → 실행)
+- **#31 (R1) 결제 상태기계 테스트 스위트 승격 + CI 배선**: 스크래치패드에만 있던 검증을 `tests/payments/{state-machine.db,payment-routes}.spec.ts`(21 스펙)로 리포화. `payments-db-spec`(ci.yml, staging 전용) + `payments-routes.yml`(deployment_status→프리뷰). 붙자마자 스펙 노후 1건 적발(불명 시 주문이 '결제대기'가 아니라 '승인중'으로 남는 게 정본).
+- **#32 (R2) 결정 함수 추출 + 불변식 타입·DB 이중 강제**: 세 라우트(confirm/webhook/reconcile)에 복제돼 있던 정책을 `src/lib/payments/decide.ts`(순수 함수)로 단일화. `PaymentAction`을 **비공개 심볼 브랜드**로 만들어 decide 밖 구성 불가 → **`confirm` 액션은 토스 권위 관찰에서만 생성 가능**(승인 없는 결제완료가 타입상 표현 불가). **0028**: `cancel_confirming_and_restore(order_id, payment_key)` 키 바인딩 + **무증거 1-인자 함수 drop**(service_role 뒷문 제거). staging DB 스펙 13/13 PASS.
+
+### 미머지 (다음 세션 최우선)
+- **PR #33 (R4) — successUrl 서버화 + 보안 수정 다수. 커밋 20+, CI green, 리뷰 6라운드 진행.** 잔여 작업 2건:
+  1. **재무 예외를 공유 코어로 통합**: "권위 DONE인데 경합에 져서 주문이 취소됨"을 웹훅에만 dead-letter로 남기고, confirm·return·reclaim·cancel이 공유하는 `applyAuthoritativeAction`에는 안 남긴다(로그만 + 정상응답). 코어에 옮기고 웹훅 중복 제거. + `markReclaimDead`가 0행을 성공으로 취급하는 문제(`.select('id')` 검증 필요).
+  2. **CI 구조**: `payments-routes` 워크플로가 공용 concurrency 그룹 때문에 **대기 중 취소돼 아예 안 돌고 있었다**(GitHub은 그룹당 pending 런 1개만 유지). → `visual.yml` 안의 순차 잡(`needs: visual`)으로 통합하고, `payments-db-spec`은 그룹에서 빼되 `/admin/products` 스냅샷의 상품 테이블을 mask. ⚠️ **이 공용 그룹 설정은 이미 main(#32)에 있다** — main의 PR들도 payments-routes가 취소될 수 있다.
+
+## (이전) 현재 상태 (2026-07-13 결제 세션 마감)
 - **🎉 토스페이먼츠 결제 시스템 전량 main 머지(9 PR)**: `#19`(계약: Order 결제필드·0022~0024·콘센트) → `#21`(admin carrier) → `#22`(reclaim cron) → `#23`(confirm/cancel 라우트) → `#25`(admin '승인중' 표시) → `#26`(order-complete 승인) → `#27`(checkout 위젯) → `#28`('승인중' 배타 상태기계+reconcile+dead-letter, 0025~0027) → `#29`(웹훅 수신+reclaim dead-letter). main HEAD `b993a90`.
 - **상태기계 확정**: 결제대기 →(claim 배타전이·payment_key 기록)→ 승인중 →(setOrderPaid WHERE 승인중+키)→ 결제완료. 취소 RPC 상호배타: 0024=결제대기 전용(cancel라우트·reclaim cron) / 0026=승인중 전용(confirm거절·reconcile·웹훅). **핵심 불변식: 불명(네트워크/5xx/신원·금액 불일치)에서는 어떤 경로도 취소·복원 금지** — reconcile cron(*/5)이 토스 조회로 대사, 5회 실패 시 dead-letter(`docs/runbooks/payment-dead-letter.md`).
 - **검증 실적**: 파이프라인 = Sonnet 구현 → Opus+Codex 교차리뷰(총 8라운드씩) → 실측. CRITICAL 3건(취소·복원 비원자 / 승인중 고아 / 웹훅 위조취소 벡터)·HIGH 십여 건 머지 전 전량 수정. 실측: staging DB 15+16 PASS, 프리뷰 라우트 22 PASS(오버셀·금액조작·불명 비취소·멱등), 골든#7 admin carrier 8 PASS, 웹훅 시뮬 5 PASS. 마이그레이션 0022~0027 staging 적용 완료(prod는 main push CI migrate).
@@ -39,7 +57,12 @@
 - **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
-## 다음 단계 (2026-07-13 결제 마감 기준)
+## 다음 단계 (2026-07-13 개선 마감 기준)
+0. **⭐ PR #33 마무리·머지 (최우선)** — 잔여 2건: ① 재무 예외를 `applyAuthoritativeAction` 공유 코어로 통합(+`markReclaimDead` 0행 검증) ② CI 구조 수정(payments-routes를 visual 뒤 순차 잡으로 — 지금 스펙이 아예 안 돌고 있다). **머지 전에는 TOSS 키 등록 금지.**
+0-1. **개선 백로그**: R3(storage.ts 1063줄/72함수 도메인 분할 — 배럴 재수출로 호출부 무변경) / R5(PaymentStatus 유니온 + DB CHECK 제약 + `classifyOrder` 축 공유) / R6(cancel 라우트의 bare-orderId capability → 서명 토큰, checkout 계약 변경 필요) / reclaim 배치 `maxDuration`·병렬화.
+0-2. **교훈(반복 확인됨)**: **호출부에 고치면 갈라진다 — 코어에 고쳐야 전파된다.** 세 라우트 복제(R2), 웹훅에만 적용한 dead-letter(라운드6), claim-먼저 규칙 위반(return 경로) 전부 같은 뿌리.
+
+## (이전) 다음 단계 (2026-07-13 결제 마감 기준)
 0. **⭐ 결제 실가동**: ① Vercel env 3종(TOSS_SECRET_KEY/NEXT_PUBLIC_TOSS_CLIENT_KEY/CRON_SECRET) 등록 ② Pro 플랜(분단위 크론) 확인 ③ 프리뷰 골든#2 위젯 E2E 실측(테스트카드 결제→승인→완료). 토스 전자결제 계약 승인 후: 웹훅 URL 실등록(PAYMENT_STATUS_CHANGED — 서명은 이 이벤트에 미제공, 재조회가 권위) + Vercel WAF 룰(웹훅 경로) + 라이브 키 교체.
 0-1. **dad U10 잔여**: mypage 주문내역 배송조회 링크 — carrier 5종(cj/hanjin/lotte/post/logen) 조회 URL 매핑 전부 커버(누락=drift). 계획서 `.omc/plans/toss-payment-parallel-worktree.md` U10 brief 참조(ConfirmedOrderSummary 반환 계약 주의).
 0-2. **결제 후속(계획서 이월)**: 가상계좌(웹훅 eventType 확장) / dead-letter admin 가시화·알림 / 결제 상태기계 mock 테스트 스위트 / checkout 품절 UX 세분화. 계획서 `.omc/plans/toss-webhook-wave.md`.
@@ -116,6 +139,10 @@
 - 2026-07-12 **(2차) 교훈 — PostgrestError 처리**: supabase-js rpc 에러를 그대로 throw하면 라우트의 `instanceof Error`/`String()` 검사에서 메시지가 유실된다(프리뷰 실측: 재고부족이 409 대신 500). repo 계층에서 `new Error(error.message)`로 감싸는 게 정석. 소스 정적 분석(codex "extends Error라 문제없음")과 실측이 갈렸고 **실측이 정본**.
 - 2026-07-12 **(2차) 교훈 — Vercel Preview에서 Playwright `networkidle` 금지**: 프리뷰 툴바 웹소켓이 상시 연결이라 idle이 영원히 안 옴(14/14 타임아웃 실측). `load` + 고정 정착 대기 사용.
 
+- 2026-07-13 **아키텍처 피드백(Fable) → 개선 실행**: ①검증 휘발성(스크래치패드) ②정책 3라우트 복제 ③storage 갓모듈(1063줄/72함수) ④successUrl을 브라우저가 오케스트레이션 ⑤상태값 stringly-typed ⑥재결제 불가(payment_key unique) 지적. R1·R2 머지, R4 진행(PR #33), R3·R5 백로그.
+- 2026-07-13 **교훈 — 리팩터가 줄 수를 늘리기만 하면 머지하지 않는다**: R2 1라운드가 라우트 700→714줄+신규 145줄로 순증 → 반려. 재작업 후 697줄(감소)+불변식 타입 강제 확보하고 머지.
+- 2026-07-13 **교훈 — 리뷰어 반론을 수용해 내 지시를 철회한 사례 2건**: ①"매트릭스 통합" 지시 → opus가 "출력이 다른 표(HTTP 응답 vs DB 변이)라 합치면 커널이 오염된다"고 반박 → 철회 → 그런데 구현자가 이미 흡수를 완료했고 opus가 재검증에서 **자기 반대를 철회**(HTTP 정책 미유출 확인) → 유지. ②"TOSS 키 미설정 시 취소 폴백이 안전"이라는 내 논거 → codex가 "그건 배포가 한 번도 키를 가진 적 없을 때만 참. 키 로테이션 실수·롤링 배포 중 일부 인스턴스 누락이면 결제된 주문이 취소된다"고 반박 → **fail-closed로 전환**. 권위가 아니라 근거로 판정한다.
+- 2026-07-13 **교훈 — 테스트 인프라의 조용한 실패**: ①고정 픽스처 ID → 동시 실행이 서로 삭제(INSUFFICIENT_STOCK) → 실행 스코프 고유 ID로 ②노출 픽스처가 `/shop` 시각회귀 오염 → 워크플로 직렬화 ③그 직렬화가 **pending 런을 취소**시켜 payments-routes가 아예 안 돌면서 CI는 green으로 보임(GitHub은 그룹당 pending 1개만 유지). **"통과"보다 "안 돌았는데 통과로 보임"이 더 위험하다.**
 - 2026-07-13 **교훈 — 정적 데이터→콘센트 전환 시 인가 범위를 함께 설계**: mypage/admin의 `@/data/products`→콘센트 전환에서 회귀 2건 발생(partner가 admin 전용 API에 403 / 비노출 상품의 구매 이력 소실). 콘센트 선택 = "누가(role)·어떤 범위(노출여부)까지 보나"의 인가 결정이다. 해법 패턴: 소유 리소스 기준 인가 엔드포인트(`/api/orders/mine/products` — 본인 주문의 productId만 includeHidden 조회).
 - 2026-07-13 **교훈 — dad 정본 크로스체킹 워크플로 확립**: ① dad 브랜치를 우리 레포에 `dad/*`로 보존 ② `git worktree`+로컬 목 실행으로 정본 화면 촬영 ③ main 스냅샷 브랜치(빈 커밋으로 Vercel 스킵 우회)를 동일 staging DB 프리뷰로 배포해 순수 코드 diff만 측정 ④ pixelmatch 뷰어(main/dad정본/통합/diff 4열). 오탐 주의 2건: PowerShell이 경로 `[slug]`를 와일드카드로 해석(파일 못 읽어 "구조 유실" 오판 — git show가 정본) / Playwright 셀렉터가 헤더 GNB를 오클릭(케어가이드 앵커 FAIL 오탐).
 - 2026-07-13 **BrandProductsClient 상품 추가/수정/삭제 = 로컬 미리보기 확정(사용자)**: 추후 업체 관리자 기능의 사전 UI. RBAC 확장 때 실배선.
