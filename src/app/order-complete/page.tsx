@@ -153,7 +153,9 @@ const MAX_POLL_ATTEMPTS = 10; // 3초 × 10회 = 최대 30초
  * 버튼(같은 읽기 전용 조회 1회)으로 전환한다.
  */
 function PendingIssueBlock({ kind, orderId }: { kind: 'pending' | 'unconfirmed'; orderId: string | null }) {
-  const [phase, setPhase] = useState<'polling' | 'exhausted' | 'confirmed'>(orderId ? 'polling' : 'exhausted');
+  const [phase, setPhase] = useState<'polling' | 'exhausted' | 'confirmed' | 'rate-limited'>(
+    orderId ? 'polling' : 'exhausted',
+  );
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -163,7 +165,13 @@ function PendingIssueBlock({ kind, orderId }: { kind: 'pending' | 'unconfirmed';
     const timer = setTimeout(() => {
       getPaymentStatus(orderId).then((result) => {
         if (cancelled) return;
-        if (result?.paymentStatus === '결제완료') {
+        if (result.kind === 'rate-limited') {
+          // ★조용한 실패 금지(opus 최종 재검증 LOW) — 예전엔 429를 null로 흡수해서 화면이
+          // 아무 말 없이 "확인 중"만 보여줬다. 사용자에게 상황을 알리고 재시도 수단을 준다.
+          setPhase('rate-limited');
+          return;
+        }
+        if (result.kind === 'ok' && result.paymentStatus === '결제완료') {
           // status=done 경로와 동일하게 정리한다 — 폴링으로 확인한 성공도 "서버가 승인을
           // 확정했다는 신호"라는 점은 같다. 여기서 빠뜨리면 이 사용자만 장바구니가 안 비워지고
           // stale pending 키가 남아 다음 checkout에서 거짓 취소 안내가 뜨는 사고가 재발한다.
@@ -202,6 +210,30 @@ function PendingIssueBlock({ kind, orderId }: { kind: 'pending' | 'unconfirmed';
           <Link href="/mypage" className="inline-flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white">
             마이페이지 주문내역
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'rate-limited') {
+    return (
+      <div className="text-center">
+        <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full border border-[#D8D6CE] bg-[#FAF9F5] text-[#8A5A44]">
+          <XCircle className="size-10" />
+        </div>
+        <h1 className="text-3xl font-normal text-[#202521]">확인 요청이 많습니다</h1>
+        <p className="mt-4 text-sm leading-7 text-[#747B75]">잠시 후 다시 시도해 주세요.</p>
+        <div className="mt-8 grid gap-3 sm:grid-cols-2 sm:justify-center">
+          <Link href="/mypage" className="flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white">
+            마이페이지 주문내역
+          </Link>
+          <button
+            type="button"
+            onClick={handleManualRecheck}
+            className="flex min-h-12 items-center justify-center border border-[#AEB3AE] bg-[#FAF9F5] px-6 text-sm font-semibold text-[#3E4841]"
+          >
+            다시 확인
+          </button>
         </div>
       </div>
     );

@@ -4,14 +4,17 @@ import { logServerError } from '@/lib/logServerError';
 
 const MAX_ORDER_ID = 100;
 
-// 베스트에포트 레이트리밋(webhook U5와 동일 패턴 재사용) — 같은 orderId로 60초 내 10회 초과
+// 베스트에포트 레이트리밋(webhook U5와 동일 패턴 재사용) — 같은 orderId로 60초 내 한도 초과
 // 요청은 DB 조회 없이 429로 거절한다. 무인증 GET(orderId capability)이라 대량 조회로 orderId를
-// 스캔하거나 폴링을 남용하는 걸 막는다(Codex 재검증 MEDIUM-4). order-complete의 정상 폴링은
-// 3초 간격 최대 10회(=30초, PendingIssueBlock)라 이 한도 안에 있다 — 정상 사용은 안 막힌다.
-// 인스턴스(서버리스 함수 컨테이너) 로컬 메모리라 여러 컨테이너에 분산되면 우회될 수 있는 한계가
-// 있다(전역 보장 아님) — 운영 레벨의 원천 차단은 Vercel WAF/방화벽 룰로 별도 구성할 것.
+// 스캔하거나 폴링을 남용하는 걸 막는다(Codex 재검증 MEDIUM-4). 인스턴스(서버리스 함수 컨테이너)
+// 로컬 메모리라 여러 컨테이너에 분산되면 우회될 수 있는 한계가 있다(전역 보장 아님) — 운영
+// 레벨의 원천 차단은 Vercel WAF/방화벽 룰로 별도 구성할 것.
+// ★한도를 10이 아니라 30으로 잡는다(opus 최종 재검증 LOW) — order-complete의 정상 폴링
+// (PendingIssueBlock)이 정확히 "3초×10회"라, 10으로 두면 첫 폴링 사이클만으로 60초 윈도우를
+// 다 써버려 그 안에 사용자가 "다시 확인"을 누르거나 새로고침하면 전부 429가 났다. 정상 폴링
+// 10회 + 재확인·새로고침 여유를 남겨 스캔 방어 목적은 유지하면서 정상 사용자를 막지 않는다.
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX_HITS = 10;
+const RATE_LIMIT_MAX_HITS = 30;
 const rateLimitHits = new Map<string, { count: number; windowStart: number }>();
 
 /** true면 이번 요청을 처리해도 됨(한도 이내), false면 한도 초과. */

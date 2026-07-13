@@ -330,22 +330,30 @@ export async function confirmTossPayment(payment: {
   }
 }
 
+export type PaymentStatusResult =
+  | { kind: 'ok'; paymentStatus: string; orderStatus: string }
+  | { kind: 'rate-limited' }
+  | { kind: 'error' };
+
 /**
- * 결제 상태 읽기 전용 폴링(R4 라운드2). GET /api/payments/status — order-complete의
+ * 결제 상태 읽기 전용 폴링(R4 라운드2·라운드3). GET /api/payments/status — order-complete의
  * pending/unconfirmed 화면이 승인 완료 여부를 확인하는 데 쓴다. 변이 없음(claim·confirm·
  * 취소 어느 것도 호출하지 않음) — 승인 판정 권위는 여전히 서버(webhook/reconcile/return
- * 라우트)에만 있고, 이 함수는 그 결과가 DB에 반영되길 기다렸다가 읽기만 한다. 실패 시(네트워크·
- * 404 등) null — 호출부가 폴링을 계속하거나 소진 처리하도록.
+ * 라우트)에만 있고, 이 함수는 그 결과가 DB에 반영되길 기다렸다가 읽기만 한다.
+ * ★429(레이트리밋)를 'error'로 뭉뚱그리지 않고 'rate-limited'로 구분해 반환한다(opus 최종
+ * 재검증 LOW) — 예전엔 !response.ok를 전부 null로 흡수해서, 레이트리밋에 걸려도 화면이
+ * 아무 말 없이 "확인 중"만 보여주는 조용한 실패였다. 호출부가 이 구분으로 사용자에게
+ * "요청이 많다"고 안내할 수 있게 한다.
  */
-export async function getPaymentStatus(
-  orderId: string,
-): Promise<{ paymentStatus: string; orderStatus: string } | null> {
+export async function getPaymentStatus(orderId: string): Promise<PaymentStatusResult> {
   try {
     const response = await fetch(`/api/payments/status?orderId=${encodeURIComponent(orderId)}`);
-    if (!response.ok) return null;
-    return (await response.json()) as { paymentStatus: string; orderStatus: string };
+    if (response.status === 429) return { kind: 'rate-limited' };
+    if (!response.ok) return { kind: 'error' };
+    const body = (await response.json()) as { paymentStatus: string; orderStatus: string };
+    return { kind: 'ok', paymentStatus: body.paymentStatus, orderStatus: body.orderStatus };
   } catch {
-    return null;
+    return { kind: 'error' };
   }
 }
 
