@@ -3,7 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
 
-type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
+type BrandCardVariant = 'default' | 'brand-page';
 
 interface Props {
   brand: Brand;
@@ -31,70 +31,39 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
       skin: '피부/모질',
       living: '생활환경'
     };
-    const displayCategory = concernMap[categoryLabel] || '브랜드';
+    const displayCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
 
     return (
-      <article className="brand-card group flex min-h-[280px] flex-col p-5 md:p-[22px]">
-        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none">
+      <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
+        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none w-full h-full">
           {/* Logo Stage */}
-          <div className="brand-logo-stage mb-5">
-            <BrandLogo 
-              brand={brand} 
-              size="md" 
-              surface={false} 
-              className="!h-full !w-[160px]"
-            />
+          <div className="flex items-center justify-center h-[72px] md:h-[84px] mb-4">
+            <div className="relative w-full h-[40px] md:h-[48px] max-w-[80%] flex items-center justify-center">
+              {brand.logo ? (
+                <img src={brand.logo} alt={brand.name} className="max-w-full max-h-full object-contain" />
+              ) : (
+                <span className="text-[16px] font-bold text-[#17251F]">{brand.name}</span>
+              )}
+            </div>
           </div>
 
           {/* Category / Name / Description */}
-          <span className="mb-1 text-xs font-semibold text-[#B99562]">
+          <span className="mb-1.5 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
             {displayCategory}
           </span>
-          <h3 className="mb-2 text-[19px] font-bold leading-[1.35] tracking-tight text-[#17211D]">
+          <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F]">
             {brand.name}
           </h3>
-          <p className="line-clamp-2 text-[14px] leading-[1.65] text-[#68716C]">
+          <p className="line-clamp-2 text-[12px] md:text-[13px] leading-[1.6] text-[#6F756F] break-keep">
             {brand.description}
           </p>
 
-
           {/* Bottom CTA */}
-          <span className="mt-auto pt-6 flex items-center gap-1.5 text-sm font-semibold text-[#17211D]">
+          <span className="mt-auto pt-6 flex items-center justify-between text-[12px] md:text-[13px] font-semibold text-[#17251F]">
             {linkedProductCount > 0 
-              ? `등록 상품 ${linkedProductCount}개 · 둘러보기`
+              ? `상품 ${linkedProductCount}개 · 둘러보기`
               : '브랜드 이야기 보기'}
-            <ArrowRight className="size-3.5 text-[#A8742E] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
-          </span>
-        </Link>
-      </article>
-    );
-  }
-
-  if (variant === 'care-related') {
-    return (
-      <article className="group flex flex-col rounded-2xl border border-[#DED8CC] bg-[#FFFDF9] p-5 md:p-6 transition-all duration-300 hover:border-[#B99562] hover:shadow-sm">
-        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none">
-          {/* Logo Stage */}
-          <div className="mb-5 flex h-[62px] w-full items-center justify-start rounded-xl border border-[#E7E1D7] bg-white p-3 md:h-[68px]">
-            <BrandLogo 
-              brand={brand} 
-              size="md" 
-              surface={false} 
-              className="!h-auto !w-auto !max-h-[38px] !max-w-[150px] object-contain md:!max-h-[42px] md:!max-w-[160px]"
-            />
-          </div>
-
-          <h3 className="mb-2 break-keep text-[18px] font-bold leading-[1.35] tracking-tight text-[#18231F] md:text-[20px]">
-            {brand.name}
-          </h3>
-          <p className="line-clamp-2 text-[14px] leading-[1.65] text-[#68716C]">
-            {brand.description}
-          </p>
-
-          {/* Bottom CTA */}
-          <span className="mt-auto pt-6 flex items-center gap-1.5 text-[14px] font-semibold text-[#18231F]">
-            브랜드 이야기 보기
-            <ArrowRight className="size-4 text-[#B99562] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+            <ArrowRight className="w-3.5 h-3.5 md:w-4 md:h-4 text-[#B48A4A] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
           </span>
         </Link>
       </article>

@@ -1,54 +1,229 @@
+import Link from 'next/link';
+import Image from 'next/image';
+import { ArrowRight, Search, Home, PlusSquare, ChevronDown, MessageCircle } from 'lucide-react';
 import { concerns } from '@/data/concerns';
-import ConcernCard from '@/components/common/ConcernCard';
+import { MainConcernCard, SubConcernCard } from '@/components/common/ConcernCard';
 
 export const metadata = {
-  title: '고민별 케어',
+  title: '케어 가이드',
   description: '우리 아이에게 보이는 변화를 따라 생활 속에서 살펴볼 신호와 관리 기준을 안내합니다.',
 };
 
 export default function ConcernsPage() {
+  const mainConcerns = concerns.slice(0, 8);
+  const subConcerns = concerns.slice(8, 12);
+  
+  const infoCards = [
+    { title: '강아지가 자꾸 긁어요. 피부 가려움의 원인과 관리법', category: '#피부', href: '/concerns/skin' },
+    { title: '장 건강이 면역력의 시작! 유산균과 식이섬유의 중요성', category: '#영양', href: '/concerns/nutrition' },
+    { title: '산책, 얼마나 해야 적당할까? 활동량과 에너지 관리 가이드', category: '#운동', href: '/concerns/joint' },
+    { title: '목욕, 자주 해도 괜찮을까? 피부 타입별 목욕 가이드', category: '#목욕', href: '/concerns/grooming' },
+    { title: '분리불안, 혼자 두는 연습이 필요할 때', category: '#행동', href: '/concerns/stress' },
+  ];
+
+  const faqs = [
+    { q: '케어 가이드는 어떤 기준으로 작성되나요?', a: '백조오브제 케어 가이드는 수의학적 검토와 전문가의 자문을 거쳐, 실제 가정에서 반려동물을 돌볼 때 필요한 실용적이고 안전한 기준을 중심으로 작성됩니다.' },
+    { q: '증상이 비슷한데, 여러 항목을 함께 보면 안 되나요?', a: '물론 가능합니다. 복합적인 증상이 보일 경우 관련된 모든 가이드를 참고하시어 종합적으로 아이의 상태를 살펴보시는 것을 권장합니다.' },
+    { q: '집에서 관리해도 좋아지지 않으면 어떻게 해야 하나요?', a: '집에서의 관리는 예방과 초기 대처를 위한 것입니다. 증상이 지속되거나 악화될 경우, 즉시 가까운 동물병원을 방문하여 수의사의 정확한 진단을 받으시길 바랍니다.' },
+  ];
+
   return (
-    <main className="care-guide-page min-h-dvh flex flex-col">
-      <div className="care-container py-10 md:py-14">
-        {/* Hero Section */}
-        <div className="mb-10 flex flex-col-reverse gap-8 lg:mb-12 lg:grid lg:grid-cols-12 lg:items-center lg:gap-10">
-          <div className="lg:col-span-6">
-            <span className="mb-3 inline-block text-[12px] font-bold tracking-widest text-[var(--care-accent)]">CARE GUIDE</span>
-            <h1 className="break-keep text-2xl font-bold leading-snug tracking-tight text-[var(--care-text)] md:text-3xl md:leading-tight lg:text-[32px]">
+    <main className="flex flex-col bg-[#F8F6F0] w-full">
+      <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 pt-10 md:pt-[40px] pb-16 md:pb-[56px] lg:pb-[72px]">
+        
+        {/* 2. 케어 가이드 인트로 */}
+        <section className="flex flex-col-reverse md:flex-row md:items-center justify-between gap-[48px] lg:gap-[64px] h-auto md:h-[320px] lg:h-[380px] mb-[42px] md:mb-[52px]">
+          <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col items-start justify-center">
+            <span className="text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] mb-3 md:mb-4">
+              CARE GUIDE
+            </span>
+            <h1 className="break-keep text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.18] tracking-[-0.035em] text-[#17231E] max-w-[500px]">
               요즘, 우리 아이에게<br />
               어떤 변화가 보이나요?
             </h1>
-            <p className="mt-4 max-w-2xl break-keep text-[14px] leading-relaxed text-[var(--care-text-muted)] md:text-[15px]">
-              가장 마음에 걸리는 고민부터 골라보세요.<br className="hidden sm:block" />
-              함께 살펴볼 신호와 생활 관리 기준을 차근차근 정리했어요.
+            <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[480px] break-keep text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F]">
+              가장 마음에 걸리는 건강 고민부터 골라보세요.<br className="hidden sm:block" />
+              함께 살피고, 신호와 생활 관리 기준을 정리했어요.
             </p>
-            <div className="mt-8 lg:mt-10">
-              <div className="flex flex-col">
-                <span className="text-[10px] font-bold tracking-[0.2em] text-[var(--care-text-muted)]">INDEX</span>
-                <span className="mt-1 text-xl font-light tracking-widest text-[var(--care-dark)]">08 CARE</span>
+            <div className="mt-8 md:mt-10">
+              <span className="text-[12px] md:text-[13px] font-bold tracking-[0.1em] text-[#17231E]">
+                INDEX
+              </span>
+              <div className="mt-1">
+                <span className="text-[14px] md:text-[15px] font-bold tracking-widest text-[#B68B4E]">
+                  {String(concerns.length).padStart(2, '0')} CARE
+                </span>
               </div>
             </div>
           </div>
-          <div className="lg:col-span-6">
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[16px] md:aspect-[21/9] lg:aspect-[21/9]">
-              <img 
-                src="/images/care_guide_hero.png" 
-                alt="반려동물 케어 가이드" 
-                className="size-full object-cover transition-transform duration-1000 hover:scale-105"
+          <div className="w-full md:w-[55%] lg:w-[60%] h-[240px] md:h-full relative overflow-hidden rounded-xl md:rounded-[20px]">
+            <Image 
+              src="/images/care-guide-hero-cat.webp" 
+              alt="반려묘 케어 가이드 인트로"
+              fill
+              className="object-cover object-[center_30%]"
+              priority
+            />
+          </div>
+        </section>
+
+        {/* 3. 주요 고민 카드 8개 */}
+        <section className="mb-[40px] md:mb-[52px]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {mainConcerns.map((concern, index) => (
+              <MainConcernCard 
+                key={concern.slug} 
+                concern={concern} 
+                index={String(index + 1).padStart(2, '0')} 
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* 4. 추가 케어 카드 4개 */}
+        <section className="mb-[48px] md:mb-[60px]">
+          <div className="mb-4 md:mb-5">
+            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E] tracking-tight">추가로 살펴볼 생활 케어</h2>
+            <p className="mt-1 text-[13px] md:text-[14px] text-[#72766F]">일상에서 함께 확인하면 좋은 관리 주제입니다.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+            {subConcerns.map((concern, index) => (
+              <SubConcernCard 
+                key={concern.slug} 
+                concern={concern} 
+                index={String(index + 9).padStart(2, '0')} 
+              />
+            ))}
+          </div>
+        </section>
+
+        {/* 5. 핵심 정보 요약 바 */}
+        <section className="mb-[56px] md:mb-[72px]">
+          <div className="flex flex-col md:flex-row w-full bg-white rounded-[20px] border border-[#E4DDD1] overflow-hidden">
+            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
+              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
+                <Search className="size-5 text-[#17231E]" strokeWidth={1.5} />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">01 주요 원인 확인</h3>
+                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">식사·환경·생활 습관 등 주요 원인을 함께 살펴봅니다.</p>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
+              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
+                <Home className="size-5 text-[#17231E]" strokeWidth={1.5} />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">02 집에서 관리하기</h3>
+                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">매일 실천할 수 있는 생활 관리 방법을 안내합니다.</p>
+              </div>
+            </div>
+            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px]">
+              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
+                <PlusSquare className="size-5 text-[#17231E]" strokeWidth={1.5} />
+              </div>
+              <div className="flex flex-col">
+                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">03 병원 방문 기준</h3>
+                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">진료가 필요한 신호와 병원 방문 기준을 정리했습니다.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 6. 함께 알아두면 좋은 정보 */}
+        <section className="mb-[48px] md:mb-[64px] bg-[#F2EEE5] rounded-[20px] p-[26px] md:p-[32px]">
+          <div className="flex items-center justify-between mb-5 md:mb-6">
+            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E]">함께 알아두면 좋은 정보</h2>
+            <Link href="/concerns" className="hidden sm:flex items-center gap-1.5 px-4 py-2 bg-white rounded-full border border-[#E4DDD1] text-[13px] font-bold text-[#17231E] hover:bg-[#F8F6F0] transition-colors">
+              모든 케어 가이드 보기 <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-[14px] md:gap-[18px]">
+            {infoCards.map((info, idx) => (
+              <Link key={idx} href={info.href} className="flex flex-col bg-white rounded-[16px] overflow-hidden border border-[#E4DDD1] hover:-translate-y-1 transition-transform duration-300">
+                <div className="w-full aspect-[4/3] bg-[#F8F6F0] flex flex-col items-center justify-center p-4">
+                   <div className="size-10 rounded-full bg-[#E4DDD1] flex items-center justify-center mb-2">
+                     <Search className="size-5 text-[#72766F]" />
+                   </div>
+                   <span className="text-[12px] text-[#72766F] font-medium text-center">관련 정보 살펴보기</span>
+                </div>
+                <div className="p-4 flex flex-col gap-3">
+                  <h3 className="text-[14px] md:text-[15px] font-bold text-[#17231E] leading-[1.5] break-keep line-clamp-2">{info.title}</h3>
+                  <span className="text-[12px] text-[#72766F]">{info.category}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="mt-5 sm:hidden flex justify-center">
+            <Link href="/concerns" className="flex items-center gap-1.5 px-5 py-2.5 bg-white rounded-full border border-[#E4DDD1] text-[13px] font-bold text-[#17231E]">
+              모든 케어 가이드 보기 <ArrowRight className="size-3.5" />
+            </Link>
+          </div>
+        </section>
+
+        {/* 7. 펫보험 분석 배너 */}
+        <section className="mb-[48px] md:mb-[64px]">
+          <div className="flex flex-col md:flex-row bg-[#16382D] rounded-[20px] md:rounded-[24px] overflow-hidden h-auto md:h-[220px] lg:h-[260px]">
+            <div className="flex flex-col justify-center w-full md:w-[55%] p-[32px] md:p-[42px]">
+              <span className="text-[12px] font-medium text-[#B68B4E] mb-2 md:mb-3">사랑하는 아이를 위한 든든한 준비</span>
+              <h2 className="text-[22px] md:text-[26px] lg:text-[28px] font-bold text-white mb-3 md:mb-4 break-keep leading-[1.3]">
+                가입한 보험, 이 고민도 보장될까요?
+              </h2>
+              <p className="text-[14px] md:text-[15px] text-[#D7CCBC] leading-[1.6] break-keep">
+                질병·사고 보장 범위부터 보장한도, 면책기간까지<br className="hidden sm:block" />
+                반려동물 보험을 한눈에 비교해 보세요.
+              </p>
+            </div>
+            <div className="flex items-center justify-start md:justify-center w-full md:w-[20%] px-[32px] pb-[32px] md:p-0">
+              <Link href="/insurance/recommend" className="inline-flex items-center justify-center px-6 py-3.5 bg-white text-[#16382D] text-[14px] font-bold rounded-[12px] hover:bg-[#F8F6F0] transition-colors whitespace-nowrap">
+                보험 보장 범위 분석하기 <ArrowRight className="ml-2 size-4" />
+              </Link>
+            </div>
+            <div className="w-full md:w-[25%] h-[200px] md:h-full relative mt-auto md:mt-0">
+              <Image 
+                src="/images/insurance-dog.webp" 
+                alt="펫보험 분석" 
+                fill
+                className="object-cover object-[center_30%] md:object-center"
               />
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* Card Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-4 lg:gap-6">
-          {concerns.map(concern => (
-            <ConcernCard key={concern.slug} concern={concern} />
-          ))}
-        </div>
-        
-        {/* Bottom Spacing */}
-        <div className="h-[72px] md:h-[80px]"></div>
+        {/* 8. FAQ */}
+        <section>
+          <div className="flex flex-col md:flex-row bg-white border border-[#E4DDD1] rounded-[20px] overflow-hidden">
+            <div className="w-full md:w-[70%] p-[28px] md:p-[34px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
+              <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E] mb-5 md:mb-6">많이 궁금해하시는 점</h2>
+              <div className="flex flex-col gap-2 md:gap-2.5">
+                {faqs.map((faq, idx) => (
+                  <details key={idx} className="group border border-[#E4DDD1] rounded-[12px] md:rounded-[14px] bg-[#F8F6F0] overflow-hidden">
+                    <summary className="flex items-center justify-between p-4 md:p-5 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <div className="flex items-center gap-3">
+                        <span className="flex shrink-0 size-6 items-center justify-center text-[13px] font-bold text-[#B68B4E] bg-white rounded-md border border-[#E4DDD1]">Q</span>
+                        <h4 className="text-[14px] md:text-[15px] font-bold text-[#17231E] break-keep pr-4">{faq.q}</h4>
+                      </div>
+                      <ChevronDown className="shrink-0 size-5 text-[#72766F] transition-transform duration-300 group-open:rotate-180" />
+                    </summary>
+                    <div className="px-4 md:px-5 pb-4 md:pb-5 pt-1">
+                      <p className="text-[13px] md:text-[14px] text-[#72766F] leading-[1.6] break-keep">{faq.a}</p>
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </div>
+            <div className="w-full md:w-[30%] flex flex-col items-center justify-center p-[28px] md:p-[34px] bg-[#F8F6F0]">
+              <div className="mb-4">
+                <MessageCircle className="size-12 md:size-14 text-[#D7CCBC]" strokeWidth={1} />
+              </div>
+              <p className="text-[14px] text-[#72766F] mb-1">더 궁금한 점이 있으신가요?</p>
+              <Link href="/qna" className="inline-flex items-center text-[15px] md:text-[16px] font-bold text-[#17231E] hover:text-[#B68B4E] transition-colors">
+                1:1 문의하기 <ArrowRight className="ml-1 size-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
       </div>
     </main>
   );
