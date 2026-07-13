@@ -43,6 +43,20 @@ export type ConfirmPaymentResult =
   | { status: 500; error: 'server-error' }
   | { status: 502; error: 'payment-unconfirmed' };
 
+/**
+ * ★재무 예외 커밋 — 권위 DONE(실제 결제 완료) 관측인데 주문이 이미 종결 상태라 확정할 수 없을
+ * 때의 공통 처리(로그 + dead-letter 표시). `applyAuthoritativeAction`(confirm/return/reconcile/
+ * cancel/reclaim 공유)과 `webhook/route.ts`가 둘 다 호출한다 — "재무 예외를 어떻게 기록하는지"는
+ * 관찰을 어디서 얻었든 동일해야 하므로 한 곳에 둔다(Codex 라운드6 — 웹훅에만 고치고 공유 코어에는
+ * 안 고쳤던 이전 라운드의 재발 방지, 정책 복제 0). ★dead-letter 쓰기 실패를 삼키지 않는다 —
+ * markReclaimDead가 던지면 그대로 전파해 호출부가 500/재시도로 이어가게 한다(웹훅은 토스 재전송,
+ * cron은 다음 회차, 라우트는 5xx — 모두 멱등이라 재시도 안전).
+ */
+export async function recordPaymentFinancialException(logPrefix: string, orderId: string, detail: string): Promise<void> {
+  logServerError(`${logPrefix} ★재무 예외 — ${detail} orderId=${orderId} — 환불 검토 필요(runbook 참고)`, {});
+  await markReclaimDead(orderId);
+}
+
 /** 응답 최소화 — 무인증 공개 엔드포인트라 PII(customerName/phone/address/items)를 내려주지 않는다. */
 function toSummary(order: OrderRecord): ConfirmedOrderSummary {
   return {
@@ -181,6 +195,19 @@ export async function applyAuthoritativeAction(
             // 승자가 이미 같은 키로 '승인중' 전이시킴 — 그 상태를 이어받아 확정을 마저 진행한다.
             return applyAuthoritativeAction(action, latest, orderId, submittedKey, true, isDoneSignal);
           }
+          if (isDoneSignal) {
+            // ★재무 예외(Codex 라운드6) — 이 분기에 도달했다는 것 자체가 권위 DONE을 이미
+            // 관측했다는 뜻이다(action.kind==='confirm'은 결제대기+DONE+금액일치에서만 나온다).
+            // 그런데 claim이 경합에 져서 재조회한 latest가 결제완료도, 같은 키의 승인중도 아니다
+            // — 그 사이 다른 경로(예: reclaim-stock의 취소)가 이 주문을 종결시켰다는 뜻이라
+            // "돈은 받았는데 주문은 취소됨"과 동일한 재무 예외다.
+            await recordPaymentFinancialException(
+              '[confirmPayment]',
+              orderId,
+              `claim 경합 패배 후 최신 상태 종결(${latest.paymentStatus})`,
+            );
+            return { status: 409, error: 'payment-not-confirmable' };
+          }
           logServerError(
             `[confirmPayment] authoritative claim 실패 후에도 확정 불가 orderId=${orderId} paymentKey=${submittedKey} latestStatus=${latest.paymentStatus}`,
             {},
@@ -195,7 +222,24 @@ export async function applyAuthoritativeAction(
       const result = await applyPaymentAction(action, orderId, submittedKey);
       const affected = result.applied === 'confirm' ? result.affected : 0;
       if (affected === 0) {
-        // 토스 승인 성공·DB 확정 0행(극단적 경합) — 웹훅 없이는 완전히 닫을 수 없는 잔존 리스크(R6).
+        // 토스 승인 성공·DB 확정 0행(극단적 경합) — 재조회해 원인을 구분한다(Codex 라운드6).
+        const latest = await getOrderById(orderId);
+        if (latest?.paymentStatus === '결제완료') {
+          // 경합 승자가 이미 확정을 마쳤다 — 멱등 수렴, 예외 아님.
+          return { status: 200, order: toSummary(latest) };
+        }
+        if (latest && latest.paymentStatus !== '승인중') {
+          // ★재무 예외 — '승인중'에서 벗어났다(결제취소/환불완료 등)는 건 다른 경로가 이 주문을
+          // 그 사이 종결시켰다는 뜻인데, 우리는 방금 권위 DONE(실제 결제 완료)을 확인했다.
+          await recordPaymentFinancialException(
+            '[confirmPayment]',
+            orderId,
+            `setOrderPaid 0행 후 최신 상태 종결(${latest.paymentStatus})`,
+          );
+          return { status: 409, error: 'payment-not-confirmable' };
+        }
+        // 여전히 '승인중'인데 0행(WHERE payment_key 불일치 등 진짜 이상 상태) 또는 주문을 못 찾음
+        // — 웹훅 없이는 완전히 닫을 수 없는 잔존 리스크(R6).
         logServerError(
           `[confirmPayment] R6 승인성공·확정0행 orderId=${orderId} paymentKey=${submittedKey} — 웹훅 후속 필요`,
           {},
@@ -225,16 +269,12 @@ export async function applyAuthoritativeAction(
       // 구분한다(webhook route.ts의 동일 분기와 대칭 패턴):
       if (isDoneSignal) {
         // ★재무 예외 — 권위 DONE(실제 결제 완료) 관측인데 우리 주문은 이미 종결(결제취소/환불완료
-        // 등) 상태다. 조용히 무시하면 돈을 받았는데 아무도 모르는 상태로 남는다. dead-letter로
-        // 표시해 정산 runbook(docs/runbooks/payment-dead-letter.md) 절차를 반드시 태운다.
-        logServerError(
-          `[confirmPayment] ★재무 예외 — 권위 DONE인데 주문이 이미 종결(${order.paymentStatus}) ` +
-            `orderId=${orderId} paymentKey=${submittedKey} — 환불 검토 필요(runbook 참고)`,
-          {},
+        // 등) 상태다. 조용히 무시하면 돈을 받았는데 아무도 모르는 상태로 남는다.
+        await recordPaymentFinancialException(
+          '[confirmPayment]',
+          orderId,
+          `권위 DONE인데 주문이 이미 종결(${order.paymentStatus})`,
         );
-        await markReclaimDead(orderId).catch((markError) => {
-          logServerError(`[confirmPayment] 재무 예외 dead-letter 표시 실패 orderId=${orderId}`, markError);
-        });
         return { status: 409, error: 'payment-not-confirmable' };
       }
       // isDoneSignal=false — '결제대기' 주문에 취소류(CANCELED/EXPIRED/ABORTED) 신호가 온 routine

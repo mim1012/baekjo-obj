@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getOrderById, claimOrderForConfirmation, markReclaimDead } from '@/lib/orders/repo';
+import { getOrderById, claimOrderForConfirmation } from '@/lib/orders/repo';
 import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { decidePaymentAction } from '@/lib/payments/decide';
 import { applyPaymentAction } from '@/lib/payments/execute';
+import { recordPaymentFinancialException } from '@/lib/payments/confirmPayment';
 import { logServerError } from '@/lib/logServerError';
 
 const MAX_BODY_BYTES = 20_000;
@@ -156,12 +157,26 @@ export async function POST(request: NextRequest) {
       'webhook',
     );
 
-    // setOrderPaid가 0행이면(경합으로 이미 처리됐거나 WHERE 불일치) 조용히 넘어가지 않고 로그를
-    // 남긴다 — reconcile의 동일 케이스와 안전한 쪽(로그+가시성)으로 통일(예전엔 반환값 자체를
-    // 확인하지 않았다).
+    // setOrderPaid가 0행이면(경합으로 이미 처리됐거나 WHERE 불일치) 조용히 넘어가지 않고 원인을
+    // 구분한다(Codex 라운드6 — confirmPayment.ts의 applyAuthoritativeAction과 동일 패턴, 공유
+    // 헬퍼 recordPaymentFinancialException 재사용 — 정책 복제 0).
     const confirmAndLogIfNoop = async () => {
       const result = await applyPaymentAction(action, orderId, paymentKey);
       if (result.applied === 'confirm' && result.affected === 0) {
+        const latest = await getOrderById(orderId);
+        if (latest?.paymentStatus === '결제완료') {
+          return; // 경합 승자가 이미 확정을 마쳤다 — 멱등 수렴, 예외 아님.
+        }
+        if (latest && latest.paymentStatus !== '승인중') {
+          // ★재무 예외 — '승인중'에서 벗어났는데(결제취소/환불완료 등) 우리는 방금 권위 DONE을
+          // 확인했다. 조용히 넘어가지 않고 dead-letter로 표시한다.
+          await recordPaymentFinancialException(
+            '[POST /api/payments/webhook]',
+            orderId,
+            `setOrderPaid 0행 후 최신 상태 종결(${latest.paymentStatus})`,
+          );
+          return;
+        }
         logServerError(
           `[POST /api/payments/webhook] setOrderPaid 0행(경합으로 이미 처리됐거나 WHERE 불일치) orderId=${orderId} paymentKey=${paymentKey}`,
           {},
@@ -201,19 +216,18 @@ export async function POST(request: NextRequest) {
               await confirmAndLogIfNoop();
               break;
             }
-            // ★재무 예외(Codex 라운드5 HIGH-3) — 이 분기에 도달했다는 것 자체가 권위 DONE을
-            // 이미 관측했다는 뜻이다(action.kind==='confirm'은 결제대기+DONE+금액일치에서만
-            // 나온다). 그런데 claim이 경합에 져서 재조회한 latest가 결제완료도, 같은 키의
-            // 승인중도 아니다 — 그 사이 다른 경로(예: reclaim-stock)가 이 주문을 취소시켰다는
-            // 뜻이라 "돈은 받았는데 주문은 취소됨"과 동일한 재무 예외다. 로그만 남기고 넘어가면
-            // durable 작업항목이 안 남으므로 markReclaimDead까지 호출한다(실패는 바깥 catch로
-            // 전파해 500 → 토스 재전송 유도, HIGH-2와 동일 이유).
-            logServerError(
-              `[POST /api/payments/webhook] ★재무 예외 — claim 경합 패배 후 확정 불가(주문이 그 사이 취소된 것으로 추정) ` +
-                `orderId=${orderId} paymentKey=${paymentKey} latestStatus=${latest?.paymentStatus} — 환불 검토 필요(runbook 참고)`,
-              {},
+            // ★재무 예외(Codex 라운드5 HIGH-3, 라운드6에서 공유 헬퍼로 통합) — 이 분기에
+            // 도달했다는 것 자체가 권위 DONE을 이미 관측했다는 뜻이다(action.kind==='confirm'은
+            // 결제대기+DONE+금액일치에서만 나온다). 그런데 claim이 경합에 져서 재조회한 latest가
+            // 결제완료도, 같은 키의 승인중도 아니다 — 그 사이 다른 경로(예: reclaim-stock)가 이
+            // 주문을 취소시켰다는 뜻이라 "돈은 받았는데 주문은 취소됨"과 동일한 재무 예외다.
+            // recordPaymentFinancialException이 실패를 삼키지 않으므로 바깥 catch로 전파돼
+            // 500(토스 재전송 유도)이 된다.
+            await recordPaymentFinancialException(
+              '[POST /api/payments/webhook]',
+              orderId,
+              `claim 경합 패배 후 최신 상태 종결(주문이 그 사이 취소된 것으로 추정, latestStatus=${latest?.paymentStatus})`,
             );
-            await markReclaimDead(orderId);
             break;
           }
           await confirmAndLogIfNoop();
@@ -242,19 +256,14 @@ export async function POST(request: NextRequest) {
         } else if (action.reason === 'conflicting-terminal-state') {
           if (isDoneSignal) {
             // ★재무 예외 — 결제취소/환불완료 등 이미 종결된 상태인데 권위 DONE 웹훅이 옴(돈은
-            // 실제로 받았다). 로그만 남기고 끝내면 durable 작업항목이 안 남는다(Codex 최종
-            // 재검증 HIGH-4 — confirmPayment.ts applyAuthoritativeAction의 동일 분기와 대칭
-            // 처리). markReclaimDead로 사람이 반드시 보게 한다(runbook: payment-dead-letter.md).
-            logServerError(
-              `[POST /api/payments/webhook] ★재무 예외 — 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId} — 환불 검토 필요(runbook 참고)`,
-              {},
+            // 실제로 받았다). confirmPayment.ts의 applyAuthoritativeAction과 동일한 공유 헬퍼를
+            // 쓴다(Codex 라운드6 — 웹훅에만 고치고 공유 코어에 안 고쳤던 라운드5의 재발 방지,
+            // 정책 복제 0). 실패를 삼키지 않으므로 바깥 catch로 전파돼 500(토스 재전송)이 된다.
+            await recordPaymentFinancialException(
+              '[POST /api/payments/webhook]',
+              orderId,
+              `종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신`,
             );
-            // ★쓰기 실패를 삼키지 않는다(Codex 라운드5 HIGH-2) — 예전엔 .catch로 로그만 남기고
-            // 200을 반환했다. markReclaimDead(durable write)가 실패하면 이 재무 예외가 기록되지
-            // 않은 채 조용히 사라지는데, 이건 이 라운드가 막으려던 바로 그 durability 문제의
-            // 재발이다. 실패를 바깥 catch로 전파해 500을 반환한다 — 토스가 재전송해 다음
-            // 시도에서 다시 markReclaimDead를 태운다(모든 분기가 멱등이라 재시도해도 안전).
-            await markReclaimDead(orderId);
           } else if (order.paymentStatus === '결제완료') {
             // ★CRITICAL — '결제대기' 주문은 이 웹훅으로 취소시키지 않는다(decide.ts 참고: orderId
             // 위조로 피해자 주문을 취소시키는 벡터 차단). 결제완료 확정건에 취소류가 온 경우만
