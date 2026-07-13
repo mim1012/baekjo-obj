@@ -110,12 +110,14 @@ reconcile cron 응답 JSON(`checked/confirmed/restored/skipped/dead/deadOrderIds
    ```
 
 3. **(b) 미결제가 확인된 경우** — 토스 상점관리자에 결제 기록이 없거나 CANCELED/EXPIRED/
-   ABORTED면, 0026 RPC로 재고를 복원하며 취소 처리한다(cancel/reconcile과 동일 트랜잭션
-   경로 — 수동 UPDATE로 취소만 하면 재고 복원이 누락된다):
+   ABORTED면, 0028 RPC로 재고를 복원하며 취소 처리한다(cancel/reconcile과 동일 트랜잭션
+   경로 — 수동 UPDATE로 취소만 하면 재고 복원이 누락된다). ⚠️ **1-인자 버전은 0028에서
+   drop됐다** — payment_key 바인딩판 2-인자 시그니처를 쓴다(주문의 현재 `payment_key`
+   컬럼 값을 그대로 넘긴다, ②의 SQL 조회 결과에서 확인):
 
    ```sql
-   select cancel_confirming_and_restore('<order-id>');
-   -- true = 취소+복원 수행, false = 이미 '승인중'이 아니라 no-op(재확인 필요).
+   select cancel_confirming_and_restore('<order-id>', '<payment-key>');
+   -- true = 취소+복원 수행, false = 이미 '승인중'이 아니거나 payment_key가 안 맞아 no-op(재확인 필요).
    ```
 
 4. **(c) ★재무 예외(①4) — 실결제 확인 + 우리 DB는 이미 종결된 경우** — 토스 상점관리자에
@@ -153,3 +155,20 @@ reconcile cron 응답 JSON(`checked/confirmed/restored/skipped/dead/deadOrderIds
 - dead-letter 발생 시 운영 메일/슬랙 알림 자동 발송.
 - 위 두 항목은 이 runbook이 다루는 "사람이 SQL/Vercel 로그로 직접 확인·처리"하는 현재
   절차를 자동화하는 후속 작업이며, 이번 웹훅 웨이브(W1)의 스코프에는 포함되지 않는다.
+
+## ⑥ 잔존 리스크 — `/api/payments/cancel`의 bare-orderId capability(R4 진짜 최종, Codex 라운드5)
+
+`POST /api/payments/cancel`은 인증 없이 `orderId`만 알면 누구나 호출할 수 있다(게스트 결제를
+지원해야 해서 세션을 요구하지 않는 기존 설계). TOSS_SECRET_KEY가 설정된 뒤에는
+`cancelPendingOrderIfUnpaid`의 화이트리스트(§CANCELLABLE_TOSS_STATUSES)가 **진행 중이거나
+완료된 결제를 취소하지 못하게 막는다** — 즉 "돈이 걸린" 취소는 안전하다. 하지만 **아직 결제를
+시작조차 안 한 예약**(claim 전 `결제대기`, 토스에 기록 자체가 없어 404 → 화이트리스트 통과)은
+여전히 취소 가능하다 — orderId를 추측하거나 열거할 수 있는 공격자가 타인의 정상적인 미결제
+예약을 계속 취소시켜 재고를 회수하지 못하게 하는 **재고 DoS**가 성립한다(돈은 안 잃지만
+서비스 품질 저하).
+
+**이번 라운드에서 한 조치**: 같은 orderId 60초 내 10회 초과 요청을 레이트리밋으로 1차
+완화했다(webhook과 동일 패턴, `cancel/route.ts`). **근본 해결(스코프 밖)**: checkout이 주문
+생성 시 1회용 취소 토큰을 함께 발급해 `/api/payments/cancel`이 `orderId`뿐 아니라 그 토큰도
+요구하게 하는 것 — 이건 checkout↔cancel 간 계약 변경(§4 콘센트 규칙 대상)이라 별도 PR로
+분리해야 한다.

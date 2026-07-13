@@ -5,6 +5,30 @@ import { logServerError } from '@/lib/logServerError';
 
 const MAX_ORDER_ID = 100;
 
+// 베스트에포트 레이트리밋(webhook U5·status 엔드포인트와 동일 패턴 재사용) — 같은 orderId로
+// 60초 내 한도 초과 요청은 조회 없이 조용히 무시한다. ★잔존 리스크(MEDIUM, Codex 라운드5,
+// 문서화만 하고 이번 스코프에서 안 고침): 이 라우트는 orderId만 알면 누구나 호출 가능한
+// bare-capability 엔드포인트다. 시크릿이 설정된 뒤에는 진행·완료된 결제를 취소할 수 없지만
+// (화이트리스트가 막음), "아직 시작 안 된 예약"(claim 전 결제대기)은 여전히 취소 가능해
+// 재고 DoS 벡터로 남는다 — orderId를 추측/열거할 수 있으면 타인의 미결제 예약을 계속 취소시킬
+// 수 있다. 서명 토큰(예: checkout이 발급한 1회용 취소 토큰) 도입은 checkout 계약 변경이라
+// 이번 스코프 밖 — 레이트리밋만 1차 완화로 추가하고, 잔존 리스크는 runbook에 명시한다.
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX_HITS = 10;
+const rateLimitHits = new Map<string, { count: number; windowStart: number }>();
+
+/** true면 이번 요청을 처리해도 됨(한도 이내), false면 한도 초과. */
+function checkRateLimit(orderId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitHits.get(orderId);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitHits.set(orderId, { count: 1, windowStart: now });
+    return true;
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX_HITS;
+}
+
 function validate(body: unknown): string | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
@@ -38,6 +62,13 @@ export async function POST(request: NextRequest) {
   const orderId = validate(body);
   if (!orderId) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  if (!checkRateLimit(orderId)) {
+    // 같은 orderId로 60초 내 한도 초과 — 조용히 진행중으로 안내한다(취소 성공을 거짓 주장하지
+    // 않도록 200이 아니라 202로 응답 — 클라이언트는 이미 "취소 처리 중" 문구를 이 코드로 처리).
+    logServerError(`[POST /api/payments/cancel] 레이트리밋 초과 orderId=${orderId}`, {});
+    return NextResponse.json({ error: 'cancel-pending' }, { status: 202 });
   }
 
   try {
