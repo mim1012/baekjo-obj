@@ -118,6 +118,13 @@ async function applyAuthoritativeAction(
   order: OrderRecord,
   orderId: string,
   submittedKey: string,
+  /** 호출부가 claim(③-b, '결제대기'→'승인중' 배타 전이)이 실제로 성공했음을 보장하는지 여부.
+   *  confirmPayment ⑤(승인 성공 직후 — claim이 바로 이 함수 호출 안에서 이미 성공했다)는 항상
+   *  true. reconcilePendingPayment와 ③-a(바인딩 검증에서 IN_PROGRESS가 아닌 상태를 만난 경우)는
+   *  claim을 거치지 않은 신선한 order 스냅샷을 넘기므로, 그 스냅샷의 실제 paymentStatus로 판단한다.
+   *  이 플래그가 없으면 claim 없이 도달한 'confirm'이 setOrderPaid의 WHERE(승인중+키)에 걸려
+   *  0행을 반환하는 걸 "극단적 경합(R6)"으로 오인해 거짓 경보를 남긴다(LOW, opus 재검증 지적). */
+  claimConfirmed: boolean,
 ): Promise<ConfirmPaymentResult> {
   switch (action.kind) {
     case 'settled': {
@@ -126,6 +133,13 @@ async function applyAuthoritativeAction(
     }
 
     case 'confirm': {
+      if (!claimConfirmed) {
+        // claim을 거치지 않고 도달한 'confirm' — setOrderPaid의 WHERE(승인중+키)가 애초에 안
+        // 맞을 걸 알고 있으므로 호출하지 않는다(R6 오경보 방지). 결제가 실제로 DONE이라면 다음
+        // confirmPayment 호출이 claim부터 정상 진행해 확정한다 — 여기서는 조용히 확인중으로
+        // 응답한다(취소하지 않는다는 불변식은 그대로 유지 — 이 분기는 'confirm'이지 취소가 아님).
+        return { status: 202, error: 'payment-confirming' };
+      }
       // WHERE payment_status='승인중' AND payment_key=?로 claim이 발급한 시도만 확정한다(이중승인 방어).
       const result = await applyPaymentAction(action, orderId, submittedKey);
       const affected = result.applied === 'confirm' ? result.affected : 0;
@@ -257,6 +271,28 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       return { status: 409, error: 'payment-binding-mismatch' };
     }
 
+    // orderId·금액이 맞아도 "승인 대기(IN_PROGRESS)"가 아니면 claim하지 않는다(opus 재검증 HIGH).
+    // 공격 형태: 공격자가 피해자의 orderId·금액으로 자기 페이지에서 결제를 띄워 paymentKey만 얻고
+    // 승인은 하지 않는다(가상계좌 미입금=WAITING_FOR_DEPOSIT, 카드 방치=EXPIRED — 비용 0). 그 키로
+    // 여기까지 오면 orderId·금액은 일치하므로 위 바인딩 검증은 통과한다. IN_PROGRESS만 claim을
+    // 허가해야, 뒤이은 토스 confirm의 4xx 거절을 "이 키로 실제 인증까지 마친 뒤 진짜로 거절된
+    // 카드"로 신뢰할 수 있다(아래 ④ 주석의 전제 — status 검사가 없으면 승인 불가 키의 4xx와
+    // 구분이 안 돼 그 전제가 성립하지 않는다). IN_PROGRESS가 아니면 claim 대신 이미 확보한 관찰을
+    // decidePaymentAction(observation:'authoritative')에 그대로 넘긴다 — decide의 ★CRITICAL
+    // 불변식('결제대기' 주문은 RESTORABLE_TOSS_STATUSES로 절대 취소하지 않음, decide.ts 참고)이
+    // 위조 키로 인한 취소를 구조적으로 막는다. 신선한 재조회로 판단해야 정확하므로 order를
+    // 다시 읽는다(①의 스냅샷은 여기까지 오는 동안 stale해졌을 수 있음).
+    if (bindingCheck.status !== 'IN_PROGRESS') {
+      const latest = (await getOrderById(orderId)) ?? order;
+      const action = decidePaymentAction(
+        latest,
+        { kind: 'authoritative', payment: { paymentKey: bindingCheck.paymentKey, status: bindingCheck.status, amountMatches: bindingCheck.totalAmount === expectedAmount } },
+        bindingCheck.paymentKey,
+        'confirm',
+      );
+      return applyAuthoritativeAction(action, latest, orderId, bindingCheck.paymentKey, latest.paymentStatus === '승인중');
+    }
+
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. '결제대기'→'승인중' 배타적 전이이므로
     //    claimed=0이면 이미 다른 요청이 먼저 승인중으로 전이시켰거나(경합 패자) 취소/만료된
     //    주문이라 토스 승인 API를 호출하면 안 된다(승인해봐야 확정 못 함 = 이중 리스크만 증가).
@@ -300,6 +336,10 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
 
       // 확정 거절 = tossCode 있음 && httpStatus 4xx(토스가 응답 완료) && ALREADY_PROCESSED 아님.
       // 5xx는 캡처 여부가 불확실하므로 tossCode가 있어도 "불명" 경로로 보낸다.
+      // ★이 4xx를 "진짜 카드 거절"로 신뢰할 수 있는 전제는 위 ③-a 바인딩 검증이 status를
+      //   IN_PROGRESS로 확인했다는 것이다(승인 대기 상태의 키만 여기까지 옴) — status 검사가
+      //   없었다면(구버전) WAITING_FOR_DEPOSIT/EXPIRED 등 승인 자체가 불가능한 위조 키의 4xx와
+      //   구분이 안 돼, 이 분기가 피해자의 정상 주문을 취소시키는 벡터였다(opus 재검증 HIGH).
       const isConfirmedDecline =
         tossError instanceof TossConfirmError &&
         tossError.tossCode !== null &&
@@ -379,7 +419,7 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       tossResult.paymentKey,
       'confirm',
     );
-    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey);
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, true);
   } catch (error) {
     logServerError('[confirmPayment] 승인 처리 실패', error);
     return { status: 500, error: 'server-error' };
@@ -443,7 +483,10 @@ export async function reconcilePendingPayment(
       tossResult.paymentKey,
       'confirm',
     );
-    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey);
+    // claim이 실제로 성공했었는지(order.paymentStatus==='승인중')는 이 함수 최상단의 신선한
+    // getOrderById로 이미 확인했다 — claim 없이 도달했으면(예: confirmPayment의 바인딩 검증
+    // 502로 claim 이전에 끊긴 경우) 'confirm'이 나와도 false로 넘겨 R6 오경보를 막는다(LOW).
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, order.paymentStatus === '승인중');
   } catch (error) {
     logServerError('[reconcilePendingPayment] 재조회 처리 실패', error);
     return { status: 500, error: 'server-error' };
