@@ -5,8 +5,25 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { getLastOrder } from '@/lib/storage';
+import { clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
+
+// checkout PENDING_ORDER_KEY와 동기화 — 토스 위젯 진입 시 checkout이 심어두는 미완료 결제
+// 표식. 리터럴 값을 그대로 맞춰야 승인 성공 후 정리가 실제로 지워진다(계약 파일 아님 — 값만 동기화).
+const PENDING_TOSS_ORDER_KEY = 'baekjo_pending_toss_order';
+
+/** 승인 성공(status=done) 확정 후에만 호출 — 장바구니와 checkout의 미완료 결제 표식을 정리한다.
+ * pending/unconfirmed/declined/expired 에서는 호출하지 않는다(재시도·복구에 필요한 상태이므로
+ * 지우면 안 된다). 정리 누락 시 이후 무관한 /checkout?fail=1 방문이 stale 키를 소비해 "이미
+ * 결제완료된 주문"에 cancelReservation을 호출하고 거짓으로 "결제가 취소되었습니다"라고 안내하는
+ * 사고가 난다(DB는 0024의 WHERE 결제대기 조건으로 안전하지만 UX가 거짓말을 하게 된다). */
+function clearPendingTossState(): void {
+  clearCart();
+  if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(PENDING_TOSS_ORDER_KEY);
+  }
+}
 
 type ConfirmIssueKind = 'pending' | 'declined' | 'expired' | 'unconfirmed' | 'invalid';
 
@@ -152,6 +169,9 @@ function OrderCompleteInner() {
     getLastOrder().then((snapshot) => {
       if (cancelled) return;
       if (classified === 'done') {
+        // 서버가 승인을 확정했다는 신호를 받은 시점 — 스냅샷 일치 여부와 무관하게 정리한다
+        // (이 브라우저에 스냅샷이 없어도 pending 표식은 지워야 다음 방문이 거짓 취소를 안 만든다).
+        clearPendingTossState();
         const matches = snapshot && orderIdRaw && snapshot.id === orderIdRaw;
         // 화면 표시용 낙관적 갱신 — DB의 실제 확정 상태를 대체하지 않는다(§ 서버가 유일한 권위).
         const order = matches ? { ...snapshot, paymentStatus: '결제완료' } : null;
