@@ -15,7 +15,7 @@ interface ProductInfo {
 interface InquiryFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { title: string; content: string; isSecret: boolean; productId?: string; brandId?: string }) => void;
+  onSubmit: (data: { title: string; content: string; isSecret: boolean; productId?: string; brandId?: string }) => void | Promise<void>;
   initialData?: {
     title: string;
     content: string;
@@ -37,6 +37,7 @@ export default function InquiryFormModal({
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
   const [isSecret, setIsSecret] = useState(initialData?.isSecret || false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -60,8 +61,9 @@ export default function InquiryFormModal({
 
   const selectedProduct = product || availableProducts?.find((p) => p.id === selectedProductId);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!selectedProduct && !product) {
       alert('상품을 선택해주세요.');
       return;
@@ -70,14 +72,19 @@ export default function InquiryFormModal({
       alert('제목과 내용을 모두 입력해주세요.');
       return;
     }
-    
-    onSubmit({ 
-      title, 
-      content, 
-      isSecret,
-      productId: selectedProduct?.id,
-      brandId: selectedProduct?.brandId,
-    });
+
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        title,
+        content,
+        isSecret,
+        productId: selectedProduct?.id,
+        brandId: selectedProduct?.brandId,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -182,7 +189,7 @@ export default function InquiryFormModal({
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || !content.trim() || (!selectedProduct && !product)}
+              disabled={!title.trim() || !content.trim() || (!selectedProduct && !product) || isSubmitting}
               className="flex-1 rounded-lg bg-[#14211C] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {initialData ? '수정 완료' : '등록하기'}

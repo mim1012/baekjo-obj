@@ -7,7 +7,7 @@ import Image from 'next/image';
 interface ReviewFormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { rating: number; title: string; content: string }) => void;
+  onSubmit: (data: { rating: number; title: string; content: string }) => void | Promise<void>;
   initialData?: {
     rating: number;
     title: string;
@@ -33,6 +33,7 @@ export default function ReviewFormModal({
   const [hoverRating, setHoverRating] = useState(0);
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,13 +54,19 @@ export default function ReviewFormModal({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!content.trim()) {
       alert('내용을 입력해주세요.');
       return;
     }
-    onSubmit({ rating, title, content });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({ rating, title, content });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -146,7 +153,7 @@ export default function ReviewFormModal({
             </button>
             <button
               type="submit"
-              disabled={!content.trim()}
+              disabled={!content.trim() || isSubmitting}
               className="flex-1 rounded-lg bg-[#14211C] py-3.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {initialData ? '수정 완료' : '등록하기'}
