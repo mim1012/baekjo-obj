@@ -6,7 +6,15 @@ import BrandsContent from '@/components/brands/BrandsContent';
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
 
+const getRandomBrand = <T,>(pool: T[]): T => pool[Math.floor(Math.random() * pool.length)];
+
 export default async function BrandsPage() {
   const brands = await listBrands();
-  return <BrandsContent brands={brands} />;
+  
+  const visibleBrands = brands.filter((brand) => brand.isVisible !== false);
+  const recommendedBrands = visibleBrands.filter((brand) => brand.isRecommended);
+  const pool = recommendedBrands.length > 0 ? recommendedBrands : visibleBrands;
+  const initialSpotlightBrand = pool.length > 0 ? getRandomBrand(pool) : undefined;
+
+  return <BrandsContent brands={brands} initialSpotlightBrand={initialSpotlightBrand} />;
 }
