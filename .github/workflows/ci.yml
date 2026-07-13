@@ -59,9 +59,23 @@ jobs:
   # 결제 상태기계 DB 스펙(tests/payments/state-machine.db.spec.ts) — staging 전용, prod는 절대 사용하지 않는다.
   # 합성 __test_* 레코드로 0021/0024/0026 계약을 검증한다(브라우저 불필요, API 테스트). PR/push 모두 실행 —
   # staging에만 쓰기 때문에 머지 전에 돌려도 안전하고, 다음 리팩터(R2~R5)의 회귀 안전망이 된다.
+  #
+  # ★job-level concurrency — visual.yml/payments-routes.yml과 같은 preview-db-<sha> 그룹으로
+  # 직렬화한다(2026-07-13 실측: PR에서 /admin/products 데스크톱 2% diff로 visual이 오탐 FAIL).
+  # 이 잡이 만드는 합성 __test_* 상품/주문이 staging DB에 남아있는 채로 visual이 같은 DB를
+  # 대상으로 /admin/products를 스크린샷하면(관리자 목록은 is_visible=false도 노출) 그 합성
+  # 레코드가 찍힌다. visual/payments-routes 둘은 deployment_status 트리거라 그룹 키가
+  # github.event.deployment.sha인데, 이 워크플로는 pull_request/push 트리거라 같은 커밋의
+  # SHA를 pull_request.head.sha(PR) 또는 github.sha(push)로 얻는다 — PR의 Vercel 배포 sha는
+  # 항상 PR head sha와 같으므로 세 워크플로가 동일한 그룹 키에 도달해 실제로 직렬화된다.
+  # cancel-in-progress: false 필수 — true면 나중 워크플로가 상대를 취소해 required check가
+  # 영영 안 돌 수 있다(visual.yml의 동일 트레이드오프 설명 참고).
   payments-db-spec:
     runs-on: ubuntu-latest
     needs: verify
+    concurrency:
+      group: preview-db-${{ github.event.pull_request.head.sha || github.sha }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
