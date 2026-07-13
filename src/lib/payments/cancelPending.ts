@@ -38,6 +38,23 @@ async function cancelViaRpc(orderId: string): Promise<CancelPendingOutcome> {
   return didCancel ? { kind: 'canceled' } : { kind: 'already-settled' };
 }
 
+// TOSS_SECRET_KEY 미설정 경고를 배치당(≈초 단위로 끝나는 cron 1회 실행) 1회로 억제한다 —
+// reclaim-stock이 만료 목록(최대 100건)을 순회하며 이 함수를 주문마다 부르므로, 억제가 없으면
+// 같은 로그가 최대 100줄 반복돼 신호가 파묻힌다. 다음 cron 실행(5분 뒤)에서는 다시 로그된다.
+const SECRET_MISSING_LOG_INTERVAL_MS = 60_000;
+let lastSecretMissingLogAt = 0;
+
+function logSecretMissingOnce(source: CancelPendingSource, orderId: string): void {
+  const now = Date.now();
+  if (now - lastSecretMissingLogAt < SECRET_MISSING_LOG_INTERVAL_MS) return;
+  lastSecretMissingLogAt = now;
+  logServerError(
+    `[cancelPendingOrderIfUnpaid] TOSS_SECRET_KEY 미설정 — 카드 주문 취소를 보류한다(source=${source} ` +
+      `orderId=${orderId}). 키를 등록하면 자동으로 검증·회수가 재개된다.`,
+    {},
+  );
+}
+
 /**
  * '결제대기' 주문을 취소하기 전에 실제로 결제가 안 됐는지 확인하는 단일 진입점(R4 최종
  * 라운드, Codex 최종 재검증 CRITICAL-1·CRITICAL-2). `/api/payments/cancel` 라우트와
@@ -51,10 +68,17 @@ async function cancelViaRpc(orderId: string): Promise<CancelPendingOutcome> {
  *
  * 판단 순서:
  * 1. 무통장입금 — 토스와 무관, 기존 로직 그대로(즉시 취소 가능).
- * 2. TOSS_SECRET_KEY 미설정(계약 전) — 조회 자체가 불가능하다. 카드 결제 캡처 자체가 이 키
- *    없이는 불가능하므로(confirm도 이 키 없인 항상 실패) 취소가 돈을 잃을 수 없다 — 기존
- *    동작(취소)으로 안전하게 폴백한다(재고를 영구히 묶는 게 더 나쁘다). 키를 등록하는 순간
- *    자동으로 아래 3~5의 권위 검증 경로가 켜진다.
+ * 2. TOSS_SECRET_KEY 미설정 → ★취소 금지(`unclear`), 기존 동작(취소) 폴백 아님(R4 진짜 최종
+ *    라운드, Codex 라운드5 — team-lead 판단 정정). 이전엔 "카드 결제 캡처 자체가 이 키 없이는
+ *    불가능하니 취소해도 안전"이라고 판단했는데, 그건 "이 배포가 한 번도 키를 가진 적 없을
+ *    때만" 참이다. 키가 있던 시절 결제된 주문이 나중에 키 유실(로테이션 실수·환경변수 스코프
+ *    사고·롤링 배포 중 일부 인스턴스 누락)과 겹치면 그 결제된 주문이 취소된다. "불명이면
+ *    취소하지 않는다"는 이 함수(그리고 confirmPayment.ts 전체)의 최상위 불변식이고, 설정
+ *    부재도 불명의 한 형태다 — 설정 상태에 따라 안전 불변식이 뒤집히면 안 된다. 배치당 1회만
+ *    시끄러운 로그를 남긴다(주문마다 반복하면 신호가 파묻힌다). 비용은 거의 0이다 — 현재
+ *    프로덕션은 이 키가 없어 카드 결제 자체가 비활성(checkout이 NEXT_PUBLIC 클라이언트 키
+ *    없으면 카드 옵션을 disabled 처리)이라, 모든 실제 주문이 무통장입금이라서 이 분기를 안
+ *    탄다 — 키가 등록되는 순간 자동으로 아래 3~5의 권위 검증 경로가 켜진다.
  * 3. `queryTossPaymentByOrderId`로 권위 조회 → status 화이트리스트:
  *    - DONE + 금액일치 → **취소 금지**, claim-먼저 규칙으로 확정.
  *    - DONE + 금액 불일치 → ★재무 예외, 취소·확정 둘 다 금지.
@@ -74,12 +98,10 @@ export async function cancelPendingOrderIfUnpaid(
   }
 
   if (!process.env.TOSS_SECRET_KEY) {
-    logServerError(
-      `[cancelPendingOrderIfUnpaid] TOSS_SECRET_KEY 미설정(source=${source}) — 취소 전 조회를 건너뛰고 ` +
-        `기존 동작(취소)으로 폴백 orderId=${order.id} — 키 등록 시 자동으로 권위 검증이 켜진다`,
-      {},
-    );
-    return cancelViaRpc(order.id);
+    // ★fail-closed(HIGH-1, Codex 라운드5) — 조회 자체가 불가능하니 "불명"과 동일하게 취소를
+    // 보류한다. 위 doc 주석의 근거(키 유실 시나리오) 참고 — 절대 취소로 폴백하지 않는다.
+    logSecretMissingOnce(source, order.id);
+    return { kind: 'unclear' };
   }
 
   let observation;

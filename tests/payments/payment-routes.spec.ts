@@ -116,7 +116,12 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
 // order-A가 claim 이후 이 API 표면으로는 취소 불가능한 상태(승인중)에 고정되므로, 체인을 이어가면
 // 이 시나리오들이 모두 무의미하게 실패/스킵된다(2026-07-13 team-lead 지적: serial 1건 실패 시 5건
 // 미실행). order-A/product 재고와 독립적으로 동작하도록 별도 product(Q)를 쓴다.
-test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실행 주문, 프리뷰 통합)', () => {
+// R4 진짜 최종(Codex 라운드5 HIGH-1) — cancelPendingOrderIfUnpaid가 TOSS_SECRET_KEY 미설정을
+// fail-closed(취소 보류, 202)로 바꿨다. 무통장입금은 토스와 무관해 여전히 즉시 취소(200)되므로
+// 기존 취소/재확인/멱등 체인은 무통장입금 주문으로 유지하고, 카드 주문의 fail-closed 동작은
+// 별도 describe에서 독립적으로 검증한다(체인에 섞으면 그 자체로 취소가 안 돼 뒤의 confirm 409·
+// 재호출 멱등 단언이 전부 깨진다).
+test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입금, claim 미실행 주문, 프리뷰 통합)', () => {
   const Q = fixtureId('route_wave1_q1');
   const CUSTOMER = fixtureId('route_wave1_cancel');
   const TK_B = fixtureId('tk_route_b');
@@ -126,7 +131,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
       phone: '010-0000-0000',
       address: '테스트',
       items: [{ productId: Q, quantity: qty }],
-      paymentMethod: '신용카드',
+      paymentMethod: '무통장입금',
     });
 
   let orderId: string;
@@ -145,7 +150,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
     await q(`delete from public.products where id='${Q}';`);
   });
 
-  test('결제대기 주문에 cancel을 호출하면 원자적으로 취소 처리하고 재고를 복원한다', async () => {
+  test('무통장입금 결제대기 주문에 cancel을 호출하면 원자적으로 취소 처리하고 재고를 복원한다(토스 무관, 200)', async () => {
     expect((await orderRow(orderId)).payment_status).toBe('결제대기'); // claim을 겪지 않았음을 전제
     expect(await stockOf(Q)).toBe(4);
 
@@ -170,6 +175,52 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
   });
 });
 
+// Codex 라운드5 HIGH-1 회귀 방어 — 카드 주문은 토스 키가 없으면 취소를 보류해야 한다(불명
+// 비취소 불변식). 위 무통장입금 체인과 완전히 독립된 별도 상품·주문을 쓴다.
+test.describe('결제 라우트 — 토스 키 없는 카드 주문 취소 보류 (fail-closed, 프리뷰 통합)', () => {
+  const S = fixtureId('route_wave1_s2');
+  const CUSTOMER = fixtureId('route_wave1_cancel_card');
+  const mkOrder = (qty: number) =>
+    callApi('/api/orders', {
+      customerName: CUSTOMER,
+      phone: '010-0000-0000',
+      address: '테스트',
+      items: [{ productId: S, quantity: qty }],
+      paymentMethod: '신용카드',
+    });
+
+  test.beforeAll(async () => {
+    await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
+    await q(`delete from public.products where id='${S}';`);
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
+             values ('${S}','${S}', (select id from public.brands limit 1), 'etc', 1000, 5, true);`);
+  });
+
+  test.afterAll(async () => {
+    await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
+    await q(`delete from public.products where id='${S}';`);
+  });
+
+  test('토스 키가 없으면 카드 주문 취소를 보류한다(202) — 불명 비취소 불변식', async () => {
+    const res = await mkOrder(1);
+    const orderId = (res.json?.order?.id ?? res.json?.id) as string;
+    expect(orderId).toBeTruthy();
+    expect((await orderRow(orderId)).payment_status).toBe('결제대기');
+    const stockBefore = await stockOf(S);
+
+    const cancelRes = await callApi('/api/payments/cancel', { orderId });
+    // ★핵심 회귀 방어 — 이전엔 이 환경(TOSS_SECRET_KEY 미설정)에서 카드 주문도 200으로
+    // 즉시 취소됐다. 키 유실(로테이션 실수 등)과 겹치면 결제된 주문이 취소될 수 있는 구멍이라
+    // fail-closed로 뒤집었다: 조회 불가 = 불명 = 취소 금지.
+    expect(cancelRes.status).toBe(202);
+    expect(cancelRes.json?.error).toBe('cancel-pending');
+
+    const row = await orderRow(orderId);
+    expect(row.payment_status).toBe('결제대기'); // 취소되지 않았다
+    expect(await stockOf(S)).toBe(stockBefore); // 재고도 그대로다
+  });
+});
+
 // 상품 픽스처(R)를 쓰는 테스트가 이 describe에 1개뿐이라 fullyParallel 하에서도 beforeAll이
 // 워커별로 중복 실행될 여지가 없다. (2026-07-13 team-lead 지적 대응: 원래 이 오버셀 테스트와
 // cron 테스트가 한 describe에 같이 있었는데, 서로 다른 워커에 배정되면 각 워커가 beforeAll을
@@ -178,13 +229,16 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
 test.describe('결제 라우트 — 오버셀 (독립 시나리오, 프리뷰 통합)', () => {
   const R = fixtureId('route_wave1_r1');
   const CUSTOMER = fixtureId('route_wave1_oversell');
+  // 무통장입금 — 이 테스트의 목적은 오버셀 차단(재고 원자성)이지 결제수단이 아니다. 신용카드로
+  // 두면 cancel 정리 단계가 fail-closed(202, HIGH-1)에 걸려 재고가 안 풀리므로, 토스와 무관하게
+  // 즉시 취소되는 무통장입금으로 정리 단계를 단순하게 유지한다.
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,
       phone: '010-0000-0000',
       address: '테스트',
       items: [{ productId: R, quantity: qty }],
-      paymentMethod: '신용카드',
+      paymentMethod: '무통장입금',
     });
 
   test.beforeAll(async () => {
