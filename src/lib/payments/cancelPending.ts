@@ -20,9 +20,16 @@ export type CancelPendingOutcome =
   /** 권위 DONE(+금액일치) 확인 — claim-먼저 규칙으로 확정을 시도했다. result.status===200이면
    *  실제로 확정 완료, 그 외는 경합 등으로 이번 호출에선 못 끝났다(다음 회차/웹훅이 마저 수렴). */
   | { kind: 'confirmed'; result: ConfirmPaymentResult }
-  /** 과도기 상태(IN_PROGRESS/READY/WAITING_FOR_DEPOSIT 등) 또는 조회 자체가 불명(네트워크·5xx·
-   *  스키마 불량)이거나 신원이 안 맞음 — 취소도 확정도 하지 않는다. 호출부가 나중에 재시도한다. */
-  | { kind: 'pending' }
+  /** 과도기 상태(IN_PROGRESS/READY/WAITING_FOR_DEPOSIT 등) — 토스가 아직 결론을 안 냈을 뿐,
+   *  "결제 안 됨"의 증거가 아니다. 취소하지 않는다. ★실패가 아니다 — 호출부는 이걸 재시도
+   *  카운터(recordReclaimAttempt)에 넣으면 안 된다(넣으면 25분 만에 dead-letter로 영구 제외돼,
+   *  가상계좌처럼 입금 기한이 며칠인 정상 결제가 재고를 무기한 묶는 DoS가 성립한다 — opus 최종
+   *  재검증 MEDIUM). 다음 회차에 그냥 재조회한다. */
+  | { kind: 'transitional' }
+  /** 조회 자체가 불명(네트워크·5xx·스키마 불량)이거나 신원이 안 맞음 — 진짜 판단 불가 상태라
+   *  취소도 확정도 하지 않는다. transitional과 달리 이건 재시도 카운터 대상이다(5회 계속
+   *  불명이면 사람이 봐야 하는 이상 상태). */
+  | { kind: 'unclear' }
   /** ★재무 예외 — DONE인데 금액이 우리 계산과 다르다. 취소·확정 둘 다 하지 않고 사람이 봐야 한다. */
   | { kind: 'financial-exception' };
 
@@ -52,9 +59,10 @@ async function cancelViaRpc(orderId: string): Promise<CancelPendingOutcome> {
  *    - DONE + 금액일치 → **취소 금지**, claim-먼저 규칙으로 확정.
  *    - DONE + 금액 불일치 → ★재무 예외, 취소·확정 둘 다 금지.
  *    - CANCELED/EXPIRED/ABORTED → 안전하게 취소.
- *    - 그 외(IN_PROGRESS/READY/WAITING_FOR_DEPOSIT 등 과도기) → **취소 금지**, pending.
+ *    - 그 외(IN_PROGRESS/READY/WAITING_FOR_DEPOSIT 등 과도기) → **취소 금지**, `transitional`
+ *      (실패 아님 — 호출부가 재시도 카운터에 넣으면 안 됨, opus 최종 재검증 MEDIUM).
  *    - 404(결제 기록 없음) → 안전하게 취소.
- *    - 조회 불명/신원 불일치 → **취소 금지**, pending.
+ *    - 조회 불명/신원 불일치 → **취소 금지**, `unclear`(진짜 판단 불가 — 재시도 카운터 대상).
  */
 export async function cancelPendingOrderIfUnpaid(
   order: OrderRecord,
@@ -83,9 +91,10 @@ export async function cancelPendingOrderIfUnpaid(
       return cancelViaRpc(order.id);
     }
     // 조회 불명(네트워크·타임아웃·5xx·스키마 불량) — 취소 금지. 돈이 이미 빠져나갔을 가능성을
-    // 배제할 수 없으므로 이번엔 손대지 않는다.
+    // 배제할 수 없으므로 이번엔 손대지 않는다. 이건 과도기가 아니라 진짜 판단 불가라 재시도
+    // 카운터 대상이다.
     logServerError(`[cancelPendingOrderIfUnpaid] 취소 전 토스 조회 실패(불명, source=${source}) orderId=${order.id}`, queryError);
-    return { kind: 'pending' };
+    return { kind: 'unclear' };
   }
 
   const identityMatches = observation.orderId === order.id;
@@ -94,7 +103,7 @@ export async function cancelPendingOrderIfUnpaid(
       `[cancelPendingOrderIfUnpaid] 토스 응답 신원 불일치(source=${source}) orderId=${order.id} tossOrderId=${observation.orderId}`,
       {},
     );
-    return { kind: 'pending' };
+    return { kind: 'unclear' };
   }
 
   const expectedAmount = order.totalPrice + order.deliveryFee;
@@ -134,6 +143,7 @@ export async function cancelPendingOrderIfUnpaid(
 
   // IN_PROGRESS/READY/WAITING_FOR_DEPOSIT 등 과도기 상태 — "지금 결제가 안 됐다"의 증거가
   // 아니라 "아직 진행 중"일 뿐이다. 취소 금지 — 다음 재시도 때 토스가 결국 EXPIRED로 바꾸면
-  // 그때 취소된다(재고 회수가 늦어질 뿐 돈은 안 잃는다).
-  return { kind: 'pending' };
+  // 그때 취소된다(재고 회수가 늦어질 뿐 돈은 안 잃는다). ★실패가 아니므로 재시도 카운터에
+  // 넣지 않는다(호출부 책임 — 이 kind를 recordReclaimAttempt로 보내면 안 됨).
+  return { kind: 'transitional' };
 }

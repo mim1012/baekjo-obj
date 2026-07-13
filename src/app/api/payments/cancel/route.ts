@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
         // 확실하다. 진행 중으로 안내한다.
         return NextResponse.json({ error: 'cancel-pending' }, { status: 202 });
 
-      case 'pending':
+      case 'transitional':
+      case 'unclear':
       case 'financial-exception':
         return NextResponse.json({ error: 'cancel-pending' }, { status: 202 });
 

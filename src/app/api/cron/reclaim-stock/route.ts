@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { listExpiredPendingOrders, recordReclaimAttempt, markReclaimDead } from '@/lib/orders/repo';
+import { listExpiredPendingOrders, recordReclaimAttempt, markReclaimDead, type OrderRecord } from '@/lib/orders/repo';
 import { cancelPendingOrderIfUnpaid } from '@/lib/payments/cancelPending';
 import { logServerError } from '@/lib/logServerError';
 
@@ -8,6 +8,11 @@ const MAX_RECLAIM_ATTEMPTS = 5;
 // 취소 전 토스 조회 타임아웃 — cron이라 여유는 있지만 배치 전체(최대 100건)가 한 건의 느린
 // 조회에 막히지 않도록 상한을 둔다.
 const RECLAIM_TOSS_TIMEOUT_MS = 5_000;
+// 장기 과도기(transitional) 승격 임계치 — 가상계좌 입금 기한(보통 수일)을 넉넉히 덮는 값으로
+// 잡는다(opus 최종 재검증 MEDIUM). 이보다 오래 과도기에 머문 주문만 사람이 보게 dead-letter로
+// 승격한다 — 그 전에는 재시도 카운터를 아예 건드리지 않는다(아래 recordFailureAndMaybeDead와
+// 분리된 이유 참고).
+const LONG_TRANSITIONAL_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * GET /api/cron/reclaim-stock — Vercel Cron 전용(5분 주기). 만료된 카드결제 선점(PENDING)
@@ -42,13 +47,14 @@ export async function GET(request: NextRequest) {
 
   let reclaimed = 0;
   let converged = 0;
+  let pending = 0;
   let failed = 0;
   let dead = 0;
   const deadOrderIds: string[] = [];
 
   /** 재시도 실패 기록(0027 rpc — 원자 증가) + 임계치 초과 시 dead-letter 표시. reconcile-confirming
    *  cron(U6)의 동일 헬퍼와 대칭 — "이번 회차에 판단을 못 내렸다/취소를 못 했다"는 뜻이라
-   *  failed 카운터에도 반영한다. */
+   *  failed 카운터에도 반영한다. ★transitional(과도기)에는 절대 쓰지 않는다 — 아래 참고. */
   async function recordFailureAndMaybeDead(orderId: string, message: string) {
     failed += 1;
     try {
@@ -64,6 +70,33 @@ export async function GET(request: NextRequest) {
       }
     } catch (recordError) {
       logServerError(`[GET /api/cron/reclaim-stock] 재시도 기록 실패 orderId=${orderId}`, recordError);
+    }
+  }
+
+  /** transitional(과도기) 전용 처리 — opus 최종 재검증 MEDIUM: 과도기는 실패가 아니므로
+   *  recordReclaimAttempt(재시도 카운터)를 절대 태우지 않는다. 카운터를 태우면 5분 주기 cron이
+   *  5회(≈25분) 만에 dead-letter로 영구 제외시켜, 입금 기한이 며칠인 가상계좌(WAITING_FOR_DEPOSIT)
+   *  결제가 결국 완료돼도 아무도 재고를 회수하지 못하는 영구 잠김이 생긴다 — 게다가 공격자가
+   *  피해자 orderId로 비용 0에 가상계좌 결제를 만들어두기만 해도 그 재고를 무기한 묶을 수 있는
+   *  재고 DoS가 성립한다. 대신 만료된 지 아주 오래된 주문(가상계좌 입금 기한을 넉넉히 덮는
+   *  7일)만 예외적으로 dead-letter 승격해 사람이 수동 확인하게 한다 — 그 전에는 그냥 skip하고
+   *  다음 회차에 재조회한다(카운터 미증가). */
+  async function handleTransitional(order: OrderRecord) {
+    pending += 1;
+    const expiresAtMs = order.expiresAt ? new Date(order.expiresAt).getTime() : null;
+    const isLongStale = expiresAtMs !== null && Date.now() - expiresAtMs > LONG_TRANSITIONAL_THRESHOLD_MS;
+    if (!isLongStale) return; // 정상 과도기 — 카운터 미증가, 다음 회차에 재조회.
+
+    logServerError(
+      `[GET /api/cron/reclaim-stock] 장기 과도기 — 수동 확인 필요 orderId=${order.id} expiresAt=${order.expiresAt}`,
+      {},
+    );
+    try {
+      await markReclaimDead(order.id);
+      dead += 1;
+      deadOrderIds.push(order.id);
+    } catch (markError) {
+      logServerError(`[GET /api/cron/reclaim-stock] 장기 과도기 dead-letter 표시 실패 orderId=${order.id}`, markError);
     }
   }
 
@@ -100,9 +133,15 @@ export async function GET(request: NextRequest) {
           await recordFailureAndMaybeDead(order.id, 'financial-exception-amount-mismatch-done');
           break;
 
-        case 'pending':
-          // 과도기 상태이거나 조회 불명 — 다음 회차에 재조회한다.
-          await recordFailureAndMaybeDead(order.id, 'pending-or-unclear');
+        case 'transitional':
+          // ★실패 아님 — 재시도 카운터에 넣지 않는다(handleTransitional 주석 참고).
+          await handleTransitional(order);
+          break;
+
+        case 'unclear':
+          // 조회 자체가 불명(네트워크·5xx·스키마 불량)이거나 신원 불일치 — 진짜 판단 불가 상태라
+          // 재시도 카운터 대상이다(5회 계속 불명이면 사람이 봐야 하는 이상 상태).
+          await recordFailureAndMaybeDead(order.id, 'unclear');
           break;
 
         default: {
@@ -118,5 +157,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ checked: expired.length, reclaimed, converged, failed, dead, deadOrderIds });
+  return NextResponse.json({ checked: expired.length, reclaimed, converged, pending, failed, dead, deadOrderIds });
 }
