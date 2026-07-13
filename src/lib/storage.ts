@@ -480,10 +480,12 @@ export async function updateProduct(
   }
 }
 
-/** 상품 삭제. DELETE /api/admin/products/[id]. */
+/** 상품 삭제. DELETE /api/admin/products/[id]. 409는 'product-has-history'로 구분해
+ *  호출부가 "숨김 처리하라"는 안내를 띄울 수 있게 한다(리뷰/문의가 남은 상품은 삭제 불가 — 0029). */
 export async function deleteProduct(id: string): Promise<{ ok?: true; error?: string }> {
   try {
     const response = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (response.status === 409) return { error: 'product-has-history' };
     if (!response.ok) return { error: 'network' };
     return { ok: true };
   } catch {
@@ -965,13 +967,6 @@ export function isAdmin(): boolean {
 
 /* ── 공통 유틸 ─────────────────────────────────── */
 
-function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 /** 주문상품의 안정적인 복합 키 생성 (OrderItem에 고유 id가 없으므로) */
 export function buildReviewTargetKey(
   orderId: string,
@@ -1000,166 +995,194 @@ function emitStorageEvent(eventName: string): void {
   }
 }
 
-/* ── 사용자 작성 구매평 CRUD ─────────────────── */
+/* ── 사용자 작성 구매평 CRUD ─────────────────────────────────
+ * DB 전환(be/reviews-inquiries-db) — localStorage 대신 /api/reviews·/api/products/[id]/reviews
+ * 를 읽고 쓴다. 콘센트 시그니처는 이름을 유지하되 전부 async 로 바뀌었다(contract-change).
+ * 실패는 orders/products 콘센트와 동일하게 빈 배열/undefined 로 접고, 쓰기 실패는 throw 한다.
+ */
 
 import type { ProductReview, ProductInquiry } from '@/types';
 
-const PRODUCT_REVIEWS_KEY = 'baekjo_product_reviews';
-
-export function getProductReviews(): ProductReview[] {
-  return getJSON<ProductReview[]>(PRODUCT_REVIEWS_KEY, []);
+/** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
+export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
+  try {
+    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`);
+    if (!response.ok) return [];
+    const { reviews } = (await response.json()) as { reviews: ProductReview[] };
+    return reviews;
+  } catch {
+    return [];
+  }
 }
 
-export function getProductReviewsByProduct(productId: string): ProductReview[] {
-  return getProductReviews().filter((r) => r.productId === productId);
+/** 본인 구매평 전체(hidden 포함). GET /api/reviews/mine(세션 필요). 실패 시 빈 배열. */
+export async function getProductReviewsByUser(userId: string): Promise<ProductReview[]> {
+  try {
+    const response = await fetch('/api/reviews/mine');
+    if (!response.ok) return [];
+    const { reviews } = (await response.json()) as { reviews: ProductReview[] };
+    return reviews.filter((r) => r.userId === userId);
+  } catch {
+    return [];
+  }
 }
 
-export function getProductReviewsByUser(userId: string): ProductReview[] {
-  return getProductReviews().filter((r) => r.userId === userId);
-}
-
-export function getProductReviewByOrderItem(reviewTargetKey: string): ProductReview | undefined {
-  return getProductReviews().find((r) => r.reviewTargetKey === reviewTargetKey);
-}
-
-export function addProductReview(
-  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
-): ProductReview {
-  const list = getProductReviews();
-
-  // 중복 검증
-  const duplicated = list.some(
-    (r) => r.userId === input.userId && r.reviewTargetKey === input.reviewTargetKey,
-  );
-  if (duplicated) {
+/**
+ * 구매평 작성. POST /api/reviews(세션 필요). 서버가 orderId 소유권을 재검증하고
+ * reviewTargetKey 를 계산해 중복 작성을 막는다. 중복이면 409 → throw 로 알린다
+ * (호출부가 기존 duplicated-review 문구로 catch 하던 동작 보존).
+ */
+export async function addProductReview(
+  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { optionName?: string },
+): Promise<ProductReview> {
+  const response = await fetch('/api/reviews', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status === 409) {
     throw new Error('이미 구매평을 작성한 주문상품입니다.');
   }
-
-  const now = new Date().toISOString();
-  const review: ProductReview = {
-    ...input,
-    id: `pr-${generateId()}`,
-    status: 'published',
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  list.push(review);
-  setJSON(PRODUCT_REVIEWS_KEY, list);
+  if (response.status !== 201) {
+    throw new Error('review-create-failed');
+  }
+  const { review } = (await response.json()) as { review: ProductReview };
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
   return review;
 }
 
-export function updateProductReview(
+/** 본인 구매평 수정. PATCH /api/reviews/[id](세션 필요, 소유자만). */
+export async function updateProductReview(
   id: string,
   userId: string,
   updates: Partial<Pick<ProductReview, 'rating' | 'title' | 'content'>>,
-): void {
-  const list = getProductReviews();
-  const item = list.find((r) => r.id === id && r.userId === userId);
-  if (!item) return;
-  Object.assign(item, updates, { updatedAt: new Date().toISOString() });
-  setJSON(PRODUCT_REVIEWS_KEY, list);
+): Promise<void> {
+  const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error('review-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
-export function deleteProductReview(id: string, userId: string): void {
-  const list = getProductReviews();
-  const idx = list.findIndex((r) => r.id === id && r.userId === userId);
-  if (idx < 0) return;
-  list.splice(idx, 1);
-  setJSON(PRODUCT_REVIEWS_KEY, list);
+/** 본인 구매평 삭제. DELETE /api/reviews/[id](세션 필요, 소유자만). */
+export async function deleteProductReview(id: string, _userId: string): Promise<void> {
+  const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('review-delete-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
-/** 관리자 전용 — 노출 상태 변경 */
-export function setProductReviewStatus(id: string, status: 'published' | 'hidden'): void {
-  const list = getProductReviews();
-  const item = list.find((r) => r.id === id);
-  if (!item) return;
-  item.status = status;
-  item.updatedAt = new Date().toISOString();
-  setJSON(PRODUCT_REVIEWS_KEY, list);
+/** 관리자 전용 — 노출 상태 변경. PATCH /api/admin/reviews/[id]. */
+export async function setProductReviewStatus(id: string, status: 'published' | 'hidden'): Promise<void> {
+  const response = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (!response.ok) {
+    throw new Error('review-status-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
-/* ── 사용자 작성 상품문의 CRUD ───────────────── */
+/* ── 사용자 작성 상품문의 CRUD ─────────────────────────────── */
 
-const PRODUCT_INQUIRIES_KEY = 'baekjo_product_inquiries';
-
-export function getProductInquiries(): ProductInquiry[] {
-  return getJSON<ProductInquiry[]>(PRODUCT_INQUIRIES_KEY, []);
+/** 특정 상품의 문의 전체(비밀글 포함 — content/answer 는 서버가 열람 권한에 따라 redaction).
+ *  GET /api/products/[id]/inquiries(공개). 실패 시 빈 배열. */
+export async function getProductInquiriesByProduct(productId: string): Promise<ProductInquiry[]> {
+  try {
+    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/inquiries`);
+    if (!response.ok) return [];
+    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
+    return inquiries;
+  } catch {
+    return [];
+  }
 }
 
-export function getProductInquiriesByProduct(productId: string): ProductInquiry[] {
-  return getProductInquiries().filter((i) => i.productId === productId);
+/** 본인 문의 전체. GET /api/inquiries/mine(세션 필요). 실패 시 빈 배열. */
+export async function getProductInquiriesByUser(userId: string): Promise<ProductInquiry[]> {
+  try {
+    const response = await fetch('/api/inquiries/mine');
+    if (!response.ok) return [];
+    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
+    return inquiries.filter((i) => i.userId === userId);
+  } catch {
+    return [];
+  }
 }
 
-export function getProductInquiriesByUser(userId: string): ProductInquiry[] {
-  return getProductInquiries().filter((i) => i.userId === userId);
+/** 관리자/파트너 문의 목록. GET /api/admin/inquiries(관리자·파트너 세션 필요). 실패 시 빈 배열.
+ *  서버가 admin 은 전체, partner 는 자기 브랜드로(TODO(RBAC) 반영 전까지는 빈 배열) 필터링한다. */
+export async function getAdminInquiries(): Promise<ProductInquiry[]> {
+  try {
+    const response = await fetch('/api/admin/inquiries');
+    if (!response.ok) return [];
+    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
+    return inquiries;
+  } catch {
+    return [];
+  }
 }
 
-export function getProductInquiriesByBrand(brandId: string): ProductInquiry[] {
-  return getProductInquiries().filter((i) => i.brandId === brandId);
-}
-
-export function addProductInquiry(
+/** 상품문의 작성. POST /api/inquiries(세션 필요). */
+export async function addProductInquiry(
   input: Omit<ProductInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
-): ProductInquiry {
-  const now = new Date().toISOString();
-  const inquiry: ProductInquiry = {
-    ...input,
-    id: `pi-${generateId()}`,
-    status: 'waiting',
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const list = getProductInquiries();
-  list.push(inquiry);
-  setJSON(PRODUCT_INQUIRIES_KEY, list);
+): Promise<ProductInquiry> {
+  const response = await fetch('/api/inquiries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('inquiry-create-failed');
+  }
+  const { inquiry } = (await response.json()) as { inquiry: ProductInquiry };
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
   return inquiry;
 }
 
-export function updateProductInquiry(
+/** 본인 문의 수정(답변완료 후에는 서버가 반영하지 않는다). PATCH /api/inquiries/[id]. */
+export async function updateProductInquiry(
   id: string,
   userId: string,
   updates: Partial<Pick<ProductInquiry, 'title' | 'content' | 'isSecret'>>,
-): void {
-  const list = getProductInquiries();
-  const item = list.find((i) => i.id === id && i.userId === userId);
-  if (!item) return;
-  // 답변 완료 후 수정 불가
-  if (item.status === 'answered') return;
-  Object.assign(item, updates, { updatedAt: new Date().toISOString() });
-  setJSON(PRODUCT_INQUIRIES_KEY, list);
+): Promise<void> {
+  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!response.ok) {
+    throw new Error('inquiry-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
 
-export function deleteProductInquiry(id: string, userId: string): void {
-  const list = getProductInquiries();
-  const idx = list.findIndex((i) => i.id === id && i.userId === userId);
-  if (idx < 0) return;
-  list.splice(idx, 1);
-  setJSON(PRODUCT_INQUIRIES_KEY, list);
+/** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
+export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
+  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    throw new Error('inquiry-delete-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
 
-/** 관리자 또는 브랜드 담당자 — 답변 작성/수정 */
-export function answerProductInquiry(
-  id: string,
-  answer: string,
-  answeredBy: string,
-): void {
-  const list = getProductInquiries();
-  const item = list.find((i) => i.id === id);
-  if (!item) return;
-  item.answer = answer;
-  item.answeredBy = answeredBy;
-  item.answeredAt = new Date().toISOString();
-  item.status = 'answered';
-  item.updatedAt = new Date().toISOString();
-  setJSON(PRODUCT_INQUIRIES_KEY, list);
+/** 관리자 또는 브랜드 담당자 — 답변 작성/수정. POST /api/admin/inquiries/[id]/answer.
+ *  answeredBy 는 서버가 세션 사용자 이름으로 정하므로 인자는 호출부 호환을 위해서만 남긴다. */
+export async function answerProductInquiry(id: string, answer: string): Promise<void> {
+  const response = await fetch(`/api/admin/inquiries/${encodeURIComponent(id)}/answer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answer }),
+  });
+  if (!response.ok) {
+    throw new Error('inquiry-answer-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
