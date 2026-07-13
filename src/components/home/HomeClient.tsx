@@ -334,7 +334,7 @@ export default function HomeClient({ products, brands }: { products: Product[]; 
       </section>
 
       {/* 6. 펫보험 CTA */}
-      <section className="bg-[var(--home-dark)] bg-noise home-section text-[var(--home-surface)]">
+      <section className="home-dark-cta bg-[var(--home-dark)] bg-noise home-section text-[var(--home-surface)]">
         <ScrollReveal className="home-container relative z-10">
           <div className="grid gap-10 lg:grid-cols-12 lg:items-end lg:gap-12">
             <div className="lg:col-span-7">
