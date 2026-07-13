@@ -1025,15 +1025,6 @@ export async function getProductReviewsByUser(userId: string): Promise<ProductRe
   }
 }
 
-/** 특정 주문상품에 이미 작성된 구매평. 본인 구매평 목록에서 reviewTargetKey 로 찾는다. */
-export async function getProductReviewByOrderItem(
-  userId: string,
-  reviewTargetKey: string,
-): Promise<ProductReview | undefined> {
-  const reviews = await getProductReviewsByUser(userId);
-  return reviews.find((r) => r.reviewTargetKey === reviewTargetKey);
-}
-
 /**
  * 구매평 작성. POST /api/reviews(세션 필요). 서버가 orderId 소유권을 재검증하고
  * reviewTargetKey 를 계산해 중복 작성을 막는다. 중복이면 409 → throw 로 알린다
@@ -1129,14 +1120,6 @@ export async function getAdminInquiries(): Promise<ProductInquiry[]> {
   } catch {
     return [];
   }
-}
-
-/** 브랜드별 문의(호출부가 클라이언트에서 이미 가진 목록을 좁힐 때 사용). */
-export function getProductInquiriesByBrand(
-  inquiries: ProductInquiry[],
-  brandId: string,
-): ProductInquiry[] {
-  return inquiries.filter((i) => i.brandId === brandId);
 }
 
 /** 상품문의 작성. POST /api/inquiries(세션 필요). */

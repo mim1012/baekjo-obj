@@ -80,6 +80,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
+    // 배송완료 전에는 후기 작성 불가(클라이언트 writableItems 가드와 동일 정책 — 서버에서 재확인).
+    if (order.orderStatus !== '배송완료') {
+      return NextResponse.json({ error: 'order-not-delivered' }, { status: 403 });
+    }
+
+    // 주문에 실제로 담긴 상품(+옵션)에만 후기를 붙일 수 있다(§보안 — 실구매 검증 우회 차단).
+    // orderItemId 는 아직 OrderItem 고유 id 가 없어 productId+optionName 조합으로만 대조한다.
+    const matchesOrderItem = order.items.some(
+      (item) => item.productId === validated.productId && item.optionName === validated.optionName,
+    );
+    if (!matchesOrderItem) {
+      return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+
     const product = await getProductById(validated.productId, { includeHidden: true });
     if (!product) {
       return NextResponse.json({ error: 'invalid-input' }, { status: 400 });

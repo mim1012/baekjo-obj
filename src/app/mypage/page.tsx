@@ -181,9 +181,12 @@ function MypageContent() {
     }
   };
 
-  const handleDeleteReview = (id: string) => {
-    if (confirm('구매평을 삭제하시겠습니까?')) {
-      deleteProductReview(id, user.id);
+  const handleDeleteReview = async (id: string) => {
+    if (!confirm('구매평을 삭제하시겠습니까?')) return;
+    try {
+      await deleteProductReview(id, user.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '구매평 삭제에 실패했습니다.');
     }
   };
 
@@ -203,9 +206,12 @@ function MypageContent() {
     }
   };
 
-  const handleDeleteInquiry = (id: string) => {
-    if (confirm('상품문의를 삭제하시겠습니까?')) {
-      deleteProductInquiry(id, user.id);
+  const handleDeleteInquiry = async (id: string) => {
+    if (!confirm('상품문의를 삭제하시겠습니까?')) return;
+    try {
+      await deleteProductInquiry(id, user.id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '상품문의 삭제에 실패했습니다.');
     }
   };
 
