@@ -244,14 +244,21 @@ export async function cancelReservationAndRestore(id: string): Promise<boolean> 
 }
 
 /**
- * '승인중' 주문 취소 + 재고 복원(0026 rpc). confirm 거절(402)·reconcile(토스=CANCELED 등)·webhook
- * 전용 — WHERE payment_status='승인중'이라 cancelReservationAndRestore(0024, WHERE '결제대기')와
- * 상호배타적이다. 같은 주문이 두 함수 모두에서 true를 반환할 수 없다(한 시점엔 둘 중 한 상태만 가능).
- * 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리됐거나 승인중이 아니라 no-op.
+ * '승인중' 주문 취소 + 재고 복원(0028 rpc — payment_key 바인딩판). confirm 거절(402)·
+ * reconcile(토스=CANCELED 등)·webhook 전용 — WHERE payment_status='승인중' AND payment_key=?이라
+ * cancelReservationAndRestore(0024, WHERE '결제대기')와 상호배타적이다. 같은 주문이 두 함수
+ * 모두에서 true를 반환할 수 없다(한 시점엔 둘 중 한 상태만 가능).
+ * ⚠️ paymentKey는 호출부가 "이 시점에 취소하려던 바로 그 승인 시도"의 키를 넘겨야 한다
+ * (decide.ts의 PaymentAction.restoreConfirming.paymentKey가 그 증거다) — 0026(1-인자 버전, DB에는
+ * 남아있으나 이 리포는 더 이상 호출하지 않음)은 payment_key를 보지 않아, 경합 중 다른 paymentKey로
+ * 새 claim이 이미 발급된 주문을 옛 취소 신호가 잘못 복원시킬 수 있었다(codex HIGH 지적).
+ * 반환 true = 이번 호출이 취소·복원을 수행함, false = 이미 처리됐거나 승인중이 아니거나
+ * payment_key가 다르면 no-op.
  */
-export async function cancelConfirmingAndRestore(id: string): Promise<boolean> {
+export async function cancelConfirmingAndRestore(id: string, paymentKey: string): Promise<boolean> {
   const { data, error } = await getSupabase().rpc('cancel_confirming_and_restore', {
     p_order_id: id,
+    p_payment_key: paymentKey,
   });
   if (error) throw new Error(error.message);
   return data === true;

@@ -1,17 +1,17 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   listOrphanedConfirmingOrders,
-  setOrderPaid,
   cancelConfirmingAndRestore,
   recordReclaimAttempt,
   markReclaimDead,
 } from '@/lib/orders/repo';
 import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { decidePaymentAction } from '@/lib/payments/decide';
+import { applyPaymentAction } from '@/lib/payments/execute';
 import { logServerError } from '@/lib/logServerError';
 
 // recordReclaimAttempt 임계치 — reclaim-stock cron(U7)과 동일 상수(dead-letter 판정 기준).
 const MAX_RECLAIM_ATTEMPTS = 5;
-const RESTORABLE_TOSS_STATUSES = new Set(['CANCELED', 'EXPIRED', 'ABORTED']);
 
 /**
  * GET /api/cron/reconcile-confirming — Vercel Cron 전용(5분 주기, reclaim-stock과 동일한
@@ -84,9 +84,8 @@ export async function GET(request: NextRequest) {
       const tossResult = await queryTossPayment(order.paymentKey);
       const expectedAmount = order.totalPrice + order.deliveryFee;
 
-      // 신원 바인딩 — 라이브 confirm 라우트의 ④-b 검증과 대칭이 되게, 조회 결과를 쓰기 전에
-      // orderId·paymentKey가 우리가 물어본 대상과 정확히 일치하는지 확인한다. 하나라도 어긋나면
-      // DONE이든 CANCELED든 신뢰할 수 없으므로 확정도 취소도 하지 않고 불명 처리한다.
+      // 신원 바인딩 — 조회 결과를 쓰기 전에 orderId·paymentKey가 물어본 대상과 일치하는지 확인.
+      // 하나라도 어긋나면 DONE이든 CANCELED든 신뢰할 수 없으므로 확정도 취소도 하지 않는다.
       const identityMatches = tossResult.orderId === order.id && tossResult.paymentKey === order.paymentKey;
       if (!identityMatches) {
         logServerError(
@@ -99,22 +98,36 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      if (tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount) {
-        const affected = await setOrderPaid(order.id, {
-          paymentKey: order.paymentKey,
-          paidAt: new Date().toISOString(),
-        });
-        if (affected > 0) confirmed += 1;
+      const action = decidePaymentAction(
+        order,
+        { kind: 'authoritative', payment: { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount } },
+        tossResult.paymentKey,
+        'reconcile',
+      );
+
+      if (action.kind === 'confirm') {
+        const result = await applyPaymentAction(action, order.id, order.paymentKey);
+        if (result.applied === 'confirm' && result.affected > 0) {
+          confirmed += 1;
+        } else if (result.applied === 'confirm') {
+          // 안전한 쪽 통일 — setOrderPaid 0행을 조용히 넘기지 않고 로그+카운터(webhook과 대칭).
+          logServerError(
+            `[GET /api/cron/reconcile-confirming] setOrderPaid 0행(경합으로 이미 처리됐거나 WHERE 불일치) orderId=${order.id} paymentKey=${order.paymentKey}`,
+            {},
+          );
+          skipped += 1;
+        }
         continue;
       }
 
-      if (RESTORABLE_TOSS_STATUSES.has(tossResult.status)) {
-        const didRestore = await cancelConfirmingAndRestore(order.id);
-        if (didRestore) restored += 1;
+      if (action.kind === 'restoreConfirming') {
+        const result = await applyPaymentAction(action, order.id);
+        if (result.applied === 'restore' && result.restored) restored += 1;
         continue;
       }
 
-      // 토스=DONE인데 금액 불일치, 혹은 알 수 없는 status — 불명 취급, 절대 취소하지 않는다.
+      // settled/ignore/retryLater/proceedToClaim — 승인중 주문만 순회하므로(listOrphanedConfirmingOrders)
+      // 정상 흐름이면 도달하지 않는다. 방어적으로 불명 취급.
       logServerError(
         `[GET /api/cron/reconcile-confirming] 승인중 주문 재조회 결과 불명 orderId=${order.id} ` +
           `tossStatus=${tossResult.status} tossAmount=${tossResult.totalAmount} expected=${expectedAmount}`,
@@ -124,9 +137,12 @@ export async function GET(request: NextRequest) {
       skipped += 1;
     } catch (error) {
       if (error instanceof TossConfirmError && error.httpStatus === 404) {
-        // 토스에 결제 기록 자체가 없음 — 실제로 결제가 일어나지 않은 것으로 간주해 복원.
+        // 토스에 결제 기록 자체가 없음 — 결제가 일어나지 않은 것으로 간주해 복원.
+        // ★decide.ts 네 관찰 종류 중 어디에도 안 맞는다 — reconcile 자기 신뢰값(order.paymentKey)
+        // 으로 물어 얻은 명확한 부재 신호라 unknown이 아니다. webhook은 신뢰 못 할 페이로드의
+        // 같은 404에서 절대 복원하지 않는 것과 대칭적으로 다르다(의도된 차이).
         try {
-          const didRestore = await cancelConfirmingAndRestore(order.id);
+          const didRestore = await cancelConfirmingAndRestore(order.id, order.paymentKey);
           if (didRestore) restored += 1;
         } catch (restoreError) {
           logServerError(`[GET /api/cron/reconcile-confirming] 404 복원 실패 orderId=${order.id}`, restoreError);

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { q, stockOf, orderRow, supabaseEnvReady } from './helpers';
+import { q, stockOf, orderRow, supabaseEnvReady, fixtureId, sweepStaleFixtures } from './helpers';
 
 // 결제 라우트 통합 스펙 — 실제 프리뷰 배포(staging DB 연결) 대상 API 테스트. 브라우저 불필요.
 // 승격 출처: wave1-preview-integration-test.mjs (PR#23 프리뷰에서 22 PASS 확인됨).
@@ -9,6 +9,14 @@ const BASE = process.env.PAYMENTS_PREVIEW_URL ?? '';
 
 test.skip(!supabaseEnvReady(), 'SUPABASE_URL/SUPABASE_ACCESS_TOKEN 미설정 — staging DB 스펙 skip');
 test.skip(!BASE, 'PAYMENTS_PREVIEW_URL 미설정 — 결제 라우트가 배포된 프리뷰 URL이 없어 skip');
+
+// 모든 픽스처 id/customer_name/paymentKey는 fixtureId()로 실행 스코프 고유값을 쓴다(helpers.ts
+// 참고) — 고정 ID를 공유 staging DB에 쓰면 로컬↔CI 또는 여러 PR의 CI가 겹칠 때 서로의 재고를
+// 소진시키거나 orders.payment_key의 0022 unique 제약과 충돌한다(payments-db-spec CI 사고 실측).
+// ★supabaseEnvReady() 가드 필수 — playwright는 test.skip 여부와 무관하게 스펙 파일을 import해
+// 최상위 코드를 실행한다. 가드가 없으면 SUPABASE_URL 미설정 환경(로컬 등)에서도 빈 프로젝트 ref로
+// api.supabase.com에 실제 네트워크 요청이 나간다.
+if (supabaseEnvReady()) void sweepStaleFixtures().catch(() => {});
 
 type ApiResponseBody = { order?: { id?: string }; id?: string } & Record<string, unknown>;
 
@@ -37,8 +45,9 @@ async function callApi(path: string, body?: unknown) {
 // 즉 claim이 한 번 발생한 주문은 이 공개 API 표면으로는 더 이상 취소할 수 없다 — 그래서 아래
 // "취소/재확인/멱등" 시나리오(옛 [4]~[6])는 claim을 겪지 않은 별도 주문(order-B)으로 분리했다.
 test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔존) (프리뷰 통합)', () => {
-  const P = '__test_route_wave1_p1';
-  const CUSTOMER = '__test_route_wave1';
+  const P = fixtureId('route_wave1_p1');
+  const CUSTOMER = fixtureId('route_wave1');
+  const TK_A = fixtureId('tk_route_a');
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,
@@ -77,7 +86,7 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
   test('금액을 조작하면 claim 이전(토스 호출 전)에 400으로 차단한다', async () => {
     // route.ts ②(금액검증)가 ③-b(claim)보다 먼저라 이 요청은 claim을 트리거하지 않는다 — 주문은
     // 여전히 결제대기.
-    const res = await callApi('/api/payments/confirm', { paymentKey: 'tk_route_a', orderId, amount: 99999 });
+    const res = await callApi('/api/payments/confirm', { paymentKey: TK_A, orderId, amount: 99999 });
     expect(res.status).toBe(400);
     expect((await orderRow(orderId)).payment_status).toBe('결제대기');
     expect(await stockOf(P)).toBe(3);
@@ -89,7 +98,7 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
     // 않는다 — 토스가 이미 캡처했을 가능성을 배제할 수 없기 때문(route.ts 불명 분기 주석).
     // 따라서 주문은 결제대기가 아니라 "승인중"에 남는다 — 이 잔존 상태의 최종 정리는 이 라우트가
     // 아니라 reclaim-stock cron의 dead-letter 대사(0026) 몫이다.
-    const res = await callApi('/api/payments/confirm', { paymentKey: 'tk_route_a', orderId, amount: 5000 });
+    const res = await callApi('/api/payments/confirm', { paymentKey: TK_A, orderId, amount: 5000 });
     expect(res.status).toBe(502);
     expect((await orderRow(orderId)).payment_status).toBe('승인중');
     expect(await stockOf(P)).toBe(3); // claim은 재고를 건드리지 않고, 이 분기는 복원도 하지 않는다
@@ -101,8 +110,9 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
 // 이 시나리오들이 모두 무의미하게 실패/스킵된다(2026-07-13 team-lead 지적: serial 1건 실패 시 5건
 // 미실행). order-A/product 재고와 독립적으로 동작하도록 별도 product(Q)를 쓴다.
 test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실행 주문, 프리뷰 통합)', () => {
-  const Q = '__test_route_wave1_q1';
-  const CUSTOMER = '__test_route_wave1_cancel';
+  const Q = fixtureId('route_wave1_q1');
+  const CUSTOMER = fixtureId('route_wave1_cancel');
+  const TK_B = fixtureId('tk_route_b');
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,
@@ -141,7 +151,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
   });
 
   test('취소된 주문의 confirm은 409로 거부되고 토스를 호출하지 않는다', async () => {
-    const res = await callApi('/api/payments/confirm', { paymentKey: 'tk_route_b', orderId, amount: 4000 });
+    const res = await callApi('/api/payments/confirm', { paymentKey: TK_B, orderId, amount: 4000 });
     expect(res.status).toBe(409);
     expect(await stockOf(Q)).toBe(5);
   });
@@ -159,8 +169,8 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (claim 미실
 // 독립 실행해 같은 product id를 동시에 insert하려다 23505 duplicate key로 충돌했다(1회 flaky
 // 실측). cron 테스트는 상품 픽스처가 전혀 필요 없으므로 아예 분리해 이 경합을 구조적으로 없앤다.)
 test.describe('결제 라우트 — 오버셀 (독립 시나리오, 프리뷰 통합)', () => {
-  const R = '__test_route_wave1_r1';
-  const CUSTOMER = '__test_route_wave1_oversell';
+  const R = fixtureId('route_wave1_r1');
+  const CUSTOMER = fixtureId('route_wave1_oversell');
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,

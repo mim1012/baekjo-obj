@@ -6,10 +6,19 @@ name: visual (골든플로우 시각 회귀)
 on:
   deployment_status:
 
-# 동일 SHA 중복 deployment_status 이벤트로 인한 중복 실행 방지
+# payments-routes.yml과 동일 그룹 키를 공유해 같은 프리뷰(=같은 staging DB)를 대상으로 하는 두
+# 워크플로가 절대 동시에 돌지 않고 큐잉되어 순차 실행되게 한다. 이유: 결제 라우트 스펙
+# (payment-routes.spec.ts)이 staging DB에 합성 상품(주문 생성을 위해 is_visible=true 필수 — 비노출
+# 상품 주문은 정책상 차단, src/app/api/orders/route.ts)을 만드는데, 이게 같은 DB를 스크린샷하는
+# 이 워크플로와 겹치면 그 합성 상품이 /shop 시각 회귀에 찍혀 오탐이 난다(실측: PR #32, /shop 데스크톱
+# 4% diff).
+# cancel-in-progress: false 필수 — 같은 그룹에서 true면 나중 워크플로가 상대를 취소해버려 required
+# check(visual)가 영영 안 돌고 머지가 막힌다. 트레이드오프: 기존 cancel-in-progress: true가 노리던
+# "동일 SHA 중복 deployment_status 이벤트 중복 실행 방지"는 약해진다(중복 이벤트가 취소 대신 큐잉돼
+# 중복 실행된다). 대신 두 워크플로가 절대 겹치지 않는다 — 시각 회귀 오탐이 더 비싼 문제라 이 교환이 옳다.
 concurrency:
-  group: visual-${{ github.event.deployment.sha }}
-  cancel-in-progress: true
+  group: preview-db-${{ github.event.deployment.sha }}
+  cancel-in-progress: false
 
 jobs:
   visual:
