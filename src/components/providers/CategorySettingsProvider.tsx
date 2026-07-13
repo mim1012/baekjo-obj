@@ -10,7 +10,7 @@ export { defaultCategorySettings } from '@/lib/categorySettings/config';
 
 interface CategorySettingsContextType {
   categorySettings: CategorySettings;
-  updateCategorySettings: (newSettings: CategorySettings) => Promise<boolean>;
+  updateCategorySettings: (newSettings: CategorySettings) => Promise<{ ok: boolean, error?: string }>;
 }
 
 export const CategorySettingsContext = createContext<CategorySettingsContextType | undefined>(undefined);
@@ -39,30 +39,31 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
     };
   }, []);
 
-  // 낙관적 갱신: 화면(관리자 편집)은 즉시 반영하고, DB 저장 성공 여부는 Promise<boolean> 으로
-  // 반환한다 — 호출부(admin/products/page.tsx)가 실패 시 사용자에게 알릴 수 있도록.
-  const updateCategorySettings = (newSettings: CategorySettings): Promise<boolean> => {
+  // 낙관적 갱신: 화면(관리자 편집)은 즉시 반영하고, DB 저장 성공 여부를 포함해 반환한다.
+  const updateCategorySettings = async (newSettings: CategorySettings): Promise<{ ok: boolean, error?: string }> => {
     userWrote.current = true;
     const prev = categorySettings;
     setCategorySettings(newSettings);
-    return fetch('/api/admin/category-settings', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newSettings),
-    })
-      .then((res) => {
-        if (!res.ok) {
-          console.error('Failed to save category settings to DB', res.status);
-          setCategorySettings(prev);
-          return false;
-        }
-        return true;
-      })
-      .catch((e) => {
-        console.error('Failed to save category settings to /api/admin/category-settings', e);
-        setCategorySettings(prev);
-        return false;
+    
+    try {
+      const res = await fetch('/api/admin/category-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newSettings),
       });
+      
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error('Failed to save category settings to DB', res.status, errData);
+        setCategorySettings(prev);
+        return { ok: false, error: errData.message || '카테고리 저장에 실패했습니다.' };
+      }
+      return { ok: true };
+    } catch (e) {
+      console.error('Failed to save category settings to /api/admin/category-settings', e);
+      setCategorySettings(prev);
+      return { ok: false, error: '카테고리 저장에 실패했습니다.' };
+    }
   };
 
   return (
@@ -75,7 +76,7 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
 export function useCategorySettings() {
   const context = useContext(CategorySettingsContext);
   if (context === undefined) {
-    return { categorySettings: defaultCategorySettings, updateCategorySettings: () => Promise.resolve(false) };
+    return { categorySettings: defaultCategorySettings, updateCategorySettings: () => Promise.resolve({ ok: false, error: 'Context not found' }) };
   }
   return context;
 }

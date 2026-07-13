@@ -1,4 +1,4 @@
-import { Brand, ConfirmedOrderSummary, InsuranceApplication, Order, Product, User } from '@/types';
+import { Brand, InsuranceApplication, Order, Product, User, AdminDashboardSummary } from '@/types';
 import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
@@ -188,9 +188,6 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     body: JSON.stringify(input),
   });
   if (response.status !== 201) {
-    if (response.status === 409) {
-      throw new Error('out-of-stock');
-    }
     throw new Error('order-create-failed');
   }
   const { order } = (await response.json()) as { order: Order };
@@ -265,9 +262,7 @@ export async function getLastOrder(): Promise<Order | null> {
  */
 export async function updateOrderStatus(
   id: string,
-  updates: Partial<
-    Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
-  >,
+  updates: Partial<Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber'>>,
 ): Promise<void> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
     method: 'PATCH',
@@ -276,104 +271,6 @@ export async function updateOrderStatus(
   });
   if (!response.ok) {
     throw new Error('order-update-failed');
-  }
-}
-
-/**
- * 토스 결제 승인 확정(수동 재확인용). R4 이전에는 successUrl(order-complete)이 이 함수를
- * 직접 호출해 승인을 오케스트레이션했으나, 지금은 successUrl이 GET /api/payments/return(서버)을
- * 가리켜 서버가 승인을 끝낸 뒤 결과만 리다이렉트로 넘긴다 — 그래서 이 함수는 현재 어떤 화면에서도
- * 호출되지 않는다(콘센트로 삭제하지 않고 남겨둠: POST /api/payments/confirm 라우트 자체는 웹훅
- * 없이도 사람이 수동으로 재확인할 수 있는 안전판으로 의도적으로 유지되고 있고, 이 함수가 그 유일한
- * 클라이언트 접근 경로이기 때문이다 — 라우트만 남기고 이 래퍼를 지우면 사실상 curl 전용이 된다).
- * 서버가 DB 총액과 amount를 대조 후 토스에 승인 요청 → setOrderPaid로 조건부 확정한다
- * (§ 이중승인 방어). amount는 클라이언트 쿼리값을 신뢰하지 않고 서버가 재검증한다.
- * 반환 order는 전체 Order가 아니라 ConfirmedOrderSummary(가산 타입) — 무인증 공개
- * 엔드포인트라 서버가 customerName/phone/address/items 같은 PII를 내려주지 않는다.
- */
-export async function confirmTossPayment(payment: {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-}): Promise<{ ok: true; order: ConfirmedOrderSummary } | { ok: false; error: string }> {
-  try {
-    const response = await fetch('/api/payments/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payment),
-    });
-    // 200(진짜 승인 확정)만 성공으로 본다 — 202(payment-confirming)는 response.ok 범위(200-299)에
-    // 들어가지만 바디에 order가 없어(라우트가 {error:'payment-confirming'}만 반환) ok:true로
-    // 잘못 흡수되면 호출부가 undefined order를 승인완료로 오인한다. 실패/확인중 응답은 바디의
-    // error 코드를 그대로 전달해 호출부가 402/409/502/'payment-confirming' 등을 구분하게 한다.
-    // 서버가 error 필드를 안 준 경우(예상 밖 응답 형태)에만 폴백한다. 502/503은 라우트 자체가
-    // 아니라 그 앞단 인프라(Vercel/프록시 게이트웨이)가 논-JSON 에러 페이지를 내려줄 수 있어,
-    // 그런 경우엔 라우트가 원래 의도하는 'payment-unconfirmed'(재시도 가능·취소 안 함)로
-    // 매핑해 완전히 낯선 502/503까지 거부성 실패로 잘못 분류되지 않게 한다.
-    if (response.status !== 200) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (body?.error) {
-        return { ok: false, error: body.error };
-      }
-      if (response.status === 502 || response.status === 503) {
-        return { ok: false, error: 'payment-unconfirmed' };
-      }
-      return { ok: false, error: 'payment-confirm-failed' };
-    }
-    const { order } = (await response.json()) as { order: ConfirmedOrderSummary };
-    return { ok: true, order };
-  } catch {
-    // fetch 자체가 throw(오프라인·CORS·타임아웃 등) — 서버가 뭘 했는지 전혀 알 수 없는 네트워크
-    // 예외다. 'payment-confirm-failed'(거부성 실패)와 구분해 호출부가 502(불명·재시도 가능)와
-    // 같은 "지연" UX로 흡수하도록 별도 코드로 반환한다.
-    return { ok: false, error: 'network' };
-  }
-}
-
-export type PaymentStatusResult =
-  | { kind: 'ok'; paymentStatus: string; orderStatus: string }
-  | { kind: 'rate-limited' }
-  | { kind: 'error' };
-
-/**
- * 결제 상태 읽기 전용 폴링(R4 라운드2·라운드3). GET /api/payments/status — order-complete의
- * pending/unconfirmed 화면이 승인 완료 여부를 확인하는 데 쓴다. 변이 없음(claim·confirm·
- * 취소 어느 것도 호출하지 않음) — 승인 판정 권위는 여전히 서버(webhook/reconcile/return
- * 라우트)에만 있고, 이 함수는 그 결과가 DB에 반영되길 기다렸다가 읽기만 한다.
- * ★429(레이트리밋)를 'error'로 뭉뚱그리지 않고 'rate-limited'로 구분해 반환한다(opus 최종
- * 재검증 LOW) — 예전엔 !response.ok를 전부 null로 흡수해서, 레이트리밋에 걸려도 화면이
- * 아무 말 없이 "확인 중"만 보여주는 조용한 실패였다. 호출부가 이 구분으로 사용자에게
- * "요청이 많다"고 안내할 수 있게 한다.
- */
-export async function getPaymentStatus(orderId: string): Promise<PaymentStatusResult> {
-  try {
-    const response = await fetch(`/api/payments/status?orderId=${encodeURIComponent(orderId)}`);
-    if (response.status === 429) return { kind: 'rate-limited' };
-    if (!response.ok) return { kind: 'error' };
-    const body = (await response.json()) as { paymentStatus: string; orderStatus: string };
-    return { kind: 'ok', paymentStatus: body.paymentStatus, orderStatus: body.orderStatus };
-  } catch {
-    return { kind: 'error' };
-  }
-}
-
-/**
- * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
- * 서버가 실제로 결제 안 됐음을 확인한 선점 주문만 취소·재고복원한다(확정건은 no-op).
- * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
- * ★200만 성공으로 본다(R4 최종 라운드) — 202(cancel-pending)는 response.ok 범위(200~299)에
- * 들어가지만 "과도기 상태·조회 불명이라 이번 요청에선 취소하지 않았다"는 뜻이다. 여기서 성공으로
- * 흡수하면 호출부(checkout의 fail 핸들러)가 아직 확정 중이거나 대사가 안 끝난 주문을 취소된
- * 것으로 오인해 pending 표식을 지우고 "결제가 취소되었습니다"라고 거짓 안내할 수 있다.
- */
-export async function cancelReservation(orderId: string): Promise<void> {
-  const response = await fetch('/api/payments/cancel', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderId }),
-  });
-  if (response.status !== 200) {
-    throw new Error('reservation-cancel-failed');
   }
 }
 
@@ -396,23 +293,6 @@ export async function getPublicProducts(filter?: {
     if (filter?.petType) params.set('petType', filter.petType);
     const query = params.toString();
     const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
-    if (!response.ok) return [];
-    const { products } = (await response.json()) as { products: Product[] };
-    return products;
-  } catch {
-    return [];
-  }
-}
-
-/**
- * 내 과거 주문 이력에 등장한 상품(비노출 상품 포함). GET /api/orders/mine/products
- * (세션 필요). 관리자가 상품을 숨겨도 이미 구매한 회원의 마이페이지에서는 상품명·
- * 이미지가 계속 보여야 하므로 getPublicProducts 와 별도로 둔다. 실패·비로그인 시
- * getMyOrders 와 동일하게 빈 배열.
- */
-export async function getMyHistoryProducts(): Promise<Product[]> {
-  try {
-    const response = await fetch('/api/orders/mine/products');
     if (!response.ok) return [];
     const { products } = (await response.json()) as { products: Product[] };
     return products;
@@ -516,91 +396,11 @@ export async function updateProduct(
   }
 }
 
-/** 상품 삭제. DELETE /api/admin/products/[id]. 409는 'product-has-history'로 구분해
- *  호출부가 "숨김 처리하라"는 안내를 띄울 수 있게 한다(리뷰/문의가 남은 상품은 삭제 불가 — 0029). */
+/** 상품 삭제. DELETE /api/admin/products/[id]. */
 export async function deleteProduct(id: string): Promise<{ ok?: true; error?: string }> {
   try {
     const response = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (response.status === 409) return { error: 'product-has-history' };
     if (!response.ok) return { error: 'network' };
-    return { ok: true };
-  } catch {
-    return { error: 'network' };
-  }
-}
-
-/**
- * 파트너/관리자 본인 관리 브랜드의 상품 목록(비노출 포함). GET /api/partner/products.
- * 실패를 error로 구분해 반환한다 — 호출부(BrandProductsClient)가 실패를 빈 배열과 혼동해
- * 기존에 보여주던 목록을 조용히 비우지 않도록(§4) getAdminProducts와 다르게 설계했다.
- */
-export async function getPartnerProducts(
-  brandId: string,
-): Promise<{ products?: Product[]; error?: string }> {
-  try {
-    const response = await fetch(`/api/partner/products?brandId=${encodeURIComponent(brandId)}`);
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      return { error: data?.error ?? 'network' };
-    }
-    const { products } = (await response.json()) as { products: Product[] };
-    return { products };
-  } catch {
-    return { error: 'network' };
-  }
-}
-
-/** 파트너/관리자 상품 생성. POST /api/partner/products. */
-export async function createPartnerProduct(
-  input: CreateProductInput,
-): Promise<{ product?: Product; error?: string }> {
-  try {
-    const response = await fetch('/api/partner/products', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    });
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      return { error: data?.error ?? 'network' };
-    }
-    const { product } = (await response.json()) as { product: Product };
-    return { product };
-  } catch {
-    return { error: 'network' };
-  }
-}
-
-/** 파트너/관리자 상품 수정. PATCH /api/partner/products/[id]. */
-export async function updatePartnerProduct(
-  id: string,
-  updates: UpdateProductInput,
-): Promise<{ product?: Product; error?: string }> {
-  try {
-    const response = await fetch(`/api/partner/products/${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates),
-    });
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      return { error: data?.error ?? 'network' };
-    }
-    const { product } = (await response.json()) as { product: Product };
-    return { product };
-  } catch {
-    return { error: 'network' };
-  }
-}
-
-/** 파트너/관리자 상품 삭제. DELETE /api/partner/products/[id]. */
-export async function deletePartnerProduct(id: string): Promise<{ ok?: true; error?: string }> {
-  try {
-    const response = await fetch(`/api/partner/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      return { error: data?.error ?? 'network' };
-    }
     return { ok: true };
   } catch {
     return { error: 'network' };
@@ -1079,224 +879,80 @@ export function isAdmin(): boolean {
   return getCurrentUser()?.role === 'admin';
 }
 
-/* ── 공통 유틸 ─────────────────────────────────── */
+export type AdminDashboardResult =
+  | {
+      ok: true;
+      data: AdminDashboardSummary;
+    }
+  | {
+      ok: false;
+      status: number;
+      message: string;
+    };
 
-/** 주문상품의 안정적인 복합 키 생성 (OrderItem에 고유 id가 없으므로) */
-export function buildReviewTargetKey(
-  orderId: string,
-  productId: string,
-  optionName?: string,
-): string {
-  return `${orderId}:${productId}:${optionName ?? 'default'}`;
-}
-
-/** 입점업체 브랜드 관리 권한 확인 (목업 수준) */
-export function canManageBrand(user: User, brandId: string): boolean {
-  if (user.role === 'admin') return true;
-  return user.role === 'partner' && (user.managedBrandIds?.includes(brandId) ?? false);
-}
-
-/* ── localStorage 같은 탭 동기화 ─────────────── */
-
-export const STORAGE_EVENTS = {
-  REVIEWS_CHANGED: 'product-reviews-changed',
-  INQUIRIES_CHANGED: 'product-inquiries-changed',
-} as const;
-
-function emitStorageEvent(eventName: string): void {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(eventName));
-  }
-}
-
-/* ── 사용자 작성 구매평 CRUD ─────────────────────────────────
- * DB 전환(be/reviews-inquiries-db) — localStorage 대신 /api/reviews·/api/products/[id]/reviews
- * 를 읽고 쓴다. 콘센트 시그니처는 이름을 유지하되 전부 async 로 바뀌었다(contract-change).
- * 실패는 orders/products 콘센트와 동일하게 빈 배열/undefined 로 접고, 쓰기 실패는 throw 한다.
- */
-
-import type { ProductReview, ProductInquiry } from '@/types';
-
-/** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
-export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
+export async function getAdminDashboardSummary(): Promise<AdminDashboardResult> {
   try {
-    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`);
-    if (!response.ok) return [];
-    const { reviews } = (await response.json()) as { reviews: ProductReview[] };
-    return reviews;
+    const response = await fetch('/api/admin/dashboard');
+    if (!response.ok) {
+      return { ok: false, status: response.status, message: 'network-error' };
+    }
+    const data = (await response.json()) as AdminDashboardSummary;
+    return { ok: true, data };
   } catch {
-    return [];
+    return { ok: false, status: 500, message: 'network-error' };
   }
 }
-
-/** 본인 구매평 전체(hidden 포함). GET /api/reviews/mine(세션 필요). 실패 시 빈 배열. */
-export async function getProductReviewsByUser(userId: string): Promise<ProductReview[]> {
-  try {
-    const response = await fetch('/api/reviews/mine');
-    if (!response.ok) return [];
-    const { reviews } = (await response.json()) as { reviews: ProductReview[] };
-    return reviews.filter((r) => r.userId === userId);
-  } catch {
-    return [];
-  }
+export interface AdminImageUploadInput {
+  file: File;
+  domain: 'product' | 'brand' | 'banner';
+  usage: 'main' | 'gallery' | 'detail' | 'logo' | 'cover' | 'hero';
+  entityId?: string;
+  draftId?: string;
 }
 
-/**
- * 구매평 작성. POST /api/reviews(세션 필요). 서버가 orderId 소유권을 재검증하고
- * reviewTargetKey 를 계산해 중복 작성을 막는다. 중복이면 409 → throw 로 알린다
- * (호출부가 기존 duplicated-review 문구로 catch 하던 동작 보존).
- */
-export async function addProductReview(
-  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { optionName?: string },
-): Promise<ProductReview> {
-  const response = await fetch('/api/reviews', {
+export interface AdminImageUploadResult {
+  path: string;
+  publicUrl: string;
+  bucket: string;
+}
+
+export async function uploadAdminImage(
+  input: AdminImageUploadInput
+): Promise<AdminImageUploadResult> {
+  const formData = new FormData();
+  formData.append('file', input.file);
+  formData.append('domain', input.domain);
+  formData.append('usage', input.usage);
+  if (input.entityId) formData.append('entityId', input.entityId);
+  if (input.draftId) formData.append('draftId', input.draftId);
+
+  const response = await fetch('/api/admin/upload', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
+    body: formData,
   });
-  if (response.status === 409) {
-    throw new Error('이미 구매평을 작성한 주문상품입니다.');
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'upload-failed');
   }
-  if (response.status !== 201) {
-    throw new Error('review-create-failed');
-  }
-  const { review } = (await response.json()) as { review: ProductReview };
-  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
-  return review;
+
+  return data as AdminImageUploadResult;
 }
 
-/** 본인 구매평 수정. PATCH /api/reviews/[id](세션 필요, 소유자만). */
-export async function updateProductReview(
-  id: string,
-  userId: string,
-  updates: Partial<Pick<ProductReview, 'rating' | 'title' | 'content'>>,
-): Promise<void> {
-  const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
+export async function deleteTemporaryAdminImage(
+  path: string
+): Promise<{ deleted: boolean; reason: string }> {
+  const params = new URLSearchParams();
+  params.append('path', path);
+
+  const response = await fetch(`/api/admin/upload?${params.toString()}`, {
+    method: 'DELETE',
   });
+
+  const data = await response.json();
   if (!response.ok) {
-    throw new Error('review-update-failed');
+    throw new Error(data.error || 'delete-failed');
   }
-  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
-}
 
-/** 본인 구매평 삭제. DELETE /api/reviews/[id](세션 필요, 소유자만). */
-export async function deleteProductReview(id: string, _userId: string): Promise<void> {
-  const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new Error('review-delete-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
-}
-
-/** 관리자 전용 — 노출 상태 변경. PATCH /api/admin/reviews/[id]. */
-export async function setProductReviewStatus(id: string, status: 'published' | 'hidden'): Promise<void> {
-  const response = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (!response.ok) {
-    throw new Error('review-status-update-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
-}
-
-/* ── 사용자 작성 상품문의 CRUD ─────────────────────────────── */
-
-/** 특정 상품의 문의 전체(비밀글 포함 — content/answer 는 서버가 열람 권한에 따라 redaction).
- *  GET /api/products/[id]/inquiries(공개). 실패 시 빈 배열. */
-export async function getProductInquiriesByProduct(productId: string): Promise<ProductInquiry[]> {
-  try {
-    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/inquiries`);
-    if (!response.ok) return [];
-    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
-    return inquiries;
-  } catch {
-    return [];
-  }
-}
-
-/** 본인 문의 전체. GET /api/inquiries/mine(세션 필요). 실패 시 빈 배열. */
-export async function getProductInquiriesByUser(userId: string): Promise<ProductInquiry[]> {
-  try {
-    const response = await fetch('/api/inquiries/mine');
-    if (!response.ok) return [];
-    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
-    return inquiries.filter((i) => i.userId === userId);
-  } catch {
-    return [];
-  }
-}
-
-/** 관리자/파트너 문의 목록. GET /api/admin/inquiries(관리자·파트너 세션 필요). 실패 시 빈 배열.
- *  서버가 admin 은 전체, partner 는 자기 브랜드로(TODO(RBAC) 반영 전까지는 빈 배열) 필터링한다. */
-export async function getAdminInquiries(): Promise<ProductInquiry[]> {
-  try {
-    const response = await fetch('/api/admin/inquiries');
-    if (!response.ok) return [];
-    const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
-    return inquiries;
-  } catch {
-    return [];
-  }
-}
-
-/** 상품문의 작성. POST /api/inquiries(세션 필요). */
-export async function addProductInquiry(
-  input: Omit<ProductInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
-): Promise<ProductInquiry> {
-  const response = await fetch('/api/inquiries', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(input),
-  });
-  if (response.status !== 201) {
-    throw new Error('inquiry-create-failed');
-  }
-  const { inquiry } = (await response.json()) as { inquiry: ProductInquiry };
-  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
-  return inquiry;
-}
-
-/** 본인 문의 수정(답변완료 후에는 서버가 반영하지 않는다). PATCH /api/inquiries/[id]. */
-export async function updateProductInquiry(
-  id: string,
-  userId: string,
-  updates: Partial<Pick<ProductInquiry, 'title' | 'content' | 'isSecret'>>,
-): Promise<void> {
-  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(updates),
-  });
-  if (!response.ok) {
-    throw new Error('inquiry-update-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
-}
-
-/** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
-export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
-  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!response.ok) {
-    throw new Error('inquiry-delete-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
-}
-
-/** 관리자 또는 브랜드 담당자 — 답변 작성/수정. POST /api/admin/inquiries/[id]/answer.
- *  answeredBy 는 서버가 세션 사용자 이름으로 정하므로 인자는 호출부 호환을 위해서만 남긴다. */
-export async function answerProductInquiry(id: string, answer: string): Promise<void> {
-  const response = await fetch(`/api/admin/inquiries/${encodeURIComponent(id)}/answer`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ answer }),
-  });
-  if (!response.ok) {
-    throw new Error('inquiry-answer-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+  return data as { deleted: boolean; reason: string };
 }

@@ -14,8 +14,23 @@ export interface CategorySettings {
 }
 
 export const defaultCategorySettings: CategorySettings = {
-  productCategories: ['사료', '간식', '영양제', '위생용품', '생활용품', '장난감', '산책용품', '미용용품'],
-  lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
+  productCategories: [
+    '식사와 영양',
+    '건강과 케어',
+    '구강과 위생',
+    '그루밍과 브러싱',
+    '생활과 오브제',
+    '패션과 액세서리',
+    '놀이와 활동',
+    '기록과 소품',
+  ],
+  lifestyleCategories: [
+    '초보집사 필수품',
+    '노령견 케어',
+    '실내 활동가',
+    '프로 산책러',
+    '알러지 케어',
+  ],
   brandFilters: [
     { id: 'all', label: '전체 브랜드' },
     { id: 'recommended', label: '전문가 추천' },

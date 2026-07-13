@@ -204,14 +204,6 @@ export interface Order {
   trackingNumber?: string;
   deliveryMemo?: string;
   createdAt: string;
-  carrier?: string;
-  paymentKey?: string;
-  paidAt?: string;
-  expiresAt?: string;
-  /** '승인중' 고아 대사(reconcile) 재시도 횟수. 웹훅 웨이브(dead-letter) 전용 — 기계만 갱신. */
-  reclaimAttempts?: number;
-  /** 마지막 reconcile 재시도 실패 사유(진단용). 기계만 갱신. */
-  reclaimError?: string;
 }
 
 export interface OrderItem {
@@ -221,16 +213,6 @@ export interface OrderItem {
   quantity: number;
   price: number;
 }
-
-/**
- * POST /api/payments/confirm 응답 전용 축소 필드(가산 타입, Order 본체는 무변경).
- * 무인증 공개 엔드포인트라 PII(customerName/phone/address/items)는 내려주지 않고
- * 화면(order-complete)이 승인 결과를 표시하는 데 필요한 최소 필드만 담는다.
- */
-export type ConfirmedOrderSummary = Pick<
-  Order,
-  'id' | 'orderStatus' | 'paymentStatus' | 'totalPrice' | 'deliveryFee' | 'paidAt'
->;
 
 export const ORDER_STATUSES = [
   '주문접수',
@@ -262,17 +244,7 @@ export interface User {
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
-  insuranceCompany?: string;
-  insuranceRegNumber?: string;
-  activityArea?: string;
-  specialty?: string;
-  attachedFiles?: string[];
   rejectReason?: string;
-  b2bData?: Record<string, unknown>;
-  insuranceData?: Record<string, unknown>;
-  partnerData?: Record<string, unknown>;
-  /** 입점업체(partner)가 관리하는 브랜드 ID 목록 */
-  managedBrandIds?: string[];
   signupData?: Record<string, unknown>;
 }
 
@@ -291,84 +263,9 @@ export interface QnA {
   isVisible?: boolean;
 }
 
-/* ── 사용자 작성 구매평 ───────────────────────── */
-export interface ProductReview {
-  id: string;
-  userId: string;
-  orderId: string;
-  /** OrderItem 고유 id 도입 시 채움 — 현재는 reviewTargetKey(주문+상품+옵션)로 유일성을 보장한다. */
-  orderItemId?: string;
-  /** 중복 방지용 복합 키: `${orderId}:${productId}:${optionName ?? 'default'}` */
-  reviewTargetKey: string;
-  productId: string;
-  brandId: string;
-  rating: number;
-  title?: string;
-  content: string;
-  status: 'published' | 'hidden';
-  createdAt: string;
-  updatedAt: string;
+export interface QnaConfig {
+  items: QnA[];
 }
-
-/* ── 사용자 작성 상품문의 ─────────────────────── */
-export interface ProductInquiry {
-  id: string;
-  userId: string;
-  productId: string;
-  brandId: string;
-  title: string;
-  content: string;
-  isSecret?: boolean;
-  status: 'waiting' | 'answered';
-  answer?: string;
-  answeredBy?: string;
-  answeredAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/* ── 통합 구매평 뷰 어댑터 ───────────────────── */
-export type ReviewViewItem = {
-  id: string;
-  source: 'seed' | 'user';
-  productId: string;
-  brandId?: string;
-  userId?: string;
-  rating: number;
-  title?: string;
-  content: string;
-  createdAt: string;
-  status?: 'published' | 'hidden';
-  editable: boolean;
-  /** 시드 리뷰 전용 */
-  breed?: string;
-  age?: string;
-  usePeriod?: string;
-  image?: string;
-  isPhotoReview?: boolean;
-  isBest?: boolean;
-};
-
-/* ── 통합 문의 뷰 어댑터 ─────────────────────── */
-export type InquiryViewItem = {
-  id: string;
-  source: 'seed' | 'user';
-  productId: string;
-  brandId?: string;
-  userId?: string;
-  title?: string;
-  question?: string;
-  content: string;
-  answer?: string;
-  answeredBy?: string;
-  answeredAt?: string;
-  status: 'waiting' | 'answered';
-  isSecret?: boolean;
-  writerName?: string;
-  createdAt: string;
-  editable: boolean;
-};
-
 /* ── 라이프스타일 카테고리 ─────────────────── */
 export interface LifestyleCategory {
   slug: string;
@@ -454,4 +351,61 @@ export interface Partner {
   memo?: string;
   isContracted: boolean;
   isDelivered: boolean;
+}
+
+/* ── 대시보드 통계 ────────────────────────────── */
+export interface RecentOrderSummary {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface RecentInsuranceSummary {
+  id: string;
+  petName: string;
+  ownerName: string;
+  insuranceName?: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface RecentApplicationSummary {
+  id: string;
+  role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+  companyName?: string;
+  name: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface AdminDashboardSummary {
+  revenue: {
+    totalPaidAmount: number;
+  };
+  orders: {
+    newCount: number;
+    pendingCount: number;
+  };
+  insuranceAnalyses: {
+    pendingCount: number;
+    reviewingCount: number;
+  };
+  products: {
+    totalCount: number;
+    activeCount: number;
+    preparingCount: number;
+  };
+  applications: {
+    totalUsers: number;
+    todayNewUsers: number;
+    partnerPendingCount: number;
+    insurancePendingCount: number;
+    b2bPendingCount: number;
+  };
+  recentOrders: RecentOrderSummary[];
+  recentInsurances: RecentInsuranceSummary[];
+  recentApplications: RecentApplicationSummary[];
 }

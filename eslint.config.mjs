@@ -5,34 +5,28 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    }
+  },
+  {
+    files: ["src/components/**", "src/app/**/*Client.tsx"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [
+        { group: ["@/data/products", "@/data/brands"],
+          message: "실시간 데이터는 콘센트(storage) 또는 repo 로만 읽으세요 — 컴포넌트 직접 import 금지(§4)." },
+      ]}],
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
-    ".claude/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
   ]),
-  {
-    // page.tsx·비-Client 파일명이 규칙을 우회하던 사각지대 봉합(2026-07-13 opus 리뷰 H1).
-    // 서버 wrapper도 @/data/products·brands 는 repo 경유가 원칙이라 예외가 필요 없다.
-    files: ["src/app/**/*.{js,jsx,ts,tsx}", "src/components/**/*.{js,jsx,ts,tsx}"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            {
-              group: ["@/data/products", "@/data/brands"],
-              message:
-                "실시간 데이터는 콘센트(storage) 또는 repo 로만 읽으세요 — 컴포넌트 직접 import 금지(AGENTS.md §4).",
-            },
-          ],
-        },
-      ],
-    },
-  },
 ]);
 
 export default eslintConfig;

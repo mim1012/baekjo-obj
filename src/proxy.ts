@@ -9,7 +9,7 @@ const { auth } = NextAuth(authConfig);
 /** 관리자 전용 경로(/admin, /api/admin) 접근 가드. */
 function proxy(req: NextAuthRequest) {
   const { pathname } = req.nextUrl;
-  const isAdmin = req.auth?.user?.role === 'admin';
+  const isAdmin = req.auth?.user?.role && ['admin', 'SUPER_ADMIN'].includes(req.auth.user.role);
 
   if (pathname.startsWith('/api/admin')) {
     if (!isAdmin) {
