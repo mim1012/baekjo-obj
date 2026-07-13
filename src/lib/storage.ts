@@ -280,7 +280,12 @@ export async function updateOrderStatus(
 }
 
 /**
- * 토스 결제 승인 확정. successUrl(paymentKey·orderId·amount 쿼리)에서 호출한다.
+ * 토스 결제 승인 확정(수동 재확인용). R4 이전에는 successUrl(order-complete)이 이 함수를
+ * 직접 호출해 승인을 오케스트레이션했으나, 지금은 successUrl이 GET /api/payments/return(서버)을
+ * 가리켜 서버가 승인을 끝낸 뒤 결과만 리다이렉트로 넘긴다 — 그래서 이 함수는 현재 어떤 화면에서도
+ * 호출되지 않는다(콘센트로 삭제하지 않고 남겨둠: POST /api/payments/confirm 라우트 자체는 웹훅
+ * 없이도 사람이 수동으로 재확인할 수 있는 안전판으로 의도적으로 유지되고 있고, 이 함수가 그 유일한
+ * 클라이언트 접근 경로이기 때문이다 — 라우트만 남기고 이 래퍼를 지우면 사실상 curl 전용이 된다).
  * 서버가 DB 총액과 amount를 대조 후 토스에 승인 요청 → setOrderPaid로 조건부 확정한다
  * (§ 이중승인 방어). amount는 클라이언트 쿼리값을 신뢰하지 않고 서버가 재검증한다.
  * 반환 order는 전체 Order가 아니라 ConfirmedOrderSummary(가산 타입) — 무인증 공개
