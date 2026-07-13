@@ -16,7 +16,9 @@
  * "주문이 지금 어떤 상태인지"(order)를 함께 받아 하나의 매트릭스로 판단한다. 예전엔 confirm의
  * 사전 멱등 흡수(respondForObservedState)가 이 매트릭스의 절반(주문상태×키일치)을 별도로
  * 복제하고 있었다 — observation.kind==='none'(토스를 아직 호출하지 않은 시점)으로 흡수해
- * 매트릭스를 한 벌로 만든다.
+ * 매트릭스를 한 벌로 만든다. ★HTTP 정책은 여기 안 샌다 — 판단(action)만 반환하고, 액션을
+ * 어떤 status/body로 응답할지는 confirm/route.ts의 respondToAction이 전담한다(opus 재검증
+ * GREEN: decide에 HTTP 정책 0건, confirm 5분기 응답이 기존 코드와 한 줄까지 동일하게 재현됨).
  */
 
 export type PaymentSource = 'confirm' | 'webhook' | 'reconcile';
