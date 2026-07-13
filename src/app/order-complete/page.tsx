@@ -164,6 +164,10 @@ function PendingIssueBlock({ kind, orderId }: { kind: 'pending' | 'unconfirmed';
       getPaymentStatus(orderId).then((result) => {
         if (cancelled) return;
         if (result?.paymentStatus === '결제완료') {
+          // status=done 경로와 동일하게 정리한다 — 폴링으로 확인한 성공도 "서버가 승인을
+          // 확정했다는 신호"라는 점은 같다. 여기서 빠뜨리면 이 사용자만 장바구니가 안 비워지고
+          // stale pending 키가 남아 다음 checkout에서 거짓 취소 안내가 뜨는 사고가 재발한다.
+          clearPendingTossState();
           setPhase('confirmed');
           return;
         }
