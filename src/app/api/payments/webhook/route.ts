@@ -201,11 +201,19 @@ export async function POST(request: NextRequest) {
               await confirmAndLogIfNoop();
               break;
             }
-            // 그 사이 취소된 경우 등 — 재확정할 수 없는 상태. 사람이 봐야 하므로 시끄럽게 로그.
+            // ★재무 예외(Codex 라운드5 HIGH-3) — 이 분기에 도달했다는 것 자체가 권위 DONE을
+            // 이미 관측했다는 뜻이다(action.kind==='confirm'은 결제대기+DONE+금액일치에서만
+            // 나온다). 그런데 claim이 경합에 져서 재조회한 latest가 결제완료도, 같은 키의
+            // 승인중도 아니다 — 그 사이 다른 경로(예: reclaim-stock)가 이 주문을 취소시켰다는
+            // 뜻이라 "돈은 받았는데 주문은 취소됨"과 동일한 재무 예외다. 로그만 남기고 넘어가면
+            // durable 작업항목이 안 남으므로 markReclaimDead까지 호출한다(실패는 바깥 catch로
+            // 전파해 500 → 토스 재전송 유도, HIGH-2와 동일 이유).
             logServerError(
-              `[POST /api/payments/webhook] claim 실패 후에도 확정 불가 orderId=${orderId} paymentKey=${paymentKey} latestStatus=${latest?.paymentStatus}`,
+              `[POST /api/payments/webhook] ★재무 예외 — claim 경합 패배 후 확정 불가(주문이 그 사이 취소된 것으로 추정) ` +
+                `orderId=${orderId} paymentKey=${paymentKey} latestStatus=${latest?.paymentStatus} — 환불 검토 필요(runbook 참고)`,
               {},
             );
+            await markReclaimDead(orderId);
             break;
           }
           await confirmAndLogIfNoop();
@@ -241,9 +249,12 @@ export async function POST(request: NextRequest) {
               `[POST /api/payments/webhook] ★재무 예외 — 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId} — 환불 검토 필요(runbook 참고)`,
               {},
             );
-            await markReclaimDead(orderId).catch((markError) => {
-              logServerError(`[POST /api/payments/webhook] 재무 예외 dead-letter 표시 실패 orderId=${orderId}`, markError);
-            });
+            // ★쓰기 실패를 삼키지 않는다(Codex 라운드5 HIGH-2) — 예전엔 .catch로 로그만 남기고
+            // 200을 반환했다. markReclaimDead(durable write)가 실패하면 이 재무 예외가 기록되지
+            // 않은 채 조용히 사라지는데, 이건 이 라운드가 막으려던 바로 그 durability 문제의
+            // 재발이다. 실패를 바깥 catch로 전파해 500을 반환한다 — 토스가 재전송해 다음
+            // 시도에서 다시 markReclaimDead를 태운다(모든 분기가 멱등이라 재시도해도 안전).
+            await markReclaimDead(orderId);
           } else if (order.paymentStatus === '결제완료') {
             // ★CRITICAL — '결제대기' 주문은 이 웹훅으로 취소시키지 않는다(decide.ts 참고: orderId
             // 위조로 피해자 주문을 취소시키는 벡터 차단). 결제완료 확정건에 취소류가 온 경우만
