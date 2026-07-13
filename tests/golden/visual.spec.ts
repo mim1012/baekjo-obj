@@ -97,10 +97,12 @@ test.describe('시각 회귀 — 골든플로우', () => {
           fullPage: false,
           maxDiffPixelRatio: 0.01,
           animations: 'disabled',
-          // 목록 행 데이터는 admin 입력·재시드로 상시 변동 → 마스크. 레이아웃·크롬만 고정 비교.
+          // 목록 데이터는 admin 입력·재시드·합성 __test_* 상품으로 상시 변동 → 마스크. 크롬만 고정 비교.
+          // tbody만 마스크하면 부족하다(2026-07-13 실측): 테이블이 auto-layout이라 tbody 내용 길이가
+          // 컬럼 폭을 바꿔 thead 헤더 위치까지 밀린다 → table 전체를 마스크.
           // 상품 수 카운트("총 N개")·카테고리 개수 배지도 동시 세션 테스트/재시드로 상시 변동 → 마스크.
           mask: [
-            page.locator('tbody'),
+            page.locator('table'),
             page.locator('p', { hasText: '개의 상품' }),
             page.locator('span.float-right'),
           ],
