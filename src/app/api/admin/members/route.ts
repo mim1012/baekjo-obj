@@ -10,17 +10,15 @@ import { logServerError } from '@/lib/logServerError';
  * 매 요청마다 DB에서 최신 상태를 재조회해 실제로도 admin이고 active인지 다시 확인한다.
  */
 export async function GET() {
+  console.log('[API] /api/admin/members called');
   const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json(
-      { error: session?.user ? 'forbidden' : 'unauthorized' },
-      { status: session?.user ? 403 : 401 },
-    );
+  if (!session?.user || !['admin', 'SUPER_ADMIN'].includes(session.user.role || '')) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   try {
     const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-    if (!requester || requester.role !== 'admin' || requester.status === 'inactive') {
+    if (!requester || !['admin', 'SUPER_ADMIN'].includes(requester.role) || requester.status === 'inactive') {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 

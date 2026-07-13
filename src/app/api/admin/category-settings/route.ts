@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
-import { saveCategorySettings } from '@/lib/categorySettings/repo';
+import { saveCategorySettings, getCategorySettings } from '@/lib/categorySettings/repo';
 import type { CategorySettings } from '@/lib/categorySettings/config';
+import { listAllProductsForAdmin } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -28,7 +29,8 @@ function isCategorySettings(body: unknown): body is CategorySettings {
  */
 export async function PUT(request: NextRequest) {
   const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
+  // SUPER_ADMIN 도 접근 가능해야 하므로 수정합니다. admin 이상의 권한을 허용합니다.
+  if (!session?.user || !session.user.role || !['SUPER_ADMIN', 'admin'].includes(session.user.role)) {
     return NextResponse.json(
       { error: session?.user ? 'forbidden' : 'unauthorized' },
       { status: session?.user ? 403 : 401 },
@@ -47,8 +49,37 @@ export async function PUT(request: NextRequest) {
 
   try {
     const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-    if (!requester || requester.role !== 'admin' || requester.status === 'inactive') {
+    if (!requester || !['SUPER_ADMIN', 'admin'].includes(requester.role) || requester.status === 'inactive') {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
+
+    // [카테고리 삭제 시 상품 연결 방어 (User Request #10)]
+    const oldSettings = await getCategorySettings();
+    if (oldSettings) {
+      const oldProductCats = new Set(oldSettings.productCategories);
+      const oldLifestyleCats = new Set(oldSettings.lifestyleCategories);
+
+      const newProductCats = new Set(body.productCategories);
+      const newLifestyleCats = new Set(body.lifestyleCategories);
+
+      const deletedProductCats = new Set([...oldProductCats].filter(id => !newProductCats.has(id)));
+      const deletedLifestyleCats = new Set([...oldLifestyleCats].filter(id => !newLifestyleCats.has(id)));
+
+      if (deletedProductCats.size > 0 || deletedLifestyleCats.size > 0) {
+        // 삭제된 카테고리가 있다면, 전체 상품을 조회하여 연결 여부 확인
+        const products = await listAllProductsForAdmin();
+        const connectedProducts = products.filter(p => 
+          (p.category && deletedProductCats.has(p.category)) || 
+          (p.lifestyleCategory && deletedLifestyleCats.has(p.lifestyleCategory))
+        );
+
+        if (connectedProducts.length > 0) {
+          return NextResponse.json(
+            { error: 'category-in-use', message: `해당 카테고리에 연결된 상품이 ${connectedProducts.length}개 있습니다. 상품을 먼저 이동해주세요.` },
+            { status: 409 }
+          );
+        }
+      }
     }
 
     await saveCategorySettings(body);

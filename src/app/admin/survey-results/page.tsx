@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { formatDate } from '@/lib/format';
 import { X } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
+import { AdminPageHeader } from '@/components/admin/AdminUi';
 
 interface SurveyResult {
   id: string;
@@ -51,21 +52,17 @@ export default function AdminSurveyResultsPage() {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-end mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">맞춤 진단 참여 내역</h1>
-          <p className="mt-2 text-sm text-[#737A74]">회원들의 맞춤 진단 참여 및 결과 내역을 확인합니다.</p>
-        </div>
-        <button type="button" onClick={() => { setNewResult({}); setIsAddingResult(true); }} className="bg-[#2F3B34] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[#2F3B34]/90 flex items-center gap-2">
-          수기 등록
-        </button>
-      </div>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="진단 참여 내역"
+        description="회원별 맞춤 진단 결과를 확인하고 고객에게 전달할 관리 코멘트를 작성합니다."
+        actions={<button type="button" onClick={() => { setNewResult({}); setIsAddingResult(true); }} className="min-h-11 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]">결과 수기 등록</button>}
+      />
 
-      <div className="bg-white rounded-sm shadow-sm border border-gray-200 overflow-hidden">
+      <div className="overflow-hidden border border-[#E7E0D5] bg-white">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50 text-gray-500">
+            <thead className="bg-[#FAF8F3] text-[#6F766F]">
               <tr>
                 <th className="px-6 py-3 font-medium">참여일시</th>
                 <th className="px-6 py-3 font-medium">참여자</th>
@@ -75,17 +72,17 @@ export default function AdminSurveyResultsPage() {
                 <th className="px-6 py-3 font-medium text-right">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-[#E7E0D5]">
               {paginatedResults.map(r => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-gray-500">{formatDate(r.date)}</td>
-                  <td className="px-6 py-4 font-medium text-gray-900">{r.user}</td>
-                  <td className="px-6 py-4 text-gray-500">{r.petType} / {r.age}</td>
-                  <td className="px-6 py-4 text-gray-900">{r.concern}</td>
-                  <td className="px-6 py-4 text-gray-500">{r.resultDirection}</td>
+                <tr key={r.id} className="transition-colors hover:bg-[#FBFAF7]">
+                  <td className="px-6 py-4 text-[#6F766F]">{formatDate(r.date)}</td>
+                  <td className="px-6 py-4 font-semibold text-[#17211D]">{r.user}</td>
+                  <td className="px-6 py-4 text-[#59615B]">{r.petType} / {r.age}</td>
+                  <td className="px-6 py-4 text-[#17211D]">{r.concern}</td>
+                  <td className="px-6 py-4 text-[#59615B]">{r.resultDirection}</td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
                     <button onClick={() => setEditingResult(r)} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">상세/수정</button>
-                    <button onClick={() => handleDelete(r.id)} className="text-red-600 hover:underline font-medium text-xs px-2 py-1.5 rounded-md">삭제</button>
+                    <button onClick={() => handleDelete(r.id)} className="px-2 py-1.5 text-xs font-semibold text-[#9E3939] hover:bg-[#F7ECEA]">삭제</button>
                   </td>
                 </tr>
               ))}

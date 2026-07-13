@@ -10,12 +10,9 @@ import { ORDER_STATUSES, type OrderStatus } from '@/types';
 // 부여하는 값(입금대기/배송준비) 기준(src/data/orders.ts는 미사용 목업이라 제외).
 const PAYMENT_STATUSES = ['결제대기', '결제완료', '결제취소', '환불완료', '입금대기'] as const;
 const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
-// Order.carrier는 자유 text라 서버가 화이트리스트로 좁힌다(PAYMENT_STATUSES/DELIVERY_STATUSES와 동일 패턴).
-const CARRIERS = ['cj', 'hanjin', 'lotte', 'post', 'logen'] as const;
 const MAX_TRACKING = 100;
-const MAX_CARRIER = 40;
 
-/** 허용 필드(orderStatus/paymentStatus/deliveryStatus/trackingNumber/carrier)만 추려낸다. 하나도 없으면 null. */
+/** 허용 필드(orderStatus/paymentStatus/deliveryStatus/trackingNumber)만 추려낸다. 하나도 없으면 null. */
 function validate(body: unknown): OrderStatusUpdate | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
@@ -39,11 +36,6 @@ function validate(body: unknown): OrderStatusUpdate | null {
   if (b.trackingNumber !== undefined) {
     if (typeof b.trackingNumber !== 'string' || b.trackingNumber.length > MAX_TRACKING) return null;
     updates.trackingNumber = b.trackingNumber;
-  }
-  if (b.carrier !== undefined) {
-    if (typeof b.carrier !== 'string' || b.carrier.length > MAX_CARRIER) return null;
-    if (!CARRIERS.includes(b.carrier as (typeof CARRIERS)[number])) return null;
-    updates.carrier = b.carrier;
   }
 
   if (Object.keys(updates).length === 0) return null;

@@ -112,12 +112,12 @@ export default function AdminResourcePage({
   const paginatedRows = filteredRows.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
-    <div>
+    <div className="space-y-8">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <p className="text-xs font-semibold text-[#697269]">ADMIN CONSOLE</p>
-          <h1 className="mt-2 text-3xl font-normal text-[#202521]">{title}</h1>
-          <p className="mt-2 text-sm text-[#737A74]">{description}</p>
+          <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">BAEKJO OPERATIONS</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#17211D] sm:text-4xl">{title}</h1>
+          <p className="mt-3 break-keep text-sm leading-7 text-[#6F766F]">{description}</p>
         </div>
         {(actionLabel || onSave) && (
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
@@ -128,7 +128,7 @@ export default function AdminResourcePage({
                   type="button"
                   onClick={handleSave}
                   disabled={saving}
-                  className="flex min-h-11 items-center justify-center gap-2 border border-[#2F3B34] bg-white px-5 text-sm font-semibold text-[#2F3B34] disabled:opacity-50"
+                  className="flex min-h-11 items-center justify-center gap-2 border border-[#17211D] bg-white px-5 text-sm font-semibold text-[#17211D] transition-colors hover:bg-[#F3EEE6] disabled:opacity-50"
                 >
                   {saving ? '저장 중…' : saveLabel}
                 </button>
@@ -136,21 +136,21 @@ export default function AdminResourcePage({
             )}
             {actionLabel && (
               <details className="relative">
-                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]">
                   <Plus className="size-4" /> {actionLabel}
                 </summary>
-                <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
+                <div className="absolute right-0 z-40 mt-3 w-[min(92vw,620px)] border border-[#E7E0D5] bg-white p-6 shadow-[0_24px_60px_-20px_rgba(23,33,29,0.28)]">
                   <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
-                  <p className="mt-2 text-xs text-[#7B827C]">MVP mock 입력 UI이며 실제 서버 저장은 연결되지 않습니다.</p>
+                  <p className="mt-2 text-xs leading-5 text-[#7B827C]">필수 정보를 확인한 뒤 등록해 주세요.</p>
                   <div className="mt-5 grid gap-4 sm:grid-cols-2">
                     {(createFields.length > 0 ? createFields : columns.map(c => c.label)).map((field) => (
                       <label key={field} className="text-xs font-medium text-[#59615B]">
                         {field}
-                        <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm" placeholder={`${field} 입력`} />
+                        <input className="mt-2 w-full border-b border-[#E7E0D5] bg-transparent pb-3 pt-2 text-base focus:border-[#A8742E] focus:outline-none" placeholder={`${field} 입력`} />
                       </label>
                     ))}
                   </div>
-                  <button type="button" className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">저장</button>
+                  <button type="button" className="mt-6 min-h-11 bg-[#17211D] px-5 text-sm font-semibold text-white hover:bg-[#202521]">등록하기</button>
                 </div>
               </details>
             )}
@@ -158,22 +158,22 @@ export default function AdminResourcePage({
         )}
       </div>
 
-      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 overflow-hidden border border-[#E7E0D5] bg-white sm:grid-cols-4">
         {[
           ['전체', visibleRows.length],
           ['노출/활성', visibleRows.filter((row) => String(row.status ?? '').includes('중') || String(row.status ?? '').includes('활성')).length],
           ['점검 필요', visibleRows.filter((row) => String(row.status ?? '').includes('대기') || String(row.status ?? '').includes('보류')).length],
-          ['오늘 변경', 0],
+          ['검색 결과', filteredRows.length],
         ].map(([label, value]) => (
-          <div key={label} className="border border-[#D1D0C8] bg-[#F8F7F2] p-4">
-            <p className="text-xs text-[#7B827C]">{label}</p>
-            <strong className="mt-2 block text-2xl tabular-nums text-[#202521]">{value}</strong>
+          <div key={label} className="border-r border-[#E7E0D5] p-5 last:border-r-0 sm:p-6">
+            <p className="text-[11px] font-semibold tracking-wide text-[#7B827C]">{label}</p>
+            <strong className="mt-3 block font-editorial text-3xl font-normal tabular-nums text-[#17211D]">{value}</strong>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 border border-[#D1D0C8] bg-white">
-        <div className="flex flex-col gap-3 border-b border-[#D1D0C8] bg-[#F8F7F2] p-4 lg:flex-row">
+      <div className="border border-[#E7E0D5] bg-white">
+        <div className="flex flex-col gap-3 border-b border-[#E7E0D5] bg-[#FAF8F3] p-4 lg:flex-row">
           <label className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
             <input 
