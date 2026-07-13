@@ -1,9 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { confirmPayment, MAX_PAYMENT_KEY, MAX_ORDER_ID, type ConfirmPaymentResult } from '@/lib/payments/confirmPayment';
+import {
+  confirmPayment,
+  reconcilePendingPayment,
+  MAX_PAYMENT_KEY,
+  MAX_ORDER_ID,
+  type ConfirmPaymentResult,
+} from '@/lib/payments/confirmPayment';
 
-/** 토스 승인 응답이 5xx/네트워크로 불명(502)일 때 서버가 대신 재시도하는 대기 시간.
- *  클라이언트 자동재시도를 대체한다 — 브라우저는 이 라우트가 끝날 때까지 아무 것도 안 한다. */
-const UNKNOWN_RETRY_DELAY_MS = 700;
+// 사용자가 브라우저에서 이 라우트가 끝나길 기다리는 경로다 — confirm/reconcile cron(10초)보다
+// 짧게 잡아 최악 대기시간을 줄인다(webhook과 동일한 이유로 동일한 값, WEBHOOK_TOSS_TIMEOUT_MS 참고).
+const RETURN_TOSS_TIMEOUT_MS = 5_000;
 
 type RedirectStatus = 'done' | 'pending' | 'declined' | 'expired' | 'unconfirmed' | 'invalid';
 
@@ -19,10 +25,11 @@ function parseQuery(searchParams: URLSearchParams): { paymentKey: string; orderI
   return { paymentKey, orderId, amount };
 }
 
-/** confirmPayment 결과(HTTP 상태코드 지향) → order-complete 화면이 읽는 status 쿼리값.
- *  409(reservation-expired/payment-key-mismatch/payment-not-confirmable/payment-key-already-bound)는
- *  전부 "재사용 불가능한 주문"이라는 같은 사용자 안내(expired)로 뭉뚱그린다 — 세부 사유는
- *  로그(logServerError, confirmPayment 내부)에만 남고 화면에는 노출하지 않는다. */
+/** confirmPayment/reconcilePendingPayment 결과(HTTP 상태코드 지향) → order-complete 화면이
+ *  읽는 status 쿼리값. 409(reservation-expired/payment-key-mismatch/payment-not-confirmable/
+ *  payment-key-already-bound)는 전부 "재사용 불가능한 주문"이라는 같은 사용자 안내(expired)로
+ *  뭉뚱그린다 — 세부 사유는 로그(logServerError, confirmPayment 내부)에만 남고 화면에는
+ *  노출하지 않는다. */
 function toRedirectStatus(result: ConfirmPaymentResult): RedirectStatus {
   switch (result.status) {
     case 200:
@@ -67,12 +74,13 @@ export async function GET(request: NextRequest) {
     return redirectToOrderComplete(request, 'invalid', null);
   }
 
-  let result = await confirmPayment(parsed);
-  if (result.status === 502) {
-    // 불명 1회 재시도 — 클라이언트 자동재시도(구 order-complete의 502/네트워크성 재시도)를
-    // 대체한다. 여전히 502면 unconfirmed로 넘겨 화면 안내 + 마이페이지 확인으로 유도한다.
-    await new Promise((resolve) => setTimeout(resolve, UNKNOWN_RETRY_DELAY_MS));
-    result = await confirmPayment(parsed);
+  let result = await confirmPayment({ ...parsed, timeoutMs: RETURN_TOSS_TIMEOUT_MS });
+
+  // 202(확인 중)·502(불명) 둘 다 "확정 여부가 아직 안 갈렸다"는 뜻 — confirmPayment를 그대로
+  // 재호출해봐야 claim이 이미 '승인중'으로 전이시킨 뒤라 멱등 흡수(202)에 걸려 토스를 다시 못
+  // 부른다(reconcilePendingPayment 주석 참고). 실제로 수렴시키려면 권위 재조회를 거쳐야 한다.
+  if (result.status === 202 || result.status === 502) {
+    result = await reconcilePendingPayment(parsed, RETURN_TOSS_TIMEOUT_MS);
   }
 
   return redirectToOrderComplete(request, toRedirectStatus(result), parsed.orderId);

@@ -4,7 +4,7 @@ import {
   ClaimPaymentKeyConflictError,
   type OrderRecord,
 } from '@/lib/orders/repo';
-import { confirmTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { confirmTossPayment, queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { decidePaymentAction, type PaymentAction } from '@/lib/payments/decide';
 import { applyPaymentAction } from '@/lib/payments/execute';
 import { logServerError } from '@/lib/logServerError';
@@ -17,6 +17,9 @@ export interface ConfirmPaymentParams {
   paymentKey: string;
   orderId: string;
   amount: number;
+  /** 토스 confirm 호출의 타임아웃(ms). 미지정 시 toss.ts 기본값(10초). 사용자가 브라우저에서
+   *  기다리는 경로(GET /api/payments/return)는 더 짧은 값을 넘긴다. */
+  timeoutMs?: number;
 }
 
 /** POST /api/payments/confirm 과 GET /api/payments/return 이 공유하는 결과 타입 — 각 라우트가
@@ -100,6 +103,77 @@ function respondToAction(
 }
 
 /**
+ * observation:'authoritative'(토스 조회/승인 응답을 확보한 시점)의 decide 결과를 적용한다.
+ * confirmPayment ⑤(승인 성공 직후)와 reconcilePendingPayment(불명 재조회 후)가 공유한다 —
+ * "권위 관찰을 얻은 뒤 무엇을 하는지"는 그 관찰을 confirm으로 얻었든 재조회로 얻었든 동일해야
+ * 하므로 한 곳에 둔다(reconcile cron U6과 동일 판단 경로, 정책 복제 0 유지).
+ */
+async function applyAuthoritativeAction(
+  action: PaymentAction,
+  order: OrderRecord,
+  orderId: string,
+  submittedKey: string,
+): Promise<ConfirmPaymentResult> {
+  switch (action.kind) {
+    case 'settled': {
+      const latest = await getOrderById(orderId);
+      return { status: 200, order: toSummary(latest ?? order) };
+    }
+
+    case 'confirm': {
+      // WHERE payment_status='승인중' AND payment_key=?로 claim이 발급한 시도만 확정한다(이중승인 방어).
+      const result = await applyPaymentAction(action, orderId, submittedKey);
+      const affected = result.applied === 'confirm' ? result.affected : 0;
+      if (affected === 0) {
+        // 토스 승인 성공·DB 확정 0행(극단적 경합) — 웹훅 없이는 완전히 닫을 수 없는 잔존 리스크(R6).
+        logServerError(
+          `[confirmPayment] R6 승인성공·확정0행 orderId=${orderId} paymentKey=${submittedKey} — 웹훅 후속 필요`,
+          {},
+        );
+        return { status: 202, error: 'payment-confirming' };
+      }
+      const confirmedOrder = await getOrderById(orderId);
+      return { status: 200, order: toSummary(confirmedOrder ?? order) };
+    }
+
+    case 'restoreConfirming':
+      // 진짜 취소/만료(CANCELED/EXPIRED/ABORTED) — 재고를 즉시 회수한다.
+      await applyPaymentAction(action, orderId).catch((restoreError) => {
+        logServerError(`[confirmPayment] authoritative 취소 후 재고 복원 실패 orderId=${orderId}`, restoreError);
+      });
+      return { status: 402, error: 'payment-declined' };
+
+    case 'ignore':
+      if (action.reason === 'key-mismatch') {
+        logServerError(
+          `[confirmPayment] authoritative 키 불일치 orderId=${orderId} submittedKey=${submittedKey} storedKey=${order.paymentKey}`,
+          {},
+        );
+        return { status: 409, error: 'payment-key-mismatch' };
+      }
+      // conflicting-terminal-state(결제취소/환불완료 등과 DONE 신호가 상충) — 확정도 취소도 안 함.
+      logServerError(
+        `[confirmPayment] authoritative 상충 상태 orderId=${orderId} paymentStatus=${order.paymentStatus} reason=${action.reason}`,
+        {},
+      );
+      return { status: 409, error: 'payment-not-confirmable' };
+
+    case 'retryLater':
+      return { status: 202, error: 'payment-confirming' }; // 아직 확정 전 — 취소 금지
+
+    case 'proceedToClaim':
+      // observation:'authoritative'에서는 반환되지 않는다(decide.ts 참고) — 방어적으로만 도달.
+      logServerError(`[confirmPayment] applyAuthoritativeAction 예상 밖 action orderId=${orderId} kind=proceedToClaim`, {});
+      return { status: 500, error: 'server-error' };
+
+    default: {
+      const exhaustiveCheck: never = action;
+      throw new Error(`[confirmPayment] applyAuthoritativeAction 처리되지 않은 action.kind: ${JSON.stringify(exhaustiveCheck)}`);
+    }
+  }
+}
+
+/**
  * 결제 승인 확정 코어 — POST /api/payments/confirm(클라이언트 재확인)과
  * GET /api/payments/return(토스 successUrl, 서버 리다이렉트 처리)이 공유한다.
  * (R4: successUrl을 서버 라우트로 옮기며 confirm/route.ts POST 핸들러 본문에서 추출 — 행위 변경 없음)
@@ -173,7 +247,7 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
     //    "클라이언트 변수가 실제로 무엇을 승인시켰는지"에 대한 여지를 남기지 않는다.
     let tossResult;
     try {
-      tossResult = await confirmTossPayment({ paymentKey, orderId, amount: expectedAmount });
+      tossResult = await confirmTossPayment({ paymentKey, orderId, amount: expectedAmount }, params.timeoutMs);
     } catch (tossError) {
       // ALREADY_PROCESSED_PAYMENT는 4xx+코드가 실려 있어도 "다른 confirm 요청이 이미 캡처했다"는
       // 신호다 — 확정 거절로 잘못 묶으면 이중 confirm 패자가 승자의 완료 주문을 취소시킬 수 있다.
@@ -251,32 +325,83 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       return { status: 502, error: 'payment-unconfirmed' };
     }
 
-    // ⑤ 승인 확정 — WHERE payment_status='승인중' AND payment_key=?로 claim이 발급한 이 시도만
-    //    확정한다(이중승인 방어). tossResponseValid가 이미 DONE·금액일치를 확인했으므로 decide는
-    //    항상 'confirm'을 반환한다. order는 claim-이전 스냅샷이라 claim이 전이시킨 현재 상태를 넘긴다.
+    // ⑤ 승인 확정 — tossResponseValid가 이미 DONE·금액일치를 확인했으므로 decide는 항상 'confirm'을
+    //    반환한다(applyAuthoritativeAction의 'confirm' 분기가 WHERE payment_status='승인중' AND
+    //    payment_key=? 이중승인 방어를 담당). order는 claim-이전 스냅샷이라 claim이 전이시킨 현재
+    //    상태를 넘긴다.
     const action = decidePaymentAction(
       { paymentStatus: '승인중', paymentKey },
       { kind: 'authoritative', payment: { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount } },
       tossResult.paymentKey,
       'confirm',
     );
-    const result = await applyPaymentAction(action, orderId, tossResult.paymentKey);
-    const affected = result.applied === 'confirm' ? result.affected : 0;
-
-    if (affected === 0) {
-      // 토스 승인 성공·DB 확정 0행(극단적 경합) — 웹훅 없이는 완전히 닫을 수 없는 잔존 리스크(R6).
-      // 실결제-DB 불일치를 조용히 흘리지 않도록 로그를 남기고 "확인 중"으로 응답한다.
-      logServerError(
-        `[confirmPayment] R6 승인성공·확정0행 orderId=${orderId} paymentKey=${tossResult.paymentKey} — 웹훅 후속 필요`,
-        { tossStatus: tossResult.status },
-      );
-      return { status: 202, error: 'payment-confirming' };
-    }
-
-    const confirmedOrder = await getOrderById(orderId);
-    return { status: 200, order: toSummary(confirmedOrder ?? order) };
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey);
   } catch (error) {
     logServerError('[confirmPayment] 승인 처리 실패', error);
+    return { status: 500, error: 'server-error' };
+  }
+}
+
+/**
+ * 승인 상태가 '확인 중/불명'으로 남았을 때 서버가 토스 권위 조회로 직접 재수렴시키는 경로 —
+ * GET /api/payments/return(R4)이 202(payment-confirming)·502(payment-unconfirmed) 후속 처리
+ * 전용으로 호출한다. confirmPayment를 단순 재시도하는 것으로는 수렴하지 않는다: 1차 호출에서
+ * claim이 이미 '결제대기'→'승인중'으로 전이시킨 뒤라, 재호출은 ③ 멱등 흡수(order.paymentStatus
+ * !=='결제대기')에 걸려 202만 반복 반환할 뿐 토스를 다시 부르지 않는다. 그래서 여기서는
+ * confirmPayment가 아니라 reconcile cron(U6)과 동일한 패턴 — queryTossPayment(권위 조회) →
+ * 신원(orderId·paymentKey) 검증 → decidePaymentAction(observation:'authoritative') →
+ * applyAuthoritativeAction — 을 재사용해 실제로 상태를 진전시킨다. 판단/적용 로직은 전부
+ * decide.ts·applyAuthoritativeAction을 그대로 호출할 뿐 새로 만들지 않는다(정책 복제 0).
+ */
+export async function reconcilePendingPayment(
+  params: Pick<ConfirmPaymentParams, 'paymentKey' | 'orderId'>,
+  timeoutMs: number,
+): Promise<ConfirmPaymentResult> {
+  const { paymentKey, orderId } = params;
+
+  try {
+    const order = await getOrderById(orderId);
+    if (!order) {
+      return { status: 404, error: 'order-not-found' };
+    }
+    const expectedAmount = order.totalPrice + order.deliveryFee;
+
+    let tossResult;
+    try {
+      tossResult = await queryTossPayment(paymentKey, timeoutMs);
+    } catch (queryError) {
+      if (queryError instanceof TossConfirmError && queryError.httpStatus === 404) {
+        // 토스에 결제 기록 자체가 없음 — reconcile cron(5분 뒤 재확인, U6)과 달리 여기서는
+        // claim 직후라 토스 쪽 기록 반영이 아직 안 됐을 수도 있다(eventual consistency).
+        // 성급히 복원하지 않는다 — 최종 회수는 reconcile cron이 담당(불변식: 불명이면 취소 금지).
+        logServerError(`[reconcilePendingPayment] 토스 404(기록 없음) orderId=${orderId} paymentKey=${paymentKey}`, queryError);
+        return { status: 502, error: 'payment-unconfirmed' };
+      }
+      logServerError(`[reconcilePendingPayment] 권위 재조회 실패(불명) orderId=${orderId} paymentKey=${paymentKey}`, queryError);
+      return { status: 502, error: 'payment-unconfirmed' };
+    }
+
+    // 신원 바인딩 — 조회 결과를 쓰기 전에 orderId·paymentKey가 물어본 대상과 일치하는지 확인한다
+    // (reconcile cron과 동일). 하나라도 어긋나면 신뢰할 수 없으므로 확정도 취소도 하지 않는다.
+    const identityMatches = tossResult.orderId === orderId && tossResult.paymentKey === paymentKey;
+    if (!identityMatches) {
+      logServerError(
+        `[reconcilePendingPayment] 토스 응답 신원 불일치 orderId=${orderId} paymentKey=${paymentKey} ` +
+          `tossOrderId=${tossResult.orderId} tossPaymentKey=${tossResult.paymentKey}`,
+        {},
+      );
+      return { status: 502, error: 'payment-unconfirmed' };
+    }
+
+    const action = decidePaymentAction(
+      order,
+      { kind: 'authoritative', payment: { paymentKey: tossResult.paymentKey, status: tossResult.status, amountMatches: tossResult.totalAmount === expectedAmount } },
+      tossResult.paymentKey,
+      'confirm',
+    );
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey);
+  } catch (error) {
+    logServerError('[reconcilePendingPayment] 재조회 처리 실패', error);
     return { status: 500, error: 'server-error' };
   }
 }

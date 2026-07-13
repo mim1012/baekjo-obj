@@ -31,12 +31,14 @@ interface TossConfirmResult {
   status: string;
 }
 
-/** POST /v1/payments/confirm — Basic 인증(시크릿키:빈 password, base64). amount는 원 단위 정수. */
-export async function confirmTossPayment(params: {
-  paymentKey: string;
-  orderId: string;
-  amount: number;
-}): Promise<TossConfirmResult> {
+/** POST /v1/payments/confirm — Basic 인증(시크릿키:빈 password, base64). amount는 원 단위 정수.
+ *  timeoutMs 기본값은 TOSS_FETCH_TIMEOUT_MS(10초, 기존 confirm/reconcile 경로 무영향) —
+ *  successUrl(GET /api/payments/return, R4)처럼 사용자가 브라우저에서 결과를 기다리는 경로는
+ *  더 짧은 값을 넘겨 최악 대기시간을 줄인다(queryTossPayment와 동일 패턴). */
+export async function confirmTossPayment(
+  params: { paymentKey: string; orderId: string; amount: number },
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
   const secretKey = process.env.TOSS_SECRET_KEY;
   if (!secretKey) {
     // 설정 오류 — 토스에 요청 자체가 안 나갔으니 network-error와 동일하게 "결과 불명"(httpStatus null)로 던진다.
@@ -54,7 +56,7 @@ export async function confirmTossPayment(params: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(params),
-      signal: AbortSignal.timeout(TOSS_FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     throw new TossConfirmError('toss-network-error', null, null);
