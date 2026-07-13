@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { getOrderById, claimOrderForConfirmation } from '@/lib/orders/repo';
+import { getOrderById, claimOrderForConfirmation, markReclaimDead } from '@/lib/orders/repo';
 import { queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { decidePaymentAction } from '@/lib/payments/decide';
 import { applyPaymentAction } from '@/lib/payments/execute';
@@ -233,12 +233,17 @@ export async function POST(request: NextRequest) {
           );
         } else if (action.reason === 'conflicting-terminal-state') {
           if (isDoneSignal) {
-            // 결제취소/환불완료 등 이미 종결된 상태인데 DONE 웹훅이 옴 — 상충하는 신호. 확정하지
-            // 않고 시끄럽게 로그만 남긴다(사람이 토스 상점관리자와 대조 필요).
+            // ★재무 예외 — 결제취소/환불완료 등 이미 종결된 상태인데 권위 DONE 웹훅이 옴(돈은
+            // 실제로 받았다). 로그만 남기고 끝내면 durable 작업항목이 안 남는다(Codex 최종
+            // 재검증 HIGH-4 — confirmPayment.ts applyAuthoritativeAction의 동일 분기와 대칭
+            // 처리). markReclaimDead로 사람이 반드시 보게 한다(runbook: payment-dead-letter.md).
             logServerError(
-              `[POST /api/payments/webhook] 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId}`,
+              `[POST /api/payments/webhook] ★재무 예외 — 종결 상태(${order.paymentStatus})에서 DONE 웹훅 수신 orderId=${orderId} — 환불 검토 필요(runbook 참고)`,
               {},
             );
+            await markReclaimDead(orderId).catch((markError) => {
+              logServerError(`[POST /api/payments/webhook] 재무 예외 dead-letter 표시 실패 orderId=${orderId}`, markError);
+            });
           } else if (order.paymentStatus === '결제완료') {
             // ★CRITICAL — '결제대기' 주문은 이 웹훅으로 취소시키지 않는다(decide.ts 참고: orderId
             // 위조로 피해자 주문을 취소시키는 벡터 차단). 결제완료 확정건에 취소류가 온 경우만

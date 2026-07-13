@@ -24,14 +24,16 @@
 3. **5회 연속 불명** — 네트워크·타임아웃·토스 5xx가 5번 연속 발생(토스 쪽 장애 또는
    `payment_key` 자체가 없는 이상 상태 포함).
 4. **★재무 예외 — 권위 DONE인데 주문이 이미 종결(환불 필요, R4 최종 라운드 추가)** —
-   `confirmPayment.ts`(`applyAuthoritativeAction`)가 confirm/return/reconcile 어느 경로에서든
-   토스 권위 조회로 `status==='DONE'`+금액일치를 확인했는데, 그 시점 우리 DB의 주문이 이미
-   `결제취소`/`환불완료` 등으로 종결돼 있으면 **즉시(재시도 카운트 없이) 1회 만에**
-   `markReclaimDead`가 호출된다. 이건 "판단을 못 내렸다"가 아니라 **"돈은 실제로 받았는데
-   주문은 취소된 것으로 기록돼 있다"**는 뜻이라, 다른 세 조건(재시도 후 dead-letter)과 달리
-   **가장 시급하게 사람이 봐야 하는 케이스**다 — 방치하면 고객 돈을 받고 물건도 안 보내고
-   환불도 안 한 상태로 남는다. `reclaim-stock` cron도 동일한 이유(만료된 '결제대기' 주문을
-   취소하기 전 확인했더니 DONE인데 금액이 안 맞는 경우)로 같은 방식으로 dead-letter 표시한다.
+   `confirmPayment.ts`(`applyAuthoritativeAction`, confirm/return/reconcile 세 경로가 공유)와
+   `webhook/route.ts`가 각각 토스 권위 조회로 `status==='DONE'`+금액일치를 확인했는데, 그 시점
+   우리 DB의 주문이 이미 `결제취소`/`환불완료` 등으로 종결돼 있으면 **즉시(재시도 카운트 없이)
+   1회 만에** `markReclaimDead`가 호출된다. 이건 "판단을 못 내렸다"가 아니라 **"돈은 실제로
+   받았는데 주문은 취소된 것으로 기록돼 있다"**는 뜻이라, 다른 세 조건(재시도 후 dead-letter)과
+   달리 **가장 시급하게 사람이 봐야 하는 케이스**다 — 방치하면 고객 돈을 받고 물건도 안 보내고
+   환불도 안 한 상태로 남는다. `reclaim-stock` cron/`/api/payments/cancel`(둘 다
+   `cancelPendingOrderIfUnpaid` 공유, R4 최종 라운드)도 동일한 이유(취소 대상 주문을 확인했더니
+   DONE인데 금액이 안 맞는 경우)로 dead-letter 후보 사유를 기록한다(단, 이쪽은 재시도 카운트를
+   거친다 — ①-a 참고).
 
 ## ①-a 이 케이스와 나머지 세 케이스의 결정적 차이
 
@@ -61,6 +63,8 @@ order by created_at asc;
   - `[confirmPayment] ★재무 예외 — 권위 DONE인데 주문이 이미 종결(...) orderId=<id>` —
     confirm/return/reconcile 어느 경로든 DONE을 확인한 즉시(재시도 카운트 없이 1회 만에)
     `markReclaimDead`가 호출된다.
+  - `[POST /api/payments/webhook] ★재무 예외 — 종결 상태(...)에서 DONE 웹훅 수신 orderId=<id>` —
+    위와 동일한 조건, 웹훅 경로에서 즉시 `markReclaimDead`가 호출된다.
   - `[GET /api/cron/reclaim-stock] ★재무 예외 — DONE인데 금액 불일치 orderId=<id>` — 만료된
     '결제대기' 주문을 취소하기 직전 확인 단계에서 발생. 이건 재시도 카운트(5회)를 거쳐
     dead-letter로 이어진다(신원 불일치·불명과 같은 경로) — 5번째 반복 전이라면 아직
