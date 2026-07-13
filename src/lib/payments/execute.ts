@@ -11,24 +11,29 @@ export type ApplyResult =
   | { applied: 'none' };
 
 /**
- * @param action    decidePaymentAction의 반환값
- * @param orderId   대상 주문 id
- * @param paymentKey 'confirm' 적용 시 setOrderPaid에 기록할 payment_key
+ * @param action          decidePaymentAction의 반환값
+ * @param orderId         대상 주문 id
+ * @param confirmPaymentKey 'confirm' 적용 시에만 쓰인다 — setOrderPaid에 기록할 payment_key
  *                    (WHERE payment_status='승인중' AND payment_key=? 로 이중승인 방어 —
  *                    repo.setOrderPaid 참고. '결제대기' 주문에 대한 claim 선행은 호출부 책임이다.)
+ *                    'restoreConfirming'은 이 인자를 쓰지 않는다 — action.paymentKey(decide가
+ *                    실은 증거)를 그대로 0028 rpc에 전달한다.
  */
 export async function applyPaymentAction(
   action: PaymentAction,
   orderId: string,
-  paymentKey: string,
+  confirmPaymentKey?: string,
 ): Promise<ApplyResult> {
   switch (action.kind) {
     case 'confirm': {
-      const affected = await setOrderPaid(orderId, { paymentKey, paidAt: new Date().toISOString() });
+      if (!confirmPaymentKey) {
+        throw new Error('applyPaymentAction: confirm 액션은 confirmPaymentKey가 필요합니다');
+      }
+      const affected = await setOrderPaid(orderId, { paymentKey: confirmPaymentKey, paidAt: new Date().toISOString() });
       return { applied: 'confirm', affected };
     }
     case 'restoreConfirming': {
-      const restored = await cancelConfirmingAndRestore(orderId);
+      const restored = await cancelConfirmingAndRestore(orderId, action.paymentKey);
       return { applied: 'restore', restored };
     }
     case 'settled':
