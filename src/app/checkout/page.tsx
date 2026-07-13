@@ -258,7 +258,9 @@ function CheckoutForm() {
       await widgetsRef.current!.requestPayment({
         orderId,
         orderName,
-        successUrl: `${window.location.origin}/order-complete`,
+        // R4: successUrl은 서버 라우트(GET /api/payments/return)를 가리킨다 — 브라우저가 아니라
+        // 서버가 승인을 오케스트레이션하고, 끝나면 /order-complete?status=... 로 302한다.
+        successUrl: `${window.location.origin}/api/payments/return`,
         failUrl: `${window.location.origin}/checkout?fail=1`,
       });
     } catch {
