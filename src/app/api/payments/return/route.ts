@@ -11,6 +11,10 @@ import {
 // 짧게 잡아 최악 대기시간을 줄인다(webhook과 동일한 이유로 동일한 값, WEBHOOK_TOSS_TIMEOUT_MS 참고).
 const RETURN_TOSS_TIMEOUT_MS = 5_000;
 
+/** 최악 대기시간(토스 confirm 5s + reconcile 재조회 5s)에 여유를 둔 함수 실행 상한 — 플랫폼
+ *  기본값에 의존하지 않는다. 초과 시 504로 끊겨야 사용자가 API 응답 원문에 좌초하지 않는다. */
+export const maxDuration = 20;
+
 type RedirectStatus = 'done' | 'pending' | 'declined' | 'expired' | 'unconfirmed' | 'invalid';
 
 function parseQuery(searchParams: URLSearchParams): { paymentKey: string; orderId: string; amount: number } | null {
@@ -56,7 +60,11 @@ function redirectToOrderComplete(request: NextRequest, status: RedirectStatus, o
   const url = new URL('/order-complete', request.url);
   url.searchParams.set('status', status);
   if (orderId) url.searchParams.set('orderId', orderId);
-  return NextResponse.redirect(url, 302);
+  const response = NextResponse.redirect(url, 302);
+  // 상태 변경 GET의 리다이렉트 — 프록시·브라우저 캐시가 이 302를 재사용하면 다음 방문이
+  // stale한 status로 뜬다(예: 이후 결제가 실제로 진전됐는데도 예전 pending을 다시 보여줌).
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
 }
 
 /**
