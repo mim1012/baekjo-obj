@@ -126,8 +126,8 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      // settled/ignore/retryLater — 승인중 주문만 순회하므로(listOrphanedConfirmingOrders) 정상
-      // 흐름이면 도달하지 않는다. 방어적으로 불명 취급.
+      // settled/ignore/retryLater/proceedToClaim — 승인중 주문만 순회하므로(listOrphanedConfirmingOrders)
+      // 정상 흐름이면 도달하지 않는다. 방어적으로 불명 취급.
       logServerError(
         `[GET /api/cron/reconcile-confirming] 승인중 주문 재조회 결과 불명 orderId=${order.id} ` +
           `tossStatus=${tossResult.status} tossAmount=${tossResult.totalAmount} expected=${expectedAmount}`,

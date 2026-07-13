@@ -59,12 +59,20 @@ interface Branded {
 }
 
 type PaymentActionShape =
-  /** setOrderPaid 대상 — order.paymentStatus별 claim 선행 여부는 호출부 책임 */
+  /** setOrderPaid 대상. ★오직 observation:'authoritative'(토스 권위 확보)에서만 반환된다 —
+   *  observation:'none'(사전 관찰, 권위 없음)은 절대 이 kind를 반환하지 않는다(아래
+   *  'proceedToClaim' 참고). 이게 "토스 권위 없이 확정하는 액션은 타입상 만들 수 없다"의 실체다. */
   | { kind: 'confirm' }
   /** cancelConfirmingAndRestore 대상 — 증거로 paymentKey를 싣는다(0028: WHERE payment_key=?
    *  바인딩에 실제로 쓰인다 — codex 지적: 예전엔 실행기가 이 키를 무시하고 orderId만으로 복원
    *  RPC를 돌렸다). '승인중' 전용, 유일한 재고복원 변형. */
   | { kind: 'restoreConfirming'; paymentKey: string }
+  /** DB 변이 없음 — 라우트가 claim(결제대기→승인중 배타 전이) 절차로 진행하라는 신호일 뿐이다.
+   *  observation:'none' + order.paymentStatus==='결제대기'에서만 반환(정상 흐름이면 호출부가
+   *  이 조합으로 안 부르므로 방어적 경로). opus MEDIUM 방어: 예전엔 이 경로가 'confirm'을
+   *  반환해서, 실수로 applyPaymentAction에 바로 넘기면 토스 승인 없이 setOrderPaid가 실행될
+   *  수 있는 타입상의 구멍이었다. */
+  | { kind: 'proceedToClaim' }
   /** 이미 결제완료 — no-op */
   | { kind: 'settled' }
   /** 취소·확정 어느 쪽도 하지 않음(취소 금지 불변식 대상) */
@@ -119,8 +127,9 @@ export function decidePaymentAction(
     }
     if (order.paymentStatus === '결제대기') {
       // 정상 흐름이면 호출부가 결제대기 주문에는 observation:'none'을 쓰지 않는다(claim으로
-      // 넘어간다) — 방어적으로 confirm 진행 가능 신호만 준다.
-      return brand({ kind: 'confirm' });
+      // 넘어간다) — 방어적으로 "claim 절차로 진행 가능"만 신호한다. 'confirm'을 반환하지 않는
+      // 이유는 위 PaymentActionShape 주석 참고(opus MEDIUM — 토스 권위 없이 확정 방지).
+      return brand({ kind: 'proceedToClaim' });
     }
     // 그 외 비정상 조합(환불완료·입금대기 등 예상 밖 상태) — 조용히 흡수하지 않고 거부 신호.
     return brand({ kind: 'ignore', reason: 'unknown-status' });

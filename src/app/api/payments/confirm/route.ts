@@ -47,35 +47,46 @@ function toSummary(order: OrderRecord): ConfirmedOrderSummary {
  * — 판단 매트릭스는 decide.ts로 이전됨). ③ 멱등 흡수와 ③-b claim 패자 재조회(경합) 두 호출부가 공유.
  */
 function respondToAction(action: PaymentAction, order: OrderRecord, orderId: string, submittedKey: string) {
-  if (action.kind === 'settled') {
-    return NextResponse.json({ order: toSummary(order) }, { status: 200 });
+  switch (action.kind) {
+    case 'settled':
+      return NextResponse.json({ order: toSummary(order) }, { status: 200 });
+
+    case 'retryLater':
+      return NextResponse.json({ error: 'payment-confirming' }, { status: 202 }); // 아직 확정 전 — 취소 금지
+
+    case 'confirm':
+    case 'proceedToClaim':
+    case 'restoreConfirming':
+      // observation:'none'에서 이 헬퍼가 도달하는 조건(order.paymentStatus!=='결제대기') 위에서는
+      // decide가 이 셋을 반환하지 않는다 — 'confirm'은 observation:'authoritative' 전용(decide.ts
+      // PaymentActionShape 주석 참고), 'proceedToClaim'은 order.paymentStatus==='결제대기' 전용,
+      // 'restoreConfirming'은 observation:'declined'/'authoritative' 전용. 정상 흐름이면 도달 불가.
+      logServerError(`[POST /api/payments/confirm] respondToAction 예상 밖 action orderId=${orderId} kind=${action.kind}`, {});
+      return NextResponse.json({ error: 'server-error' }, { status: 500 });
+
+    case 'ignore':
+      if (action.reason === 'canceled') {
+        return NextResponse.json({ error: 'reservation-expired' }, { status: 409 }); // 거짓 성공 금지
+      }
+      if (action.reason === 'key-mismatch') {
+        logServerError(
+          `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${submittedKey} storedKey=${order.paymentKey}`,
+          {},
+        );
+        return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
+      }
+      // 그 외 예상 밖 상태(환불완료·입금대기 등)에서 재요청 — 조용히 흡수하지 않고 로그 후 거부한다.
+      logServerError(
+        `[POST /api/payments/confirm] 예상 밖 주문 상태에서 confirm 재요청 orderId=${orderId} paymentStatus=${order.paymentStatus}`,
+        {},
+      );
+      return NextResponse.json({ error: 'payment-not-confirmable' }, { status: 409 });
+
+    default: {
+      const exhaustiveCheck: never = action;
+      throw new Error(`[POST /api/payments/confirm] respondToAction 처리되지 않은 action.kind: ${JSON.stringify(exhaustiveCheck)}`);
+    }
   }
-  if (action.kind === 'retryLater') {
-    return NextResponse.json({ error: 'payment-confirming' }, { status: 202 }); // 아직 확정 전 — 취소 금지
-  }
-  if (action.kind === 'confirm' || action.kind === 'restoreConfirming') {
-    // observation:'none'에서 이 헬퍼가 도달하는 조건(order.paymentStatus!=='결제대기') 위에서는
-    // decide가 이 둘을 반환하지 않는다 — 정상 흐름이면 도달 불가, 방어적 처리.
-    logServerError(`[POST /api/payments/confirm] respondToAction 예상 밖 action orderId=${orderId} kind=${action.kind}`, {});
-    return NextResponse.json({ error: 'server-error' }, { status: 500 });
-  }
-  // action.kind === 'ignore'
-  if (action.reason === 'canceled') {
-    return NextResponse.json({ error: 'reservation-expired' }, { status: 409 }); // 취소된 주문은 거짓 성공 금지
-  }
-  if (action.reason === 'key-mismatch') {
-    logServerError(
-      `[POST /api/payments/confirm] 멱등 흡수 키 불일치(대체 시도 의심) orderId=${orderId} submittedKey=${submittedKey} storedKey=${order.paymentKey}`,
-      {},
-    );
-    return NextResponse.json({ error: 'payment-key-mismatch' }, { status: 409 });
-  }
-  // 그 외 예상 밖 상태(환불완료·입금대기 등)에서 재요청 — 조용히 흡수하지 않고 로그 후 거부한다.
-  logServerError(
-    `[POST /api/payments/confirm] 예상 밖 주문 상태에서 confirm 재요청 orderId=${orderId} paymentStatus=${order.paymentStatus}`,
-    {},
-  );
-  return NextResponse.json({ error: 'payment-not-confirmable' }, { status: 409 });
 }
 
 /**

@@ -39,6 +39,12 @@ export async function applyPaymentAction(
     case 'settled':
     case 'ignore':
     case 'retryLater':
+    case 'proceedToClaim':
       return { applied: 'none' };
+    default: {
+      // exhaustive 강제 — decide.ts에 새 kind가 추가되면 여기서 컴파일 에러로 잡힌다.
+      const exhaustiveCheck: never = action;
+      throw new Error(`applyPaymentAction: 처리되지 않은 action.kind: ${JSON.stringify(exhaustiveCheck)}`);
+    }
   }
 }
