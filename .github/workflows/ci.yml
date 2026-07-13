@@ -60,22 +60,18 @@ jobs:
   # 합성 __test_* 레코드로 0021/0024/0026 계약을 검증한다(브라우저 불필요, API 테스트). PR/push 모두 실행 —
   # staging에만 쓰기 때문에 머지 전에 돌려도 안전하고, 다음 리팩터(R2~R5)의 회귀 안전망이 된다.
   #
-  # ★job-level concurrency — visual.yml/payments-routes.yml과 같은 preview-db-<sha> 그룹으로
-  # 직렬화한다(2026-07-13 실측: PR에서 /admin/products 데스크톱 2% diff로 visual이 오탐 FAIL).
-  # 이 잡이 만드는 합성 __test_* 상품/주문이 staging DB에 남아있는 채로 visual이 같은 DB를
-  # 대상으로 /admin/products를 스크린샷하면(관리자 목록은 is_visible=false도 노출) 그 합성
-  # 레코드가 찍힌다. visual/payments-routes 둘은 deployment_status 트리거라 그룹 키가
-  # github.event.deployment.sha인데, 이 워크플로는 pull_request/push 트리거라 같은 커밋의
-  # SHA를 pull_request.head.sha(PR) 또는 github.sha(push)로 얻는다 — PR의 Vercel 배포 sha는
-  # 항상 PR head sha와 같으므로 세 워크플로가 동일한 그룹 키에 도달해 실제로 직렬화된다.
-  # cancel-in-progress: false 필수 — true면 나중 워크플로가 상대를 취소해 required check가
-  # 영영 안 돌 수 있다(visual.yml의 동일 트레이드오프 설명 참고).
+  # ★job-level concurrency를 여기서 뺐다(2026-07-13, 구조 변경으로 재정정) — visual.yml과 공용
+  # concurrency 그룹을 공유시켰더니 GitHub이 그룹당 "실행 중 1개 + 대기 1개"만 유지하는 특성
+  # 때문에 payments-routes(별도 워크플로였을 때)가 대기 중 새 이벤트에 밀려 통째로 cancelled
+  # 되는 사고가 났다(실측: 여러 회 연속 취소돼 결제 라우트 프리뷰 스펙이 아예 안 돌고 있었음).
+  # 근본 수정은 payments-routes를 visual.yml 안의 순차 잡(needs: visual)으로 합쳐 같은
+  # 워크플로 실행 안에서 순서를 강제하는 것 — 그러면 이 잡(payments-db-spec, PR/push 트리거)이
+  # 굳이 그 그룹에 낄 필요가 없다(애초에 이 잡은 API 테스트라 스크린샷을 안 찍으므로 시각
+  # 회귀 오염과 무관 — /admin/products 오탐은 이 잡이 아니라 payments-routes가 만드는 합성
+  # 상품이 원인이었고, 그건 이제 visual → payments-routes 순차 실행으로 막힌다).
   payments-db-spec:
     runs-on: ubuntu-latest
     needs: verify
-    concurrency:
-      group: preview-db-${{ github.event.pull_request.head.sha || github.sha }}
-      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
