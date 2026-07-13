@@ -25,7 +25,12 @@ export async function requireBrandScoped(brandId: string): Promise<RequireBrandS
     return { ok: true, requester };
   }
 
-  const inScope = requester.role === 'partner' && (requester.managedBrandIds?.includes(brandId) ?? false);
+  // partner는 allowlist로 검사한다 — status가 'pending'/'rejected'(계약 종료 등)여도 managedBrandIds
+  // 는 그대로 남아있을 수 있으므로, active가 아니면 managedBrandIds 값과 무관하게 무조건 차단한다.
+  const inScope =
+    requester.role === 'partner' &&
+    requester.status === 'active' &&
+    (requester.managedBrandIds?.includes(brandId) ?? false);
   if (!inScope) {
     return { ok: false, response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
   }
