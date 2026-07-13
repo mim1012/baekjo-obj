@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product } from '@/types';
@@ -47,14 +47,26 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   // Writable review targets
   const [writableItems, setWritableItems] = useState<WritableItem[]>([]);
 
+  // loadData 는 mount·product.id 변경·STORAGE_EVENTS 리스너에서 각각 독립적으로 재호출된다
+  // (단일 useEffect cleanup으로는 못 잡는 범위) — 마지막 호출 번호만 신뢰해 먼저 시작했지만
+  // 늦게 응답한 요청이 최신 상태를 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
+  const loadSeqRef = useRef(0);
+
   const loadData = () => {
+    const seq = ++loadSeqRef.current;
     const currentUser = getCurrentUser();
     setUser(currentUser);
     if (currentUser) {
-      getMyOrders().then(setOrders);
+      getMyOrders().then((orders) => {
+        if (loadSeqRef.current === seq) setOrders(orders);
+      });
     }
-    getMergedReviews(product.id).then(setReviews);
-    getMergedInquiries(product.id).then(setInquiries);
+    getMergedReviews(product.id).then((reviews) => {
+      if (loadSeqRef.current === seq) setReviews(reviews);
+    });
+    getMergedInquiries(product.id).then((inquiries) => {
+      if (loadSeqRef.current === seq) setInquiries(inquiries);
+    });
   };
 
   useEffect(() => {
