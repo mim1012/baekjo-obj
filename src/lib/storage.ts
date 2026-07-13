@@ -359,8 +359,12 @@ export async function getPaymentStatus(orderId: string): Promise<PaymentStatusRe
 
 /**
  * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
- * 서버가 payment_status='결제대기'인 선점 주문만 대상으로 재고를 복원한다(확정건은 no-op).
+ * 서버가 실제로 결제 안 됐음을 확인한 선점 주문만 취소·재고복원한다(확정건은 no-op).
  * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
+ * ★200만 성공으로 본다(R4 최종 라운드) — 202(cancel-pending)는 response.ok 범위(200~299)에
+ * 들어가지만 "과도기 상태·조회 불명이라 이번 요청에선 취소하지 않았다"는 뜻이다. 여기서 성공으로
+ * 흡수하면 호출부(checkout의 fail 핸들러)가 아직 확정 중이거나 대사가 안 끝난 주문을 취소된
+ * 것으로 오인해 pending 표식을 지우고 "결제가 취소되었습니다"라고 거짓 안내할 수 있다.
  */
 export async function cancelReservation(orderId: string): Promise<void> {
   const response = await fetch('/api/payments/cancel', {
@@ -368,7 +372,7 @@ export async function cancelReservation(orderId: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ orderId }),
   });
-  if (!response.ok) {
+  if (response.status !== 200) {
     throw new Error('reservation-cancel-failed');
   }
 }
