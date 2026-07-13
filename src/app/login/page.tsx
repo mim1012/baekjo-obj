@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
-import { getCurrentUser, login, isLoggedIn } from '@/lib/storage';
+import { login, isLoggedIn } from '@/lib/storage';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import { useMounted } from '@/lib/useMounted';
 
@@ -18,11 +18,12 @@ export default function LoginPage() {
 
   const [pending, setPending] = useState(false);
 
+  // 이미 로그인된 상태로 로그인 화면에 오면 마이페이지로 보낸다(기획 방향).
+  // 단, 관리자 접근 거부 등 ?error=... 안내가 있을 땐 배너를 보여줘야 하므로 자동이동하지 않는다.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (isLoggedIn() && !params.get('error')) {
-      const currentUser = getCurrentUser();
-      router.replace(currentUser?.role === 'admin' ? '/admin' : '/mypage');
+      router.replace('/mypage');
     }
   }, [router]);
 
@@ -60,32 +61,36 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
-      <div className="grid w-full max-w-4xl border border-[#D1D0C8] bg-[#FAF9F5] shadow-sm md:grid-cols-[0.85fr_1.15fr]">
-        <div className="hidden border-r border-[#D1D0C8] bg-[#687069] p-10 text-white md:flex md:flex-col md:justify-between">
+    <div className="grid min-h-dvh w-full bg-[#FAF9F5] md:grid-cols-[0.6fr_1.4fr] lg:grid-cols-[0.5fr_1.5fr] overflow-hidden">
+      <div className="hidden border-r border-[#D1D0C8] bg-[#687069] p-8 text-white md:flex md:flex-col lg:p-12">
+        <Link href="/">
           <BrandMark inverse />
-          <div>
-            <p className="font-editorial text-4xl leading-tight">
-              함께한 오늘을
-              <br />
-              오래 기억하도록.
-            </p>
-            <p className="mt-5 text-sm leading-7 text-[#D2D7D2]">
-              나의 관심 상품과 주문,
-              <br />
-              맞춤 케어 기록을 이어서 확인하세요.
-            </p>
-          </div>
+        </Link>
+        <div className="mt-auto">
+          <p className="font-editorial text-3xl leading-tight lg:text-4xl">
+            함께한 오늘을
+            <br />
+            오래 기억하도록.
+          </p>
+          <p className="mt-4 text-[13px] leading-6 text-[#D2D7D2]">
+            나의 관심 상품과 주문,
+            <br />
+            맞춤 케어 기록을 이어서 확인하세요.
+          </p>
         </div>
+      </div>
 
-        <div className="p-7 sm:p-12">
-          <div className="md:hidden">
-            <BrandMark />
+      <div className="flex flex-col justify-center px-5 py-8 sm:px-10 lg:px-16 overflow-y-auto">
+        <div className="mx-auto w-full max-w-sm lg:max-w-md">
+          <div className="md:hidden mb-6">
+            <Link href="/">
+              <BrandMark />
+            </Link>
           </div>
-          <h1 className="mt-10 text-3xl font-normal text-[#202521] md:mt-0">다시 만나 반가워요.</h1>
-          <p className="mt-2 text-sm text-[#747B75]">백조오브제 계정으로 로그인해 주세요.</p>
+          <h1 className="text-2xl font-normal text-[#202521] md:mt-0 lg:text-3xl">다시 만나 반가워요.</h1>
+          <p className="mt-2 text-[13px] text-[#747B75] lg:text-sm">백조오브제 계정으로 로그인해 주세요.</p>
 
-          <form onSubmit={handleLogin} className="mt-9 space-y-4">
+          <form onSubmit={handleLogin} className="mt-8 space-y-4">
             {(error || socialError) && (
               <div role="alert" className="rounded-md bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
                 {error || socialError}
@@ -100,7 +105,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="name@example.com"
-                className="w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34]"
+                className="w-full border border-[#C9C8C0] px-4 py-3 text-[13px] focus:border-[#2F3B34]"
               />
             </label>
             <label className="block">
@@ -112,7 +117,7 @@ export default function LoginPage() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="비밀번호를 입력해 주세요"
-                className="w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34]"
+                className="w-full border border-[#C9C8C0] px-4 py-3 text-[13px] focus:border-[#2F3B34]"
               />
             </label>
             <label className="flex cursor-pointer items-center gap-2 text-xs text-[#697069]">
@@ -122,7 +127,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={pending}
-              className="mt-2 w-full bg-[#2F3B34] py-3.5 text-sm font-semibold text-white transition-colors duration-150 hover:bg-[#3C4941] disabled:cursor-not-allowed disabled:opacity-60"
+              className="mt-2 w-full bg-[#2F3B34] py-3 text-[14px] font-semibold text-white transition-colors duration-150 hover:bg-[#3C4941] disabled:cursor-not-allowed disabled:opacity-60 lg:py-3.5"
             >
               {pending ? '로그인 중…' : '로그인'}
             </button>
