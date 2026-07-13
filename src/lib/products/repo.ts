@@ -251,6 +251,12 @@ export async function updateProductScoped(
   if (!existing) return { status: 'not-found' };
 
   const merged: Product = { ...existing, ...patch, id: existing.id };
+  // salePrice는 실제 price가 있어야만 의미가 있다 — price가 null(가격 미정)인데 salePrice만
+  // 남아있으면 "정가 없이 세일가만 존재"하는 모순 상태가 저장된다. 두 필드 중 하나만 patch로
+  // 들어와도(예: {price: null} 단독) merged 값 기준으로 막아야 한다.
+  if (merged.salePrice != null && merged.price == null) {
+    return { status: 'invalid' };
+  }
   if (merged.salePrice != null && merged.price != null && merged.salePrice > merged.price) {
     return { status: 'invalid' };
   }
