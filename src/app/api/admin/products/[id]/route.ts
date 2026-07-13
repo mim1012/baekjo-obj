@@ -45,7 +45,11 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 }
 
-/** DELETE /api/admin/products/[id] — 관리자 상품 삭제. */
+/**
+ * DELETE /api/admin/products/[id] — 관리자 상품 삭제.
+ * product_reviews/product_inquiries.product_id는 on delete restrict(0029)라 구매평·문의가
+ * 남아있는 상품을 삭제하면 23503으로 막힌다 — 물리 삭제 대신 숨김 처리를 유도하는 409로 매핑한다.
+ */
 export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
@@ -61,6 +65,9 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     revalidatePath(`/shop/${id}`);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    if (error && typeof error === 'object' && isForeignKeyViolation(error as { code?: string })) {
+      return NextResponse.json({ error: 'product-has-history' }, { status: 409 });
+    }
     logServerError('[DELETE /api/admin/products/[id]] 삭제 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

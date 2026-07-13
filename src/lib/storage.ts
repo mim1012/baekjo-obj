@@ -480,10 +480,12 @@ export async function updateProduct(
   }
 }
 
-/** 상품 삭제. DELETE /api/admin/products/[id]. */
+/** 상품 삭제. DELETE /api/admin/products/[id]. 409는 'product-has-history'로 구분해
+ *  호출부가 "숨김 처리하라"는 안내를 띄울 수 있게 한다(리뷰/문의가 남은 상품은 삭제 불가 — 0029). */
 export async function deleteProduct(id: string): Promise<{ ok?: true; error?: string }> {
   try {
     const response = await fetch(`/api/admin/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (response.status === 409) return { error: 'product-has-history' };
     if (!response.ok) return { error: 'network' };
     return { ok: true };
   } catch {
@@ -1060,14 +1062,18 @@ export async function updateProductReview(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('review-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
 /** 본인 구매평 삭제. DELETE /api/reviews/[id](세션 필요, 소유자만). */
 export async function deleteProductReview(id: string, _userId: string): Promise<void> {
   const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('review-delete-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
@@ -1078,7 +1084,9 @@ export async function setProductReviewStatus(id: string, status: 'published' | '
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status }),
   });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('review-status-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
@@ -1150,14 +1158,18 @@ export async function updateProductInquiry(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('inquiry-update-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
 
 /** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
 export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
   const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('inquiry-delete-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
 
@@ -1169,6 +1181,8 @@ export async function answerProductInquiry(id: string, answer: string): Promise<
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ answer }),
   });
-  if (!response.ok) return;
+  if (!response.ok) {
+    throw new Error('inquiry-answer-failed');
+  }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
