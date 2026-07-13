@@ -3,8 +3,8 @@
 import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle2, XCircle } from 'lucide-react';
-import { getLastOrder } from '@/lib/storage';
+import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { getLastOrder, getPaymentStatus } from '@/lib/storage';
 import { clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
@@ -142,6 +142,93 @@ function ConfirmIssueBlock({ kind }: { kind: ConfirmIssueKind }) {
   );
 }
 
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 10; // 3초 × 10회 = 최대 30초
+
+/**
+ * pending/unconfirmed 화면 전용 — GET /api/payments/status(읽기 전용, R4 라운드2)를 최대 30초간
+ * 폴링해 서버(webhook·reconcile·return 재조회)가 DB를 '결제완료'로 맞춰주면 화면을 전환한다.
+ * ★승인을 재시도하는 게 아니다 — 상태를 읽기만 한다. confirm/claim/취소 등 어떤 변이 API도
+ * 호출하지 않는다(구 클라이언트 오케스트레이션과의 차이). 소진되면 정적 안내 + 수동 재확인
+ * 버튼(같은 읽기 전용 조회 1회)으로 전환한다.
+ */
+function PendingIssueBlock({ kind, orderId }: { kind: 'pending' | 'unconfirmed'; orderId: string | null }) {
+  const [phase, setPhase] = useState<'polling' | 'exhausted' | 'confirmed'>(orderId ? 'polling' : 'exhausted');
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!orderId || phase !== 'polling') return;
+
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      getPaymentStatus(orderId).then((result) => {
+        if (cancelled) return;
+        if (result?.paymentStatus === '결제완료') {
+          setPhase('confirmed');
+          return;
+        }
+        setAttempt((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_POLL_ATTEMPTS) setPhase('exhausted');
+          return next;
+        });
+      });
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [orderId, phase, attempt]);
+
+  const handleManualRecheck = () => {
+    setAttempt(0);
+    setPhase('polling');
+  };
+
+  if (phase === 'confirmed') {
+    return (
+      <div className="text-center">
+        <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full border border-[#D8D6CE] bg-[#FAF9F5] text-[#51705B]">
+          <CheckCircle2 className="size-10" />
+        </div>
+        <h1 className="text-3xl font-normal text-[#202521]">결제가 확인되었습니다</h1>
+        <p className="mt-4 text-sm leading-7 text-[#747B75]">주문 내역은 마이페이지에서 확인할 수 있습니다.</p>
+        <div className="mt-8">
+          <Link href="/mypage" className="inline-flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white">
+            마이페이지 주문내역
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const copy = ISSUE_COPY[kind];
+  return (
+    <div className="text-center">
+      <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-full border border-[#D8D6CE] bg-[#FAF9F5] text-[#8A5A44]">
+        {phase === 'polling' ? <Clock className="size-10 animate-pulse" /> : <XCircle className="size-10" />}
+      </div>
+      <h1 className="text-3xl font-normal text-[#202521]">{copy.title}</h1>
+      <p className="mt-4 text-sm leading-7 text-[#747B75]">{copy.desc}</p>
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 sm:justify-center">
+        <Link href="/mypage" className="flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white">
+          마이페이지 주문내역
+        </Link>
+        {phase === 'exhausted' && (
+          <button
+            type="button"
+            onClick={handleManualRecheck}
+            className="flex min-h-12 items-center justify-center border border-[#AEB3AE] bg-[#FAF9F5] px-6 text-sm font-semibold text-[#3E4841]"
+          >
+            다시 확인
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /** classifyStatus 결과 중 "화면이 문제 안내를 보여줘야 하는" 다섯 가지만 좁힌 타입 —
  *  URL 쿼리만으로 순수하게 정해지므로 effect·state 없이 렌더 중에 바로 파생한다. */
 function toIssueKind(classified: ReturnType<typeof classifyStatus>): ConfirmIssueKind | null {
@@ -190,7 +277,11 @@ function OrderCompleteInner() {
     return (
       <div className="min-h-dvh bg-[#F4F2EC] py-20">
         <div className="mx-auto max-w-2xl px-5">
-          <ConfirmIssueBlock kind={issueKind} />
+          {issueKind === 'pending' || issueKind === 'unconfirmed' ? (
+            <PendingIssueBlock kind={issueKind} orderId={orderIdRaw} />
+          ) : (
+            <ConfirmIssueBlock kind={issueKind} />
+          )}
         </div>
       </div>
     );

@@ -331,6 +331,25 @@ export async function confirmTossPayment(payment: {
 }
 
 /**
+ * 결제 상태 읽기 전용 폴링(R4 라운드2). GET /api/payments/status — order-complete의
+ * pending/unconfirmed 화면이 승인 완료 여부를 확인하는 데 쓴다. 변이 없음(claim·confirm·
+ * 취소 어느 것도 호출하지 않음) — 승인 판정 권위는 여전히 서버(webhook/reconcile/return
+ * 라우트)에만 있고, 이 함수는 그 결과가 DB에 반영되길 기다렸다가 읽기만 한다. 실패 시(네트워크·
+ * 404 등) null — 호출부가 폴링을 계속하거나 소진 처리하도록.
+ */
+export async function getPaymentStatus(
+  orderId: string,
+): Promise<{ paymentStatus: string; orderStatus: string } | null> {
+  try {
+    const response = await fetch(`/api/payments/status?orderId=${encodeURIComponent(orderId)}`);
+    if (!response.ok) return null;
+    return (await response.json()) as { paymentStatus: string; orderStatus: string };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 결제 실패/이탈 시 재고 선점 취소. failUrl 또는 결제창 이탈 시 호출한다.
  * 서버가 payment_status='결제대기'인 선점 주문만 대상으로 재고를 복원한다(확정건은 no-op).
  * 실패 시 throw — 호출부가 "취소됐다"고 오인해 사용자에게 잘못된 안내를 하지 않도록.
