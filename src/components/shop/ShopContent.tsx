@@ -156,9 +156,13 @@ function ShopInner({ products, brands }: Props) {
     return query ? `/shop?${query}` : '/shop';
   };
 
-  const categoryOptions = categorySettings.productCategories.length > 0
+  const rawCategoryOptions = categorySettings.productCategories.length > 0
     ? categorySettings.productCategories.map(toShopCategoryOption)
     : shopCategoryFilters;
+
+  const categoryOptions = rawCategoryOptions.filter((cat, index, self) =>
+    index === self.findIndex((c) => c.slug === cat.slug)
+  );
 
   const activeFilterCount = [
     params.petType,
@@ -313,7 +317,7 @@ function ShopInner({ products, brands }: Props) {
             <h2 className="text-[22px] font-bold text-[#17211D]">에디터 추천 상품</h2>
             <p className="text-sm text-[#6F766F]">지금 백조오브제가 가장 주목하는 제품</p>
           </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-6">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
             {recommendedProducts.map(product => (
               <ProductCard key={product.id} product={product} variant="shop" />
             ))}
@@ -396,7 +400,7 @@ function ShopInner({ products, brands }: Props) {
         <div className="min-w-0 flex-1">
           {paginatedProducts.length > 0 ? (
             <>
-              <div className="shop-product-grid grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-6 xl:grid-cols-4">
+              <div className="shop-product-grid grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
                 {paginatedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} variant="shop" />
                 ))}

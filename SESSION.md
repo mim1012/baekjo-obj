@@ -1,5 +1,6 @@
 # SESSION — 백조오브제(baekjo-obj)
 
+dad / fe/design-home-sync / src/components/home/**, src/components/brands/**, src/components/common/**, src/components/shop/**
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
