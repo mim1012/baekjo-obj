@@ -222,3 +222,70 @@ export async function deleteProduct(id: string): Promise<boolean> {
   if (error) throw error;
   return Array.isArray(data) && data.length > 0;
 }
+
+/**
+ * 브랜드-스코프 쓰기(파트너 전용)의 공용 결과. 'conflict'는 인가 확인 시점과 쓰기 시점 사이에
+ * 상품이 다른 브랜드로 옮겨져(TOCTOU) authorizedBrandId 조건에 0행이 걸린 경우 — 호출부는
+ * 409로 매핑해 재인가를 요구한다. 'invalid'는 merge 후 salePrice > price 같은 불변식 위반.
+ */
+export type ScopedMutationResult<T> =
+  | { status: 'ok'; data: T }
+  | { status: 'not-found' }
+  | { status: 'conflict' }
+  | { status: 'invalid' };
+
+/**
+ * 파트너 브랜드-스코프 상품 수정. authorizedBrandId를 UPDATE의 WHERE 절에 그대로 실어
+ * "이 상품이 지금도 그 브랜드 소속인지" 확인과 실제 쓰기를 한 원자적 쿼리로 묶는다 —
+ * 호출부가 먼저 getProductById로 brandId를 읽어 requireBrandScoped를 통과시킨 뒤 이 함수를
+ * 부르는 구조라, 그 사이 다른 요청이 브랜드를 바꿔치기해도 이 UPDATE 자체는 0행에 적용되어
+ * 절대 다른 브랜드의 상품을 건드리지 않는다(애플리케이션 레이어의 두 단계 검사/쓰기가 아니라
+ * DB 조건절이 최종 방어선).
+ */
+export async function updateProductScoped(
+  id: string,
+  patch: ProductPatchInput,
+  authorizedBrandId: string,
+): Promise<ScopedMutationResult<Product>> {
+  const existing = await getProductById(id, { includeHidden: true });
+  if (!existing) return { status: 'not-found' };
+
+  const merged: Product = { ...existing, ...patch, id: existing.id };
+  if (merged.salePrice != null && merged.price != null && merged.salePrice > merged.price) {
+    return { status: 'invalid' };
+  }
+
+  const { columns, detail } = splitProductInput(merged);
+  const { data, error } = await getSupabase()
+    .from('products')
+    .update({ ...columns, detail })
+    .eq('id', id)
+    .eq('brand_id', authorizedBrandId)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return { status: 'conflict' };
+  return { status: 'ok', data: rowToProduct(data as ProductRow) };
+}
+
+/**
+ * 파트너 브랜드-스코프 상품 삭제. updateProductScoped와 동일한 이유로 DELETE의 WHERE에
+ * authorizedBrandId를 실어 조건과 삭제를 원자적으로 묶는다. 0행이면 id 자체가 없는 것인지
+ * (TOCTOU로 브랜드가 바뀐 것인지) 구분하기 위해 존재 여부를 한 번 더 확인한다.
+ */
+export async function deleteProductScoped(
+  id: string,
+  authorizedBrandId: string,
+): Promise<ScopedMutationResult<true>> {
+  const { data, error } = await getSupabase()
+    .from('products')
+    .delete()
+    .eq('id', id)
+    .eq('brand_id', authorizedBrandId)
+    .select('id');
+  if (error) throw error;
+  if (Array.isArray(data) && data.length > 0) return { status: 'ok', data: true };
+
+  const stillExists = await getProductById(id, { includeHidden: true });
+  return stillExists ? { status: 'conflict' } : { status: 'not-found' };
+}
