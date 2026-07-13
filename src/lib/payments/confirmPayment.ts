@@ -32,7 +32,12 @@ export type ConfirmPaymentResult =
   | { status: 404; error: 'order-not-found' }
   | {
       status: 409;
-      error: 'reservation-expired' | 'payment-key-mismatch' | 'payment-not-confirmable' | 'payment-key-already-bound';
+      error:
+        | 'reservation-expired'
+        | 'payment-key-mismatch'
+        | 'payment-not-confirmable'
+        | 'payment-key-already-bound'
+        | 'payment-binding-mismatch';
     }
   | { status: 500; error: 'server-error' }
   | { status: 502; error: 'payment-unconfirmed' };
@@ -211,6 +216,45 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
     if (order.paymentStatus !== '결제대기') {
       const action = decidePaymentAction(order, { kind: 'none' }, paymentKey, 'confirm');
       return respondToAction(action, order, orderId, paymentKey);
+    }
+
+    // ③-a 클레임 전 바인딩 검증 — successUrl이 GET이 되면서(R4) 봇으로 자동화 가능해졌다:
+    //    공격자가 피해자의 orderId·금액만 알면 임의의(미사용) paymentKey로 이 함수를 호출할 수
+    //    있는데, 검증 없이 claim부터 하면 공격자 키가 저장되고 주문이 '승인중'으로 전이된 뒤
+    //    이어지는 토스 confirm이 4xx(잘못된 키)로 거절돼 "진짜 카드 거절"로 오분류 → 피해자의
+    //    정상 주문이 취소되고 재고가 복원되는 벡터가 열린다. claim보다 먼저 토스 권위 조회로
+    //    이 paymentKey가 실제로 이 orderId·금액에 대한 결제인지 확인한다(비용: 승인당 조회 1회
+    //    추가·수백ms — 돈이 걸린 경로라 정당하다). 이 검증을 통과한 뒤에는 토스 4xx 거절을 진짜
+    //    카드 거절로 신뢰할 수 있다(위조 키가 여기까지 못 옴 — 아래 ④의 거절 분기 전제).
+    let bindingCheck;
+    try {
+      bindingCheck = await queryTossPayment(paymentKey, params.timeoutMs);
+    } catch (bindingError) {
+      if (bindingError instanceof TossConfirmError && bindingError.httpStatus === 404) {
+        // 토스에 이 paymentKey로 결제 기록 자체가 없음 — 위조 또는 아직 미존재. 주문은
+        // 건드리지 않는다(claim 안 함 — 불명확한 상태에서 손대지 않는 게 안전).
+        logServerError(
+          `[confirmPayment] 바인딩 검증 실패(토스 404) orderId=${orderId} paymentKey=${paymentKey}`,
+          bindingError,
+        );
+        return { status: 409, error: 'payment-binding-mismatch' };
+      }
+      // 조회 자체가 불명(네트워크/설정오류/5xx) — claim 이전이므로 주문은 여전히 결제대기 그대로다.
+      // 취소할 것도 없으니 그대로 "불명"으로 응답해 재시도를 유도한다(불변식: 불명이면 손대지 않음).
+      logServerError(
+        `[confirmPayment] 바인딩 검증 조회 실패(불명) orderId=${orderId} paymentKey=${paymentKey}`,
+        bindingError,
+      );
+      return { status: 502, error: 'payment-unconfirmed' };
+    }
+    const bindingMatches = bindingCheck.orderId === orderId && bindingCheck.totalAmount === expectedAmount;
+    if (!bindingMatches) {
+      logServerError(
+        `[confirmPayment] 바인딩 불일치(위조/재사용 의심) orderId=${orderId} paymentKey=${paymentKey} ` +
+          `tossOrderId=${bindingCheck.orderId} tossAmount=${bindingCheck.totalAmount} expected=${expectedAmount}`,
+        {},
+      );
+      return { status: 409, error: 'payment-binding-mismatch' };
     }
 
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. '결제대기'→'승인중' 배타적 전이이므로
