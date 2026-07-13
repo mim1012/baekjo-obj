@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
-import { login, isLoggedIn } from '@/lib/storage';
+import { getCurrentUser, login, isLoggedIn } from '@/lib/storage';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import { useMounted } from '@/lib/useMounted';
 
@@ -18,12 +18,11 @@ export default function LoginPage() {
 
   const [pending, setPending] = useState(false);
 
-  // 이미 로그인된 상태로 로그인 화면에 오면 마이페이지로 보낸다(기획 방향).
-  // 단, 관리자 접근 거부 등 ?error=... 안내가 있을 땐 배너를 보여줘야 하므로 자동이동하지 않는다.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (isLoggedIn() && !params.get('error')) {
-      router.replace('/mypage');
+      const currentUser = getCurrentUser();
+      router.replace(currentUser?.role === 'admin' ? '/admin' : '/mypage');
     }
   }, [router]);
 

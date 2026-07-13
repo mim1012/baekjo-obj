@@ -648,6 +648,25 @@ main.public-main h2 {
   border-color: var(--home-accent);
 }
 
+.home-unified .home-dark-cta .btn-primary {
+  background: var(--home-surface);
+  color: var(--home-text);
+  border: 1px solid var(--home-surface);
+}
+.home-unified .home-dark-cta .btn-primary:hover {
+  background: #FFFFFF;
+  border-color: #FFFFFF;
+}
+.home-unified .home-dark-cta .btn-secondary {
+  background: transparent;
+  color: var(--home-surface);
+  border-color: rgba(251, 250, 247, 0.25);
+}
+.home-unified .home-dark-cta .btn-secondary:hover {
+  background: rgba(251, 250, 247, 0.1);
+  border-color: rgba(251, 250, 247, 0.5);
+}
+
 /* Care Guide Dedicated System */
 .care-guide-page {
   --care-bg: #F8F6F0;
