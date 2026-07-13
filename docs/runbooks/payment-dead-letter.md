@@ -23,6 +23,22 @@
    `totalAmount !== order.totalPrice + order.deliveryFee` (데이터 오염 의심).
 3. **5회 연속 불명** — 네트워크·타임아웃·토스 5xx가 5번 연속 발생(토스 쪽 장애 또는
    `payment_key` 자체가 없는 이상 상태 포함).
+4. **★재무 예외 — 권위 DONE인데 주문이 이미 종결(환불 필요, R4 최종 라운드 추가)** —
+   `confirmPayment.ts`(`applyAuthoritativeAction`)가 confirm/return/reconcile 어느 경로에서든
+   토스 권위 조회로 `status==='DONE'`+금액일치를 확인했는데, 그 시점 우리 DB의 주문이 이미
+   `결제취소`/`환불완료` 등으로 종결돼 있으면 **즉시(재시도 카운트 없이) 1회 만에**
+   `markReclaimDead`가 호출된다. 이건 "판단을 못 내렸다"가 아니라 **"돈은 실제로 받았는데
+   주문은 취소된 것으로 기록돼 있다"**는 뜻이라, 다른 세 조건(재시도 후 dead-letter)과 달리
+   **가장 시급하게 사람이 봐야 하는 케이스**다 — 방치하면 고객 돈을 받고 물건도 안 보내고
+   환불도 안 한 상태로 남는다. `reclaim-stock` cron도 동일한 이유(만료된 '결제대기' 주문을
+   취소하기 전 확인했더니 DONE인데 금액이 안 맞는 경우)로 같은 방식으로 dead-letter 표시한다.
+
+## ①-a 이 케이스와 나머지 세 케이스의 결정적 차이
+
+1~3번은 "판정을 못 내려서" 5회 재시도 뒤 포기하는 것이라, ③(b) 미결제 취소 경로로 정산될
+확률이 높다. **4번은 반대다 — 판정은 이미 확실히 끝났다(돈을 받았다).** 그런데도 우리 DB
+상태와 상충하므로 자동으로 확정하지 않고 사람에게 넘기는 것뿐이다. 그래서 로그 검색 시
+`★재무 예외`가 붙은 라인은 3번(단순 재시도 소진)과 구분해서 **최우선 처리**한다.
 
 ## ② 확인 방법
 
@@ -36,10 +52,20 @@ where reclaim_dead = true
 order by created_at asc;
 ```
 
-**Vercel 로그** — `logServerError`가 아래 두 패턴으로 시끄럽게 남긴다(대시보드 검색어):
+**Vercel 로그** — `logServerError`가 아래 패턴으로 시끄럽게 남긴다(대시보드 검색어):
 
-- `[GET /api/cron/reconcile-confirming] dead-letter 처리 orderId=<id> attempts=<n>`
+- `[GET /api/cron/reconcile-confirming] dead-letter 처리 orderId=<id> attempts=<n>` (①1~3)
+- `[GET /api/cron/reclaim-stock] dead-letter 처리 orderId=<id> attempts=<n>` (①1~3, 결제대기 만료건)
 - 직전 실패 사유 라인(신원 불일치/금액 불일치/네트워크 등)은 같은 orderId로 바로 위에 있다.
+- `★재무 예외`가 붙은 라인(①4) — 가장 먼저 검색해서 처리한다:
+  - `[confirmPayment] ★재무 예외 — 권위 DONE인데 주문이 이미 종결(...) orderId=<id>` —
+    confirm/return/reconcile 어느 경로든 DONE을 확인한 즉시(재시도 카운트 없이 1회 만에)
+    `markReclaimDead`가 호출된다.
+  - `[GET /api/cron/reclaim-stock] ★재무 예외 — DONE인데 금액 불일치 orderId=<id>` — 만료된
+    '결제대기' 주문을 취소하기 직전 확인 단계에서 발생. 이건 재시도 카운트(5회)를 거쳐
+    dead-letter로 이어진다(신원 불일치·불명과 같은 경로) — 5번째 반복 전이라면 아직
+    `reclaim_dead=true`가 아닐 수 있으니, 재시도 카운트와 무관하게 이 로그 라인 자체를
+    보는 즉시 사람이 확인한다.
 
 reconcile cron 응답 JSON(`checked/confirmed/restored/skipped/dead/deadOrderIds`)에도
 `deadOrderIds`로 이번 회차에 새로 표시된 주문 ID가 노출된다 — 수동 모니터링 시 이 필드만
@@ -72,6 +98,20 @@ reconcile cron 응답 JSON(`checked/confirmed/restored/skipped/dead/deadOrderIds
    select cancel_confirming_and_restore('<order-id>');
    -- true = 취소+복원 수행, false = 이미 '승인중'이 아니라 no-op(재확인 필요).
    ```
+
+4. **(c) ★재무 예외(①4) — 실결제 확인 + 우리 DB는 이미 종결된 경우** — 토스 상점관리자에
+   DONE·금액일치로 찍혀 있는데, `orders` 테이블의 해당 주문이 이미 `결제취소`/`환불완료`거나
+   (confirm/return/reconcile 케이스) 또는 재고 회수 직전에 걸린 만료 '결제대기'건인데 금액이
+   안 맞는 경우(reclaim-stock 케이스)다. **주문을 자동으로 `결제완료`로 되돌리지 않는다** —
+   이미 취소/재고 재배정 등 후속 업무 프로세스가 진행됐을 수 있어, 상태를 뒤집는 것 자체가
+   또 다른 사고를 만들 수 있다. 대신:
+   - 실제로 돈을 받았는데 물건을 보내야 하는 상황이면(주문이 실수로 취소된 경우) — 담당자
+     확인 후 (a)와 동일한 SQL로 수동 확정하고, 어떤 근거로 되돌렸는지 이 이력을 별도로 남긴다.
+   - 물건을 보낼 수 없는 상황(실제로 이미 취소·품절 등)이면 — **토스 상점관리자에서 해당
+     `payment_key`로 결제취소/환불을 실행**한다(고객에게 돈을 돌려준다). `orders` 테이블은
+     `결제취소`로 이미 맞는 상태이므로 추가 UPDATE는 불필요 — 토스 쪽 환불 처리만 하면 된다.
+   - 둘 중 어느 쪽인지 애매하면 고객에게 직접 연락해 확인한 뒤 처리한다 — 자동화가 없는
+     이유가 바로 이 판단(발송 여부)이 사람만 할 수 있어서다.
 
 ## ④ 처리 후 `reclaim_dead` 리셋 여부
 
