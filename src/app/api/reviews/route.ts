@@ -87,8 +87,10 @@ export async function POST(request: NextRequest) {
 
     // 주문에 실제로 담긴 상품(+옵션)에만 후기를 붙일 수 있다(§보안 — 실구매 검증 우회 차단).
     // orderItemId 는 아직 OrderItem 고유 id 가 없어 productId+optionName 조합으로만 대조한다.
+    // 옵션 없음은 undefined/null 어느 쪽으로 저장돼 있어도 같은 값으로 취급한다(jsonb 왕복 시
+    // undefined 가 null 로 굳어질 수 있어 엄격한 === 비교는 옵션 있는 주문상품을 false negative로 튕긴다).
     const matchesOrderItem = order.items.some(
-      (item) => item.productId === validated.productId && item.optionName === validated.optionName,
+      (item) => item.productId === validated.productId && (item.optionName ?? null) === (validated.optionName ?? null),
     );
     if (!matchesOrderItem) {
       return NextResponse.json({ error: 'invalid-input' }, { status: 400 });

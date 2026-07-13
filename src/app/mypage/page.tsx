@@ -173,6 +173,7 @@ function MypageContent() {
           reviewTargetKey: buildReviewTargetKey(reviewProduct.orderId, reviewProduct.id, reviewProduct.optionName),
           productId: reviewProduct.id,
           brandId: reviewProduct.brandId,
+          optionName: reviewProduct.optionName,
         });
       }
       setReviewModalOpen(false);

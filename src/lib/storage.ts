@@ -1031,7 +1031,7 @@ export async function getProductReviewsByUser(userId: string): Promise<ProductRe
  * (호출부가 기존 duplicated-review 문구로 catch 하던 동작 보존).
  */
 export async function addProductReview(
-  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
+  input: Omit<ProductReview, 'id' | 'createdAt' | 'updatedAt' | 'status'> & { optionName?: string },
 ): Promise<ProductReview> {
   const response = await fetch('/api/reviews', {
     method: 'POST',

@@ -157,6 +157,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         reviewTargetKey: buildReviewTargetKey(target.orderId, product.id, target.optionName),
         productId: product.id,
         brandId: product.brandId,
+        optionName: target.optionName,
       });
       alert('구매평이 등록되었습니다.');
       setReviewModalOpen(false);
