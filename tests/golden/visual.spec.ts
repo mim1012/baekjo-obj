@@ -95,7 +95,12 @@ test.describe('시각 회귀 — 골든플로우', () => {
           maxDiffPixelRatio: 0.01,
           animations: 'disabled',
           // 목록 행 데이터는 admin 입력·재시드로 상시 변동 → 마스크. 레이아웃·크롬만 고정 비교.
-          mask: [page.locator('tbody')],
+          // 상품 수 카운트("총 N개")·카테고리 개수 배지도 동시 세션 테스트/재시드로 상시 변동 → 마스크.
+          mask: [
+            page.locator('tbody'),
+            page.locator('p', { hasText: '개의 상품' }),
+            page.locator('span.float-right'),
+          ],
         });
       });
     });

@@ -3,7 +3,35 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 브랜치 `integrate/approval-and-design`.
 
-## 현재 상태 (2026-07-13 결제 세션 마감)
+## 현재 상태 (2026-07-13 리뷰·문의/파트너 세션 마감)
+- **🎉 PR #36 머지(`0cebb1c`) — 리뷰·문의 localStorage 목 → Supabase DB 전환 완료**: 마이그레이션 `0029_product_reviews_inquiries.sql`(FK **ON DELETE RESTRICT**), repo 2개(`src/lib/{reviews,inquiries}/repo.ts`), API 라우트 13개, storage.ts 리뷰·문의 콘센트 **동기→async 전환**(이름 유지) + 호출부 3곳(ProductTabsClient·mypage·admin/inquiries) 동반 수정. 서버측 인가: 리뷰 작성 = 본인 주문 + `orderStatus==='배송완료'` + 주문 items 내 상품·옵션 일치(optionName null 정규화) / 비밀문의 = 제목 공개·본문·답변 서버 redaction / admin 답변·상태변경 = requireAdmin(answeredBy 세션 도출).
+- **🎉 PR #37 머지(`7b9ea83`) — BrandProductsClient 파트너 상품 CRUD 실배선(RBAC)**: `0030_member_managed_brand_ids.sql`(text[] 가산), `src/lib/admin/requireBrandScoped.ts`(admin=전 브랜드 / partner=**status active allowlist**+managedBrandIds, 매 요청 DB 재확인), `/api/partner/products{,/[id]}` 4종 — PATCH/DELETE는 **조건부 뮤테이션**(`.eq('id').eq('brand_id')`, 0행→409)으로 TOCTOU 봉쇄, 브랜드 이동 시 이동 대상 재인가, merged salePrice≤price(+price null화 케이스) 서버 강제.
+- **§8-6 삼중 게이트 실적**: findings 총 15건 전량 수정 후 머지 — opus 6건(미구매 상품 리뷰 CRITICAL·미배송 게이트·optionName 회귀·rejected 파트너 denylist 구멍 등) + codex 9건(**생성 image:'' 항상 400 기능파손**·TOCTOU·FK CASCADE 이력소멸·무성 실패·이중제출·로더 레이스 등). Playwright 게이트3: #36 **8/8 PASS**(익명 redaction 서버 실측 포함), #37 **7/7 PASS**(타 브랜드·일반회원 403 실측). 증빙 = 각 PR 코멘트.
+- **dad 화면 확인 대기(신규)**: ① mypage 이메일 인증 배너·비밀번호 변경 섹션 — 확인 페이지 아티팩트 https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d ② 저장/삭제/제출 버튼의 in-flight `disabled`(+opacity) 상태 3건(BrandProductsClient·ReviewFormModal·InquiryFormModal — 기능 가드, 마크업 무변경).
+- **스테이징**: 0029·0030 적용(로컬 러너) + FK CASCADE→RESTRICT ALTER 수동 적용(0029가 구버전으로 선적용됐던 것 정정). **파트너 테스트 계정 신설**: `partner-e2e@test.baekjo`/`partner1234`(role=partner·active, managed_brand_ids=`{b2}`). 게이트3 테스트 데이터 잔존: review `a160936e`(p15, hidden)·inquiry `b012e42f`(p15, 비밀·답변완료)·주문 "E2E배송*" — 정리 시 테스트 계정 delete와 함께.
+- **prod**: #36 main push CI migrate 성공(0029 적용). #37 push CI(0030)는 마감 시점 진행 중 — `gh run list --branch main`으로 확인.
+- **수동 삭제 필요(권한 정책으로 세션 내 삭제 불가)**: `tests/golden/__gate3-partner-temp.spec.ts`(untracked 임시 스펙), `test-results/`(gitignored), scratchpad `gate3-reviews-FATAL.png`. 워크트리 `D:\Project\BAGJO1-wt\wt-{reviews-db,partner-products,session-close-rp}`는 머지 후 제거 가능.
+- 🚨 **TOSS 키 등록 금지 경고는 여전히 유효**(PR #33 미머지 — 아래 이전 스냅샷 참조).
+
+## (이전 스냅샷) 현재 상태 (2026-07-13 개선 세션 마감)
+
+### 🚨 최우선 경고 — **TOSS 키를 등록하지 마시오(PR #33 머지 전까지)**
+main(8b305ae)에는 **실제 돈이 사라질 수 있는 경로 3개가 남아 있다.** 전부 리뷰에서 발견됐고 수정은 **PR #33(미머지)** 안에만 있다. 카드 결제가 열리는 순간 실현된다.
+1. **reclaim cron이 토스에 묻지 않고 취소한다** — 사용자가 결제를 마쳤는데 브라우저가 죽어 successUrl 미도달 시, 10분 뒤 cron이 **돈이 빠져나간 주문을 취소·재고복원**한다.
+2. **위조 paymentKey로 남의 결제대기 주문을 취소할 수 있다** — orderId+금액만 알면(토스 orderId는 클라이언트 지정값·clientKey 공개) 승인 불가 상태 키를 만들어 confirm을 치면 "확정 거절"로 분류돼 피해자 주문이 취소된다. 가상계좌면 **돈 한 푼 안 내고** 가능.
+3. **`/api/payments/cancel`도 동일** — orderId만 알면 토스 확인 없이 취소.
+→ 셋 다 **PR #33에서 수정 완료**(claim 이전 4필드 바인딩 검증, 취소는 종결 화이트리스트에서만, cancel·cron 정책 통합, 키 미설정 시 fail-closed). **#33을 머지한 뒤에 키를 등록할 것.**
+
+### 오늘 머지된 개선 (아키텍처 피드백 → 실행)
+- **#31 (R1) 결제 상태기계 테스트 스위트 승격 + CI 배선**: 스크래치패드에만 있던 검증을 `tests/payments/{state-machine.db,payment-routes}.spec.ts`(21 스펙)로 리포화. `payments-db-spec`(ci.yml, staging 전용) + `payments-routes.yml`(deployment_status→프리뷰). 붙자마자 스펙 노후 1건 적발(불명 시 주문이 '결제대기'가 아니라 '승인중'으로 남는 게 정본).
+- **#32 (R2) 결정 함수 추출 + 불변식 타입·DB 이중 강제**: 세 라우트(confirm/webhook/reconcile)에 복제돼 있던 정책을 `src/lib/payments/decide.ts`(순수 함수)로 단일화. `PaymentAction`을 **비공개 심볼 브랜드**로 만들어 decide 밖 구성 불가 → **`confirm` 액션은 토스 권위 관찰에서만 생성 가능**(승인 없는 결제완료가 타입상 표현 불가). **0028**: `cancel_confirming_and_restore(order_id, payment_key)` 키 바인딩 + **무증거 1-인자 함수 drop**(service_role 뒷문 제거). staging DB 스펙 13/13 PASS.
+
+### 미머지 (다음 세션 최우선)
+- **PR #33 (R4) — successUrl 서버화 + 보안 수정 다수. 커밋 20+, CI green, 리뷰 6라운드 진행.** 잔여 작업 2건:
+  1. **재무 예외를 공유 코어로 통합**: "권위 DONE인데 경합에 져서 주문이 취소됨"을 웹훅에만 dead-letter로 남기고, confirm·return·reclaim·cancel이 공유하는 `applyAuthoritativeAction`에는 안 남긴다(로그만 + 정상응답). 코어에 옮기고 웹훅 중복 제거. + `markReclaimDead`가 0행을 성공으로 취급하는 문제(`.select('id')` 검증 필요).
+  2. **CI 구조**: `payments-routes` 워크플로가 공용 concurrency 그룹 때문에 **대기 중 취소돼 아예 안 돌고 있었다**(GitHub은 그룹당 pending 런 1개만 유지). → `visual.yml` 안의 순차 잡(`needs: visual`)으로 통합하고, `payments-db-spec`은 그룹에서 빼되 `/admin/products` 스냅샷의 상품 테이블을 mask. ⚠️ **이 공용 그룹 설정은 이미 main(#32)에 있다** — main의 PR들도 payments-routes가 취소될 수 있다.
+
+## (이전) 현재 상태 (2026-07-13 결제 세션 마감)
 - **🎉 토스페이먼츠 결제 시스템 전량 main 머지(9 PR)**: `#19`(계약: Order 결제필드·0022~0024·콘센트) → `#21`(admin carrier) → `#22`(reclaim cron) → `#23`(confirm/cancel 라우트) → `#25`(admin '승인중' 표시) → `#26`(order-complete 승인) → `#27`(checkout 위젯) → `#28`('승인중' 배타 상태기계+reconcile+dead-letter, 0025~0027) → `#29`(웹훅 수신+reclaim dead-letter). main HEAD `b993a90`.
 - **상태기계 확정**: 결제대기 →(claim 배타전이·payment_key 기록)→ 승인중 →(setOrderPaid WHERE 승인중+키)→ 결제완료. 취소 RPC 상호배타: 0024=결제대기 전용(cancel라우트·reclaim cron) / 0026=승인중 전용(confirm거절·reconcile·웹훅). **핵심 불변식: 불명(네트워크/5xx/신원·금액 불일치)에서는 어떤 경로도 취소·복원 금지** — reconcile cron(*/5)이 토스 조회로 대사, 5회 실패 시 dead-letter(`docs/runbooks/payment-dead-letter.md`).
 - **검증 실적**: 파이프라인 = Sonnet 구현 → Opus+Codex 교차리뷰(총 8라운드씩) → 실측. CRITICAL 3건(취소·복원 비원자 / 승인중 고아 / 웹훅 위조취소 벡터)·HIGH 십여 건 머지 전 전량 수정. 실측: staging DB 15+16 PASS, 프리뷰 라우트 22 PASS(오버셀·금액조작·불명 비취소·멱등), 골든#7 admin carrier 8 PASS, 웹훅 시뮬 5 PASS. 마이그레이션 0022~0027 staging 적용 완료(prod는 main push CI migrate).
@@ -39,7 +67,19 @@
 - **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
 - **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
 
-## 다음 단계 (2026-07-13 결제 마감 기준)
+## 다음 단계 (2026-07-13 리뷰·문의/파트너 마감 기준)
+1. **이번 리뷰에서 발굴된 백로그(비차단)**: ① **admin 후기 관리 페이지(`/admin/reviews`)가 정적 시드만 렌더** — 실사용자 DB 리뷰 목록·숨김 UI 미배선(`PATCH /api/admin/reviews/[id]`는 게이트3에서 API 검증 완료, `storage.setProductReviewStatus`는 미사용 export) ② 문의는 탭 간 중복 제출 서버 백스톱 없음(리뷰는 unique 제약 있음) ③ admin unscoped `updateProduct` read-modify-write 경합(기존 패턴, partner 경로는 원자화됨) ④ `next-auth.d.ts` 세션 role 유니언에 `partner` 미포함(동작은 requireBrandScoped의 DB 재확인으로 유효 — 타입 정리만).
+2. **파트너 운영 플로우**: 파트너 가입 승인 시 `managed_brand_ids` 부여 UI(admin members) — 현재 테스트 계정은 SQL 직생성. admin/inquiries의 파트너 브랜드 스코프 서버 강제(TODO(RBAC) 주석 위치 — requireBrandScoped 재사용).
+3. **dad 확인 처리**: 위 현재 상태의 확인 대기 2건 회신 받으면 반영/종결.
+4. (이월 — 개선 마감분) **PR #33 마무리·머지 최우선, 머지 전 TOSS 키 등록 금지** + R3/R5/R6 개선 백로그.
+5. (이월) mypage 도메인 갭 4건(게스트 주문조회·배송지·회원탈퇴·위시리스트 DB) / checkout 품절 UX / 옵션 단위 재고 / purchase·admin.spec 스텁 / 런칭 전 admin 비밀번호 교체+리포 공개범위 / 스테이징 테스트 데이터·계정 정리.
+
+## (이전) 다음 단계 (2026-07-13 개선 마감 기준)
+0. **⭐ PR #33 마무리·머지 (최우선)** — 잔여 2건: ① 재무 예외를 `applyAuthoritativeAction` 공유 코어로 통합(+`markReclaimDead` 0행 검증) ② CI 구조 수정(payments-routes를 visual 뒤 순차 잡으로 — 지금 스펙이 아예 안 돌고 있다). **머지 전에는 TOSS 키 등록 금지.**
+0-1. **개선 백로그**: R3(storage.ts 1063줄/72함수 도메인 분할 — 배럴 재수출로 호출부 무변경) / R5(PaymentStatus 유니온 + DB CHECK 제약 + `classifyOrder` 축 공유) / R6(cancel 라우트의 bare-orderId capability → 서명 토큰, checkout 계약 변경 필요) / reclaim 배치 `maxDuration`·병렬화.
+0-2. **교훈(반복 확인됨)**: **호출부에 고치면 갈라진다 — 코어에 고쳐야 전파된다.** 세 라우트 복제(R2), 웹훅에만 적용한 dead-letter(라운드6), claim-먼저 규칙 위반(return 경로) 전부 같은 뿌리.
+
+## (이전) 다음 단계 (2026-07-13 결제 마감 기준)
 0. **⭐ 결제 실가동**: ① Vercel env 3종(TOSS_SECRET_KEY/NEXT_PUBLIC_TOSS_CLIENT_KEY/CRON_SECRET) 등록 ② Pro 플랜(분단위 크론) 확인 ③ 프리뷰 골든#2 위젯 E2E 실측(테스트카드 결제→승인→완료). 토스 전자결제 계약 승인 후: 웹훅 URL 실등록(PAYMENT_STATUS_CHANGED — 서명은 이 이벤트에 미제공, 재조회가 권위) + Vercel WAF 룰(웹훅 경로) + 라이브 키 교체.
 0-1. **dad U10 잔여**: mypage 주문내역 배송조회 링크 — carrier 5종(cj/hanjin/lotte/post/logen) 조회 URL 매핑 전부 커버(누락=drift). 계획서 `.omc/plans/toss-payment-parallel-worktree.md` U10 brief 참조(ConfirmedOrderSummary 반환 계약 주의).
 0-2. **결제 후속(계획서 이월)**: 가상계좌(웹훅 eventType 확장) / dead-letter admin 가시화·알림 / 결제 상태기계 mock 테스트 스위트 / checkout 품절 UX 세분화. 계획서 `.omc/plans/toss-webhook-wave.md`.
@@ -116,6 +156,10 @@
 - 2026-07-12 **(2차) 교훈 — PostgrestError 처리**: supabase-js rpc 에러를 그대로 throw하면 라우트의 `instanceof Error`/`String()` 검사에서 메시지가 유실된다(프리뷰 실측: 재고부족이 409 대신 500). repo 계층에서 `new Error(error.message)`로 감싸는 게 정석. 소스 정적 분석(codex "extends Error라 문제없음")과 실측이 갈렸고 **실측이 정본**.
 - 2026-07-12 **(2차) 교훈 — Vercel Preview에서 Playwright `networkidle` 금지**: 프리뷰 툴바 웹소켓이 상시 연결이라 idle이 영원히 안 옴(14/14 타임아웃 실측). `load` + 고정 정착 대기 사용.
 
+- 2026-07-13 **아키텍처 피드백(Fable) → 개선 실행**: ①검증 휘발성(스크래치패드) ②정책 3라우트 복제 ③storage 갓모듈(1063줄/72함수) ④successUrl을 브라우저가 오케스트레이션 ⑤상태값 stringly-typed ⑥재결제 불가(payment_key unique) 지적. R1·R2 머지, R4 진행(PR #33), R3·R5 백로그.
+- 2026-07-13 **교훈 — 리팩터가 줄 수를 늘리기만 하면 머지하지 않는다**: R2 1라운드가 라우트 700→714줄+신규 145줄로 순증 → 반려. 재작업 후 697줄(감소)+불변식 타입 강제 확보하고 머지.
+- 2026-07-13 **교훈 — 리뷰어 반론을 수용해 내 지시를 철회한 사례 2건**: ①"매트릭스 통합" 지시 → opus가 "출력이 다른 표(HTTP 응답 vs DB 변이)라 합치면 커널이 오염된다"고 반박 → 철회 → 그런데 구현자가 이미 흡수를 완료했고 opus가 재검증에서 **자기 반대를 철회**(HTTP 정책 미유출 확인) → 유지. ②"TOSS 키 미설정 시 취소 폴백이 안전"이라는 내 논거 → codex가 "그건 배포가 한 번도 키를 가진 적 없을 때만 참. 키 로테이션 실수·롤링 배포 중 일부 인스턴스 누락이면 결제된 주문이 취소된다"고 반박 → **fail-closed로 전환**. 권위가 아니라 근거로 판정한다.
+- 2026-07-13 **교훈 — 테스트 인프라의 조용한 실패**: ①고정 픽스처 ID → 동시 실행이 서로 삭제(INSUFFICIENT_STOCK) → 실행 스코프 고유 ID로 ②노출 픽스처가 `/shop` 시각회귀 오염 → 워크플로 직렬화 ③그 직렬화가 **pending 런을 취소**시켜 payments-routes가 아예 안 돌면서 CI는 green으로 보임(GitHub은 그룹당 pending 1개만 유지). **"통과"보다 "안 돌았는데 통과로 보임"이 더 위험하다.**
 - 2026-07-13 **교훈 — 정적 데이터→콘센트 전환 시 인가 범위를 함께 설계**: mypage/admin의 `@/data/products`→콘센트 전환에서 회귀 2건 발생(partner가 admin 전용 API에 403 / 비노출 상품의 구매 이력 소실). 콘센트 선택 = "누가(role)·어떤 범위(노출여부)까지 보나"의 인가 결정이다. 해법 패턴: 소유 리소스 기준 인가 엔드포인트(`/api/orders/mine/products` — 본인 주문의 productId만 includeHidden 조회).
 - 2026-07-13 **교훈 — dad 정본 크로스체킹 워크플로 확립**: ① dad 브랜치를 우리 레포에 `dad/*`로 보존 ② `git worktree`+로컬 목 실행으로 정본 화면 촬영 ③ main 스냅샷 브랜치(빈 커밋으로 Vercel 스킵 우회)를 동일 staging DB 프리뷰로 배포해 순수 코드 diff만 측정 ④ pixelmatch 뷰어(main/dad정본/통합/diff 4열). 오탐 주의 2건: PowerShell이 경로 `[slug]`를 와일드카드로 해석(파일 못 읽어 "구조 유실" 오판 — git show가 정본) / Playwright 셀렉터가 헤더 GNB를 오클릭(케어가이드 앵커 FAIL 오탐).
 - 2026-07-13 **BrandProductsClient 상품 추가/수정/삭제 = 로컬 미리보기 확정(사용자)**: 추후 업체 관리자 기능의 사전 UI. RBAC 확장 때 실배선.
@@ -128,7 +172,17 @@
 - 2026-07-13 **교훈 — 교차리뷰 역할 분담 실증**: Opus는 불변식·전 분기 추적(정적), Codex는 실행 경로 시뮬레이션(동적 — "재시도가 한 번도 발사 안 됨"·위조 시나리오)에 강함. 총 16라운드에서 서로 못 잡은 결함을 상호 보완 — 단일 리뷰어였으면 CRITICAL 최소 2건이 머지됐음.
 - 2026-07-13 **교훈 — React 진입 락 안티패턴**: 재시도 로직에 in-flight 진입 락을 걸면 자기 재시도까지 막는다(delayed 재시도가 죽은 코드였음). 세대(generation) 카운터 단일 통제 + 서버 멱등 + UI disabled가 정석.
 
+- 2026-07-13 **비밀글 정책 확정(사용자)**: 상품 문의 isSecret은 **제목 공개(자물쇠 아이콘) + 본문·답변만 비공개** — dad UI 현행 유지, 서버가 비작성자·비admin에게 content/answer를 빈 값으로 내려줌(클라 숨김이 아니라 서버 redaction).
+- 2026-07-13 **리뷰·문의 FK = ON DELETE RESTRICT 결정(mim)**: 상품 물리삭제보다 리뷰·문의 이력 보존 우선(수주 분쟁방어). admin 삭제는 23503→409 `product-has-history`→"리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요" 안내. ⚠️ 0029를 제자리 수정했으므로 CASCADE 버전이 선적용된 환경(스테이징)은 ALTER로 정정 — 완료.
+- 2026-07-13 **교훈 — codex 교차검증 3연속 실증**: opus 3~4라운드 GREEN 후에도 codex가 양 PR에서 9건 발굴(생성 400 기능파손·TOCTOU·FK CASCADE 등 — 경합/수명주기/기능실측 각도). **표적 재런 패턴**(픽스 diff 한정 + 컨텍스트 파일 지정)으로 codex 재검증을 40분→10분급으로 단축 — 재검증은 항상 이 방식으로.
+- 2026-07-13 **교훈 — 리뷰 픽스가 새 회귀를 만든다**: 미구매 차단 픽스(item 대조)가 optionName 미전달로 옵션 구매 후기를 전부 오차단. 보안 게이트 추가 시 **정상 경로 매트릭스(무옵션/옵션일치/불일치/복수옵션)를 같은 라운드에서 전수 추적**해야 종결.
+- 2026-07-13 **운영 규칙 재확인 — 스냅샷 PNG 병합 충돌은 자기 브랜치(ours) 채택**: 베이스라인은 브랜치별 프리뷰에서 재생성되므로 main 병합 시 바이너리 충돌이 정상 — 자기 PR의 visual job이 촬영할 화면과 일치해야 하므로 ours가 규칙(이번 세션 3회 적용).
+- 2026-07-13 **에이전트 운영 노트**: 백그라운드 에이전트의 최종 보고는 자동 중계되지 않을 수 있음 — idle 통지 후 SendMessage로 보고를 명시 요청하거나 산출물(git log·파일)을 직접 검사가 정석. codex CLI는 프롬프트를 stdin 파이프(`-`)로 줘야 함(인자로 주면 hang).
+
 ## 파일 흔적 (추가만)
+- (2026-07-13 리뷰·문의/파트너 마감) **PR #36**(`0cebb1c`): `supabase/migrations/0029_product_reviews_inquiries.sql` / `src/lib/{reviews,inquiries}/repo.ts` / API `src/app/api/{reviews{,/[id],/mine},inquiries{,/[id],/mine},products/[id]/{reviews,inquiries},admin/{reviews/[id],inquiries{,/[id]/answer}}}/route.ts` / `src/lib/{storage,adapters}.ts` async 전환 / `src/components/shop/ProductTabsClient.tsx`·`src/app/mypage/page.tsx`·`src/app/admin/inquiries/page.tsx` 호출부 / `src/components/{reviews/ReviewFormModal,inquiries/InquiryFormModal}.tsx` isSubmitting 가드. 주요 커밋: `8cab143`(주문검증)→`dbcc5f2`(optionName)→`fe70414`(RESTRICT+throw)→`1c629a3`(모달)→`54f6788`(seq 카운터)→`c083b29`(main 머지).
+- (동일 마감) **PR #37**(`7b9ea83`): `supabase/migrations/0030_member_managed_brand_ids.sql` / `src/lib/admin/requireBrandScoped.ts` / `src/app/api/partner/products{,/[id]}/route.ts` / `src/lib/products/repo.ts`(updateProductScoped·deleteProductScoped) / `src/lib/members/repo.ts`(managed_brand_ids 매퍼) / `src/lib/storage.ts` 파트너 4함수 / `src/components/brands/BrandProductsClient.tsx` 배선. 주요 커밋: `32f053f`→`682b7e6`(allowlist)→`21f6542`(TOCTOU)→`831b7d7`(image+목록보존+삭제가드)→`a205635`(null-price)→`31aecdc`·`d9cd1f4`(main 머지 2회).
+- (동일 마감) 스테이징 신규: 파트너 계정 `partner-e2e@test.baekjo`, 게이트3 데이터(review `a160936e`·inquiry `b012e42f`·주문 E2E배송*). dad 확인 아티팩트: https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d , scratchpad `gate3-{partner,reviews}-*.png`·`mypage-{email-banner,password-change}.png`.
 - 커밋(브랜치 `integrate/approval-and-design`): `4f9f1b9` 홈·헤더 / `f0a0eb8` 0원+업체필터 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`·`23189c2` CategorySettings(+fix) / `040cf2f` survey+게이트 / `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 로그인 가드+하드코딩 제거.
 - 마이그레이션: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(전부 실 DB 적용됨).
 - 러너: `scripts/apply-migrations.mjs`. CI: `.github/workflows/ci.yml`(verify+migrate).
