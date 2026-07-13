@@ -1,4 +1,4 @@
--- 0029_member_managed_brand_ids.sql — 입점업체(partner) 회원의 브랜드 관리 범위를 DB에 영속화
+-- 0030_member_managed_brand_ids.sql — 입점업체(partner) 회원의 브랜드 관리 범위를 DB에 영속화
 --
 -- 왜: User.managedBrandIds(src/types/index.ts)는 지금까지 목데이터(src/data/users.ts)에만 있고
 --     members 테이블에는 컬럼이 없었다. 파트너 상품 CRUD를 API로 연동하려면 "이 파트너가 어느
