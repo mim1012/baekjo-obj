@@ -7,6 +7,7 @@
 
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
+const TOSS_PAYMENT_QUERY_BY_ORDER_URL = 'https://api.tosspayments.com/v1/payments/orders';
 // 응답이 없는 요청이 무한정 매달려 cron/confirm 라우트를 막지 않도록 상한을 둔다.
 // 타임아웃은 fetch가 AbortError를 던지므로 아래 catch에서 network-error와 동일하게 "불명"(httpStatus null)로 흡수된다.
 const TOSS_FETCH_TIMEOUT_MS = 10_000;
@@ -24,7 +25,7 @@ export class TossConfirmError extends Error {
   }
 }
 
-interface TossConfirmResult {
+export interface TossConfirmResult {
   paymentKey: string;
   orderId: string;
   totalAmount: number;
@@ -151,6 +152,51 @@ export async function queryTossPayment(
 
   if (!isValidTossConfirmResult(data)) {
     // confirmTossPayment와 동일한 근거 — 형태가 안 맞는 2xx는 신뢰할 수 없으니 불명으로 던진다.
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return data;
+}
+
+/**
+ * GET /v1/payments/orders/{orderId} — 주문번호로 토스 결제를 역조회한다(권위 소스,
+ * paymentKey 불필요). reclaim-stock cron(U7, R4 최종 라운드)이 만료된 '결제대기' 주문을
+ * 취소하기 **전에** 이걸로 실제 결제 여부를 확인한다 — claim/successUrl 미도달로 paymentKey를
+ * 아직 모르는 상태에서도 "이 orderId로 결제가 이미 끝났는지"를 물을 수 있는 유일한 방법이다
+ * (이게 없으면 브라우저가 successUrl 도달 전에 죽은 실결제 주문이 만료 cron에 그냥 취소돼
+ * 돈이 빠져나간 채 재고만 복원되는 손실이 생긴다). Basic 인증·타임아웃·런타임 스키마 검증은
+ * queryTossPayment와 동일 — 형태가 안 맞는 응답은 신뢰하지 않고 "불명"으로 던진다.
+ */
+export async function queryTossPaymentByOrderId(
+  orderId: string,
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_PAYMENT_QUERY_BY_ORDER_URL}/${encodeURIComponent(orderId)}`, {
+      method: 'GET',
+      headers: { Authorization: authHeader },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !data) {
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-query-by-order-failed', code, response.status);
+  }
+
+  if (!isValidTossConfirmResult(data)) {
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 

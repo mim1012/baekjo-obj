@@ -2,6 +2,7 @@ import {
   getOrderById,
   claimOrderForConfirmation,
   ClaimPaymentKeyConflictError,
+  markReclaimDead,
   type OrderRecord,
 } from '@/lib/orders/repo';
 import { confirmTossPayment, queryTossPayment, TossConfirmError } from '@/lib/payments/toss';
@@ -109,11 +110,12 @@ function respondToAction(
 
 /**
  * observation:'authoritative'(토스 조회/승인 응답을 확보한 시점)의 decide 결과를 적용한다.
- * confirmPayment ⑤(승인 성공 직후)와 reconcilePendingPayment(불명 재조회 후)가 공유한다 —
- * "권위 관찰을 얻은 뒤 무엇을 하는지"는 그 관찰을 confirm으로 얻었든 재조회로 얻었든 동일해야
- * 하므로 한 곳에 둔다(reconcile cron U6과 동일 판단 경로, 정책 복제 0 유지).
+ * confirmPayment ⑤(승인 성공 직후)·reconcilePendingPayment(불명 재조회 후)·reclaim-stock
+ * cron(U7, R4 최종 라운드)이 공유한다 — "권위 관찰을 얻은 뒤 무엇을 하는지"는 그 관찰을
+ * confirm으로 얻었든 재조회로 얻었든 동일해야 하므로 한 곳에 둔다(reconcile cron U6과 동일
+ * 판단 경로, 정책 복제 0 유지). export — reclaim-stock 라우트가 재사용한다.
  */
-async function applyAuthoritativeAction(
+export async function applyAuthoritativeAction(
   action: PaymentAction,
   order: OrderRecord,
   orderId: string,
@@ -127,6 +129,13 @@ async function applyAuthoritativeAction(
    *  pending에 머무는 사고가 난다. claim 성공/실패 각 경로 끝에 이 함수를 true로 재귀 호출하거나
    *  직접 결과를 반환한다. */
   claimConfirmed: boolean,
+  /** 이번에 확보한 관찰이 "DONE + 금액일치"였는지 — 호출부가 자기 tossResult/bindingCheck로
+   *  직접 계산해 넘긴다(webhook route.ts의 isDoneSignal과 동일 패턴). 'ignore'+
+   *  'conflicting-terminal-state' 분기가 이 값으로 "돈은 실제로 받았는데 주문은 이미
+   *  종결(결제취소/환불완료 등)된 재무 예외"와 "결제대기 주문에 취소류 신호가 온 routine
+   *  케이스(★CRITICAL 불변식 — decide.ts 참고, 위조 키 방어라 돈이 안 걸림)"를 구분한다.
+   *  전자만 markReclaimDead로 사람을 부른다(R4 최종 라운드, Codex 최종 재검증). */
+  isDoneSignal: boolean,
 ): Promise<ConfirmPaymentResult> {
   switch (action.kind) {
     case 'settled': {
@@ -170,7 +179,7 @@ async function applyAuthoritativeAction(
           }
           if (latest.paymentStatus === '승인중' && latest.paymentKey === submittedKey) {
             // 승자가 이미 같은 키로 '승인중' 전이시킴 — 그 상태를 이어받아 확정을 마저 진행한다.
-            return applyAuthoritativeAction(action, latest, orderId, submittedKey, true);
+            return applyAuthoritativeAction(action, latest, orderId, submittedKey, true, isDoneSignal);
           }
           logServerError(
             `[confirmPayment] authoritative claim 실패 후에도 확정 불가 orderId=${orderId} paymentKey=${submittedKey} latestStatus=${latest.paymentStatus}`,
@@ -180,7 +189,7 @@ async function applyAuthoritativeAction(
         }
         // claim 성공(1행) — '결제대기'→'승인중' 배타 전이가 실제로 일어났다. 이제 setOrderPaid의
         // WHERE(승인중+키)가 맞을 것이 보장되므로 claimConfirmed=true로 이어서 확정한다.
-        return applyAuthoritativeAction(action, order, orderId, submittedKey, true);
+        return applyAuthoritativeAction(action, order, orderId, submittedKey, true, isDoneSignal);
       }
       // WHERE payment_status='승인중' AND payment_key=?로 claim이 발급한 시도만 확정한다(이중승인 방어).
       const result = await applyPaymentAction(action, orderId, submittedKey);
@@ -212,7 +221,25 @@ async function applyAuthoritativeAction(
         );
         return { status: 409, error: 'payment-key-mismatch' };
       }
-      // conflicting-terminal-state(결제취소/환불완료 등과 DONE 신호가 상충) — 확정도 취소도 안 함.
+      // conflicting-terminal-state — 확정도 취소도 안 함. 두 가지 서로 다른 상황을 isDoneSignal로
+      // 구분한다(webhook route.ts의 동일 분기와 대칭 패턴):
+      if (isDoneSignal) {
+        // ★재무 예외 — 권위 DONE(실제 결제 완료) 관측인데 우리 주문은 이미 종결(결제취소/환불완료
+        // 등) 상태다. 조용히 무시하면 돈을 받았는데 아무도 모르는 상태로 남는다. dead-letter로
+        // 표시해 정산 runbook(docs/runbooks/payment-dead-letter.md) 절차를 반드시 태운다.
+        logServerError(
+          `[confirmPayment] ★재무 예외 — 권위 DONE인데 주문이 이미 종결(${order.paymentStatus}) ` +
+            `orderId=${orderId} paymentKey=${submittedKey} — 환불 검토 필요(runbook 참고)`,
+          {},
+        );
+        await markReclaimDead(orderId).catch((markError) => {
+          logServerError(`[confirmPayment] 재무 예외 dead-letter 표시 실패 orderId=${orderId}`, markError);
+        });
+        return { status: 409, error: 'payment-not-confirmable' };
+      }
+      // isDoneSignal=false — '결제대기' 주문에 취소류(CANCELED/EXPIRED/ABORTED) 신호가 온 routine
+      // 케이스(★CRITICAL 불변식, decide.ts 참고 — 위조 키로 남의 주문을 취소시키는 벡터 방어라
+      // 돈이 안 걸려 있다). 시끄러운 재무 예외 로그를 남기지 않는다(alert fatigue 방지).
       logServerError(
         `[confirmPayment] authoritative 상충 상태 orderId=${orderId} paymentStatus=${order.paymentStatus} reason=${action.reason}`,
         {},
@@ -337,7 +364,8 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
         bindingCheck.paymentKey,
         'confirm',
       );
-      return applyAuthoritativeAction(action, latest, orderId, bindingCheck.paymentKey, latest.paymentStatus === '승인중');
+      const isDoneSignal = bindingCheck.status === 'DONE' && bindingCheck.totalAmount === expectedAmount;
+      return applyAuthoritativeAction(action, latest, orderId, bindingCheck.paymentKey, latest.paymentStatus === '승인중', isDoneSignal);
     }
 
     // ③-b 승인 착수 선언 — 토스 API 호출 전에 반드시 claim. '결제대기'→'승인중' 배타적 전이이므로
@@ -466,7 +494,8 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       tossResult.paymentKey,
       'confirm',
     );
-    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, true);
+    // tossResponseValid가 이미 status==='DONE' && 금액일치를 확인했으므로 isDoneSignal은 항상 true.
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, true, true);
   } catch (error) {
     logServerError('[confirmPayment] 승인 처리 실패', error);
     return { status: 500, error: 'server-error' };
@@ -536,7 +565,8 @@ export async function reconcilePendingPayment(
     // 먼저 시도해 실제로 확정까지 마친다(claim-먼저 규칙, Codex 재검증 HIGH-1) — 예전엔 여기서
     // false가 곧장 202로 귀결돼, claim 이전에 끊긴 뒤 뒤늦게 DONE을 발견한 주문이 읽기 전용
     // 폴링으로도 복구 불가능한 영구 pending에 머무는 결함이 있었다.
-    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, order.paymentStatus === '승인중');
+    const isDoneSignal = tossResult.status === 'DONE' && tossResult.totalAmount === expectedAmount;
+    return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, order.paymentStatus === '승인중', isDoneSignal);
   } catch (error) {
     logServerError('[reconcilePendingPayment] 재조회 처리 실패', error);
     return { status: 500, error: 'server-error' };
