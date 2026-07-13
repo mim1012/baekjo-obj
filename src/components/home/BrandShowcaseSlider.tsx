@@ -30,17 +30,41 @@ const getBrandCategory = (products: Product[]) => {
 };
 
 export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) {
-  const [selectedBrandId, setSelectedBrandId] = useState(brands[0]?.id ?? '');
+  const [shuffledBrands, setShuffledBrands] = useState<Brand[]>(brands);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [hasShuffled, setHasShuffled] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const brandRailRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(brands.length > 1);
 
+  const displayList = useMemo(() => {
+    if (shuffledBrands.length === 0) return [];
+    return shuffledBrands; // 무한 스크롤 제거, 원본 배열만 반환
+  }, [shuffledBrands]);
+
+  // 클라이언트 마운트 시 최초 8개 브랜드를 순서대로 표시 (Hydration 에러 방지)
   useEffect(() => {
-    if (!brands.some((brand) => brand.id === selectedBrandId)) {
-      const timer = window.setTimeout(() => setSelectedBrandId(brands[0]?.id ?? ''), 0);
-      return () => window.clearTimeout(timer);
+    if (!hasShuffled && brands.length > 0) {
+      // 8개만 고정하여 차례대로 표시 (랜덤 셔플 제거)
+      const selected = brands.slice(0, 8);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShuffledBrands(selected);
+      setActiveIndex(0); // 첫 번째 아이템부터 시작
+      setHasShuffled(true);
+      
+      // 초기 스크롤 위치 맞추기
+      setTimeout(() => {
+        const initialTab = document.getElementById(`brand-tab-0`);
+        if (initialTab && brandRailRef.current) {
+          initialTab.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'start' });
+        }
+      }, 50);
     }
-  }, [brands, selectedBrandId]);
+  }, [brands, hasShuffled]);
+
+
+
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(displayList.length > 1);
 
   const updateRailState = useCallback(() => {
     const rail = brandRailRef.current;
@@ -53,7 +77,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
     updateRailState();
     window.addEventListener('resize', updateRailState);
     return () => window.removeEventListener('resize', updateRailState);
-  }, [brands.length, updateRailState]);
+  }, [displayList.length, updateRailState]);
 
   const scrollBrands = (direction: 'left' | 'right') => {
     brandRailRef.current?.scrollBy({
@@ -62,13 +86,14 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
     });
   };
 
-  const selectedBrand = brands.find((brand) => brand.id === selectedBrandId) ?? brands[0];
+  const selectedBrand = displayList[activeIndex] ?? shuffledBrands[0];
   const selectedProducts = selectedBrand ? productsByBrand[selectedBrand.id] ?? [] : [];
   const displayProducts = selectedProducts.slice(0, 2);
-  const selectedIndex = selectedBrand ? brands.findIndex((brand) => brand.id === selectedBrand.id) + 1 : 0;
+  // 원래 배열 기준 인덱스 (1~N)
+  const originalIndex = selectedBrand ? shuffledBrands.findIndex((brand) => brand.id === selectedBrand.id) + 1 : 0;
   const totalProducts = useMemo(
-    () => brands.reduce((total, brand) => total + (productsByBrand[brand.id]?.length ?? 0), 0),
-    [brands, productsByBrand],
+    () => shuffledBrands.reduce((total, brand) => total + (productsByBrand[brand.id]?.length ?? 0), 0),
+    [shuffledBrands, productsByBrand],
   );
 
   if (!selectedBrand) return null;
@@ -78,7 +103,11 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
   const verificationLabel = selectedBrand.auditReport ? '백조 검증 완료' : '입점 자료 확인 중';
 
   return (
-    <div className="w-full">
+    <div
+      className="w-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="home-label">08 curated houses</p>
@@ -89,7 +118,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
         <div className="flex items-center gap-3 text-[13px] font-semibold text-[#68716C]">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2EEE5] px-3 py-1.5 text-[#B99562]">
             <ShieldCheck className="size-4" strokeWidth={1.5} />
-            브랜드 {brands.length}곳
+            브랜드 {shuffledBrands.length}곳
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DED8CC] bg-white px-3 py-1.5">
             <Package className="size-4" strokeWidth={1.5} />
@@ -114,26 +143,35 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
           onScroll={updateRailState}
           className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4 scrollbar-hide lg:gap-4"
         >
-          {brands.map((brand, index) => {
-            const isSelected = selectedBrand.id === brand.id;
+          {displayList.map((brand, index) => {
+            const isSelected = activeIndex === index;
             const names = extractNames(brand.name);
             const products = productsByBrand[brand.id] ?? [];
+            const originalI = shuffledBrands.findIndex(b => b.id === brand.id);
 
             return (
               <button
-                key={brand.id}
+                key={`${brand.id}-${index}`}
+                id={`brand-tab-${index}`}
                 type="button"
-                onClick={() => setSelectedBrandId(brand.id)}
+                onClick={() => {
+                  setActiveIndex(index);
+                  const rail = brandRailRef.current;
+                  const tab = document.getElementById(`brand-tab-${index}`);
+                  if (rail && tab) {
+                    tab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                  }
+                }}
                 aria-pressed={isSelected}
-                className={`group relative min-h-[132px] w-[180px] shrink-0 snap-start overflow-hidden rounded-[16px] p-4 text-left transition-all duration-300 sm:w-[200px] lg:w-[calc(20%-12.8px)] ${
+                className={`group relative min-h-[132px] w-[180px] shrink-0 snap-start overflow-hidden rounded-[16px] p-4 text-left transition-all duration-300 sm:w-[200px] lg:w-[calc(16.666%-13.333px)] ${
                   isSelected
-                    ? 'border-[1.5px] border-[#18231F] bg-[#18231F] text-white shadow-md'
-                    : 'border border-[#DED8CC] bg-[var(--home-surface)] text-[#18231F] hover:border-[#B99562]'
+                    ? 'border-[1.5px] border-[#18231F] bg-[#1A2F25] text-white shadow-md'
+                    : 'border border-[#DED8CC] bg-white text-[#18231F] hover:border-[#B99562]'
                 }`}
               >
                 <div className="flex items-start justify-between">
                   <span className={`font-editorial text-[20px] italic ${isSelected ? 'text-[#B99562]' : 'text-[#B99562] opacity-70'}`}>
-                    {String(index + 1).padStart(2, '0')}
+                    {String(originalI + 1).padStart(2, '0')}
                   </span>
                   <ArrowRight className={`size-4 transition-transform duration-300 group-hover:translate-x-0.5 ${isSelected ? 'text-[#B99562]' : 'text-[#68716C]'}`} strokeWidth={1.5} />
                 </div>
@@ -166,11 +204,11 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
         </button>
       </div>
 
-      <div className="mt-8 grid overflow-hidden rounded-[24px] border border-[#DED8CC] bg-[var(--home-surface)] lg:grid-cols-[5fr_7fr]">
+      <div className="mt-8 grid overflow-hidden rounded-[24px] border border-[#DED8CC] bg-[var(--home-surface)] lg:grid-cols-[34%_66%]">
         <div className="bg-[var(--home-surface-muted)] p-6 sm:p-8 lg:p-10">
           <div className="flex items-center justify-between">
             <p className="font-editorial text-[17px] italic text-[#B99562]">
-              {String(selectedIndex).padStart(2, '0')} / {String(brands.length).padStart(2, '0')}
+              {String(originalIndex).padStart(2, '0')} / {String(shuffledBrands.length).padStart(2, '0')}
             </p>
             <span className="rounded-full border border-[#DED8CC] bg-white px-3 py-1 text-[11px] font-semibold tracking-wider text-[#68716C]">
               {selectedCategory}

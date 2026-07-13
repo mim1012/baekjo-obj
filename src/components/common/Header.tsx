@@ -159,17 +159,28 @@ export default function Header() {
             <Search className="size-5" />
           </Link>
           {currentUser ? (
-            <button
-              type="button"
-              onClick={() => {
-                logout();
-                window.location.reload();
-              }}
-              aria-label="로그아웃"
-              className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
-            >
-              로그아웃
-            </button>
+            <>
+              {currentUser.role === 'admin' && (
+                <Link
+                  href="/admin"
+                  aria-label="관리자"
+                  className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+                >
+                  관리자
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  logout();
+                  window.location.reload();
+                }}
+                aria-label="로그아웃"
+                className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+              >
+                로그아웃
+              </button>
+            </>
           ) : (
             <Link
               href="/login"
@@ -265,6 +276,11 @@ export default function Header() {
               <Link href="/cart" onClick={closeMenu} className="btn-secondary min-h-11 px-4">
                 장바구니 {cartCount > 0 ? `${cartCount}` : ''}
               </Link>
+              {currentUser?.role === 'admin' && (
+                <Link href="/admin" onClick={closeMenu} className="btn-secondary min-h-11 px-4 col-span-2">
+                  관리자 페이지
+                </Link>
+              )}
             </div>
           </div>
         </nav>
