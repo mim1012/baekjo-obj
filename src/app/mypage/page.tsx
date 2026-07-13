@@ -87,8 +87,8 @@ function MypageContent() {
       setProducts(Array.from(merged.values()));
     });
     setWishlist(getWishlist());
-    setReviews(getProductReviewsByUser(currentUser.id));
-    setInquiries(getProductInquiriesByUser(currentUser.id));
+    getProductReviewsByUser(currentUser.id).then(setReviews);
+    getProductInquiriesByUser(currentUser.id).then(setInquiries);
   };
 
   useEffect(() => {
@@ -98,8 +98,12 @@ function MypageContent() {
     setIsMounted(true);
     loadData();
 
-    const handleReviewsChanged = () => setReviews(getProductReviewsByUser(getCurrentUser()?.id || ''));
-    const handleInquiriesChanged = () => setInquiries(getProductInquiriesByUser(getCurrentUser()?.id || ''));
+    const handleReviewsChanged = () => {
+      getProductReviewsByUser(getCurrentUser()?.id || '').then(setReviews);
+    };
+    const handleInquiriesChanged = () => {
+      getProductInquiriesByUser(getCurrentUser()?.id || '').then(setInquiries);
+    };
     
     window.addEventListener(STORAGE_EVENTS.REVIEWS_CHANGED, handleReviewsChanged);
     window.addEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleInquiriesChanged);
@@ -156,21 +160,25 @@ function MypageContent() {
     setReviewModalOpen(true);
   };
 
-  const submitReview = (data: { rating: number; title: string; content: string }) => {
-    if (reviewInitialData) {
-      updateProductReview(reviewInitialData.id, user.id, data);
-    } else if (reviewProduct?.orderId) {
-      addProductReview({
-        ...data,
-        userId: user.id,
-        orderId: reviewProduct.orderId,
-        orderItemId: reviewProduct.orderItemId,
-        reviewTargetKey: buildReviewTargetKey(reviewProduct.orderId, reviewProduct.id, reviewProduct.optionName),
-        productId: reviewProduct.id,
-        brandId: reviewProduct.brandId,
-      });
+  const submitReview = async (data: { rating: number; title: string; content: string }) => {
+    try {
+      if (reviewInitialData) {
+        await updateProductReview(reviewInitialData.id, user.id, data);
+      } else if (reviewProduct?.orderId) {
+        await addProductReview({
+          ...data,
+          userId: user.id,
+          orderId: reviewProduct.orderId,
+          orderItemId: reviewProduct.orderItemId,
+          reviewTargetKey: buildReviewTargetKey(reviewProduct.orderId, reviewProduct.id, reviewProduct.optionName),
+          productId: reviewProduct.id,
+          brandId: reviewProduct.brandId,
+        });
+      }
+      setReviewModalOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '구매평 저장에 실패했습니다.');
     }
-    setReviewModalOpen(false);
   };
 
   const handleDeleteReview = (id: string) => {
@@ -179,16 +187,20 @@ function MypageContent() {
     }
   };
 
-  const submitInquiry = (data: { title: string; content: string; isSecret: boolean; productId?: string; brandId?: string }) => {
-    if (inquiryInitialData) {
-      updateProductInquiry(inquiryInitialData.id, user.id, data);
-    } else {
-      addProductInquiry({
-        ...data,
-        userId: user.id,
-      } as Omit<ProductInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>);
+  const submitInquiry = async (data: { title: string; content: string; isSecret: boolean; productId?: string; brandId?: string }) => {
+    try {
+      if (inquiryInitialData) {
+        await updateProductInquiry(inquiryInitialData.id, user.id, data);
+      } else {
+        await addProductInquiry({
+          ...data,
+          userId: user.id,
+        } as Omit<ProductInquiry, 'id' | 'createdAt' | 'updatedAt' | 'status'>);
+      }
+      setInquiryModalOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '상품문의 저장에 실패했습니다.');
     }
-    setInquiryModalOpen(false);
   };
 
   const handleDeleteInquiry = (id: string) => {

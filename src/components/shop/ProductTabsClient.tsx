@@ -53,8 +53,8 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     if (currentUser) {
       getMyOrders().then(setOrders);
     }
-    setReviews(getMergedReviews(product.id));
-    setInquiries(getMergedInquiries(product.id));
+    getMergedReviews(product.id).then(setReviews);
+    getMergedInquiries(product.id).then(setInquiries);
   };
 
   useEffect(() => {
@@ -88,21 +88,23 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     }
 
     let cancelled = false;
-    const rawReviews = getProductReviewsByUser(user.id);
-    const writable: WritableItem[] = [];
-    orders.forEach(order => {
-      if (order.orderStatus === '배송완료') {
-        order.items.forEach(item => {
-          if (item.productId === product.id) {
-            const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
-            if (!rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)) {
-              writable.push({ orderId: order.id, optionName: item.optionName });
+    getProductReviewsByUser(user.id).then((rawReviews) => {
+      if (cancelled) return;
+      const writable: WritableItem[] = [];
+      orders.forEach(order => {
+        if (order.orderStatus === '배송완료') {
+          order.items.forEach(item => {
+            if (item.productId === product.id) {
+              const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
+              if (!rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)) {
+                writable.push({ orderId: order.id, optionName: item.optionName });
+              }
             }
-          }
-        });
-      }
+          });
+        }
+      });
+      setWritableItems(writable);
     });
-    if (!cancelled) setWritableItems(writable);
 
     return () => {
       cancelled = true;
@@ -141,13 +143,13 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     setInquiryModalOpen(true);
   };
 
-  const submitReview = (data: { rating: number; title: string; content: string }) => {
+  const submitReview = async (data: { rating: number; title: string; content: string }) => {
     // Pick the first writable item
     const target = writableItems[0];
     if (!target || !user) return;
 
     try {
-      addProductReview({
+      await addProductReview({
         ...data,
         userId: user.id,
         orderId: target.orderId,
@@ -163,16 +165,20 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     }
   };
 
-  const submitInquiry = (data: { title: string; content: string; isSecret: boolean }) => {
+  const submitInquiry = async (data: { title: string; content: string; isSecret: boolean }) => {
     if (!user) return;
-    addProductInquiry({
-      ...data,
-      userId: user.id,
-      productId: product.id,
-      brandId: product.brandId,
-    });
-    alert('상품문의가 등록되었습니다.');
-    setInquiryModalOpen(false);
+    try {
+      await addProductInquiry({
+        ...data,
+        userId: user.id,
+        productId: product.id,
+        brandId: product.brandId,
+      });
+      alert('상품문의가 등록되었습니다.');
+      setInquiryModalOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '상품문의 등록에 실패했습니다.');
+    }
   };
 
   const paginatedReviews = reviews.slice((reviewsPage - 1) * ITEMS_PER_PAGE, reviewsPage * ITEMS_PER_PAGE);

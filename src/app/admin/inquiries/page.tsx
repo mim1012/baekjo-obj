@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getProductInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
+import { getCurrentUser, getAdminInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
@@ -42,18 +42,14 @@ export default function AdminInquiriesPage() {
       getPublicProducts().then(setProducts);
     }
 
-    const allInquiries = getProductInquiries();
-
-    // 파트너인 경우 자기 브랜드 문의만 볼 수 있음
-    let filteredInquiries = allInquiries;
-    if (currentUser.role === 'partner') {
-      const managedBrandIds = currentUser.managedBrandIds || [];
-      filteredInquiries = allInquiries.filter(i => managedBrandIds.includes(i.brandId));
-    }
-
-    // Sort by latest
-    filteredInquiries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    setInquiries(filteredInquiries);
+    // 브랜드 스코프 필터링은 서버(/api/admin/inquiries)가 처리한다(§4 drift 방지) —
+    // admin은 전체, partner는 TODO(RBAC) 반영 전까지 안전 폴백(빈 배열)을 받는다.
+    getAdminInquiries().then((allInquiries) => {
+      const sorted = [...allInquiries].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      setInquiries(sorted);
+    });
   };
 
   useEffect(() => {
@@ -73,13 +69,17 @@ export default function AdminInquiriesPage() {
 
   if (!isMounted || !user) return null;
 
-  const handleAnswerSubmit = (inquiryId: string, answer: string) => {
+  const handleAnswerSubmit = async (inquiryId: string, answer: string) => {
     if (!answer.trim()) {
       alert('답변을 입력해주세요.');
       return;
     }
-    answerProductInquiry(inquiryId, answer, user.name);
-    alert('답변이 등록되었습니다.');
+    try {
+      await answerProductInquiry(inquiryId, answer);
+      alert('답변이 등록되었습니다.');
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '답변 등록에 실패했습니다.');
+    }
   };
 
   // Convert inquiries to rows for AdminResourcePage
