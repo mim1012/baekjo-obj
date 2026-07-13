@@ -491,6 +491,75 @@ export async function deleteProduct(id: string): Promise<{ ok?: true; error?: st
   }
 }
 
+/** 파트너/관리자 본인 관리 브랜드의 상품 목록(비노출 포함). GET /api/partner/products. 실패 시 빈 배열. */
+export async function getPartnerProducts(brandId: string): Promise<Product[]> {
+  try {
+    const response = await fetch(`/api/partner/products?brandId=${encodeURIComponent(brandId)}`);
+    if (!response.ok) return [];
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return [];
+  }
+}
+
+/** 파트너/관리자 상품 생성. POST /api/partner/products. */
+export async function createPartnerProduct(
+  input: CreateProductInput,
+): Promise<{ product?: Product; error?: string }> {
+  try {
+    const response = await fetch('/api/partner/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { product } = (await response.json()) as { product: Product };
+    return { product };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 파트너/관리자 상품 수정. PATCH /api/partner/products/[id]. */
+export async function updatePartnerProduct(
+  id: string,
+  updates: UpdateProductInput,
+): Promise<{ product?: Product; error?: string }> {
+  try {
+    const response = await fetch(`/api/partner/products/${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    const { product } = (await response.json()) as { product: Product };
+    return { product };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 파트너/관리자 상품 삭제. DELETE /api/partner/products/[id]. */
+export async function deletePartnerProduct(id: string): Promise<{ ok?: true; error?: string }> {
+  try {
+    const response = await fetch(`/api/partner/products/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      return { error: data?.error ?? 'network' };
+    }
+    return { ok: true };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 /** 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열. */
 export async function getAdminBrands(): Promise<Brand[]> {
   try {

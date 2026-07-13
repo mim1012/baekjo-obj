@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Edit2, Plus, Trash2 } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import { SectionHeading } from '@/components/common/EditorialHeading';
-import { getCurrentUser } from '@/lib/storage';
+import { getCurrentUser, getPartnerProducts, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
 import { Product, Brand, User } from '@/types';
 
 interface BrandProductsClientProps {
@@ -17,7 +17,8 @@ interface BrandProductsClientProps {
 export default function BrandProductsClient({ brand, initialProducts, shortBrandName }: BrandProductsClientProps) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [user, setUser] = useState<User | null>(null);
-  
+  const [isSaving, setIsSaving] = useState(false);
+
   // Modals state
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -31,16 +32,34 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
 
   const hasAdminRights = user?.role === 'admin' || (user?.role === 'partner' && user.managedBrandIds?.includes(brand.id));
 
+  useEffect(() => {
+    // 서버 wrapper(brands/[id]/page.tsx)의 initialProducts는 공개 방문자 기준으로 비노출
+    // 상품을 걸러낸 목록이다(§4). 관리 권한이 확인되면 비노출 포함 전체 목록으로 교체해
+    // 판매 준비 중인 상품도 이 화면에서 편집할 수 있게 한다.
+    if (!hasAdminRights) return;
+    let cancelled = false;
+    getPartnerProducts(brand.id).then((full) => {
+      if (!cancelled) setProducts(full);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAdminRights, brand.id]);
+
   const representativeProducts = products.filter((p) => brand.representativeProductIds.includes(p.id));
   const additionalProducts = products.filter((p) => !brand.representativeProductIds.includes(p.id));
 
-  const handleDelete = (id: string, name: string) => {
-    if (window.confirm(`'${name}' 상품을 삭제하시겠습니까?`)) {
-      setProducts(prev => prev.filter(p => p.id !== id));
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`'${name}' 상품을 삭제하시겠습니까?`)) return;
+    const { error } = await deletePartnerProduct(id);
+    if (error) {
+      alert('상품 삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      return;
     }
+    setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget as HTMLFormElement);
     const name = formData.get('name') as string;
@@ -52,38 +71,52 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
       return;
     }
 
-    if (editingProduct) {
-      setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, name, price } : p));
-      // In a real app, we would also update the brand's representativeProductIds if isRep changed.
-    } else {
-      const newProd: Product = {
-        id: `prod-${Date.now()}`,
-        name,
-        brandId: brand.id,
-        price,
-        category: '미분류',
-        rating: 0,
-        reviewCount: 0,
-        stock: 100,
-        isVisible: true,
-        image: '',
-        description: '설명이 없습니다.',
-        concernTags: [],
-        ingredients: '',
-        howToUse: '',
-        recommendedFor: [],
-        caution: [],
-        lifestyleCategory: '미분류',
-        petType: 'both',
-        ageGroup: 'all',
-        isBest: false,
-        isRecommended: false,
-      };
-      setProducts(prev => [newProd, ...prev]);
+    setIsSaving(true);
+    try {
+      if (editingProduct) {
+        const { product, error } = await updatePartnerProduct(editingProduct.id, { name, price });
+        if (error || !product) {
+          alert('상품 수정에 실패했습니다. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+        setProducts(prev => prev.map(p => p.id === product.id ? product : p));
+        // In a real app, we would also update the brand's representativeProductIds if isRep changed.
+        void isRep;
+      } else {
+        const { product, error } = await createPartnerProduct({
+          name,
+          brandId: brand.id,
+          price,
+          category: '미분류',
+          rating: 0,
+          reviewCount: 0,
+          stock: 100,
+          isVisible: true,
+          image: '',
+          description: '설명이 없습니다.',
+          concernTags: [],
+          ingredients: '',
+          howToUse: '',
+          recommendedFor: [],
+          caution: [],
+          lifestyleCategory: '미분류',
+          petType: 'both',
+          ageGroup: 'all',
+          isBest: false,
+          isRecommended: false,
+        });
+        if (error || !product) {
+          alert('상품 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+          return;
+        }
+        setProducts(prev => [product, ...prev]);
+      }
+
+      setIsAddingProduct(false);
+      setEditingProduct(null);
+    } finally {
+      setIsSaving(false);
     }
-    
-    setIsAddingProduct(false);
-    setEditingProduct(null);
   };
 
   return (
@@ -238,9 +271,10 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
                   >
                     취소
                   </button>
-                  <button 
-                    type="submit" 
-                    className="flex-1 rounded-full bg-[#17211D] py-3 text-sm font-semibold text-white hover:bg-[#202521]"
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="flex-1 rounded-full bg-[#17211D] py-3 text-sm font-semibold text-white hover:bg-[#202521] disabled:opacity-60"
                   >
                     {editingProduct ? '수정 내용 저장' : '상품 등록'}
                   </button>

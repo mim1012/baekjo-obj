@@ -33,10 +33,11 @@ interface MemberRow {
   business_number: string | null;
   reject_reason: string | null;
   signup_data: Record<string, unknown>;
+  managed_brand_ids: string[] | null;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -58,6 +59,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     businessNumber: row.business_number ?? undefined,
     rejectReason: row.reject_reason ?? undefined,
     signupData: row.signup_data,
+    managedBrandIds: row.managed_brand_ids ?? undefined,
   };
 }
 
@@ -81,6 +83,7 @@ export function toUser(record: MemberRecord): User {
     businessNumber: record.businessNumber,
     rejectReason: record.rejectReason,
     signupData: record.signupData,
+    managedBrandIds: record.managedBrandIds,
   };
 }
 
