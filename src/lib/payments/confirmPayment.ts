@@ -122,8 +122,10 @@ async function applyAuthoritativeAction(
    *  confirmPayment ⑤(승인 성공 직후 — claim이 바로 이 함수 호출 안에서 이미 성공했다)는 항상
    *  true. reconcilePendingPayment와 ③-a(바인딩 검증에서 IN_PROGRESS가 아닌 상태를 만난 경우)는
    *  claim을 거치지 않은 신선한 order 스냅샷을 넘기므로, 그 스냅샷의 실제 paymentStatus로 판단한다.
-   *  이 플래그가 없으면 claim 없이 도달한 'confirm'이 setOrderPaid의 WHERE(승인중+키)에 걸려
-   *  0행을 반환하는 걸 "극단적 경합(R6)"으로 오인해 거짓 경보를 남긴다(LOW, opus 재검증 지적). */
+   *  false인데 action.kind==='confirm'이면 아래 'confirm' 분기가 claim을 먼저 시도한다(claim-먼저
+   *  규칙, Codex 재검증 HIGH-1) — 그냥 202로 넘기면 claim 없이 도달한 진짜 DONE 결제가 영구
+   *  pending에 머무는 사고가 난다. claim 성공/실패 각 경로 끝에 이 함수를 true로 재귀 호출하거나
+   *  직접 결과를 반환한다. */
   claimConfirmed: boolean,
 ): Promise<ConfirmPaymentResult> {
   switch (action.kind) {
@@ -134,11 +136,51 @@ async function applyAuthoritativeAction(
 
     case 'confirm': {
       if (!claimConfirmed) {
-        // claim을 거치지 않고 도달한 'confirm' — setOrderPaid의 WHERE(승인중+키)가 애초에 안
-        // 맞을 걸 알고 있으므로 호출하지 않는다(R6 오경보 방지). 결제가 실제로 DONE이라면 다음
-        // confirmPayment 호출이 claim부터 정상 진행해 확정한다 — 여기서는 조용히 확인중으로
-        // 응답한다(취소하지 않는다는 불변식은 그대로 유지 — 이 분기는 'confirm'이지 취소가 아님).
-        return { status: 202, error: 'payment-confirming' };
+        // ★claim-먼저 규칙(Codex 재검증 HIGH-1 — repo.ts JSDoc·webhook U5와 동일 불변식) —
+        // claim 없이 도달한 'confirm'을 곧장 202로 넘기면(예전 수정) 특정 경로(바인딩 조회가
+        // 502로 claim 이전에 끊긴 뒤 reconcile이 뒤늦게 DONE을 발견하는 경우)에서 실제로는 결제가
+        // 끝났는데 주문이 영구히 pending에 머무는 사고가 난다 — 읽기 전용 폴링으로도 복구 불가.
+        // webhook의 '결제대기'+'confirm' 분기와 동일하게 여기서 claim을 먼저 시도한다.
+        let claimed: number;
+        try {
+          claimed = await claimOrderForConfirmation(orderId, submittedKey);
+        } catch (claimError) {
+          if (claimError instanceof ClaimPaymentKeyConflictError) {
+            logServerError(
+              `[confirmPayment] authoritative claim payment_key 충돌 orderId=${orderId} paymentKey=${submittedKey}`,
+              claimError,
+            );
+            return { status: 409, error: 'payment-key-already-bound' };
+          }
+          throw claimError;
+        }
+        if (claimed === 0) {
+          // 경합 패자 — 다른 경로(confirm/webhook/reconcile)가 그 사이 먼저 처리했을 수 있다.
+          // 재조회해 상태별로 수렴한다(webhook의 동일 케이스와 대칭 패턴).
+          const latest = await getOrderById(orderId);
+          if (!latest) {
+            logServerError(
+              `[confirmPayment] authoritative claim 실패 후 재조회에서도 주문을 찾지 못함 orderId=${orderId}`,
+              {},
+            );
+            return { status: 409, error: 'reservation-expired' };
+          }
+          if (latest.paymentStatus === '결제완료') {
+            return { status: 200, order: toSummary(latest) };
+          }
+          if (latest.paymentStatus === '승인중' && latest.paymentKey === submittedKey) {
+            // 승자가 이미 같은 키로 '승인중' 전이시킴 — 그 상태를 이어받아 확정을 마저 진행한다.
+            return applyAuthoritativeAction(action, latest, orderId, submittedKey, true);
+          }
+          logServerError(
+            `[confirmPayment] authoritative claim 실패 후에도 확정 불가 orderId=${orderId} paymentKey=${submittedKey} latestStatus=${latest.paymentStatus}`,
+            {},
+          );
+          return { status: 202, error: 'payment-confirming' };
+        }
+        // claim 성공(1행) — '결제대기'→'승인중' 배타 전이가 실제로 일어났다. 이제 setOrderPaid의
+        // WHERE(승인중+키)가 맞을 것이 보장되므로 claimConfirmed=true로 이어서 확정한다.
+        return applyAuthoritativeAction(action, order, orderId, submittedKey, true);
       }
       // WHERE payment_status='승인중' AND payment_key=?로 claim이 발급한 시도만 확정한다(이중승인 방어).
       const result = await applyPaymentAction(action, orderId, submittedKey);
@@ -261,11 +303,16 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       );
       return { status: 502, error: 'payment-unconfirmed' };
     }
-    const bindingMatches = bindingCheck.orderId === orderId && bindingCheck.totalAmount === expectedAmount;
+    // paymentKey도 검증한다(Codex 재검증 HIGH-2) — orderId·금액만 맞으면 통과시키면, 조회 응답의
+    // paymentKey가 우리가 물어본 값과 실제로 같은지 확인하지 않은 채 그 값을 신뢰하게 된다.
+    const bindingMatches =
+      bindingCheck.orderId === orderId &&
+      bindingCheck.paymentKey === paymentKey &&
+      bindingCheck.totalAmount === expectedAmount;
     if (!bindingMatches) {
       logServerError(
         `[confirmPayment] 바인딩 불일치(위조/재사용 의심) orderId=${orderId} paymentKey=${paymentKey} ` +
-          `tossOrderId=${bindingCheck.orderId} tossAmount=${bindingCheck.totalAmount} expected=${expectedAmount}`,
+          `tossOrderId=${bindingCheck.orderId} tossPaymentKey=${bindingCheck.paymentKey} tossAmount=${bindingCheck.totalAmount} expected=${expectedAmount}`,
         {},
       );
       return { status: 409, error: 'payment-binding-mismatch' };
@@ -485,7 +532,10 @@ export async function reconcilePendingPayment(
     );
     // claim이 실제로 성공했었는지(order.paymentStatus==='승인중')는 이 함수 최상단의 신선한
     // getOrderById로 이미 확인했다 — claim 없이 도달했으면(예: confirmPayment의 바인딩 검증
-    // 502로 claim 이전에 끊긴 경우) 'confirm'이 나와도 false로 넘겨 R6 오경보를 막는다(LOW).
+    // 502로 claim 이전에 끊긴 경우) false로 넘긴다. applyAuthoritativeAction이 그 경우 claim을
+    // 먼저 시도해 실제로 확정까지 마친다(claim-먼저 규칙, Codex 재검증 HIGH-1) — 예전엔 여기서
+    // false가 곧장 202로 귀결돼, claim 이전에 끊긴 뒤 뒤늦게 DONE을 발견한 주문이 읽기 전용
+    // 폴링으로도 복구 불가능한 영구 pending에 머무는 결함이 있었다.
     return applyAuthoritativeAction(action, order, orderId, tossResult.paymentKey, order.paymentStatus === '승인중');
   } catch (error) {
     logServerError('[reconcilePendingPayment] 재조회 처리 실패', error);
