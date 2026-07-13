@@ -4,13 +4,15 @@
 -- '승인중'인 주문이면 무조건 복원됐다. decide.ts의 PaymentAction.restoreConfirming이 판단 시점의
 -- paymentKey를 증거로 싣도록 바뀌었으므로, 실행기가 그 증거를 실제로 검증에 쓸 수 있어야 한다.
 --
--- 0026은 그대로 남긴다(과거 히스토리 보존, 다른 호출부 없음을 이 리팩터로 확인). 신규 오버로드를
--- 추가하고 repo.ts는 이 2-인자 버전만 호출한다.
---
 -- 호출: rpc('cancel_confirming_and_restore', { p_order_id: '<uuid>', p_payment_key: '<key>' })
 -- 반환: true = 이번 호출이 '승인중'+해당 payment_key 일치 주문을 취소·복원 수행, false = 이미
 --       처리됐거나 승인중이 아니거나 payment_key가 다름(경합 중 다른 paymentKey로 재시도가
 --       이미 그 사이 새 claim을 발급한 경우를 잘못 취소하지 않는다) — no-op.
+
+-- codex HIGH — 1-인자 버전은 payment_key 증거 없이 복원 가능한 뒷문이라 스키마에서 제거한다.
+-- 코드 호출부가 0건임을 grep으로 재확인함(src/lib/orders/repo.ts는 이미 2-인자 버전만 호출).
+-- 히스토리 파일(0026_cancel_confirming_and_restore.sql)은 마이그레이션 로그로 보존한다.
+drop function if exists public.cancel_confirming_and_restore(uuid);
 
 create or replace function public.cancel_confirming_and_restore(p_order_id uuid, p_payment_key text)
 returns boolean
