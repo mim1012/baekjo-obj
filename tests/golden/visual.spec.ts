@@ -91,7 +91,10 @@ test.describe('시각 회귀 — 골든플로우', () => {
         await page.goto('/admin/products');
         await settlePage(page);
         await expect(page).toHaveScreenshot(`admin-products-${vp.name}.png`, {
-          fullPage: true,
+          // fullPage 금지(admin 한정): 동시 세션·payments-db-spec의 합성 __test_* 상품이 목록 행 수를
+          // 바꾸면 fullPage 높이 자체가 변해(880↔800px 실측) 마스크가 무력화된다. 뷰포트 고정 촬영이면
+          // 높이가 상수라 행 수 변동은 아래 tbody 마스크가 전부 흡수한다.
+          fullPage: false,
           maxDiffPixelRatio: 0.01,
           animations: 'disabled',
           // 목록 행 데이터는 admin 입력·재시드로 상시 변동 → 마스크. 레이아웃·크롬만 고정 비교.
