@@ -17,9 +17,30 @@ const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_HITS = 30;
 const rateLimitHits = new Map<string, { count: number; windowStart: number }>();
 
+// 만료 엔트리 정리(prune) — 이 Map은 컨테이너가 살아있는 동안 계속 쌓인다. 윈도우가 지난
+// orderId 엔트리를 안 지우면 서로 다른 orderId가 계속 유입될 때(정상 트래픽) 무한정 증가한다
+// (Codex 최종 재검증 MEDIUM). 매 호출마다 훑으면 낭비이므로 호출 N회마다 한 번만 스윕한다.
+const RATE_LIMIT_PRUNE_INTERVAL_HITS = 200;
+let hitsSincePrune = 0;
+
+function pruneExpiredRateLimitEntries(now: number): void {
+  for (const [key, entry] of rateLimitHits) {
+    if (now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+      rateLimitHits.delete(key);
+    }
+  }
+}
+
 /** true면 이번 요청을 처리해도 됨(한도 이내), false면 한도 초과. */
 function checkRateLimit(orderId: string): boolean {
   const now = Date.now();
+
+  hitsSincePrune += 1;
+  if (hitsSincePrune >= RATE_LIMIT_PRUNE_INTERVAL_HITS) {
+    hitsSincePrune = 0;
+    pruneExpiredRateLimitEntries(now);
+  }
+
   const entry = rateLimitHits.get(orderId);
   if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
     rateLimitHits.set(orderId, { count: 1, windowStart: now });
