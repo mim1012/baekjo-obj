@@ -41,10 +41,24 @@
 2. **시각 회귀 게이트 방향** — 픽셀 비교를 계속 신뢰할지, 구조 검사(고아 라우트 가드 방식)로 대체·보강할지.
 3. **나머지 config**: `qna_config`는 **배선 진행 가능**(공개 GET `/api/qna`·콘센트가 이미 있고 `src/lib/adapters.ts:55`의 정적 `seedQna`만 교체하면 됨). `kits_config`는 배선 시 케어킷 랜딩이 **4카드→2카드**로 눈에 띄게 바뀜(타입도 불일치 — 콘텐츠 재설계 동반). `partners_config`는 **공개 배선 대상이 아님**(내부 CRM 데이터이고, `/landing/care-kit`의 제휴 폼은 **제출 핸들러가 없는 죽은 폼**).
 
+### ✅ PR #53 (S4 백엔드) — 대시보드 브랜드 통계 가산 + 미결제 매출 오집계 차단
+`main` = `812f8ef`. **화면 무변경**(대시보드 UI는 표현 레인 = dad 몫, 별도 PR).
+
+- **계약 가산**: `AdminDashboardSummary.brandStats?` + `brandStatsMeta?{since, windowDays, unmatchedProductCount, truncated?, partial?, failedSources?}`. `AdminDashboardBrandStat`에 `displayOrder?` 포함. **콘센트 시그니처 불변**(§4-2), 기존 호출부 수정 0건.
+- 집계는 **DB를 모르는 순수 함수**(`src/lib/admin/dashboardStats.ts`)로 분리 → 단위 테스트 가능. 라우트는 조회·조립만.
+- 🔴 **[교차리뷰 HIGH-1] 안 낸 돈이 매출로 잡혔다.** 집계가 `orderStatus`만 보고 **`paymentStatus`를 안 봤다.** 두 필드는 별개다 — 주문 생성 시 `orderStatus='주문접수'`/`paymentStatus='입금대기'`(무통장). `'주문접수'`는 제외 목록에 없어 **한 푼도 안 낸 주문이 그대로 합산**됐다. **무통장은 영구 오염**(`expiresAt` 없이 생성 → 만료 cron이 `expires_at is not null`만 스캔 → 대상 아님 → 손으로 취소 안 하면 영원히 '주문접수'). **TOSS 키 미등록이라 실주문이 전부 무통장입금**이다.
+  → **결제 확정을 진실 소스로**: `paymentStatus !== '결제완료'`면 제외. `'취소요청'`은 유지(결제됐고 환불 전 → 환불 끝나면 `'환불완료'`로 빠짐).
+  → **프리뷰 실증**: 브랜드 9개 전부 주문 30일 **0원**(staging 주문이 전부 미입금이라 정상 제외). 고치기 전이었으면 전부 매출로 찍혔다.
+- 🔴 **[교차리뷰 HIGH-2] repo 상한에 의한 조용한 절삭.** 4개 repo 전부 CAP 1000 + `created_at desc` → 문의가 1000건을 넘으면 **가장 오래된 미답변 문의가 먼저 사라진다**(이 지표가 존재하는 이유가 정확히 먼저 누락). → CAP 상수 export + 라우트가 상한 도달 감지 → warn 로그 + `meta.truncated`.
+- **미완성 기준을 클라이언트와 문자 그대로 일치**시켰다(품절 `stock<=0` 포함). 서버가 3조건만 봐서 화면 두 곳이 다른 숫자를 말할 뻔했다 — **이 PR이 막으려던 그 상황**.
+- 기타: NaN 오염 가드(`items`는 jsonb·무검증 캐스트라 `price` 누락 행 하나면 브랜드 합계가 NaN → JSON에서 `null` → UI `.toLocaleString()` TypeError) · `Promise.allSettled`로 부분 성공 + `failedSources` · `PaymentStatus` 타입 신설(types에 없었다) · admin 스펙 42건.
+- ⚠️ **`api/admin/orders/[id]/route.ts`의 결제상태 화이트리스트는 도메인 전수와 의도적으로 다르다**(`'승인중'` 제외) — 그건 "전수"가 아니라 **관리자가 수동 설정해도 되는 부분집합**이다(`'승인중'`은 claim 보호 상태라 손으로 찍으면 상태기계가 깨진다). 이제 도메인 타입에서 파생시켜 변경이 강제 검토된다.
+
 ### 다음 단계
 1. 결정 1번(S2 정본) 받으면 → `contract/home-settings-realign`
-2. **S4(대시보드 브랜드 축)** — `AdminDashboardSummary`에 `brandStats?` 가산 + 서버 집계. **필요한 repo 함수는 전부 있다**(`listInquiriesByBrandIds`는 파트너용으로 만들어둔 것을 그대로 재사용).
-3. 잔존물 정리: `__cap_*.mjs` 3종 · `tests/golden/__*-temp.spec.ts`(이번 세션 추가분 `__pr50-gate3`·`__pr50-preview-temp`·`__pr51-gate3` 포함) · `RESEARCH/` untracked 결정.
+2. **S4 나머지 절반 = 대시보드 화면**(dad 표현 레인) — 서버는 준비 끝. "오늘 할 일" 큐 + 브랜드관 현황 표 + 상태배지 단일화(설계 문서 §6-2·§9).
+3. S5(브랜드 폼 개방) — API·validate·repo가 이미 전 필드를 받는데 폼이 6필드만 노출해 봉인돼 있다(숨김 토글조차 없어 **브랜드를 내리려면 SQL을 쳐야 한다**).
+4. 잔존물 정리: `__cap_*.mjs` 3종 · `tests/golden/__*-temp.spec.ts`(이번 세션 추가분 `__pr50-gate3`·`__pr50-preview-temp`·`__pr51-gate3`·`__pr53-gate3` 포함 — **삭제 권한이 세션에서 차단됨**) · `RESEARCH/` untracked 결정.
 
 ## (이전 스냅샷) 현재 상태 (2026-07-14 마감 — dad UI 레포 이식 + 프로덕션 재고 유실 결함 수정)
 
