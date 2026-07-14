@@ -17,6 +17,58 @@ interface ProductFormProps {
   brands: Brand[];
 }
 
+type RequiredField = 'name' | 'brandId' | 'category' | 'lifestyleCategory' | 'image';
+
+const REQUIRED_FIELDS: RequiredField[] = ['name', 'brandId', 'category', 'lifestyleCategory', 'image'];
+
+const REQUIRED_LABELS: Record<RequiredField, string> = {
+  name: '상품명',
+  brandId: '브랜드',
+  category: '스토어 카테고리',
+  lifestyleCategory: '라이프스타일 분류',
+  image: '대표 이미지',
+};
+
+function isRequiredField(field: keyof Product): field is RequiredField {
+  return (REQUIRED_FIELDS as string[]).includes(field);
+}
+
+function requiredFieldError(field: RequiredField, value: unknown): string | null {
+  const label = REQUIRED_LABELS[field];
+
+  if (field === 'brandId') {
+    return value ? null : `${label}를 선택해주세요.`;
+  }
+
+  const isEmpty = typeof value !== 'string' || value.trim().length === 0;
+  if (!isEmpty) return null;
+
+  if (field === 'name') return `${label}을(를) 입력해주세요.`;
+  if (field === 'image') return `${label}을(를) 등록해주세요.`;
+  return `${label}을(를) 선택해주세요.`;
+}
+
+function toUserMessage(err: unknown): string {
+  const code = err instanceof Error ? err.message : String(err);
+
+  switch (code) {
+    case 'invalid-input':
+      return '입력값을 확인해주세요. 필수 항목이 비었거나 형식이 올바르지 않습니다.';
+    case 'invalid-brand':
+      return '선택한 브랜드를 찾을 수 없습니다. 브랜드를 다시 선택해주세요.';
+    case 'not-found':
+      return '상품을 찾을 수 없습니다. 목록에서 다시 시도해주세요.';
+    case 'unauthorized':
+    case 'forbidden':
+      return '권한이 없습니다. 다시 로그인해주세요.';
+    case 'server-error':
+    case 'network-error':
+      return '서버 오류로 저장하지 못했습니다. 잠시 후 다시 시도해주세요.';
+    default:
+      return '저장에 실패했습니다.';
+  }
+}
+
 export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
@@ -48,26 +100,58 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<RequiredField, string>>>({});
 
   const handleChange = (field: keyof Product, value: unknown) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+
+    if (isRequiredField(field) && fieldErrors[field] && !requiredFieldError(field, value)) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  const handleBlur = (field: RequiredField) => {
+    const message = requiredFieldError(field, formData[field]);
+    setFieldErrors(prev => {
+      const next = { ...prev };
+      if (message) {
+        next[field] = message;
+      } else {
+        delete next[field];
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
-    if (!formData.name?.trim()) return setError('상품명을 입력해주세요.');
-    if (!formData.brandId) return setError('브랜드를 선택해주세요.');
-    if (!formData.category) return setError('카테고리를 선택해주세요.');
-    if (formData.price === undefined || formData.price === null) return setError('가격을 입력해주세요.');
+    const nextFieldErrors: Partial<Record<RequiredField, string>> = {};
+    for (const field of REQUIRED_FIELDS) {
+      const message = requiredFieldError(field, formData[field]);
+      if (message) nextFieldErrors[field] = message;
+    }
+
+    setFieldErrors(nextFieldErrors);
+
+    const missingFields = REQUIRED_FIELDS.filter(field => nextFieldErrors[field]);
+    if (missingFields.length > 0) {
+      setError(`필수 항목을 채워주세요 — ${missingFields.map(f => REQUIRED_LABELS[f]).join(', ')}`);
+      return;
+    }
 
     setIsSaving(true);
     setError(null);
 
     try {
       const brandName = brands.find(b => b.id === formData.brandId)?.name;
-      
+
       const payload = {
         ...formData,
         brandName,
+        salePrice: formData.salePrice ? formData.salePrice : null,
         catalogStatus: isEdit ? formData.catalogStatus : 'ready'
       };
 
@@ -82,7 +166,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
       router.push('/admin/products');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      setError(toUserMessage(err));
     } finally {
       setIsSaving(false);
     }
@@ -125,7 +209,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
       </PageHeader>
 
       {error && (
-        <div className="p-4 bg-red-50 text-red-600 rounded-md border border-red-200 text-[13px] font-medium">
+        <div role="alert" aria-live="polite" className="p-4 bg-red-50 text-red-600 rounded-md border border-red-200 text-[13px] font-medium">
           {error}
         </div>
       )}
@@ -136,21 +220,23 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
           <div className="bg-white border border-gray-200 rounded-md p-6">
             <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">기본 정보</h3>
             <div className="space-y-4">
-              <FormField label="상품명" required>
-                <input 
-                  type="text" 
-                  value={formData.name || ''} 
+              <FormField label="상품명" required error={fieldErrors.name}>
+                <input
+                  type="text"
+                  value={formData.name || ''}
                   onChange={e => handleChange('name', e.target.value)}
+                  onBlur={() => handleBlur('name')}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   placeholder="예: 강아지 알러지 케어 사료 2kg"
                 />
               </FormField>
-              
+
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="브랜드" required>
+                <FormField label="브랜드" required error={fieldErrors.brandId}>
                   <select
                     value={formData.brandId || ''}
                     onChange={e => handleChange('brandId', e.target.value)}
+                    onBlur={() => handleBlur('brandId')}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">브랜드 선택</option>
@@ -160,10 +246,11 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   </select>
                 </FormField>
 
-                <FormField label="스토어 카테고리" required>
+                <FormField label="스토어 카테고리" required error={fieldErrors.category}>
                   <select
                     value={formData.category || ''}
                     onChange={e => handleChange('category', e.target.value)}
+                    onBlur={() => handleBlur('category')}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">카테고리 선택</option>
@@ -187,10 +274,11 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   </select>
                 </FormField>
 
-                <FormField label="라이프스타일 분류">
+                <FormField label="라이프스타일 분류" required error={fieldErrors.lifestyleCategory}>
                   <select
                     value={formData.lifestyleCategory || ''}
                     onChange={e => handleChange('lifestyleCategory', e.target.value)}
+                    onBlur={() => handleBlur('lifestyleCategory')}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">선택</option>
@@ -216,7 +304,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   value={formData.description || ''} 
                   onChange={e => handleChange('description', e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] h-24 focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none resize-none"
-                  placeholder="간단한 상세 설명을 입력하세요 (상세페이지 에디터를 사용하려면 비워두세요)"
+                  placeholder="간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)"
                 />
               </FormField>
             </div>
