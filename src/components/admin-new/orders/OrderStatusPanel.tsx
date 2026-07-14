@@ -76,6 +76,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
             >
               <option value="결제대기">결제대기</option>
+              <option value="승인중" disabled>승인중(자동)</option>
               <option value="결제완료">결제완료</option>
               <option value="결제취소">결제취소</option>
               <option value="환불완료">환불완료</option>

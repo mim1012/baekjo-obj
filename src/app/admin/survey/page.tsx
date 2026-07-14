@@ -5,6 +5,7 @@ import { getSurveyConfig, saveSurveyConfig } from '@/lib/storage';
 import type { SurveyQuestion, SurveyResultRule } from '@/types';
 import { X } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
+import { AdminPageHeader } from '@/components/admin/AdminUi';
 
 const EMPTY_RECOMMENDATION: SurveyResultRule['recommendation'] = {
   direction: '',
@@ -90,34 +91,32 @@ export default function AdminSurveyPage() {
   };
 
   if (loading) {
-    return <div className="py-20 text-center text-sm text-gray-500">설문 설정을 불러오는 중...</div>;
+    return <div className="py-20 text-center text-sm text-[#6F766F]">진단 설정을 불러오는 중…</div>;
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">맞춤 진단 관리</h1>
-        <div className="flex gap-2">
-          <button onClick={() => { setNewQuestion({ type: 'single' }); setIsAddingQuestion(true); }} className="border border-gray-300 text-gray-700 px-4 py-2 text-sm font-semibold rounded-sm hover:bg-gray-50">문항 추가</button>
-          <button onClick={handleSave} disabled={saving} className="bg-[#2F3B34] text-white px-4 py-2 text-sm font-semibold rounded-sm hover:bg-[#2F3B34]/90 disabled:opacity-50">{saving ? '저장 중...' : '설정 저장'}</button>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <AdminPageHeader
+        title="맞춤 진단 설계"
+        description="진단 문항과 추천 규칙을 함께 구성합니다. 편집한 내용은 검토 후 한 번에 저장됩니다."
+        actions={<><button onClick={() => { setNewQuestion({ type: 'single' }); setIsAddingQuestion(true); }} className="min-h-11 border border-[#E7E0D5] bg-white px-5 text-sm font-semibold text-[#17211D] hover:bg-[#F3EEE6]">문항 추가</button><button onClick={handleSave} disabled={saving} className="min-h-11 bg-[#17211D] px-5 text-sm font-semibold text-white hover:bg-[#202521] disabled:opacity-50">{saving ? '저장 중…' : '설정 저장'}</button></>}
+      />
 
-      <div className="grid lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-6">설문 문항 관리</h2>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="border border-[#E7E0D5] bg-white p-6">
+          <h2 className="mb-6 text-lg font-semibold text-[#17211D]">진단 문항</h2>
           <div className="space-y-4">
             {paginatedQuestions.map(q => (
-              <div key={q.id} className="border border-gray-100 bg-gray-50 p-4 rounded-sm">
+              <div key={q.id} className="border border-[#E7E0D5] bg-[#FAF8F3] p-4">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold text-gray-900">{q.title}</h3>
+                  <h3 className="font-semibold text-[#17211D]">{q.title}</h3>
                   <div className="flex gap-2 items-center">
-                    <span className="text-xs bg-gray-200 px-2 py-1 rounded text-gray-600">{q.type === 'single' ? '단일 선택' : '다중 선택'}</span>
+                    <span className="border border-[#E7E0D5] bg-white px-2 py-1 text-xs text-[#59615B]">{q.type === 'single' ? '단일 선택' : '다중 선택'}</span>
                     <button onClick={() => setEditingQuestion(q)} className="text-xs text-[#2F3B34] hover:underline">수정</button>
-                    <button onClick={() => handleDeleteQuestion(q.id)} className="text-xs text-red-600 hover:underline">삭제</button>
+                    <button onClick={() => handleDeleteQuestion(q.id)} className="text-xs text-[#9E3939] hover:underline">삭제</button>
                   </div>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="space-y-1 text-sm text-[#59615B]">
                   {q.options.map(o => (
                     <div key={o.id} className="flex gap-2">
                       <span className="text-gray-400">-</span> {o.label} <span className="text-gray-400 text-xs">({o.value})</span>
@@ -138,20 +137,20 @@ export default function AdminSurveyPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-sm shadow-sm border border-gray-200 p-6">
+        <div className="border border-[#E7E0D5] bg-white p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-lg font-bold text-gray-900">결과 매핑 룰</h2>
-            <button onClick={() => { setNewRule({ condition: {}, recommendation: EMPTY_RECOMMENDATION }); setIsAddingRule(true); }} className="border border-gray-300 text-gray-600 px-3 py-1.5 text-xs font-semibold rounded-sm hover:bg-gray-50">룰 추가</button>
+            <h2 className="text-lg font-semibold text-[#17211D]">결과 추천 규칙</h2>
+            <button onClick={() => { setNewRule({ condition: {}, recommendation: EMPTY_RECOMMENDATION }); setIsAddingRule(true); }} className="border border-[#E7E0D5] bg-white px-3 py-2 text-xs font-semibold text-[#59615B] hover:bg-[#F3EEE6]">규칙 추가</button>
           </div>
           <div className="space-y-4">
             {paginatedRules.map(r => (
-              <div key={r.id} className="border border-gray-100 bg-gray-50 p-4 rounded-sm">
-                <div className="mb-3 pb-3 border-b border-gray-200">
+              <div key={r.id} className="border border-[#E7E0D5] bg-[#FAF8F3] p-4">
+                <div className="mb-3 border-b border-[#E7E0D5] pb-3">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs font-semibold text-[#2F3B34] uppercase tracking-wider block">Condition</span>
                     <div className="flex gap-2">
                       <button onClick={() => setEditingRule(r)} className="text-xs text-[#2F3B34] hover:underline">수정</button>
-                      <button onClick={() => handleDeleteRule(r.id)} className="text-xs text-red-600 hover:underline">삭제</button>
+                      <button onClick={() => handleDeleteRule(r.id)} className="text-xs text-[#9E3939] hover:underline">삭제</button>
                     </div>
                   </div>
                   <div className="text-sm text-gray-800">

@@ -30,6 +30,7 @@ export default function OrderDataTable({ orders, isLoading }: OrderDataTableProp
   const getPaymentStatusBadge = (status: string) => {
     switch (status) {
       case '결제대기': return <StatusBadge status="warning" label={status} />;
+      case '승인중': return <StatusBadge status="warning" label={status} />;
       case '결제완료': return <StatusBadge status="success" label={status} />;
       case '결제취소':
       case '환불완료': return <StatusBadge status="error" label={status} />;

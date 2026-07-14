@@ -94,11 +94,18 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     
     try {
       const res = await deleteProduct(initialData.id);
-      if (res.error) throw new Error(res.error);
+      if (res.error) {
+        alert(
+          res.error === 'product-has-history'
+            ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
+            : '상품 삭제에 실패했습니다.',
+        );
+        return;
+      }
       router.push('/admin/products');
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } catch {
+      alert('상품 삭제에 실패했습니다.');
     }
   };
 

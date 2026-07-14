@@ -455,3 +455,27 @@ export interface Partner {
   isContracted: boolean;
   isDelivered: boolean;
 }
+
+/* ── 관리자 대시보드 요약(가산 타입, GET /api/admin/dashboard 전용) ────── */
+export interface AdminDashboardRecentOrder {
+  id: string;
+  customerName: string;
+  orderNumber: string;
+  totalAmount: number;
+  status: string;
+}
+
+export interface AdminDashboardPendingApplication {
+  id: string;
+  name: string;
+  companyName?: string;
+  role: 'b2b' | 'insurance' | 'partner';
+  status: string;
+}
+
+export interface AdminDashboardSummary {
+  recentOrders: AdminDashboardRecentOrder[];
+  recentInsurances: InsuranceApplication[];
+  /** 가입 승인 대기(B2B/보험사/입점업체) 회원 — 별도 신청서 테이블이 없어 members를 role/status로 좁혀 구성. */
+  recentApplications: AdminDashboardPendingApplication[];
+}
