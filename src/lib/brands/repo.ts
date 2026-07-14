@@ -79,7 +79,8 @@ function splitBrandInput(input: Partial<Brand>): {
   return { columns, detail };
 }
 
-const BRANDS_LIST_CAP = 500;
+/** 브랜드 목록 조회 상한. 집계 호출부의 절삭 감지(truncated)용으로 export한다. */
+export const BRANDS_LIST_CAP = 500;
 
 export async function listBrands(visibleOnly = true): Promise<Brand[]> {
   let query = getSupabase().from('brands').select(SELECT_COLUMNS);
