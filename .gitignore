@@ -48,6 +48,7 @@ next-env.d.ts
 # each tool's local state stays local — never commit it. Add your IDE's folder here if it creates one.
 .vscode/
 .idea/
+.codex-home/
 .omc/
 
 # 고객사 원본 자료 (6.9GB — 웹 가공 전 소스. 커밋 금지, 가공본만 public/에 커밋)
@@ -59,3 +60,4 @@ cookies.txt
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+.gstack/
