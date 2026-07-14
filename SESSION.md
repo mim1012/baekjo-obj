@@ -3,7 +3,50 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 작업은 main발 짧은 브랜치 + PR.
 
-## 현재 상태 (2026-07-14 마감 — dad UI 레포 이식 + 프로덕션 재고 유실 결함 수정)
+## 현재 상태 (2026-07-15 — 관리자 콘솔 개편 S1·S3 머지)
+
+**브랜치 `main`(`ba13583`) · 열린 PR 0건 · 로컬 = origin/main 정렬됨**
+
+설계 문서: **`docs/admin-dashboard-uiux-improvement.md`** (개편 로드맵 8스텝 = §13, 진행 현황 = §0-1)
+모바일 열람용 아티팩트: https://claude.ai/code/artifact/eed7791f-7890-407a-bfdc-2f8c23e9085d
+
+### ✅ PR #50 (S1) — 상품 저장 결함 · 저장형 XSS · 서버 컴포넌트 404
+- 🔴 **상세 블록 에디터 저장이 항상 400이었다.** `validateProductFields`가 화이트리스트인데 **`detailBlocks` 분기가 없어** PATCH 바디가 빈 객체가 되고 라우트가 "수정할 필드 없음"으로 400 → **상세 본문이 DB에 영영 저장되지 않았다.** (`src/lib` 전체에서 `detailBlocks`는 읽기 경로 `repo.ts:63` 한 곳뿐이었다.)
+- 🔴 **등록 폼이 자기 안내문을 따르면 400.** `description`이 생성 시 필수인데 placeholder는 "에디터를 쓰려면 비워두세요" → **안내가 맞고 검증이 틀렸다**고 판정해 선택 필드로 정정. 클라 검증(4개)·서버 계약(6개) 불일치도 맞추고 **blur 검증**으로 전환.
+- 🔴 **구매 정보 3종 이중 단절.** `sellerName`·`deliveryEstimate`·`returnNotice`가 validate에도 없고 `rowToProduct`가 되읽지도 않아 **영영 undefined** → 상세가 항상 기본 문구만 렌더. 양쪽 복구.
+- 🔴 **저장형 XSS(파트너→관리자 권한상승).** detailBlocks 저장 경로를 열자 text content가 에디터 미리보기의 `dangerouslySetInnerHTML`로 흘렀다. **미리보기를 공개 상세와 동일한 평문 렌더로 교체**(공개는 이미 이스케이프 렌더 중 — 미리보기만 HTML을 해석한 것 자체가 거짓 미리보기였다). HTML 태그 거부 정규식은 **오히려 제거**(`<A/S 안내>`·`<NEW>` 같은 정당한 문구를 400으로 죽이면서 인코딩 우회는 못 막는 새는 방어) → 대신 **`tests/products/no-html-sink.spec.ts`가 `src/`에 `dangerouslySetInnerHTML`이 0건임을 CI로 강제**한다.
+- 🔴 **`/admin/products/[id]`·`/[id]/editor`가 프로덕션에서 404였다.** 서버 컴포넌트가 클라이언트용 콘센트 `getAdminProducts()`(상대경로 fetch)를 호출 → 서버 런타임에서 throw → `catch { return [] }`가 에러를 삼켜 `notFound()`. **즉 위 수정들은 도달 불가한 죽은 코드였다.** CI(verify·visual·payments)는 전부 초록이었고 **게이트3(프리뷰 실구동)만이 잡았다.** AGENTS §3대로 서버 wrapper가 `repo.ts`를 직접 호출하도록 교체(`/new`·`/display` 포함 4개 페이지).
+- 기타: image `src` 오리진 화이트리스트(백슬래시 우회 차단 — 브라우저 URL 파서가 `\`를 `/`로 정규화) · 가격 불변식을 `updateProduct`에도 적용 · detail 페이로드 상한(60블록·2000자·256KB UTF-8 실측) · **폼이 자기가 편집하지 않는 필드를 되돌려 보내던 것 차단**(로드 시점 스냅샷을 통째로 보내 상세 에디터가 저장한 detailBlocks를 덮어씀 — 관리자 1명이어도 성립).
+- **회귀 스펙 38건** 신설 → required check `verify`에 편입. `detailBlocks` 분기를 지우면 6건이 RED.
+
+### ✅ PR #51 (S3) — 관리자 메뉴 SSOT · 브레드크럼 실버그 · dead code
+- **메뉴 SSOT** `src/components/admin-new/layout/adminNav.ts` 신설. `AdminSidebar`·`AdminMobileNav`가 17개 메뉴를 **문자 단위로 동일하게 중복 하드코딩**하고 있었다(모바일 네비에 *"실제 구현시 분리된 상수 파일 사용 권장"* 자백 주석까지 있었음).
+- 🔴 **브레드크럼 누락 3건(실버그)**: `AdminHeader`의 경로→제목 매핑에서 `survey-results`·`inquiries`·`reviews`가 빠져 제목이 잘못 떴다 → 매핑을 SSOT 배열에서 **파생**시켜 누락을 구조적으로 불가능하게.
+- **`/admin/products/display` 사이드바 노출**(라우트는 살아있는데 메뉴에 없어 도달 불가였다). `isActive`를 **longest-prefix**로 교체 — `startsWith`면 '상품 관리'와 동시 활성, 정확 매칭이면 `/admin/products/[id]`에서 부모가 비활성이 된다. 부수로 `survey`↔`survey-results` 접두사 오염 버그도 수복.
+- **고아 라우트 가드** `tests/admin/admin-nav.spec.ts` — `src/app/admin/**/page.tsx`를 스캔해 **메뉴에 없는 라우트를 CI에서 잡는다**. 2026-07-14 유실 사고 + `/display` 고아 라우트가 실제로 이 형태였다. href 18개 스냅샷·순서·그룹 개수·아이콘 전수·`resolveActiveHref` 테이블도 함께 잠금. required check 편입(16건).
+- dead code: `src/data/{orders,insuranceApplications,users}.ts` 삭제 + `storage.ts`의 `getUsers`·`mockUsers`·`REGISTERED_USERS_KEY` 제거 + `admin/page.tsx` 중복 import 제거.
+- ⚠️ **`src/data/products.ts`·`brands.ts`는 삭제 금지** — import 0건이지만 **재시드의 정본**(마이그레이션 `0004b`·`0014`~`0018` 주석 + eslint `no-restricted-imports` 대상 + `generate_placeholders.mjs`가 읽음).
+- a11y: 활성 메뉴에 `aria-current="page"`, 무명 버튼(사이드바 접기·햄버거)에 `aria-label`.
+
+### ⚠️ 시각 회귀 게이트를 신뢰할 수 없다 (이번 세션 최대 발견)
+1. **임계값이 메뉴 유실을 못 잡는다** — 사이드바 17→18인데 `visual` **초록 통과**(`maxDiffPixelRatio: 0.01` 아래, 메뉴 한 줄 ≈ 전체 픽셀의 0.2%). **2026-07-14 메뉴 4종 유실 때 CI가 조용했던 이유가 이것으로 설명된다.**
+2. **베이스라인 재생성이 실화면과 다른 것을 찍는다** — 브랜치 프리뷰 URL을 명시해 재생성해도 `admin-products` 베이스라인에 **옛 17개 사이드바**가 담긴다. 같은 URL을 실구동하면 **18개가 전부 보이고 전부 열린다**(스크린샷으로 확인). **원인 미규명.**
+3. **그래서 "변경 없음 — 커밋 생략"으로 조용히 넘어간다** → 의도된 표현 변경이 베이스라인에 반영되지 않고, 다음 PR이 낡은 기준으로 비교된다.
+- **부분 해소(#51)**: `/shop` 만성 flaky는 고쳤다. staging 재고를 `payments-routes` 잡의 합성 구매가 매 실행 깎고(p15 25→22…), 상품 수가 바뀌면 `fullPage` 높이까지 변해(7203↔7235px 실측) 마스크가 무력화됐다 → `admin-products`가 이미 쓰던 **뷰포트 고정 + 동적 영역 마스크**를 `/shop`에 적용해 데이터 의존을 끊었다.
+
+### 🔴 사용자 결정 대기
+1. **S2(홈 CMS 배선) — 보류.** `HomeSettings` 스키마가 **현재 홈이 아니라 이전 세대 디자인용**이다(영상 인트로·프로세스 보드·보험 3스텝·B2B 배너 필드가 있는데 화면에 자리가 없고, 반대로 히어로·빠른쇼핑 섹션은 스키마에 없다). 기본값 문자열에 `<span className=...>`이 박혀 있어 `dangerouslySetInnerHTML` 없이는 렌더 불가(=#50에서 CI로 금지한 싱크). **`defaultHomeSettings`조차 현재 화면 문구와 달라 배선만 해도 홈이 바뀐다.**
+   → **결정 필요: "dad 하드코딩 카피 vs settings 스키마 중 어느 쪽이 정본인가"** (설계 문서 §13-6에 선택지 A/B/C. **A 권장** = 화면이 정본, 스키마를 화면에 맞춰 정리한 뒤 배선).
+   → 부수: **`/admin/settings`의 "실시간 편집 반영됨" 배지는 거짓**(HomeClient가 `useSiteSettings`를 안 부름 — 소비처 grep = admin 자기 자신 1곳). **클라이언트가 홈 문구를 고쳐 저장해도 아무 일도 안 일어난다.**
+2. **시각 회귀 게이트 방향** — 픽셀 비교를 계속 신뢰할지, 구조 검사(고아 라우트 가드 방식)로 대체·보강할지.
+3. **나머지 config**: `qna_config`는 **배선 진행 가능**(공개 GET `/api/qna`·콘센트가 이미 있고 `src/lib/adapters.ts:55`의 정적 `seedQna`만 교체하면 됨). `kits_config`는 배선 시 케어킷 랜딩이 **4카드→2카드**로 눈에 띄게 바뀜(타입도 불일치 — 콘텐츠 재설계 동반). `partners_config`는 **공개 배선 대상이 아님**(내부 CRM 데이터이고, `/landing/care-kit`의 제휴 폼은 **제출 핸들러가 없는 죽은 폼**).
+
+### 다음 단계
+1. 결정 1번(S2 정본) 받으면 → `contract/home-settings-realign`
+2. **S4(대시보드 브랜드 축)** — `AdminDashboardSummary`에 `brandStats?` 가산 + 서버 집계. **필요한 repo 함수는 전부 있다**(`listInquiriesByBrandIds`는 파트너용으로 만들어둔 것을 그대로 재사용).
+3. 잔존물 정리: `__cap_*.mjs` 3종 · `tests/golden/__*-temp.spec.ts`(이번 세션 추가분 `__pr50-gate3`·`__pr50-preview-temp`·`__pr51-gate3` 포함) · `RESEARCH/` untracked 결정.
+
+## (이전 스냅샷) 현재 상태 (2026-07-14 마감 — dad UI 레포 이식 + 프로덕션 재고 유실 결함 수정)
 
 **브랜치 `main`(`53b1780`) · 열린 PR 0건 · 로컬 = origin/main 정렬됨**
 
