@@ -151,7 +151,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입
   });
 
   test('무통장입금 결제대기 주문에 cancel을 호출하면 원자적으로 취소 처리하고 재고를 복원한다(토스 무관, 200)', async () => {
-    expect((await orderRow(orderId)).payment_status).toBe('결제대기'); // claim을 겪지 않았음을 전제
+    expect((await orderRow(orderId)).payment_status).toBe('입금대기'); // 무통장입금 생성 계약(claim을 겪지 않았음을 전제)
     expect(await stockOf(Q)).toBe(4);
 
     const res = await callApi('/api/payments/cancel', { orderId });
