@@ -245,6 +245,30 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
+/**
+ * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.
+ * 근거(코드로 확인한 생산 지점):
+ * - 주문 생성: '입금대기'(무통장) / '결제대기'(카드) — src/app/api/orders/route.ts
+ * - 승인 착수: '승인중' — claimOrderForConfirmation (src/lib/orders/repo.ts)
+ * - 승인 확정: '결제완료' — setOrderPaid (src/lib/orders/repo.ts)
+ * - 관리자 수동 변경: '결제취소' / '환불완료' — src/app/api/admin/orders/[id]/route.ts
+ * Order.paymentStatus 자체는 레거시 호환 때문에 여전히 string이지만, "돈이 실제로 들어왔는가"를
+ * 판정해야 하는 곳(매출 집계 등)은 반드시 PAID_PAYMENT_STATUS를 진실 소스로 쓴다.
+ */
+export const PAYMENT_STATUSES = [
+  '결제대기',
+  '입금대기',
+  '승인중',
+  '결제완료',
+  '결제취소',
+  '환불완료',
+] as const;
+
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** 결제가 실제로 확정된 유일한 값(setOrderPaid가 쓰는 값). 매출 집계의 진실 소스. */
+export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
+
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {
   id: string;
@@ -486,12 +510,31 @@ export interface AdminDashboardBrandStat {
   productCount: number;
   /** isVisible !== false 인 상품 수. */
   visibleProductCount: number;
-  /** 가격·대표이미지·상세 중 하나라도 비어 있는 상품 수(대시보드 클라이언트 집계 기준과 동일). */
+  /** 정보 미완성 상품 수 — 가격·대표이미지·상세·재고(품절) 중 하나라도 결손(대시보드 클라이언트 집계와 동일 기준). */
   incompleteCount: number;
-  /** 기간(since 이후) 내 주문 금액(원) — 아이템 단위로 브랜드에 귀속, 취소/환불 완료 주문 제외. */
+  /**
+   * 기간(since 이후) 내 **결제 확정('결제완료')** 주문 금액(원) — 아이템 단위로 브랜드에 귀속.
+   * 미결제(결제대기·입금대기·승인중)와 취소완료·환불완료 주문은 제외된다.
+   */
   orderAmount: number;
   /** status === 'waiting' 인 상품문의 수. */
   unansweredInquiryCount: number;
+  /** 브랜드 노출 순서(§6-4). 미지정 브랜드는 undefined(정렬 시 뒤로). */
+  displayOrder?: number;
+}
+
+/** 브랜드 통계의 해석에 필요한 메타(가산 optional). UI가 기간·결손을 하드코딩하지 않게 한다. */
+export interface AdminDashboardBrandStatsMeta {
+  /** 금액 집계 시작 시각(ISO). 서버 상수를 바꿔도 화면 라벨이 거짓말하지 않도록 값으로 내린다. */
+  since: string;
+  /** 금액 집계 기간(일). */
+  windowDays: number;
+  /** 어느 브랜드에도 매칭되지 않아 집계에서 빠진 상품 수. */
+  unmatchedProductCount: number;
+  /** repo 조회 상한(LIST_CAP)에 도달해 모집단 일부가 잘렸을 수 있음 — 숫자를 신뢰하면 안 된다. */
+  truncated?: boolean;
+  /** 일부 소스 조회 실패로 해당 지표가 결손됨(0으로 내려감). */
+  partial?: boolean;
 }
 
 export interface AdminDashboardSummary {
@@ -501,4 +544,6 @@ export interface AdminDashboardSummary {
   recentApplications: AdminDashboardPendingApplication[];
   /** 브랜드별 통계(가산 optional — 집계 실패 시 생략되고 나머지 요약은 그대로 내려간다). */
   brandStats?: AdminDashboardBrandStat[];
+  /** brandStats의 메타(기간·미매칭 상품 수·절삭/부분실패 플래그). brandStats와 함께 내려간다. */
+  brandStatsMeta?: AdminDashboardBrandStatsMeta;
 }

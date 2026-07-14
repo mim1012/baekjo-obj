@@ -131,7 +131,8 @@ export interface ProductListFilter {
   visibleOnly?: boolean;
 }
 
-const PRODUCTS_LIST_CAP = 1000;
+/** 상품 목록 조회 상한. 집계 호출부의 절삭 감지(truncated)용으로 export한다. */
+export const PRODUCTS_LIST_CAP = 1000;
 
 export async function listProducts(filter: ProductListFilter = {}): Promise<Product[]> {
   let query = getSupabase().from('products').select(SELECT_COLUMNS);

@@ -168,7 +168,8 @@ export async function listOrdersByMember(memberId: string): Promise<OrderRecord[
   return (data as OrderRow[]).map(rowToRecord);
 }
 
-const ORDERS_LIST_CAP = 1000;
+/** 관리자 전량 조회 상한. 집계 호출부가 "상한에 닿았다 = 모집단이 잘렸다"를 감지할 수 있게 export한다. */
+export const ORDERS_LIST_CAP = 1000;
 
 export async function listAllOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()

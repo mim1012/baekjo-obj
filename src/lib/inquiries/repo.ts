@@ -39,7 +39,8 @@ function rowToInquiry(row: InquiryRow): ProductInquiry {
   };
 }
 
-const INQUIRIES_LIST_CAP = 1000;
+/** 문의 목록 조회 상한. 집계 호출부의 절삭 감지(truncated)용으로 export한다. */
+export const INQUIRIES_LIST_CAP = 1000;
 
 /** 공개 상품상세용 — 특정 상품의 문의 전체(비밀글 포함, redaction은 라우트가 처리). */
 export async function listInquiriesByProduct(productId: string): Promise<ProductInquiry[]> {
