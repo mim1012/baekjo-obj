@@ -10,15 +10,13 @@ import {
   ADMIN_CS_NAV,
   ADMIN_ETC_NAV,
   resolveActiveHref,
-  type AdminNavItem,
+  type AdminSidebarItem,
 } from './adminNav';
 
-type SidebarItem = Required<Pick<AdminNavItem, 'name' | 'href' | 'icon'>>;
-
 // AdminSidebar와 메뉴 구조를 adminNav.ts(SSOT)로 공유한다.
-const mainNavItems = ADMIN_MAIN_NAV as SidebarItem[];
-const csNavItems = ADMIN_CS_NAV as SidebarItem[];
-const etcNavItems = ADMIN_ETC_NAV as SidebarItem[];
+const mainNavItems = ADMIN_MAIN_NAV;
+const csNavItems = ADMIN_CS_NAV;
+const etcNavItems = ADMIN_ETC_NAV;
 
 interface AdminMobileNavProps {
   isOpen: boolean;
@@ -32,7 +30,7 @@ function NavGroup({
   isActive,
   onNavigate,
 }: {
-  items: SidebarItem[];
+  items: AdminSidebarItem[];
   title?: string;
   isActive: (href: string) => boolean;
   onNavigate: () => void;

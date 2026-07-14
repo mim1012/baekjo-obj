@@ -20,14 +20,18 @@ import {
   Settings,
 } from 'lucide-react';
 
+/** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
 export interface AdminNavItem {
   name: string;
   href: string;
-  icon?: LucideIcon; // breadcrumb 전용 항목은 아이콘이 없다
-  showInSidebar?: boolean; // 기본 true. false면 브레드크럼 제목에만 쓰인다
 }
 
-export const ADMIN_MAIN_NAV: AdminNavItem[] = [
+/** 사이드바·모바일 내비에 렌더되는 항목 — 아이콘이 반드시 있어야 한다. */
+export interface AdminSidebarItem extends AdminNavItem {
+  icon: LucideIcon;
+}
+
+export const ADMIN_MAIN_NAV: AdminSidebarItem[] = [
   { name: '대시보드', href: '/admin', icon: LayoutDashboard },
   { name: '상품 관리', href: '/admin/products', icon: Package },
   { name: '상품 진열 관리', href: '/admin/products/display', icon: LayoutGrid },
@@ -37,7 +41,7 @@ export const ADMIN_MAIN_NAV: AdminNavItem[] = [
   { name: '회원 관리', href: '/admin/members', icon: Users },
 ];
 
-export const ADMIN_CS_NAV: AdminNavItem[] = [
+export const ADMIN_CS_NAV: AdminSidebarItem[] = [
   { name: '보험 상담', href: '/admin/insurance', icon: HeartHandshake },
   { name: '맞춤 진단', href: '/admin/survey', icon: Stethoscope },
   { name: '진단 참여 내역', href: '/admin/survey-results', icon: Activity },
@@ -46,7 +50,7 @@ export const ADMIN_CS_NAV: AdminNavItem[] = [
   { name: '후기 관리', href: '/admin/reviews', icon: Star },
 ];
 
-export const ADMIN_ETC_NAV: AdminNavItem[] = [
+export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
   { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
   { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
   { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
@@ -56,7 +60,7 @@ export const ADMIN_ETC_NAV: AdminNavItem[] = [
 
 // 사이드바에는 노출되지 않지만 브레드크럼 제목 매핑에는 필요한 항목
 export const ADMIN_BREADCRUMB_ONLY: AdminNavItem[] = [
-  { name: '상품 등록', href: '/admin/products/new', showInSidebar: false },
+  { name: '상품 등록', href: '/admin/products/new' },
 ];
 
 /**
@@ -65,7 +69,10 @@ export const ADMIN_BREADCRUMB_ONLY: AdminNavItem[] = [
  * 동시에 활성화되거나 ②정확 매칭만 쓰면 `/admin/products/[id]` 같은 하위 라우트에서
  * 부모 메뉴가 전부 비활성화되는 문제가 생긴다. longest-prefix가 둘 다 해결한다.
  */
-export function resolveActiveHref(pathname: string, items: AdminNavItem[]): string | undefined {
+export function resolveActiveHref(
+  pathname: string,
+  items: readonly AdminNavItem[],
+): string | undefined {
   return items
     .map((i) => i.href)
     .filter((h) =>

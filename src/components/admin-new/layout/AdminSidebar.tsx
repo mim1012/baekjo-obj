@@ -11,14 +11,12 @@ import {
   ADMIN_CS_NAV,
   ADMIN_ETC_NAV,
   resolveActiveHref,
-  type AdminNavItem,
+  type AdminSidebarItem,
 } from './adminNav';
 
-type SidebarItem = Required<Pick<AdminNavItem, 'name' | 'href' | 'icon'>>;
-
-const mainNavItems = ADMIN_MAIN_NAV as SidebarItem[];
-const csNavItems = ADMIN_CS_NAV as SidebarItem[];
-const etcNavItems = ADMIN_ETC_NAV as SidebarItem[];
+const mainNavItems = ADMIN_MAIN_NAV;
+const csNavItems = ADMIN_CS_NAV;
+const etcNavItems = ADMIN_ETC_NAV;
 
 interface AdminSidebarProps {
   user: { name?: string | null; role?: string | null };
@@ -32,7 +30,7 @@ function NavGroup({
   collapsed,
   isActive,
 }: {
-  items: SidebarItem[];
+  items: AdminSidebarItem[];
   title?: string;
   collapsed: boolean;
   isActive: (href: string) => boolean;
