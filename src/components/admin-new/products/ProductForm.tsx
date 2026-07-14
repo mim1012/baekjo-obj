@@ -33,19 +33,22 @@ function isRequiredField(field: keyof Product): field is RequiredField {
   return (REQUIRED_FIELDS as string[]).includes(field);
 }
 
-function requiredFieldError(field: RequiredField, value: unknown): string | null {
-  const label = REQUIRED_LABELS[field];
+/** 조사를 필드마다 확정해 둔다 — 라벨에 `을(를)`을 붙이면 "분류을(를)"처럼 어색해진다. */
+const REQUIRED_MESSAGES: Record<RequiredField, string> = {
+  name: '상품명을 입력해주세요.',
+  brandId: '브랜드를 선택해주세요.',
+  category: '스토어 카테고리를 선택해주세요.',
+  lifestyleCategory: '라이프스타일 분류를 선택해주세요.',
+  image: '대표 이미지를 등록해주세요.',
+};
 
+function requiredFieldError(field: RequiredField, value: unknown): string | null {
   if (field === 'brandId') {
-    return value ? null : `${label}를 선택해주세요.`;
+    return value ? null : REQUIRED_MESSAGES.brandId;
   }
 
   const isEmpty = typeof value !== 'string' || value.trim().length === 0;
-  if (!isEmpty) return null;
-
-  if (field === 'name') return `${label}을(를) 입력해주세요.`;
-  if (field === 'image') return `${label}을(를) 등록해주세요.`;
-  return `${label}을(를) 선택해주세요.`;
+  return isEmpty ? REQUIRED_MESSAGES[field] : null;
 }
 
 function toUserMessage(err: unknown): string {
