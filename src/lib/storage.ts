@@ -7,7 +7,6 @@ import {
   Product,
   User,
 } from '@/types';
-import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
 import { defaultPartnersConfig, type PartnersConfig } from '@/lib/partners/config';
@@ -819,7 +818,6 @@ export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }>
 }
 
 const USER_KEY = 'baekjo_user';
-const REGISTERED_USERS_KEY = 'baekjo_registered_users';
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -832,14 +830,6 @@ export function setCurrentUser(user: User | null): void {
   } else {
     localStorage.removeItem(USER_KEY);
   }
-}
-
-export function getUsers(): User[] {
-  const registered = getJSON<User[]>(REGISTERED_USERS_KEY, []);
-  const merged = [...mockUsers, ...registered];
-  return merged.filter(
-    (user, index) => merged.findIndex((candidate) => candidate.email === user.email) === index,
-  );
 }
 
 /**

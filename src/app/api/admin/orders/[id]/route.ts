@@ -11,7 +11,7 @@ import { ORDER_STATUSES, type OrderStatus } from '@/types';
 
 // paymentStatus/deliveryStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
 // 실제 쓰이는 값만 담았다 — admin/orders/page.tsx의 select 옵션 + POST /api/orders 가 생성 시
-// 부여하는 값(입금대기/배송준비) 기준(src/data/orders.ts는 미사용 목업이라 제외).
+// 부여하는 값(입금대기/배송준비) 기준.
 const PAYMENT_STATUSES = ['결제대기', '결제완료', '결제취소', '환불완료', '입금대기'] as const;
 const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
 // Order.carrier는 자유 text라 서버가 화이트리스트로 좁힌다(PAYMENT_STATUSES/DELIVERY_STATUSES와 동일 패턴).
