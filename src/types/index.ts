@@ -473,9 +473,32 @@ export interface AdminDashboardPendingApplication {
   status: string;
 }
 
+/**
+ * 브랜드별 대시보드 통계(가산 타입). 새 테이블 없이 brands·products·orders·inquiries 조인으로 계산한다.
+ * 설계: docs/admin-dashboard-uiux-improvement.md §6-3.
+ */
+export interface AdminDashboardBrandStat {
+  brandId: string;
+  brandName: string;
+  logo?: string;
+  isVisible: boolean;
+  /** 브랜드에 속한 전체 상품 수(숨김 포함). */
+  productCount: number;
+  /** isVisible !== false 인 상품 수. */
+  visibleProductCount: number;
+  /** 가격·대표이미지·상세 중 하나라도 비어 있는 상품 수(대시보드 클라이언트 집계 기준과 동일). */
+  incompleteCount: number;
+  /** 기간(since 이후) 내 주문 금액(원) — 아이템 단위로 브랜드에 귀속, 취소/환불 완료 주문 제외. */
+  orderAmount: number;
+  /** status === 'waiting' 인 상품문의 수. */
+  unansweredInquiryCount: number;
+}
+
 export interface AdminDashboardSummary {
   recentOrders: AdminDashboardRecentOrder[];
   recentInsurances: InsuranceApplication[];
   /** 가입 승인 대기(B2B/보험사/입점업체) 회원 — 별도 신청서 테이블이 없어 members를 role/status로 좁혀 구성. */
   recentApplications: AdminDashboardPendingApplication[];
+  /** 브랜드별 통계(가산 optional — 집계 실패 시 생략되고 나머지 요약은 그대로 내려간다). */
+  brandStats?: AdminDashboardBrandStat[];
 }
