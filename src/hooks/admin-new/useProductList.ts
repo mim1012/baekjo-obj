@@ -140,7 +140,7 @@ export function useProductList(pageSize: number = 20) {
   const clearSelection = () => setSelectedIds(new Set());
 
   const executeBulkAction = async (
-    ids: string[], 
+    ids: string[],
     actionFn: (id: string) => Promise<boolean>
   ) => {
     const successIds: string[] = [];
@@ -166,11 +166,16 @@ export function useProductList(pageSize: number = 20) {
   };
 
   const performBulkDelete = async (ids: string[]) => {
-    return executeBulkAction(ids, async (id) => {
+    let hasHistoryConflict = false;
+    const result = await executeBulkAction(ids, async (id) => {
       const res = await deleteProduct(id);
-      if (res.error) throw new Error(res.error);
+      if (res.error) {
+        if (res.error === 'product-has-history') hasHistoryConflict = true;
+        throw new Error(res.error);
+      }
       return true;
     });
+    return { ...result, hasHistoryConflict };
   };
 
   const performBulkUpdate = async (ids: string[], updates: Partial<Product>) => {

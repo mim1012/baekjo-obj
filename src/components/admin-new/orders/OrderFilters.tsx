@@ -58,6 +58,7 @@ export default function OrderFilters({
         >
           <option value="전체">전체 결제 상태</option>
           <option value="결제대기">결제대기</option>
+          <option value="승인중">승인중</option>
           <option value="결제완료">결제완료</option>
           <option value="결제취소">결제취소</option>
           <option value="환불완료">환불완료</option>

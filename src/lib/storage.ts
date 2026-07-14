@@ -1,4 +1,12 @@
-import { Brand, ConfirmedOrderSummary, InsuranceApplication, Order, Product, User } from '@/types';
+import {
+  AdminDashboardSummary,
+  Brand,
+  ConfirmedOrderSummary,
+  InsuranceApplication,
+  Order,
+  Product,
+  User,
+} from '@/types';
 import { users as mockUsers } from '@/data/users';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
@@ -935,6 +943,24 @@ export async function getAdminMembers(): Promise<{
     return { error: 'network' };
   } catch {
     return { error: 'network' };
+  }
+}
+
+export type AdminDashboardResult =
+  | { ok: true; data: AdminDashboardSummary }
+  | { ok: false; status: number; message: string };
+
+/** 관리자 대시보드 요약(최근 주문·보험 신청·가입 승인 대기). GET /api/admin/dashboard. */
+export async function getAdminDashboardSummary(): Promise<AdminDashboardResult> {
+  try {
+    const response = await fetch('/api/admin/dashboard');
+    if (!response.ok) {
+      return { ok: false, status: response.status, message: 'network-error' };
+    }
+    const data = (await response.json()) as AdminDashboardSummary;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 500, message: 'network-error' };
   }
 }
 
