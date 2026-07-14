@@ -1,187 +1,527 @@
-import Link from 'next/link';
-import { ArrowRight, FileSearch, HeartHandshake, ShieldCheck } from 'lucide-react';
-import { SectionHeading } from '@/components/common/EditorialHeading';
-import InsuranceUploadPlate from '@/components/common/InsuranceUploadPlate';
-import ScrollReveal from '@/components/common/ScrollReveal';
+'use client';
 
-export const metadata = {
-  title: '보험 분석',
-  description: '우리 아이의 현재 보장과 놓치기 쉬운 조건을 함께 살펴보는 백조오브제 보험 분석 안내입니다.',
-};
+import { useRouter } from 'next/navigation';
+import { useCallback, useState } from 'react';
+import {
+  ArrowRight,
+  CheckCircle2,
+  FileSearch,
+  FileText,
+  HeartHandshake,
+  ShieldCheck,
+  UploadCloud,
+  ChevronDown,
+  MessageCircle,
+  Check,
+  X
+} from 'lucide-react';
+import { saveInsuranceApplication } from '@/lib/storage';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+
+const firstChecks = ['현재 보장 범위', '자기부담금과 한도', '보장하지 않는 조건', '갱신 및 유지 조건'];
 
 const reviewPrinciples = [
   {
     icon: FileSearch,
     title: '놓치기 쉬운 조건까지',
-    text: '보장 금액뿐 아니라 자기부담금과 보장에서 빠지는 조건도 함께 살펴봐요.',
+    text: '약관 속 어려운 내용을 이해하기 쉽게 정리해 드려요.',
   },
   {
     icon: ShieldCheck,
-    title: '안내한 이유를 분명하게',
-    text: '무엇을 기준으로 확인했는지, 어려운 표현을 덜어내고 이해하기 쉽게 정리해 드려요.',
+    title: '안내한 이유를 투명하게',
+    text: '왜 이런 분석이 필요한지, 꼭 필요한 보장인지 함께 확인해요.',
   },
   {
     icon: HeartHandshake,
     title: '지금 보험이 괜찮다면 그대로',
-    text: '바꿀 이유가 없다면 현재 보험을 유지하는 편이 낫다고 솔직하게 말씀드려요.',
+    text: '좋은 보장은 유지하고 더 잘 맞는 구성으로 비교안 도와드려요.',
   },
 ];
 
 const reviewSteps = [
   {
     title: '아이 정보 남기기',
-    description: '기본 정보와 지금 궁금한 점을 편하게 적어 주세요.',
+    description: '아이와 보호자 정보를 입력해 주세요.',
   },
   {
-    title: '확인할 내용 정리하기',
-    description: '현재 보장과 관심 조건을 바탕으로 살펴볼 항목을 정리해요.',
+    title: '확인할 내용 정리',
+    description: '보유 보험의 핵심 항목을 정리해 분석에 반영해요.',
   },
   {
     title: '보장 조건 살펴보기',
-    description: '보장 범위와 자기부담금, 제외 조건을 차근차근 확인해요.',
+    description: '전문가가 보장 범위와 조건을 꼼꼼히 분석해 드려요.',
   },
   {
     title: '결과 안내받기',
-    description: '정리된 내용을 입력한 연락처로 안내해 드려요.',
+    description: '분석 리포트와 함께 맞춤 제안을 안내해 드려요.',
   },
 ];
 
-const firstChecks = ['현재 보장 범위', '자기부담금과 한도', '보장에서 빠지는 조건'];
+const coverageOptions = [
+  '수술/입원비 집중 보장',
+  '통원비 중심',
+  '슬개골/피부/구강 특약 희망',
+  '가성비 중심',
+];
 
-export default function InsuranceIntroPage() {
+const faqs = [
+  {
+    q: '어떤 보험 증권을 제출해야 하나요?',
+    a: '현재 가입되어 있는 반려동물 보험의 보장 내용이 포함된 증권(PDF 또는 사진)을 올려주시면 됩니다. 전체 내용이 보이지 않아도 가입된 상품명과 기본 보장 내역만 확인 가능하면 분석이 가능합니다.',
+  },
+  {
+    q: '분석까지 얼마나 걸리나요?',
+    a: '평일 기준 접수 후 1~2일 내에 분석 결과를 안내해 드리고 있습니다. 주말이나 공휴일에 신청해주신 경우 다음 영업일로부터 순차적으로 안내해 드립니다.',
+  },
+  {
+    q: '분석 결과는 어떻게 확인하나요?',
+    a: '입력해주신 연락처(카카오톡 또는 문자)로 분석 결과 링크를 보내드립니다. 백조오브제 마이페이지에서도 언제든 다시 확인하실 수 있습니다.',
+  },
+];
+
+export default function InsurancePage() {
+  const router = useRouter();
+
+  // Upload State
+  const [isDragging, setIsDragging] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState('');
+
+  const selectFile = useCallback((nextFile?: File) => {
+    setUploadError('');
+    if (!nextFile) return;
+
+    if (!ALLOWED_FILE_TYPES.includes(nextFile.type)) {
+      setFile(null);
+      setUploadError('PDF, JPG, PNG 파일만 선택할 수 있어요.');
+      return;
+    }
+
+    if (nextFile.size > MAX_FILE_SIZE) {
+      setFile(null);
+      setUploadError('파일 크기는 10MB 이하로 선택해 주세요.');
+      return;
+    }
+
+    setFile(nextFile);
+  }, []);
+
+  const handleDrag = useCallback((event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    setIsDragging(event.type === 'dragenter' || event.type === 'dragover');
+  }, []);
+
+  const handleDrop = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setIsDragging(false);
+      selectFile(event.dataTransfer.files?.[0]);
+    },
+    [selectFile],
+  );
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    selectFile(event.target.files?.[0]);
+    event.target.value = '';
+  };
+
+  const clearFile = () => {
+    setFile(null);
+    setUploadError('');
+  };
+
+  // Form State
+  const [formData, setFormData] = useState({
+    companyName: '',
+    productName: '',
+    message: '',
+    privacyAgree: false,
+    thirdPartyAgree: false,
+  });
+
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = event.target;
+    const checked = event.target instanceof HTMLInputElement ? event.target.checked : false;
+    setFormData((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!formData.privacyAgree || !formData.thirdPartyAgree || submitting) return;
+
+    setSubmitting(true);
+    try {
+      await saveInsuranceApplication({
+        name: '사용자', // mock
+        phone: '010-0000-0000', // mock
+        petName: '반려동물', // mock
+        petType: '강아지', // mock
+        breed: '', // mock
+        petBreed: '', // mock
+        petAge: 0, // mock
+        coverageNeeds: [], // mock
+        message: formData.message,
+        concerns: formData.message,
+        privacyAgree: formData.privacyAgree,
+        thirdPartyAgree: formData.thirdPartyAgree,
+        hasCurrentInsurance: true,
+        currentInsuranceName: formData.companyName + ' ' + formData.productName,
+        medicalHistory: '',
+        targetPremium: '',
+        neutered: true,
+        gender: 'male',
+        ownerName: '사용자',
+      });
+    } catch {
+      setSubmitting(false);
+      alert('신청 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return;
+    }
+
+    router.push('/insurance/complete');
+  };
+
+  const fieldClass = 'w-full rounded-xl border border-[#D8D6CE] bg-[#FAF9F5] px-4 py-3 text-sm transition-colors focus:border-[#2F3B34] focus:outline-none focus:ring-1 focus:ring-[#2F3B34]';
+
   return (
-    <div className="page-canvas">
-      <section className="relative overflow-hidden bg-[#202521] bg-noise text-[#FBFAF7]">
-        <div className="absolute -right-24 top-16 size-72 rounded-full bg-[#A8742E]/10 blur-3xl sm:size-96" aria-hidden="true" />
-        <div className="site-container-hero relative z-10 grid min-h-[560px] gap-12 py-20 lg:min-h-[640px] lg:grid-cols-[0.62fr_0.38fr] lg:items-end lg:py-24">
-          <div className="self-end">
-            <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3] sm:text-base">
-              보험도 같은 마음으로
-            </p>
-            <h1 className="mt-4 max-w-3xl break-keep text-4xl font-bold leading-[1.15] tracking-[-0.045em] text-[#FBFAF7] sm:text-5xl lg:text-6xl">
-              우리 아이에게 필요한 보장,
-              <br className="hidden sm:block" /> 함께 차근차근 살펴봐요.
-            </h1>
-            <p className="mt-6 max-w-2xl break-keep text-sm leading-7 text-[#FBFAF7]/75 sm:text-base sm:leading-8">
-              나이와 건강 고민, 지금 가진 보장을 함께 살펴 놓치기 쉬운 조건을 이해하기 쉽게 정리해 드려요.
-              바꾸는 것보다 유지하는 편이 낫다면 그 이유도 솔직하게 알려드릴게요.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link href="/insurance/apply" className="btn-primary w-full bg-[#FBFAF7] text-[#17211D] hover:bg-white sm:w-auto">
-                보험 분석 신청하기
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
-              <Link
-                href="/insurance/recommend"
-                className="btn-secondary w-full border-[#FBFAF7]/30 text-[#FBFAF7] hover:border-[#FBFAF7]/55 hover:bg-[#FBFAF7]/10 sm:w-auto"
-              >
-                간단히 조건 살펴보기
-              </Link>
+    <div className="bg-[#FAF9F5] pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }}>
+      {/* 1. 히어로 영역 */}
+      <section className="pt-10">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="relative flex flex-col overflow-hidden rounded-[22px] bg-[#1A221E] px-8 py-12 md:h-[410px] md:flex-row md:items-center md:px-12 lg:px-14">
+            {/* 좌측 콘텐츠 (55%) */}
+            <div className="relative z-10 md:w-[55%]">
+              <p className="text-sm font-semibold text-[#F4F2EC]">보험 분석 서비스</p>
+              <h1 className="mt-4 text-[34px] font-bold leading-[1.2] tracking-[-0.035em] text-[#FBFAF7] sm:text-[42px] md:text-[48px]">
+                우리 아이에게<br />
+                필요한 보장,<br />
+                함께 차근차근 살펴봐요.
+              </h1>
+              <p className="mt-5 text-sm leading-[1.65] text-[#FBFAF7]/80 sm:text-[15px]">
+                나이와 건강, 견종, 지금 가입 보험을 함께 살펴<br className="hidden sm:block" />
+                놓치기 쉬운 조건을 이해하기 쉽게 정리해 드려요.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full bg-[#FBFAF7] px-8 text-[15px] font-bold text-[#1A221E] transition-colors hover:bg-white">
+                  보험 분석 신청하기
+                  <ArrowRight className="ml-2 size-4" aria-hidden="true" />
+                </a>
+                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full border border-white/20 bg-transparent px-8 text-[15px] font-bold text-[#FBFAF7] transition-colors hover:bg-white/10">
+                  분석이란 무엇인가요?
+                </a>
+              </div>
+            </div>
+
+            {/* 우측 패널 (45%) */}
+            <div className="relative z-10 mt-10 md:mt-0 md:w-[45%] md:pl-8">
+              <div className="rounded-[20px] border border-white/10 bg-white/5 p-8 backdrop-blur-md">
+                <p className="text-[13px] font-semibold text-[#F4F2EC]/80">분석에서 확인하는 항목</p>
+                <ul className="mt-6 space-y-4">
+                  {firstChecks.map((item, index) => (
+                    <li key={item} className="flex items-center border-b border-white/10 pb-4 last:border-0 last:pb-0">
+                      <span className="mr-4 flex size-8 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-[#F4F2EC]">
+                        0{index + 1}
+                      </span>
+                      <span className="text-[15px] font-medium text-white">{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            {/* Background Decoration */}
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-10 blur-3xl pointer-events-none">
+              <ShieldCheck className="size-96 text-white" />
             </div>
           </div>
-
-          <aside className="rounded-3xl border border-[#FBFAF7]/15 bg-[#FBFAF7]/[0.06] p-6 backdrop-blur-sm sm:p-8" aria-label="보험 분석에서 먼저 확인하는 항목">
-            <p className="text-xs font-semibold tracking-[0.18em] text-[#D8C4A3]">먼저 확인해요</p>
-            <ul className="mt-6 divide-y divide-[#FBFAF7]/10">
-              {firstChecks.map((item, index) => (
-                <li key={item} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">
-                  <span className="font-editorial text-sm text-[#D8C4A3]">0{index + 1}</span>
-                  <span className="break-keep text-sm font-semibold text-[#FBFAF7]/90 sm:text-base">{item}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-6 break-keep border-t border-[#FBFAF7]/10 pt-5 text-xs leading-6 text-[#FBFAF7]/55">
-              분석 신청만으로 보험 가입 의무가 생기지 않아요.
-            </p>
-          </aside>
         </div>
       </section>
 
-      <section className="page-section bg-noise">
-        <ScrollReveal className="site-container-wide relative z-10">
-          <SectionHeading
-            eyebrow="백조오브제가 살펴보는 방식"
-            title="어려운 보험 조건을, 이해하기 쉽게."
-            description="많이 보장된다는 말보다 우리 아이에게 어떤 조건이 필요한지, 지금 가진 보험에서 무엇을 먼저 확인하면 좋을지 차분히 짚어드려요."
-          />
-
-          <div className="mt-10 grid gap-5 md:grid-cols-3 lg:gap-6">
-            {reviewPrinciples.map(({ icon: Icon, title, text }) => (
-              <article key={title} className="premium-card flex min-h-64 flex-col p-6 sm:p-8">
-                <span className="flex size-12 items-center justify-center rounded-2xl bg-[#F3EEE6] text-[#A8742E]">
-                  <Icon className="size-5" strokeWidth={1.5} aria-hidden="true" />
-                </span>
-                <h3 className="mt-8 break-keep text-xl font-bold leading-7 tracking-tight text-[#17211D]">{title}</h3>
-                <p className="mt-3 break-keep text-sm leading-7 text-[#6F766F]">{text}</p>
+      {/* 2. 보험 분석 원칙 3개 통합 패널 */}
+      <section className="mt-8">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#EBE8E1] bg-white md:flex-row md:h-[140px]">
+            {reviewPrinciples.map(({ icon: Icon, title, text }, idx) => (
+              <article key={title} className={`flex flex-1 flex-col justify-center p-6 lg:p-8 ${idx !== 0 ? 'border-t border-[#EBE8E1] md:border-l md:border-t-0' : ''}`}>
+                <div className="flex items-start gap-4">
+                  <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E]">
+                    <Icon className="size-6" strokeWidth={1.5} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-[#1A1D1B]">{title}</h3>
+                    <p className="mt-1 text-[13px] leading-[1.65] text-[#5F6761]">{text}</p>
+                  </div>
+                </div>
               </article>
             ))}
           </div>
-        </ScrollReveal>
+        </div>
       </section>
 
-      <section className="page-section-muted border-y border-[#E7E0D5] bg-noise">
-        <ScrollReveal className="site-container-wide relative z-10">
-          <div className="grid gap-10 lg:grid-cols-[0.4fr_0.6fr] lg:items-start lg:gap-12">
-            <SectionHeading
-              eyebrow="가입한 보험이 있다면"
-              title="증권을 보며 궁금한 점부터 정리해 보세요."
-              description="보험 증권 파일을 고르면 파일 이름과 형식을 먼저 확인할 수 있어요. 현재 화면에서는 파일이 전송되지 않으며, 실제 분석 신청은 상담 정보 작성으로 이어집니다."
-            />
-            <InsuranceUploadPlate />
-          </div>
-        </ScrollReveal>
-      </section>
-
-      <section className="page-section bg-noise">
-        <ScrollReveal className="site-container-wide relative z-10">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <SectionHeading
-              eyebrow="신청 후 과정"
-              title="신청 후에는 이렇게 이어져요."
-              description="복잡한 준비 없이 필요한 내용을 남겨 주세요. 확인한 내용은 네 단계로 차분히 정리해 안내합니다."
-            />
-            <Link href="/insurance/apply" className="btn-secondary self-start lg:self-auto">
-              분석 신청하기
-              <ArrowRight className="size-4 text-[#A8742E]" aria-hidden="true" />
-            </Link>
-          </div>
-
-          <ol className="mt-10 grid overflow-hidden rounded-3xl border border-[#E7E0D5] bg-white md:grid-cols-4">
-            {reviewSteps.map((step, index) => (
-              <li
-                key={step.title}
-                className="flex min-h-56 flex-col border-b border-[#E7E0D5] p-6 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0 sm:p-8"
-              >
-                <span className="font-editorial text-2xl text-[#A8742E]">0{index + 1}</span>
-                <h3 className="mt-8 break-keep text-lg font-bold tracking-tight text-[#17211D]">{step.title}</h3>
-                <p className="mt-3 break-keep text-sm leading-7 text-[#6F766F]">{step.description}</p>
-              </li>
-            ))}
-          </ol>
-        </ScrollReveal>
-      </section>
-
-      <section className="border-t border-[#E7E0D5] bg-white py-16 lg:py-24">
-        <ScrollReveal className="site-container-wide">
-          <div className="grid gap-10 rounded-3xl bg-[#FAF8F3] p-6 sm:p-10 lg:grid-cols-[0.62fr_0.38fr] lg:items-end lg:p-12">
-            <SectionHeading
-              eyebrow="부담 없이 먼저 확인하세요"
-              title="지금 보험이 괜찮다면, 그대로."
-              description="보험을 새로 고르는 것보다 중요한 건 지금 보장이 우리 아이에게 잘 맞는지 아는 일이에요. 바꿀 필요가 없다면 현재 보험을 유지하는 편이 낫다고 안내해 드립니다."
-            />
-            <div>
-              <p className="break-keep text-xs leading-6 text-[#6F766F]">
-                현재 페이지의 비교 예시는 서비스 흐름을 보여 주기 위한 안내용 정보입니다. 실제 보장 조건과 가입
-                가능 여부는 각 보험사의 약관과 심사 결과에 따라 달라질 수 있어요.
+      {/* 3. 증권 준비 안내 + 실제 업로드·신청 폼 */}
+      <section id="insurance-form" className="mt-12 scroll-mt-24">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="flex flex-col gap-10 lg:flex-row lg:gap-16">
+            {/* 좌측 준비 안내 (32%) */}
+            <div className="lg:w-[32%] lg:pt-2">
+              <p className="text-[13px] font-bold text-[#A8742E]">증권을 준비해 주세요</p>
+              <h2 className="mt-3 text-[32px] font-bold leading-[1.2] tracking-[-0.035em] text-[#1A1D1B] lg:text-[38px]">
+                증권을 보며<br />
+                궁금한 점부터<br />
+                정리해 보세요.
+              </h2>
+              <p className="mt-4 text-[15px] leading-[1.65] text-[#5F6761]">
+                보유 중인 보험을 정확히 이해하면<br className="hidden lg:block" />
+                불필요한 중복은 줄이고 필요한 보장은<br className="hidden lg:block" />
+                꼼꼼히 챙길 수 있어요.
               </p>
-              <Link href="/insurance/apply" className="btn-primary mt-6 w-full sm:w-auto lg:w-full">
-                우리 아이 보험 살펴보기
-                <ArrowRight className="size-4" aria-hidden="true" />
-              </Link>
+
+              <ul className="mt-10 space-y-6">
+                <li className="flex items-center gap-3">
+                  <FileText className="size-5 text-[#1A221E]" strokeWidth={1.5} />
+                  <span className="text-[15px] font-medium text-[#1A1D1B]">보험 증권 PDF 또는 이미지</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <CheckCircle2 className="size-5 text-[#1A221E]" strokeWidth={1.5} />
+                  <span className="text-[15px] font-medium text-[#1A1D1B]">가입한 보험사와 상품명</span>
+                </li>
+                <li className="flex items-center gap-3">
+                  <MessageCircle className="size-5 text-[#1A221E]" strokeWidth={1.5} />
+                  <span className="text-[15px] font-medium text-[#1A1D1B]">현재 궁금한 보장 조건</span>
+                </li>
+              </ul>
+              
+              <div className="mt-12 flex items-start gap-3 rounded-xl bg-[#F4F2EC] p-4">
+                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#1A221E]" strokeWidth={1.5} />
+                <p className="text-[13px] leading-[1.65] text-[#5F6761]">
+                  업로드된 파일은 안전하게 보호되며<br />
+                  분석 목적 외에 사용하지 않습니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 우측 실제 신청 폼 (68%) */}
+            <div className="rounded-[24px] border border-[#EBE8E1] bg-white p-8 lg:w-[68%] lg:p-10">
+              <h3 className="text-xl font-bold text-[#1A1D1B]">가지고 있는 증권을 선택해 주세요.</h3>
+              <p className="mt-2 text-[14px] text-[#5F6761]">파일을 업로드하고 기본 정보를 입력하시면 분석 준비가 완료됩니다.</p>
+
+              {/* 업로드 영역 */}
+              <div className="mt-8">
+                {!file ? (
+                  <div
+                    className={`relative flex h-[200px] flex-col items-center justify-center rounded-[16px] border border-dashed transition-all duration-300 ${
+                      isDragging
+                        ? 'border-[#1A221E] bg-[#F4F2EC]'
+                        : 'border-[#D8D6CE] bg-[#FAF9F5] hover:border-[#1A221E]'
+                    }`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    <input
+                      type="file"
+                      className="absolute inset-0 size-full cursor-pointer opacity-0"
+                      onChange={handleFileChange}
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      aria-label="보험 증권 파일 선택"
+                    />
+                    <div className="flex size-10 items-center justify-center rounded-full bg-white shadow-sm">
+                      <UploadCloud className="size-5 text-[#1A221E]" strokeWidth={2} aria-hidden="true" />
+                    </div>
+                    <p className="mt-4 text-[14px] font-bold text-[#1A1D1B]">파일을 드래그하거나 버튼을 눌러 선택해주세요.</p>
+                    <p className="mt-1 text-[12px] text-[#5F6761]">PDF, JPG, PNG | 최대 10MB</p>
+                    <button type="button" className="mt-4 rounded-lg bg-[#1A221E] px-5 py-2 text-[13px] font-bold text-white transition-colors hover:bg-black">
+                      파일 선택하기
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex h-[200px] flex-col items-center justify-center rounded-[16px] border border-[#EBE8E1] bg-[#FAF9F5] p-6">
+                    <FileText className="size-10 text-[#A8742E] mb-4" strokeWidth={1.5} />
+                    <p className="text-[15px] font-bold text-[#1A1D1B] truncate max-w-xs">{file.name}</p>
+                    <p className="mt-1 text-[13px] text-[#5F6761]">{(file.size / (1024 * 1024)).toFixed(1)}MB</p>
+                    <button type="button" onClick={clearFile} className="mt-5 flex items-center gap-1 text-[13px] font-semibold text-[#1A221E] hover:underline">
+                      <X className="size-3" /> 삭제 후 다시 선택
+                    </button>
+                  </div>
+                )}
+                {uploadError && (
+                  <p className="mt-3 text-[13px] text-red-500 font-medium">{uploadError}</p>
+                )}
+              </div>
+
+              {/* 신청 폼 영역 */}
+              <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+                <div className="grid gap-6 md:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-2 block text-[13px] font-bold text-[#1A1D1B]">보험사 <span className="text-red-500">*</span></span>
+                    <div className="relative">
+                      <select required name="companyName" value={formData.companyName} onChange={handleChange} className={`${fieldClass} appearance-none`}>
+                        <option value="">선택해주세요</option>
+                        <option value="삼성화재">삼성화재</option>
+                        <option value="메리츠화재">메리츠화재</option>
+                        <option value="현대해상">현대해상</option>
+                        <option value="DB손해보험">DB손해보험</option>
+                        <option value="기타">기타</option>
+                      </select>
+                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 size-4 text-[#5F6761] pointer-events-none" />
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="mb-2 block text-[13px] font-bold text-[#1A1D1B]">보험 상품명 <span className="text-red-500">*</span></span>
+                    <input required name="productName" value={formData.productName} onChange={handleChange} className={fieldClass} placeholder="입력해주세요" />
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="mb-2 block text-[13px] font-bold text-[#1A1D1B]">현재 궁금한 보장 조건 (선택)</span>
+                  <input name="message" value={formData.message} onChange={handleChange} className={fieldClass} placeholder="예) 슬개골 탈구 보장 조건, 피부 질환 보장 범위 등" />
+                </label>
+
+                <div className="space-y-3 pt-4 border-t border-[#EBE8E1]">
+                  <label className="flex items-center justify-between cursor-pointer rounded-xl border border-[#EBE8E1] bg-[#FAF9F5] p-4 transition-colors hover:border-[#D8D6CE]">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex size-[18px] shrink-0 items-center justify-center rounded border border-[#C9C8C0] transition-colors has-[:checked]:border-[#1A221E] has-[:checked]:bg-[#1A221E]">
+                        <input required type="checkbox" name="privacyAgree" checked={formData.privacyAgree} onChange={handleChange} className="peer sr-only" />
+                        <Check className="size-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} aria-hidden="true" />
+                      </div>
+                      <span className="text-[14px] text-[#1A1D1B]">개인정보 수집 및 이용 동의 (필수)</span>
+                    </div>
+                    <span className="text-[13px] text-[#5F6761] underline underline-offset-2">전문 보기</span>
+                  </label>
+                  <label className="flex items-center justify-between cursor-pointer rounded-xl border border-[#EBE8E1] bg-[#FAF9F5] p-4 transition-colors hover:border-[#D8D6CE]">
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex size-[18px] shrink-0 items-center justify-center rounded border border-[#C9C8C0] transition-colors has-[:checked]:border-[#1A221E] has-[:checked]:bg-[#1A221E]">
+                        <input required type="checkbox" name="thirdPartyAgree" checked={formData.thirdPartyAgree} onChange={handleChange} className="peer sr-only" />
+                        <Check className="size-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} aria-hidden="true" />
+                      </div>
+                      <span className="text-[14px] text-[#1A1D1B]">보험 분석 서비스 이용 동의 (필수)</span>
+                    </div>
+                    <span className="text-[13px] text-[#5F6761] underline underline-offset-2">전문 보기</span>
+                  </label>
+                </div>
+
+                <button type="submit" disabled={!formData.privacyAgree || !formData.thirdPartyAgree || submitting} className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A221E] py-[18px] text-[15px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
+                  {submitting ? '신청 접수 중…' : '보험 분석 신청하기'}
+                  {!submitting && <ArrowRight className="size-4" />}
+                </button>
+              </form>
             </div>
           </div>
-        </ScrollReveal>
+        </div>
+      </section>
+
+      {/* 개인정보 보호 안내 바 */}
+      <section className="mt-12">
+         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+           <div className="flex flex-col md:flex-row md:items-center justify-between rounded-[20px] bg-white p-6 md:px-8 border border-[#EBE8E1]">
+              <div className="flex items-center gap-4">
+                <ShieldCheck className="size-8 text-[#1A221E]" strokeWidth={1.5} />
+                <div>
+                  <p className="text-[15px] font-bold text-[#1A1D1B]">백조오브제는 소중한 정보를 안전하게 보호합니다.</p>
+                  <p className="mt-1 text-[13px] text-[#5F6761]">업로드된 증권과 개인정보는 암호화되어 저장되며, 분석 목적 외에는 절대 사용되지 않습니다.</p>
+                </div>
+              </div>
+              <a href="#" className="mt-4 md:mt-0 text-[13px] font-bold text-[#1A1D1B] flex items-center gap-1">
+                개인정보 처리 방침 보기 <ArrowRight className="size-3" />
+              </a>
+           </div>
+         </div>
+      </section>
+
+      {/* 4. 진행 과정 4단계 */}
+      <section className="mt-20">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="mb-8">
+            <h2 className="text-[24px] font-bold tracking-tight text-[#1A1D1B]">신청 후에는 이렇게 이어져요.</h2>
+            <p className="mt-2 text-[15px] text-[#5F6761]">신청부터 결과 확인까지, 차근차근 안내해 드립니다.</p>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4">
+            {reviewSteps.map((step, index) => (
+              <div key={step.title} className="flex-1 rounded-[20px] bg-white p-8 border border-[#EBE8E1] flex flex-col items-center text-center relative group">
+                <span className="flex size-14 items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] font-editorial text-xl italic mb-6">
+                  0{index + 1}
+                </span>
+                <h3 className="text-[16px] font-bold text-[#1A1D1B]">{step.title}</h3>
+                <p className="mt-2 text-[14px] leading-[1.65] text-[#5F6761]">{step.description}</p>
+                
+                {index < reviewSteps.length - 1 && (
+                   <div className="hidden md:block absolute -right-3 top-1/2 -translate-y-1/2 z-10 text-[#D8D6CE]">
+                      <ArrowRight className="size-5" />
+                   </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* 5. 현재 보험 유지 안내 CTA */}
+      <section className="mt-20">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+           <div className="relative overflow-hidden rounded-[24px] bg-[#F4F2EC] px-8 py-12 md:px-12 lg:py-16 flex flex-col md:flex-row items-center justify-between border border-[#EBE8E1]">
+              <div className="relative z-10 md:w-2/3">
+                 <p className="text-[13px] font-bold text-[#A8742E]">현재 가입한 보험이 만족스러우신가요?</p>
+                 <h2 className="mt-3 text-[28px] font-bold tracking-tight text-[#1A1D1B]">지금 보험이 괜찮다면, 그대로.</h2>
+                 <p className="mt-3 text-[15px] leading-[1.65] text-[#5F6761] max-w-xl">
+                   보장을 새로 고르는 것보다 중요한 건 지금 보장이 우리 아이에게 잘 맞는지 아는 것이에요. 
+                   부담 없이 현재 보험을 유지하는 편이 낫다고 안내해 드립니다.
+                 </p>
+              </div>
+              <div className="relative z-10 mt-8 md:mt-0 shrink-0">
+                 <a href="/insurance" className="flex h-[52px] items-center justify-center rounded-full bg-[#1A221E] px-8 text-[15px] font-bold text-white transition-colors hover:bg-black">
+                    우리 아이 보험 살펴보기 <ArrowRight className="ml-2 size-4" />
+                 </a>
+              </div>
+           </div>
+        </div>
+      </section>
+
+      {/* 6. FAQ + 1:1 문의 */}
+      <section className="mt-12">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col lg:flex-row gap-6">
+          {/* FAQ (70%) */}
+          <div className="lg:w-[70%] rounded-[24px] bg-white border border-[#EBE8E1] p-8 md:p-10">
+            <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">자주 묻는 질문</h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              {faqs.map((faq, idx) => (
+                <div key={idx} className="rounded-xl bg-[#FAF9F5] p-5 cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1]">
+                   <div className="flex items-center justify-between">
+                     <p className="text-[14px] font-bold text-[#1A1D1B]">{faq.q}</p>
+                     <ChevronDown className="size-4 text-[#5F6761] shrink-0" />
+                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* 1:1 문의 (30%) */}
+          <div className="lg:w-[30%] rounded-[24px] bg-[#FAF9F5] border border-[#EBE8E1] p-8 md:p-10 flex flex-col justify-center">
+             <h2 className="text-[18px] font-bold text-[#1A1D1B]">더 궁금한 점이 있으신가요?</h2>
+             <p className="mt-2 text-[14px] text-[#5F6761]">언제든지 1:1 문의로 편하게 남겨주세요.</p>
+             <a href="#" className="mt-8 inline-flex w-fit items-center rounded-full bg-white px-6 py-3 text-[14px] font-bold text-[#1A1D1B] border border-[#EBE8E1] transition-colors hover:bg-[#F4F2EC]">
+               1:1 문의하기 <ArrowRight className="ml-1 size-3" />
+             </a>
+          </div>
+        </div>
       </section>
     </div>
+  );
+}
+
+function Field({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-semibold text-[#202521]">
+        {label} {required && <span className="text-[#A8742E]">*</span>}
+      </span>
+      {children}
+    </label>
   );
 }
