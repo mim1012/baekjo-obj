@@ -1300,3 +1300,56 @@ export async function answerProductInquiry(id: string, answer: string): Promise<
   }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }
+
+/* ── 관리자 이미지 업로드 ──────────────────────────────────────
+ * 상품·브랜드·배너 이미지를 Supabase Storage(catalog-assets 버킷)에 올린다.
+ * 엔티티가 아직 없는 신규 작성 화면은 entityId 대신 draftId 를 넘겨 temp/ 경로에
+ * 임시 업로드하고, 저장을 취소하면 deleteTemporaryAdminImage 로 폐기한다. */
+
+export type AdminImageDomain = 'product' | 'brand' | 'banner';
+
+/** usage 는 domain 별 허용값이 다르다 — product: main|gallery|detail / brand: logo|cover / banner: hero.
+ *  서버(/api/admin/upload)가 최종 검증하므로 여기서는 문자열로 받는다. */
+export interface AdminImageUploadInput {
+  file: File;
+  domain: AdminImageDomain;
+  usage: string;
+  entityId?: string;
+  draftId?: string;
+}
+
+export interface AdminImageUploadResult {
+  success: boolean;
+  path: string;
+  publicUrl: string;
+  bucket: string;
+}
+
+/** 관리자 전용 — 이미지 업로드. POST /api/admin/upload (multipart/form-data). */
+export async function uploadAdminImage(input: AdminImageUploadInput): Promise<AdminImageUploadResult> {
+  const formData = new FormData();
+  formData.append('file', input.file);
+  formData.append('domain', input.domain);
+  formData.append('usage', input.usage);
+  if (input.entityId) formData.append('entityId', input.entityId);
+  if (input.draftId) formData.append('draftId', input.draftId);
+
+  const response = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'upload-failed');
+  }
+  return data as AdminImageUploadResult;
+}
+
+/** 관리자 전용 — 임시(temp/) 업로드본 폐기. DELETE /api/admin/upload?path=...
+ *  정식 경로 파일은 물리 삭제하지 않고 `deleted:false` 로 응답한다(참조만 해제). */
+export async function deleteTemporaryAdminImage(path: string): Promise<{ deleted: boolean; reason: string }> {
+  const params = new URLSearchParams({ path });
+  const response = await fetch(`/api/admin/upload?${params.toString()}`, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'delete-failed');
+  }
+  return data as { deleted: boolean; reason: string };
+}
