@@ -465,7 +465,12 @@ export async function getPublicBrandById(id: string): Promise<Brand | null> {
   }
 }
 
-/** 관리자 상품 목록(비노출 포함). GET /api/admin/products(관리자 세션 필요). 실패 시 빈 배열. */
+/**
+ * 관리자 상품 목록(비노출 포함). GET /api/admin/products(관리자 세션 필요). 실패 시 빈 배열.
+ * ⚠️ **클라이언트 전용** — 서버 컴포넌트에서 호출 금지. 상대경로 fetch라 서버 런타임엔 origin이
+ * 없어 throw하고, 그 예외를 catch가 조용히 삼켜 빈 배열을 반환한다(→ 상세/수정 페이지가 원인불명 404).
+ * 서버 컴포넌트에서는 `@/lib/products/repo`의 `getProductById`/`listProducts`를 직접 호출할 것.
+ */
 export async function getAdminProducts(): Promise<Product[]> {
   try {
     const response = await fetch('/api/admin/products');
@@ -615,7 +620,12 @@ export async function deletePartnerProduct(id: string): Promise<{ ok?: true; err
   }
 }
 
-/** 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열. */
+/**
+ * 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열.
+ * ⚠️ **클라이언트 전용** — 서버 컴포넌트에서 호출 금지. 상대경로 fetch라 서버 런타임엔 origin이
+ * 없어 throw하고, 그 예외를 catch가 조용히 삼켜 빈 배열을 반환한다(→ 브랜드 select가 원인불명 공백).
+ * 서버 컴포넌트에서는 `@/lib/brands/repo`의 `listAllBrandsForAdmin`을 직접 호출할 것.
+ */
 export async function getAdminBrands(): Promise<Brand[]> {
   try {
     const response = await fetch('/api/admin/brands');
