@@ -10,6 +10,7 @@ import {
   ADMIN_MAIN_NAV,
   ADMIN_CS_NAV,
   ADMIN_ETC_NAV,
+  ADMIN_ALL_NAV,
   resolveActiveHref,
   type AdminSidebarItem,
 } from './adminNav';
@@ -49,6 +50,7 @@ function NavGroup({
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center group px-3 py-2.5 rounded-md transition-colors ${
                 active
                   ? 'bg-[#2F3B34] text-white font-medium'
@@ -70,8 +72,7 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
   const pathname = usePathname();
   const mounted = useMounted();
 
-  const allNavItems = [...mainNavItems, ...csNavItems, ...etcNavItems];
-  const activeHref = resolveActiveHref(pathname, allNavItems);
+  const activeHref = resolveActiveHref(pathname, ADMIN_ALL_NAV);
   const isActive = (href: string) => href === activeHref;
 
   if (!mounted) return null; // Avoid hydration mismatch on server render
@@ -94,7 +95,10 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
           </Link>
         )}
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          aria-expanded={!collapsed}
           className={`p-1.5 rounded-md text-gray-500 hover:bg-gray-200 transition-colors ${collapsed ? 'absolute -right-3 top-16 bg-white border border-gray-200 shadow-sm rounded-full' : ''}`}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={18} />}

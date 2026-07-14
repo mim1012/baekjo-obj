@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   ADMIN_MAIN_NAV,
   ADMIN_CS_NAV,
@@ -88,6 +90,9 @@ test.describe('resolveActiveHref', () => {
     ['/admin/survey-results', '/admin/survey-results'],
     ['/admin/survey', '/admin/survey'],
     ['/admin/zzz', undefined],
+    // trailingSlash 방어: next.config.ts에서 trailingSlash:true로 바뀌면 pathname이
+    // '/admin/'처럼 들어온다 — 정규화 없이는 대시보드 항목만 조용히 영영 비활성화된다.
+    ['/admin/', '/admin'],
   ];
 
   for (const [pathname, expected] of cases) {
@@ -95,4 +100,54 @@ test.describe('resolveActiveHref', () => {
       expect(resolveActiveHref(pathname, allNavItems)).toBe(expected);
     });
   }
+});
+
+test.describe('고아 라우트 가드', () => {
+  // 2026-07-14 메뉴 4종 유실 사고 + /admin/products/display 고아 라우트(페이지는 있는데
+  // 사이드바에 없어 클릭으로 도달 불가능했던 상태, 이번 PR에서 수동 발견해 고쳤다).
+  // EXPECTED_HREFS 하드코딩 스냅샷은 "메뉴와 기대값을 함께 지우면 초록불"이라 이 유실 패턴을
+  // 못 잡는다. 여기서는 파일시스템(src/app/admin/**/page.tsx)에서 실제 정적 라우트를 도출해
+  // "파일이 존재한다"가 아니라 "메뉴에서 도달 가능하다"를 판정한다.
+  const ADMIN_APP_ROOT = path.resolve(__dirname, '..', '..', 'src', 'app', 'admin');
+
+  function collectPageFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        out.push(...collectPageFiles(full));
+      } else if (entry.name === 'page.tsx') {
+        out.push(full);
+      }
+    }
+    return out;
+  }
+
+  function toRoute(pageFile: string): string {
+    const rel = path.relative(ADMIN_APP_ROOT, path.dirname(pageFile)).split(path.sep).join('/');
+    return rel === '' ? '/admin' : `/admin/${rel}`;
+  }
+
+  test('src/app/admin의 모든 정적 라우트가 메뉴(사이드바 3배열)에서 도달 가능하다', () => {
+    const pageFiles = collectPageFiles(ADMIN_APP_ROOT);
+    expect(pageFiles.length).toBeGreaterThan(0); // 스캔 경로가 비면 가드가 무력해진다 — 먼저 잡는다.
+
+    const staticRoutes = pageFiles.map(toRoute).filter((route) => !route.includes('['));
+
+    const reachable = new Set(
+      [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY].map(
+        (i) => i.href,
+      ),
+    );
+
+    const orphans = staticRoutes.filter((route) => !reachable.has(route));
+
+    expect(
+      orphans,
+      orphans.length > 0
+        ? `고아 라우트: 페이지는 있는데 메뉴에서 도달할 수 없다\n` +
+            orphans.map((r) => ` - ${r}`).join('\n')
+        : undefined,
+    ).toEqual([]);
+  });
 });

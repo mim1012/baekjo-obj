@@ -57,8 +57,10 @@ export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
   return (
     <header className="h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 sticky top-0 z-10 w-full">
       <div className="flex items-center gap-3">
-        <button 
+        <button
+          type="button"
           onClick={onMenuClick}
+          aria-label="메뉴 열기"
           className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"
         >
           <Menu size={20} />

@@ -9,6 +9,7 @@ import {
   ADMIN_MAIN_NAV,
   ADMIN_CS_NAV,
   ADMIN_ETC_NAV,
+  ADMIN_ALL_NAV,
   resolveActiveHref,
   type AdminSidebarItem,
 } from './adminNav';
@@ -50,6 +51,7 @@ function NavGroup({
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center group px-3 py-3 rounded-md transition-colors ${
                 active
                   ? 'bg-[#2F3B34] text-white font-medium'
@@ -80,8 +82,7 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
     };
   }, [isOpen]);
 
-  const allNavItems = [...mainNavItems, ...csNavItems, ...etcNavItems];
-  const activeHref = resolveActiveHref(pathname, allNavItems);
+  const activeHref = resolveActiveHref(pathname, ADMIN_ALL_NAV);
   const isActive = (href: string) => href === activeHref;
 
   return (

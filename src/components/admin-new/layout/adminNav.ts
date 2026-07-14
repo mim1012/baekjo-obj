@@ -63,6 +63,13 @@ export const ADMIN_BREADCRUMB_ONLY: AdminNavItem[] = [
   { name: '상품 등록', href: '/admin/products/new' },
 ];
 
+/** 사이드바·모바일내비가 공유하는 전체 목록(SSOT) — 각자 렌더마다 재생성하지 않도록 여기서 한 번만 만든다. */
+export const ADMIN_ALL_NAV: AdminSidebarItem[] = [
+  ...ADMIN_MAIN_NAV,
+  ...ADMIN_CS_NAV,
+  ...ADMIN_ETC_NAV,
+];
+
 /**
  * 여러 후보 href 중 pathname과 가장 길게(구체적으로) 일치하는 href를 고른다.
  * `startsWith`만 쓰면 ①형제 경로(`/admin/products` vs `/admin/products/display`)가
@@ -73,10 +80,11 @@ export function resolveActiveHref(
   pathname: string,
   items: readonly AdminNavItem[],
 ): string | undefined {
+  // next.config.ts의 trailingSlash가 true로 바뀌면 pathname이 '/admin/'처럼 들어와
+  // '/admin' 항목만 정확매칭에 실패해 조용히 영영 비활성화된다 — 진입부에서 정규화해 방어한다.
+  const p = pathname.replace(/\/+$/, '') || '/';
   return items
     .map((i) => i.href)
-    .filter((h) =>
-      h === '/admin' ? pathname === '/admin' : pathname === h || pathname.startsWith(h + '/'),
-    )
+    .filter((h) => (h === '/admin' ? p === '/admin' : p === h || p.startsWith(h + '/')))
     .sort((a, b) => b.length - a.length)[0];
 }
