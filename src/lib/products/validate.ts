@@ -1,6 +1,6 @@
 // 관리자 상품 생성/수정 입력 검증. POST/PATCH 라우트가 공유한다.
 // id/createdAt은 여기서 받지 않는다(서버 결정, mass-assignment 차단).
-import type { Product, ProductOption } from '@/types';
+import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
 
 const MAX_NAME = 200;
@@ -10,6 +10,8 @@ const MAX_LONG_TEXT = 3000;
 const MAX_URL = 500;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OPTIONS = 50;
+const MAX_DETAIL_BLOCKS = 200;
+const MAX_BLOCK_TEXT = 5000;
 const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
@@ -68,6 +70,38 @@ function validateOptions(raw: unknown): ProductOption[] | null | undefined {
     options.push(option);
   }
   return options;
+}
+
+/**
+ * 상세 본문 블록(네이버식 text|image 순차 렌더). 관리자 상세 에디터(ProductDetailEditor)가
+ * 이 필드만 담아 PATCH를 보내므로, 여기 분기가 없으면 out이 빈 객체가 되어 라우트가
+ * "수정할 필드 없음"으로 400을 반환한다 — 상세 본문이 DB에 영영 저장되지 않는다.
+ */
+function validateDetailBlock(raw: unknown): ProductDetailBlock | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const b = raw as Record<string, unknown>;
+  if (b.type === 'text') {
+    if (!isStr(b.content, 0, MAX_BLOCK_TEXT)) return null;
+    return { type: 'text', content: b.content };
+  }
+  if (b.type === 'image') {
+    if (!isStr(b.src, 1, MAX_URL)) return null;
+    if (!isOptStr(b.alt, MAX_TEXT)) return null;
+    return { type: 'image', src: b.src, ...(b.alt !== undefined ? { alt: b.alt } : {}) };
+  }
+  return null;
+}
+
+function validateDetailBlocks(raw: unknown): ProductDetailBlock[] | null | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length > MAX_DETAIL_BLOCKS) return null;
+  const blocks: ProductDetailBlock[] = [];
+  for (const item of raw) {
+    const block = validateDetailBlock(item);
+    if (!block) return null;
+    blocks.push(block);
+  }
+  return blocks;
 }
 
 export type ValidatedProductFields = Partial<Product>;
@@ -170,6 +204,10 @@ export function validateProductFields(
     out.images = b.images;
   }
 
+  const detailBlocks = validateDetailBlocks(b.detailBlocks);
+  if (detailBlocks === null) return null;
+  if (detailBlocks !== undefined) out.detailBlocks = detailBlocks;
+
   const options = validateOptions(b.options);
   if (options === null) return null;
   if (options !== undefined) out.options = options;
@@ -184,14 +222,37 @@ export function validateProductFields(
     out.summary = b.summary;
   }
 
+  // 상세 본문은 detailBlocks(에디터)가 정본이고 description은 "간단 텍스트 상세"(선택)다.
+  // 과거엔 생성 시 필수였는데, 폼이 "에디터를 쓰려면 비워두세요"라고 안내하면서도 비우면
+  // 400을 뱉는 모순이 있었다 — 안내가 맞고 검증이 틀렸으므로 선택 필드로 정정한다.
+  // Product.description은 non-optional(string)이라 미제공 시 ''로 채워 타입 계약을 유지한다.
   if (b.description !== undefined) {
-    if (!isStr(b.description, 1, MAX_LONG_TEXT)) return null;
+    if (!isStr(b.description, 0, MAX_LONG_TEXT)) return null;
     out.description = b.description;
-  } else if (requireAll) return null;
+  } else if (requireAll) {
+    out.description = '';
+  }
 
   if (b.shippingNotice !== undefined) {
     if (!isOptStr(b.shippingNotice, MAX_TEXT)) return null;
     out.shippingNotice = b.shippingNotice;
+  }
+
+  // 구매 정보 3종. 화이트리스트에 없어서 저장 자체가 불가능했고(rowToProduct도 되읽지 않아
+  // 영영 undefined), 상세 페이지는 항상 기본 문구만 렌더했다.
+  if (b.deliveryEstimate !== undefined) {
+    if (!isOptStr(b.deliveryEstimate, MAX_TEXT)) return null;
+    out.deliveryEstimate = b.deliveryEstimate;
+  }
+
+  if (b.returnNotice !== undefined) {
+    if (!isOptStr(b.returnNotice, MAX_TEXT)) return null;
+    out.returnNotice = b.returnNotice;
+  }
+
+  if (b.sellerName !== undefined) {
+    if (!isOptStr(b.sellerName, MAX_NAME)) return null;
+    out.sellerName = b.sellerName;
   }
 
   if (b.tags !== undefined) {

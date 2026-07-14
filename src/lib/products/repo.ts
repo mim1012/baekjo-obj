@@ -66,6 +66,11 @@ function rowToProduct(row: ProductRow): Product {
     summary: typeof d.summary === 'string' ? d.summary : undefined,
     description: typeof d.description === 'string' ? d.description : '',
     shippingNotice: typeof d.shippingNotice === 'string' ? d.shippingNotice : undefined,
+    // 구매 정보 3종. validate 화이트리스트에도 없고 여기서 되읽지도 않아, 저장 경로와 조회
+    // 경로가 동시에 끊겨 있었다 → 상세 페이지가 항상 기본 문구만 렌더했다.
+    deliveryEstimate: typeof d.deliveryEstimate === 'string' ? d.deliveryEstimate : undefined,
+    returnNotice: typeof d.returnNotice === 'string' ? d.returnNotice : undefined,
+    sellerName: typeof d.sellerName === 'string' ? d.sellerName : undefined,
     tags: Array.isArray(d.tags) ? (d.tags as string[]) : undefined,
     brandName: typeof d.brandName === 'string' ? d.brandName : undefined,
     isMembersOnlyPrice: typeof d.isMembersOnlyPrice === 'boolean' ? d.isMembersOnlyPrice : undefined,
