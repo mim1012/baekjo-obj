@@ -357,6 +357,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-
-// 아이콘을 임포트하기 위한 빈 BadgeCheck
-import { BadgeCheck as LucideBadgeCheck } from 'lucide-react';

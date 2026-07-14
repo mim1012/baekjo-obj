@@ -4,61 +4,20 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMounted } from '@/lib/useMounted';
-import {
-  LayoutDashboard,
-  Package,
-  FolderTree,
-  Tag,
-  ShoppingCart,
-  Users,
-  HeartHandshake,
-  Stethoscope,
-  MessageSquare,
-  MessageCircle,
-  Star,
-  Activity,
-  HeartPulse,
-  Handshake,
-  Gift,
-  Bell,
-  Settings,
-  LogOut,
-  ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import {
+  ADMIN_MAIN_NAV,
+  ADMIN_CS_NAV,
+  ADMIN_ETC_NAV,
+  ADMIN_ALL_NAV,
+  resolveActiveHref,
+  type AdminSidebarItem,
+} from './adminNav';
 
-interface SidebarItem {
-  name: string;
-  href: string;
-  icon: React.ElementType;
-}
-
-const mainNavItems: SidebarItem[] = [
-  { name: '대시보드', href: '/admin', icon: LayoutDashboard },
-  { name: '상품 관리', href: '/admin/products', icon: Package },
-  { name: '카테고리 관리', href: '/admin/categories', icon: FolderTree },
-  { name: '브랜드 관리', href: '/admin/brands', icon: Tag },
-  { name: '주문 관리', href: '/admin/orders', icon: ShoppingCart },
-  { name: '회원 관리', href: '/admin/members', icon: Users },
-];
-
-const csNavItems: SidebarItem[] = [
-  { name: '보험 상담', href: '/admin/insurance', icon: HeartHandshake },
-  { name: '맞춤 진단', href: '/admin/survey', icon: Stethoscope },
-  { name: '진단 참여 내역', href: '/admin/survey-results', icon: Activity },
-  { name: '문의 관리', href: '/admin/qna', icon: MessageSquare },
-  { name: '상품문의 관리', href: '/admin/inquiries', icon: MessageCircle },
-  { name: '후기 관리', href: '/admin/reviews', icon: Star },
-];
-
-const etcNavItems: SidebarItem[] = [
-  { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
-  { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
-  { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
-  { name: '공지사항', href: '/admin/notices', icon: Bell },
-  { name: '환경 설정', href: '/admin/settings', icon: Settings },
-];
+const mainNavItems = ADMIN_MAIN_NAV;
+const csNavItems = ADMIN_CS_NAV;
+const etcNavItems = ADMIN_ETC_NAV;
 
 interface AdminSidebarProps {
   user: { name?: string | null; role?: string | null };
@@ -72,7 +31,7 @@ function NavGroup({
   collapsed,
   isActive,
 }: {
-  items: SidebarItem[];
+  items: AdminSidebarItem[];
   title?: string;
   collapsed: boolean;
   isActive: (href: string) => boolean;
@@ -91,6 +50,7 @@ function NavGroup({
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center group px-3 py-2.5 rounded-md transition-colors ${
                 active
                   ? 'bg-[#2F3B34] text-white font-medium'
@@ -112,10 +72,8 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
   const pathname = usePathname();
   const mounted = useMounted();
 
-  const isActive = (href: string) => {
-    if (href === '/admin') return pathname === '/admin';
-    return pathname.startsWith(href) && href !== '/admin';
-  };
+  const activeHref = resolveActiveHref(pathname, ADMIN_ALL_NAV);
+  const isActive = (href: string) => href === activeHref;
 
   if (!mounted) return null; // Avoid hydration mismatch on server render
 
@@ -137,7 +95,10 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
           </Link>
         )}
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? '사이드바 펼치기' : '사이드바 접기'}
+          aria-expanded={!collapsed}
           className={`p-1.5 rounded-md text-gray-500 hover:bg-gray-200 transition-colors ${collapsed ? 'absolute -right-3 top-16 bg-white border border-gray-200 shadow-sm rounded-full' : ''}`}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={18} />}

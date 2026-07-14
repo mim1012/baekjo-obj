@@ -5,41 +5,19 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import {
+  ADMIN_MAIN_NAV,
+  ADMIN_CS_NAV,
+  ADMIN_ETC_NAV,
+  ADMIN_ALL_NAV,
+  resolveActiveHref,
+  type AdminSidebarItem,
+} from './adminNav';
 
-interface SidebarItem {
-  name: string;
-  href: string;
-  icon: React.ElementType;
-}
-
-// AdminSidebar와 동일한 메뉴 구조 공유 (실제 구현시 분리된 상수 파일 사용 권장)
-import { LayoutDashboard, Package, FolderTree, Tag, ShoppingCart, Users, HeartHandshake, Stethoscope, MessageSquare, MessageCircle, Star, Activity, HeartPulse, Handshake, Gift, Bell, Settings } from 'lucide-react';
-
-const mainNavItems: SidebarItem[] = [
-  { name: '대시보드', href: '/admin', icon: LayoutDashboard },
-  { name: '상품 관리', href: '/admin/products', icon: Package },
-  { name: '카테고리 관리', href: '/admin/categories', icon: FolderTree },
-  { name: '브랜드 관리', href: '/admin/brands', icon: Tag },
-  { name: '주문 관리', href: '/admin/orders', icon: ShoppingCart },
-  { name: '회원 관리', href: '/admin/members', icon: Users },
-];
-
-const csNavItems: SidebarItem[] = [
-  { name: '보험 상담', href: '/admin/insurance', icon: HeartHandshake },
-  { name: '맞춤 진단', href: '/admin/survey', icon: Stethoscope },
-  { name: '진단 참여 내역', href: '/admin/survey-results', icon: Activity },
-  { name: '문의 관리', href: '/admin/qna', icon: MessageSquare },
-  { name: '상품문의 관리', href: '/admin/inquiries', icon: MessageCircle },
-  { name: '후기 관리', href: '/admin/reviews', icon: Star },
-];
-
-const etcNavItems: SidebarItem[] = [
-  { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
-  { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
-  { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
-  { name: '공지사항', href: '/admin/notices', icon: Bell },
-  { name: '환경 설정', href: '/admin/settings', icon: Settings },
-];
+// AdminSidebar와 메뉴 구조를 adminNav.ts(SSOT)로 공유한다.
+const mainNavItems = ADMIN_MAIN_NAV;
+const csNavItems = ADMIN_CS_NAV;
+const etcNavItems = ADMIN_ETC_NAV;
 
 interface AdminMobileNavProps {
   isOpen: boolean;
@@ -53,7 +31,7 @@ function NavGroup({
   isActive,
   onNavigate,
 }: {
-  items: SidebarItem[];
+  items: AdminSidebarItem[];
   title?: string;
   isActive: (href: string) => boolean;
   onNavigate: () => void;
@@ -73,6 +51,7 @@ function NavGroup({
               key={item.href}
               href={item.href}
               onClick={onNavigate}
+              aria-current={active ? 'page' : undefined}
               className={`flex items-center group px-3 py-3 rounded-md transition-colors ${
                 active
                   ? 'bg-[#2F3B34] text-white font-medium'
@@ -103,10 +82,8 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
     };
   }, [isOpen]);
 
-  const isActive = (href: string) => {
-    if (href === '/admin') return pathname === '/admin';
-    return pathname.startsWith(href) && href !== '/admin';
-  };
+  const activeHref = resolveActiveHref(pathname, ADMIN_ALL_NAV);
+  const isActive = (href: string) => href === activeHref;
 
   return (
     <>

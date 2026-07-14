@@ -43,6 +43,12 @@ export default defineConfig({
       testDir: './tests/products',
       use: {},
     },
+    {
+      // 어드민 내비 SSOT 회귀 스펙 — 순수 데이터/함수, 브라우저·DB 불필요.
+      name: 'admin',
+      testDir: './tests/admin',
+      use: {},
+    },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
   ...(isLocal
