@@ -108,21 +108,32 @@ test.describe('detailBlocks (핵심 회귀)', () => {
   });
 });
 
-test.describe('저장형 XSS 차단 — text 블록은 평문만', () => {
-  test('<img src=x onerror=...> 가 들어오면 거부된다', () => {
-    const result = validateProductFields(
-      { detailBlocks: [{ type: 'text', content: '<img src=x onerror=alert(1)>' }] },
-      false,
-    );
-    expect(result).toBeNull();
+// text content는 sanitize하지 않는다 — 공개 상세(shop/[id]/page.tsx)와 에디터 미리보기 둘 다
+// {block.content} 평문 렌더라 HTML 파싱 경로가 없다(= 저장형 XSS 싱크 없음). 그 전제는
+// tests/products/no-html-sink.spec.ts가 src/ 트리의 dangerouslySetInnerHTML 0건으로 기계 강제한다.
+// 과거의 태그 거부 정규식(/<[a-zA-Z/!]/)은 `<A/S 안내>`·`<NEW>` 같은 정당한 커머스 문구를 막으면서
+// 인코딩 우회는 못 막는 새는 방어였으므로 제거했다. 아래는 "이제 통과가 맞다"를 잠그는 스펙이다.
+test.describe('text 블록 content — 평문 저장(태그 거부 없음)', () => {
+  test('`<A/S 안내> 1588-0000` 같은 정당한 문구가 통과한다 (오탐 제거)', () => {
+    const content = '<A/S 안내> 1588-0000 <NEW> 신제품, x<y 인 경우 교환';
+    const result = validateProductFields({ detailBlocks: [{ type: 'text', content }] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.detailBlocks![0]).toEqual({ type: 'text', content });
   });
 
-  test('<script> 가 들어오면 거부된다', () => {
+  test('<script> 문자열도 저장은 통과한다 (렌더가 평문이라 안전 — no-html-sink 스펙이 전제를 강제)', () => {
+    const content = '앞말<script>alert(1)</script>뒷말';
+    const result = validateProductFields({ detailBlocks: [{ type: 'text', content }] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.detailBlocks![0]).toEqual({ type: 'text', content });
+  });
+
+  test('길이 상한(2000자)은 그대로 유지된다', () => {
     const result = validateProductFields(
-      { detailBlocks: [{ type: 'text', content: '앞말<script>alert(1)</script>뒷말' }] },
+      { detailBlocks: [{ type: 'text', content: '<b>'.repeat(1000) }] },
       false,
     );
-    expect(result).toBeNull();
+    expect(result).toBeNull(); // 3000자 > MAX_BLOCK_TEXT
   });
 
   test('태그 없는 평문(한글·줄바꿈·부등호)은 통과한다', () => {
@@ -156,6 +167,55 @@ test.describe('image 블록 src 오리진 화이트리스트', () => {
       false,
     );
     expect(result).toBeNull();
+  });
+
+  // 브라우저 URL 파서는 special scheme에서 백슬래시를 '/'로 정규화하고 탭·개행을 제거한다.
+  // → `/\evil.example/x.gif`, `/<TAB>/evil.example/x.gif`가 `//evil.example/x.gif`와 동치가 되어
+  //   외부 오리진을 로드한다. 접두사 검사만으로는 못 막으므로 URL 파서로 오리진을 확인한다.
+  test('백슬래시 우회(/\\evil.example/x.gif)는 거부된다', () => {
+    const result = validateProductFields(
+      { detailBlocks: [{ type: 'image', src: '/\\evil.example/x.gif' }] },
+      false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test('탭 삽입 우회(/<TAB>/evil.example/x.gif)는 거부된다', () => {
+    const result = validateProductFields(
+      { detailBlocks: [{ type: 'image', src: '/\t/evil.example/x.gif' }] },
+      false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test('개행 삽입 우회(/<LF>/evil.example/x.gif)는 거부된다', () => {
+    const result = validateProductFields(
+      { detailBlocks: [{ type: 'image', src: '/\n/evil.example/x.gif' }] },
+      false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test('캐리지리턴 삽입 우회(/<CR>/evil.example/x.gif)는 거부된다', () => {
+    const result = validateProductFields(
+      { detailBlocks: [{ type: 'image', src: '/\r/evil.example/x.gif' }] },
+      false,
+    );
+    expect(result).toBeNull();
+  });
+
+  test('시드 상세 경로(/products/detail/penefit-palette/01.webp)는 통과한다 (회귀 방지)', () => {
+    const src = '/products/detail/penefit-palette/01.webp';
+    const result = validateProductFields({ detailBlocks: [{ type: 'image', src }] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.detailBlocks![0]).toEqual({ type: 'image', src });
+  });
+
+  test('시드 썸네일 경로(/products/p1.webp)는 통과한다 (회귀 방지)', () => {
+    const src = '/products/p1.webp';
+    const result = validateProductFields({ detailBlocks: [{ type: 'image', src }] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.detailBlocks![0]).toEqual({ type: 'image', src });
   });
 
   test('자사 상대경로(/products/detail/a/01.webp)는 통과한다', () => {
@@ -238,6 +298,24 @@ test.describe('가격 교차검증', () => {
 
   test('price=null 인데 salePrice만 있으면 거부된다 (정가 없는 세일가)', () => {
     const result = validateProductFields({ price: null, salePrice: 5000 }, false);
+    expect(result).toBeNull();
+  });
+});
+
+test.describe('폼 부분수정 계약 (ProductForm 화이트리스트 회귀 방지)', () => {
+  // 배경: ProductForm이 `...formData`(페이지 로드 시점 스냅샷)를 통째로 PATCH에 실어 보내면
+  // 상세 에디터가 그 사이 저장한 detailBlocks가 낡은 값으로 덮어써진다. 폼은 이제 자기가
+  // 편집하는 필드만 명시적으로 보낸다 — 서버 계약도 "안 보낸 필드는 유지"임을 여기서 잠근다.
+  test('PATCH에 detailBlocks가 없으면 결과에 detailBlocks 키가 없다 (기존 값 보존)', () => {
+    const result = validateProductFields({ name: '재고만 수정' }, false);
+    expect(result).not.toBeNull();
+    expect('detailBlocks' in result!).toBe(false);
+  });
+
+  test('생성(requireAll=true)에서 ageGroup이 빠지면 거부된다 (폼이 반드시 보내야 함)', () => {
+    const body = minimalRequiredBody();
+    delete (body as Record<string, unknown>).ageGroup;
+    const result = validateProductFields(body, true);
     expect(result).toBeNull();
   });
 });

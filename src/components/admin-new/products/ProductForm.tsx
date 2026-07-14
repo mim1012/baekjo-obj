@@ -150,20 +150,59 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
 
     try {
       const brandName = brands.find(b => b.id === formData.brandId)?.name;
+      const salePrice = formData.salePrice ? formData.salePrice : null;
 
-      // catalogStatus는 서버 화이트리스트(validateProductFields)에 없어 조용히 버려지는 죽은
-      // 필드였다 — 보내지 않는다.
-      const payload = {
-        ...formData,
-        brandName,
-        salePrice: formData.salePrice ? formData.salePrice : null,
-      };
-
+      // 이 폼은 자기가 편집하는 필드만 patch한다. `...formData`로 로드 시점 스냅샷을 통째로
+      // 되보내면 detailBlocks(상세 에디터 소유)·options·images·rating 등 이 폼이 건드리지 않는
+      // 필드까지 낡은 값으로 덮어써, 그 사이 다른 화면(상세 에디터)이 저장한 값이 사라진다.
+      // 그래서 화면에 입력 컨트롤이 있는 필드만 명시적으로 골라 보낸다(암묵적 스프레드 금지).
       if (isEdit && initialData.id) {
-        const { error: updateError } = await updateProduct(initialData.id, payload as UpdateProductInput);
+        // 수정(PATCH)은 read-modify-write라 여기 없는 필드는 서버가 기존 값을 그대로 유지한다.
+        // ageGroup은 폼에 UI가 없으므로 보내지 않는다(있으면 state 기본값 'all'로 덮어써버림).
+        const payload = {
+          name: formData.name,
+          brandId: formData.brandId,
+          brandName,
+          category: formData.category,
+          lifestyleCategory: formData.lifestyleCategory,
+          petType: formData.petType,
+          summary: formData.summary,
+          description: formData.description,
+          price: formData.price,
+          salePrice,
+          stock: formData.stock,
+          isVisible: formData.isVisible,
+          isRecommended: formData.isRecommended,
+          isBest: formData.isBest,
+          image: formData.image,
+        } as UpdateProductInput;
+        const { error: updateError } = await updateProduct(initialData.id, payload);
         if (updateError) throw new Error(updateError);
       } else {
-        const { error: createError } = await createProduct(payload as CreateProductInput);
+        // 생성은 서버가 requireAll=true로 검증한다 — ageGroup은 폼에 입력 UI가 없지만 서버
+        // 필수 필드이므로 state 기본값('all')을 명시적으로 포함해야 400을 피한다.
+        // rating/reviewCount/concernTags 등은 CreateProductInput(=Omit<Product,'id'>) 타입상
+        // 필수지만 이 폼엔 입력 UI가 없다 — 서버가 requireAll=true에서 기본값(0/[])을 채우므로
+        // 보내지 않고 캐스팅으로 타입만 맞춘다.
+        const payload = {
+          name: formData.name ?? '',
+          brandId: formData.brandId ?? '',
+          brandName,
+          category: formData.category ?? '',
+          lifestyleCategory: formData.lifestyleCategory ?? '',
+          petType: formData.petType ?? 'both',
+          ageGroup: formData.ageGroup ?? 'all',
+          summary: formData.summary,
+          description: formData.description ?? '',
+          price: formData.price ?? 0,
+          salePrice,
+          stock: formData.stock ?? 0,
+          isVisible: formData.isVisible ?? false,
+          isRecommended: formData.isRecommended ?? false,
+          isBest: formData.isBest ?? false,
+          image: formData.image ?? '',
+        } as CreateProductInput;
+        const { error: createError } = await createProduct(payload);
         if (createError) throw new Error(createError);
       }
 

@@ -63,9 +63,22 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
   };
 
   const handleSave = async () => {
-    // 빈 블록 검증 (내용이 없거나 이미지가 없는 블록 필터링).
-    // 서버 계약(text|image만)이 정본이라 미지 타입 블록은 여기서 버린다 — 하나라도 남겨 보내면
-    // 서버가 PATCH 전체를 400으로 거부해 그 상품의 상세는 영영 저장할 수 없게 된다.
+    // 미지 타입 블록은 버리지 않는다. 버리면 에디터를 열었다 저장만 해도 DB의 기존 블록이
+    // 조용히 사라진다(load→save 라운드트립 데이터 손실). 이 에디터가 다룰 수 없는 형식이면
+    // 저장 자체를 막고 몇 번째 블록이 문제인지 알려준다.
+    const unknownIndex = blocks.findIndex(
+      (b) => (b as ProductDetailBlock).type !== 'text' && (b as ProductDetailBlock).type !== 'image',
+    );
+    if (unknownIndex !== -1) {
+      const unknownType = (blocks[unknownIndex] as { type?: unknown }).type;
+      setError(
+        `${unknownIndex + 1}번째 블록은 이 에디터가 다룰 수 없는 형식입니다(${String(unknownType)}). ` +
+          '저장하면 데이터가 손실되므로 중단했습니다. 개발자에게 문의하세요.',
+      );
+      return;
+    }
+
+    // 빈 블록 필터링 (내용이 없거나 이미지가 없는 블록은 저장하지 않는다).
     const validBlocks = blocks.filter(b => {
       if (b.type === 'text') return b.content.trim().length > 0;
       if (b.type === 'image') return b.src.trim().length > 0;
@@ -172,7 +185,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                       <textarea
                         value={block.content}
                         onChange={(e) => handleUpdateBlock(index, { type: 'text', content: e.target.value })}
-                        placeholder="텍스트를 입력하세요. 입력한 그대로(평문) 표시되며 HTML 태그는 저장되지 않습니다."
+                        placeholder="텍스트를 입력하세요. 입력한 그대로(평문) 표시됩니다."
                         className="w-full h-32 p-3 text-[14px] border border-gray-300 rounded focus:border-gray-500 focus:ring-0 outline-none resize-none"
                       />
                     ) : block.type === 'image' ? (
@@ -195,7 +208,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                       </div>
                     ) : (
                       <div className="p-4 bg-yellow-50 text-yellow-800 text-[13px] border border-yellow-200 rounded">
-                        지원하지 않는 블록 타입입니다. 저장 시 이 블록은 제거됩니다.
+                        지원하지 않는 블록 타입입니다. 이 블록이 있으면 저장할 수 없습니다(데이터 손실 방지). 개발자에게 문의하세요.
                       </div>
                     )}
                   </div>

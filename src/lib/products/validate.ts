@@ -19,11 +19,6 @@ const MAX_BLOCK_TEXT = 2000;
  * 글자당 3바이트라 같은 블록 수로도 ~360KB까지 부풀 수 있다 → 실제 바이트로 재서 막는다.
  */
 const MAX_DETAIL_BYTES = 256 * 1024;
-/**
- * 평문 상세 본문에 HTML을 넣을 이유가 없다(공개 상세·에디터 미리보기 모두 이스케이프 렌더).
- * 태그 시작으로 보이는 시퀀스(<a, </, <!)를 거부해 저장형 XSS의 소스 자체를 차단한다.
- */
-const HTML_TAG_PATTERN = /<[a-zA-Z/!]/;
 const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
@@ -84,9 +79,23 @@ function validateOptions(raw: unknown): ProductOption[] | null | undefined {
   return options;
 }
 
-/** 프로토콜 상대 URL(`//evil.example/x.gif`)은 상대경로가 아니다 — 명시적으로 배제한다. */
+/** 오리진 비교용 더미 base. 상대경로가 실제로 자사 오리진에 머무는지 파서로 확인한다. */
+const SITE_ORIGIN_PROBE = 'https://baekjo.invalid';
+
+/**
+ * 자사 상대경로인지 판정한다. 접두사 검사만으로는 부족하다 — 브라우저 URL 파서는 special
+ * scheme에서 백슬래시를 '/'로 정규화하고 탭·개행(\t\n\r)을 제거하므로 `/\evil.com/x.png`나
+ * `/<TAB>/evil.com/x.png`가 `//evil.com/x.png`(프로토콜 상대 URL)과 동치가 되어 외부 오리진을
+ * 로드한다. 그래서 위험 문자를 먼저 거부하고, URL 파서로 실제 오리진을 확인한다.
+ */
 function isSitePath(src: string): boolean {
-  return src.startsWith('/') && !src.startsWith('//');
+  if (/[\\\t\n\r]/.test(src)) return false;
+  if (!src.startsWith('/') || src.startsWith('//')) return false;
+  try {
+    return new URL(src, SITE_ORIGIN_PROBE).origin === SITE_ORIGIN_PROBE;
+  } catch {
+    return false;
+  }
 }
 
 /** 업로드 대상인 Supabase storage 오리진. 미설정이면 null → 상대경로만 허용(fail-closed). */
@@ -123,14 +132,18 @@ export function isAllowedBlockImageSrc(src: string): boolean {
  * 상세 본문 블록(네이버식 text|image 순차 렌더). 관리자 상세 에디터(ProductDetailEditor)가
  * 이 필드만 담아 PATCH를 보내므로, 여기 분기가 없으면 out이 빈 객체가 되어 라우트가
  * "수정할 필드 없음"으로 400을 반환한다 — 상세 본문이 DB에 영영 저장되지 않는다.
- * text는 평문만(HTML 태그 거부), image는 자사/Supabase 오리진만 허용한다.
+ *
+ * text content는 sanitize하지 않는다(길이 상한만 검증): content는 공개 상세·에디터 미리보기
+ * 모두에서 React가 이스케이프하는 평문으로 렌더된다(HTML 파싱 경로 없음). 태그 문자열 거부는
+ * 정당한 문구(`<A/S 안내>`, `<NEW>`, `x<y`)를 막으면서 인코딩 우회는 못 막는 새는 방어라
+ * 두지 않는다. 이 전제(=평문 렌더)는 tests/products/no-html-sink.spec.ts가 기계로 강제한다.
+ * image src는 실제 싱크(raw <img src>)가 있으므로 자사/Supabase 오리진만 허용한다.
  */
 function validateDetailBlock(raw: unknown): ProductDetailBlock | null {
   if (!raw || typeof raw !== 'object') return null;
   const b = raw as Record<string, unknown>;
   if (b.type === 'text') {
     if (!isStr(b.content, 0, MAX_BLOCK_TEXT)) return null;
-    if (HTML_TAG_PATTERN.test(b.content)) return null;
     return { type: 'text', content: b.content };
   }
   if (b.type === 'image') {
