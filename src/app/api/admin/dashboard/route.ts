@@ -6,13 +6,18 @@ import { listMembers } from '@/lib/members/repo';
 import { listAllBrandsForAdmin, BRANDS_LIST_CAP } from '@/lib/brands/repo';
 import { listAllProductsForAdmin, PRODUCTS_LIST_CAP } from '@/lib/products/repo';
 import { listAllInquiries, INQUIRIES_LIST_CAP } from '@/lib/inquiries/repo';
-import { buildBrandStats, buildBrandStatsMeta } from '@/lib/admin/dashboardStats';
-import { logServerError } from '@/lib/logServerError';
+import {
+  buildBrandStats,
+  buildBrandStatsMeta,
+  detectTruncation,
+  resolveBrandsOrSkip,
+  settledOr,
+} from '@/lib/admin/dashboardStats';
+import { logServerError, logServerWarn } from '@/lib/logServerError';
 import type {
   AdminDashboardBrandStat,
   AdminDashboardBrandStatsMeta,
   AdminDashboardSummary,
-  Brand,
   Order,
   Product,
   ProductInquiry,
@@ -32,17 +37,11 @@ interface BrandStatsPayload {
   brandStatsMeta: AdminDashboardBrandStatsMeta;
 }
 
-/** allSettled 결과에서 값을 꺼내고, 실패면 폴백 + 실패 소스명을 기록한다(부분 성공 허용). */
-function settledOr<T>(
-  result: PromiseSettledResult<T>,
-  fallback: T,
-  sourceName: string,
-  failedSources: string[],
-): T {
-  if (result.status === 'fulfilled') return result.value;
+/** allSettled 결과의 실패를 failedSources에 기록하고 로그를 남긴다(집계 자체는 dashboardStats.settledOr가 한다). */
+function recordSourceFailure<T>(result: PromiseSettledResult<T>, sourceName: string, failedSources: string[]): void {
+  if (result.status === 'fulfilled') return;
   failedSources.push(sourceName);
   logServerError(`[GET /api/admin/dashboard] brandStats 소스 조회 실패: ${sourceName}`, result.reason);
-  return fallback;
 }
 
 /**
@@ -63,14 +62,18 @@ async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandSta
     ordersPromise,
   ]);
 
-  if (brandsRes.status === 'rejected') {
-    logServerError('[GET /api/admin/dashboard] brandStats 집계 실패: brands(가산 필드 생략)', brandsRes.reason);
+  const brands = resolveBrandsOrSkip(brandsRes);
+  if (brands === undefined) {
+    const reason = brandsRes.status === 'rejected' ? brandsRes.reason : undefined;
+    logServerError('[GET /api/admin/dashboard] brandStats 집계 실패: brands(가산 필드 생략)', reason);
     return undefined;
   }
-  const brands: Brand[] = brandsRes.value;
-  const products: Product[] = settledOr(productsRes, [], 'products', failedSources);
-  const inquiries: ProductInquiry[] = settledOr(inquiriesRes, [], 'inquiries', failedSources);
-  const orders: Order[] = settledOr(ordersRes, [], 'orders', failedSources);
+  const products: Product[] = settledOr(productsRes).data;
+  const inquiries: ProductInquiry[] = settledOr(inquiriesRes).data;
+  const orders: Order[] = settledOr(ordersRes).data;
+  recordSourceFailure(productsRes, 'products', failedSources);
+  recordSourceFailure(inquiriesRes, 'inquiries', failedSources);
+  recordSourceFailure(ordersRes, 'orders', failedSources);
 
   const since = new Date(Date.now() - BRAND_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
@@ -93,13 +96,18 @@ async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandSta
   }
 
   // 상한 도달 = 모집단 절삭(가장 오래된 행이 창 밖으로 밀려남 — 미답변 문의 지표가 특히 위험).
-  const truncated =
-    brands.length >= BRANDS_LIST_CAP ||
-    products.length >= PRODUCTS_LIST_CAP ||
-    orders.length >= ORDERS_LIST_CAP ||
-    inquiries.length >= INQUIRIES_LIST_CAP;
+  const truncated = detectTruncation(
+    { orders: orders.length, products: products.length, inquiries: inquiries.length, brands: brands.length },
+    {
+      orders: ORDERS_LIST_CAP,
+      products: PRODUCTS_LIST_CAP,
+      inquiries: INQUIRIES_LIST_CAP,
+      brands: BRANDS_LIST_CAP,
+    },
+  );
   if (truncated) {
-    logServerError(
+    // 절삭은 오류가 아니라 경고다 — CAP 도달 후 매 요청 error 레벨로 찍히는 알람 피로를 피한다(LOW-5).
+    logServerWarn(
       '[GET /api/admin/dashboard] brandStats 모집단 절삭(LIST_CAP 도달) — 수치를 신뢰할 수 없다',
       new Error(
         `brands=${brands.length}/${BRANDS_LIST_CAP} products=${products.length}/${PRODUCTS_LIST_CAP} ` +
@@ -115,6 +123,7 @@ async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandSta
     windowDays: BRAND_STATS_WINDOW_DAYS,
     truncated,
     partial: failedSources.length > 0,
+    failedSources,
   });
 
   return { brandStats, brandStatsMeta };

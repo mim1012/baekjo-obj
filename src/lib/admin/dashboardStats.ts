@@ -169,11 +169,17 @@ export function buildBrandStats(input: BrandStatsInput): AdminDashboardBrandStat
   return sortByDisplayOrder(result);
 }
 
-/** displayOrder 오름차순(미지정은 뒤). 동순위는 입력 순서 유지 — Array.prototype.sort는 안정 정렬. */
+/**
+ * displayOrder 오름차순(미지정은 뒤). 동순위는 입력 순서 유지 — Array.prototype.sort는 안정 정렬.
+ * 미지정 폴백은 `Number.MAX_SAFE_INTEGER`를 쓴다(POSITIVE_INFINITY 아님) — 미지정끼리 비교하면
+ * `Infinity - Infinity = NaN`이 나오는데(스펙상 NaN은 +0으로 매핑돼 안정 정렬이 유지되므로 버그는
+ * 아니지만) 그 미묘한 스펙 조항에 기대지 않기 위함. 공개 브랜드 목록(src/components/brands/
+ * BrandsContent.tsx:46)과 동일한 정책으로 통일했다.
+ */
 function sortByDisplayOrder(stats: AdminDashboardBrandStat[]): AdminDashboardBrandStat[] {
   return [...stats].sort((a, b) => {
-    const ao = a.displayOrder ?? Number.POSITIVE_INFINITY;
-    const bo = b.displayOrder ?? Number.POSITIVE_INFINITY;
+    const ao = a.displayOrder ?? Number.MAX_SAFE_INTEGER;
+    const bo = b.displayOrder ?? Number.MAX_SAFE_INTEGER;
     return ao - bo;
   });
 }
@@ -194,9 +200,11 @@ export interface BrandStatsMetaInput {
   truncated: boolean;
   /** 일부 소스 조회 실패로 지표가 결손됐는가. */
   partial: boolean;
+  /** partial=true일 때 실패한 소스명 목록('orders'|'products'|'inquiries' 등). */
+  failedSources?: string[];
 }
 
-/** 응답 meta 조립(순수) — optional 플래그는 참일 때만 실어 기존 JSON 계약을 넓히지 않는다. */
+/** 응답 meta 조립(순수) — optional 필드는 참일 때만 실어 기존 JSON 계약을 넓히지 않는다. */
 export function buildBrandStatsMeta(input: BrandStatsMetaInput): AdminDashboardBrandStatsMeta {
   return {
     since: input.since,
@@ -204,5 +212,47 @@ export function buildBrandStatsMeta(input: BrandStatsMetaInput): AdminDashboardB
     unmatchedProductCount: countUnmatchedProducts(input.brands, input.products),
     ...(input.truncated ? { truncated: true as const } : {}),
     ...(input.partial ? { partial: true as const } : {}),
+    ...(input.partial && input.failedSources && input.failedSources.length > 0
+      ? { failedSources: [...input.failedSources] }
+      : {}),
   };
+}
+
+/* ─────────────────────────────────────────────────────────────────
+ * 라우트 레이어 순수 추출(LOW-4) — src/app/api/admin/dashboard/route.ts가
+ * 이 함수들만 호출하고 조립/로깅만 담당하게 한다. 이전엔 아래 로직이 라우트 안에만 있어
+ * 어떤 테스트도 잠그지 않았다(특히 detectTruncation은 HIGH-2로 고친 절삭 판정 로직인데 미검증).
+ * ───────────────────────────────────────────────────────────────── */
+
+export interface SourceLoadResult<T> {
+  data: T[];
+  failed: boolean;
+}
+
+/** allSettled 결과 → 값(실패면 빈 배열) + 실패 여부. 로깅(소스명·reason)은 호출부(라우트) 책임. */
+export function settledOr<T>(result: PromiseSettledResult<T[]>): SourceLoadResult<T> {
+  if (result.status === 'fulfilled') return { data: result.value, failed: false };
+  return { data: [], failed: true };
+}
+
+/** brands 소스 결과 → 성공이면 배열, 실패면 undefined(brandStats 필드 자체를 생략하기 위한 신호). */
+export function resolveBrandsOrSkip(result: PromiseSettledResult<Brand[]>): Brand[] | undefined {
+  return result.status === 'fulfilled' ? result.value : undefined;
+}
+
+export interface TruncationCounts {
+  orders: number;
+  products: number;
+  inquiries: number;
+  brands: number;
+}
+
+/** 4개 소스 중 하나라도 repo LIST_CAP에 도달했으면 절삭(true). 정확히 CAP-1이면 false. */
+export function detectTruncation(counts: TruncationCounts, caps: TruncationCounts): boolean {
+  return (
+    counts.orders >= caps.orders ||
+    counts.products >= caps.products ||
+    counts.inquiries >= caps.inquiries ||
+    counts.brands >= caps.brands
+  );
 }

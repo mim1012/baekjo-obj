@@ -3,7 +3,10 @@ import {
   buildBrandStats,
   buildBrandStatsMeta,
   countUnmatchedProducts,
+  detectTruncation,
   isProductIncomplete,
+  resolveBrandsOrSkip,
+  settledOr,
 } from '@/lib/admin/dashboardStats';
 import { PAID_PAYMENT_STATUS, type Brand, type Order, type Product, type ProductInquiry } from '@/types';
 
@@ -338,4 +341,78 @@ test('displayOrder 오름차순으로 정렬되고 미지정 브랜드는 뒤로
   expect(stats.map((s) => s.brandId)).toEqual(['ba', 'bz', 'bn']);
   expect(stats[0].displayOrder).toBe(1);
   expect(stats[2].displayOrder).toBeUndefined();
+});
+
+/* ── 라우트 레이어 순수 추출(LOW-4) — src/app/api/admin/dashboard/route.ts가 부르기만 하는 함수들.
+ * 이전엔 이 로직이 라우트 안에만 있어 어떤 테스트도 잠그지 않았다. 특히 detectTruncation은
+ * HIGH-2로 고친 절삭 판정 로직인데 미검증이었다. ─────────────────────────────────────── */
+
+test('settledOr: fulfilled 결과는 데이터를 그대로 반환하고 failed=false', () => {
+  const result = settledOr<Product>({ status: 'fulfilled', value: [product('p1', 'b1')] });
+  expect(result.failed).toBe(false);
+  expect(result.data).toEqual([product('p1', 'b1')]);
+});
+
+test('settledOr: rejected 결과는 빈 배열 + failed=true', () => {
+  const result = settledOr<Product>({ status: 'rejected', reason: new Error('boom') });
+  expect(result.failed).toBe(true);
+  expect(result.data).toEqual([]);
+});
+
+test('resolveBrandsOrSkip: fulfilled면 브랜드 배열, rejected면 undefined(brandStats 전체 생략 신호)', () => {
+  expect(resolveBrandsOrSkip({ status: 'fulfilled', value: brands })).toBe(brands);
+  expect(resolveBrandsOrSkip({ status: 'rejected', reason: new Error('boom') })).toBeUndefined();
+});
+
+test('inquiries 소스 실패 시 settledOr가 빈 배열을 반환해 unansweredInquiryCount가 0이 된다(합성 검증)', () => {
+  const inquiriesResult = settledOr<ProductInquiry>({ status: 'rejected', reason: new Error('boom') });
+  expect(inquiriesResult.failed).toBe(true);
+  const stats = buildBrandStats({ brands, products, orders, inquiries: inquiriesResult.data, since: SINCE });
+  expect(stats[0].unansweredInquiryCount).toBe(0);
+});
+
+test('detectTruncation: 각 소스가 개별적으로 CAP에 도달하면 true', () => {
+  const caps = { orders: 10, products: 10, inquiries: 10, brands: 10 };
+  expect(detectTruncation({ orders: 10, products: 0, inquiries: 0, brands: 0 }, caps)).toBe(true);
+  expect(detectTruncation({ orders: 0, products: 10, inquiries: 0, brands: 0 }, caps)).toBe(true);
+  expect(detectTruncation({ orders: 0, products: 0, inquiries: 10, brands: 0 }, caps)).toBe(true);
+  expect(detectTruncation({ orders: 0, products: 0, inquiries: 0, brands: 10 }, caps)).toBe(true);
+});
+
+test('detectTruncation: 하나도 CAP에 안 닿으면 false', () => {
+  const caps = { orders: 10, products: 10, inquiries: 10, brands: 10 };
+  expect(detectTruncation({ orders: 9, products: 9, inquiries: 9, brands: 9 }, caps)).toBe(false);
+});
+
+test('detectTruncation: 정확히 CAP-1이면 false(경계값)', () => {
+  const caps = { orders: 100, products: 100, inquiries: 100, brands: 100 };
+  expect(detectTruncation({ orders: 99, products: 99, inquiries: 99, brands: 99 }, caps)).toBe(false);
+});
+
+/* ── meta.failedSources(LOW-2) — partial 하나만으로는 어느 지표가 결손인지 구분 불가했다 ── */
+
+test('meta는 partial=true일 때 failedSources를 값으로 내린다', () => {
+  const meta = buildBrandStatsMeta({
+    brands,
+    products,
+    since: SINCE,
+    windowDays: 30,
+    truncated: false,
+    partial: true,
+    failedSources: ['inquiries'],
+  });
+  expect(meta.failedSources).toEqual(['inquiries']);
+});
+
+test('meta는 failedSources가 없으면(빈 배열) 필드 자체를 생략한다(기존 JSON 계약 유지)', () => {
+  const meta = buildBrandStatsMeta({
+    brands,
+    products,
+    since: SINCE,
+    windowDays: 30,
+    truncated: false,
+    partial: false,
+    failedSources: [],
+  });
+  expect(meta.failedSources).toBeUndefined();
 });

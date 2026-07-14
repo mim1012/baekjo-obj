@@ -535,6 +535,12 @@ export interface AdminDashboardBrandStatsMeta {
   truncated?: boolean;
   /** 일부 소스 조회 실패로 해당 지표가 결손됨(0으로 내려감). */
   partial?: boolean;
+  /**
+   * partial=true일 때 어느 소스가 실패했는지('orders'|'products'|'inquiries' 등). partial 하나만으로는
+   * products 실패(productCount·incompleteCount 결손)와 orders 실패(orderAmount 결손)를 구분할 수 없어
+   * 가산했다. 빈 배열/undefined면 결손 없음.
+   */
+  failedSources?: string[];
 }
 
 export interface AdminDashboardSummary {
