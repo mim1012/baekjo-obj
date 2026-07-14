@@ -66,6 +66,11 @@ function rowToProduct(row: ProductRow): Product {
     summary: typeof d.summary === 'string' ? d.summary : undefined,
     description: typeof d.description === 'string' ? d.description : '',
     shippingNotice: typeof d.shippingNotice === 'string' ? d.shippingNotice : undefined,
+    // 구매 정보 3종. validate 화이트리스트에도 없고 여기서 되읽지도 않아, 저장 경로와 조회
+    // 경로가 동시에 끊겨 있었다 → 상세 페이지가 항상 기본 문구만 렌더했다.
+    deliveryEstimate: typeof d.deliveryEstimate === 'string' ? d.deliveryEstimate : undefined,
+    returnNotice: typeof d.returnNotice === 'string' ? d.returnNotice : undefined,
+    sellerName: typeof d.sellerName === 'string' ? d.sellerName : undefined,
     tags: Array.isArray(d.tags) ? (d.tags as string[]) : undefined,
     brandName: typeof d.brandName === 'string' ? d.brandName : undefined,
     isMembersOnlyPrice: typeof d.isMembersOnlyPrice === 'boolean' ? d.isMembersOnlyPrice : undefined,
@@ -196,15 +201,34 @@ export async function insertProduct(input: ProductInsertInput): Promise<Product>
 }
 
 /**
+ * 가격 불변식: salePrice는 정가(price)가 있어야만 의미가 있고, 정가를 넘을 수 없다.
+ * validate.ts는 "같은 body에 함께 넘어온" 두 값만 볼 수 있으므로(예: {price: null} 단독 patch),
+ * DB의 기존 값과 합쳐진 merged 기준의 최종 검사는 여기가 유일한 방어선이다.
+ * price=null + salePrice=null(가격 미정)은 모순이 아니다 — 통과.
+ */
+export function assertPriceInvariant(merged: Pick<Product, 'price' | 'salePrice'>): boolean {
+  if (merged.salePrice == null) return true;
+  if (merged.price == null) return false;
+  return merged.salePrice <= merged.price;
+}
+
+/**
  * 관리자 상품 수정. jsonb detail은 supabase update가 부분 병합을 지원하지 않으므로,
  * 기존 행을 Product로 읽어 patch를 얹은 뒤 컬럼/디테일을 통째로 다시 나눠 쓴다
- * (read-modify-write, upsertSocialMember와 동일 패턴). 존재하지 않으면 null.
+ * (read-modify-write, upsertSocialMember와 동일 패턴).
+ * 결과는 updateProductScoped와 같은 ScopedMutationResult로 돌려 라우트가 not-found(404)와
+ * invalid(400, 가격 불변식 위반)를 구분할 수 있게 한다. 'conflict'는 이 경로에선 나오지 않는다.
  */
-export async function updateProduct(id: string, patch: ProductPatchInput): Promise<Product | null> {
+export async function updateProduct(
+  id: string,
+  patch: ProductPatchInput,
+): Promise<ScopedMutationResult<Product>> {
   const existing = await getProductById(id, { includeHidden: true });
-  if (!existing) return null;
+  if (!existing) return { status: 'not-found' };
 
   const merged: Product = { ...existing, ...patch, id: existing.id };
+  if (!assertPriceInvariant(merged)) return { status: 'invalid' };
+
   const { columns, detail } = splitProductInput(merged);
   const { data, error } = await getSupabase()
     .from('products')
@@ -213,7 +237,7 @@ export async function updateProduct(id: string, patch: ProductPatchInput): Promi
     .select(SELECT_COLUMNS)
     .single();
   if (error) throw error;
-  return rowToProduct(data as ProductRow);
+  return { status: 'ok', data: rowToProduct(data as ProductRow) };
 }
 
 /** 삭제된 상품이 실제로 존재했는지 반환한다(라우트에서 404 판정에 사용). */
@@ -251,15 +275,7 @@ export async function updateProductScoped(
   if (!existing) return { status: 'not-found' };
 
   const merged: Product = { ...existing, ...patch, id: existing.id };
-  // salePrice는 실제 price가 있어야만 의미가 있다 — price가 null(가격 미정)인데 salePrice만
-  // 남아있으면 "정가 없이 세일가만 존재"하는 모순 상태가 저장된다. 두 필드 중 하나만 patch로
-  // 들어와도(예: {price: null} 단독) merged 값 기준으로 막아야 한다.
-  if (merged.salePrice != null && merged.price == null) {
-    return { status: 'invalid' };
-  }
-  if (merged.salePrice != null && merged.price != null && merged.salePrice > merged.price) {
-    return { status: 'invalid' };
-  }
+  if (!assertPriceInvariant(merged)) return { status: 'invalid' };
 
   const { columns, detail } = splitProductInput(merged);
   const { data, error } = await getSupabase()

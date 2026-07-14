@@ -33,6 +33,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: 상품 입력 검증 단위 스펙 (순수 함수 — DB/브라우저 불필요)
+        run: npx playwright test --project=products --reporter=line
+
   # 마이그레이션 자동 적용 — 빌드가 통과한 실제 push(머지)에서만 실행한다.
   # PR 에는 돌지 않아(머지 전 DB 를 건드리지 않음), 깨진 코드가 DB 스키마를 바꾸지 못한다.
   # 러너(scripts/apply-migrations.mjs)는 public._migrations 로 적용 이력을 추적해 미적용만 돌리고,

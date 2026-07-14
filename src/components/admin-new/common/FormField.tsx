@@ -40,7 +40,7 @@ export default function FormField({
             <p className="mt-2 text-[13px] text-gray-500">{description}</p>
           )}
           {error && (
-            <p className="mt-2 text-[13px] text-[#A65348] font-medium">{error}</p>
+            <p id={htmlFor ? `${htmlFor}-error` : undefined} className="mt-2 text-[13px] text-[#A65348] font-medium">{error}</p>
           )}
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function FormField({
         <p className="mt-2 text-[13px] text-gray-500">{description}</p>
       )}
       {error && (
-        <p className="mt-2 text-[13px] text-[#A65348] font-medium">{error}</p>
+        <p id={htmlFor ? `${htmlFor}-error` : undefined} className="mt-2 text-[13px] text-[#A65348] font-medium">{error}</p>
       )}
     </div>
   );
