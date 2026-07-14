@@ -4,29 +4,25 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, ChevronRight } from 'lucide-react';
+import {
+  ADMIN_MAIN_NAV,
+  ADMIN_CS_NAV,
+  ADMIN_ETC_NAV,
+  ADMIN_BREADCRUMB_ONLY,
+} from './adminNav';
 
 interface AdminHeaderProps {
   onMenuClick: () => void;
   user: { name?: string | null; role?: string | null };
 }
 
-const routeNames: Record<string, string> = {
-  '/admin': '대시보드',
-  '/admin/products': '상품 관리',
-  '/admin/products/new': '상품 등록',
-  '/admin/products/display': '상품 진열 관리',
-  '/admin/categories': '카테고리 관리',
-  '/admin/brands': '브랜드 관리',
-  '/admin/orders': '주문 관리',
-  '/admin/members': '회원 관리',
-  '/admin/insurance': '보험 상담',
-  '/admin/survey': '맞춤 진단',
-  '/admin/qna': '문의 관리',
-  '/admin/partners': '제휴 관리',
-  '/admin/kits': '케어키트 관리',
-  '/admin/notices': '공지사항',
-  '/admin/settings': '환경 설정',
-};
+// 사이드바(adminNav.ts, SSOT)에서 파생 — 누락이 구조적으로 불가능하다.
+const routeNames: Record<string, string> = Object.fromEntries(
+  [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY].map((item) => [
+    item.href,
+    item.name,
+  ]),
+);
 
 export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
   const pathname = usePathname();
