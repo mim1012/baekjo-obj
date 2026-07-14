@@ -13,7 +13,7 @@ interface SidebarItem {
 }
 
 // AdminSidebar와 동일한 메뉴 구조 공유 (실제 구현시 분리된 상수 파일 사용 권장)
-import { LayoutDashboard, Package, FolderTree, Tag, ShoppingCart, Users, HeartHandshake, Stethoscope, MessageSquare, Handshake, Gift, Bell, Settings } from 'lucide-react';
+import { LayoutDashboard, Package, FolderTree, Tag, ShoppingCart, Users, HeartHandshake, Stethoscope, MessageSquare, MessageCircle, Star, Activity, HeartPulse, Handshake, Gift, Bell, Settings } from 'lucide-react';
 
 const mainNavItems: SidebarItem[] = [
   { name: '대시보드', href: '/admin', icon: LayoutDashboard },
@@ -27,10 +27,14 @@ const mainNavItems: SidebarItem[] = [
 const csNavItems: SidebarItem[] = [
   { name: '보험 상담', href: '/admin/insurance', icon: HeartHandshake },
   { name: '맞춤 진단', href: '/admin/survey', icon: Stethoscope },
+  { name: '진단 참여 내역', href: '/admin/survey-results', icon: Activity },
   { name: '문의 관리', href: '/admin/qna', icon: MessageSquare },
+  { name: '상품문의 관리', href: '/admin/inquiries', icon: MessageCircle },
+  { name: '후기 관리', href: '/admin/reviews', icon: Star },
 ];
 
 const etcNavItems: SidebarItem[] = [
+  { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
   { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
   { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
   { name: '공지사항', href: '/admin/notices', icon: Bell },
