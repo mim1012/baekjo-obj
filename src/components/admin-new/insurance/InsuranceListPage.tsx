@@ -29,7 +29,6 @@ export default function InsuranceListPage() {
 
   const loadApplications = useCallback(async () => {
     try {
-      setLoading(true);
       const list = await getInsuranceApplications();
       setApplications(list);
       setError(null);
@@ -41,9 +40,14 @@ export default function InsuranceListPage() {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadApplications();
-    });
+    (async () => {
+      await loadApplications();
+    })();
+  }, [loadApplications]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadApplications();
   }, [loadApplications]);
 
   const filteredApplications = useMemo(() => {
@@ -78,12 +82,20 @@ export default function InsuranceListPage() {
     return filteredApplications.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredApplications, currentPage, ITEMS_PER_PAGE]);
 
-  // Handle page reset on filter change
-  useEffect(() => {
-    queueMicrotask(() => {
-      setCurrentPage(1);
-    });
-  }, [searchTerm, statusFilter, contactedFilter]);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((val: string) => {
+    setStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleContactedFilterChange = useCallback((val: string) => {
+    setContactedFilter(val);
+    setCurrentPage(1);
+  }, []);
 
   if (!mounted) return null;
 
@@ -103,7 +115,7 @@ export default function InsuranceListPage() {
         <ErrorState
           title="데이터를 불러오지 못했습니다"
           message={error.message || '알 수 없는 오류가 발생했습니다.'}
-          onRetry={loadApplications}
+          onRetry={handleRetry}
         />
       </div>
     );
@@ -133,11 +145,11 @@ export default function InsuranceListPage() {
       <div className="space-y-4">
         <InsuranceFilters
           searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          onSearchChange={handleSearchChange}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={handleStatusFilterChange}
           contactedFilter={contactedFilter}
-          onContactedFilterChange={setContactedFilter}
+          onContactedFilterChange={handleContactedFilterChange}
         />
 
         {/* PC Table View */}

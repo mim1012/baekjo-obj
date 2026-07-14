@@ -39,11 +39,11 @@ export function useProductList(pageSize: number = 20) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchInitialData = useCallback(async () => {
-    setError(null);
     try {
       const [productList, brandList] = await Promise.all([getAdminProducts(), getAdminBrands()]);
       setProducts(productList);
       setBrands(brandList);
+      setError(null);
     } catch {
       setError('상품 및 브랜드 정보를 불러오는 데 실패했습니다.');
     } finally {
@@ -52,9 +52,9 @@ export function useProductList(pageSize: number = 20) {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      fetchInitialData();
-    });
+    (async () => {
+      await fetchInitialData();
+    })();
   }, [fetchInitialData]);
 
   const setFilters = useCallback((newFilters: React.SetStateAction<ProductFilterState>) => {

@@ -26,7 +26,6 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
 
   const loadApplication = useCallback(async () => {
     try {
-      setLoading(true);
       const list = await getInsuranceApplications();
       const found = list.find((a) => a.id === id);
       if (!found) throw new Error('상담 신청 정보를 찾을 수 없습니다.');
@@ -40,9 +39,14 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
   }, [id]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadApplication();
-    });
+    (async () => {
+      await loadApplication();
+    })();
+  }, [loadApplication]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadApplication();
   }, [loadApplication]);
 
   if (!mounted) return null;
@@ -56,7 +60,7 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
       <ErrorState
         title="상담 정보를 불러오지 못했습니다"
         message={error?.message || '상담 정보가 존재하지 않습니다.'}
-        onRetry={loadApplication}
+        onRetry={handleRetry}
       />
     );
   }

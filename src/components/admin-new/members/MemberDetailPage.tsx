@@ -27,7 +27,6 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
 
   const loadMember = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await getAdminMembers();
       if (res.error) throw new Error(res.error);
       const found = res.users?.find((u) => u.id === id);
@@ -42,9 +41,14 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
   }, [id]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadMember();
-    });
+    (async () => {
+      await loadMember();
+    })();
+  }, [loadMember]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadMember();
   }, [loadMember]);
 
   if (!mounted) return null;
@@ -58,7 +62,7 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
       <ErrorState
         title="회원을 불러오지 못했습니다"
         message={error?.message || '회원 정보가 존재하지 않습니다.'}
-        onRetry={loadMember}
+        onRetry={handleRetry}
       />
     );
   }

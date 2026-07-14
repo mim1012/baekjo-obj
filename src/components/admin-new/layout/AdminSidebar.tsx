@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useMounted } from '@/lib/useMounted';
 import { 
   LayoutDashboard, 
   Package, 
@@ -101,13 +102,7 @@ function NavGroup({
 
 export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSidebarProps) {
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    queueMicrotask(() => {
-      setMounted(true);
-    });
-  }, []);
+  const mounted = useMounted();
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';

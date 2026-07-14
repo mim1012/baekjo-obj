@@ -34,7 +34,6 @@ export default function QnaListPage() {
 
   const loadQna = useCallback(async () => {
     try {
-      setLoading(true);
       const config = await getQnaConfig();
       setItems(config.items || []);
       setError(null);
@@ -46,9 +45,14 @@ export default function QnaListPage() {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadQna();
-    });
+    (async () => {
+      await loadQna();
+    })();
+  }, [loadQna]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadQna();
   }, [loadQna]);
 
   const handleSave = async (updatedItem: QnA) => {
@@ -102,12 +106,20 @@ export default function QnaListPage() {
     return filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredItems, currentPage, ITEMS_PER_PAGE]);
 
-  // Handle page reset on filter change
-  useEffect(() => {
-    queueMicrotask(() => {
-      setCurrentPage(1);
-    });
-  }, [searchTerm, statusFilter, visibilityFilter]);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((val: string) => {
+    setStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleVisibilityFilterChange = useCallback((val: string) => {
+    setVisibilityFilter(val);
+    setCurrentPage(1);
+  }, []);
 
   if (!mounted) return null;
 
@@ -127,7 +139,7 @@ export default function QnaListPage() {
         <ErrorState
           title="데이터를 불러오지 못했습니다"
           message={error.message || '알 수 없는 오류가 발생했습니다.'}
-          onRetry={loadQna}
+          onRetry={handleRetry}
         />
       </div>
     );
@@ -160,11 +172,11 @@ export default function QnaListPage() {
         <div className="space-y-4">
           <QnaFilters
             searchTerm={searchTerm}
-            onSearchChange={setSearchTerm}
+            onSearchChange={handleSearchChange}
             statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
+            onStatusFilterChange={handleStatusFilterChange}
             visibilityFilter={visibilityFilter}
-            onVisibilityFilterChange={setVisibilityFilter}
+            onVisibilityFilterChange={handleVisibilityFilterChange}
           />
 
           {/* PC Table View */}
@@ -210,10 +222,11 @@ export default function QnaListPage() {
       {/* Right Detail Panel */}
       {selectedItem && (
         <div className="w-full lg:w-1/3 min-w-[320px] max-w-md h-full flex-shrink-0 z-20">
-          <QnaDetailPanel 
-            item={selectedItem} 
-            onClose={() => setSelectedId(null)} 
-            onSave={handleSave} 
+          <QnaDetailPanel
+            key={selectedItem.id}
+            item={selectedItem}
+            onClose={() => setSelectedId(null)}
+            onSave={handleSave}
           />
         </div>
       )}

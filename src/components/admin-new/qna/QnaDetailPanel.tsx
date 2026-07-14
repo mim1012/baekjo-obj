@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { X, MessageSquare, Lock, EyeOff } from 'lucide-react';
 import FormSection from '@/components/admin-new/common/FormSection';
 import FormField from '@/components/admin-new/common/FormField';
@@ -16,21 +16,12 @@ interface QnaDetailPanelProps {
 
 export default function QnaDetailPanel({ item, onClose, onSave }: QnaDetailPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
+  // 부모(QnaListPage)가 selectedItem.id 를 key 로 넘겨 선택 변경 시 이 컴포넌트를 통째로 리마운트한다.
+  // 그래서 item 이 바뀔 때 폼을 동기화하는 effect 없이도 초기값이 항상 새 item 을 반영한다.
   const [formData, setFormData] = useState({
-    answer: '',
-    isVisible: true,
+    answer: item?.answer || '',
+    isVisible: item?.isVisible !== false, // default true
   });
-
-  useEffect(() => {
-    if (item) {
-      queueMicrotask(() => {
-        setFormData({
-          answer: item.answer || '',
-          isVisible: item.isVisible !== false, // default true
-        });
-      });
-    }
-  }, [item]);
 
   if (!item) return null;
 

@@ -29,7 +29,6 @@ export default function MemberListPage() {
 
   const loadMembers = useCallback(async () => {
     try {
-      setLoading(true);
       const res = await getAdminMembers();
       if (res.error) throw new Error(res.error);
       setMembers(res.users || []);
@@ -42,9 +41,14 @@ export default function MemberListPage() {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadMembers();
-    });
+    (async () => {
+      await loadMembers();
+    })();
+  }, [loadMembers]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadMembers();
   }, [loadMembers]);
 
   const filteredMembers = useMemo(() => {
@@ -79,12 +83,20 @@ export default function MemberListPage() {
     return filteredMembers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredMembers, currentPage, ITEMS_PER_PAGE]);
 
-  // Handle page reset on filter change
-  useEffect(() => {
-    queueMicrotask(() => {
-      setCurrentPage(1);
-    });
-  }, [searchTerm, roleFilter, statusFilter]);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleRoleFilterChange = useCallback((val: string) => {
+    setRoleFilter(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleStatusFilterChange = useCallback((val: string) => {
+    setStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
 
   if (!mounted) return null;
 
@@ -104,7 +116,7 @@ export default function MemberListPage() {
         <ErrorState
           title="데이터를 불러오지 못했습니다"
           message={error.message || '알 수 없는 오류가 발생했습니다.'}
-          onRetry={loadMembers}
+          onRetry={handleRetry}
         />
       </div>
     );
@@ -138,11 +150,11 @@ export default function MemberListPage() {
       <div className="space-y-4">
         <MemberFilters
           searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          onSearchChange={handleSearchChange}
           roleFilter={roleFilter}
-          onRoleFilterChange={setRoleFilter}
+          onRoleFilterChange={handleRoleFilterChange}
           statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
+          onStatusFilterChange={handleStatusFilterChange}
         />
 
         {/* PC Table View */}

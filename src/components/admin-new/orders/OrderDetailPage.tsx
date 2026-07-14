@@ -26,7 +26,6 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
 
   const loadOrder = useCallback(async () => {
     try {
-      setLoading(true);
       // getOrderById handles fetching the order (via API or mock)
       const data = await getOrderById(id);
       if (!data) throw new Error('주문 정보를 찾을 수 없습니다.');
@@ -40,9 +39,14 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
   }, [id]);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadOrder();
-    });
+    (async () => {
+      await loadOrder();
+    })();
+  }, [loadOrder]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadOrder();
   }, [loadOrder]);
 
   if (!mounted) return null;
@@ -56,7 +60,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
       <ErrorState
         title="주문을 불러오지 못했습니다"
         message={error?.message || '주문 정보가 존재하지 않습니다.'}
-        onRetry={loadOrder}
+        onRetry={handleRetry}
       />
     );
   }

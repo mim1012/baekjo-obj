@@ -30,7 +30,6 @@ export default function OrderListPage() {
 
   const loadOrders = useCallback(async () => {
     try {
-      setLoading(true);
       const list = await getAllOrders();
       setOrders(list);
       setError(null);
@@ -42,9 +41,14 @@ export default function OrderListPage() {
   }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      loadOrders();
-    });
+    (async () => {
+      await loadOrders();
+    })();
+  }, [loadOrders]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    loadOrders();
   }, [loadOrders]);
 
   const filteredOrders = useMemo(() => {
@@ -81,12 +85,25 @@ export default function OrderListPage() {
     return filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
-  // Handle page reset on filter change
-  useEffect(() => {
-    queueMicrotask(() => {
-      setCurrentPage(1);
-    });
-  }, [searchTerm, orderStatusFilter, paymentStatusFilter, deliveryStatusFilter]);
+  const handleSearchChange = useCallback((val: string) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleOrderStatusChange = useCallback((val: string) => {
+    setOrderStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handlePaymentStatusChange = useCallback((val: string) => {
+    setPaymentStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
+
+  const handleDeliveryStatusChange = useCallback((val: string) => {
+    setDeliveryStatusFilter(val);
+    setCurrentPage(1);
+  }, []);
 
   if (!mounted) return null;
 
@@ -106,7 +123,7 @@ export default function OrderListPage() {
         <ErrorState
           title="데이터를 불러오지 못했습니다"
           message={error.message || '알 수 없는 오류가 발생했습니다.'}
-          onRetry={loadOrders}
+          onRetry={handleRetry}
         />
       </div>
     );
@@ -136,13 +153,13 @@ export default function OrderListPage() {
       <div className="space-y-4">
         <OrderFilters
           searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          onSearchChange={handleSearchChange}
           orderStatus={orderStatusFilter}
-          onOrderStatusChange={setOrderStatusFilter}
+          onOrderStatusChange={handleOrderStatusChange}
           paymentStatus={paymentStatusFilter}
-          onPaymentStatusChange={setPaymentStatusFilter}
+          onPaymentStatusChange={handlePaymentStatusChange}
           deliveryStatus={deliveryStatusFilter}
-          onDeliveryStatusChange={setDeliveryStatusFilter}
+          onDeliveryStatusChange={handleDeliveryStatusChange}
         />
 
         {/* PC Table View */}
