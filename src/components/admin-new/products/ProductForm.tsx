@@ -61,7 +61,10 @@ function toUserMessage(err: unknown): string {
     case 'unauthorized':
     case 'forbidden':
       return '권한이 없습니다. 다시 로그인해주세요.';
+    // storage.ts(createProduct/updateProduct)는 네트워크 실패 시 'network'를 반환한다.
+    // 'network-error'만 매핑돼 있어 네트워크 실패가 default('저장에 실패했습니다')로 샜다.
     case 'server-error':
+    case 'network':
     case 'network-error':
       return '서버 오류로 저장하지 못했습니다. 잠시 후 다시 시도해주세요.';
     default:
@@ -148,11 +151,12 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     try {
       const brandName = brands.find(b => b.id === formData.brandId)?.name;
 
+      // catalogStatus는 서버 화이트리스트(validateProductFields)에 없어 조용히 버려지는 죽은
+      // 필드였다 — 보내지 않는다.
       const payload = {
         ...formData,
         brandName,
         salePrice: formData.salePrice ? formData.salePrice : null,
-        catalogStatus: isEdit ? formData.catalogStatus : 'ready'
       };
 
       if (isEdit && initialData.id) {
@@ -220,23 +224,29 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
           <div className="bg-white border border-gray-200 rounded-md p-6">
             <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">기본 정보</h3>
             <div className="space-y-4">
-              <FormField label="상품명" required error={fieldErrors.name}>
+              <FormField label="상품명" htmlFor="product-name" required error={fieldErrors.name}>
                 <input
+                  id="product-name"
                   type="text"
                   value={formData.name || ''}
                   onChange={e => handleChange('name', e.target.value)}
                   onBlur={() => handleBlur('name')}
+                  aria-invalid={!!fieldErrors.name}
+                  aria-describedby={fieldErrors.name ? 'product-name-error' : undefined}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   placeholder="예: 강아지 알러지 케어 사료 2kg"
                 />
               </FormField>
 
               <div className="grid grid-cols-2 gap-4">
-                <FormField label="브랜드" required error={fieldErrors.brandId}>
+                <FormField label="브랜드" htmlFor="product-brand" required error={fieldErrors.brandId}>
                   <select
+                    id="product-brand"
                     value={formData.brandId || ''}
                     onChange={e => handleChange('brandId', e.target.value)}
                     onBlur={() => handleBlur('brandId')}
+                    aria-invalid={!!fieldErrors.brandId}
+                    aria-describedby={fieldErrors.brandId ? 'product-brand-error' : undefined}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">브랜드 선택</option>
@@ -246,11 +256,14 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   </select>
                 </FormField>
 
-                <FormField label="스토어 카테고리" required error={fieldErrors.category}>
+                <FormField label="스토어 카테고리" htmlFor="product-category" required error={fieldErrors.category}>
                   <select
+                    id="product-category"
                     value={formData.category || ''}
                     onChange={e => handleChange('category', e.target.value)}
                     onBlur={() => handleBlur('category')}
+                    aria-invalid={!!fieldErrors.category}
+                    aria-describedby={fieldErrors.category ? 'product-category-error' : undefined}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">카테고리 선택</option>
@@ -274,11 +287,14 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   </select>
                 </FormField>
 
-                <FormField label="라이프스타일 분류" required error={fieldErrors.lifestyleCategory}>
+                <FormField label="라이프스타일 분류" htmlFor="product-lifestyle" required error={fieldErrors.lifestyleCategory}>
                   <select
+                    id="product-lifestyle"
                     value={formData.lifestyleCategory || ''}
                     onChange={e => handleChange('lifestyleCategory', e.target.value)}
                     onBlur={() => handleBlur('lifestyleCategory')}
+                    aria-invalid={!!fieldErrors.lifestyleCategory}
+                    aria-describedby={fieldErrors.lifestyleCategory ? 'product-lifestyle-error' : undefined}
                     className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
                   >
                     <option value="">선택</option>

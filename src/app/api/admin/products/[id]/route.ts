@@ -29,13 +29,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   }
 
   try {
-    const product = await updateProduct(id, toPatchInput(fields));
-    if (!product) {
+    // updateProduct는 merged(기존 행 + patch) 기준 가격 불변식을 검사하므로,
+    // "salePrice만 보냈는데 DB의 price가 null" 같은 위반은 여기서 invalid로 돌아온다.
+    const result = await updateProduct(id, toPatchInput(fields));
+    if (result.status === 'not-found') {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    if (result.status === 'invalid') {
+      return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+    if (result.status === 'conflict') {
+      return NextResponse.json({ error: 'conflict' }, { status: 409 });
     }
     revalidatePath('/shop');
     revalidatePath(`/shop/${id}`);
-    return NextResponse.json({ product }, { status: 200 });
+    return NextResponse.json({ product: result.data }, { status: 200 });
   } catch (error) {
     if (error && typeof error === 'object' && isForeignKeyViolation(error as { code?: string })) {
       return NextResponse.json({ error: 'invalid-brand' }, { status: 400 });

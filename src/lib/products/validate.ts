@@ -10,8 +10,20 @@ const MAX_LONG_TEXT = 3000;
 const MAX_URL = 500;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OPTIONS = 50;
-const MAX_DETAIL_BLOCKS = 200;
-const MAX_BLOCK_TEXT = 5000;
+const MAX_DETAIL_BLOCKS = 60;
+const MAX_BLOCK_TEXT = 2000;
+/**
+ * detailBlocks 전체 직렬화 상한(바이트). detail jsonb는 listProducts가 최대 1000행까지
+ * 통째로 읽어 공개 /api/products가 그대로 직렬화하므로, 상품 1건의 상세가 응답 크기를
+ * 좌우한다. 60블록 × 2000자(ASCII 기준 ≈120KB)는 이 상한 아래지만, 한글은 UTF-8에서
+ * 글자당 3바이트라 같은 블록 수로도 ~360KB까지 부풀 수 있다 → 실제 바이트로 재서 막는다.
+ */
+const MAX_DETAIL_BYTES = 256 * 1024;
+/**
+ * 평문 상세 본문에 HTML을 넣을 이유가 없다(공개 상세·에디터 미리보기 모두 이스케이프 렌더).
+ * 태그 시작으로 보이는 시퀀스(<a, </, <!)를 거부해 저장형 XSS의 소스 자체를 차단한다.
+ */
+const HTML_TAG_PATTERN = /<[a-zA-Z/!]/;
 const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
@@ -72,20 +84,58 @@ function validateOptions(raw: unknown): ProductOption[] | null | undefined {
   return options;
 }
 
+/** 프로토콜 상대 URL(`//evil.example/x.gif`)은 상대경로가 아니다 — 명시적으로 배제한다. */
+function isSitePath(src: string): boolean {
+  return src.startsWith('/') && !src.startsWith('//');
+}
+
+/** 업로드 대상인 Supabase storage 오리진. 미설정이면 null → 상대경로만 허용(fail-closed). */
+function supabaseOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 상세 이미지 src 화이트리스트. 공개 상세가 이 값을 raw <img src>로 렌더하므로 임의 오리진을
+ * 허용하면 구매자 IP/UA가 제3자 서버로 새고, 콘텐츠도 원격에서 교체될 수 있다. 자사 경로(`/...`)
+ * 또는 Supabase storage 오리진만 통과시키고, 환경변수가 없으면 상대경로만 허용한다.
+ * (순수 함수 — 테스트에서 직접 호출 가능하도록 export)
+ */
+export function isAllowedBlockImageSrc(src: string): boolean {
+  if (isSitePath(src)) return true;
+  const origin = supabaseOrigin();
+  if (!origin) return false;
+  try {
+    const url = new URL(src);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    return url.origin === origin;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 상세 본문 블록(네이버식 text|image 순차 렌더). 관리자 상세 에디터(ProductDetailEditor)가
  * 이 필드만 담아 PATCH를 보내므로, 여기 분기가 없으면 out이 빈 객체가 되어 라우트가
  * "수정할 필드 없음"으로 400을 반환한다 — 상세 본문이 DB에 영영 저장되지 않는다.
+ * text는 평문만(HTML 태그 거부), image는 자사/Supabase 오리진만 허용한다.
  */
 function validateDetailBlock(raw: unknown): ProductDetailBlock | null {
   if (!raw || typeof raw !== 'object') return null;
   const b = raw as Record<string, unknown>;
   if (b.type === 'text') {
     if (!isStr(b.content, 0, MAX_BLOCK_TEXT)) return null;
+    if (HTML_TAG_PATTERN.test(b.content)) return null;
     return { type: 'text', content: b.content };
   }
   if (b.type === 'image') {
     if (!isStr(b.src, 1, MAX_URL)) return null;
+    if (!isAllowedBlockImageSrc(b.src)) return null;
     if (!isOptStr(b.alt, MAX_TEXT)) return null;
     return { type: 'image', src: b.src, ...(b.alt !== undefined ? { alt: b.alt } : {}) };
   }
@@ -101,6 +151,8 @@ function validateDetailBlocks(raw: unknown): ProductDetailBlock[] | null | undef
     if (!block) return null;
     blocks.push(block);
   }
+  // 블록 수·개별 길이 상한을 통과해도 합계는 커질 수 있다(특히 한글) — 실제 바이트로 최종 확인.
+  if (new TextEncoder().encode(JSON.stringify(blocks)).length > MAX_DETAIL_BYTES) return null;
   return blocks;
 }
 
@@ -321,12 +373,14 @@ export function validateProductFields(
     out.isRecommended = false;
   }
 
-  // salePrice는 price보다 클 수 없다. 이 패스는 body에 함께 넘어온 값만 교차검증한다
-  // (patch에서 price를 안 건드리고 salePrice만 보내는 경우는 DB의 기존 price와 비교할 수
-  // 없어 여기서는 건너뛴다 — updateProduct의 read-modify-write에서 최종 값으로 합쳐진다).
+  // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는
+  // body에 함께 넘어온 값만 교차검증한다(한쪽만 온 경우는 DB의 기존 값과 합쳐야 하므로
+  // repo의 assertPriceInvariant(merged)가 최종 방어선이다).
+  // price=null + salePrice=null 은 "가격 미정" 상태로 모순이 아니다 — 시드 상품 20건이
+  // price:null 이라, 이걸 거부하면 그 상품들은 폼에서 저장 자체가 불가능해진다.
   if (out.salePrice !== undefined && out.price !== undefined) {
-    if (out.price === null) return null;
-    if (out.salePrice !== null && out.salePrice > out.price) return null;
+    if (out.salePrice !== null && out.price === null) return null;
+    if (out.salePrice !== null && out.price !== null && out.salePrice > out.price) return null;
   }
 
   return out;

@@ -63,12 +63,13 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
   };
 
   const handleSave = async () => {
-    // 빈 블록 검증 (내용이 없거나 이미지가 없는 블록 필터링)
+    // 빈 블록 검증 (내용이 없거나 이미지가 없는 블록 필터링).
+    // 서버 계약(text|image만)이 정본이라 미지 타입 블록은 여기서 버린다 — 하나라도 남겨 보내면
+    // 서버가 PATCH 전체를 400으로 거부해 그 상품의 상세는 영영 저장할 수 없게 된다.
     const validBlocks = blocks.filter(b => {
       if (b.type === 'text') return b.content.trim().length > 0;
       if (b.type === 'image') return b.src.trim().length > 0;
-      // 알 수 없는 타입 보존 (요구사항)
-      return true;
+      return false;
     });
 
     setIsSaving(true);
@@ -171,7 +172,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                       <textarea
                         value={block.content}
                         onChange={(e) => handleUpdateBlock(index, { type: 'text', content: e.target.value })}
-                        placeholder="텍스트를 입력하세요. HTML 마크업도 가능합니다."
+                        placeholder="텍스트를 입력하세요. 입력한 그대로(평문) 표시되며 HTML 태그는 저장되지 않습니다."
                         className="w-full h-32 p-3 text-[14px] border border-gray-300 rounded focus:border-gray-500 focus:ring-0 outline-none resize-none"
                       />
                     ) : block.type === 'image' ? (
@@ -194,7 +195,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                       </div>
                     ) : (
                       <div className="p-4 bg-yellow-50 text-yellow-800 text-[13px] border border-yellow-200 rounded">
-                        지원하지 않는 블록 타입입니다. 저장 시 이 블록의 원본 데이터는 보존됩니다.
+                        지원하지 않는 블록 타입입니다. 저장 시 이 블록은 제거됩니다.
                       </div>
                     )}
                   </div>
@@ -222,12 +223,17 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                 <div className="w-full">
                   {blocks.map((block, i) => {
                     if (block.type === 'text') {
+                      // 공개 상세(src/app/shop/[id]/page.tsx)가 {block.content} + whitespace-pre-line로
+                      // 이스케이프 렌더하므로 미리보기도 동일하게 평문으로 그린다. HTML을 해석하면
+                      // (a) 미리보기가 실제 화면과 달라 거짓이 되고 (b) 파트너가 넣은 마크업이
+                      // 관리자 세션에서 실행되는 저장형 XSS 싱크가 된다.
                       return (
-                        <div 
-                          key={i} 
-                          className="px-5 py-6 text-[15px] leading-relaxed text-gray-800 break-words"
-                          dangerouslySetInnerHTML={{ __html: block.content || '<p class="text-gray-300 italic">빈 텍스트 블록</p>' }}
-                        />
+                        <div
+                          key={i}
+                          className="px-5 py-6 text-[15px] leading-relaxed text-gray-800 break-words whitespace-pre-line"
+                        >
+                          {block.content || <span className="text-gray-300 italic">빈 텍스트 블록</span>}
+                        </div>
                       );
                     } else if (block.type === 'image') {
                       const src = block.src;
