@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, FileText, Activity, Gift } from 'lucide-react';
+import { COMPANY } from '@/data/company';
 
 export const metadata = {
   title: '케어 키트 | 백조오브제',
@@ -82,35 +83,19 @@ export default function CareKitLandingPage() {
             <p className="text-[#6F756F]">동물병원, 장례식장, 브랜드 제휴 등 협력 관련 문의를 남겨주세요.</p>
           </div>
           <div className="bg-white p-8 md:p-12 border border-[#D8D6CE]">
-            <form className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-[#4F5751] mb-2">기관 / 업체명</label>
-                <input type="text" className="w-full border border-[#C9C8C0] px-4 py-3 bg-[#FAF9F5] focus:border-[#2F3B34]" placeholder="상호명 입력" />
-              </div>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-[#4F5751] mb-2">담당자 성함</label>
-                  <input type="text" className="w-full border border-[#C9C8C0] px-4 py-3 bg-[#FAF9F5] focus:border-[#2F3B34]" placeholder="홍길동" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#4F5751] mb-2">연락처</label>
-                  <input type="text" className="w-full border border-[#C9C8C0] px-4 py-3 bg-[#FAF9F5] focus:border-[#2F3B34]" placeholder="010-0000-0000" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[#4F5751] mb-2">문의 내용</label>
-                <textarea rows={4} className="w-full border border-[#C9C8C0] px-4 py-3 bg-[#FAF9F5] focus:border-[#2F3B34]" placeholder="제휴 관련 문의하실 내용을 자유롭게 적어주세요."></textarea>
-              </div>
-              <div className="flex items-start gap-3 py-2">
-                <input type="checkbox" id="agree" className="mt-1 size-4 accent-[#2F3B34]" />
-                <label htmlFor="agree" className="text-sm text-[#6F756F]">
-                  개인정보 수집 및 이용에 동의합니다. (필수)
-                </label>
-              </div>
-              <button type="button" className="w-full bg-[#2F3B34] text-white py-4 font-semibold hover:bg-[#3D4A42] transition shadow-md hover:-translate-y-1">
-                제휴 문의 제출하기
-              </button>
-            </form>
+            <div className="space-y-5 text-center">
+              <p className="break-keep text-[15px] leading-7 text-[#4F5751]">
+                온라인 제휴 신청 저장 기능은 아직 준비 중입니다. 협력 제안은 아래 메일로 보내주시면
+                담당자가 검토 후 회신드립니다.
+              </p>
+              <a
+                href={`mailto:${COMPANY.email}?subject=${encodeURIComponent('백조오브제 B2B 파트너십 문의')}`}
+                className="inline-flex w-full items-center justify-center bg-[#2F3B34] px-6 py-4 font-semibold text-white shadow-md transition hover:-translate-y-1 hover:bg-[#3D4A42]"
+              >
+                {COMPANY.email}로 제휴 문의하기
+              </a>
+              <p className="text-xs text-[#6F756F]">{COMPANY.supportHours}</p>
+            </div>
           </div>
         </div>
       </section>

@@ -8,8 +8,8 @@ import {
   User,
 } from '@/types';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
-import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
-import { defaultPartnersConfig, type PartnersConfig } from '@/lib/partners/config';
+import type { KitsConfig } from '@/lib/kits/config';
+import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 
 function cloneFallback<T>(fallback: T): T {
@@ -733,20 +733,16 @@ export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: bool
  * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
  *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
  *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
- * 공개/관리자 조회 모두 실패·미저장을 default* 로 접어 화면이 빈 목록으로 조용히 깨지지 않게 한다.
+ * 공개 조회는 실패·미저장을 default* 로 접지만, 관리자 kits/partners 는 실패를 throw 해 저장을 막는다.
  */
 
-/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·미저장 시 defaultKitsConfig 로 폴백. */
+/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·깨진 응답은 throw 해서 저장을 막는다. */
 export async function getKitsConfig(): Promise<KitsConfig> {
-  try {
-    const response = await fetch('/api/admin/kits');
-    if (!response.ok) return defaultKitsConfig;
-    const { items } = (await response.json()) as KitsConfig;
-    if (!Array.isArray(items)) return defaultKitsConfig;
-    return { items };
-  } catch {
-    return defaultKitsConfig;
-  }
+  const response = await fetch('/api/admin/kits');
+  if (!response.ok) throw new Error('kits-config-load-failed');
+  const { items } = (await response.json()) as KitsConfig;
+  if (!Array.isArray(items)) throw new Error('kits-config-invalid-response');
+  return { items };
 }
 
 /** 케어 키트 config 저장(관리자). PUT /api/admin/kits. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
@@ -763,17 +759,13 @@ export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean 
   }
 }
 
-/** 관리자 제휴처 config. GET /api/admin/partners. 실패·미저장 시 defaultPartnersConfig 로 폴백. */
+/** 관리자 제휴처 config. GET /api/admin/partners. 실패·깨진 응답은 throw 해서 저장을 막는다. */
 export async function getPartnersConfig(): Promise<PartnersConfig> {
-  try {
-    const response = await fetch('/api/admin/partners');
-    if (!response.ok) return defaultPartnersConfig;
-    const { items } = (await response.json()) as PartnersConfig;
-    if (!Array.isArray(items)) return defaultPartnersConfig;
-    return { items };
-  } catch {
-    return defaultPartnersConfig;
-  }
+  const response = await fetch('/api/admin/partners');
+  if (!response.ok) throw new Error('partners-config-load-failed');
+  const { items } = (await response.json()) as PartnersConfig;
+  if (!Array.isArray(items)) throw new Error('partners-config-invalid-response');
+  return { items };
 }
 
 /** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
