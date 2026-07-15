@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink, SlidersHorizontal } from 'lucide-react';
 import { getAdminBrands, getAdminProducts, deleteBrand, updateBrand } from '@/lib/storage';
 import type { Brand, Product } from '@/types';
 
@@ -192,10 +193,18 @@ export default function BrandListPage() {
       align: 'right' as const,
       render: (b: Brand) => (
         <div className="flex justify-end gap-2">
-          <button 
+          <Link
+            href={`/admin/brands/${b.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            title="상세 편집 (감사 보고서·대표상품 등 전 필드)"
+          >
+            <SlidersHorizontal size={16} />
+          </Link>
+          <button
             onClick={(e) => { e.stopPropagation(); handleEdit(b); }}
             className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
-            title="수정"
+            title="빠른 수정 (기본 정보)"
           >
             <Edit2 size={16} />
           </button>
