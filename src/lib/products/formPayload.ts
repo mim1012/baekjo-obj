@@ -60,7 +60,11 @@ function cleanStringList(items: string[]): string[] {
  * 없으면(신규 행) 안정적인 값을 부여한다 — 저장 후 재로드해도 같은 id 를 유지하기 위해서다.
  */
 export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[] {
+  // 신규(빈 id) 행에 부여할 id 가 기존에 보존된 id 와 겹치지 않게, 입력에 이미 존재하는
+  // 모든 id 를 미리 예약해 둔다. 겹치면 장바구니가 id 로 find 할 때 엉뚱한 옵션에 바인딩된다.
+  const used = new Set(rows.map((r) => (r.id ?? '').trim()).filter((s) => s.length > 0));
   const out: ProductOption[] = [];
+  let seq = 0;
   for (const row of rows) {
     const name = row.name.trim();
     if (name.length === 0) continue;
@@ -68,12 +72,15 @@ export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[
     const stock = Number(row.stock);
     if (!Number.isFinite(price) || price < 0) continue;
     if (!Number.isFinite(stock) || stock < 0 || !Number.isInteger(stock)) continue;
-    out.push({
-      id: (row.id ?? '').trim() || `opt-${out.length + 1}`,
-      name,
-      price,
-      stock,
-    });
+    let id = (row.id ?? '').trim();
+    if (!id) {
+      do {
+        seq += 1;
+        id = `opt-${seq}`;
+      } while (used.has(id));
+      used.add(id);
+    }
+    out.push({ id, name, price, stock });
   }
   return out;
 }

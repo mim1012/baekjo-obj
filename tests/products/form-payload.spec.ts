@@ -198,6 +198,19 @@ test('normalizeOptions: price/stock 문자열을 숫자로 변환한다', () => 
   expect(out[0].stock).toBe(10);
 });
 
+test('normalizeOptions: 신규 행 id 가 기존 보존 id 와 충돌하지 않는다(장바구니 오바인딩 방지)', () => {
+  // opt-1 삭제 후 남은 opt-2 + 신규 빈 행 → 신규가 opt-2 로 재부여돼선 안 된다.
+  const rows: ProductOptionFormState[] = [
+    { id: 'opt-2', name: '5kg', price: '68000', stock: '5' },
+    { name: '신규', price: '1000', stock: '1' },
+  ];
+  const out = normalizeOptions(rows);
+  const ids = out.map((o) => o.id);
+  expect(new Set(ids).size, `id 중복: ${ids.join(',')}`).toBe(out.length);
+  expect(out[0].id).toBe('opt-2');
+  expect(out[1].id).not.toBe('opt-2');
+});
+
 /* ── 생성 payload: ageGroup 기본값 + 봉인 해제 필드 동반 ── */
 
 test('create payload 는 ageGroup 기본값을 포함하고 봉인 해제 필드도 담는다', () => {
