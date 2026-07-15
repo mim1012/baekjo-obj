@@ -1,15 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Package, Edit, Copy, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, Edit, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
 
 import { useProductList } from '@/hooks/admin-new/useProductList';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
 import FilterBar from '@/components/admin-new/common/FilterBar';
-import SaveBar from '@/components/admin-new/common/SaveBar';
 import Badge from '@/components/admin-new/common/Badge';
 import { formatPrice } from '@/lib/format';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
@@ -291,51 +289,62 @@ export default function AdminProductsPage() {
         )}
       </div>
 
-      <SaveBar
-        isVisible={selectedIds.length > 0}
-        message={`${selectedIds.length}개 상품 선택됨`}
-        onSave={() => {}}
-        onCancel={clearSelection}
-        cancelLabel="선택 해제"
-        saveLabel="저장"
-      >
-        <div className="flex items-center gap-2 mr-4">
-          <button 
-            onClick={async () => {
-              if (!confirm(`선택한 ${selectedIds.length}개 상품을 숨김 처리하시겠습니까?`)) return;
-              await performBulkUpdate(selectedIds, { isVisible: false });
-            }}
-            className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
-          >
-            <EyeOff size={14} /> 숨김 처리
-          </button>
-          <button 
-            onClick={async () => {
-              if (!confirm(`선택한 ${selectedIds.length}개 상품을 노출 처리하시겠습니까?`)) return;
-              await performBulkUpdate(selectedIds, { isVisible: true });
-            }}
-            className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
-          >
-            <Eye size={14} /> 노출 처리
-          </button>
-          <button 
-            onClick={async () => {
-              if (!confirm(`정말로 선택한 ${selectedIds.length}개 상품을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
-              const { failedItems, hasHistoryConflict } = await performBulkDelete(selectedIds);
-              if (failedItems.length > 0) {
-                alert(
-                  hasHistoryConflict
-                    ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
-                    : '상품 삭제에 실패했습니다.',
-                );
-              }
-            }}
-            className="px-3 py-1.5 text-[13px] font-medium text-[#A65348] bg-white hover:bg-[#FDF2F2] rounded border border-[#A65348] flex items-center gap-1.5"
-          >
-            <Trash2 size={14} /> 삭제
-          </button>
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px] transition-all duration-300">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+            <div className="text-[14px] font-medium text-gray-600 hidden sm:block flex-1">
+              {selectedIds.length}개 상품 선택됨
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 숨김 처리하시겠습니까?`)) return;
+                  await performBulkUpdate(selectedIds, { isVisible: false });
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
+              >
+                <EyeOff size={14} /> 숨김 처리
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 노출 처리하시겠습니까?`)) return;
+                  await performBulkUpdate(selectedIds, { isVisible: true });
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
+              >
+                <Eye size={14} /> 노출 처리
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`정말로 선택한 ${selectedIds.length}개 상품을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+                  const { failedItems, hasHistoryConflict } = await performBulkDelete(selectedIds);
+                  if (failedItems.length > 0) {
+                    alert(
+                      hasHistoryConflict
+                        ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
+                        : '상품 삭제에 실패했습니다.',
+                    );
+                  }
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-[#A65348] bg-white hover:bg-[#FDF2F2] rounded border border-[#A65348] flex items-center gap-1.5"
+              >
+                <Trash2 size={14} /> 삭제
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-4 py-2 border border-gray-300 rounded-md text-[14px] font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                선택 해제
+              </button>
+            </div>
+          </div>
         </div>
-      </SaveBar>
+      )}
     </div>
   );
 }
