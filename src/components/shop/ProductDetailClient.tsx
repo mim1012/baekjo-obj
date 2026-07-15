@@ -7,7 +7,7 @@ import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react
 import { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
-import { toggleWishlist, isWishlisted } from '@/lib/storage';
+import { getCurrentUser, toggleWishlist, isWishlisted } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 
 interface Props {
@@ -57,6 +57,17 @@ export default function ProductDetailClient({ product }: Props) {
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
+  const currentUser = mounted ? getCurrentUser() : null;
+  const isAdminViewer = currentUser?.role === 'admin';
+  const unavailableTitle = isAdminViewer
+    ? '판매가 미입력'
+    : product.isMembersOnlyPrice
+      ? '회원 전용가 등록 대기'
+      : '판매가 등록 대기';
+  const unavailableDescription = isAdminViewer
+    ? '관리자 상품 편집에서 판매가와 재고를 입력하면 장바구니와 바로구매가 활성화됩니다.'
+    : '판매가가 확정되면 장바구니와 바로구매를 이용할 수 있습니다.';
+  const adminEditLabel = hasPrice ? '관리자 상품 정보 수정' : '관리자에서 판매가 입력';
   // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
@@ -152,21 +163,26 @@ export default function ProductDetailClient({ product }: Props) {
           <span className="text-[#8A918B] ml-1">구매평 {product.reviewCount}개</span>
         </div>
 
-        <div className="mt-8 flex items-end gap-3 pb-8 border-b border-[rgba(15,23,42,0.06)]">
-          {!hasPrice ? (
-            <span className="text-3xl font-bold text-[#17211D] tracking-tight">
-              {product.isMembersOnlyPrice ? '판매가 회원공개' : '판매가 확인 필요'}
-            </span>
-          ) : (
-            <>
-              {discount > 0 && (
-                <span className="text-3xl font-bold text-[#A8742E] tracking-tight">{discount}%</span>
-              )}
-              <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(product.salePrice || product.price!)}</span>
-              {discount > 0 && (
-                <span className="text-lg text-[#8A918B] line-through pb-1 ml-1 font-medium">{formatPrice(product.price!)}</span>
-              )}
-            </>
+        <div className="mt-8 border-b border-[rgba(15,23,42,0.06)] pb-8">
+          <div className="flex items-end gap-3">
+            {!hasPrice ? (
+              <span className="text-3xl font-bold text-[#17211D] tracking-tight">
+                {unavailableTitle}
+              </span>
+            ) : (
+              <>
+                {discount > 0 && (
+                  <span className="text-3xl font-bold text-[#A8742E] tracking-tight">{discount}%</span>
+                )}
+                <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(product.salePrice || product.price!)}</span>
+                {discount > 0 && (
+                  <span className="text-lg text-[#8A918B] line-through pb-1 ml-1 font-medium">{formatPrice(product.price!)}</span>
+                )}
+              </>
+            )}
+          </div>
+          {!hasPrice && (
+            <p className="mt-3 break-keep text-sm leading-6 text-[#6F766F]">{unavailableDescription}</p>
           )}
         </div>
 
@@ -277,15 +293,35 @@ export default function ProductDetailClient({ product }: Props) {
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => router.push('/login')}
-              className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md"
-            >
-              로그인 후 가격 확인
-            </button>
+            <>
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="flex h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#6F766F] opacity-70 shadow-sm"
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" /> 장바구니 준비중
+              </button>
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="flex h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] bg-[#17211D]/45 text-base font-semibold text-white opacity-80 shadow-md"
+              >
+                <CreditCard className="mr-2 h-5 w-5" /> 결제 준비중
+              </button>
+            </>
           )}
         </div>
+        {isAdminViewer && (
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/products/${product.id}`)}
+            className="mt-3 flex h-12 w-full items-center justify-center rounded-[14px] border border-[#A8742E]/30 bg-[#A8742E]/10 text-sm font-semibold text-[#7A4E1D] transition-colors hover:bg-[#A8742E]/15"
+          >
+            {adminEditLabel}
+          </button>
+        )}
 
       </div>
     </div>
