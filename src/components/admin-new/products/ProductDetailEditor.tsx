@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, GripVertical, Image as ImageIcon, Type, Trash2, LayoutTemplate } from 'lucide-react';
 import { Reorder, useDragControls, type PanInfo } from 'framer-motion';
@@ -89,6 +89,9 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
       autoScrollFrameRef.current = null;
     }
   };
+
+  // 드래그 도중 언마운트(예: 정렬 중 페이지 이탈)돼도 예약된 RAF 콜백이 남지 않도록 정리한다.
+  useEffect(() => () => stopAutoScroll(), []);
 
   // 드래그 중 포인터 위치를 보고 스크롤 컨테이너 가장자리 근처면 자동 스크롤을 시작/갱신한다.
   const handleItemDrag = (_event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => {
