@@ -75,7 +75,7 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
 export function useCategorySettings() {
   const context = useContext(CategorySettingsContext);
   if (context === undefined) {
-    return { categorySettings: defaultCategorySettings, updateCategorySettings: () => Promise.resolve(false) };
+    throw new Error('useCategorySettings must be used within CategorySettingsProvider');
   }
   return context;
 }

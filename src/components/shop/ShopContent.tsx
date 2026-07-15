@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Brand, Product } from '@/types';
 import { concerns } from '@/data/concerns';
-import { normalizeShopCategory, shopCategoryFilters, toShopCategoryOption } from '@/data/shopFilters';
+import { normalizeShopCategory, toShopCategoryOption } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
@@ -156,9 +156,7 @@ function ShopInner({ products, brands }: Props) {
     return query ? `/shop?${query}` : '/shop';
   };
 
-  const rawCategoryOptions = categorySettings.productCategories.length > 0
-    ? categorySettings.productCategories.map(toShopCategoryOption)
-    : shopCategoryFilters;
+  const rawCategoryOptions = categorySettings.productCategories.map(toShopCategoryOption);
 
   const categoryOptions = rawCategoryOptions.filter((cat, index, self) =>
     index === self.findIndex((c) => c.slug === cat.slug)
