@@ -3,7 +3,29 @@
 ## 목표 (고정)
 정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 작업은 main발 짧은 브랜치 + PR.
 
-## 현재 상태 (2026-07-15 마감 — 토스 심사 배치 게이트: #60 머지 · #57 닫음 · #58 보류)
+## 현재 상태 (2026-07-15 2차 마감 — 토스 반려사유 해소: #62·#63·#58 머지)
+
+**브랜치 `main`(`e620385`) · 열린 PR 0건 · 프로덕션 배포 중(3 PR 머지) · 내 워크트리 전부 정리됨**
+
+이 세션 머지 3건(전부 §8-6 삼중 게이트 통과):
+- **#62 `be/fix-brandless-product-hide`(merge `4d29a6a`) — invalid-brand 결함 수정.** 근본원인: `products.brand_id`가 `references brands(id) on delete set null`(0004) → 브랜드 삭제 시 상품 brand_id NULL → `rowToProduct`가 NULL을 `''`로 읽음(`repo.ts:47`) → 노출-전용 `{isVisible:false}` patch도 read-modify-write라 `splitProductInput`이 `brand_id=''` 되씀 → 23503 FK위반 → 라우트가 `invalid-brand`로 매핑(`api/admin/products/[id]/route.ts:48`). **브랜드 삭제된 상품은 숨김·수정 자체 불가.** 수정: `splitProductInput`을 순수모듈 `src/lib/products/splitProductInput.ts`로 분리 + `brand_id '' → null` 정규화 + 회귀 테스트 3건. opus GREEN·codex PASS.
+- **#63 `fe/behavior-price-input-clear`(merge `90b7834`) — 관리자 상품 폼 가격칸 0 미삭제 버그.** `ProductForm.tsx` 가격·세일가·재고 number input이 `value={... ?? 0/|| 0}` + `Number(e.target.value)`라 빈칸이 `Number('')=0`으로 되돌아가 "0"이 안 지워짐. 3필드 `value`를 `|| ''`로 변경(형제 shippingFee 패턴). opus GREEN·codex PASS. **우회법(배포 전): 칸 클릭→Ctrl+A→입력.**
+- **#58 `fe/design-toss-review`(merge `e620385`) — 실 사업자정보·약관·개인정보·배송/환불(반려 #2·#3·#4 해소).** `src/data/company.ts`에 실값: 상호 백조 오브제·대표 백보윤·사업자번호 524-05-03658(간이과세자)·통신판매업 2026-인천미추홀-0016·주소 인천 연수구 인천타워대로 185, 5층 539호(송도동, 송도 센트럴비즈 한라)·전화 010-5683-1725·이메일 thebaekjo@naver.com. 푸터·/terms·/privacy 자동 반영. opus GREEN. **codex가 사업자번호 체크섬 불일치를 지적했으나 직접 검증 결과 오탐**(524-05-03658 국세청 검증식 합계 102→검증숫자 8=마지막자리 8 일치, 유효).
+
+### 🔴 토스 반려사유 현황 + 사용자 몫
+- **#2 푸터·#3 약관/개인정보·#4 배송/환불 = 해소(#58 머지).**
+- **#1 미가격 상품 노출 = 코드 아님, 운영 작업 남음(사용자 몫).** `/admin/products` "가격 미등록" 필터 + 일괄 숨김/노출 기능이 이미 있음(#57 마이그레이션 접근은 폐기가 맞았음). ⚠️ **그냥 다 숨기면 골든#1(진단) 깨짐** — 진단 추천 9개(**p1·p2·p3·p4·p5·p7·p8·p9·p12**)에 가격 **99,000원/재고 999** 입력(사용자 결정) + 나머지 미가격 숨김. 9개가 판매가능해지면 `survey.ts` 추천 규칙은 그대로 유효(재지정 불필요).
+- **⚠️ 프로덕션 DB 불일치 가능성**: 로컬 `.env.local` DB(host `aeooyi…`)엔 브랜드 없는 상품 0건인데 사용자는 invalid-brand를 **프로덕션에서** 봄 → prod는 다른 Supabase 프로젝트를 쓰거나 그 사이 상태가 달랐음. #62 배포로 이제 prod에서도 브랜드 없는 상품 숨김 가능.
+
+### 상세페이지(네이버식) UX 결론 (분석만, 미작업)
+- 표시(고객 상세)·편집(상세 에디터) **둘 다 이미 존재**. 편집은 **별도 페이지** `/admin/products/[id]/editor`(`admin/products/page.tsx:69`에서 진입)에서 `ProductDetailEditor`가 담당(좌 블록편집/우 실시간 폰 미리보기). **등록 모달(ProductForm)은 detailBlocks를 의도적으로 제외**(read-modify-write 보존, `formPayload.ts` 화이트리스트). 즉 모달 수정은 필수 아님.
+- 개선 백로그(behavior/design·계약 무변경): ① **드래그 정렬이 가짜**(`ProductDetailEditor.tsx:160` 그립 "시각적 효과만", 실제는 ↑↓ 버튼만) → 진짜 구현 ② 이미지 **다중 업로드→블록 일괄 생성** 없음 ③ 등록 모달↔상세 에디터 동선.
+
+### 파일 흔적·잔존물
+- 잔존 진단 스크립트 `__check_orphans.mjs`(untracked, 프로덕션 brands/products 조회용 — 삭제 권한 세션 차단, `Remove-Item`으로 직접 삭제 가능) + 기존 `__cap_*.mjs`·`tests/golden/__*-temp.spec.ts` 미정리분 누적.
+- CI 교훈: **update-baselines 봇 커밋(GITHUB_TOKEN)은 `verify`(ci.yml)를 트리거 안 함** → 새 head에서 verify `action_required`로 멈춤 → `gh api repos/.../actions/runs/<id>/approve`로 승인해야 머지 required check 충족(#58에서 실제 발생·해소).
+
+## (이전 스냅샷) 현재 상태 (2026-07-15 마감 — 토스 심사 배치 게이트: #60 머지 · #57 닫음 · #58 보류)
 
 **브랜치 `main`(`10b8ff2`) · 열린 PR 1건(#55 = 이 마감 문서) · 로컬 = origin/main 정렬됨 · main CI success**
 
