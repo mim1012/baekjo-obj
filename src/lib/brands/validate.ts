@@ -9,6 +9,7 @@ const MAX_TEXT = 300;
 const MAX_LONG_TEXT = 5000;
 const MAX_URL = 500;
 const MAX_ARRAY_ITEMS = 50;
+const MAX_SOURCE_URLS = 20;
 const MAX_PROCESS_ITEMS = 30;
 const MAX_DISPLAY_ORDER = 100_000;
 const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
@@ -85,6 +86,18 @@ export function validateBrandFields(body: unknown, requireAll: boolean): Validat
     if (typeof b.auditGrade !== 'string' || !AUDIT_GRADES.has(b.auditGrade)) return null;
     out.auditGrade = b.auditGrade as Brand['auditGrade'];
   } else if (requireAll) return null;
+
+  // 공식몰 URL. optional·가산 — 빈 문자열을 허용해 폼에서 지울 수 있게 한다(0..MAX_URL).
+  if (b.officialUrl !== undefined) {
+    if (!isStr(b.officialUrl, 0, MAX_URL)) return null;
+    out.officialUrl = b.officialUrl;
+  }
+
+  // 근거 출처 URL 배열. optional — 각 ≤500, ≤20개. 폼 UI는 후속(공개 화면 미사용), 계약만 개방.
+  if (b.sourceUrls !== undefined) {
+    if (!isStrArray(b.sourceUrls, MAX_SOURCE_URLS, MAX_URL)) return null;
+    out.sourceUrls = b.sourceUrls;
+  }
 
   if (b.auditPoints !== undefined) {
     if (!isStrArray(b.auditPoints, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;

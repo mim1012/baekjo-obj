@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { Brand } from '@/types';
 import { createBrand, updateBrand, type UpdateBrandInput, type CreateBrandInput } from '@/lib/storage';
+import { buildBrandPayload, validateDisplayOrder } from '@/lib/brands/formPayload';
 
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
@@ -30,6 +31,7 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     auditGrade: 'A+',
     officialUrl: '',
     isRecommended: false,
+    isVisible: true,
     ...initialData
   });
 
@@ -46,20 +48,25 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     if (!formData.name?.trim()) return setError('브랜드명을 입력해주세요.');
     if (!formData.description?.trim()) return setError('브랜드 소개를 입력해주세요.');
 
+    // 진열 순서 클라이언트 검증(음수·소수 → 필드 에러). 없으면 서버가 400 후 통짜 에러만 낸다.
+    const orderError = validateDisplayOrder(formData.displayOrder);
+    if (orderError) return setError(orderError);
+
     setIsSaving(true);
     setError(null);
 
     try {
+      // 폼은 자기가 편집하는 화이트리스트 필드만 patch한다(BRAND_FORM_FIELDS). formData 전체를
+      // 스프레드로 되보내면 상세 페이지·시드가 소유한 auditReport·멀티셀렉트 값을 stale하게
+      // 덮어쓴다(S1 ProductForm 교훈). updateBrand가 read-modify-write라 안 보내면 기존 값 보존.
+      const payload = buildBrandPayload(formData);
       if (isEdit && initialData.id) {
-        const { error: updateError } = await updateBrand(initialData.id, formData as UpdateBrandInput);
+        const { error: updateError } = await updateBrand(initialData.id, payload as UpdateBrandInput);
         if (updateError) throw new Error(updateError);
       } else {
-        const { error: createError } = await createBrand({
-          ...formData,
-          auditPoints: [],
-          representativeProductIds: [],
-          relatedConcernSlugs: [],
-        } as CreateBrandInput);
+        // 생성도 같은 화이트리스트만 보낸다. auditPoints/representativeProductIds/
+        // relatedConcernSlugs 는 서버 validate(requireAll)가 누락 시 []로 기본을 채운다.
+        const { error: createError } = await createBrand(payload as CreateBrandInput);
         if (createError) throw new Error(createError);
       }
 
@@ -180,6 +187,48 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
                 <span className="text-[12px] text-gray-500">체크 시 브랜드관 상단 또는 추천 영역에 노출됩니다.</span>
               </div>
             </label>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={formData.isVisible !== false}
+                onChange={e => handleChange('isVisible', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+              <div>
+                <span className="text-[14px] font-medium text-[#17201B] block">브랜드관 노출</span>
+                <span className="text-[12px] text-gray-500">체크 해제 시 브랜드관·상세에서 숨겨집니다.</span>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={formData.isNew || false}
+                onChange={e => handleChange('isNew', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+              <div>
+                <span className="text-[14px] font-medium text-[#17201B] block">신규 브랜드 뱃지</span>
+                <span className="text-[12px] text-gray-500">체크 시 &lsquo;새로 만난 브랜드&rsquo; 필터에 노출됩니다.</span>
+              </div>
+            </label>
+
+            <FormField label="진열 순서" htmlFor="brand-display-order">
+              <input
+                id="brand-display-order"
+                type="number"
+                value={formData.displayOrder ?? ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  handleChange('displayOrder', v === '' ? undefined : Number(v));
+                }}
+                min={0}
+                step={1}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                placeholder="낮을수록 먼저 노출 (미입력 시 뒤로)"
+              />
+            </FormField>
           </form>
         </div>
 
