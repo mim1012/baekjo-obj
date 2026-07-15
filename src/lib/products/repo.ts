@@ -2,6 +2,9 @@
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
+import { splitProductInput } from '@/lib/products/splitProductInput';
+
+export { splitProductInput } from '@/lib/products/splitProductInput';
 
 const PET_TYPES = new Set(['dog', 'cat', 'both']);
 
@@ -84,43 +87,6 @@ function rowToProduct(row: ProductRow): Product {
     isBest: row.is_best,
     isRecommended: row.is_recommended,
   };
-}
-
-/** camelCase Product 키 → snake_case 컬럼명. 여기 없는 키는 전부 detail jsonb로 들어간다. */
-const PRODUCT_COLUMN_MAP: Partial<Record<keyof Product, string>> = {
-  brandId: 'brand_id',
-  name: 'name',
-  price: 'price',
-  salePrice: 'sale_price',
-  rating: 'rating',
-  reviewCount: 'review_count',
-  category: 'category',
-  categorySlug: 'category_slug',
-  lifestyleCategory: 'lifestyle_category',
-  petType: 'pet_type',
-  stock: 'stock',
-  isVisible: 'is_visible',
-  isBest: 'is_best',
-  isRecommended: 'is_recommended',
-};
-
-/** Product(전체 또는 일부)를 컬럼 값과 detail jsonb 조각으로 분리한다. */
-function splitProductInput(input: Partial<Product>): {
-  columns: Record<string, unknown>;
-  detail: Record<string, unknown>;
-} {
-  const columns: Record<string, unknown> = {};
-  const detail: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(input)) {
-    if (value === undefined || key === 'id') continue;
-    const columnName = PRODUCT_COLUMN_MAP[key as keyof Product];
-    if (columnName) {
-      columns[columnName] = value;
-    } else {
-      detail[key] = value;
-    }
-  }
-  return { columns, detail };
 }
 
 export interface ProductListFilter {
