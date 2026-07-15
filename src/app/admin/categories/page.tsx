@@ -1,16 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
-import { GripVertical, Plus, Trash2, Tag, Layers } from 'lucide-react';
+import { Plus, Trash2, Tag, Layers } from 'lucide-react';
 import type { CategorySettings } from '@/lib/categorySettings/config';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SaveBar from '@/components/admin-new/common/SaveBar';
 
 export default function CategoryManagerPage() {
-  const router = useRouter();
   const { categorySettings, updateCategorySettings } = useCategorySettings();
   
   const [settings, setSettings] = useState<CategorySettings>(categorySettings);
