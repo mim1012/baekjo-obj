@@ -17,6 +17,8 @@ interface AdminResourcePageProps {
   rows: Array<Record<string, string | number>>;
   filters?: string[];
   createFields?: string[];
+  /** true면 쓰기 API가 없는 정적 콘텐츠 화면으로 취급해 등록/수정/삭제 UI를 숨긴다. */
+  readOnly?: boolean;
   /** 관리 셀(수정/삭제 앞)에 행별 커스텀 액션(승인/반려 버튼 등)을 렌더링한다. */
   customActions?: (row: Record<string, string | number>) => React.ReactNode;
   /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
@@ -45,6 +47,7 @@ export default function AdminResourcePage({
   rows,
   filters = ['전체 상태'],
   createFields = [],
+  readOnly = false,
   customActions,
   renderExpandedRow,
   onDeleteRow,
@@ -60,6 +63,7 @@ export default function AdminResourcePage({
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRowId, setExpandedRowId] = useState<string | number | null>(null);
   const ITEMS_PER_PAGE = 20;
+  const hasRowActions = !readOnly || customActions != null;
 
   const handleEdit = (row: Record<string, string | number>) => {
     setEditingRow(row);
@@ -119,7 +123,7 @@ export default function AdminResourcePage({
           <h1 className="mt-2 text-3xl font-normal text-[#202521]">{title}</h1>
           <p className="mt-2 text-sm text-[#737A74]">{description}</p>
         </div>
-        {(actionLabel || onSave) && (
+        {(onSave || (!readOnly && actionLabel)) && (
           <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
             {onSave && (
               <div className="flex items-center justify-end gap-3">
@@ -134,7 +138,7 @@ export default function AdminResourcePage({
                 </button>
               </div>
             )}
-            {actionLabel && (
+            {!readOnly && actionLabel && (
               <details className="relative">
                 <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center gap-2 bg-[#2F3B34] px-5 text-sm font-semibold text-white">
                   <Plus className="size-4" /> {actionLabel}
@@ -206,7 +210,7 @@ export default function AdminResourcePage({
             <thead className="bg-[#F0EEE8] text-xs text-[#697069]">
               <tr>
                 {columns.map((column) => <th key={column.key} className="px-5 py-3 font-semibold">{column.label}</th>)}
-                <th className="px-5 py-3 text-right font-semibold">관리</th>
+                {hasRowActions && <th className="px-5 py-3 text-right font-semibold">관리</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E1DFD8]">
@@ -228,15 +232,21 @@ export default function AdminResourcePage({
                           )}
                         </td>
                       ))}
-                      <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                        {customActions?.(row)}
-                        <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
-                        <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
-                      </td>
+                      {hasRowActions && (
+                        <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          {customActions?.(row)}
+                          {!readOnly && (
+                            <>
+                              <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                              <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
+                            </>
+                          )}
+                        </td>
+                      )}
                     </tr>
                     {isExpanded && (
                       <tr>
-                        <td colSpan={columns.length + 1} className="bg-[#F8F7F2] px-5 py-4">
+                        <td colSpan={columns.length + (hasRowActions ? 1 : 0)} className="bg-[#F8F7F2] px-5 py-4">
                           {renderExpandedRow?.(row)}
                         </td>
                       </tr>
@@ -296,7 +306,7 @@ export default function AdminResourcePage({
       </div>
 
       {/* 수정 모달 */}
-      {editingRow && (
+      {!readOnly && editingRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
