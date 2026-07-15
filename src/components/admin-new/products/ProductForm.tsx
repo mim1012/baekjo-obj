@@ -1,10 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Save, ArrowLeft, Trash2 } from 'lucide-react';
-import type { Product, Brand, ProductOption } from '@/types';
-import { createProduct, updateProduct, deleteProduct, type CreateProductInput, type UpdateProductInput } from '@/lib/storage';
+import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
+import type { Product, Brand } from '@/types';
+import { createProduct, updateProduct, deleteProduct } from '@/lib/storage';
+import {
+  buildProductCreatePayload,
+  buildProductUpdatePayload,
+  type ProductFormState,
+  type ProductOptionFormState,
+} from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
@@ -65,7 +71,6 @@ function toUserMessage(err: unknown): string {
     case 'forbidden':
       return '권한이 없습니다. 다시 로그인해주세요.';
     // storage.ts(createProduct/updateProduct)는 네트워크 실패 시 'network'를 반환한다.
-    // 'network-error'만 매핑돼 있어 네트워크 실패가 default('저장에 실패했습니다')로 샜다.
     case 'server-error':
     case 'network':
     case 'network-error':
@@ -75,14 +80,27 @@ function toUserMessage(err: unknown): string {
   }
 }
 
+const INPUT_CLASS =
+  'w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none';
+
+/** initialData.options(숫자) → 폼 상태(문자열). 편집 중 빈칸/부분입력을 허용하려고 문자열로 든다. */
+function toOptionRows(product?: Product | null): ProductOptionFormState[] {
+  return (product?.options ?? []).map((o) => ({
+    id: o.id,
+    name: o.name,
+    price: String(o.price),
+    stock: String(o.stock),
+  }));
+}
+
 export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
   const isEdit = !!initialData;
-  const [draftId] = useState(() => 
-    typeof crypto !== 'undefined' && crypto.randomUUID 
-      ? crypto.randomUUID() 
-      : Math.random().toString(36).substring(2, 15)
+  const [draftId] = useState(() =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).substring(2, 15),
   );
 
   const [formData, setFormData] = useState<Partial<Product>>({
@@ -99,20 +117,33 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     isVisible: false,
     isBest: false,
     isRecommended: false,
+    isMembersOnlyPrice: false,
     summary: '',
     description: '',
-    ...initialData
+    ingredients: '',
+    howToUse: '',
+    deliveryEstimate: '',
+    shippingNotice: '',
+    returnNotice: '',
+    sellerName: '',
+    images: [],
+    recommendedFor: [],
+    caution: [],
+    ...initialData,
   });
+
+  // 옵션은 price/stock 을 입력 중 문자열로 다뤄야 해 formData 와 별도 상태로 든다.
+  const [optionRows, setOptionRows] = useState<ProductOptionFormState[]>(() => toOptionRows(initialData));
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<RequiredField, string>>>({});
 
   const handleChange = (field: keyof Product, value: unknown) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
     if (isRequiredField(field) && fieldErrors[field] && !requiredFieldError(field, value)) {
-      setFieldErrors(prev => {
+      setFieldErrors((prev) => {
         const next = { ...prev };
         delete next[field];
         return next;
@@ -122,7 +153,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
 
   const handleBlur = (field: RequiredField) => {
     const message = requiredFieldError(field, formData[field]);
-    setFieldErrors(prev => {
+    setFieldErrors((prev) => {
       const next = { ...prev };
       if (message) {
         next[field] = message;
@@ -133,6 +164,37 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     });
   };
 
+  /** formData(+옵션 상태)를 순수 payload 빌더가 받는 ProductFormState 로 모은다. */
+  const toFormState = (): ProductFormState => ({
+    name: formData.name,
+    brandId: formData.brandId,
+    category: formData.category,
+    lifestyleCategory: formData.lifestyleCategory,
+    petType: formData.petType,
+    ageGroup: formData.ageGroup,
+    summary: formData.summary,
+    description: formData.description,
+    price: formData.price,
+    salePrice: formData.salePrice,
+    stock: formData.stock,
+    image: formData.image,
+    images: formData.images ?? [],
+    options: optionRows,
+    ingredients: formData.ingredients,
+    howToUse: formData.howToUse,
+    recommendedFor: formData.recommendedFor ?? [],
+    caution: formData.caution ?? [],
+    shippingFee: formData.shippingFee ?? null,
+    deliveryEstimate: formData.deliveryEstimate,
+    shippingNotice: formData.shippingNotice,
+    returnNotice: formData.returnNotice,
+    sellerName: formData.sellerName,
+    isMembersOnlyPrice: formData.isMembersOnlyPrice,
+    isVisible: formData.isVisible,
+    isBest: formData.isBest,
+    isRecommended: formData.isRecommended,
+  });
+
   const handleSave = async () => {
     const nextFieldErrors: Partial<Record<RequiredField, string>> = {};
     for (const field of REQUIRED_FIELDS) {
@@ -142,9 +204,9 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
 
     setFieldErrors(nextFieldErrors);
 
-    const missingFields = REQUIRED_FIELDS.filter(field => nextFieldErrors[field]);
+    const missingFields = REQUIRED_FIELDS.filter((field) => nextFieldErrors[field]);
     if (missingFields.length > 0) {
-      setError(`필수 항목을 채워주세요 — ${missingFields.map(f => REQUIRED_LABELS[f]).join(', ')}`);
+      setError(`필수 항목을 채워주세요 — ${missingFields.map((f) => REQUIRED_LABELS[f]).join(', ')}`);
       return;
     }
 
@@ -152,59 +214,17 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     setError(null);
 
     try {
-      const brandName = brands.find(b => b.id === formData.brandId)?.name;
-      const salePrice = formData.salePrice ? formData.salePrice : null;
+      const brandName = brands.find((b) => b.id === formData.brandId)?.name;
+      const formState = toFormState();
 
-      // 이 폼은 자기가 편집하는 필드만 patch한다. `...formData`로 로드 시점 스냅샷을 통째로
-      // 되보내면 detailBlocks(상세 에디터 소유)·options·images·rating 등 이 폼이 건드리지 않는
-      // 필드까지 낡은 값으로 덮어써, 그 사이 다른 화면(상세 에디터)이 저장한 값이 사라진다.
-      // 그래서 화면에 입력 컨트롤이 있는 필드만 명시적으로 골라 보낸다(암묵적 스프레드 금지).
+      // payload 는 순수 빌더가 화이트리스트로만 구성한다(`...formData` 암묵 스프레드 금지).
+      // detailBlocks(상세 에디터 소유)·rating 등은 담기지 않아 read-modify-write 로 보존된다.
       if (isEdit && initialData.id) {
-        // 수정(PATCH)은 read-modify-write라 여기 없는 필드는 서버가 기존 값을 그대로 유지한다.
-        // ageGroup은 폼에 UI가 없으므로 보내지 않는다(있으면 state 기본값 'all'로 덮어써버림).
-        const payload = {
-          name: formData.name,
-          brandId: formData.brandId,
-          brandName,
-          category: formData.category,
-          lifestyleCategory: formData.lifestyleCategory,
-          petType: formData.petType,
-          summary: formData.summary,
-          description: formData.description,
-          price: formData.price,
-          salePrice,
-          stock: formData.stock,
-          isVisible: formData.isVisible,
-          isRecommended: formData.isRecommended,
-          isBest: formData.isBest,
-          image: formData.image,
-        } as UpdateProductInput;
+        const payload = buildProductUpdatePayload(formState, brandName);
         const { error: updateError } = await updateProduct(initialData.id, payload);
         if (updateError) throw new Error(updateError);
       } else {
-        // 생성은 서버가 requireAll=true로 검증한다 — ageGroup은 폼에 입력 UI가 없지만 서버
-        // 필수 필드이므로 state 기본값('all')을 명시적으로 포함해야 400을 피한다.
-        // rating/reviewCount/concernTags 등은 CreateProductInput(=Omit<Product,'id'>) 타입상
-        // 필수지만 이 폼엔 입력 UI가 없다 — 서버가 requireAll=true에서 기본값(0/[])을 채우므로
-        // 보내지 않고 캐스팅으로 타입만 맞춘다.
-        const payload = {
-          name: formData.name ?? '',
-          brandId: formData.brandId ?? '',
-          brandName,
-          category: formData.category ?? '',
-          lifestyleCategory: formData.lifestyleCategory ?? '',
-          petType: formData.petType ?? 'both',
-          ageGroup: formData.ageGroup ?? 'all',
-          summary: formData.summary,
-          description: formData.description ?? '',
-          price: formData.price ?? 0,
-          salePrice,
-          stock: formData.stock ?? 0,
-          isVisible: formData.isVisible ?? false,
-          isRecommended: formData.isRecommended ?? false,
-          isBest: formData.isBest ?? false,
-          image: formData.image ?? '',
-        } as CreateProductInput;
+        const payload = buildProductCreatePayload(formState, brandName);
         const { error: createError } = await createProduct(payload);
         if (createError) throw new Error(createError);
       }
@@ -221,7 +241,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const handleDelete = async () => {
     if (!isEdit || !initialData?.id) return;
     if (!confirm('정말로 이 상품을 삭제하시겠습니까?')) return;
-    
+
     try {
       const res = await deleteProduct(initialData.id);
       if (res.error) {
@@ -239,13 +259,21 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     }
   };
 
+  const images = formData.images ?? [];
+  const recommendedFor = formData.recommendedFor ?? [];
+  const caution = formData.caution ?? [];
+
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
         title={isEdit ? '상품 수정' : '새 상품 등록'}
-        description={isEdit ? '선택한 상품의 기본 정보와 노출 설정을 수정합니다.' : '새로운 상품의 기본 정보와 이미지를 등록합니다.'}
+        description={
+          isEdit
+            ? '기본 정보·가격·옵션·상세 정보·배송 안내까지 상세페이지에 노출되는 모든 항목을 수정합니다.'
+            : '새 상품의 기본 정보와 상세페이지 노출 항목을 등록합니다.'
+        }
       >
-        <button 
+        <button
           type="button"
           onClick={() => router.back()}
           className="px-4 py-2 border border-gray-200 text-[#17201B] font-medium text-[13px] rounded bg-white hover:bg-gray-50 flex items-center gap-2"
@@ -255,7 +283,11 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
       </PageHeader>
 
       {error && (
-        <div role="alert" aria-live="polite" className="p-4 bg-red-50 text-red-600 rounded-md border border-red-200 text-[13px] font-medium">
+        <div
+          role="alert"
+          aria-live="polite"
+          className="p-4 bg-red-50 text-red-600 rounded-md border border-red-200 text-[13px] font-medium"
+        >
           {error}
         </div>
       )}
@@ -263,19 +295,18 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* 기본 정보 */}
-          <div className="bg-white border border-gray-200 rounded-md p-6">
-            <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">기본 정보</h3>
+          <SectionCard title="기본 정보">
             <div className="space-y-4">
               <FormField label="상품명" htmlFor="product-name" required error={fieldErrors.name}>
                 <input
                   id="product-name"
                   type="text"
                   value={formData.name || ''}
-                  onChange={e => handleChange('name', e.target.value)}
+                  onChange={(e) => handleChange('name', e.target.value)}
                   onBlur={() => handleBlur('name')}
                   aria-invalid={!!fieldErrors.name}
                   aria-describedby={fieldErrors.name ? 'product-name-error' : undefined}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                  className={INPUT_CLASS}
                   placeholder="예: 강아지 알러지 케어 사료 2kg"
                 />
               </FormField>
@@ -285,15 +316,17 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   <select
                     id="product-brand"
                     value={formData.brandId || ''}
-                    onChange={e => handleChange('brandId', e.target.value)}
+                    onChange={(e) => handleChange('brandId', e.target.value)}
                     onBlur={() => handleBlur('brandId')}
                     aria-invalid={!!fieldErrors.brandId}
                     aria-describedby={fieldErrors.brandId ? 'product-brand-error' : undefined}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                    className={INPUT_CLASS}
                   >
                     <option value="">브랜드 선택</option>
-                    {brands.map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
+                    {brands.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
                     ))}
                   </select>
                 </FormField>
@@ -302,15 +335,17 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   <select
                     id="product-category"
                     value={formData.category || ''}
-                    onChange={e => handleChange('category', e.target.value)}
+                    onChange={(e) => handleChange('category', e.target.value)}
                     onBlur={() => handleBlur('category')}
                     aria-invalid={!!fieldErrors.category}
                     aria-describedby={fieldErrors.category ? 'product-category-error' : undefined}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                    className={INPUT_CLASS}
                   >
                     <option value="">카테고리 선택</option>
-                    {categorySettings.productCategories.map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {categorySettings.productCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </FormField>
@@ -320,8 +355,8 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 <FormField label="반려동물">
                   <select
                     value={formData.petType || 'both'}
-                    onChange={e => handleChange('petType', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                    onChange={(e) => handleChange('petType', e.target.value)}
+                    className={INPUT_CLASS}
                   >
                     <option value="both">공용</option>
                     <option value="dog">강아지 전용</option>
@@ -333,117 +368,218 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   <select
                     id="product-lifestyle"
                     value={formData.lifestyleCategory || ''}
-                    onChange={e => handleChange('lifestyleCategory', e.target.value)}
+                    onChange={(e) => handleChange('lifestyleCategory', e.target.value)}
                     onBlur={() => handleBlur('lifestyleCategory')}
                     aria-invalid={!!fieldErrors.lifestyleCategory}
                     aria-describedby={fieldErrors.lifestyleCategory ? 'product-lifestyle-error' : undefined}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                    className={INPUT_CLASS}
                   >
                     <option value="">선택</option>
-                    {categorySettings.lifestyleCategories.map(c => (
-                      <option key={c} value={c}>{c}</option>
+                    {categorySettings.lifestyleCategories.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
                     ))}
                   </select>
                 </FormField>
               </div>
 
               <FormField label="한 줄 설명">
-                <input 
-                  type="text" 
-                  value={formData.summary || ''} 
-                  onChange={e => handleChange('summary', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                <input
+                  type="text"
+                  value={formData.summary || ''}
+                  onChange={(e) => handleChange('summary', e.target.value)}
+                  className={INPUT_CLASS}
                   placeholder="상품 카드에 노출될 짧은 설명"
                 />
               </FormField>
 
               <FormField label="간단 텍스트 상세">
-                <textarea 
-                  value={formData.description || ''} 
-                  onChange={e => handleChange('description', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] h-24 focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none resize-none"
+                <textarea
+                  value={formData.description || ''}
+                  onChange={(e) => handleChange('description', e.target.value)}
+                  className={`${INPUT_CLASS} h-24 resize-none`}
                   placeholder="간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)"
                 />
               </FormField>
             </div>
-          </div>
+          </SectionCard>
 
           {/* 가격 및 재고 */}
-          <div className="bg-white border border-gray-200 rounded-md p-6">
-            <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">가격 및 재고</h3>
+          <SectionCard title="가격 및 재고">
             <div className="grid grid-cols-2 gap-4">
               <FormField label="판매가 (원)" required>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="0"
-                  value={formData.price || 0} 
-                  onChange={e => handleChange('price', Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                  value={formData.price ?? 0}
+                  onChange={(e) => handleChange('price', Number(e.target.value))}
+                  className={INPUT_CLASS}
                 />
               </FormField>
               <FormField label="할인가 (원)">
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="0"
-                  value={formData.salePrice || 0} 
-                  onChange={e => handleChange('salePrice', Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                  value={formData.salePrice || 0}
+                  onChange={(e) => handleChange('salePrice', Number(e.target.value))}
+                  className={INPUT_CLASS}
                 />
               </FormField>
               <FormField label="재고 (개)">
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   min="0"
-                  value={formData.stock || 0} 
-                  onChange={e => handleChange('stock', Number(e.target.value))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                  value={formData.stock || 0}
+                  onChange={(e) => handleChange('stock', Number(e.target.value))}
+                  className={INPUT_CLASS}
+                />
+              </FormField>
+              <FormField label="배송비 (원)">
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.shippingFee ?? ''}
+                  onChange={(e) =>
+                    handleChange('shippingFee', e.target.value === '' ? undefined : Number(e.target.value))
+                  }
+                  className={INPUT_CLASS}
+                  placeholder="미입력 시 기존/기본값 유지 · 0 = 무료배송"
                 />
               </FormField>
             </div>
-          </div>
+            <label className="mt-4 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+              <span className="text-[14px] font-medium text-[#17201B]">회원 전용가 (비회원에게 가격 숨김)</span>
+              <input
+                type="checkbox"
+                checked={formData.isMembersOnlyPrice || false}
+                onChange={(e) => handleChange('isMembersOnlyPrice', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+            </label>
+          </SectionCard>
+
+          {/* 상품 옵션 */}
+          <SectionCard
+            title="상품 옵션"
+            description="옵션을 추가하면 구매 화면에 선택 목록으로 노출됩니다. 이름이 빈 행은 저장되지 않습니다."
+          >
+            <OptionEditor rows={optionRows} onChange={setOptionRows} />
+          </SectionCard>
+
+          {/* 상세 정보 */}
+          <SectionCard
+            title="상세 정보"
+            description="상품 상세페이지의 정보 카드에 노출됩니다. 비워두면 기본 안내 문구가 대신 표시됩니다."
+          >
+            <div className="space-y-4">
+              <FormField label="성분/원재료">
+                <textarea
+                  value={formData.ingredients || ''}
+                  onChange={(e) => handleChange('ingredients', e.target.value)}
+                  className={`${INPUT_CLASS} h-20 resize-none`}
+                  placeholder="예: 닭고기 40%, 현미, 연어오일…"
+                />
+              </FormField>
+              <FormField label="급여/사용 방법">
+                <textarea
+                  value={formData.howToUse || ''}
+                  onChange={(e) => handleChange('howToUse', e.target.value)}
+                  className={`${INPUT_CLASS} h-20 resize-none`}
+                  placeholder="예: 체중 5kg 기준 하루 60g, 2회 나눠 급여"
+                />
+              </FormField>
+              <FormField label="이런 반려동물에게 추천">
+                <ArrayEditor
+                  items={recommendedFor}
+                  onChange={(next) => handleChange('recommendedFor', next)}
+                  addLabel="추천 대상 추가"
+                  itemLabel="추천 대상"
+                  placeholder="예: 알러지가 있는 반려견"
+                  maxItems={50}
+                />
+              </FormField>
+              <FormField label="주의사항">
+                <ArrayEditor
+                  items={caution}
+                  onChange={(next) => handleChange('caution', next)}
+                  addLabel="주의사항 추가"
+                  itemLabel="주의사항"
+                  placeholder="예: 개봉 후 냉장 보관, 2주 이내 급여"
+                  maxItems={50}
+                />
+              </FormField>
+            </div>
+          </SectionCard>
+
+          {/* 배송/판매자 안내 */}
+          <SectionCard title="배송·판매자 안내" description="상세페이지 하단 구매 정보에 노출됩니다.">
+            <div className="space-y-4">
+              <FormField label="출고 예정 안내">
+                <input
+                  type="text"
+                  value={formData.deliveryEstimate || ''}
+                  onChange={(e) => handleChange('deliveryEstimate', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 오후 2시 이전 주문 시 당일 출고"
+                />
+              </FormField>
+              <FormField label="배송 유의사항">
+                <input
+                  type="text"
+                  value={formData.shippingNotice || ''}
+                  onChange={(e) => handleChange('shippingNotice', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 제주/도서산간 추가 배송비"
+                />
+              </FormField>
+              <FormField label="교환/반품 안내">
+                <input
+                  type="text"
+                  value={formData.returnNotice || ''}
+                  onChange={(e) => handleChange('returnNotice', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 단순 변심 시 수령 후 7일 이내"
+                />
+              </FormField>
+              <FormField label="판매자명">
+                <input
+                  type="text"
+                  value={formData.sellerName || ''}
+                  onChange={(e) => handleChange('sellerName', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 백조오브제"
+                />
+              </FormField>
+            </div>
+          </SectionCard>
         </div>
 
         <div className="space-y-6">
           {/* 노출 상태 */}
-          <div className="bg-white border border-gray-200 rounded-md p-6">
-            <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">노출 상태</h3>
+          <SectionCard title="노출 상태">
             <div className="space-y-4">
-              <label className="flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-                <span className="text-[14px] font-medium text-[#17201B]">스토어 노출</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.isVisible || false}
-                  onChange={e => handleChange('isVisible', e.target.checked)}
-                  className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-                />
-              </label>
-              
-              <label className="flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-                <span className="text-[14px] font-medium text-[#17201B]">추천 상품 (MD)</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.isRecommended || false}
-                  onChange={e => handleChange('isRecommended', e.target.checked)}
-                  className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-                />
-              </label>
-              
-              <label className="flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-                <span className="text-[14px] font-medium text-[#17201B]">베스트 상품</span>
-                <input 
-                  type="checkbox" 
-                  checked={formData.isBest || false}
-                  onChange={e => handleChange('isBest', e.target.checked)}
-                  className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-                />
-              </label>
+              <ToggleRow
+                label="스토어 노출"
+                checked={formData.isVisible || false}
+                onChange={(v) => handleChange('isVisible', v)}
+              />
+              <ToggleRow
+                label="추천 상품 (MD)"
+                checked={formData.isRecommended || false}
+                onChange={(v) => handleChange('isRecommended', v)}
+              />
+              <ToggleRow
+                label="베스트 상품"
+                checked={formData.isBest || false}
+                onChange={(v) => handleChange('isBest', v)}
+              />
             </div>
-          </div>
+          </SectionCard>
 
           {/* 대표 이미지 */}
-          <div className="bg-white border border-gray-200 rounded-md p-6">
-            <h3 className="text-[15px] font-semibold text-[#17201B] mb-5">대표 이미지</h3>
-            <ImageUploader 
+          <SectionCard title="대표 이미지">
+            <ImageUploader
               value={formData.image || ''}
               onChange={(url) => handleChange('image', url)}
               domain="product"
@@ -454,15 +590,28 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
               height="240px"
               description="정사각형(1:1) 비율, 최소 600x600px 권장"
             />
-          </div>
+          </SectionCard>
+
+          {/* 추가 이미지 갤러리 */}
+          <SectionCard
+            title="추가 이미지 갤러리"
+            description="대표 이미지 외에 상세페이지 갤러리에 함께 노출됩니다."
+          >
+            <GalleryEditor
+              images={images}
+              onChange={(next) => handleChange('images', next)}
+              entityId={isEdit ? initialData.id : undefined}
+              draftId={!isEdit ? draftId : undefined}
+            />
+          </SectionCard>
 
           {/* 관리 작업 */}
           {isEdit && (
             <div className="bg-white border border-red-200 rounded-md p-6">
               <h3 className="text-[15px] font-semibold text-red-600 mb-2">위험 영역</h3>
               <p className="text-[12px] text-gray-500 mb-4">
-                상품을 삭제하면 복구할 수 없으며 주문 내역 등에서 문제가 발생할 수 있습니다. 
-                대신 노출 상태를 변경하는 것을 권장합니다.
+                상품을 삭제하면 복구할 수 없으며 주문 내역 등에서 문제가 발생할 수 있습니다. 대신 노출 상태를
+                변경하는 것을 권장합니다.
               </p>
               <button
                 onClick={handleDelete}
@@ -483,6 +632,246 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
         cancelLabel="취소"
         isSaving={isSaving}
       />
+    </div>
+  );
+}
+
+/* ── 재사용 소품 ─────────────────────────────────────────────── */
+
+function SectionCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-md p-6">
+      <h3 className="text-[15px] font-semibold text-[#17201B] mb-1">{title}</h3>
+      {description ? (
+        <p className="text-[12px] text-gray-500 mb-5">{description}</p>
+      ) : (
+        <div className="mb-5" />
+      )}
+      {children}
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+      <span className="text-[14px] font-medium text-[#17201B]">{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+      />
+    </label>
+  );
+}
+
+/** 문자열 목록 편집기(추천 대상·주의사항). append/remove만, 재정렬 없음(인덱스 key 안정). */
+function ArrayEditor({
+  items,
+  onChange,
+  placeholder,
+  addLabel,
+  itemLabel,
+  maxItems,
+}: {
+  items: string[];
+  onChange: (next: string[]) => void;
+  placeholder?: string;
+  addLabel: string;
+  itemLabel?: string;
+  maxItems?: number;
+}) {
+  const update = (idx: number, value: string) => {
+    onChange(items.map((item, i) => (i === idx ? value : item)));
+  };
+  const remove = (idx: number) => onChange(items.filter((_, i) => i !== idx));
+  const add = () => onChange([...items, '']);
+
+  const atMax = maxItems !== undefined && items.length >= maxItems;
+  const lastEmpty = items.length > 0 && items[items.length - 1].trim() === '';
+  const addDisabled = atMax || lastEmpty;
+
+  return (
+    <div className="space-y-2">
+      {items.map((item, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={item}
+            onChange={(e) => update(idx, e.target.value)}
+            className={INPUT_CLASS}
+            placeholder={placeholder}
+            aria-label={itemLabel ? `${itemLabel} ${idx + 1}` : undefined}
+          />
+          <button
+            type="button"
+            onClick={() => remove(idx)}
+            aria-label={itemLabel ? `${itemLabel} ${idx + 1} 삭제` : '항목 삭제'}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        disabled={addDisabled}
+        className="flex items-center gap-1.5 text-[13px] font-medium text-[#17201B] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+      >
+        <Plus size={14} />
+        {addLabel}
+      </button>
+      {atMax && <p className="text-[12px] text-gray-400">최대 {maxItems}개까지 추가할 수 있습니다.</p>}
+    </div>
+  );
+}
+
+/** 옵션 행 편집기. 이름·가격·재고를 입력받는다. 이름이 빈 행은 저장 단계에서 버려진다. */
+function OptionEditor({
+  rows,
+  onChange,
+}: {
+  rows: ProductOptionFormState[];
+  onChange: (next: ProductOptionFormState[]) => void;
+}) {
+  const update = (idx: number, patch: Partial<ProductOptionFormState>) => {
+    onChange(rows.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
+  };
+  const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
+  const add = () => onChange([...rows, { name: '', price: '', stock: '' }]);
+
+  const lastEmpty = rows.length > 0 && rows[rows.length - 1].name.trim() === '';
+
+  return (
+    <div className="space-y-3">
+      {rows.map((row, idx) => (
+        <div key={row.id ?? idx} className="flex items-end gap-2">
+          <div className="flex-1">
+            <label className="block text-[12px] text-gray-500 mb-1">옵션명</label>
+            <input
+              type="text"
+              value={row.name}
+              onChange={(e) => update(idx, { name: e.target.value })}
+              className={INPUT_CLASS}
+              placeholder="예: 2kg"
+              aria-label={`옵션 ${idx + 1} 이름`}
+            />
+          </div>
+          <div className="w-28">
+            <label className="block text-[12px] text-gray-500 mb-1">가격 (원)</label>
+            <input
+              type="number"
+              min="0"
+              value={row.price}
+              onChange={(e) => update(idx, { price: e.target.value })}
+              className={INPUT_CLASS}
+              aria-label={`옵션 ${idx + 1} 가격`}
+            />
+          </div>
+          <div className="w-24">
+            <label className="block text-[12px] text-gray-500 mb-1">재고</label>
+            <input
+              type="number"
+              min="0"
+              value={row.stock}
+              onChange={(e) => update(idx, { stock: e.target.value })}
+              className={INPUT_CLASS}
+              aria-label={`옵션 ${idx + 1} 재고`}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => remove(idx)}
+            aria-label={`옵션 ${idx + 1} 삭제`}
+            className="p-2 mb-0.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        disabled={lastEmpty}
+        className="flex items-center gap-1.5 text-[13px] font-medium text-[#17201B] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+      >
+        <Plus size={14} /> 옵션 추가
+      </button>
+    </div>
+  );
+}
+
+/** 추가 이미지 갤러리 편집기. 슬롯마다 ImageUploader, 빈 URL 은 저장 단계에서 버려진다. */
+function GalleryEditor({
+  images,
+  onChange,
+  entityId,
+  draftId,
+}: {
+  images: string[];
+  onChange: (next: string[]) => void;
+  entityId?: string;
+  draftId?: string;
+}) {
+  const update = (idx: number, url: string) => {
+    onChange(images.map((img, i) => (i === idx ? url : img)));
+  };
+  const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
+  const add = () => onChange([...images, '']);
+
+  const lastEmpty = images.length > 0 && images[images.length - 1].trim() === '';
+
+  return (
+    <div className="space-y-3">
+      {images.map((img, idx) => (
+        <div key={idx} className="flex items-start gap-2">
+          <div className="flex-1">
+            <ImageUploader
+              value={img}
+              onChange={(url) => update(idx, url)}
+              domain="product"
+              usage="detail"
+              entityId={entityId}
+              draftId={draftId}
+              height="140px"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => remove(idx)}
+            aria-label={`갤러리 이미지 ${idx + 1} 삭제`}
+            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        disabled={lastEmpty}
+        className="flex items-center gap-1.5 text-[13px] font-medium text-[#17201B] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+      >
+        <Plus size={14} /> 이미지 추가
+      </button>
     </div>
   );
 }
