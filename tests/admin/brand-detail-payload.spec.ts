@@ -5,6 +5,8 @@ import {
   auditReportFillState,
   validateAuditReportForm,
   emptyAuditReportForm,
+  emptyAuditReportFields,
+  canClearAuditReport,
   BRAND_DETAIL_FIELDS,
   type AuditReportFormState,
   type BrandDetailFormState,
@@ -87,6 +89,46 @@ test('부분 입력이면 안내 메시지를 반환한다(저장 차단)', () =
 test('전부 채움/전부 비움은 통과(null)', () => {
   expect(validateAuditReportForm(fullReport())).toBeNull();
   expect(validateAuditReportForm(emptyAuditReportForm())).toBeNull();
+});
+
+/* ── emptyAuditReportFields — 부분 입력 시 어느 필드가 빈지 ── */
+
+test('부분 입력이면 빈 필드 키 목록을 반환한다', () => {
+  const empties = emptyAuditReportFields(fullReport({ summary: '', headline: '' }));
+  expect(empties).toContain('summary');
+  expect(empties).toContain('headline');
+  expect(empties).not.toContain('reportNo');
+});
+
+test('process 가 공백뿐이면 빈 필드 목록에 process 가 포함된다', () => {
+  expect(emptyAuditReportFields(fullReport({ process: ['   ', ''] }))).toContain('process');
+});
+
+test('완전이면 빈 필드가 없다', () => {
+  expect(emptyAuditReportFields(fullReport())).toEqual([]);
+});
+
+/* ── canClearAuditReport — 기존 보고서 비우기 차단(적대 HIGH 회귀) ──
+ * 안내문이 "전부 비우면 플레이스홀더"라 약속하는데 계약상 실제로 안 지워진다.
+ * 기존 보고서가 있는데 폼을 전부 비운 경우만 차단(거짓 약속 제거). 이 케이스를 잠근다.
+ * ⚠️ 이 블록이 RED 증명 대상: BrandDetailEditor.handleSubmit 의 차단 로직을 제거하면
+ * "기존 보고서 있는데 비우면 차단" 시나리오가 깨진다(순수 함수는 여기서 계약을 고정).
+ */
+
+test('기존 보고서 O + 폼 전무 = 비울 수 없음(차단)', () => {
+  expect(canClearAuditReport(true, auditReportFillState(emptyAuditReportForm()))).toBe(false);
+});
+
+test('기존 보고서 O + 폼 완전 = 허용(수정)', () => {
+  expect(canClearAuditReport(true, auditReportFillState(fullReport()))).toBe(true);
+});
+
+test('기존 보고서 X + 폼 전무 = 허용(지우기 시도 아님, 신규 빈 폼)', () => {
+  expect(canClearAuditReport(false, auditReportFillState(emptyAuditReportForm()))).toBe(true);
+});
+
+test('기존 보고서 X + 폼 완전 = 허용(신규 등록)', () => {
+  expect(canClearAuditReport(false, auditReportFillState(fullReport()))).toBe(true);
 });
 
 /* ── buildAuditReportPayload ── */

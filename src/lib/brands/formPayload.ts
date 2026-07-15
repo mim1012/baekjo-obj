@@ -135,6 +135,37 @@ export function validateAuditReportForm(form: AuditReportFormState): string | nu
 }
 
 /**
+ * auditReport 폼에서 비어 있는 항목 키 목록을 반환한다(부분 입력 시 어느 필드가 빈지 UI 표시용).
+ * process 는 공백 제외 1개 이상이면 채운 것으로 본다. 전무·완전이면 per-field 표시가 불필요하므로
+ * 호출부(BrandDetailEditor)는 fillState 가 'partial' 일 때만 이 목록을 쓴다.
+ */
+export function emptyAuditReportFields(
+  form: AuditReportFormState,
+): Array<keyof AuditReportFormState> {
+  const empties: Array<keyof AuditReportFormState> = [];
+  for (const k of AUDIT_REPORT_TEXT_KEYS) {
+    if (form[k].trim().length === 0) empties.push(k);
+  }
+  if (cleanStringList(form.process).length === 0) empties.push('process');
+  return empties;
+}
+
+/**
+ * "기존 감사 보고서를 이 화면에서 비울 수 있는가" — 순수 판정(테스트 가능하게 추출).
+ * 계약 한계(§4, validate 가 auditReport:null 을 400 처리 + JSON 에서 undefined 드롭 → read-modify-write
+ * 가 기존 값 보존)로, **이미 보고서가 있는데 폼을 전부 비운** 경우는 실제로 지워지지 않는다.
+ * 안내문이 "전부 비우면 플레이스홀더" 라고 약속하면 거짓말이 되므로 그 경우만 저장을 차단한다.
+ * 신규(보고서 없던) 브랜드의 빈 폼은 지우기 시도가 아니므로 허용한다.
+ * 완전 해법(validate 가 null 을 지우기로 수용)은 별도 contract PR.
+ */
+export function canClearAuditReport(
+  hadReport: boolean,
+  fillState: 'empty' | 'complete' | 'partial',
+): boolean {
+  return !(hadReport && fillState === 'empty');
+}
+
+/**
  * auditReport 폼 → payload. '완전'이면 정규화한 BrandAuditReport, 그 외(전무·부분)는 undefined.
  * 전무일 때 undefined 를 실어 "확인 중" 플레이스홀더로 되돌린다(부분은 호출 전 검증이 막는다).
  */

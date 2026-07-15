@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Plus, X } from 'lucide-react';
 import type { Brand } from '@/types';
@@ -10,8 +10,14 @@ import {
   validateDisplayOrder,
   validateAuditReportForm,
   emptyAuditReportForm,
+  emptyAuditReportFields,
+  auditReportFillState,
+  canClearAuditReport,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
+
+/** sourceUrls 서버 상한(validate.ts MAX_SOURCE_URLS)과 동일. 초과 입력을 클라에서 막는다. */
+const MAX_SOURCE_URLS = 20;
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -84,6 +90,25 @@ export default function BrandDetailEditor({
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  // 저장 실패 시 에러 배너로 스크롤·포커스 — 대형 폼(pb-24)에서 맨 위 배너가 뷰포트 밖이라
+  // 사용자가 실패를 놓치는 문제 해소. 모든 setError 경로에 자동 적용된다.
+  useEffect(() => {
+    if (error && errorRef.current) {
+      errorRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      errorRef.current.focus();
+    }
+  }, [error]);
+
+  // 감사 보고서 채움 상태 — 부분 입력 시 어느 필드가 비었는지 per-field 로 표시한다.
+  const auditFill = auditReportFillState(auditReport);
+  const emptyReportFields =
+    auditFill === 'partial'
+      ? new Set<keyof AuditReportFormState>(emptyAuditReportFields(auditReport))
+      : new Set<keyof AuditReportFormState>();
+  const fieldError = (key: keyof AuditReportFormState): string | undefined =>
+    emptyReportFields.has(key) ? '이 항목을 채워주세요(전부 채우거나 전부 비우기).' : undefined;
 
   const setReportField = (field: keyof AuditReportFormState, value: string) => {
     setAuditReport((prev) => ({ ...prev, [field]: value }));
@@ -105,6 +130,16 @@ export default function BrandDetailEditor({
     // 부분 입력이면 여기서 사람 말로 막아 서버 400 을 예방한다.
     const reportError = validateAuditReportForm(auditReport);
     if (reportError) return setError(reportError);
+
+    // 계약 한계(§4): 이미 있는 보고서를 이 화면에서 비워도 서버가 실제로 지우지 못한다
+    // (validate 가 auditReport:null 을 거부 + undefined 는 JSON 에서 드롭돼 기존 값 보존).
+    // 안내문의 "전부 비우면 플레이스홀더" 약속이 거짓이 되므로 그 시도만 차단한다.
+    // 완전 해법(validate 가 null 수용)은 별도 contract PR.
+    if (!canClearAuditReport(!!initialBrand.auditReport, auditReportFillState(auditReport))) {
+      return setError(
+        '기존 감사 보고서는 이 화면에서 비울 수 없습니다(지우기 기능 준비 중). 내용을 수정하거나 그대로 두세요.',
+      );
+    }
 
     setIsSaving(true);
     setError(null);
@@ -160,7 +195,13 @@ export default function BrandDetailEditor({
       </PageHeader>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded border border-red-200 text-[13px] font-medium">
+        <div
+          ref={errorRef}
+          role="alert"
+          aria-live="assertive"
+          tabIndex={-1}
+          className="p-3 bg-red-50 text-red-600 rounded border border-red-200 text-[13px] font-medium outline-none"
+        >
           {error}
         </div>
       )}
@@ -290,45 +331,54 @@ export default function BrandDetailEditor({
           <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">감사 보고서</h2>
           <p className="text-[13px] text-gray-500 mb-4">
             8개 항목(단계 포함)을 <strong>모두 채우거나 모두 비워</strong> 주세요. 일부만 입력하면
-            저장되지 않습니다. 전부 비우면 공개 상세에 &lsquo;확인 중&rsquo; 플레이스홀더가 표시됩니다.
+            저장되지 않습니다.{' '}
+            {initialBrand.auditReport ? (
+              <>
+                이미 등록된 보고서라 <strong>비우기는 이 화면에서 지원되지 않습니다</strong>(준비 중).
+                내용을 수정하거나 그대로 두세요.
+              </>
+            ) : (
+              <>전부 비우면 공개 상세에 &lsquo;확인 중&rsquo; 플레이스홀더가 표시됩니다.</>
+            )}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="보고서 번호" htmlFor="ar-reportNo">
+            <FormField label="보고서 번호" htmlFor="ar-reportNo" error={fieldError('reportNo')}>
               <input id="ar-reportNo" type="text" value={auditReport.reportNo}
                 onChange={(e) => setReportField('reportNo', e.target.value)} className={INPUT_CLASS} placeholder="예: BOA-2026-001" />
             </FormField>
-            <FormField label="감사 일자" htmlFor="ar-auditedAt">
+            <FormField label="감사 일자" htmlFor="ar-auditedAt" error={fieldError('auditedAt')}>
               <input id="ar-auditedAt" type="text" value={auditReport.auditedAt}
                 onChange={(e) => setReportField('auditedAt', e.target.value)} className={INPUT_CLASS} placeholder="예: 2026-01-15" />
             </FormField>
-            <FormField label="상태" htmlFor="ar-status">
+            <FormField label="상태" htmlFor="ar-status" error={fieldError('status')}>
               <input id="ar-status" type="text" value={auditReport.status}
                 onChange={(e) => setReportField('status', e.target.value)} className={INPUT_CLASS} placeholder="예: 검증 완료" />
             </FormField>
-            <FormField label="헤드라인" htmlFor="ar-headline">
+            <FormField label="헤드라인" htmlFor="ar-headline" error={fieldError('headline')}>
               <input id="ar-headline" type="text" value={auditReport.headline}
                 onChange={(e) => setReportField('headline', e.target.value)} className={INPUT_CLASS} placeholder="한 줄 요약 제목" />
             </FormField>
           </div>
           <div className="mt-4 space-y-4">
-            <FormField label="요약 제목" htmlFor="ar-summaryTitle">
+            <FormField label="요약 제목" htmlFor="ar-summaryTitle" error={fieldError('summaryTitle')}>
               <input id="ar-summaryTitle" type="text" value={auditReport.summaryTitle}
                 onChange={(e) => setReportField('summaryTitle', e.target.value)} className={INPUT_CLASS} />
             </FormField>
-            <FormField label="요약 본문" htmlFor="ar-summary">
+            <FormField label="요약 본문" htmlFor="ar-summary" error={fieldError('summary')}>
               <textarea id="ar-summary" value={auditReport.summary}
                 onChange={(e) => setReportField('summary', e.target.value)} className={`${INPUT_CLASS} h-24 resize-none`} />
             </FormField>
-            <FormField label="선정 이유" htmlFor="ar-selectionReason">
+            <FormField label="선정 이유" htmlFor="ar-selectionReason" error={fieldError('selectionReason')}>
               <textarea id="ar-selectionReason" value={auditReport.selectionReason}
                 onChange={(e) => setReportField('selectionReason', e.target.value)} className={`${INPUT_CLASS} h-24 resize-none`} />
             </FormField>
-            <FormField label="검증 과정(단계)">
+            <FormField label="검증 과정(단계)" error={fieldError('process')}>
               <ArrayEditor
                 items={auditReport.process}
                 onChange={(next) => setAuditReport((prev) => ({ ...prev, process: next }))}
                 placeholder="예: 성분 분석 → 현장 실사 → 최종 승인"
                 addLabel="단계 추가"
+                itemLabel="검증 과정 단계"
               />
             </FormField>
           </div>
@@ -386,22 +436,25 @@ export default function BrandDetailEditor({
               onChange={setAuditPoints}
               placeholder="예: 무방부제 원료 사용"
               addLabel="포인트 추가"
+              itemLabel="검증 포인트"
             />
           </div>
           <div>
             <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">근거 출처 URL</h2>
-            <p className="text-[13px] text-gray-500 mb-4">검증 근거가 되는 링크(최대 20개, 빈 항목은 자동 제거).</p>
+            <p className="text-[13px] text-gray-500 mb-4">검증 근거가 되는 링크(최대 {MAX_SOURCE_URLS}개, 빈 항목은 자동 제거).</p>
             <ArrayEditor
               items={sourceUrls}
               onChange={setSourceUrls}
               placeholder="https://"
               addLabel="출처 추가"
+              itemLabel="근거 출처"
+              maxItems={MAX_SOURCE_URLS}
             />
           </div>
         </section>
       </form>
 
-      <div className="flex justify-end gap-3">
+      <div className="sticky bottom-0 z-10 -mb-24 flex justify-end gap-3 border-t border-gray-200 bg-[#F9F8F3] py-4">
         <button
           type="button"
           onClick={() => router.push('/admin/brands')}
@@ -483,11 +536,17 @@ function ArrayEditor({
   onChange,
   placeholder,
   addLabel,
+  itemLabel,
+  maxItems,
 }: {
   items: string[];
   onChange: (next: string[]) => void;
   placeholder?: string;
   addLabel: string;
+  /** 스크린리더용 항목 라벨. `${itemLabel} N` 으로 각 input 의 aria-label 이 된다. */
+  itemLabel?: string;
+  /** 클라 상한(서버와 동일값). 도달 시 추가 버튼 disabled. */
+  maxItems?: number;
 }) {
   const update = (idx: number, value: string) => {
     onChange(items.map((item, i) => (i === idx ? value : item)));
@@ -496,6 +555,11 @@ function ArrayEditor({
     onChange(items.filter((_, i) => i !== idx));
   };
   const add = () => onChange([...items, '']);
+
+  const atMax = maxItems !== undefined && items.length >= maxItems;
+  // 마지막 항목이 빈 문자열이면 추가 연타로 빈 행이 쌓이므로 막는다(LOW).
+  const lastEmpty = items.length > 0 && items[items.length - 1].trim() === '';
+  const addDisabled = atMax || lastEmpty;
 
   return (
     <div className="space-y-2">
@@ -508,11 +572,12 @@ function ArrayEditor({
             onChange={(e) => update(idx, e.target.value)}
             className={INPUT_CLASS}
             placeholder={placeholder}
+            aria-label={itemLabel ? `${itemLabel} ${idx + 1}` : undefined}
           />
           <button
             type="button"
             onClick={() => remove(idx)}
-            aria-label="항목 삭제"
+            aria-label={itemLabel ? `${itemLabel} ${idx + 1} 삭제` : '항목 삭제'}
             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
           >
             <X size={16} />
@@ -522,11 +587,15 @@ function ArrayEditor({
       <button
         type="button"
         onClick={add}
-        className="flex items-center gap-1.5 text-[13px] font-medium text-[#17201B] hover:underline"
+        disabled={addDisabled}
+        className="flex items-center gap-1.5 text-[13px] font-medium text-[#17201B] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
       >
         <Plus size={14} />
         {addLabel}
       </button>
+      {atMax && (
+        <p className="text-[12px] text-gray-400">최대 {maxItems}개까지 추가할 수 있습니다.</p>
+      )}
     </div>
   );
 }

@@ -189,29 +189,34 @@ export default function BrandListPage() {
     {
       key: 'actions',
       header: '관리',
-      width: '100px',
+      width: '190px',
       align: 'right' as const,
       render: (b: Brand) => (
-        <div className="flex justify-end gap-2">
+        <div className="flex justify-end items-center gap-1">
           <Link
             href={`/admin/brands/${b.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="상세 편집 (감사 보고서·대표상품 등 전 필드)"
+            aria-label={`${b.name} 상세 편집`}
           >
-            <SlidersHorizontal size={16} />
+            <SlidersHorizontal size={15} />
+            상세
           </Link>
           <button
             onClick={(e) => { e.stopPropagation(); handleEdit(b); }}
-            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="빠른 수정 (기본 정보)"
+            aria-label={`${b.name} 빠른 수정`}
           >
-            <Edit2 size={16} />
+            <Edit2 size={15} />
+            수정
           </button>
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
             title="삭제"
+            aria-label={`${b.name} 삭제`}
           >
             <Trash2 size={16} />
           </button>
