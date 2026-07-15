@@ -11,9 +11,25 @@ function normalizeAuditGrade(raw: unknown): Brand['auditGrade'] {
   return typeof raw === 'string' && AUDIT_GRADES.has(raw) ? (raw as Brand['auditGrade']) : 'B';
 }
 
+// 되읽기 방어 — 무검증 캐스트 금지. 공개 BrandAuditReport 컴포넌트가 report.headline·
+// report.process.map(...) 등으로 필드에 바로 접근하므로, 필수 필드가 없는 부분 객체를
+// auditReport로 담으면 상세 페이지가 런타임에 터진다. 누락 시 undefined(=미확인 상태 폴백).
+const AUDIT_REPORT_STR_FIELDS = [
+  'reportNo',
+  'auditedAt',
+  'status',
+  'headline',
+  'summaryTitle',
+  'summary',
+  'selectionReason',
+] as const;
+
 function detailAuditReport(raw: unknown): BrandAuditReport | undefined {
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as BrandAuditReport;
-  return undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  if (!AUDIT_REPORT_STR_FIELDS.every((k) => typeof r[k] === 'string')) return undefined;
+  if (!Array.isArray(r.process)) return undefined;
+  return raw as BrandAuditReport;
 }
 
 interface BrandRow {

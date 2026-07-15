@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { Brand } from '@/types';
 import { createBrand, updateBrand, type UpdateBrandInput, type CreateBrandInput } from '@/lib/storage';
+import { buildBrandPayload, validateDisplayOrder } from '@/lib/brands/formPayload';
 
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
@@ -47,18 +48,25 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     if (!formData.name?.trim()) return setError('브랜드명을 입력해주세요.');
     if (!formData.description?.trim()) return setError('브랜드 소개를 입력해주세요.');
 
+    // 진열 순서 클라이언트 검증(음수·소수 → 필드 에러). 없으면 서버가 400 후 통짜 에러만 낸다.
+    const orderError = validateDisplayOrder(formData.displayOrder);
+    if (orderError) return setError(orderError);
+
     setIsSaving(true);
     setError(null);
 
     try {
+      // 폼은 자기가 편집하는 화이트리스트 필드만 patch한다(BRAND_FORM_FIELDS). formData 전체를
+      // 스프레드로 되보내면 상세 페이지·시드가 소유한 auditReport·멀티셀렉트 값을 stale하게
+      // 덮어쓴다(S1 ProductForm 교훈). updateBrand가 read-modify-write라 안 보내면 기존 값 보존.
+      const payload = buildBrandPayload(formData);
       if (isEdit && initialData.id) {
-        const { error: updateError } = await updateBrand(initialData.id, formData as UpdateBrandInput);
+        const { error: updateError } = await updateBrand(initialData.id, payload as UpdateBrandInput);
         if (updateError) throw new Error(updateError);
       } else {
-        // auditPoints/representativeProductIds/relatedConcernSlugs 는 보내지 않는다 —
-        // 서버 validate(requireAll)가 누락 시 []로 기본을 채운다. 하드코딩으로 덮어쓰면
-        // 후속에 폼에서 이 값을 편집할 때 조용히 날아간다(S1 detailBlocks 교훈).
-        const { error: createError } = await createBrand(formData as CreateBrandInput);
+        // 생성도 같은 화이트리스트만 보낸다. auditPoints/representativeProductIds/
+        // relatedConcernSlugs 는 서버 validate(requireAll)가 누락 시 []로 기본을 채운다.
+        const { error: createError } = await createBrand(payload as CreateBrandInput);
         if (createError) throw new Error(createError);
       }
 
@@ -206,8 +214,9 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
               </div>
             </label>
 
-            <FormField label="진열 순서">
+            <FormField label="진열 순서" htmlFor="brand-display-order">
               <input
+                id="brand-display-order"
                 type="number"
                 value={formData.displayOrder ?? ''}
                 onChange={e => {
