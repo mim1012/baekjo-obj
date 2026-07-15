@@ -1,20 +1,21 @@
 import { RotateCcw, Store, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import type { Product } from '@/types';
+import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
 interface ProductPurchaseInfoProps {
   product: Product;
 }
 
 export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProps) {
-  const deliveryLabel = product.deliveryEstimate ?? product.shippingNotice ?? '판매 일정과 함께 안내할게요.';
-  const returnLabel = product.returnNotice ?? '판매가 시작되면 교환과 반품 기준도 함께 안내할게요.';
+  const deliveryLabel = product.deliveryEstimate ?? product.shippingNotice ?? DEFAULT_COMMERCE_POLICY.deliveryEstimate;
+  const returnLabel = product.returnNotice ?? DEFAULT_COMMERCE_POLICY.returnNotice;
   const shippingLabel =
     product.shippingFee === 0
       ? '무료 배송'
       : product.shippingFee !== undefined
         ? formatPrice(product.shippingFee)
-        : '판매 일정과 함께 안내할게요.';
+        : DEFAULT_COMMERCE_POLICY.shippingLabel;
 
   return (
     <section aria-labelledby="purchase-information-title" className="mt-8 rounded-3xl border border-[#E7E0D5] bg-[#FAF8F3] p-6">
