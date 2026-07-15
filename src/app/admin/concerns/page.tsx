@@ -28,6 +28,7 @@ export default function AdminConcernsPage() {
         faq: `${concern.faq.length}개`,
         status: `노출중 · ${index + 1}순위`,
       }))}
+      readOnly
       createFields={['고민명', '아이콘', '짧은 설명', '원인 정보', '확인 증상', '추천 상품', '추천 브랜드', '보험 CTA', 'FAQ', '노출 순서']}
     />
   );

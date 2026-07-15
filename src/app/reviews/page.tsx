@@ -1,5 +1,4 @@
 import { reviews } from '@/data/reviews';
-import { listProducts } from '@/lib/products/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
 import { Image as ImageIcon, MessageCircle, Star } from 'lucide-react';
@@ -9,8 +8,15 @@ export const metadata = {
   description: '백조오브제를 경험한 반려가족들의 진솔한 후기를 만나보세요.',
 };
 
-// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
-export const dynamic = 'force-dynamic';
+// 후기 콘텐츠는 현재 정적 데이터가 canonical 이다. 상품 DB readback 없이 review metadata 로 필터링한다.
+const reviewConcernTagsByProductId: Record<string, string[]> = {
+  p1: ['picky'],
+  p2: ['picky'],
+  p3: ['picky'],
+  p6: ['skin'],
+  p8: ['tear'],
+  p11: ['skin'],
+};
 
 export default async function ReviewsPage({
   searchParams,
@@ -18,11 +24,10 @@ export default async function ReviewsPage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter = 'all' } = await searchParams;
-  const products = await listProducts();
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'photo') return review.isPhotoReview;
     if (filter === 'all') return true;
-    return products.find((product) => product.id === review.productId)?.concernTags.includes(filter);
+    return reviewConcernTagsByProductId[review.productId]?.includes(filter) ?? false;
   });
   const avgRating = (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1);
   const photoReviewsCount = reviews.filter(r => r.isPhotoReview).length;
@@ -85,9 +90,8 @@ export default async function ReviewsPage({
         {filteredReviews.length > 0 ? (
           <div className="grid grid-cols-1 gap-x-5 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredReviews.map(review => {
-              const product = products.find(p => p.id === review.productId);
               return (
-                <ReviewCard key={review.id} review={review} productName={product?.name} />
+                <ReviewCard key={review.id} review={review} productName={review.productId} />
               );
             })}
           </div>
