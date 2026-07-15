@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink } from 'lucide-react';
-import { getAdminBrands, getAdminProducts, deleteBrand } from '@/lib/storage';
+import { getAdminBrands, getAdminProducts, deleteBrand, updateBrand } from '@/lib/storage';
 import type { Brand, Product } from '@/types';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
 import Badge from '@/components/admin-new/common/Badge';
+import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
 import BrandForm from '@/components/admin-new/brands/BrandForm';
 
@@ -30,7 +31,11 @@ export default function BrandListPage() {
         getAdminBrands(),
         getAdminProducts()
       ]);
-      setBrands(brandList);
+      // 공개 BrandsContent.tsx:46 과 동일 정책 — displayOrder 오름차순, 미지정은 뒤로.
+      const sorted = [...brandList].sort(
+        (a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+      );
+      setBrands(sorted);
       setProducts(productList);
     } catch (err) {
       console.error(err);
@@ -64,6 +69,18 @@ export default function BrandListPage() {
       await fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    }
+  };
+
+  const handleToggleVisible = async (brand: Brand) => {
+    // 콘센트 시그니처 불변 — updateBrand로 부분 패치 후 목록 갱신(낙관적 업데이트 없이 refetch).
+    const currentlyVisible = brand.isVisible !== false;
+    try {
+      const { error } = await updateBrand(brand.id, { isVisible: !currentlyVisible });
+      if (error) throw new Error(error);
+      await fetchData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '노출 상태 변경에 실패했습니다.');
     }
   };
 
@@ -134,6 +151,24 @@ export default function BrandListPage() {
       }
     },
     {
+      key: 'visible',
+      header: '노출 상태',
+      width: '110px',
+      render: (b: Brand) => {
+        const visible = b.isVisible !== false;
+        return (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleToggleVisible(b); }}
+            title="클릭하여 노출 상태 전환"
+            className="cursor-pointer"
+          >
+            <StatusBadge status={visible ? 'success' : 'neutral'} label={visible ? '노출' : '숨김'} />
+          </button>
+        );
+      }
+    },
+    {
       key: 'actions',
       header: '관리',
       width: '100px',
@@ -177,6 +212,8 @@ export default function BrandListPage() {
       <SummaryStrip 
         items={[
           { label: '전체 브랜드', value: brands.length },
+          { label: '노출', value: brands.filter(b => b.isVisible !== false).length },
+          { label: '숨김', value: brands.filter(b => b.isVisible === false).length },
           { label: '추천 브랜드', value: brands.filter(b => b.isRecommended).length },
           { label: '전체 상품', value: products.length },
         ]}

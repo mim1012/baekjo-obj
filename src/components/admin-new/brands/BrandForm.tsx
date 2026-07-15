@@ -30,6 +30,7 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     auditGrade: 'A+',
     officialUrl: '',
     isRecommended: false,
+    isVisible: true,
     ...initialData
   });
 
@@ -54,12 +55,10 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
         const { error: updateError } = await updateBrand(initialData.id, formData as UpdateBrandInput);
         if (updateError) throw new Error(updateError);
       } else {
-        const { error: createError } = await createBrand({
-          ...formData,
-          auditPoints: [],
-          representativeProductIds: [],
-          relatedConcernSlugs: [],
-        } as CreateBrandInput);
+        // auditPoints/representativeProductIds/relatedConcernSlugs 는 보내지 않는다 —
+        // 서버 validate(requireAll)가 누락 시 []로 기본을 채운다. 하드코딩으로 덮어쓰면
+        // 후속에 폼에서 이 값을 편집할 때 조용히 날아간다(S1 detailBlocks 교훈).
+        const { error: createError } = await createBrand(formData as CreateBrandInput);
         if (createError) throw new Error(createError);
       }
 
@@ -180,6 +179,47 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
                 <span className="text-[12px] text-gray-500">체크 시 브랜드관 상단 또는 추천 영역에 노출됩니다.</span>
               </div>
             </label>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={formData.isVisible !== false}
+                onChange={e => handleChange('isVisible', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+              <div>
+                <span className="text-[14px] font-medium text-[#17201B] block">브랜드관 노출</span>
+                <span className="text-[12px] text-gray-500">체크 해제 시 브랜드관·상세에서 숨겨집니다.</span>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded cursor-pointer hover:bg-gray-50">
+              <input
+                type="checkbox"
+                checked={formData.isNew || false}
+                onChange={e => handleChange('isNew', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+              <div>
+                <span className="text-[14px] font-medium text-[#17201B] block">신규 브랜드 뱃지</span>
+                <span className="text-[12px] text-gray-500">체크 시 &lsquo;새로 만난 브랜드&rsquo; 필터에 노출됩니다.</span>
+              </div>
+            </label>
+
+            <FormField label="진열 순서">
+              <input
+                type="number"
+                value={formData.displayOrder ?? ''}
+                onChange={e => {
+                  const v = e.target.value;
+                  handleChange('displayOrder', v === '' ? undefined : Number(v));
+                }}
+                min={0}
+                step={1}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                placeholder="낮을수록 먼저 노출 (미입력 시 뒤로)"
+              />
+            </FormField>
           </form>
         </div>
 

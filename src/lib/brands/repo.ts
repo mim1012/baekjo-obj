@@ -37,6 +37,8 @@ function rowToBrand(row: BrandRow): Brand {
   return {
     id: row.id,
     name: row.name,
+    officialUrl: typeof d.officialUrl === 'string' ? d.officialUrl : undefined,
+    sourceUrls: Array.isArray(d.sourceUrls) ? (d.sourceUrls as string[]) : undefined,
     logo: typeof d.logo === 'string' ? d.logo : '',
     description: typeof d.description === 'string' ? d.description : '',
     philosophy: typeof d.philosophy === 'string' ? d.philosophy : '',
