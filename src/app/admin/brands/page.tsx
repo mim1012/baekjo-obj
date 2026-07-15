@@ -1,20 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink } from 'lucide-react';
-import { getAdminBrands, getAdminProducts, deleteBrand } from '@/lib/storage';
+import Link from 'next/link';
+import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink, SlidersHorizontal } from 'lucide-react';
+import { getAdminBrands, getAdminProducts, deleteBrand, updateBrand } from '@/lib/storage';
 import type { Brand, Product } from '@/types';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
 import Badge from '@/components/admin-new/common/Badge';
+import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
 import BrandForm from '@/components/admin-new/brands/BrandForm';
 
 export default function BrandListPage() {
-  const router = useRouter();
-  
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,6 +21,8 @@ export default function BrandListPage() {
   const [keyword, setKeyword] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
+  // 노출 토글이 진행 중인 브랜드 id. 버튼 disabled + 중복 클릭 무시(M1 in-flight 가드).
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
     setLoading(true);
@@ -30,7 +31,11 @@ export default function BrandListPage() {
         getAdminBrands(),
         getAdminProducts()
       ]);
-      setBrands(brandList);
+      // 공개 BrandsContent.tsx:46 과 동일 정책 — displayOrder 오름차순, 미지정은 뒤로.
+      const sorted = [...brandList].sort(
+        (a, b) => (a.displayOrder ?? Number.MAX_SAFE_INTEGER) - (b.displayOrder ?? Number.MAX_SAFE_INTEGER)
+      );
+      setBrands(sorted);
       setProducts(productList);
     } catch (err) {
       console.error(err);
@@ -64,6 +69,32 @@ export default function BrandListPage() {
       await fetchData();
     } catch (err) {
       alert(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    }
+  };
+
+  const handleToggleVisible = async (brand: Brand) => {
+    if (togglingIds.has(brand.id)) return; // 이미 진행 중이면 재클릭 무시(M1)
+
+    const currentlyVisible = brand.isVisible !== false;
+    const next = !currentlyVisible;
+
+    // 낙관적 업데이트 — 해당 row의 isVisible만 즉시 뒤집는다. 전체 fetchData(=스피너로
+    // 목록 교체)를 토글 경로에서 호출하지 않아 깜빡임·스크롤 점프가 없다. 실패 시 롤백.
+    setBrands(prev => prev.map(b => (b.id === brand.id ? { ...b, isVisible: next } : b)));
+    setTogglingIds(prev => new Set(prev).add(brand.id));
+
+    try {
+      const { error } = await updateBrand(brand.id, { isVisible: next });
+      if (error) throw new Error(error);
+    } catch (err) {
+      setBrands(prev => prev.map(b => (b.id === brand.id ? { ...b, isVisible: currentlyVisible } : b)));
+      alert(err instanceof Error ? err.message : '노출 상태 변경에 실패했습니다.');
+    } finally {
+      setTogglingIds(prev => {
+        const nextSet = new Set(prev);
+        nextSet.delete(brand.id);
+        return nextSet;
+      });
     }
   };
 
@@ -134,23 +165,58 @@ export default function BrandListPage() {
       }
     },
     {
+      key: 'visible',
+      header: '노출 상태',
+      width: '110px',
+      render: (b: Brand) => {
+        const visible = b.isVisible !== false;
+        const busy = togglingIds.has(b.id);
+        return (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleToggleVisible(b); }}
+            disabled={busy}
+            aria-pressed={visible}
+            aria-label={`브랜드관 노출 ${visible ? '켜짐' : '꺼짐'}, 클릭하여 전환`}
+            title="클릭하여 노출 상태 전환"
+            className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <StatusBadge status={visible ? 'success' : 'neutral'} label={visible ? '노출' : '숨김'} />
+          </button>
+        );
+      }
+    },
+    {
       key: 'actions',
       header: '관리',
-      width: '100px',
+      width: '190px',
       align: 'right' as const,
       render: (b: Brand) => (
-        <div className="flex justify-end gap-2">
-          <button 
-            onClick={(e) => { e.stopPropagation(); handleEdit(b); }}
-            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
-            title="수정"
+        <div className="flex justify-end items-center gap-1">
+          <Link
+            href={`/admin/brands/${b.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            title="상세 편집 (감사 보고서·대표상품 등 전 필드)"
+            aria-label={`${b.name} 상세 편집`}
           >
-            <Edit2 size={16} />
+            <SlidersHorizontal size={15} />
+            상세
+          </Link>
+          <button
+            onClick={(e) => { e.stopPropagation(); handleEdit(b); }}
+            className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            title="빠른 수정 (기본 정보)"
+            aria-label={`${b.name} 빠른 수정`}
+          >
+            <Edit2 size={15} />
+            수정
           </button>
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
             title="삭제"
+            aria-label={`${b.name} 삭제`}
           >
             <Trash2 size={16} />
           </button>
@@ -177,6 +243,8 @@ export default function BrandListPage() {
       <SummaryStrip 
         items={[
           { label: '전체 브랜드', value: brands.length },
+          { label: '노출', value: brands.filter(b => b.isVisible !== false).length },
+          { label: '숨김', value: brands.filter(b => b.isVisible === false).length },
           { label: '추천 브랜드', value: brands.filter(b => b.isRecommended).length },
           { label: '전체 상품', value: products.length },
         ]}
