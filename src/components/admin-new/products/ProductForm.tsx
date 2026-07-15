@@ -412,7 +412,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 <input
                   type="number"
                   min="0"
-                  value={formData.price ?? 0}
+                  value={formData.price || ''}
                   onChange={(e) => handleChange('price', Number(e.target.value))}
                   className={INPUT_CLASS}
                 />
@@ -421,7 +421,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 <input
                   type="number"
                   min="0"
-                  value={formData.salePrice || 0}
+                  value={formData.salePrice || ''}
                   onChange={(e) => handleChange('salePrice', Number(e.target.value))}
                   className={INPUT_CLASS}
                 />
@@ -430,7 +430,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 <input
                   type="number"
                   min="0"
-                  value={formData.stock || 0}
+                  value={formData.stock || ''}
                   onChange={(e) => handleChange('stock', Number(e.target.value))}
                   className={INPUT_CLASS}
                 />
