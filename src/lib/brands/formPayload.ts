@@ -26,7 +26,9 @@ export const BRAND_FORM_FIELDS = [
 /**
  * 폼 상태에서 화이트리스트 필드만 골라 명시적으로 payload를 구성한다(암묵적 스프레드 금지).
  * - create/update 둘 다 이 payload만 보낸다(create는 서버 validate가 requireAll로 필수를 확인).
- * - officialUrl 빈 문자열은 DB에 ''로 저장되지 않도록 제외한다(LOW-1).
+ * - officialUrl은 빈 문자열을 그대로 실어 **지우기**를 지원한다. 서버 validate가 빈 문자열을
+ *   허용하고(지우기 경로) read-modify-write가 기존 값을 ''로 덮어 URL이 실제로 삭제된다.
+ *   빈 문자열을 payload에서 빼면 안 보내져 기존 URL이 보존돼 영영 못 지운다(그게 회귀였다).
  * - displayOrder는 값이 있을 때만 보낸다(미입력 = 서버 기본/기존값 유지).
  */
 export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
@@ -36,13 +38,11 @@ export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
     description: formData.description,
     philosophy: formData.philosophy,
     auditGrade: formData.auditGrade,
+    officialUrl: formData.officialUrl?.trim() ?? '',
     isRecommended: formData.isRecommended ?? false,
     isVisible: formData.isVisible !== false,
     isNew: formData.isNew ?? false,
   };
-
-  const officialUrl = formData.officialUrl?.trim();
-  if (officialUrl) payload.officialUrl = officialUrl;
 
   if (formData.displayOrder !== undefined) payload.displayOrder = formData.displayOrder;
 

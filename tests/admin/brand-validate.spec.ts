@@ -184,11 +184,13 @@ test('payload 는 화이트리스트 필드만 담는다', () => {
   expect(payload.auditGrade).toBe('A+');
 });
 
-test('payload: officialUrl 빈 문자열/공백은 제외한다(빈 문자열 DB 저장 방지, LOW-1)', () => {
-  const empty = buildBrandPayload(loadedFormData({ officialUrl: '' }));
-  expect(empty.officialUrl).toBeUndefined();
+test('payload: officialUrl 빈 문자열은 그대로 실어 지우기를 지원한다', () => {
+  // 값이 있던 브랜드의 URL을 지우려면 payload에 ''가 실려야 한다. 제외하면(안 보내면)
+  // read-modify-write가 기존 URL을 보존해 영영 못 지운다 — 그게 회귀였다.
+  const cleared = buildBrandPayload(loadedFormData({ officialUrl: '' }));
+  expect(cleared.officialUrl).toBe('');
   const blank = buildBrandPayload(loadedFormData({ officialUrl: '   ' }));
-  expect(blank.officialUrl).toBeUndefined();
+  expect(blank.officialUrl, '공백만 입력해도 지우기로 정규화').toBe('');
   const trimmed = buildBrandPayload(loadedFormData({ officialUrl: '  https://x.com  ' }));
   expect(trimmed.officialUrl).toBe('https://x.com');
 });
