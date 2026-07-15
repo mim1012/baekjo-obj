@@ -19,6 +19,8 @@ interface AdminResourcePageProps {
   createFields?: string[];
   /** true면 쓰기 API가 없는 정적 콘텐츠 화면으로 취급해 등록/수정/삭제 UI를 숨긴다. */
   readOnly?: boolean;
+  /** true면 행 수정 모달을 숨긴다(수정 저장 경로가 아직 없는 화면용). */
+  disableEdit?: boolean;
   /** 관리 셀(수정/삭제 앞)에 행별 커스텀 액션(승인/반려 버튼 등)을 렌더링한다. */
   customActions?: (row: Record<string, string | number>) => React.ReactNode;
   /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
@@ -48,6 +50,7 @@ export default function AdminResourcePage({
   filters = ['전체 상태'],
   createFields = [],
   readOnly = false,
+  disableEdit = false,
   customActions,
   renderExpandedRow,
   onDeleteRow,
@@ -63,7 +66,9 @@ export default function AdminResourcePage({
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedRowId, setExpandedRowId] = useState<string | number | null>(null);
   const ITEMS_PER_PAGE = 20;
-  const hasRowActions = !readOnly || customActions != null;
+  const canEditRows = !readOnly && !disableEdit;
+  const canDeleteRows = !readOnly;
+  const hasRowActions = canEditRows || canDeleteRows || customActions != null;
 
   const handleEdit = (row: Record<string, string | number>) => {
     setEditingRow(row);
@@ -235,11 +240,11 @@ export default function AdminResourcePage({
                       {hasRowActions && (
                         <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           {customActions?.(row)}
-                          {!readOnly && (
-                            <>
-                              <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
-                              <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
-                            </>
+                          {canEditRows && (
+                            <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                          )}
+                          {canDeleteRows && (
+                            <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
                           )}
                         </td>
                       )}
@@ -306,7 +311,7 @@ export default function AdminResourcePage({
       </div>
 
       {/* 수정 모달 */}
-      {!readOnly && editingRow && (
+      {canEditRows && editingRow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
