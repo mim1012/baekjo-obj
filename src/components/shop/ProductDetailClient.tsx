@@ -9,6 +9,7 @@ import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { getCurrentUser } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
+import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
 interface Props {
   product: Product;
@@ -186,7 +187,7 @@ export default function ProductDetailClient({ product }: Props) {
             <span className="text-[#6F766F]">
               {product.shippingFee !== undefined
                 ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
-                : '공식 판매가 확인 후 안내'}
+                : DEFAULT_COMMERCE_POLICY.shippingLabel}
             </span>
           </div>
           <div className="flex">
