@@ -190,8 +190,7 @@ export default function ProductDetailClient({ product }: Props) {
                 : DEFAULT_COMMERCE_POLICY.shippingLabel}
             </span>
           </div>
-          {/* 적립금 행 제거: 구매확정·적립 원장이 아직 없어 "최대 5% 적립"은 허위 문구였다.
-              지급 로직 구현 후 product.pointsEnabled && product.pointsRate 조건부로 되살릴 예정. */}
+          {/* 적립금 행 제거: 구매확정·적립 원장이 아직 없어 "최대 5% 적립"은 허위 문구였다. 지급 로직 구현 후 product.pointsEnabled && product.pointsRate 조건부로 되살릴 예정. */}
         </div>
 
         {/* Options */}

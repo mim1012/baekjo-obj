@@ -194,6 +194,8 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     isVisible: formData.isVisible,
     isBest: formData.isBest,
     isRecommended: formData.isRecommended,
+    pointsEnabled: formData.pointsEnabled,
+    pointsRate: formData.pointsRate,
   });
 
   const handleSave = async () => {
@@ -463,7 +465,13 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
               <input
                 type="checkbox"
                 checked={formData.pointsEnabled || false}
-                onChange={(e) => handleChange('pointsEnabled', e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  handleChange('pointsEnabled', checked);
+                  if (!checked) {
+                    handleChange('pointsRate', undefined);
+                  }
+                }}
                 className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
               />
             </label>
