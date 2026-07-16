@@ -191,6 +191,7 @@ export const products: Product[] = [
     description: '오미프로의 공개 제품군을 백조오브제에서 강아지용과 고양이용으로 나누어 판매하기 위한 내부 구성입니다.',
     isBest: true,
     isRecommended: true,
+    isVisible: false,
     options: [
       { id: 'opt6_1', name: '강아지용 OMIPRO-D', price: 0, stock: 100 },
       { id: 'opt6_2', name: '고양이용 OMIPRO-C', price: 0, stock: 100 }
@@ -298,6 +299,7 @@ export const products: Product[] = [
     description: '브러싱을 관리가 아닌 교감의 시간으로 바꿉니다.',
     isBest: false,
     isRecommended: false,
+    isVisible: false,
     options: [
       { id: 'opt10_1', name: '기본형', price: 0, stock: 150 }
     ]
@@ -322,6 +324,7 @@ export const products: Product[] = [
     description: '브러싱을 관리가 아닌 교감의 시간으로 바꿉니다.',
     isBest: true,
     isRecommended: true,
+    isVisible: false,
     options: [
       { id: 'opt11_1', name: '베이지', price: 0, stock: 100 },
       { id: 'opt11_2', name: '핑크', price: 0, stock: 100 },
@@ -381,6 +384,7 @@ export const products: Product[] = [
     description: '알로밍의 트루그루밍 브러시 대표 상품입니다. 브러싱을 관리가 아닌 교감의 시간으로 제안하는 상품군으로 분류합니다.',
     isBest: false,
     isRecommended: false,
+    isVisible: false,
     options: [
       { id: 'opt13_1', name: '베이지', price: 0, stock: 40 },
       { id: 'opt13_2', name: '핑크', price: 0, stock: 40 },
@@ -411,6 +415,7 @@ export const products: Product[] = [
     description: '알로밍 트루그루밍 브러시의 다크그레이 컬러 상품입니다. 색상은 백조오브제 내부 옵션으로 관리합니다.',
     isBest: true,
     isRecommended: true,
+    isVisible: false,
     options: [
       { id: 'opt14_1', name: '기본형', price: 0, stock: 100 }
     ]
@@ -475,6 +480,7 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: true,
+    isVisible: false,
   },
   {
     id: 'p17',
@@ -501,6 +507,7 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: true,
+    isVisible: false,
   },
   {
     id: 'p18',
@@ -527,6 +534,7 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: true,
+    isVisible: false,
   },
   {
     id: 'p19',
@@ -553,6 +561,7 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: false,
+    isVisible: false,
   },
   {
     id: 'p20',
@@ -579,6 +588,7 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: false,
+    isVisible: false,
   },
   {
     id: 'p21',
@@ -636,5 +646,6 @@ export const products: Product[] = [
     isMembersOnlyPrice: true,
     isBest: false,
     isRecommended: false,
+    isVisible: false,
   }
 ];
