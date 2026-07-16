@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Order, ProductReview, Product } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
+import { buildTrackingUrl, CARRIER_LABELS, isCarrierCode } from '@/lib/carriers';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { PackageSearch } from 'lucide-react';
@@ -70,14 +71,37 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
       </div>
 
       <div className="flex flex-col gap-6">
-        {paginatedOrders.map((order) => (
+        {paginatedOrders.map((order) => {
+          const trackingUrl = buildTrackingUrl(order.carrier, order.trackingNumber);
+          const carrierLabel = order.carrier && isCarrierCode(order.carrier) ? CARRIER_LABELS[order.carrier] : null;
+
+          return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EBE6DC] bg-[#F8F6F0] px-6 py-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <span className="font-editorial text-sm font-semibold text-[#18231F]">
                   {formatDate(order.createdAt)}
                 </span>
                 <span className="text-sm text-[#68716C]">주문번호 {order.id}</span>
+                {order.trackingNumber && (
+                  trackingUrl ? (
+                    <a
+                      href={trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold text-[#18231F] hover:underline"
+                    >
+                      배송조회
+                      <span className="ml-1 text-xs font-normal text-[#68716C]">
+                        {carrierLabel} {order.trackingNumber}
+                      </span>
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[#68716C]">
+                      {carrierLabel ? `${carrierLabel} ` : ''}{order.trackingNumber}
+                    </span>
+                  )
+                )}
               </div>
               <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
                 상세보기
@@ -153,7 +177,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <Pagination
