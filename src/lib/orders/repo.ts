@@ -194,9 +194,10 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
   if (updates.orderStatus !== undefined) patch.order_status = updates.orderStatus;
   if (updates.paymentStatus !== undefined) patch.payment_status = updates.paymentStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
-  if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber ?? null;
   // 빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
-  // 매번 falsy 검사를 해야 한다.
+  // 매번 falsy 검사를 해야 한다. trackingNumber/carrier가 같은 규칙을 따라야 `tracking_number IS NULL`
+  // 같은 운영 쿼리(미발송 주문 조회 등)가 조용히 어긋나지 않는다.
+  if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber || null;
   if (updates.carrier !== undefined) patch.carrier = updates.carrier || null;
   if (updates.deliveryMemo !== undefined) patch.delivery_memo = updates.deliveryMemo ?? null;
   if (Object.keys(patch).length === 0) return;
