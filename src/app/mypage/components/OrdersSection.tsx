@@ -87,29 +87,44 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
             <div className="flex flex-col divide-y divide-[#EBE6DC]">
               {order.items.map((item, idx) => {
                 const product = products.find((p) => p.id === item.productId);
+                const canOpenProduct = Boolean(product && product.isVisible !== false);
                 const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
                 const hasReview = reviews.some((r) => r.reviewTargetKey === reviewTargetKey);
-                const canWriteReview = order.orderStatus === '배송완료' && !hasReview;
+                const canWriteReview = Boolean(product) && order.orderStatus === '배송완료' && !hasReview;
 
                 return (
                   <div key={`${order.id}-${idx}`} className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex gap-4">
-                      <Link href={`/shop/${item.productId}`} className="shrink-0">
-                        <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                      {canOpenProduct ? (
+                        <Link href={`/shop/${item.productId}`} className="shrink-0">
+                          <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                            {product?.image ? (
+                              <Image src={product.image} alt={item.productName} fill className="object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-gray-100" />
+                            )}
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
                           {product?.image ? (
                             <Image src={product.image} alt={item.productName} fill className="object-cover" />
                           ) : (
                             <div className="h-full w-full bg-gray-100" />
                           )}
                         </div>
-                      </Link>
+                      )}
                       <div className="flex flex-col justify-center">
                         {product?.brandName && (
                           <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
                         )}
-                        <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
-                          {item.productName}
-                        </Link>
+                        {canOpenProduct ? (
+                          <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
+                            {item.productName}
+                          </Link>
+                        ) : (
+                          <span className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1">{item.productName}</span>
+                        )}
                         {item.optionName && (
                           <span className="mt-1 text-xs text-[#68716C] line-clamp-1">{item.optionName}</span>
                         )}

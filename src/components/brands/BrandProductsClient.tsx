@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Edit2, Plus, Trash2 } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import { SectionHeading } from '@/components/common/EditorialHeading';
-import { getCurrentUser, getPartnerProducts, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
+import { getCurrentUser, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
 import { Product, Brand, User } from '@/types';
 
 interface BrandProductsClientProps {
@@ -33,29 +33,9 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
 
   const hasAdminRights = user?.role === 'admin' || (user?.role === 'partner' && user.managedBrandIds?.includes(brand.id));
 
-  useEffect(() => {
-    // 서버 wrapper(brands/[id]/page.tsx)의 initialProducts는 공개 방문자 기준으로 비노출
-    // 상품을 걸러낸 목록이다(§4). 관리 권한이 확인되면 비노출 포함 전체 목록으로 교체해
-    // 판매 준비 중인 상품도 이 화면에서 편집할 수 있게 한다.
-    if (!hasAdminRights) return;
-    let cancelled = false;
-    getPartnerProducts(brand.id).then(({ products: full, error }) => {
-      if (cancelled) return;
-      if (error || !full) {
-        // 실패 시 기존 목록(서버가 내려준 공개 목록 또는 직전 성공 목록)을 그대로 유지한다 —
-        // 빈 배열로 덮어써 "상품이 없다"로 보이면 관리자가 실수로 전부 지운 것처럼 오인할 수 있다.
-        alert('상품 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.');
-        return;
-      }
-      setProducts(full);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasAdminRights, brand.id]);
-
-  const representativeProducts = products.filter((p) => brand.representativeProductIds.includes(p.id));
-  const additionalProducts = products.filter((p) => !brand.representativeProductIds.includes(p.id));
+  const visibleProducts = products.filter((product) => product.isVisible !== false);
+  const representativeProducts = visibleProducts.filter((p) => brand.representativeProductIds.includes(p.id));
+  const additionalProducts = visibleProducts.filter((p) => !brand.representativeProductIds.includes(p.id));
 
   const handleDelete = async (id: string, name: string) => {
     if (deletingIds.has(id)) return; // 이미 삭제 요청이 진행 중 — 더블클릭으로 중복 요청/오탐 알림 방지
@@ -145,7 +125,7 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
           <SectionHeading
             eyebrow="먼저 만나볼 상품"
             title="이 브랜드에서 먼저 보여드리고 싶은 것들"
-            description="브랜드의 방향을 잘 보여주는 상품부터 차분히 모았어요. 판매 준비 중인 상품은 현재 상태를 그대로 안내합니다."
+            description="브랜드의 방향을 잘 보여주는 공개 상품부터 차분히 모았어요."
           />
           <div className="flex flex-wrap items-center gap-3">
             {hasAdminRights && (
