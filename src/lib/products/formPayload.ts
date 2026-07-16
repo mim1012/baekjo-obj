@@ -39,6 +39,8 @@ export const PRODUCT_FORM_FIELDS = [
   'isVisible',
   'isBest',
   'isRecommended',
+  'pointsEnabled',
+  'pointsRate',
 ] as const;
 
 /** 옵션 하위 폼 상태. 값은 문자열(입력 그대로)로 들고 payload 단계에서 정규화한다. */
@@ -114,6 +116,8 @@ export interface ProductFormState {
   isVisible?: boolean;
   isBest?: boolean;
   isRecommended?: boolean;
+  pointsEnabled?: boolean;
+  pointsRate?: number;
 }
 
 /**
@@ -153,12 +157,18 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     isVisible: form.isVisible ?? false,
     isBest: form.isBest ?? false,
     isRecommended: form.isRecommended ?? false,
+    pointsEnabled: form.pointsEnabled ?? false,
   };
 
   // shippingFee 는 숫자일 때만 담는다. null/undefined(미입력)면 키를 빼 기존/기본값을 보존한다
   // (validate 가 shippingFee 를 non-null number 로만 받으므로 null 을 실으면 400 이 된다).
   if (typeof form.shippingFee === 'number' && Number.isFinite(form.shippingFee)) {
     fields.shippingFee = form.shippingFee;
+  }
+
+  // pointsRate 도 shippingFee 와 동일 규칙: 숫자일 때만 실어 미입력 시 기존값을 보존한다.
+  if (typeof form.pointsRate === 'number' && Number.isFinite(form.pointsRate)) {
+    fields.pointsRate = form.pointsRate;
   }
 
   return fields;
