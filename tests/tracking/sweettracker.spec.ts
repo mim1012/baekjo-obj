@@ -41,12 +41,33 @@ test.describe('levelToDeliveryStatus', () => {
     expect(levelToDeliveryStatus(1)).toBe('배송준비');
   });
 
+  test('level 2(집화완료) → 배송중', () => {
+    // 2는 "이미 판매자 손을 떠났다"는 뜻이라 배송준비로 두면 관리자가 오해한다 — 파일 상단
+    // levelToDeliveryStatus 주석이 이 결정을 방어하고 있으므로 회귀 시 컴파일 없이 조용히
+    // 배송준비로 되돌아가는 것을 이 테스트가 잡는다.
+    expect(levelToDeliveryStatus(2)).toBe('배송중');
+  });
+
   test('level 3 → 배송중', () => {
     expect(levelToDeliveryStatus(3)).toBe('배송중');
   });
 
+  test('level 4 → 배송중', () => {
+    expect(levelToDeliveryStatus(4)).toBe('배송중');
+  });
+
+  test('level 5(배송출발) → 배송중', () => {
+    expect(levelToDeliveryStatus(5)).toBe('배송중');
+  });
+
   test('level 6 → 배송완료', () => {
     expect(levelToDeliveryStatus(6)).toBe('배송완료');
+  });
+
+  test('범위 밖 값(0, 7, -1)은 보수적으로 배송준비/배송완료로 폴백한다', () => {
+    expect(levelToDeliveryStatus(0)).toBe('배송준비');
+    expect(levelToDeliveryStatus(-1)).toBe('배송준비');
+    expect(levelToDeliveryStatus(7)).toBe('배송완료');
   });
 });
 
@@ -117,6 +138,69 @@ test.describe('fetchTrackingInfo', () => {
         expect(result.deliveryStatus).toBe('배송준비');
         expect(result.steps).toEqual([]);
       }
+    } finally {
+      restore();
+    }
+  });
+
+  test('result:"Y" + level 누락 → quota-or-api-error (isValidLevel이 유일한 안전망)', async () => {
+    // not-found 가드가 result==='N'으로 좁혀진 뒤에는 level 방어가 가장 큰 회귀 위험 표면이다.
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        trackingDetails: [],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
+    } finally {
+      restore();
+    }
+  });
+
+  test('result:"Y" + level이 문자열("3") → quota-or-api-error', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: '3',
+        trackingDetails: [],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
+    } finally {
+      restore();
+    }
+  });
+
+  test('result:"Y" + level:0 → quota-or-api-error (범위 밖)', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 0,
+        trackingDetails: [],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
     } finally {
       restore();
     }

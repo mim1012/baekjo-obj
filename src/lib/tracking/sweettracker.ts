@@ -184,7 +184,12 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
   try {
     body = (await res.json()) as RawTrackingInfoResponse;
   } catch (error) {
-    logServerError('sweettracker.fetchTrackingInfo:parse', error);
+    // JSON 파싱 실패 시의 에러도 네트워크 catch(:171)와 동일한 이유로 sanitize한다 — 이 파일이
+    // 선언한 위협모델(:124-127)상 URL(=API 키)이 메시지에 섞여 나올 가능성을 배제할 수 없다.
+    logServerError(
+      'sweettracker.fetchTrackingInfo:parse',
+      sanitizeFetchErrorForLog(error, apiKey),
+    );
     return { ok: false, reason: 'quota-or-api-error', message: '응답 파싱 실패' };
   }
 
