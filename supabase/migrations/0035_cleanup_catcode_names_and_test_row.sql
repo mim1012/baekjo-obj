@@ -1,6 +1,6 @@
 -- 0035_cleanup_catcode_names_and_test_row.sql
 --
--- 배경: 정본(src/data/*.ts)이 prod 현실을 모른 채 갈라져 있었다(상품 22개 중 18개 drift).
+-- 배경: 정본(src/data/*.ts)이 prod 현실을 모른 채 갈라져 있었다(상품 22개 중 21개 drift — detail 포함).
 --   사용자 결정(2026-07-16): **prod 가 진실** — 정본을 prod 기준으로 전수 동기화한다.
 --   그 동기화가 성립하려면 prod 쪽에도 폐기 브랜드명 잔재 제거·쓰레기 행 제거가 필요해서
 --   이 마이그레이션을 둔다. 같은 PR 에서 src/data/products.ts 를 prod 값으로 역기입했다(§4).

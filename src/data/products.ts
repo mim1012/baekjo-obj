@@ -278,8 +278,8 @@ export const products: Product[] = [
     description: '브러싱을 관리가 아닌 교감의 시간으로 바꿉니다.',
     isBest: false,
     isRecommended: false,
-    // 실제 제품명·실사진 미확정(이름에 폐기된 브랜드 '캣코드'가 남아 있고 이미지가 플레이스홀더 SVG)
-    // 이라 노출 보류. 확정되면 isVisible 제거 + 0033 의 가격/재고와 함께 재노출.
+    // 실사진 미확정(이미지가 플레이스홀더 SVG)이라 노출 보류.
+    // 확정되면 isVisible 제거 + 0033 의 가격/재고와 함께 재노출.
     isVisible: false,
     options: [
       { id: 'opt9_1', name: '베이지', price: 0, stock: 40 },
