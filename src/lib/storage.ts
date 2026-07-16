@@ -273,7 +273,15 @@ export async function getLastOrder(): Promise<Order | null> {
 export async function updateOrderStatus(
   id: string,
   updates: Partial<
-    Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
+    Pick<
+      Order,
+      | 'orderStatus'
+      | 'paymentStatus'
+      | 'deliveryStatus'
+      | 'trackingNumber'
+      | 'carrier'
+      | 'deliveryMemo'
+    >
   >,
 ): Promise<void> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {

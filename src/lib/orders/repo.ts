@@ -183,7 +183,10 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
 
 /** 관리자 주문 상태 변경. 허용 필드만 반영한다(라우트에서 화이트리스트 검증됨). */
 export type OrderStatusUpdate = Partial<
-  Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
+  Pick<
+    Order,
+    'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier' | 'deliveryMemo'
+  >
 >;
 
 export async function updateOrderStatus(id: string, updates: OrderStatusUpdate): Promise<void> {
@@ -193,6 +196,7 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
   if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber ?? null;
   if (updates.carrier !== undefined) patch.carrier = updates.carrier ?? null;
+  if (updates.deliveryMemo !== undefined) patch.delivery_memo = updates.deliveryMemo ?? null;
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await getSupabase().from('orders').update(patch).eq('id', id);
