@@ -1,0 +1,299 @@
+import { test, expect } from '@playwright/test';
+import {
+  fetchTrackingInfo,
+  fetchKeyUsage,
+  levelToDeliveryStatus,
+} from '@/lib/tracking/sweettracker';
+
+// 스마트택배(Sweet Tracker) 조회 클라이언트 순수 함수 스펙 — 브라우저/DB/실 네트워크 불필요.
+// fetch를 stub해서 검증한다: FREE 플랜(100건/월)을 CI가 소진하면 안 되므로 라이브 호출 절대 금지.
+
+type FetchStub = (url: string, init?: RequestInit) => Promise<Response>;
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+  } as Response;
+}
+
+function installFetchStub(stub: FetchStub): () => void {
+  const original = globalThis.fetch;
+  globalThis.fetch = stub as typeof fetch;
+  return () => {
+    globalThis.fetch = original;
+  };
+}
+
+const ORIGINAL_ENV_KEY = process.env.SWEETTRACKER_API_KEY;
+
+test.afterEach(() => {
+  if (ORIGINAL_ENV_KEY === undefined) {
+    delete process.env.SWEETTRACKER_API_KEY;
+  } else {
+    process.env.SWEETTRACKER_API_KEY = ORIGINAL_ENV_KEY;
+  }
+});
+
+test.describe('levelToDeliveryStatus', () => {
+  test('level 1 → 배송준비', () => {
+    expect(levelToDeliveryStatus(1)).toBe('배송준비');
+  });
+
+  test('level 3 → 배송중', () => {
+    expect(levelToDeliveryStatus(3)).toBe('배송중');
+  });
+
+  test('level 6 → 배송완료', () => {
+    expect(levelToDeliveryStatus(6)).toBe('배송완료');
+  });
+});
+
+test.describe('fetchTrackingInfo', () => {
+  test('알 수 없는 택배사 코드 → invalid-carrier (fetch 호출 없음)', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    let called = false;
+    const restore = installFetchStub(async () => {
+      called = true;
+      return jsonResponse({});
+    });
+    try {
+      const result = await fetchTrackingInfo('does-not-exist', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'invalid-carrier' });
+      expect(called).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  test('API 키 미설정 → no-api-key, throw 하지 않음 (fetch 호출 없음)', async () => {
+    delete process.env.SWEETTRACKER_API_KEY;
+    let called = false;
+    const restore = installFetchStub(async () => {
+      called = true;
+      return jsonResponse({});
+    });
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'no-api-key' });
+      expect(called).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  test('HTTP 200 + result:"N" (미등록 송장 함정) → not-found', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({ result: 'N', trackingDetails: [] }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'not-found' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('level 1 응답 → ok:true, deliveryStatus=배송준비', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 1,
+        trackingDetails: [
+          { time: 1, timeString: '2026-07-16 09:00', where: '판매자', kind: '상품인수' },
+        ],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.level).toBe(1);
+        expect(result.deliveryStatus).toBe('배송준비');
+        expect(result.complete).toBe(false);
+        expect(result.steps).toHaveLength(1);
+      }
+    } finally {
+      restore();
+    }
+  });
+
+  test('level 3 응답 → deliveryStatus=배송중', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 3,
+        trackingDetails: [{ time: 1, timeString: '2026-07-16 10:00', where: '지점', kind: '배송중' }],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.deliveryStatus).toBe('배송중');
+    } finally {
+      restore();
+    }
+  });
+
+  test('level 6 응답(completeYN=Y) → deliveryStatus=배송완료, complete=true', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: true,
+        completeYN: 'Y',
+        invoiceNo: '123456789012',
+        level: 6,
+        trackingDetails: [
+          { time: 1, timeString: '2026-07-16 18:00', where: '수령지', kind: '배송완료' },
+        ],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.deliveryStatus).toBe('배송완료');
+        expect(result.complete).toBe(true);
+      }
+    } finally {
+      restore();
+    }
+  });
+
+  test('non-200 응답 → quota-or-api-error, throw 하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse({}, 500));
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: 'HTTP 500' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('네트워크 예외(fetch가 throw) → quota-or-api-error, throw 하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => {
+      throw new Error('network down');
+    });
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
+    } finally {
+      restore();
+    }
+  });
+
+  test('하이픈 섞인 송장번호는 숫자만 남겨 정규화된다', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    let capturedUrl = '';
+    const restore = installFetchStub(async (url) => {
+      capturedUrl = String(url);
+      return jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 2,
+        trackingDetails: [{ time: 1, timeString: '2026-07-16 09:30', where: '집화', kind: '집화완료' }],
+      });
+    });
+    try {
+      await fetchTrackingInfo('cj', '1234-5678-9012');
+      expect(capturedUrl).toContain('t_invoice=123456789012');
+    } finally {
+      restore();
+    }
+  });
+
+  test('빈 송장번호(정규화 후 빈 문자열) → not-found, fetch 호출 없음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    let called = false;
+    const restore = installFetchStub(async () => {
+      called = true;
+      return jsonResponse({});
+    });
+    try {
+      const result = await fetchTrackingInfo('cj', '----');
+      expect(result).toEqual({ ok: false, reason: 'not-found' });
+      expect(called).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  test('cj의 t_code는 숫자 4가 아니라 문자열 "04"로 전송된다', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    let capturedUrl = '';
+    const restore = installFetchStub(async (url) => {
+      capturedUrl = String(url);
+      return jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 2,
+        trackingDetails: [{ time: 1, timeString: '2026-07-16 09:30', where: '집화', kind: '집화완료' }],
+      });
+    });
+    try {
+      await fetchTrackingInfo('cj', '123456789012');
+      expect(capturedUrl).toContain('t_code=04');
+      expect(capturedUrl).not.toContain('t_code=4&');
+    } finally {
+      restore();
+    }
+  });
+});
+
+test.describe('fetchKeyUsage', () => {
+  test('API 키 미설정 → null (fetch 호출 없음)', async () => {
+    delete process.env.SWEETTRACKER_API_KEY;
+    let called = false;
+    const restore = installFetchStub(async () => {
+      called = true;
+      return jsonResponse({});
+    });
+    try {
+      const result = await fetchKeyUsage();
+      expect(result).toBeNull();
+      expect(called).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+
+  test('정상 응답 → total/left 매핑', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse({ totalAmount: 100, leftAmount: 42 }));
+    try {
+      const result = await fetchKeyUsage();
+      expect(result).toEqual({ total: 100, left: 42 });
+    } finally {
+      restore();
+    }
+  });
+
+  test('non-200 응답 → null, throw 하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse({}, 500));
+    try {
+      const result = await fetchKeyUsage();
+      expect(result).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+});
