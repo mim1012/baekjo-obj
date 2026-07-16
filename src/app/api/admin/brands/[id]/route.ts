@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { updateBrand, deleteBrand } from '@/lib/brands/repo';
+import { updateBrand, deleteBrand, BrandHasShipmentsError } from '@/lib/brands/repo';
 import { validateBrandFields, toPatchInput } from '@/lib/brands/validate';
 import { logServerError } from '@/lib/logServerError';
 
@@ -54,6 +54,11 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     revalidatePath(`/brands/${id}`);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    // 배송 이력이 있는 브랜드는 삭제할 수 없다(shipments.brand_id on delete restrict, 0034) —
+    // 일반 500이 아니라 사유를 알 수 있는 409로 응답한다.
+    if (error instanceof BrandHasShipmentsError) {
+      return NextResponse.json({ error: 'brand-has-shipments' }, { status: 409 });
+    }
     logServerError('[DELETE /api/admin/brands/[id]] 삭제 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

@@ -14,6 +14,13 @@
 create table public.shipments (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete cascade,
+  -- brand_id: 이 리포의 관례는 on delete set null(0004_products_brands.sql:17,
+  -- 0029_product_reviews_inquiries.sql:16/35)이지만 여기서는 의도적으로 restrict를 쓴다.
+  -- shipments는 살아있는 카탈로그 데이터가 아니라 "누가 무엇을 보냈는지"의 배송 이력이다.
+  -- set null은 애초 불가능 — brand_id가 not null이고 unique(order_id, brand_id)의 일부라
+  -- null로 바뀌면 그 유니크 제약의 의미가 깨진다. cascade는 이력 자체를 조용히 지워버린다.
+  -- 그래서 배송 이력이 있는 브랜드는 삭제를 막는다 — 대신 DELETE /api/admin/brands/[id]가
+  -- 이 제약 위반(23503)을 감지해 409로 명시 응답한다(brands/repo.ts deleteBrand 참고).
   brand_id text not null references public.brands(id) on delete restrict,
   -- 내부 코드(cj/hanjin/... — src/lib/carriers.ts CARRIER_CODES). 관리자/파트너가 입력하는 조회용 값,
   -- API 연동 없음. tracking_number와 함께 orders.carrier/tracking_number(0022)와 동일한 해제 규칙을
