@@ -118,6 +118,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     isBest: false,
     isRecommended: false,
     isMembersOnlyPrice: false,
+    pointsEnabled: false,
     summary: '',
     description: '',
     ingredients: '',
@@ -457,6 +458,34 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
               />
             </label>
+            <label className="mt-2 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+              <span className="text-[14px] font-medium text-[#17201B]">적립금 지급</span>
+              <input
+                type="checkbox"
+                checked={formData.pointsEnabled || false}
+                onChange={(e) => handleChange('pointsEnabled', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+            </label>
+            {formData.pointsEnabled && (
+              <FormField label="적립률 (%)">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={formData.pointsRate ?? ''}
+                  onChange={(e) =>
+                    handleChange('pointsRate', e.target.value === '' ? undefined : Number(e.target.value))
+                  }
+                  className={INPUT_CLASS}
+                  placeholder="상품금액 기준. 배송비 제외"
+                />
+                <p className="mt-1 text-[12px] text-[#9AA39B]">
+                  적립 지급은 구매확정 기능 구현 후 동작합니다(현재는 설정만 저장).
+                </p>
+              </FormField>
+            )}
           </SectionCard>
 
           {/* 상품 옵션 */}

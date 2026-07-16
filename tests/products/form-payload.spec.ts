@@ -160,6 +160,21 @@ test('isMembersOnlyPrice 는 boolean 으로 항상 담고 미지정 시 false', 
   expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: undefined }), 'x').isMembersOnlyPrice).toBe(false);
 });
 
+/* ── pointsEnabled: boolean 으로 항상 담음(shippingFee 와 달리 조건부 아님) ── */
+
+test('pointsEnabled 는 boolean 으로 항상 담고 미지정 시 false', () => {
+  expect(buildProductUpdatePayload(form({ pointsEnabled: true }), 'x').pointsEnabled).toBe(true);
+  expect(buildProductUpdatePayload(form({ pointsEnabled: undefined }), 'x').pointsEnabled).toBe(false);
+});
+
+/* ── pointsRate: shippingFee 와 동일 — 숫자일 때만, null/undefined 는 키 제외 ── */
+
+test('pointsRate 가 숫자면 담고, undefined(미입력)면 키를 담지 않는다', () => {
+  expect(buildProductUpdatePayload(form({ pointsRate: 5 }), 'x').pointsRate).toBe(5);
+  const undef = buildProductUpdatePayload(form({ pointsRate: undefined }), 'x') as Record<string, unknown>;
+  expect('pointsRate' in undef).toBe(false);
+});
+
 /* ── normalizeOptions: 빈 행·유효하지 않은 행 제거, id 부여 ── */
 
 test('normalizeOptions: name 이 빈 행은 버린다', () => {
