@@ -167,7 +167,7 @@ export const brands: Brand[] = [
   },
   {
     id: 'b6',
-    name: 're펫 (RePet)',
+    name: 'RE:펫 (RE:PET)',
     sourceUrls: [
       'https://www.coupang.com/vp/products/7940009634',
       'https://www.coupang.com/vp/products/4581101510',
