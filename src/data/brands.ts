@@ -121,7 +121,7 @@ export const brands: Brand[] = [
     isRecommended: true,
   },
   // b4 '캣코드 (Catcode)' 제거(2026-07-16): 실재하지 않는 브랜드다(사용자 확정 — 브랜드는
-  // 페네핏·오미프로·노블독·알로밍·re펫·메종슈슈·챠콜스토리·써니사이드업 8종이 전부).
+  // 페네핏·오미프로·노블독·알로밍·RE:펫·메종슈슈·챠콜스토리·써니사이드업 8종이 전부).
   // prod/staging DB 에서는 이미 삭제돼 있었는데 정본에만 남아, 재시드하면 부활하는 상태였다.
   // 소속 상품 p9·p10·p11 은 알로밍(b5)으로 이관했다(마이그레이션 0034).
   {
@@ -167,7 +167,7 @@ export const brands: Brand[] = [
   },
   {
     id: 'b6',
-    name: 're펫 (RePet)',
+    name: 'RE:펫',
     sourceUrls: [
       'https://www.coupang.com/vp/products/7940009634',
       'https://www.coupang.com/vp/products/4581101510',
@@ -177,7 +177,7 @@ export const brands: Brand[] = [
     ],
     logo: '/brands/repet-display.svg',
     description: '장 건강·위생·생활 케어 상품 후보를 확인 중인 브랜드',
-    philosophy: 're펫은 현재 공개 판매 페이지에서 상품 후보를 수집한 단계입니다.\n\n공식 제조사와 브랜드 운영 주체를 확인한 뒤 백조오브제의 판매 상품으로 최종 승인합니다.',
+    philosophy: 'RE:펫은 현재 공개 판매 페이지에서 상품 후보를 수집한 단계입니다.\n\n공식 제조사와 브랜드 운영 주체를 확인한 뒤 백조오브제의 판매 상품으로 최종 승인합니다.',
     auditPoints: [
       '공식 운영 주체와 제조사 확인 필요',
       '장 건강·샴푸·배변 유도제·분유 상품군 후보',

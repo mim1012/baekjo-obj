@@ -542,7 +542,7 @@ export const products: Product[] = [
   {
     id: 'p19',
     brandId: 'b6',
-    brandName: 're펫',
+    brandName: 'RE:펫',
     name: 'RePet 강아지 뿌리는 배변유도제 80ml × 2개',
     sourceUrl: 'https://www.coupang.com/vp/products/9334824830',
     sourceVerifiedAt: '2026-07-10',
@@ -569,7 +569,7 @@ export const products: Product[] = [
   {
     id: 'p20',
     brandId: 'b6',
-    brandName: 're펫',
+    brandName: 'RE:펫',
     name: 'RePet 강아지·고양이 약용·진정 샴푸 400ml',
     sourceUrl: 'https://www.coupang.com/vp/products/4581101510',
     sourceVerifiedAt: '2026-07-10',
