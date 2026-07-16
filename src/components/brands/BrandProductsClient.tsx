@@ -137,7 +137,7 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
                 새 상품 등록
               </button>
             )}
-            {products.length > 0 && (
+            {visibleProducts.length > 0 && (
               <Link href={`/shop?brandId=${brand.id}`} className="btn-secondary shrink-0 self-start sm:self-auto">
                 쇼핑에서 모두 보기
                 <ArrowRight className="size-4" aria-hidden="true" />
