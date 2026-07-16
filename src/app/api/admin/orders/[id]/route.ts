@@ -56,7 +56,9 @@ function validate(body: unknown): OrderStatusUpdate | null {
   }
   if (b.carrier !== undefined) {
     if (typeof b.carrier !== 'string' || b.carrier.length > MAX_CARRIER) return null;
-    if (!isCarrierCode(b.carrier)) return null;
+    // ''는 택배사 해제 신호다 — 화이트리스트 검사를 건너뛰고 그대로 통과시킨다.
+    // 그 외 문자열은 여전히 화이트리스트(CARRIER_CODES)에 없으면 400.
+    if (b.carrier !== '' && !isCarrierCode(b.carrier)) return null;
     updates.carrier = b.carrier;
   }
   if (b.deliveryMemo !== undefined) {

@@ -39,11 +39,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      // carrier는 선택 항목이라 빈 문자열이면 PATCH 페이로드에서 아예 뺀다 —
-      // 화이트리스트에 없는 ''를 보내면 서버가 400을 내고 저장 전체가 실패한다.
-      const { carrier, ...rest } = formData;
-      const payload = carrier === '' ? rest : { ...rest, carrier };
-      await updateOrderStatus(order.id, payload);
+      await updateOrderStatus(order.id, formData);
       onUpdate(); // refresh data
     } catch (error) {
       alert('주문 상태 변경에 실패했습니다.');
