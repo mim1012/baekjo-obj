@@ -130,15 +130,25 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | 데이터 | 오너 | 넣는 위치 | 미정일 때 |
 |--------|------|-----------|-----------|
-| 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` + `brands` 데이터/seed `logo` 경로 | placeholder → 채우면 즉시 표시 |
-| 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 또는 seed `price` | 카드에 `0원` 표시(저장값은 `null` 유지) |
+| 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` 업로드 + `/admin/brands`에서 `logo` 경로 지정 | placeholder → 채우면 즉시 표시 |
+| 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 | 카드에 `0원` 표시(저장값은 `null` 유지) |
 | 정적 콘텐츠(공지·후기·케어가이드) | **dad** | `src/data/*` (아직 API 라우트 없음) | 해당 없음 |
-| 상품 상세 본문(detailBlocks)·썸네일 | **mim**(시드) → 추후 업체 관리자 | `src/data/products.ts` + 재시드 | 폴백: 단일 image 박스 |
+| 상품 상세 본문(detailBlocks)·썸네일 | **mim** → 추후 업체 관리자 | `/admin/products` 입력 | 폴백: 단일 image 박스 |
 
-> ⭐ **products·brands 는 이제 DB가 화면의 진실 소스다 (2026-07-12, 0018~0020 재시드 이후).**
-> `src/data/{products,brands}.ts`만 고치면 **화면은 안 바뀐다** — 정본(파일)과 DB를 함께 맞춰야 한다.
-> 콘텐츠를 바꾸려면 ① `/admin`에서 수정(즉시 반영, 단 정본 파일과 drift 생기니 mim에게 공유) 또는
-> ② 정본 `src/data/*.ts` 수정 후 **mim에게 재시드 요청**(gen 스크립트로 `00XX` 마이그레이션 기계 생성 — 수기 SQL 금지).
+> ⭐ **products·brands 는 DB가 유일한 진실이다 (2026-07-17 개정 — `be/kill-static-seed-canon`).**
+> `src/data/{products,brands}.ts`는 **삭제됐다.** 두 도메인의 값을 바꾸는 경로는 **`/admin` 하나뿐**이다.
+>
+> **왜 지웠나:** 화면은 이미 DB만 읽고 있었는데(런타임 import 0건) 그 파일들이 "재시드의 정본"으로 남아
+> **같은 값이 파일과 DB 두 곳에 손으로 적히고 있었다.** 사람 기억력 말고는 둘을 맞추는 게 없었고,
+> 그 결과가 정적↔DB 불일치를 수습하려고 만든 마이그레이션 `0014`·`0015`·`0016`·`0017`·`0018`이다.
+> `0035`는 프로덕션 값을 파일에 **역기입**까지 했다. lint(`no-restricted-imports`)는 *읽기 경로*만 막았기
+> 때문에 드리프트가 화면 레이어에서 **시드 레이어로 이사**했을 뿐이었다 — 거기엔 테스트도 CI도 없다.
+>
+> **DB 재구축 경로:** 정본 파일이 아니라 `supabase/migrations/`다(`0004b` 최초 시드 + `0018` 전량 재시드 +
+> 이후 정정분). `node scripts/apply-migrations.mjs`로 재생한다. 파일이 유일한 복구 수단이 아니었다.
+>
+> 🚫 **`src/data/`에 products·brands를 재도입하지 말 것.** 필요해 보이면 그건 `/admin`에 없는 필드라는
+> 뜻이므로 admin 편집 경로를 추가하는 게 맞다. eslint `no-restricted-imports`가 재도입을 계속 막는다.
 
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
 프론트는 가짜 데이터로, 백엔드는 진짜 데이터로 만든다. **둘이 따로 놀아(=drift) 화면이 조용히 깨지는 것**이

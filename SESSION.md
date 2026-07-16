@@ -75,6 +75,7 @@
 - **고아 라우트 가드** `tests/admin/admin-nav.spec.ts` — `src/app/admin/**/page.tsx`를 스캔해 **메뉴에 없는 라우트를 CI에서 잡는다**. 2026-07-14 유실 사고 + `/display` 고아 라우트가 실제로 이 형태였다. href 18개 스냅샷·순서·그룹 개수·아이콘 전수·`resolveActiveHref` 테이블도 함께 잠금. required check 편입(16건).
 - dead code: `src/data/{orders,insuranceApplications,users}.ts` 삭제 + `storage.ts`의 `getUsers`·`mockUsers`·`REGISTERED_USERS_KEY` 제거 + `admin/page.tsx` 중복 import 제거.
 - ⚠️ **`src/data/products.ts`·`brands.ts`는 삭제 금지** — import 0건이지만 **재시드의 정본**(마이그레이션 `0004b`·`0014`~`0018` 주석 + eslint `no-restricted-imports` 대상 + `generate_placeholders.mjs`가 읽음).
+  - **2026-07-17 이 결정 뒤집음** (`be/kill-static-seed-canon`) — 사유: "재시드의 정본" 지위가 **드리프트의 원인 그 자체**였다. 같은 값이 ① `src/data/*.ts` ② 손으로 타이핑한 시드 SQL(`0004b`) ③ `/admin`이 실시간 수정하는 라이브 DB **세 곳에 손으로** 적혔고, 셋을 맞추는 건 사람 기억력뿐 — 그 실패 영수증이 `0014`~`0018`(정적↔DB 불일치 수습)과 `0035`(프로덕션→파일 **역기입**)다. 삭제 금지의 근거였던 "복구 경로"는 파일이 아니라 `supabase/migrations/`(`0004b`+`0018`+정정분 → `node scripts/apply-migrations.mjs`)에 이미 있었다. `generate_placeholders.mjs`는 실사진 webp 도입 후 죽은 부트스트랩이라 함께 삭제. **이제 products·brands 값 입력구는 `/admin` 하나뿐.** 검증: `tsc --noEmit`·`npm run build` green(두 파일 관련 에러 0건).
 - a11y: 활성 메뉴에 `aria-current="page"`, 무명 버튼(사이드바 접기·햄버거)에 `aria-label`.
 
 ### ⚠️ 시각 회귀 게이트를 신뢰할 수 없다 (이번 세션 최대 발견)
