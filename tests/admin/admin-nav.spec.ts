@@ -77,6 +77,25 @@ test.describe('메뉴 스냅샷', () => {
   });
 });
 
+test.describe('관리자 브랜드 로고 홈 링크', () => {
+  test('데스크톱/모바일 로고는 관리자 대시보드가 아니라 공개 홈으로 이동한다', () => {
+    const sidebar = fs.readFileSync(
+      path.resolve(__dirname, '..', '..', 'src', 'components', 'admin-new', 'layout', 'AdminSidebar.tsx'),
+      'utf8',
+    );
+    const mobile = fs.readFileSync(
+      path.resolve(__dirname, '..', '..', 'src', 'components', 'admin-new', 'layout', 'AdminMobileNav.tsx'),
+      'utf8',
+    );
+
+    expect(sidebar).toContain('href="/" className="font-bold text-[18px] text-[#17201B] truncate"');
+    expect(sidebar).toContain('href="/" className="mx-auto font-bold text-[18px] text-[#17201B]"');
+    expect(mobile).toContain('href="/" className="font-bold text-[18px] text-[#17201B]" onClick={onClose}');
+    expect(sidebar).not.toContain('href="/admin" className="font-bold text-[18px] text-[#17201B] truncate"');
+    expect(mobile).not.toContain('href="/admin" className="font-bold text-[18px] text-[#17201B]" onClick={onClose}');
+  });
+});
+
 test.describe('resolveActiveHref', () => {
   const allNavItems = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
 
