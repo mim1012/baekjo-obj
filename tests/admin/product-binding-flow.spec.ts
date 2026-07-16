@@ -94,4 +94,34 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(detailPage).toContain('const product = await getProductById(id);');
     expect(detailPage).not.toContain('@/data/products');
   });
+
+  test('ProductForm 의 toFormState 는 pointsEnabled·pointsRate 를 화이트리스트에서 누락하지 않는다', () => {
+    const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
+
+    const toFormStateFunction = sliceBetween(
+      formSource,
+      'const toFormState = (): ProductFormState => ({',
+      'const handleSave = async',
+    );
+
+    expect(toFormStateFunction).toContain('pointsEnabled: formData.pointsEnabled');
+    expect(toFormStateFunction).toContain('pointsRate: formData.pointsRate');
+  });
+
+  test('repo 의 rowToProduct 는 pointsEnabled·pointsRate 를 DB 행에서 되읽는다', () => {
+    const repoSource = src('src', 'lib', 'products', 'repo.ts');
+
+    const rowToProductFunction = sliceBetween(
+      repoSource,
+      'function rowToProduct(row: ProductRow): Product {',
+      'export interface ProductListFilter',
+    );
+
+    expect(rowToProductFunction).toContain(
+      "pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined",
+    );
+    expect(rowToProductFunction).toContain(
+      "pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined",
+    );
+  });
 });
