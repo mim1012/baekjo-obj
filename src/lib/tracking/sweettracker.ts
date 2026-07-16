@@ -17,7 +17,7 @@
  */
 import { isCarrierCode, SWEET_TRACKER_CODES } from '@/lib/carriers';
 import { logServerError } from '@/lib/logServerError';
-import { DELIVERY_STATUSES, type DeliveryStatus } from '@/types';
+import type { DeliveryStatus } from '@/types';
 
 const SWEET_TRACKER_BASE = 'https://info.sweettracker.co.kr';
 const FETCH_TIMEOUT_MS = 8_000;
@@ -76,9 +76,13 @@ function isValidLevel(value: unknown): value is TrackingLevel {
  * 범위 밖 값(방어적 파싱 실패)은 가장 보수적인 '배송준비'로 폴백한다.
  */
 export function levelToDeliveryStatus(level: number): DeliveryStatus {
-  if (level <= 1) return DELIVERY_STATUSES[1]; // '배송준비'
-  if (level >= 6) return DELIVERY_STATUSES[3]; // '배송완료'
-  return DELIVERY_STATUSES[2]; // '배송중'
+  // 문자열 리터럴을 직접 반환한다(DELIVERY_STATUSES 배열 인덱싱 금지) — 배열 순서가 바뀌거나
+  // 원소가 추가/삽입되면 인덱스 매핑은 타입 에러 없이 조용히 잘못된 상태를 반환한다.
+  // 리터럴은 DeliveryStatus 유니온에 의해 오타가 컴파일 에러로 잡히면서도, 배열 재정렬의 영향을
+  // 받지 않는다.
+  if (level <= 1) return '배송준비';
+  if (level >= 6) return '배송완료';
+  return '배송중';
 }
 
 function normalizeInvoice(invoice: string): string {
@@ -104,6 +108,29 @@ async function fetchWithTimeout(url: string, headers?: Record<string, string>): 
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * 로그로 내보내기 전 비밀값(API 키 등)을 제거한다.
+ * `text` 안에 `secret`이 그대로 들어있으면 전부 마스킹한다 — 비어있는 secret은 무시(치환 없음).
+ */
+function redact(text: string, secret: string): string {
+  if (!secret) return text;
+  return text.split(secret).join('***');
+}
+
+/**
+ * fetch 실패(TypeError 등) 에러 객체를 안전하게 로그용으로 축약한다.
+ * Node의 fetch 실패는 message/stack/cause 어디에도 요청 URL(=API 키가 박힌 쿼리스트링)을 실어
+ * 나를 수 있다. logServerError가 `error.message`만 추출한다 해도, message 자체에 URL이 섞여
+ * 나오는 벤더/런타임 조합을 배제할 수 없으므로 message를 한 번 더 redact()로 마스킹해서 넘긴다.
+ * stack/cause는 애초에 로거에 넘기지 않는다(여기서 사용하지 않음).
+ */
+function sanitizeFetchErrorForLog(error: unknown, secret: string): { name?: string; message: string } {
+  if (error instanceof Error) {
+    return { name: error.name, message: redact(error.message, secret) };
+  }
+  return { message: redact(String(error), secret) };
 }
 
 /**
@@ -139,7 +166,12 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
   try {
     res = await fetchWithTimeout(url);
   } catch (error) {
-    logServerError('sweettracker.fetchTrackingInfo:network', error);
+    // 원본 에러(특히 cause/stack)에는 요청 URL(=t_key 쿼리스트링에 박힌 API 키)이 실려 나올 수
+    // 있어 절대 그대로 로거에 넘기지 않는다 — name/message만, 그것도 redact()로 마스킹해서 넘긴다.
+    logServerError(
+      'sweettracker.fetchTrackingInfo:network',
+      sanitizeFetchErrorForLog(error, apiKey),
+    );
     return { ok: false, reason: 'quota-or-api-error', message: '네트워크 오류' };
   }
 
@@ -156,9 +188,12 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
     return { ok: false, reason: 'quota-or-api-error', message: '응답 파싱 실패' };
   }
 
-  // ⚠️ 함정 방어: HTTP 200이어도 result==='N'(또는 details 없음)이면 미등록/조회불가 송장이다.
+  // ⚠️ 함정 방어: HTTP 200이어도 result==='N'이면 미등록/조회불가 송장이다.
+  // result:'N'만 미등록이다 — 등록 직후(집화 전) 주문은 result:'Y' + level:1 + 빈
+  // trackingDetails로 올 수 있어, 빈 배열을 미등록으로 접으면 "송장 등록됨, 아직 집화 전"이라는
+  // 정상 상태를 잃는다. 그래서 steps.length===0 은 더 이상 not-found 판정에 쓰지 않는다.
   const steps = parseSteps(body.trackingDetails);
-  if (body.result === 'N' || steps.length === 0) {
+  if (body.result === 'N') {
     return { ok: false, reason: 'not-found' };
   }
 
@@ -195,7 +230,9 @@ export async function fetchKeyUsage(): Promise<{ total: number; left: number } |
     if (typeof body.totalAmount !== 'number' || typeof body.leftAmount !== 'number') return null;
     return { total: body.totalAmount, left: body.leftAmount };
   } catch (error) {
-    logServerError('sweettracker.fetchKeyUsage:network', error);
+    // 이 호출은 키를 URL이 아니라 헤더(`key`)로 보내므로 fetch 실패 에러에 URL을 통해 키가 실릴
+    // 위험은 fetchTrackingInfo보다 낮다 — 그래도 방어적으로 동일하게 sanitize해서 넘긴다.
+    logServerError('sweettracker.fetchKeyUsage:network', sanitizeFetchErrorForLog(error, apiKey));
     return null;
   }
 }

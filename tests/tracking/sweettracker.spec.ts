@@ -96,6 +96,32 @@ test.describe('fetchTrackingInfo', () => {
     }
   });
 
+  test('result:"Y" + level:1 + 빈 trackingDetails (등록 직후, 집화 전) → ok:true, steps:[]', async () => {
+    // result:'N'만 미등록이다. 등록 직후(집화 전) 주문은 result:'Y' + level:1 + 빈
+    // trackingDetails로 올 수 있어 이 상태를 not-found로 접으면 안 된다 — 정상적인 "배송준비" 상태다.
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        result: 'Y',
+        complete: false,
+        completeYN: 'N',
+        invoiceNo: '123456789012',
+        level: 1,
+        trackingDetails: [],
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.deliveryStatus).toBe('배송준비');
+        expect(result.steps).toEqual([]);
+      }
+    } finally {
+      restore();
+    }
+  });
+
   test('level 1 응답 → ok:true, deliveryStatus=배송준비', async () => {
     process.env.SWEETTRACKER_API_KEY = 'test-key';
     const restore = installFetchStub(async () =>
@@ -192,6 +218,36 @@ test.describe('fetchTrackingInfo', () => {
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
     } finally {
+      restore();
+    }
+  });
+
+  test('fetch 예외 메시지에 API 키가 섞여있어도 로그에는 키가 남지 않는다', async () => {
+    // 방어적 케이스: 만약 fetch reject 에러의 message(혹은 cause/stack에서 파생된 문자열)에
+    // 요청 URL(=t_key 쿼리스트링에 박힌 API 키)이 실려있더라도, logServerError로 넘어가는 값에는
+    // 키 원문이 절대 남으면 안 된다.
+    const secretKey = 'super-secret-sweettracker-key-12345';
+    process.env.SWEETTRACKER_API_KEY = secretKey;
+    const restore = installFetchStub(async () => {
+      throw new Error(
+        `fetch failed: https://info.sweettracker.co.kr/api/v1/trackingInfo?t_key=${secretKey}&t_code=04`,
+      );
+    });
+    const consoleErrorSpy: unknown[][] = [];
+    const originalConsoleError = console.error;
+    console.error = (...args: unknown[]) => {
+      consoleErrorSpy.push(args);
+    };
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
+
+      expect(consoleErrorSpy.length).toBeGreaterThan(0);
+      const serialized = JSON.stringify(consoleErrorSpy);
+      expect(serialized).not.toContain(secretKey);
+    } finally {
+      console.error = originalConsoleError;
       restore();
     }
   });
