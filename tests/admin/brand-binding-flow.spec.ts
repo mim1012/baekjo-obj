@@ -148,7 +148,11 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(productsClient).toContain('initialProducts: Product[];');
     expect(productsClient).toContain('export default function BrandProductsClient({ brand, initialProducts, shortBrandName }: BrandProductsClientProps)');
     expect(productsClient).toContain('const [products, setProducts] = useState<Product[]>(initialProducts);');
-    expect(productsClient).toContain('getPartnerProducts(brand.id)');
+    expect(productsClient).toContain('const visibleProducts = products.filter((product) => product.isVisible !== false);');
+    expect(productsClient).toContain('const representativeProducts = visibleProducts.filter((p) => brand.representativeProductIds.includes(p.id));');
+    expect(productsClient).toContain('const additionalProducts = visibleProducts.filter((p) => !brand.representativeProductIds.includes(p.id));');
+    expect(productsClient).toContain('{visibleProducts.length > 0 && (');
+    expect(productsClient).not.toContain('getPartnerProducts(');
     expect(productsClient).not.toMatch(/\b(?:fetch|getAdminBrands|listBrands|getBrandById)\s*\(/);
   });
 });

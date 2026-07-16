@@ -1,11 +1,12 @@
 import OrderDetailPage from '@/components/admin-new/orders/OrderDetailPage';
 
 interface PageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function OrderPage({ params }: PageProps) {
-  return <OrderDetailPage id={params.id} />;
+export default async function OrderPage({ params }: PageProps) {
+  const { id } = await params;
+  return <OrderDetailPage id={id} />;
 }

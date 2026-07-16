@@ -73,9 +73,10 @@ export default function OrderDataTable({ orders, isLoading }: OrderDataTableProp
       key: 'items',
       header: '주문 상품',
       render: (row) => {
-        const itemSummary = row.items.length > 1 
-          ? `${row.items[0].productName} 외 ${row.items.length - 1}건` 
-          : row.items[0].productName;
+        const firstItemName = row.items[0]?.productName || '상품 정보 없음';
+        const itemSummary = row.items.length > 1
+          ? `${firstItemName} 외 ${row.items.length - 1}건`
+          : firstItemName;
         return (
           <div className="text-gray-900 truncate max-w-[200px]" title={itemSummary}>
             {itemSummary}
@@ -86,12 +87,15 @@ export default function OrderDataTable({ orders, isLoading }: OrderDataTableProp
     {
       key: 'totalPrice',
       header: '총 결제금액(결제수단)',
-      render: (row) => (
-        <div>
-          <div className="font-bold text-gray-900">{formatPrice(row.totalPrice)}</div>
-          <div className="text-gray-500 text-xs">{row.paymentMethod}</div>
-        </div>
-      )
+      render: (row) => {
+        const finalAmount = row.totalPrice + row.deliveryFee;
+        return (
+          <div>
+            <div className="font-bold text-gray-900">{formatPrice(finalAmount)}</div>
+            <div className="text-gray-500 text-xs">{row.paymentMethod}</div>
+          </div>
+        );
+      }
     },
     {
       key: 'orderStatus',

@@ -159,9 +159,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-gray-100">
                 <span className="text-gray-500">상품 금액</span>
-                <span className="font-medium text-[#17201B]">
-                  {formatPrice(order.items.reduce((acc, curr) => acc + (curr.price * curr.quantity), 0))}
-                </span>
+                <span className="font-medium text-[#17201B]">{formatPrice(order.totalPrice)}</span>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-gray-100">
                 <span className="text-gray-500">배송비</span>
@@ -169,7 +167,9 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
               </div>
               <div className="flex justify-between items-center pt-2">
                 <span className="font-semibold text-gray-900">총 결제 금액</span>
-                <span className="font-bold text-lg text-[#2F3B34]">{formatPrice(order.totalPrice)}</span>
+                <span className="font-bold text-lg text-[#2F3B34]">
+                  {formatPrice(order.totalPrice + order.deliveryFee)}
+                </span>
               </div>
             </div>
           </FormSection>

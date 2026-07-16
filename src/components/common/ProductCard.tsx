@@ -2,12 +2,10 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
+import { ShoppingBag, Star, Package } from 'lucide-react';
 import { useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
-import { isWishlisted, toggleWishlist } from '@/lib/storage';
-import { useMounted } from '@/lib/useMounted';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -31,21 +29,13 @@ const concernLabels: Record<string, string> = {
 };
 
 export default function ProductCard({ product, variant = 'default' }: ProductCardProps) {
-  const mounted = useMounted();
-  const [, refreshWishlist] = useState(0);
   const [cartMessage, setCartMessage] = useState('');
-  const wishlisted = mounted && isWishlisted(product.id);
   const brandName = product.brandName ?? product.brandId;
   const hasPrice = product.price !== null && product.price !== undefined;
   const isSellable = hasPrice && product.stock > 0;
   const isShopCard = variant === 'shop';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const detailHref = `/shop/${product.id}`;
-
-  const handleWishlist = () => {
-    toggleWishlist(product.id);
-    refreshWishlist((version) => version + 1);
-  };
 
   const handleCart = () => {
     if (!isSellable) return;
@@ -115,32 +105,9 @@ export default function ProductCard({ product, variant = 'default' }: ProductCar
               >
                 <ShoppingBag className="size-4" />
               </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleWishlist();
-                }}
-                className="flex size-9 items-center justify-center rounded-full border border-[#E7E0D5] bg-white/95 text-[#17211D] shadow-sm transition-colors duration-300 hover:bg-[#F3EEE6]"
-              >
-                <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
-              </button>
+
             </div>
           )}
-
-          {isShopCard && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                handleWishlist();
-              }}
-              className="pointer-events-auto absolute right-3 top-3 flex size-[38px] items-center justify-center rounded-full border border-[#E7E0D5] bg-white/90 text-[#17211D] shadow-sm transition-colors duration-300 hover:bg-[#F3EEE6]"
-            >
-              <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
-            </button>
-          )}
-
           {cartMessage && (
             <div role="status" className="absolute inset-x-3 bottom-3 rounded-full bg-[#17211D] px-4 py-2 text-center text-xs font-semibold text-[#FBFAF7]">
               {cartMessage}
