@@ -64,13 +64,15 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
 
     expect(resourcePage).toContain('readOnly?: boolean;');
     expect(resourcePage).toContain('readOnly = false,');
-    expect(resourcePage).toContain('const canEditRows = !readOnly && !disableEdit;');
-    expect(resourcePage).toContain('const canDeleteRows = !readOnly;');
+    expect(resourcePage).toContain('const canEditRows = !readOnly && !disableEdit && onUpdateRow != null;');
+    expect(resourcePage).toContain('const canDeleteRows = !readOnly && (onDeleteRow != null || onSave == null);');
     expect(resourcePage).toContain('const hasRowActions = canEditRows || canDeleteRows || customActions != null;');
-    expect(resourcePage).toContain('(onSave || (!readOnly && actionLabel))');
-    expect(resourcePage).toContain('{!readOnly && actionLabel && (');
+    expect(resourcePage).toContain('(onSave || canCreateRows)');
+    expect(resourcePage).toContain('{canCreateRows && (');
     expect(resourcePage).toContain('{hasRowActions && <th className="px-5 py-3 text-right font-semibold">관리</th>}');
     expect(resourcePage).toContain('{canEditRows && editingRow && (');
+    expect(resourcePage).toContain('try {');
+    expect(resourcePage).toContain('} finally {');
 
     for (const page of [noticesPage, concernsPage, reviewsPage]) {
       expect(page).toContain('readOnly');
