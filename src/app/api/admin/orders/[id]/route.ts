@@ -7,6 +7,7 @@ import {
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
+import { isCarrierCode } from '@/lib/carriers';
 import { ORDER_STATUSES, PAYMENT_STATUSES as ALL_PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from '@/types';
 
 // paymentStatus/deliveryStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
@@ -20,8 +21,8 @@ import { ORDER_STATUSES, PAYMENT_STATUSES as ALL_PAYMENT_STATUSES, type OrderSta
 // 정확히 같은 집합이어야 한다: ['결제대기','입금대기','결제완료','결제취소','환불완료'].
 const PAYMENT_STATUSES: readonly PaymentStatus[] = ALL_PAYMENT_STATUSES.filter((s) => s !== '승인중');
 const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
-// Order.carrier는 자유 text라 서버가 화이트리스트로 좁힌다(PAYMENT_STATUSES/DELIVERY_STATUSES와 동일 패턴).
-const CARRIERS = ['cj', 'hanjin', 'lotte', 'post', 'logen'] as const;
+// Order.carrier 화이트리스트는 @/lib/carriers 로 단일화(CARRIER_CODES) — 클라이언트(관리자 select)와
+// 여기 서버 검증이 각자 배열을 들면 드리프트가 난다(§4).
 const MAX_TRACKING = 100;
 const MAX_CARRIER = 40;
 // 관리자 메모(자유 서술)라 화이트리스트가 없고 길이만 제한한다.
@@ -55,7 +56,9 @@ function validate(body: unknown): OrderStatusUpdate | null {
   }
   if (b.carrier !== undefined) {
     if (typeof b.carrier !== 'string' || b.carrier.length > MAX_CARRIER) return null;
-    if (!CARRIERS.includes(b.carrier as (typeof CARRIERS)[number])) return null;
+    // ''는 택배사 해제 신호다 — 화이트리스트 검사를 건너뛰고 그대로 통과시킨다.
+    // 그 외 문자열은 여전히 화이트리스트(CARRIER_CODES)에 없으면 400.
+    if (b.carrier !== '' && !isCarrierCode(b.carrier)) return null;
     updates.carrier = b.carrier;
   }
   if (b.deliveryMemo !== undefined) {

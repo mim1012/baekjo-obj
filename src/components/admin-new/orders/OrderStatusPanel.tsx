@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { PAYMENT_STATUSES, type Order } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
+import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import FormSection from '@/components/admin-new/common/FormSection';
 import FormField from '@/components/admin-new/common/FormField';
 import SaveBar from '@/components/admin-new/common/SaveBar';
@@ -19,14 +20,16 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
     paymentStatus: order.paymentStatus,
     deliveryStatus: order.deliveryStatus,
     trackingNumber: order.trackingNumber || '',
+    carrier: order.carrier || '',
     deliveryMemo: order.deliveryMemo || '',
   });
 
-  const isDirty = 
+  const isDirty =
     formData.orderStatus !== order.orderStatus ||
     formData.paymentStatus !== order.paymentStatus ||
     formData.deliveryStatus !== order.deliveryStatus ||
     formData.trackingNumber !== (order.trackingNumber || '') ||
+    formData.carrier !== (order.carrier || '') ||
     formData.deliveryMemo !== (order.deliveryMemo || '');
 
   const handleChange = (field: keyof typeof formData, value: string) => {
@@ -96,12 +99,27 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
             </select>
           </FormField>
 
-          <FormField label="운송장 번호" className="md:col-span-3">
+          <FormField label="택배사" className="md:col-span-1">
+            <select
+              value={formData.carrier}
+              onChange={(e) => handleChange('carrier', e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
+            >
+              <option value="">선택 안 함</option>
+              {CARRIER_CODES.map((code) => (
+                <option key={code} value={code}>
+                  {CARRIER_LABELS[code]}
+                </option>
+              ))}
+            </select>
+          </FormField>
+
+          <FormField label="운송장 번호" className="md:col-span-2">
             <input
               type="text"
               value={formData.trackingNumber}
               onChange={(e) => handleChange('trackingNumber', e.target.value)}
-              placeholder="예: 대한통운 1234567890"
+              placeholder="예: 1234567890"
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
             />
           </FormField>
@@ -128,6 +146,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
             paymentStatus: order.paymentStatus,
             deliveryStatus: order.deliveryStatus,
             trackingNumber: order.trackingNumber || '',
+            carrier: order.carrier || '',
             deliveryMemo: order.deliveryMemo || '',
           });
         }}
