@@ -132,6 +132,14 @@ export default function OrderListPage() {
     setCurrentPage(1);
   }, []);
 
+  const handleDepositPendingClick = useCallback(() => {
+    setSearchTerm('');
+    setOrderStatusFilter('전체');
+    setDeliveryStatusFilter('전체');
+    setPaymentStatusFilter('입금대기');
+    setCurrentPage(1);
+  }, []);
+
   if (!mounted) return null;
 
   if (loading && orders.length === 0) {
@@ -161,11 +169,6 @@ export default function OrderListPage() {
   const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
   const canceledCount = orders.filter((o) => o.orderStatus === '취소완료' || o.orderStatus === '환불완료').length;
-
-  const handleDepositPendingClick = () => {
-    setPaymentStatusFilter('입금대기');
-    setCurrentPage(1);
-  };
 
   return (
     <div className="space-y-6">

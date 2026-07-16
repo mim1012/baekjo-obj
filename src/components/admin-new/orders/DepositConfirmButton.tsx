@@ -24,7 +24,7 @@ export default function DepositConfirmButton({
       `${order.id} 주문의 입금을 확인 처리하시겠습니까?\n결제상태가 '결제완료'로 변경됩니다.`
     );
     if (!confirmed) return;
-    onStatusChange(order.id, { paymentStatus: '결제완료' });
+    onStatusChange(order.id, { paymentStatus: '결제완료', orderStatus: '결제완료' });
   };
 
   return (
