@@ -6,12 +6,15 @@ import MobileDataCard from '@/components/admin-new/common/MobileDataCard';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import { formatDate, formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
+import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
 
 interface OrderMobileCardProps {
   order: Order;
+  saving?: boolean;
+  onStatusChange: (id: string, updates: OrderInlineStatusUpdate) => void;
 }
 
-export default function OrderMobileCard({ order }: OrderMobileCardProps) {
+export default function OrderMobileCard({ order, saving = false, onStatusChange }: OrderMobileCardProps) {
   const getOrderStatusBadge = (status: string) => {
     switch (status) {
       case '주문접수': return <StatusBadge status="neutral" label={status} />;
@@ -43,12 +46,20 @@ export default function OrderMobileCard({ order }: OrderMobileCardProps) {
         { label: '배송상태', value: order.deliveryStatus },
       ]}
       action={
-        <Link 
-          href={`/admin/orders/${order.id}`}
-          className="text-[#2F3B34] hover:bg-gray-50 font-medium text-[13px] border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block w-full text-center"
-        >
-          상세보기
-        </Link>
+        <div className="space-y-3">
+          <OrderInlineStatusControls
+            order={order}
+            disabled={saving}
+            layout="stack"
+            onChange={onStatusChange}
+          />
+          <Link 
+            href={`/admin/orders/${order.id}`}
+            className="text-[#2F3B34] hover:bg-gray-50 font-medium text-[13px] border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block w-full text-center"
+          >
+            상세보기
+          </Link>
+        </div>
       }
     />
   );

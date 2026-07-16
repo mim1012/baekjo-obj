@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FileText, CreditCard, Truck, RefreshCcw } from 'lucide-react';
-import { getAllOrders } from '@/lib/storage';
+import { getAllOrders, updateOrderStatus } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
@@ -13,12 +13,14 @@ import OrderFilters from './OrderFilters';
 import OrderDataTable from './OrderDataTable';
 import OrderMobileCard from './OrderMobileCard';
 import type { Order } from '@/types';
+import type { OrderInlineStatusUpdate } from './OrderInlineStatusControls';
 
 export default function OrderListPage() {
   const mounted = useMounted();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [savingOrderIds, setSavingOrderIds] = useState<Set<string>>(new Set());
 
   const [searchTerm, setSearchTerm] = useState('');
   const [orderStatusFilter, setOrderStatusFilter] = useState('전체');
@@ -50,6 +52,31 @@ export default function OrderListPage() {
     setLoading(true);
     loadOrders();
   }, [loadOrders]);
+  const handleInlineStatusChange = useCallback(async (id: string, updates: OrderInlineStatusUpdate) => {
+    const previousOrder = orders.find((order) => order.id === id);
+    if (!previousOrder) return;
+
+    setSavingOrderIds((prev) => new Set(prev).add(id));
+    setOrders((prev) => prev.map((order) => (
+      order.id === id ? { ...order, ...updates } : order
+    )));
+
+    try {
+      await updateOrderStatus(id, updates);
+      await loadOrders();
+    } catch {
+      setOrders((prev) => prev.map((order) => (
+        order.id === id ? previousOrder : order
+      )));
+      alert('주문 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setSavingOrderIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }, [loadOrders, orders]);
 
   const filteredOrders = useMemo(() => {
     let result = [...orders].sort(
@@ -164,7 +191,12 @@ export default function OrderListPage() {
 
         {/* PC Table View */}
         <div className="hidden md:block">
-          <OrderDataTable orders={paginatedOrders} isLoading={loading} />
+          <OrderDataTable
+            orders={paginatedOrders}
+            isLoading={loading}
+            savingOrderIds={savingOrderIds}
+            onStatusChange={handleInlineStatusChange}
+          />
         </div>
 
         {/* Mobile Card View */}
@@ -174,7 +206,14 @@ export default function OrderListPage() {
               검색 결과가 없습니다.
             </div>
           ) : (
-            paginatedOrders.map((order) => <OrderMobileCard key={order.id} order={order} />)
+            paginatedOrders.map((order) => (
+              <OrderMobileCard
+                key={order.id}
+                order={order}
+                saving={savingOrderIds.has(order.id)}
+                onStatusChange={handleInlineStatusChange}
+              />
+            ))
           )}
         </div>
 

@@ -3,50 +3,18 @@
 import React from 'react';
 import Link from 'next/link';
 import DataTable, { Column } from '@/components/admin-new/common/DataTable';
-import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import { formatDate, formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
+import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
 
 interface OrderDataTableProps {
   orders: Order[];
   isLoading: boolean;
+  savingOrderIds?: Set<string>;
+  onStatusChange: (id: string, updates: OrderInlineStatusUpdate) => void;
 }
 
-export default function OrderDataTable({ orders, isLoading }: OrderDataTableProps) {
-  const getOrderStatusBadge = (status: string) => {
-    switch (status) {
-      case '주문접수': return <StatusBadge status="neutral" label={status} />;
-      case '결제완료': return <StatusBadge status="info" label={status} />;
-      case '배송준비': return <StatusBadge status="warning" label={status} />;
-      case '배송중': return <StatusBadge status="warning" label={status} />;
-      case '배송완료': return <StatusBadge status="success" label={status} />;
-      case '취소요청':
-      case '취소완료':
-      case '환불완료': return <StatusBadge status="error" label={status} />;
-      default: return <StatusBadge status="neutral" label={status} />;
-    }
-  };
-
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case '결제대기': return <StatusBadge status="warning" label={status} />;
-      case '승인중': return <StatusBadge status="warning" label={status} />;
-      case '결제완료': return <StatusBadge status="success" label={status} />;
-      case '결제취소':
-      case '환불완료': return <StatusBadge status="error" label={status} />;
-      default: return <StatusBadge status="neutral" label={status} />;
-    }
-  };
-
-  const getDeliveryStatusBadge = (status: string) => {
-    switch (status) {
-      case '배송전': return <StatusBadge status="neutral" label={status} />;
-      case '배송준비': return <StatusBadge status="warning" label={status} />;
-      case '배송중': return <StatusBadge status="info" label={status} />;
-      case '배송완료': return <StatusBadge status="success" label={status} />;
-      default: return <StatusBadge status="neutral" label={status} />;
-    }
-  };
+export default function OrderDataTable({ orders, isLoading, savingOrderIds = new Set(), onStatusChange }: OrderDataTableProps) {
 
   const columns: Column<Order>[] = [
     {
@@ -98,19 +66,15 @@ export default function OrderDataTable({ orders, isLoading }: OrderDataTableProp
       }
     },
     {
-      key: 'orderStatus',
-      header: '주문 상태',
-      render: (row) => getOrderStatusBadge(row.orderStatus)
-    },
-    {
-      key: 'paymentStatus',
-      header: '결제 상태',
-      render: (row) => getPaymentStatusBadge(row.paymentStatus)
-    },
-    {
-      key: 'deliveryStatus',
-      header: '배송 상태',
-      render: (row) => getDeliveryStatusBadge(row.deliveryStatus)
+      key: 'statusControls',
+      header: '상태 변경',
+      render: (row) => (
+        <OrderInlineStatusControls
+          order={row}
+          disabled={savingOrderIds.has(row.id)}
+          onChange={onStatusChange}
+        />
+      )
     },
     {
       key: 'actions',
