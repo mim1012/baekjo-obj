@@ -19,26 +19,25 @@ export default function DepositConfirmButton({
 }: DepositConfirmButtonProps) {
   if (order.paymentStatus !== '입금대기') return null;
 
-  // 주문상태는 아직 진행되지 않은 주문(=주문접수)일 때만 함께 올린다.
-  // 토스 경로의 setOrderPaid 는 결제 직후에만 도는 반면 입금확인은 관리자가 언제든 누를 수
-  // 있어, 이미 '배송중'/'배송완료'인 주문(입금대기 + 배송중 조합은 관리자 select 로 실제
-  // 도달 가능하다)에 무조건 '결제완료'를 넣으면 주문상태가 뒤로 후퇴한다(codex 리뷰 HIGH).
-  const shouldAdvanceOrderStatus = order.orderStatus === '주문접수';
-
+  // 결제상태만 바꾼다 — 주문상태(orderStatus)는 건드리지 않는다.
+  //
+  // 토스 경로의 setOrderPaid 는 payment_status·order_status 를 함께 세팅하지만 그건 **결제
+  // 직후**라 주문상태가 초기값임이 보장될 때뿐이다. 입금확인은 관리자가 언제든 누를 수 있고
+  // 관리자 select 는 결제상태와 무관하게 주문상태를 바꿀 수 있어 `입금대기 + 배송중` 조합이
+  // 실제 도달 가능하다. 여기서 orderStatus 를 함께 올리면:
+  //   - 무조건 올리면 → 배송중 주문이 '결제완료'로 후퇴한다.
+  //   - 클라이언트에서 `orderStatus === '주문접수'` 로 걸러도 → 렌더 시점 스냅샷이라 다른 탭·
+  //     관리자가 그 사이 상태를 바꿨으면 낡은 값으로 판단해 여전히 후퇴시킨다(TOCTOU).
+  // 안전한 해법은 서버 조건부 전이(`where order_status='주문접수'` CAS)인데 그건 계약 변경이라
+  // 이 PR(계약 무변경 프론트) 범위를 벗어난다 → 주문상태 동반 전이는 별도 PR 로 분리한다.
   const handleClick = () => {
     const confirmed = window.confirm(
       `${order.id} 주문의 입금을 확인 처리하시겠습니까?\n\n` +
-        `· 결제상태가 '결제완료'로 변경됩니다.` +
-        (shouldAdvanceOrderStatus ? `\n· 주문상태도 '결제완료'로 함께 변경됩니다.` : '') +
-        `\n\n⚠️ 확인 후에는 미결제 취소로 재고가 자동 복원되지 않습니다(결제완료 주문은 복원 RPC 대상이 아님). 실제 입금을 확인한 뒤 진행하세요.`
+        `· 결제상태가 '결제완료'로 변경됩니다(주문상태는 그대로이니 필요하면 따로 변경하세요).\n\n` +
+        `⚠️ 확인 후에는 미결제 취소로 재고가 자동 복원되지 않습니다(결제완료 주문은 복원 RPC 대상이 아님). 실제 입금을 확인한 뒤 진행하세요.`
     );
     if (!confirmed) return;
-    onStatusChange(
-      order.id,
-      shouldAdvanceOrderStatus
-        ? { paymentStatus: '결제완료', orderStatus: '결제완료' }
-        : { paymentStatus: '결제완료' },
-    );
+    onStatusChange(order.id, { paymentStatus: '결제완료' });
   };
 
   return (
