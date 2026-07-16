@@ -118,7 +118,9 @@ export const surveyResultRules: SurveyResultRule[] = [
     recommendation: {
       direction: '현재의 건강을 유지하기 위한 일상 케어',
       categorySlug: '식사와 영양',
-      brandIds: ['b4', 'b5'], 
+      // b4(캣코드)는 실재하지 않는 브랜드로 제거됨(2026-07-16) — 소속 상품이 알로밍(b5)으로
+      // 이관돼 b5 로 흡수. p9 는 제품명·실사진 확정까지 노출 보류라 p12 가 추천을 지탱한다.
+      brandIds: ['b5'],
       productIds: ['p9', 'p12'],
       needInsuranceAnalysis: false,
       recommendKit: false
