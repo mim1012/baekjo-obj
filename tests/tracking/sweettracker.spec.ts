@@ -64,10 +64,12 @@ test.describe('levelToDeliveryStatus', () => {
     expect(levelToDeliveryStatus(6)).toBe('배송완료');
   });
 
-  test('범위 밖 값(0, 7, -1)은 보수적으로 배송준비/배송완료로 폴백한다', () => {
+  test('범위 밖 값(0, 7, -1)은 보수적으로 배송준비로 폴백한다', () => {
+    // FIX 4: 주석은 "범위 밖은 배송준비로 폴백"이라 말하는데 코드는 level>=6이면 7도 배송완료로
+    // 반환했었다 — 6 초과는 배송완료로 단정하지 않고 보수적으로 배송준비로 폴백하도록 정정했다.
     expect(levelToDeliveryStatus(0)).toBe('배송준비');
     expect(levelToDeliveryStatus(-1)).toBe('배송준비');
-    expect(levelToDeliveryStatus(7)).toBe('배송완료');
+    expect(levelToDeliveryStatus(7)).toBe('배송준비');
   });
 });
 
@@ -138,6 +140,67 @@ test.describe('fetchTrackingInfo', () => {
         expect(result.deliveryStatus).toBe('배송준비');
         expect(result.steps).toEqual([]);
       }
+    } finally {
+      restore();
+    }
+  });
+
+  test('HTTP 200 + JSON null → quota-or-api-error, throw 하지 않음', async () => {
+    // FIX 1: res.json()이 성공해도 body가 null이면 body.trackingDetails 접근에서 TypeError가
+    // 나 "never throws" 계약이 깨진다 — 런타임 객체 검증이 이걸 흡수해야 한다.
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse(null));
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: '응답 형식 오류' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('HTTP 200 + JSON 문자열 바디 → quota-or-api-error, throw 하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse('not-an-object'));
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: '응답 형식 오류' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('HTTP 200 + JSON 배열 바디 → quota-or-api-error, throw 하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse([{ result: 'Y', level: 1 }]));
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: '응답 형식 오류' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('result 필드 누락(level만 존재) → quota-or-api-error', async () => {
+    // FIX 2: 이전에는 result가 없어도 level만 유효하면 ok:true로 새어나갔다 — 성공 마커('Y')를
+    // 명시적으로 요구해야 한다.
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () => jsonResponse({ level: 6, trackingDetails: [] }));
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: '알 수 없는 result' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('result:"UNKNOWN" (알 수 없는 값) → quota-or-api-error', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({ result: 'UNKNOWN', level: 3, trackingDetails: [] }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({ ok: false, reason: 'quota-or-api-error', message: '알 수 없는 result' });
     } finally {
       restore();
     }

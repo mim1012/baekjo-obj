@@ -17,33 +17,16 @@
  */
 import { isCarrierCode, SWEET_TRACKER_CODES } from '@/lib/carriers';
 import { logServerError } from '@/lib/logServerError';
-import type { DeliveryStatus } from '@/types';
+import type { DeliveryStatus, TrackingLevel, TrackingResult, TrackingStep } from '@/types';
+
+export type { TrackingLevel, TrackingResult, TrackingStep };
 
 const SWEET_TRACKER_BASE = 'https://info.sweettracker.co.kr';
 const FETCH_TIMEOUT_MS = 8_000;
 
-export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
-
-export interface TrackingStep {
-  time: string;
-  where: string;
-  kind: string;
-}
-
-export type TrackingResult =
-  | {
-      ok: true;
-      level: TrackingLevel;
-      complete: boolean;
-      steps: TrackingStep[];
-      deliveryStatus: DeliveryStatus;
-      invoiceNo: string;
-    }
-  | {
-      ok: false;
-      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
-      message?: string;
-    };
+// 아래 두 인터페이스는 §4 "데이터 모양은 설계도 한 장"의 대상이 아니다 — 앱이 쓰는 공용 데이터
+// 모양(TrackingResult 등)이 아니라, 이 파일 내부에서만 쓰는 벤더 wire-format(HTTP 응답 원본 필드)
+// 파싱용 타입이라 src/types/index.ts로 옮기지 않는다.
 
 /** 벤더 응답의 trackingDetails[] 원소 — Swagger엔 없지만 실측 응답에 존재하는 필드까지 담는다. */
 interface RawTrackingDetail {
@@ -63,6 +46,11 @@ interface RawTrackingInfoResponse {
   trackingDetails?: unknown;
 }
 
+/** `res.json()` 결과가 파싱 가능한 객체 형태인지 런타임으로 확인한다(FIX 1). */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
 function isValidLevel(value: unknown): value is TrackingLevel {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 6;
 }
@@ -73,7 +61,10 @@ function isValidLevel(value: unknown): value is TrackingLevel {
  * 2(집화완료)~5(배송출발) → 배송중 — 2는 "이미 판매자 손을 떠났다"는 뜻이라 배송준비로 두면
  *   관리자가 오해한다(택배기사 인계 완료 = 배송 시작으로 간주).
  * 6(배송완료) → 배송완료
- * 범위 밖 값(방어적 파싱 실패)은 가장 보수적인 '배송준비'로 폴백한다.
+ * 범위 밖 값(방어적 파싱 실패)은 가장 보수적인 '배송준비'로 폴백한다 — 정확히 6인 경우만
+ * '배송완료'로 취급하고, 6 초과(예: 벤더가 미래에 level 7을 추가하는 경우)는 배송완료로
+ * 단정하지 않는다. `isValidLevel`이 오늘은 1~6만 통과시켜 이 함수를 그 범위 안에서만
+ * 호출하지만, 이 함수 자체가 export 되어 있어 코드와 주석이 서로 다른 말을 하면 안 된다.
  */
 export function levelToDeliveryStatus(level: number): DeliveryStatus {
   // 문자열 리터럴을 직접 반환한다(DELIVERY_STATUSES 배열 인덱싱 금지) — 배열 순서가 바뀌거나
@@ -81,7 +72,8 @@ export function levelToDeliveryStatus(level: number): DeliveryStatus {
   // 리터럴은 DeliveryStatus 유니온에 의해 오타가 컴파일 에러로 잡히면서도, 배열 재정렬의 영향을
   // 받지 않는다.
   if (level <= 1) return '배송준비';
-  if (level >= 6) return '배송완료';
+  if (level === 6) return '배송완료';
+  if (level > 6) return '배송준비';
   return '배송중';
 }
 
@@ -180,9 +172,9 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
     return { ok: false, reason: 'quota-or-api-error', message: `HTTP ${res.status}` };
   }
 
-  let body: RawTrackingInfoResponse;
+  let parsed: unknown;
   try {
-    body = (await res.json()) as RawTrackingInfoResponse;
+    parsed = await res.json();
   } catch (error) {
     // JSON 파싱 실패 시의 에러도 네트워크 catch(:171)와 동일한 이유로 sanitize한다 — 이 파일이
     // 선언한 위협모델(:124-127)상 URL(=API 키)이 메시지에 섞여 나올 가능성을 배제할 수 없다.
@@ -193,6 +185,15 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
     return { ok: false, reason: 'quota-or-api-error', message: '응답 파싱 실패' };
   }
 
+  // ⚠️ "절대 throw 하지 않는다" 계약 방어: `res.json()`이 성공해도 결과가 객체라는 보장은 없다
+  // (벤더/중간 프록시가 HTTP 200 + JSON `null`/문자열/배열을 내려줄 수 있다). 이걸 그대로
+  // RawTrackingInfoResponse로 단정(as-cast)하면 아래 필드 접근에서 TypeError가 나 이 함수의
+  // "never throws" 계약이 깨진다 — 반드시 객체임을 런타임으로 확인한 뒤에만 필드에 접근한다.
+  if (!isPlainObject(parsed)) {
+    return { ok: false, reason: 'quota-or-api-error', message: '응답 형식 오류' };
+  }
+  const body = parsed as RawTrackingInfoResponse;
+
   // ⚠️ 함정 방어: HTTP 200이어도 result==='N'이면 미등록/조회불가 송장이다.
   // result:'N'만 미등록이다 — 등록 직후(집화 전) 주문은 result:'Y' + level:1 + 빈
   // trackingDetails로 올 수 있어, 빈 배열을 미등록으로 접으면 "송장 등록됨, 아직 집화 전"이라는
@@ -200,6 +201,12 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
   const steps = parseSteps(body.trackingDetails);
   if (body.result === 'N') {
     return { ok: false, reason: 'not-found' };
+  }
+
+  // result 성공 마커('Y')를 명시적으로 요구한다 — level만 유효하면 result 누락/미확인 값도
+  // ok:true로 새던 결함(FIX 2) 방어. result:'Y'가 아니면(누락 포함) API 이상 응답으로 취급한다.
+  if (body.result !== 'Y') {
+    return { ok: false, reason: 'quota-or-api-error', message: '알 수 없는 result' };
   }
 
   if (!isValidLevel(body.level)) {

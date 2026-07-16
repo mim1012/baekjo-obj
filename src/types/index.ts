@@ -565,3 +565,31 @@ export interface AdminDashboardSummary {
   /** brandStats의 메타(기간·미매칭 상품 수·절삭/부분실패 플래그). brandStats와 함께 내려간다. */
   brandStatsMeta?: AdminDashboardBrandStatsMeta;
 }
+
+/**
+ * 스마트택배(Sweet Tracker) 조회 결과 — src/lib/tracking/sweettracker.ts 공용 데이터 모양.
+ * §4(콘센트 규칙): 앱이 쓰는 데이터 형태는 이 파일에만 정의한다. 벤더 wire-format(원본 응답 필드)은
+ * 여기 두지 않는다 — sweettracker.ts 내부의 RawTrackingInfoResponse/RawTrackingDetail 참고.
+ */
+export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface TrackingStep {
+  time: string;
+  where: string;
+  kind: string;
+}
+
+export type TrackingResult =
+  | {
+      ok: true;
+      level: TrackingLevel;
+      complete: boolean;
+      steps: TrackingStep[];
+      deliveryStatus: DeliveryStatus;
+      invoiceNo: string;
+    }
+  | {
+      ok: false;
+      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
+      message?: string;
+    };
