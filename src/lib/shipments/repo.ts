@@ -67,33 +67,45 @@ export type ShipmentPatch = Partial<{
  *
  * ⚠️ markReclaimDead(orders/repo.ts:389)처럼 "0행 갱신을 성공으로 취급하지 않는" 가드는 여기선 불필요
  * 하다 — upsert는 정의상 매치되는 행이 없으면 INSERT하므로 항상 정확히 1행에 영향을 준다(RLS는 서버
- * secret key 호출이라 우회되어 행을 조용히 걸러내지 않는다). FK 위반(orderId/brandId가 실존하지 않음)
- * 등 실패는 error로 그대로 드러난다.
+ * secret key 호출이라 우회되어 행을 조용히 걸러내지 않는다). order_id의 FK(orders(id)) 위반은 여전히
+ * error로 드러나지만, brand_id는 FK가 없는 텍스트 스냅샷(OrderItem.brandId와 동일 원칙, 0034 이후)이라
+ * 존재하지 않는 브랜드 ID를 보내도 DB가 막지 않는다.
+ *
+ * ⚠️ brand_id에 FK가 없으므로 존재하지 않는 브랜드 ID도 그대로 저장된다. requireBrandScoped
+ * (src/lib/admin/requireBrandScoped.ts)는 브랜드 **존재**를 확인하지 않는다 — admin은 어떤 brandId든
+ * 무조건 통과시키고, partner는 자신의 managedBrandIds에 포함되는지만 검사한다. 따라서 이 함수를 호출하는
+ * 라우트는 brandId가 **그 주문의 items에 실제로 스냅샷된 브랜드**인지도 별도로 검증해야 한다(이 repo는
+ * 그 검증을 하지 않는다 — 아직 호출 라우트가 없으므로 여기 문서로만 남겨둔다).
  */
 export async function upsertShipment(
   orderId: string,
   brandId: string,
   patch: ShipmentPatch,
 ): Promise<void> {
-  // updateOrderStatus(orders/repo.ts)와 동일하게 반영할 필드가 없으면 아무 것도 하지 않는다 — 가드가
-  // 없으면 {order_id, brand_id}만 담은 행이 upsert되어, 아무것도 보내지 않은 업체 앞으로 '배송전'
-  // 유령 shipments 행이 생긴다(호출부가 빈 patch로 이 함수를 부르는 경우를 실제로 막아야 함).
-  if (Object.keys(patch).length === 0) return;
-
-  const row: Record<string, string | null> = {
-    order_id: orderId,
-    brand_id: brandId,
-  };
-  if (patch.carrier !== undefined) row.carrier = patch.carrier || null;
-  if (patch.trackingNumber !== undefined) row.tracking_number = patch.trackingNumber || null;
+  const columnPatch: Record<string, string | null> = {};
+  if (patch.carrier !== undefined) columnPatch.carrier = patch.carrier || null;
+  if (patch.trackingNumber !== undefined) columnPatch.tracking_number = patch.trackingNumber || null;
   // 빈 문자열('')은 무시한다 — carrier/trackingNumber처럼 "해제 신호"로 NULL을 저장할 수 없다
   // (delivery_status는 not null이고 CHECK 제약이 없어 임의 문자열이 그대로 저장되므로, ''를 그냥
   // 보내면 DB 기본값 '배송전'이나 기존 값을 밀어내고 어휘집 밖의 빈 값이 박힌다). 그래서 ''는
   // "값을 안 보낸 것"과 동일하게 취급해 기존/기본값이 그대로 유지되게 한다.
   if (patch.deliveryStatus !== undefined && patch.deliveryStatus !== '') {
-    row.delivery_status = patch.deliveryStatus;
+    columnPatch.delivery_status = patch.deliveryStatus;
   }
-  if (patch.shippedAt !== undefined) row.shipped_at = patch.shippedAt || null;
+  if (patch.shippedAt !== undefined) columnPatch.shipped_at = patch.shippedAt || null;
+
+  // updateOrderStatus(orders/repo.ts)와 동일하게 반영할 실제 컬럼이 없으면 아무 것도 하지 않는다 — 이
+  // 가드는 patch→columnPatch 매핑 *이후*에 있어야 한다. deliveryStatus:'' 같은 patch는 위에서 무시되어
+  // columnPatch가 비므로, order_id/brand_id 매핑 전에 매핑 후 컬럼 유무로 가드해야만
+  // {order_id, brand_id}만 담긴 유령 행이 upsert(=INSERT)되는 것을 막는다. patch.length만 보는 가드는
+  // deliveryStatus:''처럼 "키는 있지만 실제로 쓸 컬럼은 없는" patch를 통과시켜 이 가드를 무력화한다.
+  if (Object.keys(columnPatch).length === 0) return;
+
+  const row: Record<string, string | null> = {
+    order_id: orderId,
+    brand_id: brandId,
+    ...columnPatch,
+  };
 
   const { error } = await getSupabase()
     .from('shipments')
