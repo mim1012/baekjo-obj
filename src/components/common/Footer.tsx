@@ -53,6 +53,15 @@ export default function Footer() {
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               <Link href="/terms" className="transition-colors duration-500 hover:text-[#FBFAF7]">이용약관</Link>
               <Link href="/privacy" className="font-semibold text-[#FBFAF7]/85 transition-colors duration-500 hover:text-[#FBFAF7]">개인정보처리방침</Link>
+              <Link href="/refund-policy" className="transition-colors duration-500 hover:text-[#FBFAF7]">배송·교환·환불 안내</Link>
+              <a
+                href={COMPANY.businessLookupUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors duration-500 hover:text-[#FBFAF7]"
+              >
+                사업자정보확인
+              </a>
             </div>
             <p className="mt-4 max-w-2xl leading-6 text-[#FBFAF7]/45">
               {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
