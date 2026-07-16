@@ -161,27 +161,9 @@ export async function updateBrand(id: string, patch: BrandPatchInput): Promise<B
   return rowToBrand(data as BrandRow);
 }
 
-/** deleteBrand가 배송 이력(shipments.brand_id, 0034)이 남아있는 브랜드를 지우려 할 때 던지는
- *  전용 에러 — 호출부(라우트)가 일반 500이 아니라 409로 구분 응답할 수 있게 한다.
- *  (orders/repo.ts ClaimPaymentKeyConflictError와 동일 패턴.) */
-export class BrandHasShipmentsError extends Error {
-  constructor(message = 'brand-has-shipments') {
-    super(message);
-    this.name = 'BrandHasShipmentsError';
-  }
-}
-
 /** 삭제된 브랜드가 실제로 존재했는지 반환한다(라우트에서 404 판정에 사용). */
 export async function deleteBrand(id: string): Promise<boolean> {
   const { data, error } = await getSupabase().from('brands').delete().eq('id', id).select('id');
-  if (error) {
-    // 23503 = postgres foreign_key_violation. 0034가 shipments.brand_id에 on delete restrict를
-    // 걸어뒀으므로, 배송 이력이 있는 브랜드를 지우려 하면 여기서 걸린다 — 500으로 흘리지 않고
-    // 라우트가 409로 구분 응답하게 한다.
-    if (error.code === '23503') {
-      throw new BrandHasShipmentsError();
-    }
-    throw error;
-  }
+  if (error) throw error;
   return Array.isArray(data) && data.length > 0;
 }

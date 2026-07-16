@@ -222,8 +222,10 @@ export interface OrderItem {
   price: number;
   /**
    * 주문 시점의 브랜드를 스냅샷한다 — 상품이 삭제·재브랜딩돼도 과거 주문의 판매자 귀속이
-   * 흔들리지 않게. 레거시 주문(이 필드 도입 전 생성된 items jsonb)엔 없으므로 optional이며,
-   * 없으면 호출부가 products 조인으로 폴백한다(dashboardStats.ts의 brandIdByProductId 참고).
+   * 흔들리지 않게. 레거시 주문(이 필드 도입 전 생성된 items jsonb)엔 없으므로 optional이다.
+   * 현재 소비자는 없다 — dashboardStats.ts는 아직 이 필드를 읽지 않고 products 조인으로
+   * brandIdByProductId를 만들어 귀속한다(dashboardStats.ts:143). 이 필드를 실제로 읽어
+   * 레거시 폴백(조인) 구조로 바꾸는 것은 후속 과제다.
    */
   brandId?: string;
 }

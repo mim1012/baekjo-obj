@@ -46,6 +46,10 @@ export type ShipmentPatch = Partial<{
   carrier: string;
   trackingNumber: string;
   deliveryStatus: string;
+  // shipped_at 쓰기 경로. 언제 이 값을 채울지(예: deliveryStatus가 '배송중'으로 바뀔 때 자동 스탬프)는
+  // 이 레이어의 책임이 아니다 — repo는 patch를 그대로 옮기기만 하고, 시점 판단은 향후 호출부(파트너
+  // 라우트)가 한다. updateOrderStatus(orders/repo.ts)도 carrier/trackingNumber에서 같은 원칙을 따른다.
+  shippedAt: string;
 }>;
 
 /**
@@ -71,13 +75,25 @@ export async function upsertShipment(
   brandId: string,
   patch: ShipmentPatch,
 ): Promise<void> {
+  // updateOrderStatus(orders/repo.ts)와 동일하게 반영할 필드가 없으면 아무 것도 하지 않는다 — 가드가
+  // 없으면 {order_id, brand_id}만 담은 행이 upsert되어, 아무것도 보내지 않은 업체 앞으로 '배송전'
+  // 유령 shipments 행이 생긴다(호출부가 빈 patch로 이 함수를 부르는 경우를 실제로 막아야 함).
+  if (Object.keys(patch).length === 0) return;
+
   const row: Record<string, string | null> = {
     order_id: orderId,
     brand_id: brandId,
   };
   if (patch.carrier !== undefined) row.carrier = patch.carrier || null;
   if (patch.trackingNumber !== undefined) row.tracking_number = patch.trackingNumber || null;
-  if (patch.deliveryStatus !== undefined) row.delivery_status = patch.deliveryStatus;
+  // 빈 문자열('')은 무시한다 — carrier/trackingNumber처럼 "해제 신호"로 NULL을 저장할 수 없다
+  // (delivery_status는 not null이고 CHECK 제약이 없어 임의 문자열이 그대로 저장되므로, ''를 그냥
+  // 보내면 DB 기본값 '배송전'이나 기존 값을 밀어내고 어휘집 밖의 빈 값이 박힌다). 그래서 ''는
+  // "값을 안 보낸 것"과 동일하게 취급해 기존/기본값이 그대로 유지되게 한다.
+  if (patch.deliveryStatus !== undefined && patch.deliveryStatus !== '') {
+    row.delivery_status = patch.deliveryStatus;
+  }
+  if (patch.shippedAt !== undefined) row.shipped_at = patch.shippedAt || null;
 
   const { error } = await getSupabase()
     .from('shipments')

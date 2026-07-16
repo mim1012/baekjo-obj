@@ -14,14 +14,16 @@
 create table public.shipments (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references public.orders(id) on delete cascade,
-  -- brand_id: 이 리포의 관례는 on delete set null(0004_products_brands.sql:17,
-  -- 0029_product_reviews_inquiries.sql:16/35)이지만 여기서는 의도적으로 restrict를 쓴다.
-  -- shipments는 살아있는 카탈로그 데이터가 아니라 "누가 무엇을 보냈는지"의 배송 이력이다.
-  -- set null은 애초 불가능 — brand_id가 not null이고 unique(order_id, brand_id)의 일부라
-  -- null로 바뀌면 그 유니크 제약의 의미가 깨진다. cascade는 이력 자체를 조용히 지워버린다.
-  -- 그래서 배송 이력이 있는 브랜드는 삭제를 막는다 — 대신 DELETE /api/admin/brands/[id]가
-  -- 이 제약 위반(23503)을 감지해 409로 명시 응답한다(brands/repo.ts deleteBrand 참고).
-  brand_id text not null references public.brands(id) on delete restrict,
+  -- brand_id: FK를 걸지 않는다. OrderItem.brandId(주문 items jsonb 안의 브랜드 스냅샷)와 동일한
+  -- 원칙 — 이 값은 "지금 살아있는 brands 행을 가리키는 참조"가 아니라 주문/배송 시점의 판매자
+  -- 스냅샷이다. 브랜드가 삭제되거나 리브랜딩되어도 배송 이력과 송장 등록 능력은 살아있어야 한다.
+  -- FK(on delete restrict)를 걸면 반대로 깨진다: 주문 생성 시점엔 shipments 행이 아직 없으므로
+  -- 브랜드 삭제가 막히지 않고 그냥 성공한다 — 그런데 나중에 그 브랜드로 귀속된 주문의 송장을
+  -- 등록하려 하면 upsertShipment가 FK 위반(23503)으로 영영 실패한다. 즉 restrict는 "삭제를 막는"
+  -- 게 아니라 "삭제된 뒤에야 발견되는, 복구 불가능한 쓰기 실패"를 만든다. 쓰기 시점 검증(그 브랜드가
+  -- 실존/관리 대상인지)은 DB FK가 아니라 향후 파트너 라우트의 requireBrandScoped가 담당한다
+  -- (managedBrandIds에 속하는지 애플리케이션 레벨에서 확인).
+  brand_id text not null,
   -- 내부 코드(cj/hanjin/... — src/lib/carriers.ts CARRIER_CODES). 관리자/파트너가 입력하는 조회용 값,
   -- API 연동 없음. tracking_number와 함께 orders.carrier/tracking_number(0022)와 동일한 해제 규칙을
   -- 따른다 — 빈 문자열('')은 "해제" 신호이므로 NULL로 저장한다(repo 레이어에서 강제).
@@ -35,7 +37,13 @@ create table public.shipments (
   unique (order_id, brand_id)
 );
 
--- 주문 상세(관리자·파트너)가 order_id로 그 주문의 모든 업체 배송 정보를 조회한다.
-create index shipments_order_id_idx on public.shipments (order_id);
+-- order_id 단독 인덱스는 만들지 않는다 — unique (order_id, brand_id)가 이미 order_id를 선두
+-- 컬럼으로 하는 btree를 만들어주므로 where order_id = ? 조회는 그 인덱스를 그대로 탄다(중복 인덱스 방지).
+--
+-- brand_id 단독 인덱스: 이 테이블을 만든 이유 그 자체 — 파트너가 자기 브랜드 소유 배송만 조회하는
+-- "브랜드별 목록" 패턴이다(products_brand_id_idx@0004, product_inquiries_brand_id_idx@0029와 동일
+-- 근거 — products/repo.ts:252,273의 .eq('brand_id', …) 접근 패턴 참고). brand_id는 unique 키에서
+-- 선두 컬럼이 아니므로(leftmost prefix 아님) 위 유니크 인덱스로는 이 조회를 못 받는다.
+create index shipments_brand_id_idx on public.shipments (brand_id);
 
 alter table public.shipments enable row level security;
