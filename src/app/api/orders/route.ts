@@ -9,6 +9,8 @@ import {
 import { listProductsByIds } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
+import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
+import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import type { OrderItem, Product } from '@/types';
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
@@ -26,10 +28,6 @@ const MAX_MEMO = 1000;
 // 배송비 정책은 프론트 checkout(page.tsx)과 동일해야 저장 총액이 어긋나지 않는다(§4 drift 방지).
 const FREE_SHIPPING_THRESHOLD = 50000;
 const SHIPPING_FEE = 3000;
-
-// 카드결제(토스) PENDING 주문의 재고 선점 유효시간. claimOrderForConfirmation의
-// CLAIM_EXTENSION_MS(orders/repo.ts)와 동일한 폭 — 승인 착수 시 "처음부터 다시 10분"으로 통일한다.
-const PENDING_RESERVATION_MS = 10 * 60 * 1000;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -94,13 +92,13 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
   const deliveryFee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_FEE : 0;
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
-  const isBankTransfer = b.paymentMethod === '무통장입금';
+  const isBankTransfer = b.paymentMethod === BANK_TRANSFER_METHOD;
   const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';
-  // 무통장입금은 만료 복원 대상이 아니다(사람이 입금 확인 처리) — expiresAt 없이 생성.
-  // 카드결제(토스)만 10분 선점 만료를 부여해 미승인/이탈 시 cron이 재고를 복원할 수 있게 한다.
-  const expiresAt = isBankTransfer
-    ? undefined
-    : new Date(Date.now() + PENDING_RESERVATION_MS).toISOString();
+  // 카드(10분)·무통장(72h, 정책 기본값) 모두 유한 선점 만료를 부여한다 — 예전엔 무통장만
+  // expiresAt 없이 생성돼 재고가 무기한 선점됐고, 익명 주문 루프로 재고를 고갈시킬 수 있었다(W2).
+  // 만료된 '입금대기'는 reclaim-stock cron 이 취소·재고복원한다(입금 확인돼 '결제완료'가 된
+  // 주문은 스캔/RPC guard 가 제외 — reservationExpiry.ts 주석 참고).
+  const expiresAt = reservationExpiryIso(b.paymentMethod);
 
   return {
     customerName: b.customerName,
@@ -115,7 +113,7 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
     deliveryStatus: '배송준비',
     ...(typeof b.trackingNumber === 'string' ? { trackingNumber: b.trackingNumber } : {}),
     ...(typeof b.deliveryMemo === 'string' ? { deliveryMemo: b.deliveryMemo } : {}),
-    ...(expiresAt !== undefined ? { expiresAt } : {}),
+    expiresAt,
   };
 }
 
@@ -145,6 +143,17 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  // 공개(게스트) 엔드포인트라 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 익명 루프가
+  // 재고 차감을 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
+  // phone 은 폴백 키로만 쓰므로 여기선 형식 검증 없이 문자열 여부만 본다(정식 검증은 validate).
+  const phoneForKey =
+    body && typeof body === 'object' && typeof (body as Record<string, unknown>).phone === 'string'
+      ? ((body as Record<string, unknown>).phone as string)
+      : undefined;
+  if (!checkOrderRateLimit(orderRateLimitKey(request, phoneForKey))) {
+    return NextResponse.json({ error: 'rate-limited' }, { status: 429 });
   }
 
   // MAX_ITEMS 상한을 DB 조회 전에 적용 — 거대 페이로드가 .in() 조회로 새지 않게 한다.
