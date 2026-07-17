@@ -111,6 +111,57 @@ test('isNew: true 가 통과한다(신규 뱃지)', () => {
   expect(out?.isNew).toBe(true);
 });
 
+test('shipping 정책은 택배사·금액·문구를 검증하고 정규화한다', () => {
+  const out = validateBrandFields({
+    shipping: {
+      defaultCarrier: 'cj',
+      shippingFee: 3000,
+      freeShippingThreshold: 50000,
+      returnShippingFee: 3000,
+      exchangeShippingFee: 6000,
+      dispatchEstimate: '  결제 후 1~2영업일  ',
+      returnAddress: '  서울시 반품로 1  ',
+      asNotice: '  하자 접수 안내  ',
+      supportContact: '  help@example.com  ',
+      supportHours: '  평일 10:00~17:00  ',
+    },
+  }, false);
+
+  expect(out).not.toBeNull();
+  expect(out?.shipping).toEqual({
+    defaultCarrier: 'cj',
+    shippingFee: 3000,
+    freeShippingThreshold: 50000,
+    returnShippingFee: 3000,
+    exchangeShippingFee: 6000,
+    dispatchEstimate: '결제 후 1~2영업일',
+    returnAddress: '서울시 반품로 1',
+    asNotice: '하자 접수 안내',
+    supportContact: 'help@example.com',
+    supportHours: '평일 10:00~17:00',
+  });
+});
+
+test('shipping 정책은 미지원 택배사와 음수 금액을 거부한다', () => {
+  expect(validateBrandFields({ shipping: { defaultCarrier: 'bad-carrier' } }, false)).toBeNull();
+  expect(validateBrandFields({ shipping: { shippingFee: -1 } }, false)).toBeNull();
+  expect(validateBrandFields({ shipping: { freeShippingThreshold: Number.NaN } }, false)).toBeNull();
+});
+
+test('shipping 정책은 빈 텍스트와 빈 택배사를 제거 가능한 빈 객체로 허용한다', () => {
+  const out = validateBrandFields({
+    shipping: {
+      defaultCarrier: '',
+      dispatchEstimate: ' ',
+      asNotice: '',
+      returnShippingFee: '',
+    },
+  }, false);
+
+  expect(out).not.toBeNull();
+  expect(out?.shipping).toEqual({});
+});
+
 /* ── 수정 시 기존 값 보존(S1 detailBlocks 교훈의 브랜드판) ──
  * 수정(requireAll=false)에서 { name }만 보내면 결과에 auditReport·representativeProductIds
  * 키 자체가 없어야 한다 — validate 는 넘어온 키만 반환하고, repo.updateBrand 는

@@ -167,11 +167,15 @@ test('pointsEnabled 는 boolean 으로 항상 담고 미지정 시 false', () =>
   expect(buildProductUpdatePayload(form({ pointsEnabled: undefined }), 'x').pointsEnabled).toBe(false);
 });
 
-/* ── pointsRate: shippingFee 와 동일 — 숫자일 때만, null/undefined 는 키 제외 ── */
+/* ── pointsRate: 적립금 지급이 켜져 있을 때만 저장, 해제 시 기존 rate 제거 경로 ── */
 
-test('pointsRate 가 숫자면 담고, undefined(미입력)면 키를 담지 않는다', () => {
-  expect(buildProductUpdatePayload(form({ pointsRate: 5 }), 'x').pointsRate).toBe(5);
-  const undef = buildProductUpdatePayload(form({ pointsRate: undefined }), 'x') as Record<string, unknown>;
+test('pointsRate 는 pointsEnabled=true 인 숫자만 담고, 해제 상태면 숫자가 있어도 담지 않는다', () => {
+  expect(buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: 5 }), 'x').pointsRate).toBe(5);
+
+  const disabled = buildProductUpdatePayload(form({ pointsEnabled: false, pointsRate: 5 }), 'x') as Record<string, unknown>;
+  expect('pointsRate' in disabled).toBe(false);
+
+  const undef = buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: undefined }), 'x') as Record<string, unknown>;
   expect('pointsRate' in undef).toBe(false);
 });
 

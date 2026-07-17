@@ -166,8 +166,9 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     fields.shippingFee = form.shippingFee;
   }
 
-  // pointsRate 도 shippingFee 와 동일 규칙: 숫자일 때만 실어 미입력 시 기존값을 보존한다.
-  if (typeof form.pointsRate === 'number' && Number.isFinite(form.pointsRate)) {
+  // pointsRate 는 적립금 지급이 켜져 있고 숫자일 때만 담는다.
+  // 체크 해제 상태에서는 rate 를 재전송하지 않아 서버가 기존 detail.pointsRate 를 제거할 수 있게 한다.
+  if (form.pointsEnabled === true && typeof form.pointsRate === 'number' && Number.isFinite(form.pointsRate)) {
     fields.pointsRate = form.pointsRate;
   }
 
