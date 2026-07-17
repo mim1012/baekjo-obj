@@ -12,8 +12,8 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(pageSource).toContain("import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminInsuranceContentConfig()');
     expect(pageSource).toContain('saveInsuranceContentConfig({ consents, faqs })');
-    // 로드 실패 시 저장을 막는다 — 공개 폴백을 default 로 덮어쓰는 사고 방지(codex 리뷰 F5).
-    expect(pageSource).toContain('loadError ? Promise.resolve({ ok: false })');
+    // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH, F5).
+    expect(pageSource).toContain('!loaded || loadError ? Promise.resolve({ ok: false })');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');

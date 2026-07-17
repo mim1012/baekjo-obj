@@ -8,7 +8,7 @@ import ReviewCard from '@/components/common/ReviewCard';
 import BrandProductsClient from '@/components/brands/BrandProductsClient';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
-import { concerns } from '@/data/concerns';
+import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { reviews } from '@/data/reviews';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
@@ -25,6 +25,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
 
   const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
   const brandProducts = await listProductsByBrand(brand.id);
+  const { items: concerns } = await getConcernsConfigWithFallback();
   const relatedConcerns = concerns.filter((concern) =>
     brand.relatedConcernSlugs.includes(concern.slug),
   );

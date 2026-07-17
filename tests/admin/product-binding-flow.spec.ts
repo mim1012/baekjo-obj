@@ -97,7 +97,10 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
 
     expect(shopPage).toContain("import { listProducts } from '@/lib/products/repo'");
-    expect(shopPage).toContain('const [products, brands] = await Promise.all([listProducts(), listBrands()]);');
+    // concerns DB화(2026-07-17)로 고민 필터 옵션도 서버에서 함께 읽어 내려준다.
+    expect(shopPage).toContain('const [products, brands, concernsConfig] = await Promise.all([');
+    expect(shopPage).toContain('listProducts(),');
+    expect(shopPage).toContain('listBrands(),');
     expect(shopPage).not.toContain('@/data/products');
 
     expect(detailPage).toContain("import { getProductById, listProducts } from '@/lib/products/repo'");
