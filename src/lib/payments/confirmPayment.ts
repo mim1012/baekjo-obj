@@ -66,6 +66,8 @@ function toSummary(order: OrderRecord): ConfirmedOrderSummary {
     totalPrice: order.totalPrice,
     deliveryFee: order.deliveryFee,
     paidAt: order.paidAt,
+    usedPoints: order.usedPoints,
+    payableAmount: order.payableAmount,
   };
 }
 
@@ -320,9 +322,9 @@ export async function confirmPayment(params: ConfirmPaymentParams): Promise<Conf
       return { status: 404, error: 'order-not-found' };
     }
 
-    // ② 금액검증 — successUrl 쿼리(amount)는 위조 가능하므로 DB 총액과 대조 후 거부.
+    // ② 금액검증 — successUrl 쿼리(amount)는 위조 가능하므로 DB 실결제액과 대조 후 거부.
     //    승인 요청(④)은 요청 amount가 아니라 이 expectedAmount만 토스에 보낸다.
-    const expectedAmount = order.totalPrice + order.deliveryFee;
+    const expectedAmount = order.payableAmount ?? order.totalPrice + order.deliveryFee;
     if (!Number.isSafeInteger(expectedAmount) || expectedAmount <= 0) {
       logServerError(
         `[confirmPayment] 주문 금액 데이터 이상 orderId=${orderId} expectedAmount=${expectedAmount}`,
@@ -564,7 +566,7 @@ export async function reconcilePendingPayment(
     if (!order) {
       return { status: 404, error: 'order-not-found' };
     }
-    const expectedAmount = order.totalPrice + order.deliveryFee;
+    const expectedAmount = order.payableAmount ?? order.totalPrice + order.deliveryFee;
 
     let tossResult;
     try {

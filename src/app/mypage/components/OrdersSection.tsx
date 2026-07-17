@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Order, ProductReview, Product } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
+import { getOrderGrossAmount, getOrderPayableAmount, getOrderUsedPoints } from '@/lib/orders/amounts';
 import { buildTrackingUrl, CARRIER_LABELS, isCarrierCode } from '@/lib/carriers';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
@@ -74,6 +75,9 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
         {paginatedOrders.map((order) => {
           const trackingUrl = buildTrackingUrl(order.carrier, order.trackingNumber);
           const carrierLabel = order.carrier && isCarrierCode(order.carrier) ? CARRIER_LABELS[order.carrier] : null;
+          const grossAmount = getOrderGrossAmount(order);
+          const usedPoints = getOrderUsedPoints(order);
+          const payableAmount = getOrderPayableAmount(order);
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
@@ -101,6 +105,16 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                       {carrierLabel ? `${carrierLabel} ` : ''}{order.trackingNumber}
                     </span>
                   )
+                )}
+              </div>
+              <div className="text-right text-sm">
+                <div className="font-bold text-[#18231F]">{formatPrice(payableAmount)}</div>
+                {usedPoints > 0 ? (
+                  <div className="text-xs text-[#9A6A4F]">
+                    적립금 -{formatPrice(usedPoints)} · 주문금액 {formatPrice(grossAmount)}
+                  </div>
+                ) : (
+                  <div className="text-xs text-[#68716C]">실결제 기준</div>
                 )}
               </div>
               <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">

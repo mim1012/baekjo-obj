@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { createOrder, cancelReservation, getPublicProducts } from '@/lib/storage';
-import { CartItem, OrderItem, Product, ProductOption } from '@/types';
+import { createOrder, cancelReservation, getMyPointsBalance, getPublicProducts } from '@/lib/storage';
+import { CartItem, OrderItem, PointsBalance, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
@@ -88,11 +88,43 @@ function CheckoutForm() {
   const [widgetReady, setWidgetReady] = useState(false);
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
+  const [pointsBalance, setPointsBalance] = useState<PointsBalance | null>(null);
+  const [pointsLoading, setPointsLoading] = useState(true);
+  const [pointsInput, setPointsInput] = useState('');
 
   const ready = mounted && !productsLoading;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
   const isCardPayment = formData.paymentMethod === '카드결제';
+
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    getMyPointsBalance()
+      .then((balance) => {
+        if (!cancelled) setPointsBalance(balance);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPointsBalance({ memberId: '', balance: 0, eligible: false, reason: 'no-session' });
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPointsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted]);
+
+  const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
+  const finalPrice = totalProductsPrice + deliveryFee;
+  const parsedPointsInput = pointsInput === '' ? 0 : Number(pointsInput);
+  const requestedPoints = Number.isFinite(parsedPointsInput) ? Math.max(0, Math.floor(parsedPointsInput)) : 0;
+  const maxUsablePoints = pointsBalance?.eligible ? Math.min(pointsBalance.balance, finalPrice) : 0;
+  const appliedPoints = Math.min(requestedPoints, maxUsablePoints);
+  const payablePrice = finalPrice - appliedPoints;
 
   useEffect(() => {
     if (ready) {
@@ -131,13 +163,11 @@ function CheckoutForm() {
       });
   }, [router, searchParams]);
 
-  const finalPriceForWidget = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFeeForWidget = finalPriceForWidget > 0 && finalPriceForWidget < 50000 ? 3000 : 0;
-  const widgetAmount = finalPriceForWidget + deliveryFeeForWidget;
+  const widgetAmount = payablePrice;
 
   // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
   useEffect(() => {
-    if (!isCardPayment || !ready || cartItems.length === 0 || hasUnpricedItems) return;
+    if (!isCardPayment || !ready || cartItems.length === 0 || hasUnpricedItems || widgetAmount <= 0) return;
     if (!TOSS_CLIENT_KEY) return;
 
     let cancelled = false;
@@ -169,9 +199,7 @@ function CheckoutForm() {
       widgetsRef.current = null;
       setWidgetReady(false);
     };
-    // widgetAmount 는 카트 확정 후에만 바뀌므로 위젯 재마운트 트리거로 쓰지 않는다(중복 렌더 방지).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCardPayment, ready, cartItems.length, hasUnpricedItems]);
+  }, [isCardPayment, ready, cartItems.length, hasUnpricedItems, widgetAmount]);
 
   if (!ready) return null;
 
@@ -179,9 +207,6 @@ function CheckoutForm() {
     return null;
   }
 
-  const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
-  const finalPrice = totalProductsPrice + deliveryFee;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -198,7 +223,7 @@ function CheckoutForm() {
 
     // totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 는 서버(POST /api/orders)가
     // 카탈로그 가격으로 재계산·고정하므로 여기서 넘기지 않는다(콘센트 축소 — src/lib/storage.ts 참고).
-    if (isCardPayment && (!widgetsRef.current || !widgetReady)) {
+    if (isCardPayment && payablePrice > 0 && (!widgetsRef.current || !widgetReady)) {
       alert('결제 위젯을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
       return;
     }
@@ -214,13 +239,18 @@ function CheckoutForm() {
         items: orderItems,
         paymentMethod: formData.paymentMethod,
         deliveryMemo: formData.memo,
+        pointsToUse: appliedPoints > 0 ? appliedPoints : undefined,
       });
       orderId = order.id;
-      authoritativePrice = order.totalPrice + order.deliveryFee;
+      authoritativePrice = order.payableAmount ?? order.totalPrice + order.deliveryFee;
     } catch (error) {
       setSubmitting(false);
       if (error instanceof Error && error.message === 'out-of-stock') {
         alert('일부 상품의 재고가 부족합니다. 장바구니를 확인해주세요.');
+      } else if (error instanceof Error && error.message === 'insufficient-points') {
+        alert('보유 적립금이 부족합니다. 적립금 사용 금액을 다시 확인해주세요.');
+      } else if (error instanceof Error && (error.message === 'points-ineligible' || error.message === 'points-exceed-order-total' || error.message === 'invalid-points')) {
+        alert('적립금 사용 조건이 맞지 않습니다. 적립금 금액을 다시 확인해주세요.');
       } else {
         alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       }
@@ -233,10 +263,16 @@ function CheckoutForm() {
       return;
     }
 
+    if (authoritativePrice <= 0) {
+      clearCart();
+      router.push('/order-complete');
+      return;
+    }
+
     // 화면 표시 finalPrice(위젯 초기 setAmount 값)는 위젯 렌더 시점 기준이라 stale 할 수 있다.
     // 서버가 방금 카탈로그 가격으로 재계산·고정한 authoritativePrice 와 다르면 결제를 진행하지 않고
     // 선점을 즉시 해제한다(가격 조작·동시 가격변경 방어).
-    if (authoritativePrice !== finalPrice) {
+    if (authoritativePrice !== payablePrice) {
       setSubmitting(false);
       try {
         await cancelReservation(orderId);
@@ -280,6 +316,21 @@ function CheckoutForm() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handlePointsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '') {
+      setPointsInput('');
+      return;
+    }
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue) || numericValue < 0) return;
+    setPointsInput(String(Math.floor(numericValue)));
+  };
+
+  const handleUseAllPoints = () => {
+    setPointsInput(String(maxUsablePoints));
   };
 
   return (
@@ -337,7 +388,7 @@ function CheckoutForm() {
                   );
                 })}
               </div>
-              {isCardPayment && TOSS_CLIENT_KEY && (
+              {isCardPayment && TOSS_CLIENT_KEY && payablePrice > 0 && (
                 <div className="mt-6">
                   {widgetError ? (
                     <p className="text-sm text-red-600">
@@ -353,6 +404,11 @@ function CheckoutForm() {
                     </>
                   )}
                 </div>
+              )}
+              {isCardPayment && payablePrice === 0 && (
+                <p className="mt-6 rounded-sm bg-[#F8F7F2] p-4 text-sm text-[#2F3B34]">
+                  적립금으로 전액 결제되어 외부 카드 결제창 없이 주문을 완료합니다.
+                </p>
               )}
             </section>
 
@@ -412,19 +468,73 @@ function CheckoutForm() {
                   <span>배송비</span>
                   <span className="font-medium text-gray-900">{formatPrice(deliveryFee)}</span>
                 </div>
+                <div className="rounded-sm bg-[#F8F7F2] p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="font-semibold text-[#202521]">적립금 사용</span>
+                    {pointsLoading ? (
+                      <span className="text-xs text-gray-400">조회 중…</span>
+                    ) : pointsBalance?.eligible ? (
+                      <span className="text-xs text-[#7B827C]">보유 {formatPrice(pointsBalance.balance)}</span>
+                    ) : (
+                      <span className="text-xs text-[#9A6A4F]">회원 전용</span>
+                    )}
+                  </div>
+                  {pointsLoading ? (
+                    <p className="text-xs leading-5 text-[#7B827C]">
+                      보유 적립금과 사용 가능 여부를 확인하고 있습니다.
+                    </p>
+                  ) : pointsBalance?.eligible ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          max={maxUsablePoints}
+                          value={pointsInput}
+                          onChange={handlePointsChange}
+                          disabled={maxUsablePoints <= 0}
+                          className="min-w-0 flex-1 rounded-sm border border-gray-200 bg-white px-3 py-2 text-right tabular-nums text-[#202521] focus:border-[#2F3B34] focus:outline-none"
+                          placeholder="0"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleUseAllPoints}
+                          disabled={maxUsablePoints <= 0}
+                          className="rounded-sm border border-[#2F3B34] px-3 py-2 text-xs font-semibold text-[#2F3B34] disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-400"
+                        >
+                          전액 사용
+                        </button>
+                      </div>
+                      <p className="text-xs text-[#7B827C]">
+                        최대 {formatPrice(maxUsablePoints)}까지 사용할 수 있어요.
+                        {requestedPoints > maxUsablePoints ? ' 입력 금액이 사용 가능 한도를 넘어 자동 조정됩니다.' : ''}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs leading-5 text-[#7B827C]">
+                      적립금은 로그인한 일반 회원만 사용할 수 있습니다. 비회원·관리자·파트너 계정은 결제 금액에서 차감되지 않습니다.
+                    </p>
+                  )}
+                </div>
+                {appliedPoints > 0 && (
+                  <div className="flex justify-between text-[#9A6A4F]">
+                    <span>적립금 사용</span>
+                    <span className="font-medium">- {formatPrice(appliedPoints)}</span>
+                  </div>
+                )}
               </div>
               
               <div className="pt-6 border-t border-gray-100 flex items-end justify-between mb-8">
                 <span className="font-bold text-gray-900">최종 결제금액</span>
-                <span className="text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
+                <span className="text-2xl font-bold text-[#2F3B34]">{formatPrice(payablePrice)}</span>
               </div>
 
               <button
                 type="submit"
-                disabled={submitting || (isCardPayment && !widgetReady)}
+                disabled={submitting || (isCardPayment && payablePrice > 0 && !widgetReady)}
                 className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? '주문 처리 중…' : `${formatPrice(finalPrice)} 결제하기`}
+                {submitting ? '주문 처리 중…' : `${formatPrice(payablePrice)} 결제하기`}
               </button>
             </div>
           </div>

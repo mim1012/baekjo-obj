@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import {
-  insertOrder,
-  deleteOrderById,
-  decrementStockForOrder,
+  createOrderWithReservation,
+  InsufficientPointsError,
+  PointsExceedOrderTotalError,
+  PointsIneligibleError,
   type InsertOrderInput,
 } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
@@ -22,6 +23,7 @@ const MAX_PRODUCT_NAME = 200;
 const MAX_OPTION_NAME = 200;
 const MAX_TRACKING = 100;
 const MAX_MEMO = 1000;
+const MAX_POINTS_TO_USE = 10_000_000;
 
 // 배송비 정책은 프론트 checkout(page.tsx)과 동일해야 저장 총액이 어긋나지 않는다(§4 drift 방지).
 const FREE_SHIPPING_THRESHOLD = 50000;
@@ -147,6 +149,16 @@ function extractProductIds(body: unknown): string[] {
   return Array.from(ids);
 }
 
+function extractPointsToUse(body: unknown): number {
+  if (!body || typeof body !== 'object') return 0;
+  const value = (body as Record<string, unknown>).pointsToUse;
+  if (value === undefined || value === null) return 0;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > MAX_POINTS_TO_USE) {
+    return Number.NaN;
+  }
+  return value;
+}
+
 /**
  * POST /api/orders — 주문 생성(공개, 게스트 결제 허용).
  * 세션이 있으면 member_id를 서버가 부여하고, 없으면 게스트(null). id/createdAt/member_id 및
@@ -174,28 +186,33 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     const memberId = session?.user?.memberId ?? null;
-    const order = await insertOrder(validated, memberId);
-
-    try {
-      await decrementStockForOrder(
-        validated.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
-      );
-    } catch (stockError) {
-      await deleteOrderById(order.id).catch((cleanupError) => {
-        logServerError('[POST /api/orders] 재고 차감 실패 후 주문 보상 삭제 실패', cleanupError);
-      });
-      const message = stockError instanceof Error ? stockError.message : String(stockError);
-      if (message.includes('INSUFFICIENT_STOCK')) {
-        return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
-      }
-      logServerError('[POST /api/orders] 재고 차감 실패', stockError);
-      return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    const pointsToUse = extractPointsToUse(body);
+    if (!Number.isInteger(pointsToUse)) {
+      return NextResponse.json({ error: 'invalid-points' }, { status: 400 });
     }
+    if (pointsToUse > validated.totalPrice + validated.deliveryFee) {
+      return NextResponse.json({ error: 'points-exceed-order-total' }, { status: 400 });
+    }
+
+    const order = await createOrderWithReservation(validated, memberId, pointsToUse);
 
     // order는 방금 만든 본인/게스트 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
     // 클라이언트는 Order 필드만 사용하고 나머지는 무시한다.
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
+    if (error instanceof PointsIneligibleError) {
+      return NextResponse.json({ error: 'points-ineligible' }, { status: 403 });
+    }
+    if (error instanceof InsufficientPointsError) {
+      return NextResponse.json({ error: 'insufficient-points' }, { status: 409 });
+    }
+    if (error instanceof PointsExceedOrderTotalError) {
+      return NextResponse.json({ error: 'points-exceed-order-total' }, { status: 400 });
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('INSUFFICIENT_STOCK')) {
+      return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
+    }
     logServerError('[POST /api/orders] 주문 생성 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

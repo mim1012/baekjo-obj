@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import DataTable, { Column } from '@/components/admin-new/common/DataTable';
 import { formatDate, formatPrice } from '@/lib/format';
+import { getOrderGrossAmount, getOrderPayableAmount, getOrderUsedPoints } from '@/lib/orders/amounts';
 import type { Order } from '@/types';
 import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
 import DepositConfirmButton from './DepositConfirmButton';
@@ -57,11 +58,20 @@ export default function OrderDataTable({ orders, isLoading, savingOrderIds = new
       key: 'totalPrice',
       header: '총 결제금액(결제수단)',
       render: (row) => {
-        const finalAmount = row.totalPrice + row.deliveryFee;
+        const grossAmount = getOrderGrossAmount(row);
+        const usedPoints = getOrderUsedPoints(row);
+        const payableAmount = getOrderPayableAmount(row);
         return (
           <div>
-            <div className="font-bold text-gray-900">{formatPrice(finalAmount)}</div>
-            <div className="text-gray-500 text-xs">{row.paymentMethod}</div>
+            <div className="font-bold text-gray-900">{formatPrice(payableAmount)}</div>
+            {usedPoints > 0 && (
+              <div className="text-[#9A6A4F] text-xs">
+                적립금 -{formatPrice(usedPoints)}
+              </div>
+            )}
+            <div className="text-gray-500 text-xs">
+              {row.paymentMethod} · 주문금액 {formatPrice(grossAmount)}
+            </div>
           </div>
         );
       }

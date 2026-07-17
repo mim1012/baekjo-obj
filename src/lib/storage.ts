@@ -4,6 +4,8 @@ import {
   ConfirmedOrderSummary,
   InsuranceApplication,
   Order,
+  PointsBalance,
+  PointsTransaction,
   Product,
   User,
 } from '@/types';
@@ -179,7 +181,7 @@ const LAST_ORDER_KEY = 'baekjo_last_order';
 export type CreateOrderInput = Pick<
   Order,
   'customerName' | 'phone' | 'address' | 'items' | 'paymentMethod' | 'deliveryMemo'
->;
+> & { pointsToUse?: number };
 
 /**
  * 주문 생성. POST /api/orders(공개 — 게스트 결제 허용). 서버가 id·createdAt·member_id 및
@@ -195,8 +197,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     body: JSON.stringify(input),
   });
   if (response.status !== 201) {
-    if (response.status === 409) {
-      throw new Error('out-of-stock');
+    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    if (body?.error) {
+      throw new Error(body.error);
     }
     throw new Error('order-create-failed');
   }
@@ -205,6 +208,26 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(order));
   }
   return order;
+}
+
+export async function getMyPoints(): Promise<{ balance: PointsBalance; transactions: PointsTransaction[] }> {
+  try {
+    const response = await fetch('/api/me/points');
+    if (!response.ok) {
+      return { balance: { memberId: '', balance: 0, eligible: false, reason: 'no-session' }, transactions: [] };
+    }
+    return (await response.json()) as { balance: PointsBalance; transactions: PointsTransaction[] };
+  } catch {
+    return { balance: { memberId: '', balance: 0, eligible: false, reason: 'no-session' }, transactions: [] };
+  }
+}
+
+export async function getMyPointsBalance(): Promise<PointsBalance> {
+  return (await getMyPoints()).balance;
+}
+
+export async function getMyPointsTransactions(): Promise<PointsTransaction[]> {
+  return (await getMyPoints()).transactions;
 }
 
 /**
@@ -1210,6 +1233,7 @@ export async function updateProductReview(
 
 /** 본인 구매평 삭제. DELETE /api/reviews/[id](세션 필요, 소유자만). */
 export async function deleteProductReview(id: string, _userId: string): Promise<void> {
+  void _userId;
   const response = await fetch(`/api/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!response.ok) {
     throw new Error('review-delete-failed');
@@ -1306,6 +1330,7 @@ export async function updateProductInquiry(
 
 /** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
 export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
+  void _userId;
   const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
   if (!response.ok) {
     throw new Error('inquiry-delete-failed');

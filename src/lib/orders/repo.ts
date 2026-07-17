@@ -26,6 +26,8 @@ interface OrderRow {
   items: unknown;
   total_price: number;
   delivery_fee: number;
+  used_points: number | null;
+  payable_amount: number | null;
   payment_method: string;
   order_status: string;
   payment_status: string;
@@ -43,7 +45,7 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, used_points, payable_amount, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -61,6 +63,8 @@ function rowToRecord(row: OrderRow): OrderRecord {
     items: parseItems(row.items),
     totalPrice: row.total_price,
     deliveryFee: row.delivery_fee,
+    usedPoints: row.used_points ?? 0,
+    payableAmount: row.payable_amount ?? row.total_price + row.delivery_fee,
     paymentMethod: row.payment_method,
     orderStatus: normalizeOrderStatus(row.order_status),
     paymentStatus: row.payment_status,
@@ -99,6 +103,8 @@ export type InsertOrderInput = Pick<
   | 'trackingNumber'
   | 'deliveryMemo'
   | 'expiresAt'
+  | 'usedPoints'
+  | 'payableAmount'
 >;
 
 export async function insertOrder(
@@ -115,6 +121,8 @@ export async function insertOrder(
       items: input.items,
       total_price: input.totalPrice,
       delivery_fee: input.deliveryFee,
+      used_points: input.usedPoints ?? 0,
+      payable_amount: input.payableAmount ?? input.totalPrice + input.deliveryFee,
       payment_method: input.paymentMethod,
       order_status: input.orderStatus,
       payment_status: input.paymentStatus,
@@ -127,6 +135,64 @@ export async function insertOrder(
     .single();
   if (error) throw error;
   return rowToRecord(data as OrderRow);
+}
+
+export class PointsIneligibleError extends Error {
+  constructor(message = 'points-ineligible') {
+    super(message);
+    this.name = 'PointsIneligibleError';
+  }
+}
+
+export class InsufficientPointsError extends Error {
+  constructor(message = 'insufficient-points') {
+    super(message);
+    this.name = 'InsufficientPointsError';
+  }
+}
+
+export class PointsExceedOrderTotalError extends Error {
+  constructor(message = 'points-exceed-order-total') {
+    super(message);
+    this.name = 'PointsExceedOrderTotalError';
+  }
+}
+
+function mapCreateOrderRpcError(error: { message?: string }): Error {
+  const message = error.message ?? '';
+  if (message.includes('POINTS_INELIGIBLE')) return new PointsIneligibleError();
+  if (message.includes('INSUFFICIENT_POINTS')) return new InsufficientPointsError();
+  if (message.includes('POINTS_EXCEED_ORDER_TOTAL')) return new PointsExceedOrderTotalError();
+  if (message.includes('INSUFFICIENT_STOCK')) return new Error(message);
+  return new Error(message || 'create-order-with-points-failed');
+}
+
+/** 주문 생성 + 재고 선점 + 적립금 차감을 DB 함수 하나로 처리한다. */
+export async function createOrderWithReservation(
+  input: InsertOrderInput,
+  memberId: string | null,
+  pointsToUse: number,
+): Promise<OrderRecord> {
+  const { data, error } = await getSupabase().rpc('create_order_with_points', {
+    p_member_id: memberId,
+    p_customer_name: input.customerName,
+    p_phone: input.phone,
+    p_address: input.address,
+    p_items: input.items,
+    p_total_price: input.totalPrice,
+    p_delivery_fee: input.deliveryFee,
+    p_payment_method: input.paymentMethod,
+    p_order_status: input.orderStatus,
+    p_payment_status: input.paymentStatus,
+    p_delivery_status: input.deliveryStatus,
+    p_tracking_number: input.trackingNumber ?? null,
+    p_delivery_memo: input.deliveryMemo ?? null,
+    p_expires_at: input.expiresAt ?? null,
+    p_points_to_use: pointsToUse,
+  });
+  if (error) throw mapCreateOrderRpcError(error);
+  const row = Array.isArray(data) ? data[0] : data;
+  return rowToRecord(row as OrderRow);
 }
 
 /** 재고 차감 실패 시 방금 만든 주문을 되돌리는 보상용. 생성 직후 자기 주문에만 사용한다. */
@@ -267,6 +333,20 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
   const { data, error } = await getSupabase().rpc('cancel_confirming_and_restore', {
     p_order_id: id,
     p_payment_key: paymentKey,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
+export async function restorePointsForOrder(
+  id: string,
+  reason = 'terminal_restore',
+  metadata: Record<string, unknown> = {},
+): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc('restore_points_for_order', {
+    p_order_id: id,
+    p_reason: reason,
+    p_metadata: metadata,
   });
   if (error) throw new Error(error.message);
   return data === true;

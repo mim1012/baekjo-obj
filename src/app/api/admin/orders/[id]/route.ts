@@ -4,6 +4,7 @@ import { findMemberById } from '@/lib/members/repo';
 import {
   updateOrderStatus,
   cancelReservationAndRestore,
+  restorePointsForOrder,
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
@@ -88,7 +89,10 @@ function validate(body: unknown): OrderStatusUpdate | null {
  */
 async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promise<void> {
   const isCancelRequest =
-    updates.orderStatus === '취소완료' || updates.paymentStatus === '결제취소';
+    updates.orderStatus === '취소완료' ||
+    updates.orderStatus === '환불완료' ||
+    updates.paymentStatus === '결제취소' ||
+    updates.paymentStatus === '환불완료';
 
   if (!isCancelRequest) {
     await updateOrderStatus(id, updates);
@@ -97,9 +101,20 @@ async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promis
 
   const restored = await cancelReservationAndRestore(id);
   if (!restored) {
+    const shouldRestorePointsOnly =
+      updates.orderStatus === '취소완료' ||
+      updates.orderStatus === '환불완료' ||
+      updates.paymentStatus === '결제취소' ||
+      updates.paymentStatus === '환불완료';
+    if (shouldRestorePointsOnly) {
+      await restorePointsForOrder(id, 'admin_terminal_status', {
+        terminalStatus: updates.paymentStatus ?? updates.orderStatus,
+        source: 'admin_order_patch',
+      });
+    }
     logServerError(
-      `[PATCH /api/admin/orders/[id]] 관리자 취소 요청이나 재고 복원 RPC 미매치(이미 결제완료로 ` +
-        `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
+      `[PATCH /api/admin/orders/[id]] 관리자 취소/환불 요청이나 재고 복원 RPC 미매치(이미 결제완료로 ` +
+        `확정됐거나 이미 취소된 주문일 수 있음 — 적립금은 별도 멱등 복원을 시도함) orderId=${id}`,
       {},
     );
     await updateOrderStatus(id, updates);
@@ -107,7 +122,9 @@ async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promis
   }
 
   // RPC가 이미 orderStatus/paymentStatus를 세팅했으므로 나머지 필드만 반영한다.
-  const { orderStatus: _orderStatus, paymentStatus: _paymentStatus, ...rest } = updates;
+  const rest: OrderStatusUpdate = { ...updates };
+  delete rest.orderStatus;
+  delete rest.paymentStatus;
   if (Object.keys(rest).length > 0) {
     await updateOrderStatus(id, rest);
   }

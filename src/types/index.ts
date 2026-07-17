@@ -212,6 +212,10 @@ export interface Order {
   paymentKey?: string;
   paidAt?: string;
   expiresAt?: string;
+  /** 주문에 사용한 적립금. 레거시 주문은 0으로 보정된다. */
+  usedPoints?: number;
+  /** 실제 외부/현금 결제 대상 금액. 레거시 주문은 totalPrice + deliveryFee로 보정된다. */
+  payableAmount?: number;
   /** '승인중' 고아 대사(reconcile) 재시도 횟수. 웹훅 웨이브(dead-letter) 전용 — 기계만 갱신. */
   reclaimAttempts?: number;
   /** 마지막 reconcile 재시도 실패 사유(진단용). 기계만 갱신. */
@@ -233,7 +237,7 @@ export interface OrderItem {
  */
 export type ConfirmedOrderSummary = Pick<
   Order,
-  'id' | 'orderStatus' | 'paymentStatus' | 'totalPrice' | 'deliveryFee' | 'paidAt'
+  'id' | 'orderStatus' | 'paymentStatus' | 'totalPrice' | 'deliveryFee' | 'usedPoints' | 'payableAmount' | 'paidAt'
 >;
 
 export const ORDER_STATUSES = [
@@ -273,6 +277,26 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 /** 결제가 실제로 확정된 유일한 값(setOrderPaid가 쓰는 값). 매출 집계의 진실 소스. */
 export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
 
+/* ── 적립금 ───────────────────────────────────── */
+export interface PointsBalance {
+  memberId: string;
+  balance: number;
+  eligible: boolean;
+  reason?: 'no-session' | 'ineligible-role' | 'inactive-status';
+}
+
+export interface PointsTransaction {
+  id: string;
+  memberId: string;
+  orderId?: string;
+  type: 'spend' | 'restore' | 'earn' | 'adjust';
+  amount: number;
+  balanceAfter: number;
+  reason: string;
+  createdAt: string;
+  metadata?: Record<string, unknown>;
+}
+
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {
   id: string;
@@ -302,6 +326,8 @@ export interface User {
   /** 입점업체(partner)가 관리하는 브랜드 ID 목록 */
   managedBrandIds?: string[];
   signupData?: Record<string, unknown>;
+  /** 현재 사용 가능한 적립금 잔액. 누락 시 0으로 취급한다. */
+  pointsBalance?: number;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

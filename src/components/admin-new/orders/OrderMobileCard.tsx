@@ -5,6 +5,7 @@ import Link from 'next/link';
 import MobileDataCard from '@/components/admin-new/common/MobileDataCard';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import { formatDate, formatPrice } from '@/lib/format';
+import { getOrderPayableAmount, getOrderUsedPoints } from '@/lib/orders/amounts';
 import type { Order } from '@/types';
 import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
 import DepositConfirmButton from './DepositConfirmButton';
@@ -33,7 +34,8 @@ export default function OrderMobileCard({ order, saving = false, onStatusChange 
   const itemSummary = order.items.length > 1 
     ? `${order.items[0].productName} 외 ${order.items.length - 1}건` 
     : order.items[0]?.productName || '상품 정보 없음';
-  const finalAmount = order.totalPrice + order.deliveryFee;
+  const payableAmount = getOrderPayableAmount(order);
+  const usedPoints = getOrderUsedPoints(order);
 
   return (
     <MobileDataCard
@@ -42,7 +44,8 @@ export default function OrderMobileCard({ order, saving = false, onStatusChange 
       status={getOrderStatusBadge(order.orderStatus)}
       details={[
         { label: '주문자', value: `${order.customerName} (${order.phone})` },
-        { label: '결제금액', value: formatPrice(finalAmount) },
+        { label: '실결제금액', value: formatPrice(payableAmount) },
+        ...(usedPoints > 0 ? [{ label: '사용 적립금', value: `-${formatPrice(usedPoints)}` }] : []),
         { label: '결제상태', value: order.paymentStatus },
         { label: '배송상태', value: order.deliveryStatus },
       ]}

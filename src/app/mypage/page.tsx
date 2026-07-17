@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry } from '@/types';
+import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry, PointsTransaction } from '@/types';
 import {
   getCurrentUser,
   getMyOrders,
   getMyInsuranceApplications,
+  getMyPoints,
   getPublicProducts,
   getMyHistoryProducts,
   getProductReviewsByUser,
@@ -53,6 +54,9 @@ function MypageContent() {
   const [inquiries, setInquiries] = useState<ProductInquiry[]>([]);
   // 정적 @/data/products 직접 import 대신 콘센트(getPublicProducts)로 로드(§4 drift 방지).
   const [products, setProducts] = useState<Product[]>([]);
+  const [pointsBalance, setPointsBalance] = useState(0);
+  const [pointsTransactionCount, setPointsTransactionCount] = useState(0);
+  const [pointsTransactions, setPointsTransactions] = useState<PointsTransaction[]>([]);
   
   const [isMounted, setIsMounted] = useState(false);
 
@@ -72,7 +76,7 @@ function MypageContent() {
   const reviewsSeqRef = useRef(0);
   const inquiriesSeqRef = useRef(0);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const currentUser = getCurrentUser();
     if (!currentUser) {
       router.replace('/login');
@@ -87,6 +91,12 @@ function MypageContent() {
     });
     getMyInsuranceApplications().then((apps) => {
       if (loadSeqRef.current === seq) setInsuranceApps(apps);
+    });
+    getMyPoints().then(({ balance, transactions }) => {
+      if (loadSeqRef.current !== seq) return;
+      setPointsBalance(balance.eligible ? balance.balance : 0);
+      setPointsTransactionCount(transactions.length);
+      setPointsTransactions(transactions);
     });
     // 공개 상품(노출) + 과거 주문 이력 상품(비노출 포함)을 병렬 로드 후 id 기준 병합한다.
     // 관리자가 상품을 숨겨도 이미 구매한 상품은 주문내역·구매평에서 계속 보여야 하므로
@@ -106,7 +116,7 @@ function MypageContent() {
     getProductInquiriesByUser(currentUser.id).then((inquiries) => {
       if (inquiriesSeqRef.current === inquiriesSeq) setInquiries(inquiries);
     });
-  };
+  }, [router]);
 
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
@@ -150,7 +160,7 @@ function MypageContent() {
       window.removeEventListener(STORAGE_EVENTS.REVIEWS_CHANGED, handleReviewsChanged);
       window.removeEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleInquiriesChanged);
     };
-  }, [router]);
+  }, [loadData, router]);
 
   if (!isMounted || !user) return null;
 
@@ -165,6 +175,8 @@ function MypageContent() {
       .length,
     waitingInquiries: inquiries.filter(i => i.status === 'waiting').length,
     insuranceCount: insuranceApps.filter(a => !['완료', '분석완료'].includes(a.status)).length,
+    pointsBalance,
+    pointsTransactionCount,
   };
 
   // Handlers
@@ -276,7 +288,7 @@ function MypageContent() {
         return (
           <>
             {(!user.provider || user.provider === 'email') && user.emailVerified === false && <EmailVerifyBanner />}
-            <OverviewSection stats={stats} />
+            <OverviewSection stats={stats} pointsTransactions={pointsTransactions} />
           </>
         );
     }

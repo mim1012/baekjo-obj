@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const tossResult = await queryTossPayment(order.paymentKey);
-      const expectedAmount = order.totalPrice + order.deliveryFee;
+      const expectedAmount = order.payableAmount ?? order.totalPrice + order.deliveryFee;
 
       // 신원 바인딩 — 조회 결과를 쓰기 전에 orderId·paymentKey가 물어본 대상과 일치하는지 확인.
       // 하나라도 어긋나면 DONE이든 CANCELED든 신뢰할 수 없으므로 확정도 취소도 하지 않는다.

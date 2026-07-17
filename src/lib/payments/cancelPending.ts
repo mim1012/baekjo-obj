@@ -138,7 +138,7 @@ export async function cancelPendingOrderIfUnpaid(
     return { kind: 'unclear' };
   }
 
-  const expectedAmount = order.totalPrice + order.deliveryFee;
+  const expectedAmount = order.payableAmount ?? order.totalPrice + order.deliveryFee;
 
   if (observation.status === 'DONE') {
     if (observation.totalAmount !== expectedAmount) {

@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
       // 있는 실패이므로 바깥 catch로 넘겨 500 → 토스 재전송을 유도한다.
       throw queryError;
     }
-    const expectedAmount = order.totalPrice + order.deliveryFee;
+    const expectedAmount = order.payableAmount ?? order.totalPrice + order.deliveryFee;
 
     // 신원 검증 — 조회 결과를 쓰기 전에 orderId·paymentKey가 우리가 물어본 대상과 정확히
     // 일치하는지 확인한다(reconcile과 대칭). 하나라도 어긋나면 상태·금액과 무관하게 무시한다.

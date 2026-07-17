@@ -6,6 +6,7 @@ import { ArrowLeft, User, MapPin, Package, CreditCard } from 'lucide-react';
 import { getOrderById } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatDate, formatPrice } from '@/lib/format';
+import { getOrderGrossAmount, getOrderPayableAmount, getOrderUsedPoints } from '@/lib/orders/amounts';
 import type { Order } from '@/types';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import LoadingState from '@/components/admin-new/common/LoadingState';
@@ -64,6 +65,10 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
       />
     );
   }
+
+  const grossAmount = getOrderGrossAmount(order);
+  const usedPoints = getOrderUsedPoints(order);
+  const payableAmount = getOrderPayableAmount(order);
 
   return (
     <div className="space-y-6 pb-24">
@@ -165,12 +170,23 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
                 <span className="text-gray-500">배송비</span>
                 <span className="font-medium text-[#17201B]">{formatPrice(order.deliveryFee)}</span>
               </div>
+              {usedPoints > 0 && (
+                <div className="flex justify-between items-center pb-3 border-b border-gray-100">
+                  <span className="text-gray-500">사용 적립금</span>
+                  <span className="font-medium text-[#9A6A4F]">- {formatPrice(usedPoints)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-center pt-2">
-                <span className="font-semibold text-gray-900">총 결제 금액</span>
+                <span className="font-semibold text-gray-900">실결제 금액</span>
                 <span className="font-bold text-lg text-[#2F3B34]">
-                  {formatPrice(order.totalPrice + order.deliveryFee)}
+                  {formatPrice(payableAmount)}
                 </span>
               </div>
+              {usedPoints > 0 && (
+                <div className="text-right text-xs text-gray-500">
+                  주문금액 {formatPrice(grossAmount)} 기준
+                </div>
+              )}
             </div>
           </FormSection>
 
