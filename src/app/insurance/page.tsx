@@ -77,17 +77,41 @@ export default function InsurancePage() {
   const [openConsent, setOpenConsent] = useState<ConsentDoc | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
   const consentCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const consentDialogRef = useRef<HTMLDivElement | null>(null);
 
-  // 전문 모달 접근성 — Escape 로 닫고, 열릴 때 닫기 버튼으로 포커스를 옮긴다(간단 구현, 풀 focus trap 은 범위 밖).
+  // 전문 모달 접근성 — Escape 로 닫고, 열릴 때 닫기 버튼으로 포커스를 옮기며, Tab 은 모달 안에서만
+  // 순환(focus trap)하고, 닫힐 때 열기 전 포커스(전문 보기 버튼)로 복원한다.
   useEffect(() => {
     if (!openConsent) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     consentCloseButtonRef.current?.focus();
     const handleKeydown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpenConsent(null);
+      if (event.key === 'Escape') {
+        setOpenConsent(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = consentDialogRef.current;
+      if (!dialog) return;
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', handleKeydown);
     return () => {
       window.removeEventListener('keydown', handleKeydown);
+      previouslyFocused?.focus();
     };
   }, [openConsent]);
 
@@ -560,7 +584,7 @@ export default function InsurancePage() {
       {/* 동의 문서 전문 모달 — '전문 보기' 클릭 시 관리자가 저장한 약관 전문을 그대로 보여준다. */}
       {openConsent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpenConsent(null)}>
-          <div role="dialog" aria-modal="true" aria-label={openConsent.title} className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-[#FAF9F5]" onClick={(e) => e.stopPropagation()}>
+          <div ref={consentDialogRef} role="dialog" aria-modal="true" aria-label={openConsent.title} className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-[#FAF9F5]" onClick={(e) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between border-b border-[#EBE8E1] px-6 py-5">
               <h2 className="text-[16px] font-bold text-[#1A1D1B]">{openConsent.title}</h2>
               <button ref={consentCloseButtonRef} type="button" aria-label="닫기" onClick={() => setOpenConsent(null)} className="rounded p-1 text-[#5F6761] transition-colors hover:bg-[#F4F2EC]">
