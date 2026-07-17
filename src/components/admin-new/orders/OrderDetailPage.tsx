@@ -12,6 +12,7 @@ import LoadingState from '@/components/admin-new/common/LoadingState';
 import ErrorState from '@/components/admin-new/common/ErrorState';
 import FormSection from '@/components/admin-new/common/FormSection';
 import OrderStatusPanel from './OrderStatusPanel';
+import OrderShipmentsPanel from './OrderShipmentsPanel';
 
 interface OrderDetailPageProps {
   id: string;
@@ -146,6 +147,8 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
               </div>
             </div>
           </FormSection>
+
+          <OrderShipmentsPanel order={order} onUpdate={loadOrder} />
         </div>
 
         <div className="space-y-6">
