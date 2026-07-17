@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import { getOrderById } from '@/lib/orders/repo';
 import { confirmShipmentIfDelivered, listShipmentsByOrder } from '@/lib/shipments/repo';
+import { decideShipmentConfirm } from '@/lib/shipments/derive';
 import { logServerError } from '@/lib/logServerError';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,13 +45,25 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
 
+    // 결제·멱등 사전 판정. 미결제 주문의 구매확정을 막는다(정산이 구매확정을 소비하게 되면 HIGH) —
+    // 단 이미 '구매확정'된 송장의 재확정은 비파괴 멱등이라 결제상태와 무관하게 200으로 통과시킨다.
+    const current = (await listShipmentsByOrder(id)).find((s) => s.brandId === brandId);
+    const decision = decideShipmentConfirm(order.paymentStatus, current);
+    if (decision === 'idempotent-ok') {
+      return NextResponse.json({ ok: true }, { status: 200 });
+    }
+    if (decision === 'blocked-unpaid') {
+      return NextResponse.json({ error: 'order-not-paid' }, { status: 409 });
+    }
+
     const confirmed = await confirmShipmentIfDelivered(id, brandId, new Date().toISOString());
     if (confirmed) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    // 조건부 UPDATE가 0행이면 재조회로 원인을 판별한다 — 이미 '구매확정'이면 멱등 재클릭으로 보고 200,
-    // 그 외(아직 배송완료가 아니거나 행 자체가 없음)는 409로 "아직 확정할 수 없음"을 알린다.
+    // 조건부 UPDATE가 0행 — current는 위에서 읽은 뒤라 경합으로 이미 확정됐을 수 있으니 재조회로 판별한다.
+    // '구매확정'이면 멱등(경합 확정)으로 보고 200, 그 외(아직 배송완료가 아니거나 행 자체가 없음)는
+    // 409로 "아직 확정할 수 없음"을 알린다.
     const row = (await listShipmentsByOrder(id)).find((s) => s.brandId === brandId);
     if (row?.deliveryStatus === '구매확정') {
       return NextResponse.json({ ok: true }, { status: 200 });

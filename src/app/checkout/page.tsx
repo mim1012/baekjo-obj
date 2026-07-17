@@ -191,6 +191,7 @@ function CheckoutForm() {
     const orderItems: OrderItem[] = cartItems.map(item => ({
       productId: item.productId,
       productName: item.product.name,
+      optionId: item.optionId,
       optionName: item.option?.name,
       quantity: item.quantity,
       price: item.price

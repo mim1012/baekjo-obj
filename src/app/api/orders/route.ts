@@ -8,6 +8,7 @@ import {
 } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
+import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
 import type { OrderItem, Product } from '@/types';
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
@@ -18,8 +19,7 @@ const MAX_PHONE = 40;
 const MAX_ADDRESS = 500;
 const MAX_PAYMENT_METHOD = 40;
 const MAX_PRODUCT_ID = 100;
-const MAX_PRODUCT_NAME = 200;
-const MAX_OPTION_NAME = 200;
+const MAX_OPTION_ID = 100;
 const MAX_TRACKING = 100;
 const MAX_MEMO = 1000;
 
@@ -35,20 +35,12 @@ function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
 }
 
-/** DB 상품(products 테이블)에서 실제 판매가를 찾는다.
- *  checkout/page.tsx의 getCheckoutItems()와 동일한 규칙(salePrice 우선, 없으면 price)을 서버에서도 그대로 따라
- *  화면과 결제 금액이 어긋나지 않게 한다. 가격이 아직 정해지지 않은 상품(price: null)은 구매 불가로 취급한다
- *  (프론트 hasUnpricedItems 가드와 동일 정책).
+/**
+ * 요청 본문에서 안전하게 다룰 필드만 뽑는다. id/createdAt/memberId·price·optionName 등은 무시한다
+ * (mass-assignment·가격 위조·옵션명 위장 차단). optionName은 서버가 optionId로 카탈로그에서 파생하므로
+ * 클라이언트 값을 아예 읽지 않는다(resolveOrderItem 참고).
  */
-function resolveCatalogPrice(product: Product): number | null {
-  if (product.price === null || product.price === undefined) return null;
-  return product.salePrice || product.price || 0;
-}
-
-/** 요청 본문에서 안전하게 다룰 필드만 뽑는다. id/createdAt/memberId·price 등은 무시(mass-assignment·가격 위조 차단). */
-function validateItemShape(
-  raw: unknown,
-): Pick<OrderItem, 'productId' | 'quantity' | 'optionName'> | null {
+function validateItemShape(raw: unknown): OrderItemShape | null {
   if (!raw || typeof raw !== 'object') return null;
   const item = raw as Record<string, unknown>;
   if (!isStr(item.productId, 1, MAX_PRODUCT_ID)) return null;
@@ -59,20 +51,21 @@ function validateItemShape(
     item.quantity > MAX_QUANTITY
   )
     return null;
-  if (item.optionName !== undefined && !isStr(item.optionName, 0, MAX_OPTION_NAME)) return null;
+  if (item.optionId !== undefined && !isStr(item.optionId, 1, MAX_OPTION_ID)) return null;
   return {
     productId: item.productId,
     quantity: item.quantity,
-    ...(typeof item.optionName === 'string' ? { optionName: item.optionName } : {}),
+    ...(typeof item.optionId === 'string' ? { optionId: item.optionId } : {}),
   };
 }
 
 /**
  * 신뢰 가능한 입력 필드만 검증해서 뽑고, 신뢰 민감 필드는 본문을 신뢰하지 않고 서버가 결정한다.
  * - orderStatus/paymentStatus/deliveryStatus: 서버 고정(결제완료·배송완료 위조 차단).
- * - productName/price: 클라이언트 값은 무시하고 productMap(호출부가 DB에서 미리 조회)에서
- *   productId로 조회한 실제 값으로 덮어쓴다(상품명 위장·가격 조작 차단). DB에 없는(비노출 포함)
- *   productId나 가격 미확정 상품이 하나라도 섞이면 주문 전체를 400으로 거부한다.
+ * - productName/optionName/price: 클라이언트 값은 무시하고 productMap(호출부가 DB에서 미리 조회)의
+ *   실제 카탈로그 값에서 파생한다(상품명·옵션명 위장·가격 조작 차단 — resolveOrderItem). DB에 없는
+ *   (비노출 포함) productId·가격 미확정 상품, 또는 카탈로그에 없는 optionId가 하나라도 섞이면
+ *   주문 전체를 400으로 거부한다.
  * - totalPrice/deliveryFee: 조회 가격 × 수량으로 재계산(0원 위조 차단). 본문 값은 무시한다.
  */
 function validate(body: unknown, productMap: Map<string, Product>): InsertOrderInput | null {
@@ -93,17 +86,9 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
     if (!shape) return null;
     const product = productMap.get(shape.productId);
     if (!product) return null;
-    const unitPrice = resolveCatalogPrice(product);
-    if (unitPrice === null) return null;
-    if (!isStr(product.name, 1, MAX_PRODUCT_NAME)) return null;
-    items.push({
-      productId: shape.productId,
-      productName: product.name,
-      quantity: shape.quantity,
-      price: unitPrice,
-      brandId: product.brandId,
-      ...(shape.optionName !== undefined ? { optionName: shape.optionName } : {}),
-    });
+    const resolved = resolveOrderItem(shape, product);
+    if (!resolved.ok) return null;
+    items.push(resolved.item);
   }
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);

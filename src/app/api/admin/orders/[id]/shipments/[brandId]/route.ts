@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { getOrderById, updateOrderStatus } from '@/lib/orders/repo';
-import { listShipmentsByOrder, upsertShipment } from '@/lib/shipments/repo';
+import { listShipmentsByOrder, updateShipmentUnlessConfirmed } from '@/lib/shipments/repo';
 import {
   deriveOrderDeliveryStatus,
   orderBrandIds,
@@ -56,7 +56,13 @@ export async function PATCH(
 
     const current = (await listShipmentsByOrder(id)).find((s) => s.brandId === brandId);
     const stamps = resolveShipmentStamps(current, patch.deliveryStatus, new Date().toISOString());
-    await upsertShipment(id, brandId, { ...patch, ...stamps });
+    // '구매확정'(confirmed_at 설정) 종결 행은 되돌릴 수 없다 — 관리자 PATCH는 DELIVERY_STATUSES만
+    // 보내므로 확정된 행에 대한 어떤 쓰기도 후퇴다. 경합 안전은 repo의 confirmed_at IS NULL 조건부
+    // 쓰기가 보증한다(사전 read 체크가 아니라 CAS). 종결 행이면 409로 거부하고 파생도 건너뛴다.
+    const outcome = await updateShipmentUnlessConfirmed(id, brandId, { ...patch, ...stamps });
+    if (outcome === 'confirmed-locked') {
+      return NextResponse.json({ error: 'shipment-confirmed' }, { status: 409 });
+    }
 
     // D-3 파생: 업체별 송장이 바뀌면 주문 단위 deliveryStatus를 다시 파생한다. 주문 단위는
     // deliveryStatus만 파생하며 orderStatus는 절대 동반 전이하지 않는다(120992a 입금확인 TOCTOU 회귀

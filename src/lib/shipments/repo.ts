@@ -85,11 +85,12 @@ export type ShipmentPatch = Partial<{
  * 라우트는 brandId가 **그 주문의 items에 실제로 스냅샷된 브랜드**인지도 별도로 검증해야 한다(이 repo는
  * 그 검증을 하지 않는다 — 아직 호출 라우트가 없으므로 여기 문서로만 남겨둔다).
  */
-export async function upsertShipment(
-  orderId: string,
-  brandId: string,
-  patch: ShipmentPatch,
-): Promise<void> {
+/**
+ * ShipmentPatch(도메인 camelCase)를 shipments 테이블 컬럼(snake_case)으로 옮긴다. '' 해제 규칙과
+ * delivery_status의 '' 무시 규칙(아래 주석)을 한 곳에 모아 upsertShipment·updateShipmentUnlessConfirmed가
+ * 같은 매핑을 공유하게 한다(두 곳에 두면 드리프트 — 콘센트 §4 사상).
+ */
+function toColumnPatch(patch: ShipmentPatch): Record<string, string | null> {
   const columnPatch: Record<string, string | null> = {};
   if (patch.carrier !== undefined) columnPatch.carrier = patch.carrier || null;
   if (patch.trackingNumber !== undefined) columnPatch.tracking_number = patch.trackingNumber || null;
@@ -103,6 +104,15 @@ export async function upsertShipment(
   if (patch.shippedAt !== undefined) columnPatch.shipped_at = patch.shippedAt || null;
   if (patch.deliveredAt !== undefined) columnPatch.delivered_at = patch.deliveredAt || null;
   if (patch.confirmedAt !== undefined) columnPatch.confirmed_at = patch.confirmedAt || null;
+  return columnPatch;
+}
+
+export async function upsertShipment(
+  orderId: string,
+  brandId: string,
+  patch: ShipmentPatch,
+): Promise<void> {
+  const columnPatch = toColumnPatch(patch);
 
   // updateOrderStatus(orders/repo.ts)와 동일하게 반영할 실제 컬럼이 없으면 아무 것도 하지 않는다 — 이
   // 가드는 patch→columnPatch 매핑 *이후*에 있어야 한다. deliveryStatus:'' 같은 patch는 위에서 무시되어
@@ -121,6 +131,55 @@ export async function upsertShipment(
     .from('shipments')
     .upsert(row, { onConflict: 'order_id,brand_id' });
   if (error) throw error;
+}
+
+/** updateShipmentUnlessConfirmed의 결과 — 'written'(반영됨) 또는 'confirmed-locked'(종결 행이라 거부). */
+export type ShipmentWriteOutcome = 'written' | 'confirmed-locked';
+
+/**
+ * 관리자 송장 쓰기 — '구매확정'(confirmed_at 설정) 종결 행의 후퇴를 **경합 안전하게** 막는다.
+ * 관리자 PATCH는 DELIVERY_STATUSES(구매확정 미포함)만 보내므로, 이미 확정된 행에 대한 어떤 쓰기도
+ * 되돌리기(rank 후퇴)이거나 종결 데이터 훼손이다. 사전 read 후 upsert하는 방식은 read와 write 사이에
+ * 고객 확정이 끼어드는 TOCTOU에 취약하므로, 상태·스탬프 쓰기를 `confirmed_at IS NULL` 조건부 UPDATE로만
+ * 반영한다(setOrderPaid의 WHERE 조건부 전이와 같은 CAS 사상).
+ *
+ * 2문장 원자 시퀀스(재조회 없이 경합 안전):
+ *  ① UPDATE ... WHERE order_id AND brand_id AND confirmed_at IS NULL → 1행이면 'written'(미확정 행 갱신).
+ *  ② 0행이면 행이 없거나(최초 생성) 종결 행이다 → INSERT ... ON CONFLICT DO NOTHING.
+ *     - 1행 삽입 → 'written'(최초 생성. 새 행은 confirmed_at이 없으니 후퇴 위험 자체가 없다).
+ *     - 0행(충돌) → 기존 행이 존재하는데 ①의 confirmed_at IS NULL에 안 걸렸다 = confirmed_at이 찍힌
+ *       종결 행 → 'confirmed-locked'. (드문 동시-최초생성 경합의 패자도 여기 걸리지만 무해 — 재시도 시
+ *       ①이 잡는다.)
+ */
+export async function updateShipmentUnlessConfirmed(
+  orderId: string,
+  brandId: string,
+  patch: ShipmentPatch,
+): Promise<ShipmentWriteOutcome> {
+  const columnPatch = toColumnPatch(patch);
+  if (Object.keys(columnPatch).length === 0) return 'written';
+
+  const sb = getSupabase();
+
+  const { data: updated, error: updErr } = await sb
+    .from('shipments')
+    .update(columnPatch)
+    .eq('order_id', orderId)
+    .eq('brand_id', brandId)
+    .is('confirmed_at', null)
+    .select('id');
+  if (updErr) throw updErr;
+  if ((updated?.length ?? 0) > 0) return 'written';
+
+  const row: Record<string, string | null> = { order_id: orderId, brand_id: brandId, ...columnPatch };
+  const { data: inserted, error: insErr } = await sb
+    .from('shipments')
+    .upsert(row, { onConflict: 'order_id,brand_id', ignoreDuplicates: true })
+    .select('id');
+  if (insErr) throw insErr;
+  if ((inserted?.length ?? 0) > 0) return 'written';
+
+  return 'confirmed-locked';
 }
 
 /**
