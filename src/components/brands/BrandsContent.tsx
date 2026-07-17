@@ -5,6 +5,7 @@ import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Brand } from '@/types';
 import BrandCard from '@/components/common/BrandCard';
+import BrandLogo from '@/components/common/BrandLogo';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { ArrowRight, Leaf, ShieldCheck, Box, ThumbsUp, Recycle } from 'lucide-react';
 import Image from 'next/image';
@@ -28,7 +29,7 @@ const selectionStandards = [
 
 const filterLabels: Record<string, string> = {
   all: '전체',
-  recommended: '백조 추천',
+  recommended: '백조오브제 추천',
   new: '새로 만난 브랜드',
 };
 
@@ -93,14 +94,10 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
           <div className="flex-1 w-full md:w-[44%] max-w-[540px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] uppercase mb-3 md:mb-4">BRAND CURATION</span>
             <h1 className="text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
-              좋은 선택은<br />
-              브랜드를 이해하는<br />
-              것부터<br />
-              시작됩니다.
+              좋은 선택은 브랜드를 이해하는 것부터 시작됩니다.
             </h1>
             <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
-              백조오브제는 브랜드 철학과 제품 가치를 살피고<br className="hidden sm:block" />
-              우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
+              백조오브제는 브랜드 철학과 제품 가치를 살피고 우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
             </p>
 
             {/* Stats */}
@@ -144,9 +141,9 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
             <h2 className="text-[18px] md:text-[20px] font-bold text-[#17251F] mb-6 md:mb-8">
               백조오브제의 5가지 브랜드 오디트 기준
             </h2>
-            <div className="flex flex-col md:flex-row gap-5 md:gap-0">
+            <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 pb-4 md:pb-0">
               {selectionStandards.map((item, idx) => (
-                <div key={item.title} className={`flex-1 flex flex-col md:px-5 first:md:pl-0 last:md:pr-0 ${idx !== selectionStandards.length - 1 ? 'md:border-r md:border-[#E4DDD1] border-b pb-5 md:pb-0 md:border-b-0 border-[#E4DDD1]/60' : ''}`}>
+                <div key={item.title} className={`w-[70vw] sm:w-[280px] shrink-0 snap-start flex flex-col p-5 bg-[#F7F4ED] rounded-xl md:w-auto md:shrink md:flex-1 md:bg-transparent md:p-0 md:rounded-none md:px-5 first:md:pl-0 last:md:pr-0 ${idx !== selectionStandards.length - 1 ? 'md:border-r md:border-[#E4DDD1]' : ''}`}>
                    <div className="flex items-center gap-3 mb-3 md:mb-4">
                       <span className="flex items-center justify-center text-[#B48A4A]">
                         <item.icon className="w-5 h-5 stroke-[2]" />
@@ -201,7 +198,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                   <div className="flex-1 md:w-[52%] flex flex-col sm:flex-row gap-4 w-full h-[160px] md:h-[200px]">
                     <div className="w-full h-full flex justify-center items-center bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px]">
                        {spotlightBrand.logo ? (
-                         <img src={spotlightBrand.logo} alt={spotlightBrand.name} className="h-16 md:h-20 object-contain" />
+                         <BrandLogo brand={spotlightBrand} size="lg" surface uniformScale />
                        ) : (
                          <span className="text-[#6F756F] text-sm">브랜드 스토리 확인하기</span>
                        )}
@@ -217,7 +214,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
       {/* 4. 필터 및 정렬 */}
       <section className="mb-8 md:mb-10">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="overflow-x-auto pb-2 md:pb-0 -mx-5 px-5 md:mx-0 md:px-0 hide-scrollbar">
+          <div className="overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
             <nav aria-label="브랜드 분류" className="flex flex-nowrap gap-2 min-w-max">
               {categorySettings.brandFilters.map((tab) => {
                 const active = filter === tab.id || (filter === 'all' && tab.id === 'all');
