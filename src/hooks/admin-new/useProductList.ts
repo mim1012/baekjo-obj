@@ -28,10 +28,14 @@ export const defaultFilters: ProductFilterState = {
   missing: 'all',
 };
 
-export function useProductList(pageSize: number = 20) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useProductList(
+  pageSize: number = 20,
+  initial?: { products: Product[]; brands: Brand[] },
+) {
+  const hasInitial = Boolean(initial);
+  const [products, setProducts] = useState<Product[]>(initial?.products ?? []);
+  const [brands, setBrands] = useState<Brand[]>(initial?.brands ?? []);
+  const [loading, setLoading] = useState(!hasInitial);
   const [error, setError] = useState<string | null>(null);
 
   const [filters, setFiltersState] = useState<ProductFilterState>(defaultFilters);
@@ -52,10 +56,11 @@ export function useProductList(pageSize: number = 20) {
   }, []);
 
   useEffect(() => {
+    if (hasInitial) return; // 첫 데이터는 서버 wrapper가 props로 주입(AGENTS.md §3) — 재조회는 refreshData로.
     (async () => {
       await fetchInitialData();
     })();
-  }, [fetchInitialData]);
+  }, [fetchInitialData, hasInitial]);
 
   const setFilters = useCallback((newFilters: React.SetStateAction<ProductFilterState>) => {
     setFiltersState(newFilters);
