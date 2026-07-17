@@ -2,7 +2,7 @@
 // 0034 마이그레이션 — 주문 1건이 여러 입점업체(브랜드) 상품을 포함할 수 있어(dashboardStats.ts:148),
 // 업체마다 독립된 송장을 붙일 수 있게 (order_id, brand_id) 단위로 배송 정보를 분리한 테이블.
 import { getSupabase } from '@/lib/supabase/server';
-import type { Shipment } from '@/types';
+import { CONFIRMABLE_DELIVERY_STATUS, type Shipment } from '@/types';
 
 interface ShipmentRow {
   id: string;
@@ -12,11 +12,13 @@ interface ShipmentRow {
   tracking_number: string | null;
   delivery_status: string;
   shipped_at: string | null;
+  delivered_at: string | null;
+  confirmed_at: string | null;
   created_at: string;
 }
 
 const SELECT_COLUMNS =
-  'id, order_id, brand_id, carrier, tracking_number, delivery_status, shipped_at, created_at';
+  'id, order_id, brand_id, carrier, tracking_number, delivery_status, shipped_at, delivered_at, confirmed_at, created_at';
 
 function rowToRecord(row: ShipmentRow): Shipment {
   return {
@@ -27,6 +29,8 @@ function rowToRecord(row: ShipmentRow): Shipment {
     trackingNumber: row.tracking_number ?? undefined,
     deliveryStatus: row.delivery_status,
     shippedAt: row.shipped_at ?? undefined,
+    deliveredAt: row.delivered_at ?? undefined,
+    confirmedAt: row.confirmed_at ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -50,6 +54,10 @@ export type ShipmentPatch = Partial<{
   // 이 레이어의 책임이 아니다 — repo는 patch를 그대로 옮기기만 하고, 시점 판단은 향후 호출부(파트너
   // 라우트)가 한다. updateOrderStatus(orders/repo.ts)도 carrier/trackingNumber에서 같은 원칙을 따른다.
   shippedAt: string;
+  // deliveredAt/confirmedAt도 shippedAt과 같은 원칙 — repo는 patch를 그대로 옮기고, 어느 시점에
+  // 채울지(배송완료/구매확정 전이)는 호출 라우트(resolveShipmentStamps)가 판단한다.
+  deliveredAt: string;
+  confirmedAt: string;
 }>;
 
 /**
@@ -93,6 +101,8 @@ export async function upsertShipment(
     columnPatch.delivery_status = patch.deliveryStatus;
   }
   if (patch.shippedAt !== undefined) columnPatch.shipped_at = patch.shippedAt || null;
+  if (patch.deliveredAt !== undefined) columnPatch.delivered_at = patch.deliveredAt || null;
+  if (patch.confirmedAt !== undefined) columnPatch.confirmed_at = patch.confirmedAt || null;
 
   // updateOrderStatus(orders/repo.ts)와 동일하게 반영할 실제 컬럼이 없으면 아무 것도 하지 않는다 — 이
   // 가드는 patch→columnPatch 매핑 *이후*에 있어야 한다. deliveryStatus:'' 같은 patch는 위에서 무시되어
@@ -111,4 +121,22 @@ export async function upsertShipment(
     .from('shipments')
     .upsert(row, { onConflict: 'order_id,brand_id' });
   if (error) throw error;
+}
+
+/** 고객 구매확정 — WHERE delivery_status='배송완료' 조건부 UPDATE(setOrderPaid와 같은 원자 전이 패턴).
+ *  매치 0행이면 false(이미 확정됐거나 아직 배송완료가 아님) — 판별은 호출 라우트가 재조회로 한다. */
+export async function confirmShipmentIfDelivered(
+  orderId: string,
+  brandId: string,
+  confirmedAt: string,
+): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('shipments')
+    .update({ delivery_status: '구매확정', confirmed_at: confirmedAt })
+    .eq('order_id', orderId)
+    .eq('brand_id', brandId)
+    .eq('delivery_status', CONFIRMABLE_DELIVERY_STATUS)
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }

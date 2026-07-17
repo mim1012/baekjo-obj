@@ -5,6 +5,7 @@ import {
   InsuranceApplication,
   Order,
   Product,
+  Shipment,
   User,
 } from '@/types';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
@@ -292,6 +293,74 @@ export async function updateOrderStatus(
   });
   if (!response.ok) {
     throw new Error('order-update-failed');
+  }
+}
+
+/**
+ * 내 주문의 업체별 송장 목록. GET /api/orders/[id]/shipments(소유자 또는 admin). 이 함수가 P6
+ * 마이페이지 배송 모달이 송장을 읽는 유일한 데이터 경로다(§4 콘센트 규칙 — 컴포넌트는 fetch를 직접
+ * 부르지 않는다). 비소유·404·실패는 getMyOrders와 동일하게 빈 배열로 접는다.
+ */
+export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`);
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 고객 구매확정. POST /api/orders/[id]/shipments/[brandId]/confirm. P6 배송 모달의 확정 버튼이
+ * 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌리거나 사용자에게 알릴 수
+ * 있게 한다 — 409(아직 배송완료 아님)는 'not-deliverable', 그 외는 'confirm-failed'로 구분한다.
+ */
+export async function confirmOrderShipment(orderId: string, brandId: string): Promise<void> {
+  const response = await fetch(
+    `/api/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(brandId)}/confirm`,
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    throw new Error(response.status === 409 ? 'not-deliverable' : 'confirm-failed');
+  }
+}
+
+/**
+ * 주문의 업체별 송장 목록(관리자). GET /api/admin/orders/[id]/shipments. P5 관리자 주문 상세의
+ * 업체별 배송 카드가 송장을 읽는 유일한 경로(§4 콘센트). 권한 없음·실패는 빈 배열로 접는다.
+ */
+export async function getAdminOrderShipments(orderId: string): Promise<Shipment[]> {
+  try {
+    const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/shipments`);
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 업체별 송장 생성/갱신(관리자). PATCH /api/admin/orders/[id]/shipments/[brandId]. P5 관리자 배송
+ * 카드의 입력이 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌릴 수 있게 한다.
+ */
+export async function updateOrderShipment(
+  orderId: string,
+  brandId: string,
+  updates: Partial<Pick<Shipment, 'carrier' | 'trackingNumber' | 'deliveryStatus'>>,
+): Promise<void> {
+  const response = await fetch(
+    `/api/admin/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(brandId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    },
+  );
+  if (!response.ok) {
+    throw new Error('shipment-update-failed');
   }
 }
 

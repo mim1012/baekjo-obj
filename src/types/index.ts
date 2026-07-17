@@ -260,6 +260,10 @@ export interface Shipment {
   trackingNumber?: string;
   deliveryStatus: string;
   shippedAt?: string;
+  /** '배송완료' 전이 시각 — 자동 구매확정 크론(배송완료 후 N일)의 기준점. 0041 마이그레이션. */
+  deliveredAt?: string;
+  /** '구매확정' 전이 시각(고객 버튼 또는 자동확정). 0041 마이그레이션. */
+  confirmedAt?: string;
   createdAt: string;
 }
 
@@ -321,6 +325,20 @@ export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
 export const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
 
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+/**
+ * 업체별 배송(Shipment.deliveryStatus)이 받아들이는 값의 전수 — DELIVERY_STATUSES에 '구매확정'을
+ * 가산한 상위집합. '구매확정'은 고객 버튼(D-2, POST .../confirm) 또는 자동확정 크론만이 만드는
+ * 종결 상태라 **주문 단위 레거시(Order.deliveryStatus)에는 존재하지 않는다** — 주문 단위 화이트리스트
+ * (관리자 PATCH·OrderInlineStatusControls)는 계속 DELIVERY_STATUSES를 쓰고, 여기에 '구매확정'을
+ * 섞지 말 것(관리자가 주문 단위 select에서 고객 확정을 임의 세팅하는 경로가 생긴다).
+ */
+export const SHIPMENT_DELIVERY_STATUSES = [...DELIVERY_STATUSES, '구매확정'] as const;
+
+export type ShipmentDeliveryStatus = (typeof SHIPMENT_DELIVERY_STATUSES)[number];
+
+/** 고객 구매확정이 가능한 유일한 직전 상태(confirmShipmentIfDelivered의 WHERE 조건). */
+export const CONFIRMABLE_DELIVERY_STATUS: DeliveryStatus = '배송완료';
 
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {

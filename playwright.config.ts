@@ -55,6 +55,13 @@ export default defineConfig({
       testDir: './tests/tracking',
       use: {},
     },
+    {
+      // 배송 파생·검증 순수 함수 스펙 — orderBrandIds/deriveOrderDeliveryStatus/validateAdminShipmentPatch/
+      // resolveShipmentStamps, 브라우저·DB·네트워크 불필요.
+      name: 'shipments',
+      testDir: './tests/shipments',
+      use: {},
+    },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
   ...(isLocal
