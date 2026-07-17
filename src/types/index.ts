@@ -237,6 +237,30 @@ export interface OrderItem {
   optionName?: string;
   quantity: number;
   price: number;
+  /**
+   * 주문 시점의 브랜드를 스냅샷한다 — 상품이 삭제·재브랜딩돼도 과거 주문의 판매자 귀속이
+   * 흔들리지 않게. 레거시 주문(이 필드 도입 전 생성된 items jsonb)엔 없으므로 optional이다.
+   * 현재 소비자는 없다 — dashboardStats.ts는 아직 이 필드를 읽지 않고 products 조인으로
+   * brandIdByProductId를 만들어 귀속한다(dashboardStats.ts:143). 이 필드를 실제로 읽어
+   * 레거시 폴백(조인) 구조로 바꾸는 것은 후속 과제다.
+   */
+  brandId?: string;
+}
+
+/**
+ * 입점업체(브랜드)별 배송 정보 — 한 주문이 여러 브랜드 상품을 포함할 때 업체마다 독립된
+ * 송장을 붙일 수 있게 한다(0034 마이그레이션). Order 자체의 carrier/trackingNumber/
+ * deliveryStatus는 레거시 단일 배송 경로로 그대로 두고 건드리지 않는다.
+ */
+export interface Shipment {
+  id: string;
+  orderId: string;
+  brandId: string;
+  carrier?: string;
+  trackingNumber?: string;
+  deliveryStatus: string;
+  shippedAt?: string;
+  createdAt: string;
 }
 
 /**
