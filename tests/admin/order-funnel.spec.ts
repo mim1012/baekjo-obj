@@ -70,8 +70,24 @@ test.describe('deriveFunnelStage 우선순위', () => {
     expect(deriveFunnelStage(makeOrder({ paymentStatus: '결제완료', deliveryStatus: '배송완료' }))).toBe('배송완료');
   });
 
+  test('결제상태만 결제취소/환불완료여도 취소반품으로 접는다 (codex MEDIUM 회귀)', () => {
+    // 상세에서 orderStatus 는 그대로 두고 paymentStatus 만 환불 처리한 주문이
+    // 배송상태 때문에 배송중/배송완료 탭에 남으면 안 된다.
+    for (const paymentStatus of ['결제취소', '환불완료'] as const) {
+      for (const deliveryStatus of ['배송전', '배송중', '배송완료'] as const) {
+        const order = makeOrder({ orderStatus: '주문접수', paymentStatus, deliveryStatus });
+        expect(deriveFunnelStage(order)).toBe('취소반품');
+      }
+    }
+  });
+
   test('어느 규칙에도 안 맞으면 기타', () => {
-    const order = makeOrder({ orderStatus: '주문접수', paymentStatus: '결제취소', deliveryStatus: '배송전' });
+    // 결제완료인데 배송상태가 비정형(레거시 공백 등)인 주문 — 탭에서 증발하지 않게 기타로 접는다.
+    const order = makeOrder({
+      orderStatus: '주문접수',
+      paymentStatus: '결제완료',
+      deliveryStatus: '' as Order['deliveryStatus'],
+    });
     expect(deriveFunnelStage(order)).toBe('기타');
   });
 });

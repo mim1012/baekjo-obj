@@ -54,7 +54,7 @@ export default function ShipActionPopover({ order, brandMap, onShipped }: ShipAc
       setSaving(true);
       await updateOrderShipment(order.id, singleBrandId, {
         carrier,
-        trackingNumber,
+        trackingNumber: trackingNumber.trim(),
         deliveryStatus: '배송중',
       });
       setOpen(false);

@@ -37,6 +37,12 @@ export const FUNNEL_STAGE_ORDER: readonly FunnelStage[] = [
  * 타입을 강제하므로, ORDER_STATUSES 유니온에서 값이 사라지면 빌드가 깨져 드리프트를 잡는다.
  */
 const CANCEL_RETURN_ORDER_STATUSES: readonly OrderStatus[] = ['취소요청', '취소완료', '환불완료'];
+/**
+ * 결제상태만으로도 취소·반품으로 접는 값. 상세(OrderStatusPanel)는 세 축을 독립 편집할 수 있어
+ * orderStatus 는 그대로 두고 paymentStatus 만 결제취소/환불완료로 바꾸는 운영이 가능한데,
+ * 이때 기존 배송상태 때문에 배송중/배송완료 탭에 남으면 환불된 주문이 진행 중처럼 보인다(codex 2차 리뷰 MEDIUM).
+ */
+const CANCEL_RETURN_PAYMENT_STATUSES: readonly PaymentStatus[] = ['결제취소', '환불완료'];
 /** 아직 결제가 확정되지 않은 진행 구간(무통장 입금대기는 별도 단계로 앞서 분기). */
 const IN_PROGRESS_PAYMENT_STATUSES: readonly PaymentStatus[] = ['결제대기', '승인중'];
 /** 결제완료 후 아직 발송 전(배송전·배송준비). */
@@ -48,7 +54,7 @@ const DELIVERED_DELIVERY: DeliveryStatus = '배송완료';
 
 /**
  * 주문 하나를 단일 진행 단계로 접는다. **우선순위 순서가 곧 규칙**이다.
- * 1. 취소·반품(주문상태) — 결제/배송이 무엇이든 취소 구간이면 최우선.
+ * 1. 취소·반품(주문상태 또는 결제상태의 취소/환불) — 결제/배송이 무엇이든 취소 구간이면 최우선.
  * 2. 입금대기(무통장) — 관리자가 입금확인해야 진행된다.
  * 3. 결제진행중(결제대기·승인중) — 자동/PG 처리 대기.
  * 4. 발송대기 — 결제완료(PAID_PAYMENT_STATUS) 이고 아직 발송 전.
@@ -59,7 +65,10 @@ const DELIVERED_DELIVERY: DeliveryStatus = '배송완료';
  * 비교할 때 `readonly string[]` 로 넓혀 includes 한다.
  */
 export function deriveFunnelStage(order: Order): FunnelStage {
-  if ((CANCEL_RETURN_ORDER_STATUSES as readonly string[]).includes(order.orderStatus)) {
+  if (
+    (CANCEL_RETURN_ORDER_STATUSES as readonly string[]).includes(order.orderStatus) ||
+    (CANCEL_RETURN_PAYMENT_STATUSES as readonly string[]).includes(order.paymentStatus)
+  ) {
     return '취소반품';
   }
   if (order.paymentStatus === DEPOSIT_PENDING_PAYMENT) {
