@@ -59,9 +59,11 @@ export default function AdminInsuranceContentPage() {
   // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
   // 불러온다. 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
   // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(codex 리뷰 F5). loadError 면
-  // 저장을 막는다(partners 패턴 미러링).
+  // 저장을 막는다(partners 패턴 미러링). 로드 완료 전(loaded=false)에도 저장·편집을 막는다 —
+  // 로드 완료 전 저장이 default 로 DB 를 덮어쓰는 레이스 방지(codex 리뷰 F-HIGH, concerns 미러).
   const [consents, setConsents] = useState<ConsentDoc[]>(defaultInsuranceContentConfig.consents);
   const [faqs, setFaqs] = useState<InsuranceFaq[]>(defaultInsuranceContentConfig.faqs);
+  const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -72,6 +74,7 @@ export default function AdminInsuranceContentPage() {
         setLoadError(false);
         setConsents(config.consents);
         setFaqs(config.faqs);
+        setLoaded(true);
       })
       .catch(() => {
         if (cancelled) return;
@@ -83,13 +86,13 @@ export default function AdminInsuranceContentPage() {
   }, []);
 
   // 한쪽 섹션의 저장 버튼이 동의 문서·FAQ 전체를 함께 저장한다(싱글턴 config 통째 저장).
-  const handleSave = () => (loadError ? Promise.resolve({ ok: false }) : saveInsuranceContentConfig({ consents, faqs }));
+  const handleSave = () => (!loaded || loadError ? Promise.resolve({ ok: false }) : saveInsuranceContentConfig({ consents, faqs }));
 
   return (
     <div className="space-y-10">
       <AdminResourcePage
         title="보험 동의 문서"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
         actionLabel="동의 문서 등록"
         searchPlaceholder="동의 문서 제목 검색"
         columns={[
@@ -110,15 +113,24 @@ export default function AdminInsuranceContentPage() {
           { key: 'required', label: '필수 여부', type: 'select', options: booleanOptions },
           { key: 'body', label: '전문(줄바꿈 유지)', type: 'textarea' },
         ]}
-        onCreateRow={(draft) => setConsents((prev) => [...prev, draftToConsent(draft)])}
-        onUpdateRow={(id, draft) => setConsents((prev) => prev.map((consent) => (consent.id === id ? draftToConsent(draft, consent) : consent)))}
-        onDeleteRow={(id) => setConsents((prev) => prev.filter((consent) => consent.id !== id))}
+        onCreateRow={(draft) => {
+          if (!loaded) return;
+          setConsents((prev) => [...prev, draftToConsent(draft)]);
+        }}
+        onUpdateRow={(id, draft) => {
+          if (!loaded) return;
+          setConsents((prev) => prev.map((consent) => (consent.id === id ? draftToConsent(draft, consent) : consent)));
+        }}
+        onDeleteRow={(id) => {
+          if (!loaded) return;
+          setConsents((prev) => prev.filter((consent) => consent.id !== id));
+        }}
         onSave={handleSave}
       />
 
       <AdminResourcePage
         title="보험 자주 묻는 질문"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
         actionLabel="FAQ 등록"
         searchPlaceholder="질문 검색"
         columns={[
@@ -135,9 +147,18 @@ export default function AdminInsuranceContentPage() {
           { key: 'q', label: '질문' },
           { key: 'a', label: '답변', type: 'textarea' },
         ]}
-        onCreateRow={(draft) => setFaqs((prev) => [...prev, draftToFaq(draft)])}
-        onUpdateRow={(id, draft) => setFaqs((prev) => prev.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq)))}
-        onDeleteRow={(id) => setFaqs((prev) => prev.filter((faq) => faq.id !== id))}
+        onCreateRow={(draft) => {
+          if (!loaded) return;
+          setFaqs((prev) => [...prev, draftToFaq(draft)]);
+        }}
+        onUpdateRow={(id, draft) => {
+          if (!loaded) return;
+          setFaqs((prev) => prev.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq)));
+        }}
+        onDeleteRow={(id) => {
+          if (!loaded) return;
+          setFaqs((prev) => prev.filter((faq) => faq.id !== id));
+        }}
         onSave={handleSave}
       />
     </div>

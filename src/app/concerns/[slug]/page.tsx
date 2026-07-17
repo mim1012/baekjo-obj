@@ -18,7 +18,7 @@ import {
   ShieldPlus,
   Circle
 } from 'lucide-react';
-import { concerns } from '@/data/concerns';
+import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { listProducts } from '@/lib/products/repo';
 import { reviews } from '@/data/reviews';
 import ProductCard from '@/components/common/ProductCard';
@@ -101,6 +101,7 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: ConcernDetailPageProps): Promise<Metadata> {
   const { slug } = await params;
+  const { items: concerns } = await getConcernsConfigWithFallback();
   const concern = concerns.find((item) => item.slug === slug);
 
   if (!concern) {
@@ -117,6 +118,7 @@ export async function generateMetadata({ params }: ConcernDetailPageProps): Prom
 
 export default async function ConcernDetailPage({ params }: ConcernDetailPageProps) {
   const { slug } = await params;
+  const { items: concerns } = await getConcernsConfigWithFallback();
   const concern = concerns.find((item) => item.slug === slug);
 
   if (!concern) {

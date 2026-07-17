@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import BrandDetailEditor from '@/components/admin-new/brands/BrandDetailEditor';
 import { getBrandById } from '@/lib/brands/repo';
 import { listAllProductsForAdmin } from '@/lib/products/repo';
-import { concerns } from '@/data/concerns';
+import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 
 // 관리자 화면은 항상 최신 DB를 봐야 한다(홈/상세·products/[id]와 동일 정책).
 export const dynamic = 'force-dynamic';
@@ -26,7 +26,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     .filter((p) => p.brandId === id)
     .map((p) => ({ id: p.id, name: p.name }));
 
-  // 고민 목록은 API 라우트가 없는 정적 콘텐츠(§4 예외) — 서버에서 직접 읽어 props 로 넘긴다.
+  // 고민 목록은 DB 싱글턴 config — 서버에서 repo 로 직접 읽어 props 로 넘긴다(§10-2 ①경로).
+  const { items: concerns } = await getConcernsConfigWithFallback();
   const concernOptions = concerns.map((c) => ({ slug: c.slug, title: c.title }));
 
   return (

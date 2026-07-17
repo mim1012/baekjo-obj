@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { concerns } from '@/data/concerns';
-import { registerUser, registerBusinessMember, isLoggedIn } from '@/lib/storage';
+import { registerUser, registerBusinessMember, isLoggedIn, getConcernsConfig } from '@/lib/storage';
+import { defaultConcernsConfig } from '@/lib/concerns/config';
+import type { Concern } from '@/types';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import B2BSignupForm from '@/components/signup/B2BSignupForm';
 import InsuranceSignupForm from '@/components/signup/InsuranceSignupForm';
@@ -22,6 +23,8 @@ export default function SignupPage() {
   const [pending, setPending] = useState(false);
   const [signupTab, setSignupTab] = useState<SignupTab>('user');
   const [businessResult, setBusinessResult] = useState<BusinessResult>(null);
+  // 주요 고민 select 옵션. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다(§4).
+  const [concerns, setConcerns] = useState<Concern[]>(defaultConcernsConfig.items);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,6 +45,26 @@ export default function SignupPage() {
       router.push('/mypage');
     }
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getConcernsConfig().then((config) => {
+      if (cancelled) return;
+      setConcerns(config.items);
+      // 기본값 'tear' 는 관리자가 해당 slug 를 삭제했을 수 있다 — 옵션 로드 후 현재 선택값이
+      // 옵션에 없으면 첫 옵션 slug 로 보정해, 삭제된 slug 가 신규 회원에 저장되는 것을 막는다.
+      if (config.items.length > 0) {
+        setFormData((current) =>
+          config.items.some((concern) => concern.slug === current.mainConcern)
+            ? current
+            : { ...current, mainConcern: config.items[0].slug },
+        );
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = event.target;
