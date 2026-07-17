@@ -102,7 +102,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > - **남은 분리 대상(현황):** 서버 데이터를 client `useEffect`로 늦게 읽는 **admin 목록들**과
 >   `diagnosis/result`. 여기가 dad·mim 충돌이 재발하기 쉬운 지점이므로 순차적으로 wrapper 분리한다.
 >
-> **실측 (2026-07-17): `page.tsx` 57개 = 서버 28 + `'use client'` 통짜 29.** 통짜 client가 절반이며
+> **실측 (2026-07-17 저녁 재실측): `page.tsx` 59개 = 서버 28 + `'use client'` 통짜 31.** 통짜 client가 절반이며
 > **그 자체로 위반이 아니다**(§10-5 — 판단 기준은 "손님이 보나, 직원이 보나"). 새 페이지에 "무조건 쪼갠다"고
 > 오해하지 말 것. 서버 28개 중 실제로 repo를 읽는 건 12개고, `*Client.tsx`라는 **파일명 관례를 따르는 건 4개뿐**
 > (`/shop`은 `ShopContent.tsx`) — **파일명으로 세지 말고 `'use client'` 유무로 판단한다.** 상세는 §10-4.
@@ -152,6 +152,18 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **게이트 순서(중요):** `.github/CODEOWNERS`의 `require_code_owner_review`는 **이 분리가 끝난 뒤** 켠다.
 지금 켜면 mim의 배선 PR이 상시로 `src/components/**`를 건드려 전부 dad 승인 대기에 걸리고,
 admin bypass(`current_user_can_bypass: always`)로 우회하는 습관만 남는다(PR #98 참조).
+
+### 3-1-1. 인계·수정 운영 절차 (사람용 요약 — 2026-07-18 확립)
+
+> 위 §3-1의 규칙을 "누가 언제 뭐라고 말하면 되는가"로 압축한 것. 세부 근거는 §3-1.
+
+1. **dad가 페이지를 넘기면, 첫 지시는 "쪼개고 배선해"다.** 배선을 먼저 하지 않는다.
+   (쪼개기 = dad 마크업을 `*Client.tsx`로 그대로 이사 — 화면 무변화. 그 다음 wrapper에서 repo 배선.)
+2. **쪼갠 후 dad 수정은 인계 절차가 없다.** dad는 자기 파일(`*Client.tsx`)을 자기 브랜치에서 언제든 고친다.
+   mim과 동시 작업해도 충돌 표면이 없다. "가져간다/돌려준다" 개념 자체를 쓰지 않는다.
+3. **조율이 필요한 유일한 순간 = 건네주는 데이터(props)가 바뀔 때.**
+   dad가 "이 데이터도 그리고 싶다" → mim이 wrapper에서 props 추가(선행) → dad가 그린다(후행).
+   동작 추가(저장 버튼 등)도 동일: 필요한 storage 함수가 없으면 mim에게 요청 후 사용.
 
 ### Role: dad — PM · UX · Frontend
 - **책임(제품 관점):** 무엇을 왜 만드는지, 화면 표현·인터랙션·기획 기능 연결(핸들러·상태·플로우).
@@ -443,7 +455,7 @@ node scripts/apply-migrations.mjs           # SUPABASE_ACCESS_TOKEN(sbp_) 필요
 - **`src/lib/storage.ts` (1381줄) = 브라우저 측.** 비밀번호가 없으니 **우리 API 라우트로 `fetch` 심부름**을 보낸다.
   `localStorage`(위시리스트 `baekjo_wishlist`)도 여기. **§4가 말하는 "콘센트"가 이것.**
   이름의 유래도 `localStorage` — **브라우저 물건이라 storage.**
-- **`src/lib/<domain>/repo.ts` (13개) = 서버 전용.** **Supabase를 직접 부르는 유일한 계층.**
+- **`src/lib/<domain>/repo.ts` (16개) = 서버 전용.** **Supabase를 직접 부르는 유일한 계층.**
   각 파일 머리에 "이 파일 밖에서는 Supabase를 직접 호출하지 않는다"가 박혀 있다. row↔도메인 매핑
   (`ProductRow`→`Product`), snake_case↔camelCase, 방어적 정규화(`normalizePetType`→미지값은 `'both'`) 담당.
   이름의 유래는 repository 패턴 — **서버(백엔드) 물건이라 repo.**
@@ -480,12 +492,12 @@ DB가 막아줄 거라 가정하지 말 것.
 ② 'use client' 있음 = 브라우저  → storage.ts  (/admin 목록·/cart·/checkout·/diagnosis …)
 ```
 
-**실측 (2026-07-17) — 숫자 4개를 혼동하지 말 것:**
+**실측 (2026-07-17 저녁 재실측) — 숫자 4개를 혼동하지 말 것:**
 
 | 세는 대상 | 개수 |
 |---|---|
-| `page.tsx` 전체 | **57** |
-| **② 클라이언트**(`'use client'` 있음) | **29** |
+| `page.tsx` 전체 | **59** |
+| **② 클라이언트**(`'use client'` 있음) | **31** |
 | **① 서버**(`'use client'` 없음) | **28** |
 | ① 중 **repo로 DB를 직접 읽는 것** | **12** |
 | `*Client.tsx`라는 **파일명**을 가진 것 | 4 |
@@ -513,9 +525,10 @@ DB가 막아줄 거라 가정하지 말 것.
 ### 10-6. repo의 두 종류 (건드리기 전에 어느 쪽인지 볼 것)
 | 종류 | 파일 | 모양 |
 |------|------|------|
-| **테이블 repo** | products·orders·members·brands·insurance·inquiries·reviews | 풀 CRUD. `SELECT_COLUMNS` 상수 + `XRow` 인터페이스 + `rowToX` 매퍼 |
-| **싱글턴 JSONB 설정 repo** (각 28줄) | kits·partners·qna·survey·settings·categorySettings | `id='default'` **한 행**의 `value jsonb`에 설정 통째로. `getXConfig`/`saveXConfig` upsert. 옆의 `config.ts`에 타입 + `defaultXConfig` 폴백(행 없을 때) |
+| **테이블 repo** | products·orders·members·brands·insurance·inquiries·reviews·shipments·partnerInquiries | 풀 CRUD. `SELECT_COLUMNS` 상수 + `XRow` 인터페이스 + `rowToX` 매퍼 |
+| **싱글턴 JSONB 설정 repo** (각 ~28줄) | kits·partners·qna·survey·settings·categorySettings·insuranceContent | `id='default'` **한 행**의 `value jsonb`에 설정 통째로. `getXConfig`/`saveXConfig` upsert. 옆의 `config.ts`에 타입 + `defaultXConfig` 폴백(행 없을 때) |
 
+- **`tracking/`도 repo가 없다** — `sweettracker.ts`는 스마트택배(스윗트래커) 폴링 어댑터. 배송 상태의 저장은 `shipments/repo.ts` 담당.
 - **`payments/`는 repo가 없다** — 대신 상태기계: `decide.ts`(순수 결정 함수)·`execute.ts`·`confirmPayment.ts`·
   `cancelPending.ts`·`toss.ts`(Toss PG 어댑터). 결제 로직은 `decide.ts`의 순수 함수부터 볼 것.
 - 도메인 부속: `products/`에 `validate.ts`·`formPayload.ts`·`splitProductInput.ts`(관리자 폼 입력을 컬럼 vs `detail` jsonb로 분리),
@@ -535,8 +548,9 @@ DB가 막아줄 거라 가정하지 말 것.
   admin으로 남는다. 그래서 매 요청 DB를 재조회한다. proxy만 믿고 생략하지 말 것.
 
 ### 10-8. 마이그레이션 · 시드 (`supabase/`)
-- `supabase/migrations/NNNN_snake_case.sql` — **수기 작성**(생성기 없음), 파일명 순 적용. 현재 **0001–0034**.
-  `0005` 결번, `0004b` 같은 letter suffix 변형 있음.
+- `supabase/migrations/NNNN_snake_case.sql` — **수기 작성**(생성기 없음), 파일명 순 적용. 현재 **0001–0040**.
+  `0005`·`0032` 결번, `0004b` 같은 letter suffix 변형, 그리고 **`0034`가 2개**
+  (`0034_move_catcode_products_to_alloming`·`0034_shipments` — 번호 충돌, 새 번호 딸 때 주의).
 - **시드 파일이 없다** — 시드/재시드도 마이그레이션이다(`0004b_seed_products_brands.sql`,
   `0018_reseed_brands_products.sql`). §3의 "DB가 화면의 진실 소스"와 맞물린다.
 - 결제 상태기계는 상당수가 Postgres RPC: `0021_decrement_stock_for_order`, `0023_restore_stock_for_order`,
@@ -556,7 +570,7 @@ DB가 막아줄 거라 가정하지 말 것.
   저장해 SQL 복구가 불가능했다. 그 결과가 2026-07-17 상품 이미지 404(p15~p18이 배포된 적 없는
   `.jpg`를 참조). 이력 없는 prod 변경 = 재현 불가·롤백 불가·원인 추적 곤란.
 
-### 10-9. 타입 (`src/types/index.ts` — 559줄, 단일 배럴)
+### 10-9. 타입 (`src/types/index.ts` — 609줄, 단일 배럴)
 - 서브 파일 없이 전 도메인 타입이 여기 하나에. **§4-3 "설계도 한 장"의 그 한 장이 이 파일이다.**
 - ⚠️ **상태값이 한글 문자열 리터럴이다**: `PAID_PAYMENT_STATUS: PaymentStatus = '결제완료'`. enum·영문 코드가 아니다.
 - 관용구: `ORDER_STATUSES`/`PAYMENT_STATUSES`를 `as const` 배열로 export하고

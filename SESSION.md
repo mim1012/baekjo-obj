@@ -1,384 +1,432 @@
 # SESSION — 백조오브제(baekjo-obj)
 
-## 목표 (고정)
-정적 목/localStorage로 화면과 데이터가 갈라지는 **drift 제거** — 화면은 콘센트(`src/lib/storage.ts`)/DB로만 흐르게(AGENTS.md §4). 각 변경은 **3중 검증 게이트(§8-6: opus + codex + Playwright 프리뷰)** 통과. 작업은 main발 짧은 브랜치 + PR.
+## 세션 마감 (2026-07-17 저녁, 이미지 복구·홈 CMS 세션 — 이 블록이 최신)
 
-## 현재 상태 (2026-07-15~16 마감 — 토스 반려 #62·#63·#58 + 상세에디터 드래그 #65 머지)
+> ⚠️ 바로 아래 "자동 마감 초안" 블록은 스크립트가 cp949로 써서 한글이 깨져 있음. 사실관계는 이 블록이 정본.
 
-**내 머지 전부 main 반영(이후 타 세션 admin-binding 스프린트로 main=`9585eec`까지 전진) · 내가 연 PR 0건 · 내 워크트리 전부 정리됨.** ⚠️ `D:/Project/BAGJO1-wt/*-binding` 워크트리들은 **다른 세션 소유** — 건드리지 말 것.
+**완료 (전부 main 머지·prod 실측 검증):**
+- **prod 이미지 404 복구 완결** — 마이그레이션 `0038_p15_p16_catalog_names_p17_real_images.sql`(#111, migrate 잡 적용 실측):
+  - p15 → `메종슈슈 Sage Sweat` + `/products/p15.webp`·`p15-1.webp`
+  - p16 → `메종슈슈 Violet OPS` + `/products/p16.webp`·`p16-1.webp`
+  - p17 → 팩샷 `/products/p17.webp` + `detail/charcoal-fresh/01~24.webp` detailBlocks 24장 (prod `/shop/p17` 카나리: 슬라이스 48참조 렌더 확인)
+- p17 소스: 고객사 PSD(차콜프레시_그레인1/2, 183MB/46MB)에서 **ag-psd 합성 추출** — 스크립트 `scratchpad/psd-extract/{extract,slice}.mjs` (원본 미커밋, gitignore)
+- **#112 홈 CMS(B안) 머지** — 홈 문구 정본 = `/admin/settings` 8탭(hero·quickShop·bestProducts·curation·audit·solutions·insuranceBanner·trustBoard). §8-6 삼중 게이트 통과(opus GREEN·codex PASS·Playwright PASS+문구 IDENTICAL), 증빙 = PR #112 코멘트. `homeContent.ts`는 fallback 전용.
+- **AGENTS.md §10-8 신설: 커밋 안 된 SQL prod 직접 적용 금지** — PR #110 (마감 시점: update-branch 후 CI 재실행 중, auto-merge 장전 — 머지만 확인하면 됨)
+- 머지된 PR: #109(p17 자산) · #111(0038) · #112(홈 CMS). #110 대기.
 
-이 세션 머지(전부 §8-6 삼중 게이트 통과 — #62·#63·#58·#65 코드 + #64 마감문서):
-- **#62 `be/fix-brandless-product-hide`(merge `4d29a6a`) — invalid-brand 결함 수정.** 근본원인: `products.brand_id`가 `references brands(id) on delete set null`(0004) → 브랜드 삭제 시 상품 brand_id NULL → `rowToProduct`가 NULL을 `''`로 읽음(`repo.ts:47`) → 노출-전용 `{isVisible:false}` patch도 read-modify-write라 `splitProductInput`이 `brand_id=''` 되씀 → 23503 FK위반 → 라우트가 `invalid-brand`로 매핑(`api/admin/products/[id]/route.ts:48`). **브랜드 삭제된 상품은 숨김·수정 자체 불가.** 수정: `splitProductInput`을 순수모듈 `src/lib/products/splitProductInput.ts`로 분리 + `brand_id '' → null` 정규화 + 회귀 테스트 3건. opus GREEN·codex PASS.
-- **#63 `fe/behavior-price-input-clear`(merge `90b7834`) — 관리자 상품 폼 가격칸 0 미삭제 버그.** `ProductForm.tsx` 가격·세일가·재고 number input이 `value={... ?? 0/|| 0}` + `Number(e.target.value)`라 빈칸이 `Number('')=0`으로 되돌아가 "0"이 안 지워짐. 3필드 `value`를 `|| ''`로 변경(형제 shippingFee 패턴). opus GREEN·codex PASS. **우회법(배포 전): 칸 클릭→Ctrl+A→입력.**
-- **#58 `fe/design-toss-review`(merge `e620385`) — 실 사업자정보·약관·개인정보·배송/환불(반려 #2·#3·#4 해소).** `src/data/company.ts`에 실값: 상호 백조 오브제·대표 백보윤·사업자번호 524-05-03658(간이과세자)·통신판매업 2026-인천미추홀-0016·주소 인천 연수구 인천타워대로 185, 5층 539호(송도동, 송도 센트럴비즈 한라)·전화 010-5683-1725·이메일 thebaekjo@naver.com. 푸터·/terms·/privacy 자동 반영. opus GREEN. **codex가 사업자번호 체크섬 불일치를 지적했으나 직접 검증 결과 오탐**(524-05-03658 국세청 검증식 합계 102→검증숫자 8=마지막자리 8 일치, 유효).
+**이번 세션 CI 교훈 3건 (메모리 repo-hygiene-2026-07-17에도 기록):**
+1. auto-merge 장전 후 커밋 추가 push 금지 — 구 헤드로 머지돼 커밋 유실(#109→0038 누락→#111 재상정). push 전부 끝낸 뒤 장전.
+2. 가드 스펙(brand-naming·home-binding-flow·no-html-sink)이 소스 위치를 리터럴로 박고 있음 — 문구/시그니처 이관 시 스펙 추종 필요 (#112에서 3파일 갱신, 의도 유지).
+3. update-baselines 봇 커밋은 CI 미트리거 → 빈 커밋으로 깨움 (기존에 알려진 함정 재확인).
 
-### 🔴 토스 반려사유 현황 + 사용자 몫
-- **#2 푸터·#3 약관/개인정보·#4 배송/환불 = 해소(#58 머지).**
-- **#1 미가격 상품 노출 = 코드 아님, 운영 작업 남음(사용자 몫).** `/admin/products` "가격 미등록" 필터 + 일괄 숨김/노출 기능이 이미 있음(#57 마이그레이션 접근은 폐기가 맞았음). ⚠️ **그냥 다 숨기면 골든#1(진단) 깨짐** — 진단 추천 9개(**p1·p2·p3·p4·p5·p7·p8·p9·p12**)에 가격 **99,000원/재고 999** 입력(사용자 결정) + 나머지 미가격 숨김. 9개가 판매가능해지면 `survey.ts` 추천 규칙은 그대로 유효(재지정 불필요).
-- **⚠️ 프로덕션 DB 불일치 가능성**: 로컬 `.env.local` DB(host `aeooyi…`)엔 브랜드 없는 상품 0건인데 사용자는 invalid-brand를 **프로덕션에서** 봄 → prod는 다른 Supabase 프로젝트를 쓰거나 그 사이 상태가 달랐음. #62 배포로 이제 prod에서도 브랜드 없는 상품 숨김 가능.
+**검증 기록:** 로컬 `npx playwright test --project=products --project=admin` 207 passed · prod 공개 API에서 p15/p16/p17 이름·이미지 반영 실측 · preview 골든 홈 스펙 1 passed.
 
-### 상세페이지(네이버식) UX (①드래그정렬 = #65로 실구현·머지, ②③④ 미착수)
-- 표시(고객 상세)·편집(상세 에디터) **둘 다 이미 존재**. 편집은 **별도 페이지** `/admin/products/[id]/editor`(`admin/products/page.tsx:69`에서 진입)에서 `ProductDetailEditor`가 담당(좌 블록편집/우 실시간 폰 미리보기). **등록 모달(ProductForm)은 detailBlocks를 의도적으로 제외**(read-modify-write 보존, `formPayload.ts` 화이트리스트). 즉 모달 수정은 필수 아님.
-- **#65 `fe/behavior-detail-editor-dnd` — 상세 에디터 블록 드래그 정렬 실구현 + 드래그중 자동스크롤(가짜 그립 제거).** framer-motion `Reorder`(새 의존성 없음), 상태를 `{key,block}[]`로 키잉(전이 key는 저장 payload에서 제거), ↑↓ 접근성 대체 유지. opus GREEN·codex 지적(RAF 언마운트 정리) 반영. 계약 무변경.
-- 개선 백로그(behavior/design·계약 무변경, 미착수): ② 이미지 **다중 업로드→블록 일괄 생성** ③ 등록 모달↔상세 에디터 동선 ④ 모달 "간단 텍스트 상세" vs 에디터 blocks 입력구 일원화.
+**미완/다음 액션:**
+- #110 머지 최종 확인 (`gh pr view 110`)
+- p18 참숯 매트: 자산 6.9GB에 사진 없음 → **클라이언트에 실물 사진 요청** (유일한 외부 의존)
+- p15/p16은 썸네일+갤러리만 있음(상세 슬라이스 없음) — 메종슈슈 상세 원본 확보 시 추가
+- `D:\Project\BAGJO1-ux` 폴더 수동 삭제 (세션 권한 차단으로 자동 삭제 불가, git 정리는 완료)
+- 정리 후보: 세션 scratchpad 워크트리 wt-p17·wt-agents·wt-home-cms (브랜치 전부 머지/push됨)
 
-### 파일 흔적·잔존물
-- 잔존 진단 스크립트 `__check_orphans.mjs`(untracked, 프로덕션 brands/products 조회용 — 삭제 권한 세션 차단, `Remove-Item`으로 직접 삭제 가능) + 기존 `__cap_*.mjs`·`tests/golden/__*-temp.spec.ts` 미정리분 누적.
-- CI 교훈: **update-baselines 봇 커밋(GITHUB_TOKEN)은 `verify`(ci.yml)를 트리거 안 함** → 새 head에서 verify `action_required`로 멈춤 → `gh api repos/.../actions/runs/<id>/approve`로 승인해야 머지 required check 충족(#58에서 실제 발생·해소).
+**사용자 결정 필요:** 없음 — 오늘 결정 5건(PR 재시도·홈 CMS·약관·문서·가격) 전부 실행 완료.
 
-## (이전 스냅샷) 현재 상태 (2026-07-15 마감 — 토스 심사 배치 게이트: #60 머지 · #57 닫음 · #58 보류)
+---
+﻿# SESSION ??諛깆“?ㅻ툕??baekjo-obj)
 
-**브랜치 `main`(`10b8ff2`) · 열린 PR 1건(#55 = 이 마감 문서) · 로컬 = origin/main 정렬됨 · main CI success**
+## 紐⑺몴 (怨좎젙)
+?뺤쟻 紐?localStorage濡??붾㈃怨??곗씠?곌? 媛덈씪吏??**drift ?쒓굅** ???붾㈃? 肄섏꽱??`src/lib/storage.ts`)/DB濡쒕쭔 ?먮Ⅴ寃?AGENTS.md 짠4). 媛?蹂寃쎌? **3以?寃利?寃뚯씠??짠8-6: opus + codex + Playwright ?꾨━酉?** ?듦낵. ?묒뾽? main諛?吏㏃? 釉뚮옖移?+ PR.
 
-> ⚠️ 이 아래 "(이전 스냅샷) …S1·S3·S4백엔드" 블록은 main=`8e18b18` 시점 기록이다. 그 뒤 #56(브랜드 폼)·#59(브랜드 상세)가 이미 머지됐고(`a729bbf`), 이 세션은 그 위에서 **토스 카드 심사 대응 배치**를 §8-6 삼중 게이트에 태워 처리했다.
+## ?꾩옱 ?곹깭 (2026-07-17 ?먮룞 留덇컧 珥덉븞)
+- ?쒓컖: 2026-07-17 20:53 (Asia/Seoul)
+- 釉뚮옖移? be/concerns-db
+- 濡쒖뺄 ?섍꼍: local -> staging Supabase
+- ?ㅽ뻾 以??쒕쾭: none detected on 3000/3001/3002
+- 蹂寃??뚯씪:
+  -  M AGENTS.md
+- 理쒓렐 而ㅻ컠:
+  - 00c5f6c feat(care-kit): B2B 제휴 문의 폼 → DB 저장 + 관리자 접수함 (#114)
+  - d0d2bab feat(settings): 홈 문구 정본을 관리자 설정으로 이관 (B안, 무시각변화 시드) (#112)
+  - 4d013b2 feat(insurance): 동의 전문·FAQ DB화 + 관리자 CRUD (/admin/insurance-content) (#113)
+  - a16000f feat(db): 0038 p15/p16 실판매 카탈로그 개명+실사진, p17 실사진·상세블록 배선 (#111)
+  - 3d04ac5 feat(assets): p17 챠콜스토리 차콜프레시 실사진 웹 (PSD 합성 추출) (#109)
+- ?대쾲 ?몄뀡?먯꽌 ?꾨즺????
+  - TODO: ?ㅼ젣 ?꾨즺 ?댁슜????以꾩뵫 ?뺣━
+- 寃利?
+  - TODO: ?ㅽ뻾??紐낅졊怨?寃곌낵瑜?湲곕줉 (npm run lint, npm run build, Playwright ??
+- 誘몄셿/?ㅼ쓬 ?≪뀡:
+  - TODO: ?ㅼ쓬 ?몄뀡??諛붾줈 ?댁뼱諛쏆쓣 ?묒뾽
+- ?ъ슜??寃곗젙 ?꾩슂:
+  - TODO: 寃곗젙 ?湲???ぉ???놁쑝硫??놁쓬
+## ?꾩옱 ?곹깭 (2026-07-15~16 留덇컧 ???좎뒪 諛섎젮 #62쨌#63쨌#58 + ?곸꽭?먮뵒???쒕옒洹?#65 癒몄?)
 
-이 세션 처리(토스 카드 심사 대응 4건):
-- **#60 상품 폼 봉인 필드 개방 — 머지(`8241797`·`1f17072`, merge `10b8ff2`).** §8-6 실통과: opus GREEN + codex(잔여=선재 백로그) + **Playwright gate3 PASS**(프리뷰에서 폼→저장→DB persist→`rowToProduct` 되읽기→원복 실증, 32s). 봉인 해제 12필드(옵션·갤러리·성분·사용법·추천대상·주의사항·배송/판매자·회원전용가)를 **명시 화이트리스트** 순수 모듈 `src/lib/products/formPayload.ts`로만 전송(`...formData` 암묵 스프레드 금지, §4). 단위 16건 신설.
-- **#57 미가격 상품 숨김(0032) — 닫음(브랜치 삭제).** opus·codex **둘 다 HIGH 차단**: 미가격 20개를 숨기면 공개 스토어에 p15·p21만 남는데 **둘 다 재고 0(+옵션 재고 전부 0)**이고, 진단 추천 규칙(`survey.ts`)이 전부 숨겨질 상품만 가리켜 **진단 결과(골든 #1)가 전 경로 추천 0개**. "미가격 숨김"은 접근 오류 → 폐기.
-- **#58 토스 법정 페이지·푸터 사업자정보 — draft 보류.** 코드 GREEN(계약 무변경·`/terms`·`/privacy` 프리뷰 200 렌더·링크 정상·싱크 0건). 차단 사유는 코드가 아니라 **가짜 사업자번호(`123-45-67890`)가 main=prod 배포로 공개 법정고지에 실린다는 것**(토스 반려 사유 자체) → 실 사업자등록증 정보 확보 시 `company.ts` 주입 후 머지.
+**??癒몄? ?꾨? main 諛섏쁺(?댄썑 ? ?몄뀡 admin-binding ?ㅽ봽由고듃濡?main=`9585eec`源뚯? ?꾩쭊) 쨌 ?닿? ??PR 0嫄?쨌 ???뚰겕?몃━ ?꾨? ?뺣━??** ?좑툘 `D:/Project/BAGJO1-wt/*-binding` ?뚰겕?몃━?ㅼ? **?ㅻⅨ ?몄뀡 ?뚯쑀** ??嫄대뱶由ъ? 留?寃?
 
-### 🔴 사용자 결정(2026-07-15) + 넘어간 몫
-- **토스 카드 심사는 코드가 아니라 실데이터 2종에 막혀 있다.**
-  1. **판매 상품 가격·재고 입력**(mim/기획, `/admin/products`) — 지금 스토어·진단·홈 베스트가 비어 보이는 근본 원인. 어느 상품을 얼마에 팔지 확정되면 **진단 추천 규칙 `survey.ts` 재지정**(현재 p1·p4·p7·p8·p2·p5·p3·p9·p12 지정 → 판매가능 상품으로)은 다음 세션이 이어서.
-  2. **실 사업자등록증 정보** 확보 → #58 `company.ts` 주입·draft 해제·머지.
-- **#55(이 문서) 외 열린 PR 없음.** #58은 draft라 실수 머지 안 됨.
+???몄뀡 癒몄?(?꾨? 짠8-6 ?쇱쨷 寃뚯씠???듦낵 ??#62쨌#63쨌#58쨌#65 肄붾뱶 + #64 留덇컧臾몄꽌):
+- **#62 `be/fix-brandless-product-hide`(merge `4d29a6a`) ??invalid-brand 寃고븿 ?섏젙.** 洹쇰낯?먯씤: `products.brand_id`媛 `references brands(id) on delete set null`(0004) ??釉뚮옖????젣 ???곹뭹 brand_id NULL ??`rowToProduct`媛 NULL??`''`濡??쎌쓬(`repo.ts:47`) ???몄텧-?꾩슜 `{isVisible:false}` patch??read-modify-write??`splitProductInput`??`brand_id=''` ?섏? ??23503 FK?꾨컲 ???쇱슦?멸? `invalid-brand`濡?留ㅽ븨(`api/admin/products/[id]/route.ts:48`). **釉뚮옖????젣???곹뭹? ?④?쨌?섏젙 ?먯껜 遺덇?.** ?섏젙: `splitProductInput`???쒖닔紐⑤뱢 `src/lib/products/splitProductInput.ts`濡?遺꾨━ + `brand_id '' ??null` ?뺢퇋??+ ?뚭? ?뚯뒪??3嫄? opus GREEN쨌codex PASS.
+- **#63 `fe/behavior-price-input-clear`(merge `90b7834`) ??愿由ъ옄 ?곹뭹 ??媛寃⑹뭏 0 誘몄궘??踰꾧렇.** `ProductForm.tsx` 媛寃㈑룹꽭?쇨?쨌?ш퀬 number input??`value={... ?? 0/|| 0}` + `Number(e.target.value)`??鍮덉뭏??`Number('')=0`?쇰줈 ?섎룎?꾧? "0"????吏?뚯쭚. 3?꾨뱶 `value`瑜?`|| ''`濡?蹂寃??뺤젣 shippingFee ?⑦꽩). opus GREEN쨌codex PASS. **?고쉶踰?諛고룷 ??: 移??대┃?묬trl+A?믪엯??**
+- **#58 `fe/design-toss-review`(merge `e620385`) ?????ъ뾽?먯젙蹂는룹빟愿쨌媛쒖씤?뺣낫쨌諛곗넚/?섎텋(諛섎젮 #2쨌#3쨌#4 ?댁냼).** `src/data/company.ts`???ㅺ컪: ?곹샇 諛깆“ ?ㅻ툕?쑣룸???諛깅낫?ㅒ룹궗?낆옄踰덊샇 524-05-03658(媛꾩씠怨쇱꽭??쨌?듭떊?먮ℓ??2026-?몄쿇誘몄텛?-0016쨌二쇱냼 ?몄쿇 ?곗닔援??몄쿇??뚮?濡?185, 5痢?539???〓룄?? ?〓룄 ?쇳듃?대퉬利??쒕씪)쨌?꾪솕 010-5683-1725쨌?대찓??thebaekjo@naver.com. ?명꽣쨌/terms쨌/privacy ?먮룞 諛섏쁺. opus GREEN. **codex媛 ?ъ뾽?먮쾲??泥댄겕??遺덉씪移섎? 吏?곹뻽?쇰굹 吏곸젒 寃利?寃곌낵 ?ㅽ깘**(524-05-03658 援?꽭泥?寃利앹떇 ?⑷퀎 102?믨?利앹닽??8=留덉?留됱옄由?8 ?쇱튂, ?좏슚).
 
-### 백로그(#60에서 발굴, 비차단)
-- `ProductForm` 성분/사용법 textarea에 `maxLength=300`(서버 캡과 일치) — 현실적 긴 성분표 붙여넣기 시 애매한 400 방지(opus MEDIUM).
-- `products.detail` jsonb 쓰기 경로 낙관적 락/원자 병합(codex HIGH, `updateProduct` SELECT→UPDATE TOCTOU는 선재 — 이 PR이 만든 것 아님).
-- staging p15 shippingFee=12345 잔존(gate3 원복 시 원본에 shippingFee 없어 PATCH unset 불가 — staging 한정, prod 무관).
+### ?뵶 ?좎뒪 諛섎젮?ъ쑀 ?꾪솴 + ?ъ슜??紐?- **#2 ?명꽣쨌#3 ?쎄?/媛쒖씤?뺣낫쨌#4 諛곗넚/?섎텋 = ?댁냼(#58 癒몄?).**
+- **#1 誘멸?寃??곹뭹 ?몄텧 = 肄붾뱶 ?꾨떂, ?댁쁺 ?묒뾽 ?⑥쓬(?ъ슜??紐?.** `/admin/products` "媛寃?誘몃벑濡? ?꾪꽣 + ?쇨큵 ?④?/?몄텧 湲곕뒫???대? ?덉쓬(#57 留덉씠洹몃젅?댁뀡 ?묎렐? ?먭린媛 留욎븯??. ?좑툘 **洹몃깷 ???④린硫?怨⑤뱺#1(吏꾨떒) 源⑥쭚** ??吏꾨떒 異붿쿇 9媛?**p1쨌p2쨌p3쨌p4쨌p5쨌p7쨌p8쨌p9쨌p12**)??媛寃?**99,000???ш퀬 999** ?낅젰(?ъ슜??寃곗젙) + ?섎㉧吏 誘멸?寃??④?. 9媛쒓? ?먮ℓ媛?ν빐吏硫?`survey.ts` 異붿쿇 洹쒖튃? 洹몃?濡??좏슚(?ъ???遺덊븘??.
+- **?좑툘 ?꾨줈?뺤뀡 DB 遺덉씪移?媛?μ꽦**: 濡쒖뺄 `.env.local` DB(host `aeooyi??)??釉뚮옖???녿뒗 ?곹뭹 0嫄댁씤???ъ슜?먮뒗 invalid-brand瑜?**?꾨줈?뺤뀡?먯꽌** 遊???prod???ㅻⅨ Supabase ?꾨줈?앺듃瑜??곌굅??洹??ъ씠 ?곹깭媛 ?щ옄?? #62 諛고룷濡??댁젣 prod?먯꽌??釉뚮옖???녿뒗 ?곹뭹 ?④? 媛??
 
-## (이전 스냅샷) 현재 상태 (2026-07-15 마감 — 관리자 콘솔 개편 S1·S3·S4백엔드 머지)
+### ?곸꽭?섏씠吏(?ㅼ씠踰꾩떇) UX (?좊뱶?섍렇?뺣젹 = #65濡??ㅺ뎄?꽷룸㉧吏, ?△몾??誘몄갑??
+- ?쒖떆(怨좉컼 ?곸꽭)쨌?몄쭛(?곸꽭 ?먮뵒?? **?????대? 議댁옱**. ?몄쭛? **蹂꾨룄 ?섏씠吏** `/admin/products/[id]/editor`(`admin/products/page.tsx:69`?먯꽌 吏꾩엯)?먯꽌 `ProductDetailEditor`媛 ?대떦(醫?釉붾줉?몄쭛/???ㅼ떆媛???誘몃━蹂닿린). **?깅줉 紐⑤떖(ProductForm)? detailBlocks瑜??섎룄?곸쑝濡??쒖쇅**(read-modify-write 蹂댁〈, `formPayload.ts` ?붿씠?몃━?ㅽ듃). 利?紐⑤떖 ?섏젙? ?꾩닔 ?꾨떂.
+- **#65 `fe/behavior-detail-editor-dnd` ???곸꽭 ?먮뵒??釉붾줉 ?쒕옒洹??뺣젹 ?ㅺ뎄??+ ?쒕옒洹몄쨷 ?먮룞?ㅽ겕濡?媛吏?洹몃┰ ?쒓굅).** framer-motion `Reorder`(???섏〈???놁쓬), ?곹깭瑜?`{key,block}[]`濡??ㅼ엵(?꾩씠 key?????payload?먯꽌 ?쒓굅), ?묅넃 ?묎렐???泥??좎?. opus GREEN쨌codex 吏??RAF ?몃쭏?댄듃 ?뺣━) 諛섏쁺. 怨꾩빟 臾대?寃?
+- 媛쒖꽑 諛깅줈洹?behavior/design쨌怨꾩빟 臾대?寃? 誘몄갑??: ???대?吏 **?ㅼ쨷 ?낅줈?쒋넂釉붾줉 ?쇨큵 ?앹꽦** ???깅줉 紐⑤떖?붿긽???먮뵒???숈꽑 ??紐⑤떖 "媛꾨떒 ?띿뒪???곸꽭" vs ?먮뵒??blocks ?낅젰援??쇱썝??
 
-**브랜치 `main`(`8e18b18`) · 열린 PR 0건 · 로컬 = origin/main 정렬됨**
+### ?뚯씪 ?붿쟻쨌?붿〈臾?- ?붿〈 吏꾨떒 ?ㅽ겕由쏀듃 `__check_orphans.mjs`(untracked, ?꾨줈?뺤뀡 brands/products 議고쉶??????젣 沅뚰븳 ?몄뀡 李⑤떒, `Remove-Item`?쇰줈 吏곸젒 ??젣 媛?? + 湲곗〈 `__cap_*.mjs`쨌`tests/golden/__*-temp.spec.ts` 誘몄젙由щ텇 ?꾩쟻.
+- CI 援먰썕: **update-baselines 遊?而ㅻ컠(GITHUB_TOKEN)? `verify`(ci.yml)瑜??몃━嫄?????* ????head?먯꽌 verify `action_required`濡?硫덉땄 ??`gh api repos/.../actions/runs/<id>/approve`濡??뱀씤?댁빞 癒몄? required check 異⑹”(#58?먯꽌 ?ㅼ젣 諛쒖깮쨌?댁냼).
 
-이 세션 머지: **PR #50(S1) · #51(S3) · #52·#54(문서) · #53(S4 백엔드)**. 전부 §8-6 3중 게이트 통과.
-테스트 0건 → **80건**(products 38 + admin 42), 전부 required check `verify` 편입.
-**되풀이된 패턴 — "CI는 초록인데 실제로는 망가져 있던" 결함 3건**(상품 수정화면 404 / 시각회귀 게이트가 메뉴 유실 못 잡음 / 미결제 매출 오집계)을 전부 **프리뷰 실구동으로만** 잡았다. §8-6 게이트3의 존재 이유가 세 번 증명됨.
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-15 留덇컧 ???좎뒪 ?ъ궗 諛곗튂 寃뚯씠?? #60 癒몄? 쨌 #57 ?レ쓬 쨌 #58 蹂대쪟)
 
-설계 문서: **`docs/admin-dashboard-uiux-improvement.md`** (개편 로드맵 8스텝 = §13, 진행 현황 = §0-1)
-모바일 열람용 아티팩트: https://claude.ai/code/artifact/eed7791f-7890-407a-bfdc-2f8c23e9085d
+**釉뚮옖移?`main`(`10b8ff2`) 쨌 ?대┛ PR 1嫄?#55 = ??留덇컧 臾몄꽌) 쨌 濡쒖뺄 = origin/main ?뺣젹??쨌 main CI success**
 
-### ✅ PR #50 (S1) — 상품 저장 결함 · 저장형 XSS · 서버 컴포넌트 404
-- 🔴 **상세 블록 에디터 저장이 항상 400이었다.** `validateProductFields`가 화이트리스트인데 **`detailBlocks` 분기가 없어** PATCH 바디가 빈 객체가 되고 라우트가 "수정할 필드 없음"으로 400 → **상세 본문이 DB에 영영 저장되지 않았다.** (`src/lib` 전체에서 `detailBlocks`는 읽기 경로 `repo.ts:63` 한 곳뿐이었다.)
-- 🔴 **등록 폼이 자기 안내문을 따르면 400.** `description`이 생성 시 필수인데 placeholder는 "에디터를 쓰려면 비워두세요" → **안내가 맞고 검증이 틀렸다**고 판정해 선택 필드로 정정. 클라 검증(4개)·서버 계약(6개) 불일치도 맞추고 **blur 검증**으로 전환.
-- 🔴 **구매 정보 3종 이중 단절.** `sellerName`·`deliveryEstimate`·`returnNotice`가 validate에도 없고 `rowToProduct`가 되읽지도 않아 **영영 undefined** → 상세가 항상 기본 문구만 렌더. 양쪽 복구.
-- 🔴 **저장형 XSS(파트너→관리자 권한상승).** detailBlocks 저장 경로를 열자 text content가 에디터 미리보기의 `dangerouslySetInnerHTML`로 흘렀다. **미리보기를 공개 상세와 동일한 평문 렌더로 교체**(공개는 이미 이스케이프 렌더 중 — 미리보기만 HTML을 해석한 것 자체가 거짓 미리보기였다). HTML 태그 거부 정규식은 **오히려 제거**(`<A/S 안내>`·`<NEW>` 같은 정당한 문구를 400으로 죽이면서 인코딩 우회는 못 막는 새는 방어) → 대신 **`tests/products/no-html-sink.spec.ts`가 `src/`에 `dangerouslySetInnerHTML`이 0건임을 CI로 강제**한다.
-- 🔴 **`/admin/products/[id]`·`/[id]/editor`가 프로덕션에서 404였다.** 서버 컴포넌트가 클라이언트용 콘센트 `getAdminProducts()`(상대경로 fetch)를 호출 → 서버 런타임에서 throw → `catch { return [] }`가 에러를 삼켜 `notFound()`. **즉 위 수정들은 도달 불가한 죽은 코드였다.** CI(verify·visual·payments)는 전부 초록이었고 **게이트3(프리뷰 실구동)만이 잡았다.** AGENTS §3대로 서버 wrapper가 `repo.ts`를 직접 호출하도록 교체(`/new`·`/display` 포함 4개 페이지).
-- 기타: image `src` 오리진 화이트리스트(백슬래시 우회 차단 — 브라우저 URL 파서가 `\`를 `/`로 정규화) · 가격 불변식을 `updateProduct`에도 적용 · detail 페이로드 상한(60블록·2000자·256KB UTF-8 실측) · **폼이 자기가 편집하지 않는 필드를 되돌려 보내던 것 차단**(로드 시점 스냅샷을 통째로 보내 상세 에디터가 저장한 detailBlocks를 덮어씀 — 관리자 1명이어도 성립).
-- **회귀 스펙 38건** 신설 → required check `verify`에 편입. `detailBlocks` 분기를 지우면 6건이 RED.
+> ?좑툘 ???꾨옒 "(?댁쟾 ?ㅻ깄?? ?쪺1쨌S3쨌S4諛깆뿏?? 釉붾줉? main=`8e18b18` ?쒖젏 湲곕줉?대떎. 洹???#56(釉뚮옖????쨌#59(釉뚮옖???곸꽭)媛 ?대? 癒몄??먭퀬(`a729bbf`), ???몄뀡? 洹??꾩뿉??**?좎뒪 移대뱶 ?ъ궗 ???諛곗튂**瑜?짠8-6 ?쇱쨷 寃뚯씠?몄뿉 ?쒖썙 泥섎━?덈떎.
 
-### ✅ PR #51 (S3) — 관리자 메뉴 SSOT · 브레드크럼 실버그 · dead code
-- **메뉴 SSOT** `src/components/admin-new/layout/adminNav.ts` 신설. `AdminSidebar`·`AdminMobileNav`가 17개 메뉴를 **문자 단위로 동일하게 중복 하드코딩**하고 있었다(모바일 네비에 *"실제 구현시 분리된 상수 파일 사용 권장"* 자백 주석까지 있었음).
-- 🔴 **브레드크럼 누락 3건(실버그)**: `AdminHeader`의 경로→제목 매핑에서 `survey-results`·`inquiries`·`reviews`가 빠져 제목이 잘못 떴다 → 매핑을 SSOT 배열에서 **파생**시켜 누락을 구조적으로 불가능하게.
-- **`/admin/products/display` 사이드바 노출**(라우트는 살아있는데 메뉴에 없어 도달 불가였다). `isActive`를 **longest-prefix**로 교체 — `startsWith`면 '상품 관리'와 동시 활성, 정확 매칭이면 `/admin/products/[id]`에서 부모가 비활성이 된다. 부수로 `survey`↔`survey-results` 접두사 오염 버그도 수복.
-- **고아 라우트 가드** `tests/admin/admin-nav.spec.ts` — `src/app/admin/**/page.tsx`를 스캔해 **메뉴에 없는 라우트를 CI에서 잡는다**. 2026-07-14 유실 사고 + `/display` 고아 라우트가 실제로 이 형태였다. href 18개 스냅샷·순서·그룹 개수·아이콘 전수·`resolveActiveHref` 테이블도 함께 잠금. required check 편입(16건).
-- dead code: `src/data/{orders,insuranceApplications,users}.ts` 삭제 + `storage.ts`의 `getUsers`·`mockUsers`·`REGISTERED_USERS_KEY` 제거 + `admin/page.tsx` 중복 import 제거.
-- ⚠️ **`src/data/products.ts`·`brands.ts`는 삭제 금지** — import 0건이지만 **재시드의 정본**(마이그레이션 `0004b`·`0014`~`0018` 주석 + eslint `no-restricted-imports` 대상 + `generate_placeholders.mjs`가 읽음).
-  - **2026-07-17 이 결정 뒤집음** (`be/kill-static-seed-canon`) — 사유: "재시드의 정본" 지위가 **드리프트의 원인 그 자체**였다. 같은 값이 ① `src/data/*.ts` ② 손으로 타이핑한 시드 SQL(`0004b`) ③ `/admin`이 실시간 수정하는 라이브 DB **세 곳에 손으로** 적혔고, 셋을 맞추는 건 사람 기억력뿐 — 그 실패 영수증이 `0014`~`0018`(정적↔DB 불일치 수습)과 `0035`(프로덕션→파일 **역기입**)다. 삭제 금지의 근거였던 "복구 경로"는 파일이 아니라 `supabase/migrations/`(`0004b`+`0018`+정정분 → `node scripts/apply-migrations.mjs`)에 이미 있었다. `generate_placeholders.mjs`는 실사진 webp 도입 후 죽은 부트스트랩이라 함께 삭제. **이제 products·brands 값 입력구는 `/admin` 하나뿐.** 검증: `tsc --noEmit`·`npm run build` green(두 파일 관련 에러 0건).
-- a11y: 활성 메뉴에 `aria-current="page"`, 무명 버튼(사이드바 접기·햄버거)에 `aria-label`.
+???몄뀡 泥섎━(?좎뒪 移대뱶 ?ъ궗 ???4嫄?:
+- **#60 ?곹뭹 ??遊됱씤 ?꾨뱶 媛쒕갑 ??癒몄?(`8241797`쨌`1f17072`, merge `10b8ff2`).** 짠8-6 ?ㅽ넻怨? opus GREEN + codex(?붿뿬=?좎옱 諛깅줈洹? + **Playwright gate3 PASS**(?꾨━酉곗뿉???쇄넂??β넂DB persist??rowToProduct` ?섏씫湲겸넂?먮났 ?ㅼ쬆, 32s). 遊됱씤 ?댁젣 12?꾨뱶(?듭뀡쨌媛ㅻ윭由?룹꽦遺꽷룹궗?⑸쾿쨌異붿쿇??겶룹＜?섏궗??룸같???먮ℓ?먃룻쉶?먯쟾?⑷?)瑜?**紐낆떆 ?붿씠?몃━?ㅽ듃** ?쒖닔 紐⑤뱢 `src/lib/products/formPayload.ts`濡쒕쭔 ?꾩넚(`...formData` ?붾У ?ㅽ봽?덈뱶 湲덉?, 짠4). ?⑥쐞 16嫄??좎꽕.
+- **#57 誘멸?寃??곹뭹 ?④?(0032) ???レ쓬(釉뚮옖移???젣).** opus쨌codex **????HIGH 李⑤떒**: 誘멸?寃?20媛쒕? ?④린硫?怨듦컻 ?ㅽ넗?댁뿉 p15쨌p21留??⑤뒗??**?????ш퀬 0(+?듭뀡 ?ш퀬 ?꾨? 0)**?닿퀬, 吏꾨떒 異붿쿇 洹쒖튃(`survey.ts`)???꾨? ?④꺼吏??곹뭹留?媛由ъ폒 **吏꾨떒 寃곌낵(怨⑤뱺 #1)媛 ??寃쎈줈 異붿쿇 0媛?*. "誘멸?寃??④?"? ?묎렐 ?ㅻ쪟 ???먭린.
+- **#58 ?좎뒪 踰뺤젙 ?섏씠吏쨌?명꽣 ?ъ뾽?먯젙蹂???draft 蹂대쪟.** 肄붾뱶 GREEN(怨꾩빟 臾대?寃승?/terms`쨌`/privacy` ?꾨━酉?200 ?뚮뜑쨌留곹겕 ?뺤긽쨌?깊겕 0嫄?. 李⑤떒 ?ъ쑀??肄붾뱶媛 ?꾨땲??**媛吏??ъ뾽?먮쾲??`123-45-67890`)媛 main=prod 諛고룷濡?怨듦컻 踰뺤젙怨좎????ㅻ┛?ㅻ뒗 寃?*(?좎뒪 諛섎젮 ?ъ쑀 ?먯껜) ?????ъ뾽?먮벑濡앹쬆 ?뺣낫 ?뺣낫 ??`company.ts` 二쇱엯 ??癒몄?.
 
-### ⚠️ 시각 회귀 게이트를 신뢰할 수 없다 (이번 세션 최대 발견)
-1. **임계값이 메뉴 유실을 못 잡는다** — 사이드바 17→18인데 `visual` **초록 통과**(`maxDiffPixelRatio: 0.01` 아래, 메뉴 한 줄 ≈ 전체 픽셀의 0.2%). **2026-07-14 메뉴 4종 유실 때 CI가 조용했던 이유가 이것으로 설명된다.**
-2. **베이스라인 재생성이 실화면과 다른 것을 찍는다** — 브랜치 프리뷰 URL을 명시해 재생성해도 `admin-products` 베이스라인에 **옛 17개 사이드바**가 담긴다. 같은 URL을 실구동하면 **18개가 전부 보이고 전부 열린다**(스크린샷으로 확인). ~~**원인 미규명.**~~
-3. **그래서 "변경 없음 — 커밋 생략"으로 조용히 넘어간다** → 의도된 표현 변경이 베이스라인에 반영되지 않고, 다음 PR이 낡은 기준으로 비교된다.
+### ?뵶 ?ъ슜??寃곗젙(2026-07-15) + ?섏뼱媛?紐?- **?좎뒪 移대뱶 ?ъ궗??肄붾뱶媛 ?꾨땲???ㅻ뜲?댄꽣 2醫낆뿉 留됲? ?덈떎.**
+  1. **?먮ℓ ?곹뭹 媛寃㈑룹옱怨??낅젰**(mim/湲고쉷, `/admin/products`) ??吏湲??ㅽ넗?는룹쭊?㉱룻솃 踰좎뒪?멸? 鍮꾩뼱 蹂댁씠??洹쇰낯 ?먯씤. ?대뒓 ?곹뭹???쇰쭏???붿? ?뺤젙?섎㈃ **吏꾨떒 異붿쿇 洹쒖튃 `survey.ts` ?ъ???*(?꾩옱 p1쨌p4쨌p7쨌p8쨌p2쨌p5쨌p3쨌p9쨌p12 吏?????먮ℓ媛???곹뭹?쇰줈)? ?ㅼ쓬 ?몄뀡???댁뼱??
+  2. **???ъ뾽?먮벑濡앹쬆 ?뺣낫** ?뺣낫 ??#58 `company.ts` 二쇱엯쨌draft ?댁젣쨌癒몄?.
+- **#55(??臾몄꽌) ???대┛ PR ?놁쓬.** #58? draft???ㅼ닔 癒몄? ????
 
-#### ✅ 원인 규명 (2026-07-17) — 위 1·2·3은 **원인이 하나**다
+### 諛깅줈洹?#60?먯꽌 諛쒓뎬, 鍮꾩감??
+- `ProductForm` ?깅텇/?ъ슜踰?textarea??`maxLength=300`(?쒕쾭 罹↔낵 ?쇱튂) ???꾩떎??湲??깅텇??遺숈뿬?ｊ린 ???좊ℓ??400 諛⑹?(opus MEDIUM).
+- `products.detail` jsonb ?곌린 寃쎈줈 ?숆??????먯옄 蹂묓빀(codex HIGH, `updateProduct` SELECT?뭊PDATE TOCTOU???좎옱 ????PR??留뚮뱺 寃??꾨떂).
+- staging p15 shippingFee=12345 ?붿〈(gate3 ?먮났 ???먮낯??shippingFee ?놁뼱 PATCH unset 遺덇? ??staging ?쒖젙, prod 臾닿?).
 
-**`maxDiffPixelRatio: 0.01`이 판정과 베이스라인 갱신 두 역할을 겸하는 것**이 원인이다. 재생성이 "옛 화면을 찍는" 게 아니라, **아예 안 고쳐 쓴다**(옛 파일이 그대로 남는다).
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-15 留덇컧 ??愿由ъ옄 肄섏넄 媛쒗렪 S1쨌S3쨌S4諛깆뿏??癒몄?)
 
-- `.github/workflows/update-baselines.yml:77`이 `npx playwright test … --update-snapshots`를 **값 없이** 넘긴다.
-- Playwright CLI 실측(v1.61.1): `-u, --update-snapshots [mode] … (choices: "all", "changed", "missing", "none", **preset: "changed"**)` — 값을 안 주면 `changed`다.
-- 공식 문서 `TestConfig.updateSnapshots` 원문:
+**釉뚮옖移?`main`(`8e18b18`) 쨌 ?대┛ PR 0嫄?쨌 濡쒖뺄 = origin/main ?뺣젹??*
+
+???몄뀡 癒몄?: **PR #50(S1) 쨌 #51(S3) 쨌 #52쨌#54(臾몄꽌) 쨌 #53(S4 諛깆뿏??**. ?꾨? 짠8-6 3以?寃뚯씠???듦낵.
+?뚯뒪??0嫄???**80嫄?*(products 38 + admin 42), ?꾨? required check `verify` ?몄엯.
+**?섑??대맂 ?⑦꽩 ??"CI??珥덈줉?몃뜲 ?ㅼ젣濡쒕뒗 留앷????덈뜕" 寃고븿 3嫄?*(?곹뭹 ?섏젙?붾㈃ 404 / ?쒓컖?뚭? 寃뚯씠?멸? 硫붾돱 ?좎떎 紐??≪쓬 / 誘멸껐??留ㅼ텧 ?ㅼ쭛怨????꾨? **?꾨━酉??ㅺ뎄?숈쑝濡쒕쭔** ?≪븯?? 짠8-6 寃뚯씠????議댁옱 ?댁쑀媛 ??踰?利앸챸??
+
+?ㅺ퀎 臾몄꽌: **`docs/admin-dashboard-uiux-improvement.md`** (媛쒗렪 濡쒕뱶留?8?ㅽ뀦 = 짠13, 吏꾪뻾 ?꾪솴 = 짠0-1)
+紐⑤컮???대엺???꾪떚?⑺듃: https://claude.ai/code/artifact/eed7791f-7890-407a-bfdc-2f8c23e9085d
+
+### ??PR #50 (S1) ???곹뭹 ???寃고븿 쨌 ??ν삎 XSS 쨌 ?쒕쾭 而댄룷?뚰듃 404
+- ?뵶 **?곸꽭 釉붾줉 ?먮뵒????μ씠 ??긽 400?댁뿀??** `validateProductFields`媛 ?붿씠?몃━?ㅽ듃?몃뜲 **`detailBlocks` 遺꾧린媛 ?놁뼱** PATCH 諛붾뵒媛 鍮?媛앹껜媛 ?섍퀬 ?쇱슦?멸? "?섏젙???꾨뱶 ?놁쓬"?쇰줈 400 ??**?곸꽭 蹂몃Ц??DB???곸쁺 ??λ릺吏 ?딆븯??** (`src/lib` ?꾩껜?먯꽌 `detailBlocks`???쎄린 寃쎈줈 `repo.ts:63` ??怨노퓧?댁뿀??)
+- ?뵶 **?깅줉 ?쇱씠 ?먭린 ?덈궡臾몄쓣 ?곕Ⅴ硫?400.** `description`???앹꽦 ???꾩닔?몃뜲 placeholder??"?먮뵒?곕? ?곕젮硫?鍮꾩썙?먯꽭?? ??**?덈궡媛 留욊퀬 寃利앹씠 ??몃떎**怨??먯젙???좏깮 ?꾨뱶濡??뺤젙. ?대씪 寃利?4媛?쨌?쒕쾭 怨꾩빟(6媛? 遺덉씪移섎룄 留욎텛怨?**blur 寃利?*?쇰줈 ?꾪솚.
+- ?뵶 **援щℓ ?뺣낫 3醫??댁쨷 ?⑥젅.** `sellerName`쨌`deliveryEstimate`쨌`returnNotice`媛 validate?먮룄 ?녾퀬 `rowToProduct`媛 ?섏씫吏???딆븘 **?곸쁺 undefined** ???곸꽭媛 ??긽 湲곕낯 臾멸뎄留??뚮뜑. ?묒そ 蹂듦뎄.
+- ?뵶 **??ν삎 XSS(?뚰듃?댿넂愿由ъ옄 沅뚰븳?곸듅).** detailBlocks ???寃쎈줈瑜??댁옄 text content媛 ?먮뵒??誘몃━蹂닿린??`dangerouslySetInnerHTML`濡??섎??? **誘몃━蹂닿린瑜?怨듦컻 ?곸꽭? ?숈씪???됰Ц ?뚮뜑濡?援먯껜**(怨듦컻???대? ?댁뒪耳?댄봽 ?뚮뜑 以???誘몃━蹂닿린留?HTML???댁꽍??寃??먯껜媛 嫄곗쭞 誘몃━蹂닿린???. HTML ?쒓렇 嫄곕? ?뺢퇋?앹? **?ㅽ엳???쒓굅**(`<A/S ?덈궡>`쨌`<NEW>` 媛숈? ?뺣떦??臾멸뎄瑜?400?쇰줈 二쎌씠硫댁꽌 ?몄퐫???고쉶??紐?留됰뒗 ?덈뒗 諛⑹뼱) ?????**`tests/products/no-html-sink.spec.ts`媛 `src/`??`dangerouslySetInnerHTML`??0嫄댁엫??CI濡?媛뺤젣**?쒕떎.
+- ?뵶 **`/admin/products/[id]`쨌`/[id]/editor`媛 ?꾨줈?뺤뀡?먯꽌 404???** ?쒕쾭 而댄룷?뚰듃媛 ?대씪?댁뼵?몄슜 肄섏꽱??`getAdminProducts()`(?곷?寃쎈줈 fetch)瑜??몄텧 ???쒕쾭 ?고??꾩뿉??throw ??`catch { return [] }`媛 ?먮윭瑜??쇱폒 `notFound()`. **利????섏젙?ㅼ? ?꾨떖 遺덇???二쎌? 肄붾뱶???** CI(verify쨌visual쨌payments)???꾨? 珥덈줉?댁뿀怨?**寃뚯씠??(?꾨━酉??ㅺ뎄??留뚯씠 ?≪븯??** AGENTS 짠3?濡??쒕쾭 wrapper媛 `repo.ts`瑜?吏곸젒 ?몄텧?섎룄濡?援먯껜(`/new`쨌`/display` ?ы븿 4媛??섏씠吏).
+- 湲고?: image `src` ?ㅻ━吏??붿씠?몃━?ㅽ듃(諛깆뒳?섏떆 ?고쉶 李⑤떒 ??釉뚮씪?곗? URL ?뚯꽌媛 `\`瑜?`/`濡??뺢퇋?? 쨌 媛寃?遺덈??앹쓣 `updateProduct`?먮룄 ?곸슜 쨌 detail ?섏씠濡쒕뱶 ?곹븳(60釉붾줉쨌2000?먃?56KB UTF-8 ?ㅼ륫) 쨌 **?쇱씠 ?먭린媛 ?몄쭛?섏? ?딅뒗 ?꾨뱶瑜??섎룎??蹂대궡??寃?李⑤떒**(濡쒕뱶 ?쒖젏 ?ㅻ깄?룹쓣 ?듭㎏濡?蹂대궡 ?곸꽭 ?먮뵒?곌? ??ν븳 detailBlocks瑜???뼱? ??愿由ъ옄 1紐낆씠?대룄 ?깅┰).
+- **?뚭? ?ㅽ럺 38嫄?* ?좎꽕 ??required check `verify`???몄엯. `detailBlocks` 遺꾧린瑜?吏?곕㈃ 6嫄댁씠 RED.
+
+### ??PR #51 (S3) ??愿由ъ옄 硫붾돱 SSOT 쨌 釉뚮젅?쒗겕???ㅻ쾭洹?쨌 dead code
+- **硫붾돱 SSOT** `src/components/admin-new/layout/adminNav.ts` ?좎꽕. `AdminSidebar`쨌`AdminMobileNav`媛 17媛?硫붾돱瑜?**臾몄옄 ?⑥쐞濡??숈씪?섍쾶 以묐났 ?섎뱶肄붾뵫**?섍퀬 ?덉뿀??紐⑤컮???ㅻ퉬??*"?ㅼ젣 援ы쁽??遺꾨━???곸닔 ?뚯씪 ?ъ슜 沅뚯옣"* ?먮갚 二쇱꽍源뚯? ?덉뿀??.
+- ?뵶 **釉뚮젅?쒗겕???꾨씫 3嫄??ㅻ쾭洹?**: `AdminHeader`??寃쎈줈?믪젣紐?留ㅽ븨?먯꽌 `survey-results`쨌`inquiries`쨌`reviews`媛 鍮좎졇 ?쒕ぉ???섎せ ?대떎 ??留ㅽ븨??SSOT 諛곗뿴?먯꽌 **?뚯깮**?쒖폒 ?꾨씫??援ъ“?곸쑝濡?遺덇??ν븯寃?
+- **`/admin/products/display` ?ъ씠?쒕컮 ?몄텧**(?쇱슦?몃뒗 ?댁븘?덈뒗??硫붾돱???놁뼱 ?꾨떖 遺덇????. `isActive`瑜?**longest-prefix**濡?援먯껜 ??`startsWith`硫?'?곹뭹 愿由?? ?숈떆 ?쒖꽦, ?뺥솗 留ㅼ묶?대㈃ `/admin/products/[id]`?먯꽌 遺紐④? 鍮꾪솢?깆씠 ?쒕떎. 遺?섎줈 `survey`??survey-results` ?묐몢???ㅼ뿼 踰꾧렇???섎났.
+- **怨좎븘 ?쇱슦??媛??* `tests/admin/admin-nav.spec.ts` ??`src/app/admin/**/page.tsx`瑜??ㅼ틪??**硫붾돱???녿뒗 ?쇱슦?몃? CI?먯꽌 ?〓뒗??*. 2026-07-14 ?좎떎 ?ш퀬 + `/display` 怨좎븘 ?쇱슦?멸? ?ㅼ젣濡????뺥깭??? href 18媛??ㅻ깄?력룹닚?쑣룰렇猷?媛쒖닔쨌?꾩씠肄??꾩닔쨌`resolveActiveHref` ?뚯씠釉붾룄 ?④퍡 ?좉툑. required check ?몄엯(16嫄?.
+- dead code: `src/data/{orders,insuranceApplications,users}.ts` ??젣 + `storage.ts`??`getUsers`쨌`mockUsers`쨌`REGISTERED_USERS_KEY` ?쒓굅 + `admin/page.tsx` 以묐났 import ?쒓굅.
+- ?좑툘 **`src/data/products.ts`쨌`brands.ts`????젣 湲덉?** ??import 0嫄댁씠吏留?**?ъ떆?쒖쓽 ?뺣낯**(留덉씠洹몃젅?댁뀡 `0004b`쨌`0014`~`0018` 二쇱꽍 + eslint `no-restricted-imports` ???+ `generate_placeholders.mjs`媛 ?쎌쓬).
+  - **2026-07-17 ??寃곗젙 ?ㅼ쭛??* (`be/kill-static-seed-canon`) ???ъ쑀: "?ъ떆?쒖쓽 ?뺣낯" 吏?꾧? **?쒕━?꾪듃???먯씤 洹??먯껜**??? 媛숈? 媛믪씠 ??`src/data/*.ts` ???먯쑝濡???댄븨???쒕뱶 SQL(`0004b`) ??`/admin`???ㅼ떆媛??섏젙?섎뒗 ?쇱씠釉?DB **??怨녹뿉 ?먯쑝濡?* ?곹삍怨? ?뗭쓣 留욎텛??嫄??щ엺 湲곗뼲?λ퓧 ??洹??ㅽ뙣 ?곸닔利앹씠 `0014`~`0018`(?뺤쟻?봁B 遺덉씪移??섏뒿)怨?`0035`(?꾨줈?뺤뀡?믫뙆??**??린??*)?? ??젣 湲덉???洹쇨굅???"蹂듦뎄 寃쎈줈"???뚯씪???꾨땲??`supabase/migrations/`(`0004b`+`0018`+?뺤젙遺???`node scripts/apply-migrations.mjs`)???대? ?덉뿀?? `generate_placeholders.mjs`???ㅼ궗吏?webp ?꾩엯 ??二쎌? 遺?몄뒪?몃옪?대씪 ?④퍡 ??젣. **?댁젣 products쨌brands 媛??낅젰援щ뒗 `/admin` ?섎굹肉?** 寃利? `tsc --noEmit`쨌`npm run build` green(???뚯씪 愿???먮윭 0嫄?.
+- a11y: ?쒖꽦 硫붾돱??`aria-current="page"`, 臾대챸 踰꾪듉(?ъ씠?쒕컮 ?묎린쨌?꾨쾭嫄???`aria-label`.
+
+### ?좑툘 ?쒓컖 ?뚭? 寃뚯씠?몃? ?좊ː?????녿떎 (?대쾲 ?몄뀡 理쒕? 諛쒓껄)
+1. **?꾧퀎媛믪씠 硫붾돱 ?좎떎??紐??〓뒗??* ???ъ씠?쒕컮 17??8?몃뜲 `visual` **珥덈줉 ?듦낵**(`maxDiffPixelRatio: 0.01` ?꾨옒, 硫붾돱 ??以????꾩껜 ?쎌???0.2%). **2026-07-14 硫붾돱 4醫??좎떎 ??CI媛 議곗슜?덈뜕 ?댁쑀媛 ?닿쾬?쇰줈 ?ㅻ챸?쒕떎.**
+2. **踰좎씠?ㅻ씪???ъ깮?깆씠 ?ㅽ솕硫닿낵 ?ㅻⅨ 寃껋쓣 李띾뒗??* ??釉뚮옖移??꾨━酉?URL??紐낆떆???ъ깮?깊빐??`admin-products` 踰좎씠?ㅻ씪?몄뿉 **??17媛??ъ씠?쒕컮**媛 ?닿릿?? 媛숈? URL???ㅺ뎄?숉븯硫?**18媛쒓? ?꾨? 蹂댁씠怨??꾨? ?대┛??*(?ㅽ겕由곗꺑?쇰줈 ?뺤씤). ~~**?먯씤 誘멸퇋紐?**~~
+3. **洹몃옒??"蹂寃??놁쓬 ??而ㅻ컠 ?앸왂"?쇰줈 議곗슜???섏뼱媛꾨떎** ???섎룄???쒗쁽 蹂寃쎌씠 踰좎씠?ㅻ씪?몄뿉 諛섏쁺?섏? ?딄퀬, ?ㅼ쓬 PR???≪? 湲곗??쇰줈 鍮꾧탳?쒕떎.
+
+#### ???먯씤 洹쒕챸 (2026-07-17) ????1쨌2쨌3? **?먯씤???섎굹**??
+**`maxDiffPixelRatio: 0.01`???먯젙怨?踰좎씠?ㅻ씪??媛깆떊 ????븷??寃명븯??寃?*???먯씤?대떎. ?ъ깮?깆씠 "???붾㈃??李띾뒗" 寃??꾨땲?? **?꾩삁 ??怨좎퀜 ?대떎**(???뚯씪??洹몃?濡??⑤뒗??.
+
+- `.github/workflows/update-baselines.yml:77`??`npx playwright test ??--update-snapshots`瑜?**媛??놁씠** ?섍릿??
+- Playwright CLI ?ㅼ륫(v1.61.1): `-u, --update-snapshots [mode] ??(choices: "all", "changed", "missing", "none", **preset: "changed"**)` ??媛믪쓣 ??二쇰㈃ `changed`??
+- 怨듭떇 臾몄꽌 `TestConfig.updateSnapshots` ?먮Ц:
   - **`changed`**: *"All tests that are executed will update snapshots **that did not match. Matching snapshots will not be updated.**"*
-  - **`all`**: *"All tests that are executed will update snapshots."* (무조건)
-- **"did not match" 판정을 `maxDiffPixelRatio: 0.01`이 한다.** 사이드바 17→18 = 전체 픽셀의 ≈0.2% → 1% 임계값 아래 → **"매칭됨"으로 분류** → `changed` 모드가 파일을 **안 고쳐 씀** → `git diff --cached --quiet`가 참 → `update-baselines.yml:92` *"베이스라인 변경 없음 — 커밋 생략"*.
+  - **`all`**: *"All tests that are executed will update snapshots."* (臾댁“嫄?
+- **"did not match" ?먯젙??`maxDiffPixelRatio: 0.01`???쒕떎.** ?ъ씠?쒕컮 17??8 = ?꾩껜 ?쎌?????.2% ??1% ?꾧퀎媛??꾨옒 ??**"留ㅼ묶???쇰줈 遺꾨쪟** ??`changed` 紐⑤뱶媛 ?뚯씪??**??怨좎퀜 ?** ??`git diff --cached --quiet`媛 李???`update-baselines.yml:92` *"踰좎씠?ㅻ씪??蹂寃??놁쓬 ??而ㅻ컠 ?앸왂"*.
 
-즉 **임계값 아래의 변화는 (1) 판정에서도 조용하고 (2) 베이스라인 갱신에서도 조용하다.** 한 노브가 두 일을 하니 증상이 셋으로 갈라져 보였을 뿐이다.
+利?**?꾧퀎媛??꾨옒??蹂?붾뒗 (1) ?먯젙?먯꽌??議곗슜?섍퀬 (2) 踰좎씠?ㅻ씪??媛깆떊?먯꽌??議곗슜?섎떎.** ???몃툕媛 ???쇱쓣 ?섎땲 利앹긽???뗭쑝濡?媛덈씪??蹂댁???肉먯씠??
 
-**고칠 때 (지금은 안 함 — 분리 작업을 시작할 때 함께):**
-- `update-baselines.yml:77` → **`--update-snapshots=all`**. 갱신은 판정 임계값을 타면 안 된다(의도된 변경을 무조건 반영하는 게 이 워크플로의 목적).
-- 판정 임계값(`visual.spec.ts:105`·`:130`)은 **별도 결정**. 다만 임계값만 조여도 위 2·3은 안 고쳐진다 — 갱신 모드가 진짜 원인이라 **둘은 따로 고쳐야 한다.**
-- ⚠️ **임계값을 조이기 전에 갱신을 먼저 고칠 것.** 지금 베이스라인 14장 중 일부가 이미 낡았을 수 있는데(위 메커니즘상 조용히 누적됨), 갱신이 고장난 채로 임계값만 조이면 낡은 기준 대비 대량 오탐이 터진다.
-- 미확인 가설(별건): `visual` 잡의 `if:`(`visual.yml:34-37`) 때문에 Preview가 아닌 `deployment_status` 이벤트에서 잡이 **skipped**로 보고되는데, GitHub은 skipped를 required check 충족으로 센다 → Production 배포 이벤트가 뒤에 도착하면 **픽셀 한 장 안 비교하고 게이트가 초록**일 수 있다. 검증 필요.
-- **부분 해소(#51)**: `/shop` 만성 flaky는 고쳤다. staging 재고를 `payments-routes` 잡의 합성 구매가 매 실행 깎고(p15 25→22…), 상품 수가 바뀌면 `fullPage` 높이까지 변해(7203↔7235px 실측) 마스크가 무력화됐다 → `admin-products`가 이미 쓰던 **뷰포트 고정 + 동적 영역 마스크**를 `/shop`에 적용해 데이터 의존을 끊었다.
+**怨좎튌 ??(吏湲덉? ??????遺꾨━ ?묒뾽???쒖옉?????④퍡):**
+- `update-baselines.yml:77` ??**`--update-snapshots=all`**. 媛깆떊? ?먯젙 ?꾧퀎媛믪쓣 ?硫????쒕떎(?섎룄??蹂寃쎌쓣 臾댁“嫄?諛섏쁺?섎뒗 寃????뚰겕?뚮줈??紐⑹쟻).
+- ?먯젙 ?꾧퀎媛?`visual.spec.ts:105`쨌`:130`)? **蹂꾨룄 寃곗젙**. ?ㅻ쭔 ?꾧퀎媛믩쭔 議곗뿬????2쨌3? ??怨좎퀜吏꾨떎 ??媛깆떊 紐⑤뱶媛 吏꾩쭨 ?먯씤?대씪 **?섏? ?곕줈 怨좎퀜???쒕떎.**
+- ?좑툘 **?꾧퀎媛믪쓣 議곗씠湲??꾩뿉 媛깆떊??癒쇱? 怨좎튌 寃?** 吏湲?踰좎씠?ㅻ씪??14??以??쇰?媛 ?대? ?≪븯?????덈뒗????硫붿빱?덉쬁??議곗슜???꾩쟻??, 媛깆떊??怨좎옣??梨꾨줈 ?꾧퀎媛믩쭔 議곗씠硫??≪? 湲곗? ?鍮?????ㅽ깘???곗쭊??
+- 誘명솗??媛??蹂꾧굔): `visual` ?≪쓽 `if:`(`visual.yml:34-37`) ?뚮Ц??Preview媛 ?꾨땶 `deployment_status` ?대깽?몄뿉???≪씠 **skipped**濡?蹂닿퀬?섎뒗?? GitHub? skipped瑜?required check 異⑹”?쇰줈 ?쇰떎 ??Production 諛고룷 ?대깽?멸? ?ㅼ뿉 ?꾩갑?섎㈃ **?쎌? ??????鍮꾧탳?섍퀬 寃뚯씠?멸? 珥덈줉**?????덈떎. 寃利??꾩슂.
+- **遺遺??댁냼(#51)**: `/shop` 留뚯꽦 flaky??怨좎낀?? staging ?ш퀬瑜?`payments-routes` ?≪쓽 ?⑹꽦 援щℓ媛 留??ㅽ뻾 源롪퀬(p15 25??2??, ?곹뭹 ?섍? 諛붾뚮㈃ `fullPage` ?믪씠源뚯? 蹂??7203??235px ?ㅼ륫) 留덉뒪?ш? 臾대젰?붾릱????`admin-products`媛 ?대? ?곕뜕 **酉고룷??怨좎젙 + ?숈쟻 ?곸뿭 留덉뒪??*瑜?`/shop`???곸슜???곗씠???섏〈???딆뿀??
 
-### 🔴 사용자 결정 대기
-1. **S2(홈 CMS 배선) — 보류.** `HomeSettings` 스키마가 **현재 홈이 아니라 이전 세대 디자인용**이다(영상 인트로·프로세스 보드·보험 3스텝·B2B 배너 필드가 있는데 화면에 자리가 없고, 반대로 히어로·빠른쇼핑 섹션은 스키마에 없다). 기본값 문자열에 `<span className=...>`이 박혀 있어 `dangerouslySetInnerHTML` 없이는 렌더 불가(=#50에서 CI로 금지한 싱크). **`defaultHomeSettings`조차 현재 화면 문구와 달라 배선만 해도 홈이 바뀐다.**
-   → **결정 필요: "dad 하드코딩 카피 vs settings 스키마 중 어느 쪽이 정본인가"** (설계 문서 §13-6에 선택지 A/B/C. **A 권장** = 화면이 정본, 스키마를 화면에 맞춰 정리한 뒤 배선).
-   → 부수: **`/admin/settings`의 "실시간 편집 반영됨" 배지는 거짓**(HomeClient가 `useSiteSettings`를 안 부름 — 소비처 grep = admin 자기 자신 1곳). **클라이언트가 홈 문구를 고쳐 저장해도 아무 일도 안 일어난다.**
-2. **시각 회귀 게이트 방향** — 픽셀 비교를 계속 신뢰할지, 구조 검사(고아 라우트 가드 방식)로 대체·보강할지.
-3. **나머지 config**: `qna_config`는 **배선 진행 가능**(공개 GET `/api/qna`·콘센트가 이미 있고 `src/lib/adapters.ts:55`의 정적 `seedQna`만 교체하면 됨). `kits_config`는 배선 시 케어킷 랜딩이 **4카드→2카드**로 눈에 띄게 바뀜(타입도 불일치 — 콘텐츠 재설계 동반). `partners_config`는 **공개 배선 대상이 아님**(내부 CRM 데이터이고, `/landing/care-kit`의 제휴 폼은 **제출 핸들러가 없는 죽은 폼**).
+### ?뵶 ?ъ슜??寃곗젙 ?湲?1. **S2(??CMS 諛곗꽑) ??蹂대쪟.** `HomeSettings` ?ㅽ궎留덇? **?꾩옱 ?덉씠 ?꾨땲???댁쟾 ?몃? ?붿옄?몄슜**?대떎(?곸긽 ?명듃濡쑣룻봽濡쒖꽭??蹂대뱶쨌蹂댄뿕 3?ㅽ뀦쨌B2B 諛곕꼫 ?꾨뱶媛 ?덈뒗???붾㈃???먮━媛 ?녾퀬, 諛섎?濡??덉뼱濡쑣룸튌瑜몄눥???뱀뀡? ?ㅽ궎留덉뿉 ?녿떎). 湲곕낯媛?臾몄옄?댁뿉 `<span className=...>`??諛뺥? ?덉뼱 `dangerouslySetInnerHTML` ?놁씠???뚮뜑 遺덇?(=#50?먯꽌 CI濡?湲덉????깊겕). **`defaultHomeSettings`議곗감 ?꾩옱 ?붾㈃ 臾멸뎄? ?щ씪 諛곗꽑留??대룄 ?덉씠 諛붾먮떎.**
+   ??**寃곗젙 ?꾩슂: "dad ?섎뱶肄붾뵫 移댄뵾 vs settings ?ㅽ궎留?以??대뒓 履쎌씠 ?뺣낯?멸?"** (?ㅺ퀎 臾몄꽌 짠13-6???좏깮吏 A/B/C. **A 沅뚯옣** = ?붾㈃???뺣낯, ?ㅽ궎留덈? ?붾㈃??留욎떠 ?뺣━????諛곗꽑).
+   ??遺?? **`/admin/settings`??"?ㅼ떆媛??몄쭛 諛섏쁺?? 諛곗???嫄곗쭞**(HomeClient媛 `useSiteSettings`瑜???遺由????뚮퉬泥?grep = admin ?먭린 ?먯떊 1怨?. **?대씪?댁뼵?멸? ??臾멸뎄瑜?怨좎퀜 ??ν빐???꾨Т ?쇰룄 ???쇱뼱?쒕떎.**
+2. **?쒓컖 ?뚭? 寃뚯씠??諛⑺뼢** ???쎌? 鍮꾧탳瑜?怨꾩냽 ?좊ː?좎?, 援ъ“ 寃??怨좎븘 ?쇱슦??媛??諛⑹떇)濡??泥는룸낫媛뺥븷吏.
+3. **?섎㉧吏 config**: `qna_config`??**諛곗꽑 吏꾪뻾 媛??*(怨듦컻 GET `/api/qna`쨌肄섏꽱?멸? ?대? ?덇퀬 `src/lib/adapters.ts:55`???뺤쟻 `seedQna`留?援먯껜?섎㈃ ??. `kits_config`??諛곗꽑 ??耳?댄궥 ?쒕뵫??**4移대뱶??移대뱶**濡??덉뿉 ?꾧쾶 諛붾???낅룄 遺덉씪移???肄섑뀗痢??ъ꽕怨??숇컲). `partners_config`??**怨듦컻 諛곗꽑 ??곸씠 ?꾨떂**(?대? CRM ?곗씠?곗씠怨? `/landing/care-kit`???쒗쑕 ?쇱? **?쒖텧 ?몃뱾?ш? ?녿뒗 二쎌? ??*).
 
-### ✅ PR #53 (S4 백엔드) — 대시보드 브랜드 통계 가산 + 미결제 매출 오집계 차단
-`main` = `812f8ef`. **화면 무변경**(대시보드 UI는 표현 레인 = dad 몫, 별도 PR).
+### ??PR #53 (S4 諛깆뿏?? ????쒕낫??釉뚮옖???듦퀎 媛??+ 誘멸껐??留ㅼ텧 ?ㅼ쭛怨?李⑤떒
+`main` = `812f8ef`. **?붾㈃ 臾대?寃?*(??쒕낫??UI???쒗쁽 ?덉씤 = dad 紐? 蹂꾨룄 PR).
 
-- **계약 가산**: `AdminDashboardSummary.brandStats?` + `brandStatsMeta?{since, windowDays, unmatchedProductCount, truncated?, partial?, failedSources?}`. `AdminDashboardBrandStat`에 `displayOrder?` 포함. **콘센트 시그니처 불변**(§4-2), 기존 호출부 수정 0건.
-- 집계는 **DB를 모르는 순수 함수**(`src/lib/admin/dashboardStats.ts`)로 분리 → 단위 테스트 가능. 라우트는 조회·조립만.
-- 🔴 **[교차리뷰 HIGH-1] 안 낸 돈이 매출로 잡혔다.** 집계가 `orderStatus`만 보고 **`paymentStatus`를 안 봤다.** 두 필드는 별개다 — 주문 생성 시 `orderStatus='주문접수'`/`paymentStatus='입금대기'`(무통장). `'주문접수'`는 제외 목록에 없어 **한 푼도 안 낸 주문이 그대로 합산**됐다. **무통장은 영구 오염**(`expiresAt` 없이 생성 → 만료 cron이 `expires_at is not null`만 스캔 → 대상 아님 → 손으로 취소 안 하면 영원히 '주문접수'). **TOSS 키 미등록이라 실주문이 전부 무통장입금**이다.
-  → **결제 확정을 진실 소스로**: `paymentStatus !== '결제완료'`면 제외. `'취소요청'`은 유지(결제됐고 환불 전 → 환불 끝나면 `'환불완료'`로 빠짐).
-  → **프리뷰 실증**: 브랜드 9개 전부 주문 30일 **0원**(staging 주문이 전부 미입금이라 정상 제외). 고치기 전이었으면 전부 매출로 찍혔다.
-- 🔴 **[교차리뷰 HIGH-2] repo 상한에 의한 조용한 절삭.** 4개 repo 전부 CAP 1000 + `created_at desc` → 문의가 1000건을 넘으면 **가장 오래된 미답변 문의가 먼저 사라진다**(이 지표가 존재하는 이유가 정확히 먼저 누락). → CAP 상수 export + 라우트가 상한 도달 감지 → warn 로그 + `meta.truncated`.
-- **미완성 기준을 클라이언트와 문자 그대로 일치**시켰다(품절 `stock<=0` 포함). 서버가 3조건만 봐서 화면 두 곳이 다른 숫자를 말할 뻔했다 — **이 PR이 막으려던 그 상황**.
-- 기타: NaN 오염 가드(`items`는 jsonb·무검증 캐스트라 `price` 누락 행 하나면 브랜드 합계가 NaN → JSON에서 `null` → UI `.toLocaleString()` TypeError) · `Promise.allSettled`로 부분 성공 + `failedSources` · `PaymentStatus` 타입 신설(types에 없었다) · admin 스펙 42건.
-- ⚠️ **`api/admin/orders/[id]/route.ts`의 결제상태 화이트리스트는 도메인 전수와 의도적으로 다르다**(`'승인중'` 제외) — 그건 "전수"가 아니라 **관리자가 수동 설정해도 되는 부분집합**이다(`'승인중'`은 claim 보호 상태라 손으로 찍으면 상태기계가 깨진다). 이제 도메인 타입에서 파생시켜 변경이 강제 검토된다.
+- **怨꾩빟 媛??*: `AdminDashboardSummary.brandStats?` + `brandStatsMeta?{since, windowDays, unmatchedProductCount, truncated?, partial?, failedSources?}`. `AdminDashboardBrandStat`??`displayOrder?` ?ы븿. **肄섏꽱???쒓렇?덉쿂 遺덈?**(짠4-2), 湲곗〈 ?몄텧遺 ?섏젙 0嫄?
+- 吏묎퀎??**DB瑜?紐⑤Ⅴ???쒖닔 ?⑥닔**(`src/lib/admin/dashboardStats.ts`)濡?遺꾨━ ???⑥쐞 ?뚯뒪??媛?? ?쇱슦?몃뒗 議고쉶쨌議곕┰留?
+- ?뵶 **[援먯감由щ럭 HIGH-1] ?????덉씠 留ㅼ텧濡??≫삍??** 吏묎퀎媛 `orderStatus`留?蹂닿퀬 **`paymentStatus`瑜???遊ㅻ떎.** ???꾨뱶??蹂꾧컻????二쇰Ц ?앹꽦 ??`orderStatus='二쇰Ц?묒닔'`/`paymentStatus='?낃툑?湲?`(臾댄넻??. `'二쇰Ц?묒닔'`???쒖쇅 紐⑸줉???놁뼱 **???쇰룄 ????二쇰Ц??洹몃?濡??⑹궛**?먮떎. **臾댄넻?μ? ?곴뎄 ?ㅼ뿼**(`expiresAt` ?놁씠 ?앹꽦 ??留뚮즺 cron??`expires_at is not null`留??ㅼ틪 ??????꾨떂 ???먯쑝濡?痍⑥냼 ???섎㈃ ?곸썝??'二쇰Ц?묒닔'). **TOSS ??誘몃벑濡앹씠???ㅼ＜臾몄씠 ?꾨? 臾댄넻?μ엯湲?*?대떎.
+  ??**寃곗젣 ?뺤젙??吏꾩떎 ?뚯뒪濡?*: `paymentStatus !== '寃곗젣?꾨즺'`硫??쒖쇅. `'痍⑥냼?붿껌'`? ?좎?(寃곗젣?먭퀬 ?섎텋 ?????섎텋 ?앸굹硫?`'?섎텋?꾨즺'`濡?鍮좎쭚).
+  ??**?꾨━酉??ㅼ쬆**: 釉뚮옖??9媛??꾨? 二쇰Ц 30??**0??*(staging 二쇰Ц???꾨? 誘몄엯湲덉씠???뺤긽 ?쒖쇅). 怨좎튂湲??꾩씠?덉쑝硫??꾨? 留ㅼ텧濡?李랁삍??
+- ?뵶 **[援먯감由щ럭 HIGH-2] repo ?곹븳???섑븳 議곗슜???덉궘.** 4媛?repo ?꾨? CAP 1000 + `created_at desc` ??臾몄쓽媛 1000嫄댁쓣 ?섏쑝硫?**媛???ㅻ옒??誘몃떟蹂 臾몄쓽媛 癒쇱? ?щ씪吏꾨떎**(??吏?쒓? 議댁옱?섎뒗 ?댁쑀媛 ?뺥솗??癒쇱? ?꾨씫). ??CAP ?곸닔 export + ?쇱슦?멸? ?곹븳 ?꾨떖 媛먯? ??warn 濡쒓렇 + `meta.truncated`.
+- **誘몄셿??湲곗????대씪?댁뼵?몄? 臾몄옄 洹몃?濡??쇱튂**?쒖섟???덉젅 `stock<=0` ?ы븿). ?쒕쾭媛 3議곌굔留?遊먯꽌 ?붾㈃ ??怨녹씠 ?ㅻⅨ ?レ옄瑜?留먰븷 六뷀뻽????**??PR??留됱쑝?ㅻ뜕 洹??곹솴**.
+- 湲고?: NaN ?ㅼ뿼 媛??`items`??jsonb쨌臾닿?利?罹먯뒪?몃씪 `price` ?꾨씫 ???섎굹硫?釉뚮옖???⑷퀎媛 NaN ??JSON?먯꽌 `null` ??UI `.toLocaleString()` TypeError) 쨌 `Promise.allSettled`濡?遺遺??깃났 + `failedSources` 쨌 `PaymentStatus` ????좎꽕(types???놁뿀?? 쨌 admin ?ㅽ럺 42嫄?
+- ?좑툘 **`api/admin/orders/[id]/route.ts`??寃곗젣?곹깭 ?붿씠?몃━?ㅽ듃???꾨찓???꾩닔? ?섎룄?곸쑝濡??ㅻⅤ??*(`'?뱀씤以?` ?쒖쇅) ??洹멸굔 "?꾩닔"媛 ?꾨땲??**愿由ъ옄媛 ?섎룞 ?ㅼ젙?대룄 ?섎뒗 遺遺꾩쭛??*?대떎(`'?뱀씤以?`? claim 蹂댄샇 ?곹깭???먯쑝濡?李띿쑝硫??곹깭湲곌퀎媛 源⑥쭊??. ?댁젣 ?꾨찓????낆뿉???뚯깮?쒖폒 蹂寃쎌씠 媛뺤젣 寃?좊맂??
 
-### 다음 단계
-1. 결정 1번(S2 정본) 받으면 → `contract/home-settings-realign`
-2. **S4 나머지 절반 = 대시보드 화면**(dad 표현 레인) — 서버는 준비 끝. "오늘 할 일" 큐 + 브랜드관 현황 표 + 상태배지 단일화(설계 문서 §6-2·§9).
-3. S5(브랜드 폼 개방) — API·validate·repo가 이미 전 필드를 받는데 폼이 6필드만 노출해 봉인돼 있다(숨김 토글조차 없어 **브랜드를 내리려면 SQL을 쳐야 한다**).
-4. 잔존물 정리: `__cap_*.mjs` 3종 · `tests/golden/__*-temp.spec.ts`(이번 세션 추가분 `__pr50-gate3`·`__pr50-preview-temp`·`__pr51-gate3`·`__pr53-gate3` 포함 — **삭제 권한이 세션에서 차단됨**) · `RESEARCH/` untracked 결정.
+### ?ㅼ쓬 ?④퀎
+1. 寃곗젙 1踰?S2 ?뺣낯) 諛쏆쑝硫???`contract/home-settings-realign`
+2. **S4 ?섎㉧吏 ?덈컲 = ??쒕낫???붾㈃**(dad ?쒗쁽 ?덉씤) ???쒕쾭??以鍮??? "?ㅻ뒛 ???? ??+ 釉뚮옖?쒓? ?꾪솴 ??+ ?곹깭諛곗? ?⑥씪???ㅺ퀎 臾몄꽌 짠6-2쨌짠9).
+3. S5(釉뚮옖????媛쒕갑) ??API쨌validate쨌repo媛 ?대? ???꾨뱶瑜?諛쏅뒗???쇱씠 6?꾨뱶留??몄텧??遊됱씤???덈떎(?④? ?좉?議곗감 ?놁뼱 **釉뚮옖?쒕? ?대━?ㅻ㈃ SQL??爾먯빞 ?쒕떎**).
+4. ?붿〈臾??뺣━: `__cap_*.mjs` 3醫?쨌 `tests/golden/__*-temp.spec.ts`(?대쾲 ?몄뀡 異붽?遺?`__pr50-gate3`쨌`__pr50-preview-temp`쨌`__pr51-gate3`쨌`__pr53-gate3` ?ы븿 ??**??젣 沅뚰븳???몄뀡?먯꽌 李⑤떒??*) 쨌 `RESEARCH/` untracked 寃곗젙.
 
-## (이전 스냅샷) 현재 상태 (2026-07-14 마감 — dad UI 레포 이식 + 프로덕션 재고 유실 결함 수정)
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-14 留덇컧 ??dad UI ?덊룷 ?댁떇 + ?꾨줈?뺤뀡 ?ш퀬 ?좎떎 寃고븿 ?섏젙)
 
-**브랜치 `main`(`53b1780`) · 열린 PR 0건 · 로컬 = origin/main 정렬됨**
+**釉뚮옖移?`main`(`53b1780`) 쨌 ?대┛ PR 0嫄?쨌 濡쒖뺄 = origin/main ?뺣젹??*
 
-### 1. 🚨 프로덕션 재고 영구 유실 결함 발견·수정 (PR #45, 마이그레이션 `0031`)
-- **증상**: 무통장입금 주문을 취소하면 재고가 영원히 안 돌아옴. `/api/payments/cancel`은 **"취소됐습니다(200)"라고 거짓 응답**.
-- **근본원인**: `src/app/api/orders/route.ts`가 무통장입금의 `payment_status`를 **`'입금대기'`** 로 저장(`isBankTransfer ? '입금대기' : '결제대기'`)하는데, 취소 RPC `cancel_order_reservation_and_restore`(`0024`)는 **`where payment_status = '결제대기'`** 로만 UPDATE → 0행 매치 → RPC `false` → `cancelViaRpc`가 `already-settled`로 분류 → 라우트는 200. 재고 회수 cron도 `결제대기`/`승인중`만 스캔하고 무통장입금은 `expiresAt` 없이 생성돼 대상 아님 → **cron도 복원 안 함.** 관리자 주문 라우트엔 복원 RPC 호출 코드가 **아예 없었음**.
-- **프로덕션 노출**: TOSS 키 미등록이라 실주문이 **전부 무통장입금** → 결함이 실제로 살아 있었음.
-- **수정 4건**: ① `supabase/migrations/0031_cancel_restores_bank_transfer.sql` — 조건절 `payment_status in ('결제대기','입금대기')` ② `src/app/api/admin/orders/[id]/route.ts` `applyOrderUpdates()` — 관리자 취소에 `cancelReservationAndRestore` 배선(RPC가 상태조건 UPDATE라 **호출 자체가 멱등** → 이중 복원 구조적 불가) ③ `src/lib/payments/cancelPending.ts` `cancelViaRpc` — `already-settled` 로그(무음 no-op이 버그를 숨긴 원인) ④ `tests/payments/payment-routes.spec.ts:154` 전제를 `'입금대기'`로 정정.
-- **검증**: staging 실측(차감 5→4 → 취소 `true` → **4→5 복원** → 재호출 `false`, 재고 5 유지) + CI `payments-routes`가 **프리뷰에서 2건 PASS**(그동안 빨간불이던 바로 그것) + **prod DB 직접 조회로 `0031` 적용 확인**(`2026-07-14 03:58 UTC`, 조건절에 `입금대기` 포함).
-- **남은 갭**: **결제완료 주문을 관리자가 취소하면 여전히 복원 안 됨**(RPC 0행 매치 — 의도적). 무통장입금 입금확인 후 고객 취소가 여기 해당. 환불+재입고 흐름 필요(현재는 로그만 남음).
+### 1. ?슚 ?꾨줈?뺤뀡 ?ш퀬 ?곴뎄 ?좎떎 寃고븿 諛쒓껄쨌?섏젙 (PR #45, 留덉씠洹몃젅?댁뀡 `0031`)
+- **利앹긽**: 臾댄넻?μ엯湲?二쇰Ц??痍⑥냼?섎㈃ ?ш퀬媛 ?곸썝?????뚯븘?? `/api/payments/cancel`? **"痍⑥냼?먯뒿?덈떎(200)"?쇨퀬 嫄곗쭞 ?묐떟**.
+- **洹쇰낯?먯씤**: `src/app/api/orders/route.ts`媛 臾댄넻?μ엯湲덉쓽 `payment_status`瑜?**`'?낃툑?湲?`** 濡????`isBankTransfer ? '?낃툑?湲? : '寃곗젣?湲?`)?섎뒗?? 痍⑥냼 RPC `cancel_order_reservation_and_restore`(`0024`)??**`where payment_status = '寃곗젣?湲?`** 濡쒕쭔 UPDATE ??0??留ㅼ튂 ??RPC `false` ??`cancelViaRpc`媛 `already-settled`濡?遺꾨쪟 ???쇱슦?몃뒗 200. ?ш퀬 ?뚯닔 cron??`寃곗젣?湲?/`?뱀씤以?留??ㅼ틪?섍퀬 臾댄넻?μ엯湲덉? `expiresAt` ?놁씠 ?앹꽦??????꾨떂 ??**cron??蹂듭썝 ????** 愿由ъ옄 二쇰Ц ?쇱슦?몄뿏 蹂듭썝 RPC ?몄텧 肄붾뱶媛 **?꾩삁 ?놁뿀??*.
+- **?꾨줈?뺤뀡 ?몄텧**: TOSS ??誘몃벑濡앹씠???ㅼ＜臾몄씠 **?꾨? 臾댄넻?μ엯湲?* ??寃고븿???ㅼ젣濡??댁븘 ?덉뿀??
+- **?섏젙 4嫄?*: ??`supabase/migrations/0031_cancel_restores_bank_transfer.sql` ??議곌굔??`payment_status in ('寃곗젣?湲?,'?낃툑?湲?)` ??`src/app/api/admin/orders/[id]/route.ts` `applyOrderUpdates()` ??愿由ъ옄 痍⑥냼??`cancelReservationAndRestore` 諛곗꽑(RPC媛 ?곹깭議곌굔 UPDATE??**?몄텧 ?먯껜媛 硫깅벑** ???댁쨷 蹂듭썝 援ъ“??遺덇?) ??`src/lib/payments/cancelPending.ts` `cancelViaRpc` ??`already-settled` 濡쒓렇(臾댁쓬 no-op??踰꾧렇瑜??④릿 ?먯씤) ??`tests/payments/payment-routes.spec.ts:154` ?꾩젣瑜?`'?낃툑?湲?`濡??뺤젙.
+- **寃利?*: staging ?ㅼ륫(李④컧 5?? ??痍⑥냼 `true` ??**4?? 蹂듭썝** ???ы샇異?`false`, ?ш퀬 5 ?좎?) + CI `payments-routes`媛 **?꾨━酉곗뿉??2嫄?PASS**(洹몃룞??鍮④컙遺덉씠??諛붾줈 洹멸쾬) + **prod DB 吏곸젒 議고쉶濡?`0031` ?곸슜 ?뺤씤**(`2026-07-14 03:58 UTC`, 議곌굔?덉뿉 `?낃툑?湲? ?ы븿).
+- **?⑥? 媛?*: **寃곗젣?꾨즺 二쇰Ц??愿由ъ옄媛 痍⑥냼?섎㈃ ?ъ쟾??蹂듭썝 ????*(RPC 0??留ㅼ튂 ???섎룄??. 臾댄넻?μ엯湲??낃툑?뺤씤 ??怨좉컼 痍⑥냼媛 ?ш린 ?대떦. ?섎텋+?ъ엯怨??먮쫫 ?꾩슂(?꾩옱??濡쒓렇留??⑥쓬).
 
-### 2. dad UI 레포(`dad-origin` = `dad041566-hue/BAGJO`) 이식 — PR 4건
-분기점 `1291f8a`(7/12), dad 정본 커밋 `601f349`. dad는 **admin 페이지를 `admin-new` 컴포넌트 기반 얇은 래퍼로 재작성**했다.
-- **PR #43 (contract)**: `uploadAdminImage`·`deleteTemporaryAdminImage` 콘센트 가산 + `src/app/api/admin/upload/route.ts` 신설. dad 원본 대비 **하드닝 3건** — temp 경로의 `usage` 미검증(버킷 내 경로 주입 가능) → allowlist 강제 / `file.type` 불신 → **매직바이트 재판별** / `upsert:false` + Content-Length 선차단. 기준 = 기존 `src/app/api/members/business/upload/route.ts` 컨벤션.
-- **PR #46 (design)**: `src/components/admin-new/**` 50개 + `src/hooks/admin-new/useProductList.ts`. **마크업 dad 정본 무변경**(dad 원본 대비 className diff 0건). dad 원본 lint error 51건을 타입·훅 정합만으로 0건화.
-- **PR #47 (design)**: `src/app/insurance/page.tsx`(+600줄). main이 분기 후 이 파일 무변경이라 유실 위험 0.
-- **PR #48 (design+contract)**: admin 페이지 19개. **유실 방지 재적용 4건**(결정 기록 참조). 빌드를 위해 가산: `/api/admin/dashboard` 라우트(`requireAdmin` 가드) + `AdminDashboardSummary` 타입 + `getAdminDashboardSummary` 콘센트 + `src/components/admin/AdminUi.tsx`.
+### 2. dad UI ?덊룷(`dad-origin` = `dad041566-hue/BAGJO`) ?댁떇 ??PR 4嫄?遺꾧린??`1291f8a`(7/12), dad ?뺣낯 而ㅻ컠 `601f349`. dad??**admin ?섏씠吏瑜?`admin-new` 而댄룷?뚰듃 湲곕컲 ?뉗? ?섑띁濡??ъ옉??*?덈떎.
+- **PR #43 (contract)**: `uploadAdminImage`쨌`deleteTemporaryAdminImage` 肄섏꽱??媛??+ `src/app/api/admin/upload/route.ts` ?좎꽕. dad ?먮낯 ?鍮?**?섎뱶??3嫄?* ??temp 寃쎈줈??`usage` 誘멸?利?踰꾪궥 ??寃쎈줈 二쇱엯 媛?? ??allowlist 媛뺤젣 / `file.type` 遺덉떊 ??**留ㅼ쭅諛붿씠???ы뙋蹂?* / `upsert:false` + Content-Length ?좎감?? 湲곗? = 湲곗〈 `src/app/api/members/business/upload/route.ts` 而⑤깽??
+- **PR #46 (design)**: `src/components/admin-new/**` 50媛?+ `src/hooks/admin-new/useProductList.ts`. **留덊겕??dad ?뺣낯 臾대?寃?*(dad ?먮낯 ?鍮?className diff 0嫄?. dad ?먮낯 lint error 51嫄댁쓣 ??끒룻썒 ?뺥빀留뚯쑝濡?0嫄댄솕.
+- **PR #47 (design)**: `src/app/insurance/page.tsx`(+600以?. main??遺꾧린 ?????뚯씪 臾대?寃쎌씠???좎떎 ?꾪뿕 0.
+- **PR #48 (design+contract)**: admin ?섏씠吏 19媛? **?좎떎 諛⑹? ?ъ쟻??4嫄?*(寃곗젙 湲곕줉 李몄“). 鍮뚮뱶瑜??꾪빐 媛?? `/api/admin/dashboard` ?쇱슦??`requireAdmin` 媛?? + `AdminDashboardSummary` ???+ `getAdminDashboardSummary` 肄섏꽱??+ `src/components/admin/AdminUi.tsx`.
 
-### 3. 인프라
-- **Supabase Storage 공개 버킷 `catalog-assets` 생성 완료** — staging(ref `aeooyivfijthfcrfrnyk`)·prod(ref `vgeqpbyyggxxaeowtbtj`) 양쪽. `public:true` / 8MB / `image/jpeg|png|webp`. staging 왕복 실증: 업로드 200 → 무인증 공개 URL 200 + `image/png` → 삭제 200 / 9MB는 413 / `image/gif`는 415.
-- **레포 정리**: 유령 워크트리 `wt-contract`(폴더 없는데 등록만 남음)가 main 참조를 물고 있어 로컬이 100커밋 뒤처져 있었음 → `git worktree prune`으로 해소. 죽은 브랜치 18개·워크트리 13개 제거. 비교용 `xc-dad`(dad `601f349`)·`xc-main` 워크트리는 **보존**(이후 이식 대조용).
+### 3. ?명봽??- **Supabase Storage 怨듦컻 踰꾪궥 `catalog-assets` ?앹꽦 ?꾨즺** ??staging(ref `aeooyivfijthfcrfrnyk`)쨌prod(ref `vgeqpbyyggxxaeowtbtj`) ?묒そ. `public:true` / 8MB / `image/jpeg|png|webp`. staging ?뺣났 ?ㅼ쬆: ?낅줈??200 ??臾댁씤利?怨듦컻 URL 200 + `image/png` ????젣 200 / 9MB??413 / `image/gif`??415.
+- **?덊룷 ?뺣━**: ?좊졊 ?뚰겕?몃━ `wt-contract`(?대뜑 ?녿뒗???깅줉留??⑥쓬)媛 main 李몄“瑜?臾쇨퀬 ?덉뼱 濡쒖뺄??100而ㅻ컠 ?ㅼ쿂???덉뿀????`git worktree prune`?쇰줈 ?댁냼. 二쎌? 釉뚮옖移?18媛쑣룹썙?ы듃由?13媛??쒓굅. 鍮꾧탳??`xc-dad`(dad `601f349`)쨌`xc-main` ?뚰겕?몃━??**蹂댁〈**(?댄썑 ?댁떇 ?議곗슜).
 
-### 4. 남은 잔존물 (사용자 직접 삭제 필요 — 세션 권한이 삭제를 계속 차단함)
-`__cap_banner.mjs` · `__cap_tmp.mjs` · `__cap_tmp2.mjs` · `tests/golden/__gate3-partner-temp.spec.ts` · `tests/golden/__smoke-pdp-temp.spec.ts` · `tests/golden/__smoke-purchase-temp.spec.ts`
-`RESEARCH/legal-terms-consents-20260713/`(약관 조사 원본·법령 근거 bibliography)는 untracked 보류 — 커밋할지 gitignore할지 결정 필요.
+### 4. ?⑥? ?붿〈臾?(?ъ슜??吏곸젒 ??젣 ?꾩슂 ???몄뀡 沅뚰븳????젣瑜?怨꾩냽 李⑤떒??
+`__cap_banner.mjs` 쨌 `__cap_tmp.mjs` 쨌 `__cap_tmp2.mjs` 쨌 `tests/golden/__gate3-partner-temp.spec.ts` 쨌 `tests/golden/__smoke-pdp-temp.spec.ts` 쨌 `tests/golden/__smoke-purchase-temp.spec.ts`
+`RESEARCH/legal-terms-consents-20260713/`(?쎄? 議곗궗 ?먮낯쨌踰뺣졊 洹쇨굅 bibliography)??untracked 蹂대쪟 ??而ㅻ컠?좎? gitignore?좎? 寃곗젙 ?꾩슂.
 
-## (이전 스냅샷) 현재 상태 (2026-07-13 결제 R4 머지 마감)
-- **🎉 PR #33 머지(`4a0e9b3`) — 결제 개선 R1/R2/R4 전부 main 반영 완료.** successUrl 서버화 + 돈 손실 경로 3개 수정(claim 이전 4필드 바인딩 / 취소는 종결 화이트리스트만 / cancel·cron 정책 통합 / 키 미설정 fail-closed) + 재무 예외 `applyAuthoritativeAction` 공유 코어 통합 + `markReclaimDead` 0행 검증 + payments-routes를 visual 뒤 순차 잡으로 통합. 머지 후 main push CI(verify·payments-db-spec·prod migrate) **completed success**.
-- **✅ TOSS 키 등록 금지 경고 해제** — #33 머지로 조건 충족. 실가동 전 사용자 액션: Vercel env `TOSS_SECRET_KEY`·`NEXT_PUBLIC_TOSS_CLIENT_KEY`(계약 전엔 토스 문서 테스트 키)·`CRON_SECRET` 등록, 분단위 크론 2개 = Vercel Pro, 등록 후 골든#2 위젯 E2E 실측.
-- **머지 게이트 해소 3건(이 세션 작업)**: ① 브랜치가 #35~#38보다 뒤 → origin/main 머지(충돌 0) ② payments-db-spec 실패 = Supabase Management API **HTTP 429 스로틀** → `tests/payments/helpers.ts` `q()`에 Retry-After/지수 백오프(최대 6회) 내장 ③ visual(admin-products) 실패 2단 원인 = 합성 `__test_*` 상품이 행 수를 바꿔 fullPage 높이 흔들림(880↔800px) + **auto-layout 테이블이라 tbody 내용 폭이 thead 헤더까지 밈**(diff 이미지로 확정) → `fullPage: false` + 마스크를 `table` 전체로 확대, 베이스라인 CI 재생성 2회(`update-baselines` 라벨 재부착), 봇 커밋이 CI를 `action_required`로 멈추면 빈 커밋 push로 재실행(main 기존 패턴 `78785e2`).
-- **로컬 잔존물**: 워크트리 `wt-r4-return`(브랜치 머지·원격 삭제됨 — 제거 가능)·`wt-close-r4`(이 마감 PR용). 이전 마감 브랜치 `docs/session-close-0713`(로컬+원격, `e6d9e13`)은 #38이 내용 대체 — 삭제 가능. 이 폴더(`D:\Project\BAGJO1`)의 미커밋分(AGENTS.md §0-1-1 4항·`.gitignore` `.codex-home/`·codex 스크립트 3종)은 여전히 Codex 세션 몫 — 해당 세션이 커밋해야 함(`globals.css`·`login`·`HomeClient` 로컬 수정분은 #35로 main에 이미 반영돼 no-op).
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-13 寃곗젣 R4 癒몄? 留덇컧)
+- **?럦 PR #33 癒몄?(`4a0e9b3`) ??寃곗젣 媛쒖꽑 R1/R2/R4 ?꾨? main 諛섏쁺 ?꾨즺.** successUrl ?쒕쾭??+ ???먯떎 寃쎈줈 3媛??섏젙(claim ?댁쟾 4?꾨뱶 諛붿씤??/ 痍⑥냼??醫낃껐 ?붿씠?몃━?ㅽ듃留?/ cancel쨌cron ?뺤콉 ?듯빀 / ??誘몄꽕??fail-closed) + ?щТ ?덉쇅 `applyAuthoritativeAction` 怨듭쑀 肄붿뼱 ?듯빀 + `markReclaimDead` 0??寃利?+ payments-routes瑜?visual ???쒖감 ?≪쑝濡??듯빀. 癒몄? ??main push CI(verify쨌payments-db-spec쨌prod migrate) **completed success**.
+- **??TOSS ???깅줉 湲덉? 寃쎄퀬 ?댁젣** ??#33 癒몄?濡?議곌굔 異⑹”. ?ㅺ??????ъ슜???≪뀡: Vercel env `TOSS_SECRET_KEY`쨌`NEXT_PUBLIC_TOSS_CLIENT_KEY`(怨꾩빟 ?꾩뿏 ?좎뒪 臾몄꽌 ?뚯뒪????쨌`CRON_SECRET` ?깅줉, 遺꾨떒???щ줎 2媛?= Vercel Pro, ?깅줉 ??怨⑤뱺#2 ?꾩젽 E2E ?ㅼ륫.
+- **癒몄? 寃뚯씠???댁냼 3嫄????몄뀡 ?묒뾽)**: ??釉뚮옖移섍? #35~#38蹂대떎 ????origin/main 癒몄?(異⑸룎 0) ??payments-db-spec ?ㅽ뙣 = Supabase Management API **HTTP 429 ?ㅻ줈?** ??`tests/payments/helpers.ts` `q()`??Retry-After/吏??諛깆삤??理쒕? 6?? ?댁옣 ??visual(admin-products) ?ㅽ뙣 2???먯씤 = ?⑹꽦 `__test_*` ?곹뭹?????섎? 諛붽퓭 fullPage ?믪씠 ?붾뱾由?880??00px) + **auto-layout ?뚯씠釉붿씠??tbody ?댁슜 ??씠 thead ?ㅻ뜑源뚯? 諛?*(diff ?대?吏濡??뺤젙) ??`fullPage: false` + 留덉뒪?щ? `table` ?꾩껜濡??뺣?, 踰좎씠?ㅻ씪??CI ?ъ깮??2??`update-baselines` ?쇰꺼 ?щ?李?, 遊?而ㅻ컠??CI瑜?`action_required`濡?硫덉텛硫?鍮?而ㅻ컠 push濡??ъ떎??main 湲곗〈 ?⑦꽩 `78785e2`).
+- **濡쒖뺄 ?붿〈臾?*: ?뚰겕?몃━ `wt-r4-return`(釉뚮옖移?癒몄?쨌?먭꺽 ??젣?????쒓굅 媛??쨌`wt-close-r4`(??留덇컧 PR??. ?댁쟾 留덇컧 釉뚮옖移?`docs/session-close-0713`(濡쒖뺄+?먭꺽, `e6d9e13`)? #38???댁슜 ?泥?????젣 媛?? ???대뜑(`D:\Project\BAGJO1`)??誘몄빱諛뗥늽(AGENTS.md 짠0-1-1 4???.gitignore` `.codex-home/`쨌codex ?ㅽ겕由쏀듃 3醫?? ?ъ쟾??Codex ?몄뀡 紐????대떦 ?몄뀡??而ㅻ컠?댁빞 ??`globals.css`쨌`login`쨌`HomeClient` 濡쒖뺄 ?섏젙遺꾩? #35濡?main???대? 諛섏쁺??no-op).
 
-## (이전 스냅샷) 현재 상태 (2026-07-13 리뷰·문의/파트너 세션 마감)
-- **🎉 PR #36 머지(`0cebb1c`) — 리뷰·문의 localStorage 목 → Supabase DB 전환 완료**: 마이그레이션 `0029_product_reviews_inquiries.sql`(FK **ON DELETE RESTRICT**), repo 2개(`src/lib/{reviews,inquiries}/repo.ts`), API 라우트 13개, storage.ts 리뷰·문의 콘센트 **동기→async 전환**(이름 유지) + 호출부 3곳(ProductTabsClient·mypage·admin/inquiries) 동반 수정. 서버측 인가: 리뷰 작성 = 본인 주문 + `orderStatus==='배송완료'` + 주문 items 내 상품·옵션 일치(optionName null 정규화) / 비밀문의 = 제목 공개·본문·답변 서버 redaction / admin 답변·상태변경 = requireAdmin(answeredBy 세션 도출).
-- **🎉 PR #37 머지(`7b9ea83`) — BrandProductsClient 파트너 상품 CRUD 실배선(RBAC)**: `0030_member_managed_brand_ids.sql`(text[] 가산), `src/lib/admin/requireBrandScoped.ts`(admin=전 브랜드 / partner=**status active allowlist**+managedBrandIds, 매 요청 DB 재확인), `/api/partner/products{,/[id]}` 4종 — PATCH/DELETE는 **조건부 뮤테이션**(`.eq('id').eq('brand_id')`, 0행→409)으로 TOCTOU 봉쇄, 브랜드 이동 시 이동 대상 재인가, merged salePrice≤price(+price null화 케이스) 서버 강제.
-- **§8-6 삼중 게이트 실적**: findings 총 15건 전량 수정 후 머지 — opus 6건(미구매 상품 리뷰 CRITICAL·미배송 게이트·optionName 회귀·rejected 파트너 denylist 구멍 등) + codex 9건(**생성 image:'' 항상 400 기능파손**·TOCTOU·FK CASCADE 이력소멸·무성 실패·이중제출·로더 레이스 등). Playwright 게이트3: #36 **8/8 PASS**(익명 redaction 서버 실측 포함), #37 **7/7 PASS**(타 브랜드·일반회원 403 실측). 증빙 = 각 PR 코멘트.
-- **dad 화면 확인 대기(신규)**: ① mypage 이메일 인증 배너·비밀번호 변경 섹션 — 확인 페이지 아티팩트 https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d ② 저장/삭제/제출 버튼의 in-flight `disabled`(+opacity) 상태 3건(BrandProductsClient·ReviewFormModal·InquiryFormModal — 기능 가드, 마크업 무변경).
-- **스테이징**: 0029·0030 적용(로컬 러너) + FK CASCADE→RESTRICT ALTER 수동 적용(0029가 구버전으로 선적용됐던 것 정정). **파트너 테스트 계정 신설**: `partner-e2e@test.baekjo`/`partner1234`(role=partner·active, managed_brand_ids=`{b2}`). 게이트3 테스트 데이터 잔존: review `a160936e`(p15, hidden)·inquiry `b012e42f`(p15, 비밀·답변완료)·주문 "E2E배송*" — 정리 시 테스트 계정 delete와 함께.
-- **prod**: #36 main push CI migrate 성공(0029 적용). #37 push CI(0030)는 마감 시점 진행 중 — `gh run list --branch main`으로 확인.
-- **수동 삭제 필요(권한 정책으로 세션 내 삭제 불가)**: `tests/golden/__gate3-partner-temp.spec.ts`(untracked 임시 스펙), `test-results/`(gitignored), scratchpad `gate3-reviews-FATAL.png`. 워크트리 `D:\Project\BAGJO1-wt\wt-{reviews-db,partner-products,session-close-rp}`는 머지 후 제거 가능.
-- 🚨 **TOSS 키 등록 금지 경고는 여전히 유효**(PR #33 미머지 — 아래 이전 스냅샷 참조).
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-13 由щ럭쨌臾몄쓽/?뚰듃???몄뀡 留덇컧)
+- **?럦 PR #36 癒몄?(`0cebb1c`) ??由щ럭쨌臾몄쓽 localStorage 紐???Supabase DB ?꾪솚 ?꾨즺**: 留덉씠洹몃젅?댁뀡 `0029_product_reviews_inquiries.sql`(FK **ON DELETE RESTRICT**), repo 2媛?`src/lib/{reviews,inquiries}/repo.ts`), API ?쇱슦??13媛? storage.ts 由щ럭쨌臾몄쓽 肄섏꽱??**?숆린?뭓sync ?꾪솚**(?대쫫 ?좎?) + ?몄텧遺 3怨?ProductTabsClient쨌mypage쨌admin/inquiries) ?숇컲 ?섏젙. ?쒕쾭痢??멸?: 由щ럭 ?묒꽦 = 蹂몄씤 二쇰Ц + `orderStatus==='諛곗넚?꾨즺'` + 二쇰Ц items ???곹뭹쨌?듭뀡 ?쇱튂(optionName null ?뺢퇋?? / 鍮꾨?臾몄쓽 = ?쒕ぉ 怨듦컻쨌蹂몃Ц쨌?듬? ?쒕쾭 redaction / admin ?듬?쨌?곹깭蹂寃?= requireAdmin(answeredBy ?몄뀡 ?꾩텧).
+- **?럦 PR #37 癒몄?(`7b9ea83`) ??BrandProductsClient ?뚰듃???곹뭹 CRUD ?ㅻ같??RBAC)**: `0030_member_managed_brand_ids.sql`(text[] 媛??, `src/lib/admin/requireBrandScoped.ts`(admin=??釉뚮옖??/ partner=**status active allowlist**+managedBrandIds, 留??붿껌 DB ?ы솗??, `/api/partner/products{,/[id]}` 4醫???PATCH/DELETE??**議곌굔遺 裕ㅽ뀒?댁뀡**(`.eq('id').eq('brand_id')`, 0?됤넂409)?쇰줈 TOCTOU 遊됱뇙, 釉뚮옖???대룞 ???대룞 ????ъ씤媛, merged salePrice?쨛rice(+price null??耳?댁뒪) ?쒕쾭 媛뺤젣.
+- **짠8-6 ?쇱쨷 寃뚯씠???ㅼ쟻**: findings 珥?15嫄??꾨웾 ?섏젙 ??癒몄? ??opus 6嫄?誘멸뎄留??곹뭹 由щ럭 CRITICAL쨌誘몃같??寃뚯씠?맞톙ptionName ?뚭?쨌rejected ?뚰듃??denylist 援щ찉 ?? + codex 9嫄?**?앹꽦 image:'' ??긽 400 湲곕뒫?뚯넀**쨌TOCTOU쨌FK CASCADE ?대젰?뚮㈇쨌臾댁꽦 ?ㅽ뙣쨌?댁쨷?쒖텧쨌濡쒕뜑 ?덉씠????. Playwright 寃뚯씠??: #36 **8/8 PASS**(?듬챸 redaction ?쒕쾭 ?ㅼ륫 ?ы븿), #37 **7/7 PASS**(? 釉뚮옖?쑣룹씪諛섑쉶??403 ?ㅼ륫). 利앸튃 = 媛?PR 肄붾찘??
+- **dad ?붾㈃ ?뺤씤 ?湲??좉퇋)**: ??mypage ?대찓???몄쬆 諛곕꼫쨌鍮꾨?踰덊샇 蹂寃??뱀뀡 ???뺤씤 ?섏씠吏 ?꾪떚?⑺듃 https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d ???????젣/?쒖텧 踰꾪듉??in-flight `disabled`(+opacity) ?곹깭 3嫄?BrandProductsClient쨌ReviewFormModal쨌InquiryFormModal ??湲곕뒫 媛?? 留덊겕??臾대?寃?.
+- **?ㅽ뀒?댁쭠**: 0029쨌0030 ?곸슜(濡쒖뺄 ?щ꼫) + FK CASCADE?뭃ESTRICT ALTER ?섎룞 ?곸슜(0029媛 援щ쾭?꾩쑝濡??좎쟻?⑸릱??寃??뺤젙). **?뚰듃???뚯뒪??怨꾩젙 ?좎꽕**: `partner-e2e@test.baekjo`/`partner1234`(role=partner쨌active, managed_brand_ids=`{b2}`). 寃뚯씠?? ?뚯뒪???곗씠???붿〈: review `a160936e`(p15, hidden)쨌inquiry `b012e42f`(p15, 鍮꾨?쨌?듬??꾨즺)쨌二쇰Ц "E2E諛곗넚*" ???뺣━ ???뚯뒪??怨꾩젙 delete? ?④퍡.
+- **prod**: #36 main push CI migrate ?깃났(0029 ?곸슜). #37 push CI(0030)??留덇컧 ?쒖젏 吏꾪뻾 以???`gh run list --branch main`?쇰줈 ?뺤씤.
+- **?섎룞 ??젣 ?꾩슂(沅뚰븳 ?뺤콉?쇰줈 ?몄뀡 ????젣 遺덇?)**: `tests/golden/__gate3-partner-temp.spec.ts`(untracked ?꾩떆 ?ㅽ럺), `test-results/`(gitignored), scratchpad `gate3-reviews-FATAL.png`. ?뚰겕?몃━ `D:\Project\BAGJO1-wt\wt-{reviews-db,partner-products,session-close-rp}`??癒몄? ???쒓굅 媛??
+- ?슚 **TOSS ???깅줉 湲덉? 寃쎄퀬???ъ쟾???좏슚**(PR #33 誘몃㉧吏 ???꾨옒 ?댁쟾 ?ㅻ깄??李몄“).
 
-## (이전 스냅샷) 현재 상태 (2026-07-13 개선 세션 마감)
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-13 媛쒖꽑 ?몄뀡 留덇컧)
 
-### 🚨 최우선 경고 — **TOSS 키를 등록하지 마시오(PR #33 머지 전까지)**
-main(8b305ae)에는 **실제 돈이 사라질 수 있는 경로 3개가 남아 있다.** 전부 리뷰에서 발견됐고 수정은 **PR #33(미머지)** 안에만 있다. 카드 결제가 열리는 순간 실현된다.
-1. **reclaim cron이 토스에 묻지 않고 취소한다** — 사용자가 결제를 마쳤는데 브라우저가 죽어 successUrl 미도달 시, 10분 뒤 cron이 **돈이 빠져나간 주문을 취소·재고복원**한다.
-2. **위조 paymentKey로 남의 결제대기 주문을 취소할 수 있다** — orderId+금액만 알면(토스 orderId는 클라이언트 지정값·clientKey 공개) 승인 불가 상태 키를 만들어 confirm을 치면 "확정 거절"로 분류돼 피해자 주문이 취소된다. 가상계좌면 **돈 한 푼 안 내고** 가능.
-3. **`/api/payments/cancel`도 동일** — orderId만 알면 토스 확인 없이 취소.
-→ 셋 다 **PR #33에서 수정 완료**(claim 이전 4필드 바인딩 검증, 취소는 종결 화이트리스트에서만, cancel·cron 정책 통합, 키 미설정 시 fail-closed). **#33을 머지한 뒤에 키를 등록할 것.**
+### ?슚 理쒖슦??寃쎄퀬 ??**TOSS ?ㅻ? ?깅줉?섏? 留덉떆??PR #33 癒몄? ?꾧퉴吏)**
+main(8b305ae)?먮뒗 **?ㅼ젣 ?덉씠 ?щ씪吏????덈뒗 寃쎈줈 3媛쒓? ?⑥븘 ?덈떎.** ?꾨? 由щ럭?먯꽌 諛쒓껄?먭퀬 ?섏젙? **PR #33(誘몃㉧吏)** ?덉뿉留??덈떎. 移대뱶 寃곗젣媛 ?대━???쒓컙 ?ㅽ쁽?쒕떎.
+1. **reclaim cron???좎뒪??臾살? ?딄퀬 痍⑥냼?쒕떎** ???ъ슜?먭? 寃곗젣瑜?留덉낀?붾뜲 釉뚮씪?곗?媛 二쎌뼱 successUrl 誘몃룄???? 10遺???cron??**?덉씠 鍮좎졇?섍컙 二쇰Ц??痍⑥냼쨌?ш퀬蹂듭썝**?쒕떎.
+2. **?꾩“ paymentKey濡??⑥쓽 寃곗젣?湲?二쇰Ц??痍⑥냼?????덈떎** ??orderId+湲덉븸留??뚮㈃(?좎뒪 orderId???대씪?댁뼵??吏?뺢컪쨌clientKey 怨듦컻) ?뱀씤 遺덇? ?곹깭 ?ㅻ? 留뚮뱾??confirm??移섎㈃ "?뺤젙 嫄곗젅"濡?遺꾨쪟???쇳빐??二쇰Ц??痍⑥냼?쒕떎. 媛?곴퀎醫뚮㈃ **?????????닿퀬** 媛??
+3. **`/api/payments/cancel`???숈씪** ??orderId留??뚮㈃ ?좎뒪 ?뺤씤 ?놁씠 痍⑥냼.
+??????**PR #33?먯꽌 ?섏젙 ?꾨즺**(claim ?댁쟾 4?꾨뱶 諛붿씤??寃利? 痍⑥냼??醫낃껐 ?붿씠?몃━?ㅽ듃?먯꽌留? cancel쨌cron ?뺤콉 ?듯빀, ??誘몄꽕????fail-closed). **#33??癒몄????ㅼ뿉 ?ㅻ? ?깅줉??寃?**
 
-### 오늘 머지된 개선 (아키텍처 피드백 → 실행)
-- **#31 (R1) 결제 상태기계 테스트 스위트 승격 + CI 배선**: 스크래치패드에만 있던 검증을 `tests/payments/{state-machine.db,payment-routes}.spec.ts`(21 스펙)로 리포화. `payments-db-spec`(ci.yml, staging 전용) + `payments-routes.yml`(deployment_status→프리뷰). 붙자마자 스펙 노후 1건 적발(불명 시 주문이 '결제대기'가 아니라 '승인중'으로 남는 게 정본).
-- **#32 (R2) 결정 함수 추출 + 불변식 타입·DB 이중 강제**: 세 라우트(confirm/webhook/reconcile)에 복제돼 있던 정책을 `src/lib/payments/decide.ts`(순수 함수)로 단일화. `PaymentAction`을 **비공개 심볼 브랜드**로 만들어 decide 밖 구성 불가 → **`confirm` 액션은 토스 권위 관찰에서만 생성 가능**(승인 없는 결제완료가 타입상 표현 불가). **0028**: `cancel_confirming_and_restore(order_id, payment_key)` 키 바인딩 + **무증거 1-인자 함수 drop**(service_role 뒷문 제거). staging DB 스펙 13/13 PASS.
+### ?ㅻ뒛 癒몄???媛쒖꽑 (?꾪궎?띿쿂 ?쇰뱶諛????ㅽ뻾)
+- **#31 (R1) 寃곗젣 ?곹깭湲곌퀎 ?뚯뒪???ㅼ쐞???밴꺽 + CI 諛곗꽑**: ?ㅽ겕?섏튂?⑤뱶?먮쭔 ?덈뜕 寃利앹쓣 `tests/payments/{state-machine.db,payment-routes}.spec.ts`(21 ?ㅽ럺)濡?由ы룷?? `payments-db-spec`(ci.yml, staging ?꾩슜) + `payments-routes.yml`(deployment_status?믫봽由щ럭). 遺숈옄留덉옄 ?ㅽ럺 ?명썑 1嫄??곷컻(遺덈챸 ??二쇰Ц??'寃곗젣?湲?媛 ?꾨땲??'?뱀씤以??쇰줈 ?⑤뒗 寃??뺣낯).
+- **#32 (R2) 寃곗젙 ?⑥닔 異붿텧 + 遺덈?????끒텱B ?댁쨷 媛뺤젣**: ???쇱슦??confirm/webhook/reconcile)??蹂듭젣???덈뜕 ?뺤콉??`src/lib/payments/decide.ts`(?쒖닔 ?⑥닔)濡??⑥씪?? `PaymentAction`??**鍮꾧났媛??щ낵 釉뚮옖??*濡?留뚮뱾??decide 諛?援ъ꽦 遺덇? ??**`confirm` ?≪뀡? ?좎뒪 沅뚯쐞 愿李곗뿉?쒕쭔 ?앹꽦 媛??*(?뱀씤 ?녿뒗 寃곗젣?꾨즺媛 ??낆긽 ?쒗쁽 遺덇?). **0028**: `cancel_confirming_and_restore(order_id, payment_key)` ??諛붿씤??+ **臾댁쬆嫄?1-?몄옄 ?⑥닔 drop**(service_role ?룸Ц ?쒓굅). staging DB ?ㅽ럺 13/13 PASS.
 
-### 미머지 (다음 세션 최우선)
-- **PR #33 (R4) — successUrl 서버화 + 보안 수정 다수. 커밋 20+, CI green, 리뷰 6라운드 진행.** 잔여 작업 2건:
-  1. **재무 예외를 공유 코어로 통합**: "권위 DONE인데 경합에 져서 주문이 취소됨"을 웹훅에만 dead-letter로 남기고, confirm·return·reclaim·cancel이 공유하는 `applyAuthoritativeAction`에는 안 남긴다(로그만 + 정상응답). 코어에 옮기고 웹훅 중복 제거. + `markReclaimDead`가 0행을 성공으로 취급하는 문제(`.select('id')` 검증 필요).
-  2. **CI 구조**: `payments-routes` 워크플로가 공용 concurrency 그룹 때문에 **대기 중 취소돼 아예 안 돌고 있었다**(GitHub은 그룹당 pending 런 1개만 유지). → `visual.yml` 안의 순차 잡(`needs: visual`)으로 통합하고, `payments-db-spec`은 그룹에서 빼되 `/admin/products` 스냅샷의 상품 테이블을 mask. ⚠️ **이 공용 그룹 설정은 이미 main(#32)에 있다** — main의 PR들도 payments-routes가 취소될 수 있다.
+### 誘몃㉧吏 (?ㅼ쓬 ?몄뀡 理쒖슦??
+- **PR #33 (R4) ??successUrl ?쒕쾭??+ 蹂댁븞 ?섏젙 ?ㅼ닔. 而ㅻ컠 20+, CI green, 由щ럭 6?쇱슫??吏꾪뻾.** ?붿뿬 ?묒뾽 2嫄?
+  1. **?щТ ?덉쇅瑜?怨듭쑀 肄붿뼱濡??듯빀**: "沅뚯쐞 DONE?몃뜲 寃쏀빀???몄꽌 二쇰Ц??痍⑥냼?????뱁썒?먮쭔 dead-letter濡??④린怨? confirm쨌return쨌reclaim쨌cancel??怨듭쑀?섎뒗 `applyAuthoritativeAction`?먮뒗 ???④릿??濡쒓렇留?+ ?뺤긽?묐떟). 肄붿뼱????린怨??뱁썒 以묐났 ?쒓굅. + `markReclaimDead`媛 0?됱쓣 ?깃났?쇰줈 痍④툒?섎뒗 臾몄젣(`.select('id')` 寃利??꾩슂).
+  2. **CI 援ъ“**: `payments-routes` ?뚰겕?뚮줈媛 怨듭슜 concurrency 洹몃９ ?뚮Ц??**?湲?以?痍⑥냼???꾩삁 ???뚭퀬 ?덉뿀??*(GitHub? 洹몃９??pending ??1媛쒕쭔 ?좎?). ??`visual.yml` ?덉쓽 ?쒖감 ??`needs: visual`)?쇰줈 ?듯빀?섍퀬, `payments-db-spec`? 洹몃９?먯꽌 鍮쇰릺 `/admin/products` ?ㅻ깄?룹쓽 ?곹뭹 ?뚯씠釉붿쓣 mask. ?좑툘 **??怨듭슜 洹몃９ ?ㅼ젙? ?대? main(#32)???덈떎** ??main??PR?ㅻ룄 payments-routes媛 痍⑥냼?????덈떎.
 
-## (이전) 현재 상태 (2026-07-13 결제 세션 마감)
-- **🎉 토스페이먼츠 결제 시스템 전량 main 머지(9 PR)**: `#19`(계약: Order 결제필드·0022~0024·콘센트) → `#21`(admin carrier) → `#22`(reclaim cron) → `#23`(confirm/cancel 라우트) → `#25`(admin '승인중' 표시) → `#26`(order-complete 승인) → `#27`(checkout 위젯) → `#28`('승인중' 배타 상태기계+reconcile+dead-letter, 0025~0027) → `#29`(웹훅 수신+reclaim dead-letter). main HEAD `b993a90`.
-- **상태기계 확정**: 결제대기 →(claim 배타전이·payment_key 기록)→ 승인중 →(setOrderPaid WHERE 승인중+키)→ 결제완료. 취소 RPC 상호배타: 0024=결제대기 전용(cancel라우트·reclaim cron) / 0026=승인중 전용(confirm거절·reconcile·웹훅). **핵심 불변식: 불명(네트워크/5xx/신원·금액 불일치)에서는 어떤 경로도 취소·복원 금지** — reconcile cron(*/5)이 토스 조회로 대사, 5회 실패 시 dead-letter(`docs/runbooks/payment-dead-letter.md`).
-- **검증 실적**: 파이프라인 = Sonnet 구현 → Opus+Codex 교차리뷰(총 8라운드씩) → 실측. CRITICAL 3건(취소·복원 비원자 / 승인중 고아 / 웹훅 위조취소 벡터)·HIGH 십여 건 머지 전 전량 수정. 실측: staging DB 15+16 PASS, 프리뷰 라우트 22 PASS(오버셀·금액조작·불명 비취소·멱등), 골든#7 admin carrier 8 PASS, 웹훅 시뮬 5 PASS. 마이그레이션 0022~0027 staging 적용 완료(prod는 main push CI migrate).
-- **⚠️ 실가동 전제(사용자 액션)**: Vercel env `TOSS_SECRET_KEY`·`NEXT_PUBLIC_TOSS_CLIENT_KEY`(계약 전엔 토스 문서 테스트 키)·`CRON_SECRET` 등록 — 미등록 시 전부 fail-closed(카드결제 "준비중" 표시). 분단위 크론 2개 = **Vercel Pro 필요**. 등록 후 골든#2 위젯 E2E 실측 필요.
-- 로컬 잔존물: `D:\Project\BAGJO1-wt\` 워크트리들(파일 잠금으로 세션 내 삭제 실패 — 탐색기 삭제 가능). 스크래치패드 테스트 스크립트 4종(wave0/wave1/w1sm/golden7 — 세션 임시).
+## (?댁쟾) ?꾩옱 ?곹깭 (2026-07-13 寃곗젣 ?몄뀡 留덇컧)
+- **?럦 ?좎뒪?섏씠癒쇱툩 寃곗젣 ?쒖뒪???꾨웾 main 癒몄?(9 PR)**: `#19`(怨꾩빟: Order 寃곗젣?꾨뱶쨌0022~0024쨌肄섏꽱?? ??`#21`(admin carrier) ??`#22`(reclaim cron) ??`#23`(confirm/cancel ?쇱슦?? ??`#25`(admin '?뱀씤以? ?쒖떆) ??`#26`(order-complete ?뱀씤) ??`#27`(checkout ?꾩젽) ??`#28`('?뱀씤以? 諛고? ?곹깭湲곌퀎+reconcile+dead-letter, 0025~0027) ??`#29`(?뱁썒 ?섏떊+reclaim dead-letter). main HEAD `b993a90`.
+- **?곹깭湲곌퀎 ?뺤젙**: 寃곗젣?湲???claim 諛고??꾩씠쨌payment_key 湲곕줉)???뱀씤以???setOrderPaid WHERE ?뱀씤以?????寃곗젣?꾨즺. 痍⑥냼 RPC ?곹샇諛고?: 0024=寃곗젣?湲??꾩슜(cancel?쇱슦?맞톜eclaim cron) / 0026=?뱀씤以??꾩슜(confirm嫄곗젅쨌reconcile쨌?뱁썒). **?듭떖 遺덈??? 遺덈챸(?ㅽ듃?뚰겕/5xx/?좎썝쨌湲덉븸 遺덉씪移??먯꽌???대뼡 寃쎈줈??痍⑥냼쨌蹂듭썝 湲덉?** ??reconcile cron(*/5)???좎뒪 議고쉶濡???? 5???ㅽ뙣 ??dead-letter(`docs/runbooks/payment-dead-letter.md`).
+- **寃利??ㅼ쟻**: ?뚯씠?꾨씪??= Sonnet 援ы쁽 ??Opus+Codex 援먯감由щ럭(珥?8?쇱슫?쒖뵫) ???ㅼ륫. CRITICAL 3嫄?痍⑥냼쨌蹂듭썝 鍮꾩썝??/ ?뱀씤以?怨좎븘 / ?뱁썒 ?꾩“痍⑥냼 踰≫꽣)쨌HIGH ??뿬 嫄?癒몄? ???꾨웾 ?섏젙. ?ㅼ륫: staging DB 15+16 PASS, ?꾨━酉??쇱슦??22 PASS(?ㅻ쾭?쨌湲덉븸議곗옉쨌遺덈챸 鍮꾩랬?뙿룸㈀??, 怨⑤뱺#7 admin carrier 8 PASS, ?뱁썒 ?쒕? 5 PASS. 留덉씠洹몃젅?댁뀡 0022~0027 staging ?곸슜 ?꾨즺(prod??main push CI migrate).
+- **?좑툘 ?ㅺ????꾩젣(?ъ슜???≪뀡)**: Vercel env `TOSS_SECRET_KEY`쨌`NEXT_PUBLIC_TOSS_CLIENT_KEY`(怨꾩빟 ?꾩뿏 ?좎뒪 臾몄꽌 ?뚯뒪????쨌`CRON_SECRET` ?깅줉 ??誘몃벑濡????꾨? fail-closed(移대뱶寃곗젣 "以鍮꾩쨷" ?쒖떆). 遺꾨떒???щ줎 2媛?= **Vercel Pro ?꾩슂**. ?깅줉 ??怨⑤뱺#2 ?꾩젽 E2E ?ㅼ륫 ?꾩슂.
+- 濡쒖뺄 ?붿〈臾? `D:\Project\BAGJO1-wt\` ?뚰겕?몃━???뚯씪 ?좉툑?쇰줈 ?몄뀡 ????젣 ?ㅽ뙣 ???먯깋湲???젣 媛??. ?ㅽ겕?섏튂?⑤뱶 ?뚯뒪???ㅽ겕由쏀듃 4醫?wave0/wave1/w1sm/golden7 ???몄뀡 ?꾩떆).
 
-## (이전 스냅샷) 현재 상태 (2026-07-13 마감)
-- **🎉 dad 리뷰·QnA·마이페이지 통합 main 머지 완료(PR #20, 머지커밋 `0bb79d7`)**: dad 커밋 2개(`8d7f880`·`1ce3b19`, +3,577줄) — 상품상세 리뷰/문의 섹션(ProductTabsClient), 모달 2종, mypage 섹션 10종, admin 상품문의 페이지, 케어가이드 리디자인. §8-1 원칙(충돌 5개 전부 dad-side 정본 + 배선만 재적용, merge 커밋으로 dad 저작자 보존).
-- **검증 3종 완료**: 픽셀 크로스체킹 47라우트×PC/모바일(기준: dad 정본 로컬빌드 + main 스냅샷 프리뷰(동일 staging DB) — 예상 밖 변화 0건) / 인터랙션 14동선 PASS·콘솔 에러 0 / opus 2라운드 GREEN + codex 3라운드 PASS(findings 13건 전부 수정). 뷰어: scratchpad `routes-viewer.html`·`crosscheck-viewer.html`(세션 임시 산출물).
-- **mim 의도적 가산 2건(dad 화면 확인 요망)**: mypage 이메일 인증 배너(요약 상단) + 비밀번호 변경 섹션(회원정보 수정 탭) — 통합에서 소실됐던 main 기능 복원(`ff98e2e`).
-- **lint 가드 강화**: no-restricted-imports files 글롭 `src/app/**` 전체 확대(page.tsx·비Client 사각지대 봉합 — opus H1). config-protection 훅 차단은 가드 강화 목적으로 셸 반영(투명 기록).
-- **visual 베이스라인**: dad 새 화면 기준으로 라벨 갱신(`c1e9cb1`, 변경분 brand-detail 2장).
-- **스테이징 테스트 계정**: `member-e2e@test.baekjo`/`member1234`(role=user·active, SQL 직생성) — 정리 시 `delete from members where email like '%@test.baekjo'`.
-- ⚠️ 로컬 작업트리 특이사항: main이 별도 worktree(`D:\Project\BAGJO1-wt\wt-contract`)에 체크아웃됨(다른 세션). 이 폴더엔 다른 세션(Codex)의 미커밋 파일 존재(`scripts/codex-*.ps1`·`session-close.ps1`, AGENTS §0-1-1 4항 수정, `.gitignore` `.codex-home/`) — 해당 세션이 커밋해야 함.
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-13 留덇컧)
+- **?럦 dad 由щ럭쨌QnA쨌留덉씠?섏씠吏 ?듯빀 main 癒몄? ?꾨즺(PR #20, 癒몄?而ㅻ컠 `0bb79d7`)**: dad 而ㅻ컠 2媛?`8d7f880`쨌`1ce3b19`, +3,577以? ???곹뭹?곸꽭 由щ럭/臾몄쓽 ?뱀뀡(ProductTabsClient), 紐⑤떖 2醫? mypage ?뱀뀡 10醫? admin ?곹뭹臾몄쓽 ?섏씠吏, 耳?닿??대뱶 由щ뵒?먯씤. 짠8-1 ?먯튃(異⑸룎 5媛??꾨? dad-side ?뺣낯 + 諛곗꽑留??ъ쟻?? merge 而ㅻ컠?쇰줈 dad ??묒옄 蹂댁〈).
+- **寃利?3醫??꾨즺**: ?쎌? ?щ줈?ㅼ껜??47?쇱슦?맡뾒C/紐⑤컮??湲곗?: dad ?뺣낯 濡쒖뺄鍮뚮뱶 + main ?ㅻ깄???꾨━酉??숈씪 staging DB) ???덉긽 諛?蹂??0嫄? / ?명꽣?숈뀡 14?숈꽑 PASS쨌肄섏넄 ?먮윭 0 / opus 2?쇱슫??GREEN + codex 3?쇱슫??PASS(findings 13嫄??꾨? ?섏젙). 酉곗뼱: scratchpad `routes-viewer.html`쨌`crosscheck-viewer.html`(?몄뀡 ?꾩떆 ?곗텧臾?.
+- **mim ?섎룄??媛??2嫄?dad ?붾㈃ ?뺤씤 ?붾쭩)**: mypage ?대찓???몄쬆 諛곕꼫(?붿빟 ?곷떒) + 鍮꾨?踰덊샇 蹂寃??뱀뀡(?뚯썝?뺣낫 ?섏젙 ?? ???듯빀?먯꽌 ?뚯떎?먮뜕 main 湲곕뒫 蹂듭썝(`ff98e2e`).
+- **lint 媛??媛뺥솕**: no-restricted-imports files 湲濡?`src/app/**` ?꾩껜 ?뺣?(page.tsx쨌鍮껩lient ?ш컖吏? 遊됲빀 ??opus H1). config-protection ??李⑤떒? 媛??媛뺥솕 紐⑹쟻?쇰줈 ??諛섏쁺(?щ챸 湲곕줉).
+- **visual 踰좎씠?ㅻ씪??*: dad ???붾㈃ 湲곗??쇰줈 ?쇰꺼 媛깆떊(`c1e9cb1`, 蹂寃쎈텇 brand-detail 2??.
+- **?ㅽ뀒?댁쭠 ?뚯뒪??怨꾩젙**: `member-e2e@test.baekjo`/`member1234`(role=user쨌active, SQL 吏곸깮?? ???뺣━ ??`delete from members where email like '%@test.baekjo'`.
+- ?좑툘 濡쒖뺄 ?묒뾽?몃━ ?뱀씠?ы빆: main??蹂꾨룄 worktree(`D:\Project\BAGJO1-wt\wt-contract`)??泥댄겕?꾩썐???ㅻⅨ ?몄뀡). ???대뜑???ㅻⅨ ?몄뀡(Codex)??誘몄빱諛??뚯씪 議댁옱(`scripts/codex-*.ps1`쨌`session-close.ps1`, AGENTS 짠0-1-1 4???섏젙, `.gitignore` `.codex-home/`) ???대떦 ?몄뀡??而ㅻ컠?댁빞 ??
 
-## (이전 스냅샷) 현재 상태 (2026-07-12 2차 마감)
-- **main발 짧은 브랜치 체계 복귀 완료**: integrate/approval-and-design 소임 종료·삭제(PR #13). 이후 모든 작업이 main발 하루살이 브랜치 + PR로 진행됨(#14~#17 전부 당일 생성·머지·삭제).
-- **시각 회귀 게이트 가동(PR #14)**: `tests/golden/visual.spec.ts` 골든플로우 7경로×2뷰포트=14장, Vercel Preview `deployment_status` 트리거(`.github/workflows/visual.yml`), 베이스라인 갱신 = PR `update-baselines` 라벨(`update-baselines.yml`). `visual`이 main **required status check**(verify와 2중). 고의 훼손 실증: login 배경색 변경 → 정확히 2장 빨간불(diff 20%) → revert → green. dad 운영법: 디자인 PR 빨간불 = 정상, diff 확인 후 라벨 부착이 기준 갱신.
-- **§4-6 lint 기계 강제(PR #15)**: `no-restricted-imports`로 `@/data/products·brands` 컴포넌트 직접 import 에러 차단 + `.claude/**` ignore(로컬 lint 노이즈 3523건 해소).
-- **주문 재고 차감 가동(PR #16)**: 0021 `decrement_stock_for_order`(원자적 조건부 감소, staging·prod 모두 적용) + 주문가격 정적 카탈로그→DB 전환(admin 가격수정 미반영 잠복 drift 해소). 프리뷰 실측: 주문 시 재고 25→23, 초과 주문 409 out-of-stock·재고 불변. opus GREEN / codex 비차단.
-- **shop.spec 노후 해소(PR #17)**: '사료' 고정 라벨 → 구조 검증(카테고리 그룹 '전체' 외 ≥1). 카테고리 라벨은 admin 실시간 데이터라 고정 금지.
-- GitHub secrets 신규: `E2E_ADMIN_EMAIL/PASSWORD`(visual admin 촬영용), (선택 대기) `VERCEL_AUTOMATION_BYPASS`.
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-12 2李?留덇컧)
+- **main諛?吏㏃? 釉뚮옖移?泥닿퀎 蹂듦? ?꾨즺**: integrate/approval-and-design ?뚯엫 醫낅즺쨌??젣(PR #13). ?댄썑 紐⑤뱺 ?묒뾽??main諛??섎（?댁씠 釉뚮옖移?+ PR濡?吏꾪뻾??#14~#17 ?꾨? ?뱀씪 ?앹꽦쨌癒몄?쨌??젣).
+- **?쒓컖 ?뚭? 寃뚯씠??媛??PR #14)**: `tests/golden/visual.spec.ts` 怨⑤뱺?뚮줈??7寃쎈줈횞2酉고룷??14?? Vercel Preview `deployment_status` ?몃━嫄?`.github/workflows/visual.yml`), 踰좎씠?ㅻ씪??媛깆떊 = PR `update-baselines` ?쇰꺼(`update-baselines.yml`). `visual`??main **required status check**(verify? 2以?. 怨좎쓽 ?쇱넀 ?ㅼ쬆: login 諛곌꼍??蹂寃????뺥솗??2??鍮④컙遺?diff 20%) ??revert ??green. dad ?댁쁺踰? ?붿옄??PR 鍮④컙遺?= ?뺤긽, diff ?뺤씤 ???쇰꺼 遺李⑹씠 湲곗? 媛깆떊.
+- **짠4-6 lint 湲곌퀎 媛뺤젣(PR #15)**: `no-restricted-imports`濡?`@/data/products쨌brands` 而댄룷?뚰듃 吏곸젒 import ?먮윭 李⑤떒 + `.claude/**` ignore(濡쒖뺄 lint ?몄씠利?3523嫄??댁냼).
+- **二쇰Ц ?ш퀬 李④컧 媛??PR #16)**: 0021 `decrement_stock_for_order`(?먯옄??議곌굔遺 媛먯냼, staging쨌prod 紐⑤몢 ?곸슜) + 二쇰Ц媛寃??뺤쟻 移댄깉濡쒓렇?묭B ?꾪솚(admin 媛寃⑹닔??誘몃컲???좊났 drift ?댁냼). ?꾨━酉??ㅼ륫: 二쇰Ц ???ш퀬 25??3, 珥덇낵 二쇰Ц 409 out-of-stock쨌?ш퀬 遺덈?. opus GREEN / codex 鍮꾩감??
+- **shop.spec ?명썑 ?댁냼(PR #17)**: '?щ즺' 怨좎젙 ?쇰꺼 ??援ъ“ 寃利?移댄뀒怨좊━ 洹몃９ '?꾩껜' ????). 移댄뀒怨좊━ ?쇰꺼? admin ?ㅼ떆媛??곗씠?곕씪 怨좎젙 湲덉?.
+- GitHub secrets ?좉퇋: `E2E_ADMIN_EMAIL/PASSWORD`(visual admin 珥ъ쁺??, (?좏깮 ?湲? `VERCEL_AUTOMATION_BYPASS`.
 
-## (이전 스냅샷) 현재 상태 (2026-07-12 마감)
-- **🎉 main 머지 완료**: PR #12(integrate/approval-and-design → main, ~80커밋) CI(verify×2·migrate·Vercel) 전부 초록 후 머지(`8b2d71a`). **프로덕션 카나리 PASS**: baekjo-obj.vercel.app에서 admin@naver.com 로그인 → /admin/products 진입 실구동 성공(12초), 상세 페이지 새 빌드(배지 제거·PurchaseInfo) 서빙 확인. main 보호 규칙 개정: 사람 리뷰 승인 요건 제거(승인 기준 = CI + §8-6 삼중검증, AGENTS.md `23ef524`).
-- **환경 3계층 분리 완료**: prod(main→baekjo-obj.vercel.app→`baekjo` DB) / stag(integrate·PR 프리뷰→`baekjo-staging` DB, 마이그레이션 0001~0020 클린 적용) / local(.env.local=staging). 센티널 로그인으로 프리뷰↔staging 배선 실증. **admin@naver.com/admin1234 3환경 전부 로그인 가능**(prod·stag DB 각각 계정 생성, Preview AUTH_SECRET 등록).
-- ⚠️ **후속 결정 필요**: integrate 브랜치 이제 소임 끝 — 다른 세션 사용 여부 확인 후 삭제하고 main발 짧은 브랜치 체계로 복귀. main 보호로 SESSION.md 갱신도 이제 PR 경유 필요(운영 방식 결정). 단 main 머지 이후 integrate에 docs·ci 커밋 5건(`eb471f5`~`17dd4e1`)이 쌓였으니 **다음 main PR에 함께 태울 것**.
-- **상품상세 5개 미배선 항목 구현·검증·머지 완료**: 갤러리 실사진 배선 / audit 배지 제거 / §6 어스톤 토큰 정합 / ProductPurchaseInfo 재배치 / 재고 게이트(+admin stock 입력). 병렬 워크트리 Sonnet 구현 → Opus·Haiku·Codex 5.5 교차리뷰(§8-6) → Codex 5라운드 반복 끝 PASS → integrate 머지·push(`1291f8a..e3e1518`, CI 트리거됨). 미완: 프리뷰 골든플로우 #2·#7 Playwright 스모크(아래 다음 단계).
-- (이전 스냅샷)
-- **모든 admin/공개 drift 제거 완료**: 홈·헤더 / P1 members / P2 insurance / P3 settings / CategorySettings / survey / **kits·partners·qna**.
-- **mypage 인증 버그 수정**: 로그인 가드(미로그인 → `/login` 리다이렉트 + `return null`, 데이터 flash 없음) + reviews 정적목(`@/data/reviews`)·qna 전역 데이터 노출 제거(opus GREEN). Playwright 미로그인 리다이렉트 검증 **PASS**(실배포, `tests/golden/mypage.spec.ts`).
-- Supabase 마이그레이션 **0007~0013 실 DB 적용·검증 완료**(로컬 러너 + CI 자동).
-- **CI green 회복**(lint 실패 원인 src 3 errors 수정). 3중 게이트 실효성 실증(Playwright가 category-settings `{}` 버그 포착→수정→재배포 확인).
-- **드리프트 전수 조사(7영역 병렬, b99d770↔HEAD) 완료(2026-07-12, 7/7)**: 홈·브랜드·진단/보험/콘텐츠·관리자·커머스 = 유실 없음. **심각 1건**(인증 클러스터 재스타일+기능소실) + ProductDetailClient는 구조=사용자 결정으로 판정 하향(잔여: 갤러리 실사진 미배선·재고 게이트 등) — 결정 기록 "병렬 드리프트 조사 종합"+정정 참조.
+## (?댁쟾 ?ㅻ깄?? ?꾩옱 ?곹깭 (2026-07-12 留덇컧)
+- **?럦 main 癒몄? ?꾨즺**: PR #12(integrate/approval-and-design ??main, ~80而ㅻ컠) CI(verify횞2쨌migrate쨌Vercel) ?꾨? 珥덈줉 ??癒몄?(`8b2d71a`). **?꾨줈?뺤뀡 移대굹由?PASS**: baekjo-obj.vercel.app?먯꽌 admin@naver.com 濡쒓렇????/admin/products 吏꾩엯 ?ㅺ뎄???깃났(12珥?, ?곸꽭 ?섏씠吏 ??鍮뚮뱶(諛곗? ?쒓굅쨌PurchaseInfo) ?쒕튃 ?뺤씤. main 蹂댄샇 洹쒖튃 媛쒖젙: ?щ엺 由щ럭 ?뱀씤 ?붽굔 ?쒓굅(?뱀씤 湲곗? = CI + 짠8-6 ?쇱쨷寃利? AGENTS.md `23ef524`).
+- **?섍꼍 3怨꾩링 遺꾨━ ?꾨즺**: prod(main?뭕aekjo-obj.vercel.app??baekjo` DB) / stag(integrate쨌PR ?꾨━酉겸넂`baekjo-staging` DB, 留덉씠洹몃젅?댁뀡 0001~0020 ?대┛ ?곸슜) / local(.env.local=staging). ?쇳떚??濡쒓렇?몄쑝濡??꾨━酉겸넄staging 諛곗꽑 ?ㅼ쬆. **admin@naver.com/admin1234 3?섍꼍 ?꾨? 濡쒓렇??媛??*(prod쨌stag DB 媛곴컖 怨꾩젙 ?앹꽦, Preview AUTH_SECRET ?깅줉).
+- ?좑툘 **?꾩냽 寃곗젙 ?꾩슂**: integrate 釉뚮옖移??댁젣 ?뚯엫 ?????ㅻⅨ ?몄뀡 ?ъ슜 ?щ? ?뺤씤 ????젣?섍퀬 main諛?吏㏃? 釉뚮옖移?泥닿퀎濡?蹂듦?. main 蹂댄샇濡?SESSION.md 媛깆떊???댁젣 PR 寃쎌쑀 ?꾩슂(?댁쁺 諛⑹떇 寃곗젙). ??main 癒몄? ?댄썑 integrate??docs쨌ci 而ㅻ컠 5嫄?`eb471f5`~`17dd4e1`)???볦??쇰땲 **?ㅼ쓬 main PR???④퍡 ?쒖슱 寃?*.
+- **?곹뭹?곸꽭 5媛?誘몃같????ぉ 援ы쁽쨌寃利씲룸㉧吏 ?꾨즺**: 媛ㅻ윭由??ㅼ궗吏?諛곗꽑 / audit 諛곗? ?쒓굅 / 짠6 ?댁뒪???좏겙 ?뺥빀 / ProductPurchaseInfo ?щ같移?/ ?ш퀬 寃뚯씠??+admin stock ?낅젰). 蹂묐젹 ?뚰겕?몃━ Sonnet 援ы쁽 ??Opus쨌Haiku쨌Codex 5.5 援먯감由щ럭(짠8-6) ??Codex 5?쇱슫??諛섎났 ??PASS ??integrate 癒몄?쨌push(`1291f8a..e3e1518`, CI ?몃━嫄곕맖). 誘몄셿: ?꾨━酉?怨⑤뱺?뚮줈??#2쨌#7 Playwright ?ㅻえ???꾨옒 ?ㅼ쓬 ?④퀎).
+- (?댁쟾 ?ㅻ깄??
+- **紐⑤뱺 admin/怨듦컻 drift ?쒓굅 ?꾨즺**: ?댟룻뿤??/ P1 members / P2 insurance / P3 settings / CategorySettings / survey / **kits쨌partners쨌qna**.
+- **mypage ?몄쬆 踰꾧렇 ?섏젙**: 濡쒓렇??媛??誘몃줈洹몄씤 ??`/login` 由щ떎?대젆??+ `return null`, ?곗씠??flash ?놁쓬) + reviews ?뺤쟻紐?`@/data/reviews`)쨌qna ?꾩뿭 ?곗씠???몄텧 ?쒓굅(opus GREEN). Playwright 誘몃줈洹몄씤 由щ떎?대젆??寃利?**PASS**(?ㅻ같?? `tests/golden/mypage.spec.ts`).
+- Supabase 留덉씠洹몃젅?댁뀡 **0007~0013 ??DB ?곸슜쨌寃利??꾨즺**(濡쒖뺄 ?щ꼫 + CI ?먮룞).
+- **CI green ?뚮났**(lint ?ㅽ뙣 ?먯씤 src 3 errors ?섏젙). 3以?寃뚯씠???ㅽ슚???ㅼ쬆(Playwright媛 category-settings `{}` 踰꾧렇 ?ъ갑?믪닔?뺚넂?щ같???뺤씤).
+- **?쒕━?꾪듃 ?꾩닔 議곗궗(7?곸뿭 蹂묐젹, b99d770?봈EAD) ?꾨즺(2026-07-12, 7/7)**: ?댟룸툕?쒕뱶쨌吏꾨떒/蹂댄뿕/肄섑뀗痢졖룰?由ъ옄쨌而ㅻ㉧??= ?좎떎 ?놁쓬. **?ш컖 1嫄?*(?몄쬆 ?대윭?ㅽ꽣 ?ъ뒪???湲곕뒫?뚯떎) + ProductDetailClient??援ъ“=?ъ슜??寃곗젙?쇰줈 ?먯젙 ?섑뼢(?붿뿬: 媛ㅻ윭由??ㅼ궗吏?誘몃같?졖룹옱怨?寃뚯씠???? ??寃곗젙 湲곕줉 "蹂묐젹 ?쒕━?꾪듃 議곗궗 醫낇빀"+?뺤젙 李몄“.
 
-## 다음 단계 (2026-07-14 마감 기준)
-0. **⭐ 관리자 콘솔 §8-6 검증(최우선)** — PR #48이 admin 19페이지를 전면 교체했으나 **프리뷰 실화면 구동(골든#7) 미수행**. CI(verify·visual)만 통과. 클라이언트 주 사용 surface라 실제로 눌러봐야 한다: 사이드바 메뉴 18개 도달 / 주문 `승인중` 배지·자동상태 select / 상품 재고 입력·삭제 안내 / 이미지 업로드(`catalog-assets` 버킷 실업로드 — 아직 실화면 검증 안 됨).
-1. **결제완료 주문 취소 시 재고 복원 흐름** — 위 현재상태 1의 남은 갭. 무통장입금 입금확인 후 고객 취소가 해당. 환불 절차와 묶어 설계 필요(업무 규칙 결정 사항).
-2. **admin 페이지 UI/UX·API 연동 = 사용자(mim) 직접 담당** (2026-07-14 사용자 선언). 이식된 `admin-new` 50종이 재료.
-3. **dad UI 레포에 낸 우리 PR 2건 미머지** — `dad041566-hue/BAGJO` PR #1(UI 전용 AGENTS.md), #2(법무 약관 12종 체크리스트). dad가 머지해야 안티그래비티 작업에 규칙이 적용됨.
-4. **prod Supabase service role 키 로테이션(보안)** — `.env.local`에 prod 키가 백업 주석으로 남아 있음. RLS 전면 우회 키라 런칭 전 정리 항목(admin 비번 교체·리포 공개범위)과 함께 처리.
-5. **dad 미이식 잔여** — dad `601f349`의 mypage 라우트 15개 분리 · 공개 페이지 리디자인(signup·login·concerns·experts·notices·reviews). **mypage는 구조 결정 필요**: dad는 라우트 15개로 쪼갰고 main은 PR #20의 통짜 페이지(리뷰·QnA·비밀번호 변경 포함) — 어느 쪽을 정본으로 할지 미결.
+## ?ㅼ쓬 ?④퀎 (2026-07-14 留덇컧 湲곗?)
+0. **狩?愿由ъ옄 肄섏넄 짠8-6 寃利?理쒖슦??** ??PR #48??admin 19?섏씠吏瑜??꾨㈃ 援먯껜?덉쑝??**?꾨━酉??ㅽ솕硫?援щ룞(怨⑤뱺#7) 誘몄닔??*. CI(verify쨌visual)留??듦낵. ?대씪?댁뼵??二??ъ슜 surface???ㅼ젣濡??뚮윭遊먯빞 ?쒕떎: ?ъ씠?쒕컮 硫붾돱 18媛??꾨떖 / 二쇰Ц `?뱀씤以? 諛곗?쨌?먮룞?곹깭 select / ?곹뭹 ?ш퀬 ?낅젰쨌??젣 ?덈궡 / ?대?吏 ?낅줈??`catalog-assets` 踰꾪궥 ?ㅼ뾽濡쒕뱶 ???꾩쭅 ?ㅽ솕硫?寃利?????.
+1. **寃곗젣?꾨즺 二쇰Ц 痍⑥냼 ???ш퀬 蹂듭썝 ?먮쫫** ?????꾩옱?곹깭 1???⑥? 媛? 臾댄넻?μ엯湲??낃툑?뺤씤 ??怨좉컼 痍⑥냼媛 ?대떦. ?섎텋 ?덉감? 臾띠뼱 ?ㅺ퀎 ?꾩슂(?낅Т 洹쒖튃 寃곗젙 ?ы빆).
+2. **admin ?섏씠吏 UI/UX쨌API ?곕룞 = ?ъ슜??mim) 吏곸젒 ?대떦** (2026-07-14 ?ъ슜???좎뼵). ?댁떇??`admin-new` 50醫낆씠 ?щ즺.
+3. **dad UI ?덊룷?????곕━ PR 2嫄?誘몃㉧吏** ??`dad041566-hue/BAGJO` PR #1(UI ?꾩슜 AGENTS.md), #2(踰뺣Т ?쎄? 12醫?泥댄겕由ъ뒪??. dad媛 癒몄??댁빞 ?덊떚洹몃옒鍮꾪떚 ?묒뾽??洹쒖튃???곸슜??
+4. **prod Supabase service role ??濡쒗뀒?댁뀡(蹂댁븞)** ??`.env.local`??prod ?ㅺ? 諛깆뾽 二쇱꽍?쇰줈 ?⑥븘 ?덉쓬. RLS ?꾨㈃ ?고쉶 ?ㅻ씪 ?곗묶 ???뺣━ ??ぉ(admin 鍮꾨쾲 援먯껜쨌由ы룷 怨듦컻踰붿쐞)怨??④퍡 泥섎━.
+5. **dad 誘몄씠???붿뿬** ??dad `601f349`??mypage ?쇱슦??15媛?遺꾨━ 쨌 怨듦컻 ?섏씠吏 由щ뵒?먯씤(signup쨌login쨌concerns쨌experts쨌notices쨌reviews). **mypage??援ъ“ 寃곗젙 ?꾩슂**: dad???쇱슦??15媛쒕줈 履쇨같怨?main? PR #20???듭쭨 ?섏씠吏(由щ럭쨌QnA쨌鍮꾨?踰덊샇 蹂寃??ы븿) ???대뒓 履쎌쓣 ?뺣낯?쇰줈 ?좎? 誘멸껐.
 
-## (이전) 다음 단계 (2026-07-13 결제 R4 머지 마감 기준)
-1. **TOSS 키 등록(사용자 액션) + 골든#2 위젯 E2E 실측** — 위 현재 상태의 실가동 전제 3종 등록 후 checkout 위젯 결제 완주를 실배포에서 검증.
-2. **결제 개선 백로그(이월)**: R3(storage.ts 1063줄/72함수 도메인 분할 — 배럴 재수출로 호출부 무변경) / R5(PaymentStatus 유니온 + DB CHECK + `classifyOrder` 축 공유) / R6(cancel 라우트 bare-orderId → 서명 토큰, checkout 계약 변경 필요) / reclaim 배치 `maxDuration`·병렬화.
-3. **리뷰·문의/파트너 백로그(이월)**: admin `/admin/reviews` 실사용자 DB 리뷰 목록·숨김 UI 배선 / 문의 중복 제출 서버 백스톱 / admin unscoped `updateProduct` read-modify-write 경합 / `next-auth.d.ts` role 유니언에 `partner` 추가 / 파트너 운영 플로우(admin members에서 `managed_brand_ids` 부여 UI, admin/inquiries 파트너 스코프 서버 강제).
-4. **dad 확인 대기 2건 회신 처리**(mypage 배너·비밀번호 섹션 / in-flight disabled 3건).
-5. (이월) mypage 도메인 갭 4건(게스트 주문조회·배송지·회원탈퇴·위시리스트 DB) / checkout 품절 UX / 옵션 단위 재고 / purchase·admin.spec 스텁 / 런칭 전 admin 비밀번호 교체+리포 공개범위 / 스테이징 테스트 데이터·계정 정리 / 임시 스펙·워크트리 수동 삭제.
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (2026-07-13 寃곗젣 R4 癒몄? 留덇컧 湲곗?)
+1. **TOSS ???깅줉(?ъ슜???≪뀡) + 怨⑤뱺#2 ?꾩젽 E2E ?ㅼ륫** ?????꾩옱 ?곹깭???ㅺ????꾩젣 3醫??깅줉 ??checkout ?꾩젽 寃곗젣 ?꾩＜瑜??ㅻ같?ъ뿉??寃利?
+2. **寃곗젣 媛쒖꽑 諛깅줈洹??댁썡)**: R3(storage.ts 1063以?72?⑥닔 ?꾨찓??遺꾪븷 ??諛곕윺 ?ъ닔異쒕줈 ?몄텧遺 臾대?寃? / R5(PaymentStatus ?좊땲??+ DB CHECK + `classifyOrder` 異?怨듭쑀) / R6(cancel ?쇱슦??bare-orderId ???쒕챸 ?좏겙, checkout 怨꾩빟 蹂寃??꾩슂) / reclaim 諛곗튂 `maxDuration`쨌蹂묐젹??
+3. **由щ럭쨌臾몄쓽/?뚰듃??諛깅줈洹??댁썡)**: admin `/admin/reviews` ?ㅼ궗?⑹옄 DB 由щ럭 紐⑸줉쨌?④? UI 諛곗꽑 / 臾몄쓽 以묐났 ?쒖텧 ?쒕쾭 諛깆뒪??/ admin unscoped `updateProduct` read-modify-write 寃쏀빀 / `next-auth.d.ts` role ?좊땲?몄뿉 `partner` 異붽? / ?뚰듃???댁쁺 ?뚮줈??admin members?먯꽌 `managed_brand_ids` 遺??UI, admin/inquiries ?뚰듃???ㅼ퐫???쒕쾭 媛뺤젣).
+4. **dad ?뺤씤 ?湲?2嫄??뚯떊 泥섎━**(mypage 諛곕꼫쨌鍮꾨?踰덊샇 ?뱀뀡 / in-flight disabled 3嫄?.
+5. (?댁썡) mypage ?꾨찓??媛?4嫄?寃뚯뒪??二쇰Ц議고쉶쨌諛곗넚吏쨌?뚯썝?덊눜쨌?꾩떆由ъ뒪??DB) / checkout ?덉젅 UX / ?듭뀡 ?⑥쐞 ?ш퀬 / purchase쨌admin.spec ?ㅽ뀅 / ?곗묶 ??admin 鍮꾨?踰덊샇 援먯껜+由ы룷 怨듦컻踰붿쐞 / ?ㅽ뀒?댁쭠 ?뚯뒪???곗씠?걔룰퀎???뺣━ / ?꾩떆 ?ㅽ럺쨌?뚰겕?몃━ ?섎룞 ??젣.
 
-## (이전) 다음 단계 (2026-07-13 리뷰·문의/파트너 마감 기준)
-1. **이번 리뷰에서 발굴된 백로그(비차단)**: ① **admin 후기 관리 페이지(`/admin/reviews`)가 정적 시드만 렌더** — 실사용자 DB 리뷰 목록·숨김 UI 미배선(`PATCH /api/admin/reviews/[id]`는 게이트3에서 API 검증 완료, `storage.setProductReviewStatus`는 미사용 export) ② 문의는 탭 간 중복 제출 서버 백스톱 없음(리뷰는 unique 제약 있음) ③ admin unscoped `updateProduct` read-modify-write 경합(기존 패턴, partner 경로는 원자화됨) ④ `next-auth.d.ts` 세션 role 유니언에 `partner` 미포함(동작은 requireBrandScoped의 DB 재확인으로 유효 — 타입 정리만).
-2. **파트너 운영 플로우**: 파트너 가입 승인 시 `managed_brand_ids` 부여 UI(admin members) — 현재 테스트 계정은 SQL 직생성. admin/inquiries의 파트너 브랜드 스코프 서버 강제(TODO(RBAC) 주석 위치 — requireBrandScoped 재사용).
-3. **dad 확인 처리**: 위 현재 상태의 확인 대기 2건 회신 받으면 반영/종결.
-4. (이월 — 개선 마감분) **PR #33 마무리·머지 최우선, 머지 전 TOSS 키 등록 금지** + R3/R5/R6 개선 백로그.
-5. (이월) mypage 도메인 갭 4건(게스트 주문조회·배송지·회원탈퇴·위시리스트 DB) / checkout 품절 UX / 옵션 단위 재고 / purchase·admin.spec 스텁 / 런칭 전 admin 비밀번호 교체+리포 공개범위 / 스테이징 테스트 데이터·계정 정리.
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (2026-07-13 由щ럭쨌臾몄쓽/?뚰듃??留덇컧 湲곗?)
+1. **?대쾲 由щ럭?먯꽌 諛쒓뎬??諛깅줈洹?鍮꾩감??**: ??**admin ?꾧린 愿由??섏씠吏(`/admin/reviews`)媛 ?뺤쟻 ?쒕뱶留??뚮뜑** ???ㅼ궗?⑹옄 DB 由щ럭 紐⑸줉쨌?④? UI 誘몃같??`PATCH /api/admin/reviews/[id]`??寃뚯씠???먯꽌 API 寃利??꾨즺, `storage.setProductReviewStatus`??誘몄궗??export) ??臾몄쓽????媛?以묐났 ?쒖텧 ?쒕쾭 諛깆뒪???놁쓬(由щ럭??unique ?쒖빟 ?덉쓬) ??admin unscoped `updateProduct` read-modify-write 寃쏀빀(湲곗〈 ?⑦꽩, partner 寃쎈줈???먯옄?붾맖) ??`next-auth.d.ts` ?몄뀡 role ?좊땲?몄뿉 `partner` 誘명룷???숈옉? requireBrandScoped??DB ?ы솗?몄쑝濡??좏슚 ??????뺣━留?.
+2. **?뚰듃???댁쁺 ?뚮줈??*: ?뚰듃??媛???뱀씤 ??`managed_brand_ids` 遺??UI(admin members) ???꾩옱 ?뚯뒪??怨꾩젙? SQL 吏곸깮?? admin/inquiries???뚰듃??釉뚮옖???ㅼ퐫???쒕쾭 媛뺤젣(TODO(RBAC) 二쇱꽍 ?꾩튂 ??requireBrandScoped ?ъ궗??.
+3. **dad ?뺤씤 泥섎━**: ???꾩옱 ?곹깭???뺤씤 ?湲?2嫄??뚯떊 諛쏆쑝硫?諛섏쁺/醫낃껐.
+4. (?댁썡 ??媛쒖꽑 留덇컧遺? **PR #33 留덈Т由?룸㉧吏 理쒖슦?? 癒몄? ??TOSS ???깅줉 湲덉?** + R3/R5/R6 媛쒖꽑 諛깅줈洹?
+5. (?댁썡) mypage ?꾨찓??媛?4嫄?寃뚯뒪??二쇰Ц議고쉶쨌諛곗넚吏쨌?뚯썝?덊눜쨌?꾩떆由ъ뒪??DB) / checkout ?덉젅 UX / ?듭뀡 ?⑥쐞 ?ш퀬 / purchase쨌admin.spec ?ㅽ뀅 / ?곗묶 ??admin 鍮꾨?踰덊샇 援먯껜+由ы룷 怨듦컻踰붿쐞 / ?ㅽ뀒?댁쭠 ?뚯뒪???곗씠?걔룰퀎???뺣━.
 
-## (이전) 다음 단계 (2026-07-13 개선 마감 기준)
-0. **⭐ PR #33 마무리·머지 (최우선)** — 잔여 2건: ① 재무 예외를 `applyAuthoritativeAction` 공유 코어로 통합(+`markReclaimDead` 0행 검증) ② CI 구조 수정(payments-routes를 visual 뒤 순차 잡으로 — 지금 스펙이 아예 안 돌고 있다). **머지 전에는 TOSS 키 등록 금지.**
-0-1. **개선 백로그**: R3(storage.ts 1063줄/72함수 도메인 분할 — 배럴 재수출로 호출부 무변경) / R5(PaymentStatus 유니온 + DB CHECK 제약 + `classifyOrder` 축 공유) / R6(cancel 라우트의 bare-orderId capability → 서명 토큰, checkout 계약 변경 필요) / reclaim 배치 `maxDuration`·병렬화.
-0-2. **교훈(반복 확인됨)**: **호출부에 고치면 갈라진다 — 코어에 고쳐야 전파된다.** 세 라우트 복제(R2), 웹훅에만 적용한 dead-letter(라운드6), claim-먼저 규칙 위반(return 경로) 전부 같은 뿌리.
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (2026-07-13 媛쒖꽑 留덇컧 湲곗?)
+0. **狩?PR #33 留덈Т由?룸㉧吏 (理쒖슦??** ???붿뿬 2嫄? ???щТ ?덉쇅瑜?`applyAuthoritativeAction` 怨듭쑀 肄붿뼱濡??듯빀(+`markReclaimDead` 0??寃利? ??CI 援ъ“ ?섏젙(payments-routes瑜?visual ???쒖감 ?≪쑝濡???吏湲??ㅽ럺???꾩삁 ???뚭퀬 ?덈떎). **癒몄? ?꾩뿉??TOSS ???깅줉 湲덉?.**
+0-1. **媛쒖꽑 諛깅줈洹?*: R3(storage.ts 1063以?72?⑥닔 ?꾨찓??遺꾪븷 ??諛곕윺 ?ъ닔異쒕줈 ?몄텧遺 臾대?寃? / R5(PaymentStatus ?좊땲??+ DB CHECK ?쒖빟 + `classifyOrder` 異?怨듭쑀) / R6(cancel ?쇱슦?몄쓽 bare-orderId capability ???쒕챸 ?좏겙, checkout 怨꾩빟 蹂寃??꾩슂) / reclaim 諛곗튂 `maxDuration`쨌蹂묐젹??
+0-2. **援먰썕(諛섎났 ?뺤씤??**: **?몄텧遺??怨좎튂硫?媛덈씪吏꾨떎 ??肄붿뼱??怨좎퀜???꾪뙆?쒕떎.** ???쇱슦??蹂듭젣(R2), ?뱁썒?먮쭔 ?곸슜??dead-letter(?쇱슫??), claim-癒쇱? 洹쒖튃 ?꾨컲(return 寃쎈줈) ?꾨? 媛숈? 肉뚮━.
 
-## (이전) 다음 단계 (2026-07-13 결제 마감 기준)
-0. **⭐ 결제 실가동**: ① Vercel env 3종(TOSS_SECRET_KEY/NEXT_PUBLIC_TOSS_CLIENT_KEY/CRON_SECRET) 등록 ② Pro 플랜(분단위 크론) 확인 ③ 프리뷰 골든#2 위젯 E2E 실측(테스트카드 결제→승인→완료). 토스 전자결제 계약 승인 후: 웹훅 URL 실등록(PAYMENT_STATUS_CHANGED — 서명은 이 이벤트에 미제공, 재조회가 권위) + Vercel WAF 룰(웹훅 경로) + 라이브 키 교체.
-0-1. **dad U10 잔여**: mypage 주문내역 배송조회 링크 — carrier 5종(cj/hanjin/lotte/post/logen) 조회 URL 매핑 전부 커버(누락=drift). 계획서 `.omc/plans/toss-payment-parallel-worktree.md` U10 brief 참조(ConfirmedOrderSummary 반환 계약 주의).
-0-2. **결제 후속(계획서 이월)**: 가상계좌(웹훅 eventType 확장) / dead-letter admin 가시화·알림 / 결제 상태기계 mock 테스트 스위트 / checkout 품절 UX 세분화. 계획서 `.omc/plans/toss-webhook-wave.md`.
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (2026-07-13 寃곗젣 留덇컧 湲곗?)
+0. **狩?寃곗젣 ?ㅺ???*: ??Vercel env 3醫?TOSS_SECRET_KEY/NEXT_PUBLIC_TOSS_CLIENT_KEY/CRON_SECRET) ?깅줉 ??Pro ?뚮옖(遺꾨떒???щ줎) ?뺤씤 ???꾨━酉?怨⑤뱺#2 ?꾩젽 E2E ?ㅼ륫(?뚯뒪?몄뭅??寃곗젣?믪듅?멤넂?꾨즺). ?좎뒪 ?꾩옄寃곗젣 怨꾩빟 ?뱀씤 ?? ?뱁썒 URL ?ㅻ벑濡?PAYMENT_STATUS_CHANGED ???쒕챸? ???대깽?몄뿉 誘몄젣怨? ?ъ“?뚭? 沅뚯쐞) + Vercel WAF 猷??뱁썒 寃쎈줈) + ?쇱씠釉???援먯껜.
+0-1. **dad U10 ?붿뿬**: mypage 二쇰Ц?댁뿭 諛곗넚議고쉶 留곹겕 ??carrier 5醫?cj/hanjin/lotte/post/logen) 議고쉶 URL 留ㅽ븨 ?꾨? 而ㅻ쾭(?꾨씫=drift). 怨꾪쉷??`.omc/plans/toss-payment-parallel-worktree.md` U10 brief 李몄“(ConfirmedOrderSummary 諛섑솚 怨꾩빟 二쇱쓽).
+0-2. **寃곗젣 ?꾩냽(怨꾪쉷???댁썡)**: 媛?곴퀎醫??뱁썒 eventType ?뺤옣) / dead-letter admin 媛?쒗솕쨌?뚮┝ / 寃곗젣 ?곹깭湲곌퀎 mock ?뚯뒪???ㅼ쐞??/ checkout ?덉젅 UX ?몃텇?? 怨꾪쉷??`.omc/plans/toss-webhook-wave.md`.
 
-(이하 #24 마감분 이월)
-1. **리뷰·문의 데이터 DB 전환(be/*)** — 현재 localStorage 목(키 `baekjo_product_reviews`/`_inquiries`, 브라우저 로컬이라 타인/관리자에게 안 보임). 테이블+마이그레이션 신설, **서버측 권한 강제**(answerProductInquiry/setProductReviewStatus — opus MEDIUM), **async-ready 계약 합의 후 전환**(§4-5: 동기 목→async로 바뀌면 호출부 전체 영향), isSecret 제목 노출 여부 결정.
-2. **dad 확인 2건** — mypage 이메일 인증 배너·비밀번호 변경 섹션(mim 가산) 화면 승인. 크로스체킹 뷰어 공유.
-3. **BrandProductsClient 상품 CRUD 실배선** — 사용자 확인(2026-07-12): 추후 업체 관리자용 미리 올려둔 UI가 맞음 → RBAC 확장 때 partner 전용 상품 인가 엔드포인트(admin/inquiries TODO 포함)와 함께.
-4. **mypage 도메인 갭(2026-07-13 점검에서 발굴, 결정 필요)**: ① 게스트 주문 조회 수단 없음(주문번호+연락처 조회) ② 배송지/주소록 관리 없음 ③ 회원 탈퇴 없음(개인정보보호 — 런칭 전 필수급) ④ 위시리스트 localStorage 전용(DB 미영속).
-5. (이월) checkout 품절 UX(out-of-stock 구분 문구, dad behavior 레인) / 옵션 단위 재고 결정 / 주문+차감 단일 트랜잭션화 / purchase·admin.spec 스텁 / 임시 스모크 스펙 2개 삭제 / 런칭 전 admin 비밀번호 교체+리포 공개범위.
+(?댄븯 #24 留덇컧遺??댁썡)
+1. **由щ럭쨌臾몄쓽 ?곗씠??DB ?꾪솚(be/*)** ???꾩옱 localStorage 紐???`baekjo_product_reviews`/`_inquiries`, 釉뚮씪?곗? 濡쒖뺄?대씪 ???愿由ъ옄?먭쾶 ??蹂댁엫). ?뚯씠釉?留덉씠洹몃젅?댁뀡 ?좎꽕, **?쒕쾭痢?沅뚰븳 媛뺤젣**(answerProductInquiry/setProductReviewStatus ??opus MEDIUM), **async-ready 怨꾩빟 ?⑹쓽 ???꾪솚**(짠4-5: ?숆린 紐⒱넂async濡?諛붾뚮㈃ ?몄텧遺 ?꾩껜 ?곹뼢), isSecret ?쒕ぉ ?몄텧 ?щ? 寃곗젙.
+2. **dad ?뺤씤 2嫄?* ??mypage ?대찓???몄쬆 諛곕꼫쨌鍮꾨?踰덊샇 蹂寃??뱀뀡(mim 媛?? ?붾㈃ ?뱀씤. ?щ줈?ㅼ껜??酉곗뼱 怨듭쑀.
+3. **BrandProductsClient ?곹뭹 CRUD ?ㅻ같??* ???ъ슜???뺤씤(2026-07-12): 異뷀썑 ?낆껜 愿由ъ옄??誘몃━ ?щ젮??UI媛 留욎쓬 ??RBAC ?뺤옣 ??partner ?꾩슜 ?곹뭹 ?멸? ?붾뱶?ъ씤??admin/inquiries TODO ?ы븿)? ?④퍡.
+4. **mypage ?꾨찓??媛?2026-07-13 ?먭??먯꽌 諛쒓뎬, 寃곗젙 ?꾩슂)**: ??寃뚯뒪??二쇰Ц 議고쉶 ?섎떒 ?놁쓬(二쇰Ц踰덊샇+?곕씫泥?議고쉶) ??諛곗넚吏/二쇱냼濡?愿由??놁쓬 ???뚯썝 ?덊눜 ?놁쓬(媛쒖씤?뺣낫蹂댄샇 ???곗묶 ???꾩닔湲? ???꾩떆由ъ뒪??localStorage ?꾩슜(DB 誘몄쁺??.
+5. (?댁썡) checkout ?덉젅 UX(out-of-stock 援щ텇 臾멸뎄, dad behavior ?덉씤) / ?듭뀡 ?⑥쐞 ?ш퀬 寃곗젙 / 二쇰Ц+李④컧 ?⑥씪 ?몃옖??뀡??/ purchase쨌admin.spec ?ㅽ뀅 / ?꾩떆 ?ㅻえ???ㅽ럺 2媛???젣 / ?곗묶 ??admin 鍮꾨?踰덊샇 援먯껜+由ы룷 怨듦컻踰붿쐞.
 
-## (이전) 다음 단계 (2026-07-12 2차 마감 기준)
-0. **⭐ dad 미통합 커밋 2개 통합(최우선)** — `dad-origin/feature/remove-audit-badges`의 `8d7f880`(A등급 필터 제거)·`1ce3b19`(리뷰·QnA·마이페이지 통합, 28파일 +3,577줄). ⚠️ **계약 파일 포함**(`types/index.ts` +79 / `storage.ts` +201 / `adapters.ts` 신설) — dad 브랜치는 DB 통합 이전 기반이라 storage 추가분은 목 방식일 가능성 높음. 통합 방식: **dad 마크업·섹션 배치 = 정본**(§8-1 표현 범위 확정 반영), 데이터 배선만 DB 콘센트로 재작업. 계약 변경은 §0-2 ② contract 레인으로 mim 확정. 신규 표면(리뷰·QnA)은 테이블/마이그레이션 신설 필요. 통합 후 visual 빨간불 → diff 확인 → `update-baselines` 라벨로 기준 갱신.
-1. **checkout 품절 UX** — `src/app/checkout/page.tsx:122` catch가 모든 에러를 일반 alert 처리. `storage.createOrder`가 이제 409→`Error('out-of-stock')`을 던지므로 품절 구분 문구 노출(dad behavior 레인, `fe/behavior-*`).
-2. **옵션 단위 재고 결정** — 0021은 `products.stock`(총재고)만 차감. `ProductOption.stock`은 미검사·미차감(기존 잠복 갭). 옵션 재고를 실 판매 단위로 쓸지 사용자/기획 결정 후 별도 rpc 확장.
-3. **주문+차감 단일 트랜잭션화(선택)** — 현 구조는 INSERT→RPC→실패 시 보상 DELETE(비원자, 크래시 창에서 유령 미결제 주문 가능·재고는 안전 방향). 견고화하려면 insert+decrement를 하나의 plpgsql 함수로. 결제 취소/타임아웃 시 재고 복원 경로도 이때 함께.
-4. purchase/admin.spec `test.fixme` 스텁 실구현. `tests/golden/__smoke-*-temp.spec.ts` 2개 삭제(세션 권한으로 삭제 불가였음 — 사용자가 직접 삭제 필요).
-5. **런칭 전 필수**: admin 비밀번호(prod·stag) 교체 + 리포 public 여부 결정 — SESSION.md·docs에 평문 자격증명 이력 있음(2026-07-12 사용자 결정: 런칭 전이라 보류).
-6. 인증 클러스터 재스타일(`#E9E7E0`·signup aside 삭제 등) dad 확인 / admin brands 상품설정 데드 버튼 / admin members 집계 3컬럼(이전 마감분 이월).
-7. (선택) Vercel Deployment Protection 재활성화 시 `VERCEL_AUTOMATION_BYPASS` secret 등록 — visual·update-baselines 워크플로는 이미 대응돼 있음.
-8. (선택) opus M5: visual.spec에 shop/brand-detail 콘텐츠 마스크 추가 — 재시드 잦아지면.
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (2026-07-12 2李?留덇컧 湲곗?)
+0. **狩?dad 誘명넻??而ㅻ컠 2媛??듯빀(理쒖슦??** ??`dad-origin/feature/remove-audit-badges`??`8d7f880`(A?깃툒 ?꾪꽣 ?쒓굅)쨌`1ce3b19`(由щ럭쨌QnA쨌留덉씠?섏씠吏 ?듯빀, 28?뚯씪 +3,577以?. ?좑툘 **怨꾩빟 ?뚯씪 ?ы븿**(`types/index.ts` +79 / `storage.ts` +201 / `adapters.ts` ?좎꽕) ??dad 釉뚮옖移섎뒗 DB ?듯빀 ?댁쟾 湲곕컲?대씪 storage 異붽?遺꾩? 紐?諛⑹떇??媛?μ꽦 ?믪쓬. ?듯빀 諛⑹떇: **dad 留덊겕?끒룹꽮??諛곗튂 = ?뺣낯**(짠8-1 ?쒗쁽 踰붿쐞 ?뺤젙 諛섏쁺), ?곗씠??諛곗꽑留?DB 肄섏꽱?몃줈 ?ъ옉?? 怨꾩빟 蹂寃쎌? 짠0-2 ??contract ?덉씤?쇰줈 mim ?뺤젙. ?좉퇋 ?쒕㈃(由щ럭쨌QnA)? ?뚯씠釉?留덉씠洹몃젅?댁뀡 ?좎꽕 ?꾩슂. ?듯빀 ??visual 鍮④컙遺???diff ?뺤씤 ??`update-baselines` ?쇰꺼濡?湲곗? 媛깆떊.
+1. **checkout ?덉젅 UX** ??`src/app/checkout/page.tsx:122` catch媛 紐⑤뱺 ?먮윭瑜??쇰컲 alert 泥섎━. `storage.createOrder`媛 ?댁젣 409??Error('out-of-stock')`???섏?誘濡??덉젅 援щ텇 臾멸뎄 ?몄텧(dad behavior ?덉씤, `fe/behavior-*`).
+2. **?듭뀡 ?⑥쐞 ?ш퀬 寃곗젙** ??0021? `products.stock`(珥앹옱怨?留?李④컧. `ProductOption.stock`? 誘멸???룸?李④컧(湲곗〈 ?좊났 媛?. ?듭뀡 ?ш퀬瑜????먮ℓ ?⑥쐞濡??몄? ?ъ슜??湲고쉷 寃곗젙 ??蹂꾨룄 rpc ?뺤옣.
+3. **二쇰Ц+李④컧 ?⑥씪 ?몃옖??뀡???좏깮)** ????援ъ“??INSERT?뭃PC?믪떎????蹂댁긽 DELETE(鍮꾩썝?? ?щ옒??李쎌뿉???좊졊 誘멸껐??二쇰Ц 媛?Β룹옱怨좊뒗 ?덉쟾 諛⑺뼢). 寃ш퀬?뷀븯?ㅻ㈃ insert+decrement瑜??섎굹??plpgsql ?⑥닔濡? 寃곗젣 痍⑥냼/??꾩븘?????ш퀬 蹂듭썝 寃쎈줈???대븣 ?④퍡.
+4. purchase/admin.spec `test.fixme` ?ㅽ뀅 ?ㅺ뎄?? `tests/golden/__smoke-*-temp.spec.ts` 2媛???젣(?몄뀡 沅뚰븳?쇰줈 ??젣 遺덇???????ъ슜?먭? 吏곸젒 ??젣 ?꾩슂).
+5. **?곗묶 ???꾩닔**: admin 鍮꾨?踰덊샇(prod쨌stag) 援먯껜 + 由ы룷 public ?щ? 寃곗젙 ??SESSION.md쨌docs???됰Ц ?먭꺽利앸챸 ?대젰 ?덉쓬(2026-07-12 ?ъ슜??寃곗젙: ?곗묶 ?꾩씠??蹂대쪟).
+6. ?몄쬆 ?대윭?ㅽ꽣 ?ъ뒪???`#E9E7E0`쨌signup aside ??젣 ?? dad ?뺤씤 / admin brands ?곹뭹?ㅼ젙 ?곕뱶 踰꾪듉 / admin members 吏묎퀎 3而щ읆(?댁쟾 留덇컧遺??댁썡).
+7. (?좏깮) Vercel Deployment Protection ?ы솢?깊솕 ??`VERCEL_AUTOMATION_BYPASS` secret ?깅줉 ??visual쨌update-baselines ?뚰겕?뚮줈???대? ??묐뤌 ?덉쓬.
+8. (?좏깮) opus M5: visual.spec??shop/brand-detail 肄섑뀗痢?留덉뒪??異붽? ???ъ떆????븘吏硫?
 
-## (이전) 다음 단계 (mim 액션 / 남은 것)
--1. **프리뷰 스모크 잔여분**: ① ~~구매 완결 여정(#2)~~ **완주 PASS**(2026-07-12 — admin에서 p15 재고 25 입력·API 재검증 → 상세→장바구니→체크아웃→/order-complete). ② ~~#7 admin 자격증명~~ 해소. ③ `tests/golden/shop.spec.ts:20` 스펙 노후 — dad 리디자인이 카테고리를 라이프스타일 라벨('식사와 영양' 등)로 매핑해 '사료' 링크가 화면에 없음. **테스트 수정 = 결정 이벤트(사용자 확인 필요)**: 스펙을 새 라벨로 갱신할지 결정. ④ purchase/admin.spec은 `test.fixme` 스텁 — 실 구현 필요. ⑤ `tests/golden/__smoke-pdp-temp.spec.ts` 빈 껍데기 삭제(권한 정책으로 세션 내 삭제 불가였음).
--0.5. **미결 후속(이번 리뷰에서 비차단 판정)**: ⓪ **주문이 재고를 차감하지 않음**(구매 후 p15 stock 25 그대로 — createOrder에 차감 로직 없음, 설계 결정 필요: 차감 시점·동시성) ⓪-2 재고 저장 직후 수 초간 상세가 구값(품절) 렌더되는 순간 관찰(force-dynamic인데도 — repo/엣지 캐시 반영 지연 추정, 재현 불명확·비차단) ① 옵션 재고 미게이트(상품 stock만 보고 ProductOption.stock 무시 — Opus MEDIUM, 기존 잠복 갭. 스모크에서도 옵션 재고 전부 0인데 구매 진행됨 확인) ② admin brands 상품설정 버튼 onClick 소실(데드 버튼) ③ admin members 집계 3컬럼 축소 사용자 확인 ④ 인증 클러스터 재스타일·`#E9E7E0`·signup aside 삭제·업체폼 임시저장 소실 — dad 확인 필요(드리프트 조사 심각 1건).
-0. **[새 세션 예약] 드리프트 사전 차단 게이트 구축** — 브랜치 `chore/visual-regression-gate`(목적 1개), 산출물 2개:
-   - **`.github/CODEOWNERS`**: `src/components/**` + `src/app/**/*Client.tsx` + `src/app/globals.css` → dad 리뷰 필수. (2인 팀 + enforce_admins ON이라 dad 부재 시 머지 블록 감수 — 사용자 인지됨)
-   - **`tests/golden/visual.spec.ts`**: Playwright `toHaveScreenshot`, 골든플로우 7경로 × 데스크톱/모바일 = 14장 제한, `maxDiffPixelRatio: 0.01`, 동적 영역(가격·상품수) mask.
-   - ⚠️ **함정 1**: 베이스라인은 반드시 CI(Linux)에서 생성 — 로컬 Windows 스냅샷은 폰트 렌더 차이로 전부 오탐. `--update-snapshots`를 CI에서 돌려 커밋하는 갱신 워크플로 동반 필요(반나절 견적의 실체).
-   - ⚠️ **함정 2**: DB=진실 소스라 mim 재시드(썸네일 교체 등)도 빨간불 → "콘텐츠 변경 PR은 베이스라인 갱신을 같은 PR에 포함" 규칙을 AGENTS.md §8-1 병합 프로토콜에 함께 추가.
-   - **병합 프로토콜 한 줄 추가(§8-1)**: "표현 파일(*Client.tsx, components/**) 충돌은 dad-side 채택 + 데이터 배선(import·props)만 재적용, 병합 커밋에 '충돌 N개 전부 dad-side' 명기" (b7e895e 검증 패턴의 규칙화).
-   - 배경: 2026-07-12 병렬 드리프트 조사(아래 결정 기록)에서 발견된 유실이 이 게이트였으면 CI에서 몇 분 만에 걸렸음. behavior 리그레션(데드 버튼·alert 등)은 시각 회귀 밖 → 기존 골든플로우 행위 스모크 유지.
-1. ~~GitHub branch protection~~ ✅ **완료(2026-07-12)**: `main`에 PR 필수 + CI(`verify`) required + 리뷰 1 + force-push/삭제 금지. `enforce_admins=false`(mim=admin은 우회 가능 — 엄격 강제 원하면 `gh api`로 true). `integrate/**`는 현재 직접 push 워크플로우라 미보호.
-2. **Vercel Deployment Protection** — 현재 검증 위해 **꺼둔 상태**. CI 자동 Playwright 원하면 "Protection Bypass for Automation" secret 발급→`.env.local`/GitHub Secret. 아니면 재활성화.
-3. **eslint `.claude/**` ignore 추가** — 로컬 `npm run lint` 3523 errors는 전부 `.claude/worktrees/*/.next` 번들 노이즈(CI 미포함). eslint.config.mjs 수정은 `config-protection` 훅이 막음 → 사용자 직접/훅 우회 필요.
-4. **AGENTS.md §4-6 no-restricted-imports 실제 규칙** 추가(문서엔 스니펫 有, eslint.config는 config-protection 훅으로 미반영).
+## (?댁쟾) ?ㅼ쓬 ?④퀎 (mim ?≪뀡 / ?⑥? 寃?
+-1. **?꾨━酉??ㅻえ???붿뿬遺?*: ??~~援щℓ ?꾧껐 ?ъ젙(#2)~~ **?꾩＜ PASS**(2026-07-12 ??admin?먯꽌 p15 ?ш퀬 25 ?낅젰쨌API ?ш?利????곸꽭?믪옣諛붽뎄?댿넂泥댄겕?꾩썐??order-complete). ??~~#7 admin ?먭꺽利앸챸~~ ?댁냼. ??`tests/golden/shop.spec.ts:20` ?ㅽ럺 ?명썑 ??dad 由щ뵒?먯씤??移댄뀒怨좊━瑜??쇱씠?꾩뒪????쇰꺼('?앹궗? ?곸뼇' ??濡?留ㅽ븨??'?щ즺' 留곹겕媛 ?붾㈃???놁쓬. **?뚯뒪???섏젙 = 寃곗젙 ?대깽???ъ슜???뺤씤 ?꾩슂)**: ?ㅽ럺?????쇰꺼濡?媛깆떊?좎? 寃곗젙. ??purchase/admin.spec? `test.fixme` ?ㅽ뀅 ????援ы쁽 ?꾩슂. ??`tests/golden/__smoke-pdp-temp.spec.ts` 鍮?猿띾뜲湲???젣(沅뚰븳 ?뺤콉?쇰줈 ?몄뀡 ????젣 遺덇????.
+-0.5. **誘멸껐 ?꾩냽(?대쾲 由щ럭?먯꽌 鍮꾩감???먯젙)**: ??**二쇰Ц???ш퀬瑜?李④컧?섏? ?딆쓬**(援щℓ ??p15 stock 25 洹몃?濡???createOrder??李④컧 濡쒖쭅 ?놁쓬, ?ㅺ퀎 寃곗젙 ?꾩슂: 李④컧 ?쒖젏쨌?숈떆?? ??2 ?ш퀬 ???吏곹썑 ??珥덇컙 ?곸꽭媛 援ш컪(?덉젅) ?뚮뜑?섎뒗 ?쒓컙 愿李?force-dynamic?몃뜲????repo/?ｌ? 罹먯떆 諛섏쁺 吏??異붿젙, ?ы쁽 遺덈챸?빧룸퉬李⑤떒) ???듭뀡 ?ш퀬 誘멸쾶?댄듃(?곹뭹 stock留?蹂닿퀬 ProductOption.stock 臾댁떆 ??Opus MEDIUM, 湲곗〈 ?좊났 媛? ?ㅻえ?ъ뿉?쒕룄 ?듭뀡 ?ш퀬 ?꾨? 0?몃뜲 援щℓ 吏꾪뻾???뺤씤) ??admin brands ?곹뭹?ㅼ젙 踰꾪듉 onClick ?뚯떎(?곕뱶 踰꾪듉) ??admin members 吏묎퀎 3而щ읆 異뺤냼 ?ъ슜???뺤씤 ???몄쬆 ?대윭?ㅽ꽣 ?ъ뒪??셋?#E9E7E0`쨌signup aside ??젣쨌?낆껜???꾩떆????뚯떎 ??dad ?뺤씤 ?꾩슂(?쒕━?꾪듃 議곗궗 ?ш컖 1嫄?.
+0. **[???몄뀡 ?덉빟] ?쒕━?꾪듃 ?ъ쟾 李⑤떒 寃뚯씠??援ъ텞** ??釉뚮옖移?`chore/visual-regression-gate`(紐⑹쟻 1媛?, ?곗텧臾?2媛?
+   - **`.github/CODEOWNERS`**: `src/components/**` + `src/app/**/*Client.tsx` + `src/app/globals.css` ??dad 由щ럭 ?꾩닔. (2??? + enforce_admins ON?대씪 dad 遺????癒몄? 釉붾줉 媛먯닔 ???ъ슜???몄???
+   - **`tests/golden/visual.spec.ts`**: Playwright `toHaveScreenshot`, 怨⑤뱺?뚮줈??7寃쎈줈 횞 ?곗뒪?ы넲/紐⑤컮??= 14???쒗븳, `maxDiffPixelRatio: 0.01`, ?숈쟻 ?곸뿭(媛寃㈑룹긽?덉닔) mask.
+   - ?좑툘 **?⑥젙 1**: 踰좎씠?ㅻ씪?몄? 諛섎뱶??CI(Linux)?먯꽌 ?앹꽦 ??濡쒖뺄 Windows ?ㅻ깄?룹? ?고듃 ?뚮뜑 李⑥씠濡??꾨? ?ㅽ깘. `--update-snapshots`瑜?CI?먯꽌 ?뚮젮 而ㅻ컠?섎뒗 媛깆떊 ?뚰겕?뚮줈 ?숇컲 ?꾩슂(諛섎굹??寃ъ쟻???ㅼ껜).
+   - ?좑툘 **?⑥젙 2**: DB=吏꾩떎 ?뚯뒪??mim ?ъ떆???몃꽕??援먯껜 ????鍮④컙遺???"肄섑뀗痢?蹂寃?PR? 踰좎씠?ㅻ씪??媛깆떊??媛숈? PR???ы븿" 洹쒖튃??AGENTS.md 짠8-1 蹂묓빀 ?꾨줈?좎퐳???④퍡 異붽?.
+   - **蹂묓빀 ?꾨줈?좎퐳 ??以?異붽?(짠8-1)**: "?쒗쁽 ?뚯씪(*Client.tsx, components/**) 異⑸룎? dad-side 梨꾪깮 + ?곗씠??諛곗꽑(import쨌props)留??ъ쟻?? 蹂묓빀 而ㅻ컠??'異⑸룎 N媛??꾨? dad-side' 紐낃린" (b7e895e 寃利??⑦꽩??洹쒖튃??.
+   - 諛곌꼍: 2026-07-12 蹂묐젹 ?쒕━?꾪듃 議곗궗(?꾨옒 寃곗젙 湲곕줉)?먯꽌 諛쒓껄???좎떎????寃뚯씠?몄??쇰㈃ CI?먯꽌 紐?遺?留뚯뿉 嫄몃졇?? behavior 由ш렇?덉뀡(?곕뱶 踰꾪듉쨌alert ??? ?쒓컖 ?뚭? 諛???湲곗〈 怨⑤뱺?뚮줈???됱쐞 ?ㅻえ???좎?.
+1. ~~GitHub branch protection~~ ??**?꾨즺(2026-07-12)**: `main`??PR ?꾩닔 + CI(`verify`) required + 由щ럭 1 + force-push/??젣 湲덉?. `enforce_admins=false`(mim=admin? ?고쉶 媛?????꾧꺽 媛뺤젣 ?먰븯硫?`gh api`濡?true). `integrate/**`???꾩옱 吏곸젒 push ?뚰겕?뚮줈?곕씪 誘몃낫??
+2. **Vercel Deployment Protection** ???꾩옱 寃利??꾪빐 **爰쇰몦 ?곹깭**. CI ?먮룞 Playwright ?먰븯硫?"Protection Bypass for Automation" secret 諛쒓툒??.env.local`/GitHub Secret. ?꾨땲硫??ы솢?깊솕.
+3. **eslint `.claude/**` ignore 異붽?** ??濡쒖뺄 `npm run lint` 3523 errors???꾨? `.claude/worktrees/*/.next` 踰덈뱾 ?몄씠利?CI 誘명룷??. eslint.config.mjs ?섏젙? `config-protection` ?낆씠 留됱쓬 ???ъ슜??吏곸젒/???고쉶 ?꾩슂.
+4. **AGENTS.md 짠4-6 no-restricted-imports ?ㅼ젣 洹쒖튃** 異붽?(臾몄꽌???ㅻ땲???? eslint.config??config-protection ?낆쑝濡?誘몃컲??.
 
-## 결정 기록 (추가만)
-- 2026-07-14 **재고 기능은 빼지 않는다(사용자 판단 요청 → 진단 후 결정)**. "재고 빼버릴까?"에 대해 **진단부터** 수행: 경쟁 가설 4개(마이그레이션 누락 / 함수 본문 덮어쓰기 / items JSON 키 불일치 / `already-settled` no-op) 중 앞 3개를 증거로 기각(staging은 0030까지 적용됨 · 배포 함수 본문이 정본과 일치 · 양쪽 다 `productId`)하고 **4번째를 재현으로 채택**. 결론: 재고 기능은 멀쩡했고 **상태 어휘 불일치(`입금대기` vs `결제대기`)** 였음. 테스트가 빨갛다고 기능을 빼는 것은 테스트에 코드를 맞추는 것 → **고치는 쪽 채택**(PR #45).
-- 2026-07-14 **테스트 전제 정정은 코드 수정 이후에만**. `payment-routes.spec.ts:154`의 `'결제대기'` 전제를 `'입금대기'`로 바꾼 것은 "코드를 테스트에 맞춘 것"이 아니라, 코드(0031·관리자 배선)를 먼저 고친 뒤 **스펙의 잘못된 전제를 실계약에 맞춘 것**. 순서가 정당성의 근거다.
-- 2026-07-14 **dad 이식 시 "표현"의 경계 재확인(§8-1 적용 실적)**: 마크업·className·레이아웃·문구 = dad 정본(무변경, diff 0건). **타입 안정성·훅 정합성·인가·데이터 배선 = mim 레인**. 이 경계로 dad 원본의 lint error 51건을 마크업 손대지 않고 해소했고, 그 과정에서 **실버그 1건 발견**: 목록 화면에서 필터를 바꾸면 `setCurrentPage(1)`이 한 프레임 늦어 "결과 없음"이 번쩍인 뒤 1페이지가 뜸 → effect 삭제하고 필터 핸들러에서 같은 렌더에 리셋.
-- 2026-07-14 **`queueMicrotask`로 lint를 침묵시키는 것은 수정이 아니다**(서브에이전트 1차 산출물 반려). `react-hooks/set-state-in-effect`를 마이크로태스크로 감싸면 규칙만 통과하고 결함(늦은 페이지 리셋·언마운트 후 setState)은 남는다 → 정공법으로 재작업(기존 `useMounted()` 재사용 / effect 안 async IIFE / 핸들러에서 페이지 리셋 / `key`로 리마운트).
-- 2026-07-14 **dad 원본을 그대로 신뢰하지 않는다 — 보안은 우리 컨벤션을 강제**. dad의 `/api/admin/upload`는 temp 경로의 `usage`를 미검증으로 경로에 삽입(버킷 내 경로 주입)하고 `file.type`(클라이언트 신고값)만 믿었다 → allowlist 강제 + **매직바이트 재판별** + `upsert:false`로 하드닝해서 이식. 기준은 레포에 이미 있던 `src/app/api/members/business/upload/route.ts`.
-- 2026-07-14 **"페이지가 살아 있어도 네비에서 빠지면 유실이다"**. dad 사이드바가 `concerns`·`inquiries`·`reviews`·`survey-results` 4개 메뉴를 떨어뜨려 화면에서 도달 불가 상태였음(특히 `inquiries`·`reviews`는 PR #20으로 출시한 기능). dad 패턴 그대로 복원 + 모바일 네비도 동일 집합으로 정합. 이식 시 **"파일 존재"가 아니라 "도달 가능"으로 유실을 판정**한다.
-- 2026-07-14 **스택 PR 함정(교훈)**: base 브랜치를 머지·삭제하면 그 위에 쌓인 PR이 **GitHub에 의해 자동 close 되고, 닫힌 PR은 base 변경이 불가능해 재오픈도 안 된다**(PR #44 → #46으로 재생성). 스택을 쓸 땐 **아래 PR을 머지하기 전에 위 PR의 base를 main으로 먼저 돌려놓을 것**.
-- 2026-07-14 **베이스라인 봇 커밋은 required check를 트리거하지 않는다(재확인)**. `update-baselines` 라벨 → CI가 스냅샷 재생성·봇 커밋 → 그 커밋에는 `verify`가 안 돌아 PR이 `BLOCKED`. **빈 커밋 push로 재실행**(main 기존 패턴). 추가로 **`visual`은 `deployment_status` 트리거라 Vercel 배포가 안 붙은 커밋에서는 아예 실행되지 않아** 체크 목록에서 통째로 비고 `UNKNOWN`이 된다 → 브랜치 최신화로 새 배포를 만들어 해소.
-- 2026-07-12 브랜드 정적↔DB drift 전수 대조·정정: `0014`(로고)·`0015`(b2·b5 philosophy/description)·`0016`(b2·b3·b5 auditPoints, b2 relatedConcernSlugs) → DB==정본 `src/data/brands.ts` 검증 완료. 정본=static, force-dynamic이라 프리뷰 즉시 반영.
-- 2026-07-12 **b4 캣코드 노출 = 숨김 확정**(사용자 결정): 정본 `isVisible:false`대로 `0017`이 DB `is_visible=false` 정정. 제품 미등록 미준비 브랜드라 `/brands` 목록에서 제외. DB 검증 완료(b4만 false).
-- 2026-07-12 로드맵(사용자 확인): 제품은 아직 미등록(의도). 공식 바로가기(`officialUrl`/`sourceUrls`)는 **나중에 노출 예정** → 그때 `repo.ts rowToBrand` unpack + DB 시드 함께. `auditGrade`는 DB만 有·뱃지 UI 제거(b99d770)로 화면 무영향(방치).
-- 2026-07-12 브랜드 상세 섹션별 텍스트 대조: (a) **감사 리포트 섹션은 정본상 b1만 존재 → b2~b5 '확인 중' 플레이스홀더 유지**(의도된 설계, 사용자 결정). (b) **고민 태그 갭 해소**: 브랜드가 참조하나 concerns.ts에 없던 `nutrition·oral·grooming·living` 4종을 `src/data/concerns.ts`에 추가(커밋 aee80ae) → 이제 모든 브랜드 relatedConcernSlugs 매칭·칩 렌더·`/concerns/[slug]` 페이지 생성. 빌드·타입·린트 green.
-- 2026-07-12 **디자인 드리프트 발견·정정(브랜드 상세)**: 통합 커밋 `b85e723`(dad remove-audit-badges 통합) 때 `src/app/brands/[id]/page.tsx`가 병합 충돌에서 백엔드(옛 디자인)버전으로 채택돼 dad 새 디자인(`SectionHeading`·`BrandLogo`·"먼저 만나볼 상품" 카피, 새 히어로)이 유실됨. → dad `origin/feature/remove-audit-badges` 마크업을 정본으로 포팅하고 데이터 소스만 DB(`getBrandById`·`listProductsByBrand`·force-dynamic)로 재배선(커밋 b7e895e). 빌드·타입·린트 green. **주의: 같은 병합 유실이 다른 page.tsx(shop/home/concerns 등)에도 있을 수 있음 — 추가 크로스체크 대기.**
-- 2026-07-12 **디자인 드리프트 전수 크로스체크(dad `remove-audit-badges` 기준)**: 공개 골든플로우 5곳 중 **4곳 심각 드리프트**(통합 시 dad 리디자인 유실, 옛 디자인+DB배선으로 회귀). 병렬 executor로 dad 디자인 포팅+DB배선 유지하여 복원, 통합 빌드 green·§4(@/data 직접 import 없음) 확인. 커밋 `59d55dc`(4파일). 진단 결과 페이지는 NO DRIFT.
-  - 복원: `src/components/brands/BrandsContent.tsx`(brand-intro·audit-index·필터remap·페이지네이션), `src/app/concerns/[slug]/page.tsx`(PageIntro/SectionHeading·concernHeroCopy·다크 보험밴드·FAQ아코디언·generateMetadata), `src/components/shop/ShopContent.tsx`(검색바·카테고리탭·에디터추천·모바일필터시트·페이지네이션), `src/app/shop/[id]/page.tsx`(5탭·story/details/standard·Audit Summary 제거).
-  - ⚠️ **미결(executor 스코프 이탈)**: `supabase/migrations/0018_reseed_brands_products.sql`(브랜드 b1~b9+상품 p1~p22 전체 재시드, b6~b9 신규 노출·officialUrl/sourceUrls 채움) + `.gitignore`(/백조오브제/ 6.9GB·cookies.txt 무시) 를 요청 안 했는데 생성 → **미커밋 보류, 사용자 결정 대기**.
-  - ✅ **ProductCard 유실도 복원**(커밋 `d923a2f`): 옛 audit 뱃지(`안전성 검증 완료`·`품질 오딧 통과`) 제거, dad 리디자인(variant `default`/`shop`·어스톤·토스트·판매준비 라벨) 포팅. **제약 준수**: §4(`@/data/brands` 미import·`BrandLogo` 대신 `brandName` 텍스트 — Product에 brand 로고 필드 없음, contract는 products 세션과 조율 후 별도), 가격 미정=`0원` 유지(사용자 이전 결정). ShopContent 양 그리드 `variant="shop"` 배선.
-  - ⚠️ **작업트리 공유 주의**: 같은 폴더(D:\Project\BAGJO1)를 **다른 세션이 상품 업로드에 쓰는 중** — `M src/data/products.ts` + `public/products/*.webp` 미커밋分이 내 git status에 섞여 보임. 내 커밋은 **항상 명시적 경로로만**(광범위 `git add -A` 금지). `0018_reseed_*.sql`은 그 세션 작업을 덮으므로 폐기 후보.
-- 2026-07-12 권한 로드맵: 현재 **회원 + 최고관리자** 2단계 → 추후 **입점 업체 관리자 / B2B 업체 관리자** 역할 추가 예정(RBAC 확장 대비).
-- 2026-07-12 서버 컴포넌트/page.tsx wrapper는 storage(클라 fetch 콘센트)가 아니라 `src/lib/*/repo.ts` **직접 호출**(자기 /api 왕복 방지). 홈이 첫 사례.
-- 2026-07-12 설정류(settings/category/survey/kits/partners/qna)는 **싱글턴 jsonb config**(`id='default'`, `value {items|...}`) 패턴. 관리자 화면은 **draft 배치 저장**(자동저장 금지 — CategorySettings hard-reload race 교훈).
-- 2026-07-12 API route의 `default*Config`는 **non-client 모듈**에 둔다. `'use client'` 모듈에서 서버가 import하면 client-reference proxy → `JSON.stringify` `{}` 버그(category-settings에서 실제 발생, Playwright 포착).
-- 2026-07-12 검증 게이트 3중(opus+codex+Playwright) AGENTS.md §8-6 명문화. codex는 `CODEX_HOME="C:\Users\PC_1M\.codex"` 인라인 필요(WSL 경로 오설정).
-- 2026-07-12 마이그레이션 CI 자동화 — `scripts/apply-migrations.mjs`(Supabase Management API, UA 필수/Cloudflare 1010, `public._migrations` 추적) + `ci.yml` migrate job(push 한정). GitHub Secret `SUPABASE_URL`/`SUPABASE_ACCESS_TOKEN` 등록됨.
-- 2026-07-12 **병렬 드리프트 조사 종합(7영역, `b99d770`=dad remove-audit-badges tip ↔ HEAD=integrate)**. 배지 브랜치는 integrate의 조상(고유 커밋 0, integrate +65커밋). 영역별 판정:
-  - **유실 없음(4영역)**: ①홈(`page.tsx`+`HomeClient` 분리, 마크업 바이트 동일)·Header·BrandShowroomCard ②브랜드(`BrandsContent` 축자 추출, 배지 UI 재도입 없음 — grep 0건, auditReport는 dad 설계 슬롯에 데이터만 채움) ③진단/보험/콘텐츠 8파일(§4 콘센트 교체만, survey 문항 5개 바이트 동일) ④관리자 15파일(팔레트·테이블·모달 보존, 모바일 드로어 등 가산).
-  - **⚠️ 심각 1 — `src/components/shop/ProductDetailClient.tsx` 디자인 유실(C)**: 백엔드 커밋 `d572653`이 dad 상세 패널을 덮어씀. (a) `product.image/images/detailBlocks` 참조 0건 → 메인 갤러리가 실사진 대신 "BAEKJO CURATION" 플레이스홀더 (b) **Audit 배지 재도입**(`bg-[#1D3E2F]` "Audit 통과"·"유해 성분 0%") — dad 제거 방향과 상충 (c) §6 원색 위반(`text-red-600`, `border-red-500`, slate 계열) (d) `btn-primary/btn-secondary` 토큰 폐기 (e) `<ProductPurchaseInfo />` 섹션 삭제(컴포넌트 잔존·미사용) (f) aria-live 토스트→`alert()`, 재고 게이트(`isSellable`) 소실. **복구는 dad 레인(fe/design-*)에서**: `git show b99d770:...ProductDetailClient.tsx` 마크업 정본 + `product.brandName`/`image·images` 콘센트 재배선.
-  - **⚠️ 심각 2 — 인증 클러스터(골든플로우 #6) 플랫 재스타일(B)+기능소실(C)**: mim 커밋들(`5d04bbf`·`ff85d06`·`0fb0ab5`·`8abb558`·`3136371`)이 표현까지 교체 — §3 경계 위반 소지. (a) **미승인 배경색 `#E9E7E0`**이 인증 5페이지에만 유입(§6 팔레트 외, mypage는 #F4F2EC 유지 → 같은 플로우 내 룩 불일치) (b) **signup 좌측 aside 통째 삭제**(BrandMark·"Join Baekjo Objet"·피처카드 3종) (c) **업체폼 3종(B2B/Insurance/Partner) 임시저장 버튼 소실** (d) 둥근모서리·앰버 액센트(#A8742E)→각진 단색(#2F3B34) 전면 교체. login만 커밋 `3136371` "dad 기획 방향"으로 합의 가능성 — 나머지는 dad 동의 증빙 없음, **dad 확인 필요**.
-  - **경미**: `src/app/shop/[id]/page.tsx:274` 연관상품 `<ProductCard variant="shop">`→variant 유실 / admin members 일반탭 컬럼 축소(반려동물·주문·보험 집계 3컬럼→가입경로 1컬럼, 새 API가 집계 미반환) / admin survey `문항 추가` 버튼 채움→아웃라인 강등 / **admin brands 상품설정 버튼 onClick 소실(데드 버튼, behavior 리그레션)**.
-  - **오탐 정리(이미 결정된 사항, 드리프트 아님)**: ProductCard 로고→`brandName` 텍스트 = `d923a2f` 기록된 §4 제약(Product에 brand 로고 필드 없음, contract 별도 조율) / 무가격 "0원" = 데이터오너십 표 명문화 결정 / detailBlocks 렌더+단일이미지 폴백 = 계약 가산 정상.
-  - **[정정 2026-07-12] ProductDetailClient "심각 유실(C)" 판정 하향**: 상품 상세 구매 패널 **구조는 사용자 결정**(플랫 카드형·rounded-[16px] 버튼 등) → 구조·스타일 교체는 드리프트 아님. 잔여 확인 포인트로 좁힘: ① 상단 갤러리 `product.image/images` 미배선(placeholder 렌더, 75~82행 — 실사진 시드와 불일치, 의도 여부 확인) ② Audit 배지(98~101행) 상세 한정 유지 여부 ③ red/slate 색이 결정 스타일이면 **AGENTS.md §6 팔레트 갱신 필요**(리뷰 오탐 방지) ④ ProductPurchaseInfo 미사용 정리 ⑤ 재고 게이트 `isSellable`→`hasPrice` 완화(재고 0에도 구매 활성) — behavior 확인.
-  - **커머스(cart·checkout·order-complete) = 유실 없음(A, main 직접 대조 — 에이전트 무응답으로 diff 직접 검독)**: cart/checkout은 `@/data/products`→`getPublicProducts()` 마운트 로드+로컬 조인, checkout `addOrder`(mock)→`createOrder`(서버가 가격 재계산·상태 결정, 콘센트 축소), order-complete `getLastOrder()` async화. 마크업·팔레트 무변경. 표현 가산 1건뿐: 결제 버튼 submitting 상태(`disabled` + "주문 처리 중…", #2F3B34 유지). 실패 시 `alert()` 사용은 shop 상세와 같은 계열의 경미한 UX 노트.
+## 寃곗젙 湲곕줉 (異붽?留?
+- 2026-07-14 **?ш퀬 湲곕뒫? 鍮쇱? ?딅뒗???ъ슜???먮떒 ?붿껌 ??吏꾨떒 ??寃곗젙)**. "?ш퀬 鍮쇰쾭由닿퉴?"?????**吏꾨떒遺??* ?섑뻾: 寃쎌웳 媛??4媛?留덉씠洹몃젅?댁뀡 ?꾨씫 / ?⑥닔 蹂몃Ц ??뼱?곌린 / items JSON ??遺덉씪移?/ `already-settled` no-op) 以???3媛쒕? 利앷굅濡?湲곌컖(staging? 0030源뚯? ?곸슜??쨌 諛고룷 ?⑥닔 蹂몃Ц???뺣낯怨??쇱튂 쨌 ?묒そ ??`productId`)?섍퀬 **4踰덉㎏瑜??ы쁽?쇰줈 梨꾪깮**. 寃곕줎: ?ш퀬 湲곕뒫? 硫姨≫뻽怨?**?곹깭 ?댄쐶 遺덉씪移?`?낃툑?湲? vs `寃곗젣?湲?)** ??? ?뚯뒪?멸? 鍮④컺?ㅺ퀬 湲곕뒫??鍮쇰뒗 寃껋? ?뚯뒪?몄뿉 肄붾뱶瑜?留욎텛??寃???**怨좎튂??履?梨꾪깮**(PR #45).
+- 2026-07-14 **?뚯뒪???꾩젣 ?뺤젙? 肄붾뱶 ?섏젙 ?댄썑?먮쭔**. `payment-routes.spec.ts:154`??`'寃곗젣?湲?` ?꾩젣瑜?`'?낃툑?湲?`濡?諛붽씔 寃껋? "肄붾뱶瑜??뚯뒪?몄뿉 留욎텣 寃????꾨땲?? 肄붾뱶(0031쨌愿由ъ옄 諛곗꽑)瑜?癒쇱? 怨좎튇 ??**?ㅽ럺???섎せ???꾩젣瑜??ㅺ퀎?쎌뿉 留욎텣 寃?*. ?쒖꽌媛 ?뺣떦?깆쓽 洹쇨굅??
+- 2026-07-14 **dad ?댁떇 ??"?쒗쁽"??寃쎄퀎 ?ы솗??짠8-1 ?곸슜 ?ㅼ쟻)**: 留덊겕?끒톍lassName쨌?덉씠?꾩썐쨌臾멸뎄 = dad ?뺣낯(臾대?寃? diff 0嫄?. **????덉젙?굿룻썒 ?뺥빀?굿룹씤媛쨌?곗씠??諛곗꽑 = mim ?덉씤**. ??寃쎄퀎濡?dad ?먮낯??lint error 51嫄댁쓣 留덊겕???먮?吏 ?딄퀬 ?댁냼?덇퀬, 洹?怨쇱젙?먯꽌 **?ㅻ쾭洹?1嫄?諛쒓껄**: 紐⑸줉 ?붾㈃?먯꽌 ?꾪꽣瑜?諛붽씀硫?`setCurrentPage(1)`?????꾨젅????뼱 "寃곌낵 ?놁쓬"??踰덉찉????1?섏씠吏媛 ????effect ??젣?섍퀬 ?꾪꽣 ?몃뱾?ъ뿉??媛숈? ?뚮뜑??由ъ뀑.
+- 2026-07-14 **`queueMicrotask`濡?lint瑜?移⑤У?쒗궎??寃껋? ?섏젙???꾨땲??*(?쒕툕?먯씠?꾪듃 1李??곗텧臾?諛섎젮). `react-hooks/set-state-in-effect`瑜?留덉씠?щ줈?쒖뒪?щ줈 媛먯떥硫?洹쒖튃留??듦낵?섍퀬 寃고븿(??? ?섏씠吏 由ъ뀑쨌?몃쭏?댄듃 ??setState)? ?⑤뒗?????뺢났踰뺤쑝濡??ъ옉??湲곗〈 `useMounted()` ?ъ궗??/ effect ??async IIFE / ?몃뱾?ъ뿉???섏씠吏 由ъ뀑 / `key`濡?由щ쭏?댄듃).
+- 2026-07-14 **dad ?먮낯??洹몃?濡??좊ː?섏? ?딅뒗????蹂댁븞? ?곕━ 而⑤깽?섏쓣 媛뺤젣**. dad??`/api/admin/upload`??temp 寃쎈줈??`usage`瑜?誘멸?利앹쑝濡?寃쎈줈???쎌엯(踰꾪궥 ??寃쎈줈 二쇱엯)?섍퀬 `file.type`(?대씪?댁뼵???좉퀬媛?留?誘우뿀????allowlist 媛뺤젣 + **留ㅼ쭅諛붿씠???ы뙋蹂?* + `upsert:false`濡??섎뱶?앺빐???댁떇. 湲곗?? ?덊룷???대? ?덈뜕 `src/app/api/members/business/upload/route.ts`.
+- 2026-07-14 **"?섏씠吏媛 ?댁븘 ?덉뼱???ㅻ퉬?먯꽌 鍮좎?硫??좎떎?대떎"**. dad ?ъ씠?쒕컮媛 `concerns`쨌`inquiries`쨌`reviews`쨌`survey-results` 4媛?硫붾돱瑜??⑥뼱?⑤젮 ?붾㈃?먯꽌 ?꾨떖 遺덇? ?곹깭????뱁엳 `inquiries`쨌`reviews`??PR #20?쇰줈 異쒖떆??湲곕뒫). dad ?⑦꽩 洹몃?濡?蹂듭썝 + 紐⑤컮???ㅻ퉬???숈씪 吏묓빀?쇰줈 ?뺥빀. ?댁떇 ??**"?뚯씪 議댁옱"媛 ?꾨땲??"?꾨떖 媛???쇰줈 ?좎떎???먯젙**?쒕떎.
+- 2026-07-14 **?ㅽ깮 PR ?⑥젙(援먰썕)**: base 釉뚮옖移섎? 癒몄?쨌??젣?섎㈃ 洹??꾩뿉 ?볦씤 PR??**GitHub???섑빐 ?먮룞 close ?섍퀬, ?ロ엺 PR? base 蹂寃쎌씠 遺덇??ν빐 ?ъ삤?덈룄 ???쒕떎**(PR #44 ??#46?쇰줈 ?ъ깮??. ?ㅽ깮??????**?꾨옒 PR??癒몄??섍린 ?꾩뿉 ??PR??base瑜?main?쇰줈 癒쇱? ?뚮젮?볦쓣 寃?*.
+- 2026-07-14 **踰좎씠?ㅻ씪??遊?而ㅻ컠? required check瑜??몃━嫄고븯吏 ?딅뒗???ы솗??**. `update-baselines` ?쇰꺼 ??CI媛 ?ㅻ깄???ъ깮?굿룸큸 而ㅻ컠 ??洹?而ㅻ컠?먮뒗 `verify`媛 ???뚯븘 PR??`BLOCKED`. **鍮?而ㅻ컠 push濡??ъ떎??*(main 湲곗〈 ?⑦꽩). 異붽?濡?**`visual`? `deployment_status` ?몃━嫄곕씪 Vercel 諛고룷媛 ??遺숈? 而ㅻ컠?먯꽌???꾩삁 ?ㅽ뻾?섏? ?딆븘** 泥댄겕 紐⑸줉?먯꽌 ?듭㎏濡?鍮꾧퀬 `UNKNOWN`???쒕떎 ??釉뚮옖移?理쒖떊?붾줈 ??諛고룷瑜?留뚮뱾???댁냼.
+- 2026-07-12 釉뚮옖???뺤쟻?봁B drift ?꾩닔 ?議걔룹젙?? `0014`(濡쒓퀬)쨌`0015`(b2쨌b5 philosophy/description)쨌`0016`(b2쨌b3쨌b5 auditPoints, b2 relatedConcernSlugs) ??DB==?뺣낯 `src/data/brands.ts` 寃利??꾨즺. ?뺣낯=static, force-dynamic?대씪 ?꾨━酉?利됱떆 諛섏쁺.
+- 2026-07-12 **b4 罹ｌ퐫???몄텧 = ?④? ?뺤젙**(?ъ슜??寃곗젙): ?뺣낯 `isVisible:false`?濡?`0017`??DB `is_visible=false` ?뺤젙. ?쒗뭹 誘몃벑濡?誘몄?鍮?釉뚮옖?쒕씪 `/brands` 紐⑸줉?먯꽌 ?쒖쇅. DB 寃利??꾨즺(b4留?false).
+- 2026-07-12 濡쒕뱶留??ъ슜???뺤씤): ?쒗뭹? ?꾩쭅 誘몃벑濡??섎룄). 怨듭떇 諛붾줈媛湲?`officialUrl`/`sourceUrls`)??**?섏쨷???몄텧 ?덉젙** ??洹몃븣 `repo.ts rowToBrand` unpack + DB ?쒕뱶 ?④퍡. `auditGrade`??DB留??됀룸콇吏 UI ?쒓굅(b99d770)濡??붾㈃ 臾댁쁺??諛⑹튂).
+- 2026-07-12 釉뚮옖???곸꽭 ?뱀뀡蹂??띿뒪???議? (a) **媛먯궗 由ы룷???뱀뀡? ?뺣낯??b1留?議댁옱 ??b2~b5 '?뺤씤 以? ?뚮젅?댁뒪????좎?**(?섎룄???ㅺ퀎, ?ъ슜??寃곗젙). (b) **怨좊? ?쒓렇 媛??댁냼**: 釉뚮옖?쒓? 李몄“?섎굹 concerns.ts???녿뜕 `nutrition쨌oral쨌grooming쨌living` 4醫낆쓣 `src/data/concerns.ts`??異붽?(而ㅻ컠 aee80ae) ???댁젣 紐⑤뱺 釉뚮옖??relatedConcernSlugs 留ㅼ묶쨌移??뚮뜑쨌`/concerns/[slug]` ?섏씠吏 ?앹꽦. 鍮뚮뱶쨌??끒룸┛??green.
+- 2026-07-12 **?붿옄???쒕━?꾪듃 諛쒓껄쨌?뺤젙(釉뚮옖???곸꽭)**: ?듯빀 而ㅻ컠 `b85e723`(dad remove-audit-badges ?듯빀) ??`src/app/brands/[id]/page.tsx`媛 蹂묓빀 異⑸룎?먯꽌 諛깆뿏?????붿옄??踰꾩쟾?쇰줈 梨꾪깮??dad ???붿옄??`SectionHeading`쨌`BrandLogo`쨌"癒쇱? 留뚮굹蹂??곹뭹" 移댄뵾, ???덉뼱濡????좎떎?? ??dad `origin/feature/remove-audit-badges` 留덊겕?낆쓣 ?뺣낯?쇰줈 ?ы똿?섍퀬 ?곗씠???뚯뒪留?DB(`getBrandById`쨌`listProductsByBrand`쨌force-dynamic)濡??щ같??而ㅻ컠 b7e895e). 鍮뚮뱶쨌??끒룸┛??green. **二쇱쓽: 媛숈? 蹂묓빀 ?좎떎???ㅻⅨ page.tsx(shop/home/concerns ???먮룄 ?덉쓣 ???덉쓬 ??異붽? ?щ줈?ㅼ껜???湲?**
+- 2026-07-12 **?붿옄???쒕━?꾪듃 ?꾩닔 ?щ줈?ㅼ껜??dad `remove-audit-badges` 湲곗?)**: 怨듦컻 怨⑤뱺?뚮줈??5怨?以?**4怨??ш컖 ?쒕━?꾪듃**(?듯빀 ??dad 由щ뵒?먯씤 ?좎떎, ???붿옄??DB諛곗꽑?쇰줈 ?뚭?). 蹂묐젹 executor濡?dad ?붿옄???ы똿+DB諛곗꽑 ?좎??섏뿬 蹂듭썝, ?듯빀 鍮뚮뱶 green쨌짠4(@/data 吏곸젒 import ?놁쓬) ?뺤씤. 而ㅻ컠 `59d55dc`(4?뚯씪). 吏꾨떒 寃곌낵 ?섏씠吏??NO DRIFT.
+  - 蹂듭썝: `src/components/brands/BrandsContent.tsx`(brand-intro쨌audit-index쨌?꾪꽣remap쨌?섏씠吏?ㅼ씠??, `src/app/concerns/[slug]/page.tsx`(PageIntro/SectionHeading쨌concernHeroCopy쨌?ㅽ겕 蹂댄뿕諛대뱶쨌FAQ?꾩퐫?붿뼵쨌generateMetadata), `src/components/shop/ShopContent.tsx`(寃?됰컮쨌移댄뀒怨좊━??룹뿉?뷀꽣異붿쿇쨌紐⑤컮?쇳븘?곗떆?맞룻럹?댁??ㅼ씠??, `src/app/shop/[id]/page.tsx`(5??톝tory/details/standard쨌Audit Summary ?쒓굅).
+  - ?좑툘 **誘멸껐(executor ?ㅼ퐫???댄깉)**: `supabase/migrations/0018_reseed_brands_products.sql`(釉뚮옖??b1~b9+?곹뭹 p1~p22 ?꾩껜 ?ъ떆?? b6~b9 ?좉퇋 ?몄텧쨌officialUrl/sourceUrls 梨꾩?) + `.gitignore`(/諛깆“?ㅻ툕?? 6.9GB쨌cookies.txt 臾댁떆) 瑜??붿껌 ???덈뒗???앹꽦 ??**誘몄빱諛?蹂대쪟, ?ъ슜??寃곗젙 ?湲?*.
+  - ??**ProductCard ?좎떎??蹂듭썝**(而ㅻ컠 `d923a2f`): ??audit 諭껋?(`?덉쟾??寃利??꾨즺`쨌`?덉쭏 ?ㅻ뵩 ?듦낵`) ?쒓굅, dad 由щ뵒?먯씤(variant `default`/`shop`쨌?댁뒪?ㅒ룻넗?ㅽ듃쨌?먮ℓ以鍮??쇰꺼) ?ы똿. **?쒖빟 以??*: 짠4(`@/data/brands` 誘퇳mport쨌`BrandLogo` ???`brandName` ?띿뒪????Product??brand 濡쒓퀬 ?꾨뱶 ?놁쓬, contract??products ?몄뀡怨?議곗쑉 ??蹂꾨룄), 媛寃?誘몄젙=`0?? ?좎?(?ъ슜???댁쟾 寃곗젙). ShopContent ??洹몃━??`variant="shop"` 諛곗꽑.
+  - ?좑툘 **?묒뾽?몃━ 怨듭쑀 二쇱쓽**: 媛숈? ?대뜑(D:\Project\BAGJO1)瑜?**?ㅻⅨ ?몄뀡???곹뭹 ?낅줈?쒖뿉 ?곕뒗 以?* ??`M src/data/products.ts` + `public/products/*.webp` 誘몄빱諛뗥늽????git status???욎뿬 蹂댁엫. ??而ㅻ컠? **??긽 紐낆떆??寃쎈줈濡쒕쭔**(愿묐쾾??`git add -A` 湲덉?). `0018_reseed_*.sql`? 洹??몄뀡 ?묒뾽????쑝誘濡??먭린 ?꾨낫.
+- 2026-07-12 沅뚰븳 濡쒕뱶留? ?꾩옱 **?뚯썝 + 理쒓퀬愿由ъ옄** 2?④퀎 ??異뷀썑 **?낆젏 ?낆껜 愿由ъ옄 / B2B ?낆껜 愿由ъ옄** ??븷 異붽? ?덉젙(RBAC ?뺤옣 ?鍮?.
+- 2026-07-12 ?쒕쾭 而댄룷?뚰듃/page.tsx wrapper??storage(?대씪 fetch 肄섏꽱??媛 ?꾨땲??`src/lib/*/repo.ts` **吏곸젒 ?몄텧**(?먭린 /api ?뺣났 諛⑹?). ?덉씠 泥??щ?.
+- 2026-07-12 ?ㅼ젙瑜?settings/category/survey/kits/partners/qna)??**?깃???jsonb config**(`id='default'`, `value {items|...}`) ?⑦꽩. 愿由ъ옄 ?붾㈃? **draft 諛곗튂 ???*(?먮룞???湲덉? ??CategorySettings hard-reload race 援먰썕).
+- 2026-07-12 API route??`default*Config`??**non-client 紐⑤뱢**???붾떎. `'use client'` 紐⑤뱢?먯꽌 ?쒕쾭媛 import?섎㈃ client-reference proxy ??`JSON.stringify` `{}` 踰꾧렇(category-settings?먯꽌 ?ㅼ젣 諛쒖깮, Playwright ?ъ갑).
+- 2026-07-12 寃利?寃뚯씠??3以?opus+codex+Playwright) AGENTS.md 짠8-6 紐낅Ц?? codex??`CODEX_HOME="C:\Users\PC_1M\.codex"` ?몃씪???꾩슂(WSL 寃쎈줈 ?ㅼ꽕??.
+- 2026-07-12 留덉씠洹몃젅?댁뀡 CI ?먮룞????`scripts/apply-migrations.mjs`(Supabase Management API, UA ?꾩닔/Cloudflare 1010, `public._migrations` 異붿쟻) + `ci.yml` migrate job(push ?쒖젙). GitHub Secret `SUPABASE_URL`/`SUPABASE_ACCESS_TOKEN` ?깅줉??
+- 2026-07-12 **蹂묐젹 ?쒕━?꾪듃 議곗궗 醫낇빀(7?곸뿭, `b99d770`=dad remove-audit-badges tip ??HEAD=integrate)**. 諛곗? 釉뚮옖移섎뒗 integrate??議곗긽(怨좎쑀 而ㅻ컠 0, integrate +65而ㅻ컠). ?곸뿭蹂??먯젙:
+  - **?좎떎 ?놁쓬(4?곸뿭)**: ?좏솃(`page.tsx`+`HomeClient` 遺꾨━, 留덊겕??諛붿씠???숈씪)쨌Header쨌BrandShowroomCard ?〓툕?쒕뱶(`BrandsContent` 異뺤옄 異붿텧, 諛곗? UI ?щ룄???놁쓬 ??grep 0嫄? auditReport??dad ?ㅺ퀎 ?щ’???곗씠?곕쭔 梨꾩?) ??쭊??蹂댄뿕/肄섑뀗痢?8?뚯씪(짠4 肄섏꽱??援먯껜留? survey 臾명빆 5媛?諛붿씠???숈씪) ?ｊ?由ъ옄 15?뚯씪(?붾젅?맞룻뀒?대툝쨌紐⑤떖 蹂댁〈, 紐⑤컮???쒕줈????媛??.
+  - **?좑툘 ?ш컖 1 ??`src/components/shop/ProductDetailClient.tsx` ?붿옄???좎떎(C)**: 諛깆뿏??而ㅻ컠 `d572653`??dad ?곸꽭 ?⑤꼸????뼱?. (a) `product.image/images/detailBlocks` 李몄“ 0嫄???硫붿씤 媛ㅻ윭由ш? ?ㅼ궗吏????"BAEKJO CURATION" ?뚮젅?댁뒪???(b) **Audit 諛곗? ?щ룄??*(`bg-[#1D3E2F]` "Audit ?듦낵"쨌"?좏빐 ?깅텇 0%") ??dad ?쒓굅 諛⑺뼢怨??곸땐 (c) 짠6 ?먯깋 ?꾨컲(`text-red-600`, `border-red-500`, slate 怨꾩뿴) (d) `btn-primary/btn-secondary` ?좏겙 ?먭린 (e) `<ProductPurchaseInfo />` ?뱀뀡 ??젣(而댄룷?뚰듃 ?붿〈쨌誘몄궗?? (f) aria-live ?좎뒪?멤넂`alert()`, ?ш퀬 寃뚯씠??`isSellable`) ?뚯떎. **蹂듦뎄??dad ?덉씤(fe/design-*)?먯꽌**: `git show b99d770:...ProductDetailClient.tsx` 留덊겕???뺣낯 + `product.brandName`/`image쨌images` 肄섏꽱???щ같??
+  - **?좑툘 ?ш컖 2 ???몄쬆 ?대윭?ㅽ꽣(怨⑤뱺?뚮줈??#6) ?뚮옯 ?ъ뒪???B)+湲곕뒫?뚯떎(C)**: mim 而ㅻ컠??`5d04bbf`쨌`ff85d06`쨌`0fb0ab5`쨌`8abb558`쨌`3136371`)???쒗쁽源뚯? 援먯껜 ??짠3 寃쎄퀎 ?꾨컲 ?뚯?. (a) **誘몄듅??諛곌꼍??`#E9E7E0`**???몄쬆 5?섏씠吏?먮쭔 ?좎엯(짠6 ?붾젅???? mypage??#F4F2EC ?좎? ??媛숈? ?뚮줈????猷?遺덉씪移? (b) **signup 醫뚯륫 aside ?듭㎏ ??젣**(BrandMark쨌"Join Baekjo Objet"쨌?쇱쿂移대뱶 3醫? (c) **?낆껜??3醫?B2B/Insurance/Partner) ?꾩떆???踰꾪듉 ?뚯떎** (d) ?κ렐紐⑥꽌由?룹빊踰??≪꽱??#A8742E)?믨컖吏??⑥깋(#2F3B34) ?꾨㈃ 援먯껜. login留?而ㅻ컠 `3136371` "dad 湲고쉷 諛⑺뼢"?쇰줈 ?⑹쓽 媛?μ꽦 ???섎㉧吏??dad ?숈쓽 利앸튃 ?놁쓬, **dad ?뺤씤 ?꾩슂**.
+  - **寃쎈?**: `src/app/shop/[id]/page.tsx:274` ?곌??곹뭹 `<ProductCard variant="shop">`?뭭ariant ?좎떎 / admin members ?쇰컲??而щ읆 異뺤냼(諛섎젮?숇Ъ쨌二쇰Ц쨌蹂댄뿕 吏묎퀎 3而щ읆?믨??낃꼍濡?1而щ읆, ??API媛 吏묎퀎 誘몃컲?? / admin survey `臾명빆 異붽?` 踰꾪듉 梨꾩??믪븘?껊씪??媛뺣벑 / **admin brands ?곹뭹?ㅼ젙 踰꾪듉 onClick ?뚯떎(?곕뱶 踰꾪듉, behavior 由ш렇?덉뀡)**.
+  - **?ㅽ깘 ?뺣━(?대? 寃곗젙???ы빆, ?쒕━?꾪듃 ?꾨떂)**: ProductCard 濡쒓퀬??brandName` ?띿뒪??= `d923a2f` 湲곕줉??짠4 ?쒖빟(Product??brand 濡쒓퀬 ?꾨뱶 ?놁쓬, contract 蹂꾨룄 議곗쑉) / 臾닿?寃?"0?? = ?곗씠?곗삤?덉떗 ??紐낅Ц??寃곗젙 / detailBlocks ?뚮뜑+?⑥씪?대?吏 ?대갚 = 怨꾩빟 媛???뺤긽.
+  - **[?뺤젙 2026-07-12] ProductDetailClient "?ш컖 ?좎떎(C)" ?먯젙 ?섑뼢**: ?곹뭹 ?곸꽭 援щℓ ?⑤꼸 **援ъ“???ъ슜??寃곗젙**(?뚮옯 移대뱶?빧톜ounded-[16px] 踰꾪듉 ?? ??援ъ“쨌?ㅽ???援먯껜???쒕━?꾪듃 ?꾨떂. ?붿뿬 ?뺤씤 ?ъ씤?몃줈 醫곹옒: ???곷떒 媛ㅻ윭由?`product.image/images` 誘몃같??placeholder ?뚮뜑, 75~82?????ㅼ궗吏??쒕뱶? 遺덉씪移? ?섎룄 ?щ? ?뺤씤) ??Audit 諛곗?(98~101?? ?곸꽭 ?쒖젙 ?좎? ?щ? ??red/slate ?됱씠 寃곗젙 ?ㅽ??쇱씠硫?**AGENTS.md 짠6 ?붾젅??媛깆떊 ?꾩슂**(由щ럭 ?ㅽ깘 諛⑹?) ??ProductPurchaseInfo 誘몄궗???뺣━ ???ш퀬 寃뚯씠??`isSellable`??hasPrice` ?꾪솕(?ш퀬 0?먮룄 援щℓ ?쒖꽦) ??behavior ?뺤씤.
+  - **而ㅻ㉧??cart쨌checkout쨌order-complete) = ?좎떎 ?놁쓬(A, main 吏곸젒 ?議????먯씠?꾪듃 臾댁쓳?듭쑝濡?diff 吏곸젒 寃??**: cart/checkout? `@/data/products`??getPublicProducts()` 留덉슫??濡쒕뱶+濡쒖뺄 議곗씤, checkout `addOrder`(mock)??createOrder`(?쒕쾭媛 媛寃??ш퀎?걔룹긽??寃곗젙, 肄섏꽱??異뺤냼), order-complete `getLastOrder()` async?? 留덊겕?끒룻뙏?덊듃 臾대?寃? ?쒗쁽 媛??1嫄대퓧: 寃곗젣 踰꾪듉 submitting ?곹깭(`disabled` + "二쇰Ц 泥섎━ 以묅?, #2F3B34 ?좎?). ?ㅽ뙣 ??`alert()` ?ъ슜? shop ?곸꽭? 媛숈? 怨꾩뿴??寃쎈???UX ?명듃.
 
-- 2026-07-12 **상품상세 5건 구현 파이프라인(병렬 워크트리+교차리뷰) 완료·머지**. Opus 계획(plan-pdp-fix) → Sonnet 2워커(worktree 격리) → 리뷰 Opus GREEN·Haiku PASS 양 브랜치 + **Codex 5.5가 5라운드에 걸쳐 HIGH 4건 연쇄 발굴**(수량-stock 미클램프 → activeImage 미리셋 → selectedOption 미리셋 → 상품 간 옵션 id 충돌 이월) — Claude 리뷰어들이 GREEN 준 것을 Codex가 잡음(§8-6 교차검증 실효 재실증). 최종 구조: **리셋(prevProductId 블록: activeImage·quantity·selectedOption) + 매 렌더 파생 검증(validOption/effectiveOptionId·displayQty 하한1) 병행** — 리셋=상품 전환, 파생=동일 상품 옵션 목록 변경 담당. 교훈: state 시점-패치 반복은 같은 부류 버그를 양산, 파생값 검증과 병행해야 종결. 부수 사고 2건: 에이전트 워크트리가 integrate 아닌 main 머지베이스에서 생성돼 재기점 필요했음 / 워크트리 checkout 중 외부 제거로 부모 리포 브랜치 포인터 일시 이동(즉시 복원, 검증 완료).
-- 2026-07-12 **프리뷰 스모크(push e3e1518 배포분) 실측**: 임시 Playwright 스펙으로 상세 신기능 검증 — ✅ p1 갤러리 `/products/*` 실사진 렌더 + "Audit 통과"·"유해 성분 0%"·"BAEKJO CURATION" 0건 + PurchaseInfo 렌더(미입력 필드는 "판매 일정과 함께 안내할게요" 폴백 정상) / ✅ p15 품절 게이트: `품절` 버튼 disabled + 가격(68,600원) 표시 유지. ❌ 구매 완결 여정은 프리뷰 데이터에 판매 가능 상품(가격>0∧stock>0)이 0개라 미구동 — p15·p21은 가격만(재고0), p1~p14는 재고만(가격 null, "판매가 회원공개" 로그인 유도 렌더 정상). 코드 회귀 아닌 데이터 상태. 기존 shop.spec 1건 실패는 스펙 노후(카테고리 라벨 체계 변경) — 스펙 수정 여부는 사용자 결정 대기.
-- 2026-07-12 **admin 로그인 불가 원인 2중 진단·부분 해결**: ① `admin@naver.com/admin1234` 하드코딩은 베타 회원 전환(2026-07-10, docs/beta-members-setup.md) 때 제거됨 — 실 DB 계정 필요. → Management API로 `public.members`에 admin 계정 생성(id `3c517f68`, role=admin, **status='active' 필수** — 승인제 기본값 pending이면 `auth.ts:37`이 차단) + 비밀번호 `admin1234` bcrypt 리셋·왕복 대조 검증 완료(DB=vgeqpbyyggxxaeowtbtj, 프리뷰와 동일 프로젝트 확인). ② 그래도 프리뷰 로그인 실패 — `/login?error=Configuration` = **NextAuth 서버 설정 오류. 프리뷰(Preview) 환경에 AUTH_SECRET 등 AUTH_* env 미등록**(로컬 .env.local·Production엔 있음). → **해결 완료(같은 날)**: Vercel CLI 설치·인증 확인 후 `vercel env add AUTH_SECRET preview`(+`vercel redeploy --scope parkjoonhyuns-projects`)로 Preview에 등록·재배포. Playwright 실검증: **admin@naver.com/admin1234 로그인 → /admin/products 진입 성공**(관리자 사이드바 렌더 확인 = #7 스모크 일부 통과). 소셜 키(AUTH_KAKAO_*·AUTH_NAVER_*)는 여전히 Production 전용 — 프리뷰에서 소셜 로그인 쓰려면 별도 등록+redirect URI 필요.
-- 2026-07-12 **환경 3계층 분리 완료(사용자 결정: preview=stag / local=stag / main=prod)**: 기존 3환경이 **prod DB 하나를 공유**하던 구조 해소. staging = 기존 `baekjo-staging`(ref `aeooyivfijthfcrfrnyk`) 재활용 — 구버전 5테이블·데이터(회원2)는 폐기 승인 하에 drop 후 **마이그레이션 0001~0020 클린 재적용**(상품 22·브랜드 9 시드, `_migrations` 추적 시작). staging admin(admin@naver.com/admin1234, active) 생성. **Vercel Preview 스코프 SUPABASE_URL/SECRET_KEY → staging 값으로 교체**, `.env.local`도 staging 전환(prod 값은 `# [prod backup]` 주석 보존). CI migrate job 분기: `main` push→prod(`secrets.SUPabase_URL`), 그 외 push→staging(`secrets.SUPABASE_URL_STAGING` 신규 등록). ⚠️ 이후 staging 콘텐츠는 prod와 독립 — prod 반영은 마이그레이션/시드로만.
-- 2026-07-12 **골든플로우 #2 구매 여정 완주 PASS(스테이징 프리뷰)**: admin UI로 p15 재고 25 입력(모달 저장 → GET /api/products/p15 로 stock:25 재검증) → /shop/p15 품절 해제 → 장바구니 → /checkout 폼 → **/order-complete 도달**. #7 admin CRUD(수정 모달 실사용)도 동일 런에서 검증됨. 관찰 2건(비차단): 주문이 stock 미차감(설계 결정 필요), 재고 저장 직후 수 초 구값 렌더 순간 — 다음 단계 -0.5에 등재.
-- 2026-07-12 재고 데이터 흐름 확정: Product.stock은 type·repo·DB에 전부 있었으나 **admin 폼만 미배선**(stock:0 하드코딩)이었음 → 입력 추가로 체인 완성. 레거시 null stock 상품은 edit 시 빈 입력→저장 시 0 정규화로 품절 고착 해제 가능(Codex 확인). 재고 게이트와 admin 입력은 같은 배치 배포 필수(단독 게이트 배포 시 신규상품 영구 품절).
+- 2026-07-12 **?곹뭹?곸꽭 5嫄?援ы쁽 ?뚯씠?꾨씪??蹂묐젹 ?뚰겕?몃━+援먯감由щ럭) ?꾨즺쨌癒몄?**. Opus 怨꾪쉷(plan-pdp-fix) ??Sonnet 2?뚯빱(worktree 寃⑸━) ??由щ럭 Opus GREEN쨌Haiku PASS ??釉뚮옖移?+ **Codex 5.5媛 5?쇱슫?쒖뿉 嫄몄퀜 HIGH 4嫄??곗뇙 諛쒓뎬**(?섎웾-stock 誘명겢?⑦봽 ??activeImage 誘몃━????selectedOption 誘몃━?????곹뭹 媛??듭뀡 id 異⑸룎 ?댁썡) ??Claude 由щ럭?대뱾??GREEN 以 寃껋쓣 Codex媛 ?≪쓬(짠8-6 援먯감寃利??ㅽ슚 ?ъ떎利?. 理쒖쥌 援ъ“: **由ъ뀑(prevProductId 釉붾줉: activeImage쨌quantity쨌selectedOption) + 留??뚮뜑 ?뚯깮 寃利?validOption/effectiveOptionId쨌displayQty ?섑븳1) 蹂묓뻾** ??由ъ뀑=?곹뭹 ?꾪솚, ?뚯깮=?숈씪 ?곹뭹 ?듭뀡 紐⑸줉 蹂寃??대떦. 援먰썕: state ?쒖젏-?⑥튂 諛섎났? 媛숈? 遺瑜?踰꾧렇瑜??묒궛, ?뚯깮媛?寃利앷낵 蹂묓뻾?댁빞 醫낃껐. 遺???ш퀬 2嫄? ?먯씠?꾪듃 ?뚰겕?몃━媛 integrate ?꾨땶 main 癒몄?踰좎씠?ㅼ뿉???앹꽦???ш린???꾩슂?덉쓬 / ?뚰겕?몃━ checkout 以??몃? ?쒓굅濡?遺紐?由ы룷 釉뚮옖移??ъ씤???쇱떆 ?대룞(利됱떆 蹂듭썝, 寃利??꾨즺).
+- 2026-07-12 **?꾨━酉??ㅻえ??push e3e1518 諛고룷遺? ?ㅼ륫**: ?꾩떆 Playwright ?ㅽ럺?쇰줈 ?곸꽭 ?좉린??寃利?????p1 媛ㅻ윭由?`/products/*` ?ㅼ궗吏??뚮뜑 + "Audit ?듦낵"쨌"?좏빐 ?깅텇 0%"쨌"BAEKJO CURATION" 0嫄?+ PurchaseInfo ?뚮뜑(誘몄엯???꾨뱶??"?먮ℓ ?쇱젙怨??④퍡 ?덈궡?좉쾶?? ?대갚 ?뺤긽) / ??p15 ?덉젅 寃뚯씠?? `?덉젅` 踰꾪듉 disabled + 媛寃?68,600?? ?쒖떆 ?좎?. ??援щℓ ?꾧껐 ?ъ젙? ?꾨━酉??곗씠?곗뿉 ?먮ℓ 媛???곹뭹(媛寃?0?쬼tock>0)??0媛쒕씪 誘멸뎄????p15쨌p21? 媛寃⑸쭔(?ш퀬0), p1~p14???ш퀬留?媛寃?null, "?먮ℓ媛 ?뚯썝怨듦컻" 濡쒓렇???좊룄 ?뚮뜑 ?뺤긽). 肄붾뱶 ?뚭? ?꾨땶 ?곗씠???곹깭. 湲곗〈 shop.spec 1嫄??ㅽ뙣???ㅽ럺 ?명썑(移댄뀒怨좊━ ?쇰꺼 泥닿퀎 蹂寃? ???ㅽ럺 ?섏젙 ?щ????ъ슜??寃곗젙 ?湲?
+- 2026-07-12 **admin 濡쒓렇??遺덇? ?먯씤 2以?吏꾨떒쨌遺遺??닿껐**: ??`admin@naver.com/admin1234` ?섎뱶肄붾뵫? 踰좏? ?뚯썝 ?꾪솚(2026-07-10, docs/beta-members-setup.md) ???쒓굅??????DB 怨꾩젙 ?꾩슂. ??Management API濡?`public.members`??admin 怨꾩젙 ?앹꽦(id `3c517f68`, role=admin, **status='active' ?꾩닔** ???뱀씤??湲곕낯媛?pending?대㈃ `auth.ts:37`??李⑤떒) + 鍮꾨?踰덊샇 `admin1234` bcrypt 由ъ뀑쨌?뺣났 ?議?寃利??꾨즺(DB=vgeqpbyyggxxaeowtbtj, ?꾨━酉곗? ?숈씪 ?꾨줈?앺듃 ?뺤씤). ??洹몃옒???꾨━酉?濡쒓렇???ㅽ뙣 ??`/login?error=Configuration` = **NextAuth ?쒕쾭 ?ㅼ젙 ?ㅻ쪟. ?꾨━酉?Preview) ?섍꼍??AUTH_SECRET ??AUTH_* env 誘몃벑濡?*(濡쒖뺄 .env.local쨌Production???덉쓬). ??**?닿껐 ?꾨즺(媛숈? ??**: Vercel CLI ?ㅼ튂쨌?몄쬆 ?뺤씤 ??`vercel env add AUTH_SECRET preview`(+`vercel redeploy --scope parkjoonhyuns-projects`)濡?Preview???깅줉쨌?щ같?? Playwright ?ㅺ?利? **admin@naver.com/admin1234 濡쒓렇????/admin/products 吏꾩엯 ?깃났**(愿由ъ옄 ?ъ씠?쒕컮 ?뚮뜑 ?뺤씤 = #7 ?ㅻえ???쇰? ?듦낵). ?뚯뀥 ??AUTH_KAKAO_*쨌AUTH_NAVER_*)???ъ쟾??Production ?꾩슜 ???꾨━酉곗뿉???뚯뀥 濡쒓렇???곕젮硫?蹂꾨룄 ?깅줉+redirect URI ?꾩슂.
+- 2026-07-12 **?섍꼍 3怨꾩링 遺꾨━ ?꾨즺(?ъ슜??寃곗젙: preview=stag / local=stag / main=prod)**: 湲곗〈 3?섍꼍??**prod DB ?섎굹瑜?怨듭쑀**?섎뜕 援ъ“ ?댁냼. staging = 湲곗〈 `baekjo-staging`(ref `aeooyivfijthfcrfrnyk`) ?ы솢????援щ쾭??5?뚯씠釉붋룸뜲?댄꽣(?뚯썝2)???먭린 ?뱀씤 ?섏뿉 drop ??**留덉씠洹몃젅?댁뀡 0001~0020 ?대┛ ?ъ쟻??*(?곹뭹 22쨌釉뚮옖??9 ?쒕뱶, `_migrations` 異붿쟻 ?쒖옉). staging admin(admin@naver.com/admin1234, active) ?앹꽦. **Vercel Preview ?ㅼ퐫??SUPABASE_URL/SECRET_KEY ??staging 媛믪쑝濡?援먯껜**, `.env.local`??staging ?꾪솚(prod 媛믪? `# [prod backup]` 二쇱꽍 蹂댁〈). CI migrate job 遺꾧린: `main` push?뭦rod(`secrets.SUPabase_URL`), 洹???push?뭩taging(`secrets.SUPABASE_URL_STAGING` ?좉퇋 ?깅줉). ?좑툘 ?댄썑 staging 肄섑뀗痢좊뒗 prod? ?낅┰ ??prod 諛섏쁺? 留덉씠洹몃젅?댁뀡/?쒕뱶濡쒕쭔.
+- 2026-07-12 **怨⑤뱺?뚮줈??#2 援щℓ ?ъ젙 ?꾩＜ PASS(?ㅽ뀒?댁쭠 ?꾨━酉?**: admin UI濡?p15 ?ш퀬 25 ?낅젰(紐⑤떖 ?????GET /api/products/p15 濡?stock:25 ?ш?利? ??/shop/p15 ?덉젅 ?댁젣 ???λ컮援щ땲 ??/checkout ????**/order-complete ?꾨떖**. #7 admin CRUD(?섏젙 紐⑤떖 ?ㅼ궗?????숈씪 ?곗뿉??寃利앸맖. 愿李?2嫄?鍮꾩감??: 二쇰Ц??stock 誘몄감媛??ㅺ퀎 寃곗젙 ?꾩슂), ?ш퀬 ???吏곹썑 ??珥?援ш컪 ?뚮뜑 ?쒓컙 ???ㅼ쓬 ?④퀎 -0.5???깆옱.
+- 2026-07-12 ?ш퀬 ?곗씠???먮쫫 ?뺤젙: Product.stock? type쨌repo쨌DB???꾨? ?덉뿀?쇰굹 **admin ?쇰쭔 誘몃같??*(stock:0 ?섎뱶肄붾뵫)?댁뿀?????낅젰 異붽?濡?泥댁씤 ?꾩꽦. ?덇굅??null stock ?곹뭹? edit ??鍮??낅젰?믪?????0 ?뺢퇋?붾줈 ?덉젅 怨좎갑 ?댁젣 媛??Codex ?뺤씤). ?ш퀬 寃뚯씠?몄? admin ?낅젰? 媛숈? 諛곗튂 諛고룷 ?꾩닔(?⑤룆 寃뚯씠??諛고룷 ???좉퇋?곹뭹 ?곴뎄 ?덉젅).
 
-- 2026-07-12 **(2차) "표현"의 범위 사용자 확정**: 색상·뱃지·텍스트 방식 + **섹션별 위치·배치·순서까지 dad 기준** — AGENTS.md §8-1 병합 프로토콜 1항에 명문화. 백엔드 배선 중 섹션 이동/순서 변경도 표현 변경.
-- 2026-07-12 **(2차) 재고 차감 방식 사용자 결정**: 주문 생성 시 원자적 조건부 감소(0021). 옵션 단위 재고는 미차감(기존 갭, 별도 결정 대기). shop.spec은 새 화면 기준 갱신 결정 → 라벨이 admin 실시간 데이터라 구조 검증으로 구현.
-- 2026-07-12 **(2차) 공개 리포 자격증명 노출 = 런칭 전 보류(사용자 결정)**: SESSION.md 등에 admin 평문 자격증명 이력 존재. 런칭 전 비밀번호 교체 + 공개범위 결정 필수(다음 단계 5).
-- 2026-07-12 **(2차) 교훈 — PostgrestError 처리**: supabase-js rpc 에러를 그대로 throw하면 라우트의 `instanceof Error`/`String()` 검사에서 메시지가 유실된다(프리뷰 실측: 재고부족이 409 대신 500). repo 계층에서 `new Error(error.message)`로 감싸는 게 정석. 소스 정적 분석(codex "extends Error라 문제없음")과 실측이 갈렸고 **실측이 정본**.
-- 2026-07-12 **(2차) 교훈 — Vercel Preview에서 Playwright `networkidle` 금지**: 프리뷰 툴바 웹소켓이 상시 연결이라 idle이 영원히 안 옴(14/14 타임아웃 실측). `load` + 고정 정착 대기 사용.
+- 2026-07-12 **(2李? "?쒗쁽"??踰붿쐞 ?ъ슜???뺤젙**: ?됱긽쨌諭껋?쨌?띿뒪??諛⑹떇 + **?뱀뀡蹂??꾩튂쨌諛곗튂쨌?쒖꽌源뚯? dad 湲곗?** ??AGENTS.md 짠8-1 蹂묓빀 ?꾨줈?좎퐳 1??뿉 紐낅Ц?? 諛깆뿏??諛곗꽑 以??뱀뀡 ?대룞/?쒖꽌 蹂寃쎈룄 ?쒗쁽 蹂寃?
+- 2026-07-12 **(2李? ?ш퀬 李④컧 諛⑹떇 ?ъ슜??寃곗젙**: 二쇰Ц ?앹꽦 ???먯옄??議곌굔遺 媛먯냼(0021). ?듭뀡 ?⑥쐞 ?ш퀬??誘몄감媛?湲곗〈 媛? 蹂꾨룄 寃곗젙 ?湲?. shop.spec? ???붾㈃ 湲곗? 媛깆떊 寃곗젙 ???쇰꺼??admin ?ㅼ떆媛??곗씠?곕씪 援ъ“ 寃利앹쑝濡?援ы쁽.
+- 2026-07-12 **(2李? 怨듦컻 由ы룷 ?먭꺽利앸챸 ?몄텧 = ?곗묶 ??蹂대쪟(?ъ슜??寃곗젙)**: SESSION.md ?깆뿉 admin ?됰Ц ?먭꺽利앸챸 ?대젰 議댁옱. ?곗묶 ??鍮꾨?踰덊샇 援먯껜 + 怨듦컻踰붿쐞 寃곗젙 ?꾩닔(?ㅼ쓬 ?④퀎 5).
+- 2026-07-12 **(2李? 援먰썕 ??PostgrestError 泥섎━**: supabase-js rpc ?먮윭瑜?洹몃?濡?throw?섎㈃ ?쇱슦?몄쓽 `instanceof Error`/`String()` 寃?ъ뿉??硫붿떆吏媛 ?좎떎?쒕떎(?꾨━酉??ㅼ륫: ?ш퀬遺議깆씠 409 ???500). repo 怨꾩링?먯꽌 `new Error(error.message)`濡?媛먯떥??寃??뺤꽍. ?뚯뒪 ?뺤쟻 遺꾩꽍(codex "extends Error??臾몄젣?놁쓬")怨??ㅼ륫??媛덈졇怨?**?ㅼ륫???뺣낯**.
+- 2026-07-12 **(2李? 援먰썕 ??Vercel Preview?먯꽌 Playwright `networkidle` 湲덉?**: ?꾨━酉??대컮 ?뱀냼耳볦씠 ?곸떆 ?곌껐?대씪 idle???곸썝??????14/14 ??꾩븘???ㅼ륫). `load` + 怨좎젙 ?뺤갑 ?湲??ъ슜.
 
-- 2026-07-13 **아키텍처 피드백(Fable) → 개선 실행**: ①검증 휘발성(스크래치패드) ②정책 3라우트 복제 ③storage 갓모듈(1063줄/72함수) ④successUrl을 브라우저가 오케스트레이션 ⑤상태값 stringly-typed ⑥재결제 불가(payment_key unique) 지적. R1·R2 머지, R4 진행(PR #33), R3·R5 백로그.
-- 2026-07-13 **교훈 — 리팩터가 줄 수를 늘리기만 하면 머지하지 않는다**: R2 1라운드가 라우트 700→714줄+신규 145줄로 순증 → 반려. 재작업 후 697줄(감소)+불변식 타입 강제 확보하고 머지.
-- 2026-07-13 **교훈 — 리뷰어 반론을 수용해 내 지시를 철회한 사례 2건**: ①"매트릭스 통합" 지시 → opus가 "출력이 다른 표(HTTP 응답 vs DB 변이)라 합치면 커널이 오염된다"고 반박 → 철회 → 그런데 구현자가 이미 흡수를 완료했고 opus가 재검증에서 **자기 반대를 철회**(HTTP 정책 미유출 확인) → 유지. ②"TOSS 키 미설정 시 취소 폴백이 안전"이라는 내 논거 → codex가 "그건 배포가 한 번도 키를 가진 적 없을 때만 참. 키 로테이션 실수·롤링 배포 중 일부 인스턴스 누락이면 결제된 주문이 취소된다"고 반박 → **fail-closed로 전환**. 권위가 아니라 근거로 판정한다.
-- 2026-07-13 **교훈 — 테스트 인프라의 조용한 실패**: ①고정 픽스처 ID → 동시 실행이 서로 삭제(INSUFFICIENT_STOCK) → 실행 스코프 고유 ID로 ②노출 픽스처가 `/shop` 시각회귀 오염 → 워크플로 직렬화 ③그 직렬화가 **pending 런을 취소**시켜 payments-routes가 아예 안 돌면서 CI는 green으로 보임(GitHub은 그룹당 pending 1개만 유지). **"통과"보다 "안 돌았는데 통과로 보임"이 더 위험하다.**
-- 2026-07-13 **교훈 — 정적 데이터→콘센트 전환 시 인가 범위를 함께 설계**: mypage/admin의 `@/data/products`→콘센트 전환에서 회귀 2건 발생(partner가 admin 전용 API에 403 / 비노출 상품의 구매 이력 소실). 콘센트 선택 = "누가(role)·어떤 범위(노출여부)까지 보나"의 인가 결정이다. 해법 패턴: 소유 리소스 기준 인가 엔드포인트(`/api/orders/mine/products` — 본인 주문의 productId만 includeHidden 조회).
-- 2026-07-13 **교훈 — dad 정본 크로스체킹 워크플로 확립**: ① dad 브랜치를 우리 레포에 `dad/*`로 보존 ② `git worktree`+로컬 목 실행으로 정본 화면 촬영 ③ main 스냅샷 브랜치(빈 커밋으로 Vercel 스킵 우회)를 동일 staging DB 프리뷰로 배포해 순수 코드 diff만 측정 ④ pixelmatch 뷰어(main/dad정본/통합/diff 4열). 오탐 주의 2건: PowerShell이 경로 `[slug]`를 와일드카드로 해석(파일 못 읽어 "구조 유실" 오판 — git show가 정본) / Playwright 셀렉터가 헤더 GNB를 오클릭(케어가이드 앵커 FAIL 오탐).
-- 2026-07-13 **BrandProductsClient 상품 추가/수정/삭제 = 로컬 미리보기 확정(사용자)**: 추후 업체 관리자 기능의 사전 UI. RBAC 확장 때 실배선.
-- 2026-07-12 **(2차 마감분 이후) dad 통합 리뷰 findings 13건 전량 수정**: §4 drift 6곳(getPublicProducts/getAdminProducts+props), lint 글롭 확대, ProductTabsClient 경쟁상태·죽은코드, buildReviewTargetKey DRY, Pagination clamp, orderItemId optional화(temp-item-id 제거 — 신규 구매평 분기 조건 수정 포함), 인가 회귀 2건.
+- 2026-07-13 **?꾪궎?띿쿂 ?쇰뱶諛?Fable) ??媛쒖꽑 ?ㅽ뻾**: ?좉?利??섎컻???ㅽ겕?섏튂?⑤뱶) ?≪젙梨?3?쇱슦??蹂듭젣 ?쥀torage 媛볥え??1063以?72?⑥닔) ?즧uccessUrl??釉뚮씪?곗?媛 ?ㅼ??ㅽ듃?덉씠???ㅼ긽?쒓컪 stringly-typed ?μ옱寃곗젣 遺덇?(payment_key unique) 吏?? R1쨌R2 癒몄?, R4 吏꾪뻾(PR #33), R3쨌R5 諛깅줈洹?
+- 2026-07-13 **援먰썕 ??由ы뙥?곌? 以??섎? ?섎━湲곕쭔 ?섎㈃ 癒몄??섏? ?딅뒗??*: R2 1?쇱슫?쒓? ?쇱슦??700??14以??좉퇋 145以꾨줈 ?쒖쬆 ??諛섎젮. ?ъ옉????697以?媛먯냼)+遺덈??????媛뺤젣 ?뺣낫?섍퀬 癒몄?.
+- 2026-07-13 **援먰썕 ??由щ럭??諛섎줎???섏슜????吏?쒕? 泥좏쉶???щ? 2嫄?*: ??留ㅽ듃由?뒪 ?듯빀" 吏????opus媛 "異쒕젰???ㅻⅨ ??HTTP ?묐떟 vs DB 蹂?????⑹튂硫?而ㅻ꼸???ㅼ뿼?쒕떎"怨?諛섎컯 ??泥좏쉶 ??洹몃윴??援ы쁽?먭? ?대? ?≪닔瑜??꾨즺?덇퀬 opus媛 ?ш?利앹뿉??**?먭린 諛섎?瑜?泥좏쉶**(HTTP ?뺤콉 誘몄쑀異??뺤씤) ???좎?. ??TOSS ??誘몄꽕????痍⑥냼 ?대갚???덉쟾"?대씪?????쇨굅 ??codex媛 "洹멸굔 諛고룷媛 ??踰덈룄 ?ㅻ? 媛吏????놁쓣 ?뚮쭔 李? ??濡쒗뀒?댁뀡 ?ㅼ닔쨌濡ㅻ쭅 諛고룷 以??쇰? ?몄뒪?댁뒪 ?꾨씫?대㈃ 寃곗젣??二쇰Ц??痍⑥냼?쒕떎"怨?諛섎컯 ??**fail-closed濡??꾪솚**. 沅뚯쐞媛 ?꾨땲??洹쇨굅濡??먯젙?쒕떎.
+- 2026-07-13 **援먰썕 ???뚯뒪???명봽?쇱쓽 議곗슜???ㅽ뙣**: ?좉퀬???쎌뒪泥?ID ???숈떆 ?ㅽ뻾???쒕줈 ??젣(INSUFFICIENT_STOCK) ???ㅽ뻾 ?ㅼ퐫??怨좎쑀 ID濡??〓끂異??쎌뒪泥섍? `/shop` ?쒓컖?뚭? ?ㅼ뿼 ???뚰겕?뚮줈 吏곷젹????렇 吏곷젹?붽? **pending ?곗쓣 痍⑥냼**?쒖폒 payments-routes媛 ?꾩삁 ???뚮㈃??CI??green?쇰줈 蹂댁엫(GitHub? 洹몃９??pending 1媛쒕쭔 ?좎?). **"?듦낵"蹂대떎 "???뚯븯?붾뜲 ?듦낵濡?蹂댁엫"?????꾪뿕?섎떎.**
+- 2026-07-13 **援먰썕 ???뺤쟻 ?곗씠?겸넂肄섏꽱???꾪솚 ???멸? 踰붿쐞瑜??④퍡 ?ㅺ퀎**: mypage/admin??`@/data/products`?믪퐯?쇳듃 ?꾪솚?먯꽌 ?뚭? 2嫄?諛쒖깮(partner媛 admin ?꾩슜 API??403 / 鍮꾨끂異??곹뭹??援щℓ ?대젰 ?뚯떎). 肄섏꽱???좏깮 = "?꾧?(role)쨌?대뼡 踰붿쐞(?몄텧?щ?)源뚯? 蹂대굹"???멸? 寃곗젙?대떎. ?대쾿 ?⑦꽩: ?뚯쑀 由ъ냼??湲곗? ?멸? ?붾뱶?ъ씤??`/api/orders/mine/products` ??蹂몄씤 二쇰Ц??productId留?includeHidden 議고쉶).
+- 2026-07-13 **援먰썕 ??dad ?뺣낯 ?щ줈?ㅼ껜???뚰겕?뚮줈 ?뺣┰**: ??dad 釉뚮옖移섎? ?곕━ ?덊룷??`dad/*`濡?蹂댁〈 ??`git worktree`+濡쒖뺄 紐??ㅽ뻾?쇰줈 ?뺣낯 ?붾㈃ 珥ъ쁺 ??main ?ㅻ깄??釉뚮옖移?鍮?而ㅻ컠?쇰줈 Vercel ?ㅽ궢 ?고쉶)瑜??숈씪 staging DB ?꾨━酉곕줈 諛고룷???쒖닔 肄붾뱶 diff留?痢≪젙 ??pixelmatch 酉곗뼱(main/dad?뺣낯/?듯빀/diff 4??. ?ㅽ깘 二쇱쓽 2嫄? PowerShell??寃쎈줈 `[slug]`瑜???쇰뱶移대뱶濡??댁꽍(?뚯씪 紐??쎌뼱 "援ъ“ ?좎떎" ?ㅽ뙋 ??git show媛 ?뺣낯) / Playwright ??됲꽣媛 ?ㅻ뜑 GNB瑜??ㅽ겢由?耳?닿??대뱶 ?듭빱 FAIL ?ㅽ깘).
+- 2026-07-13 **BrandProductsClient ?곹뭹 異붽?/?섏젙/??젣 = 濡쒖뺄 誘몃━蹂닿린 ?뺤젙(?ъ슜??**: 異뷀썑 ?낆껜 愿由ъ옄 湲곕뒫???ъ쟾 UI. RBAC ?뺤옣 ???ㅻ같??
+- 2026-07-12 **(2李?留덇컧遺??댄썑) dad ?듯빀 由щ럭 findings 13嫄??꾨웾 ?섏젙**: 짠4 drift 6怨?getPublicProducts/getAdminProducts+props), lint 湲濡??뺣?, ProductTabsClient 寃쎌웳?곹깭쨌二쎌?肄붾뱶, buildReviewTargetKey DRY, Pagination clamp, orderItemId optional??temp-item-id ?쒓굅 ???좉퇋 援щℓ??遺꾧린 議곌굔 ?섏젙 ?ы븿), ?멸? ?뚭? 2嫄?
 
-- 2026-07-13 **재고 선점 방식(a) 사용자 승인**: 결제 전 PENDING 생성+차감(expires_at=+10분) → 승인 확정 / 실패·이탈·만료 시 복원. 대안(승인 시 차감=결제 후 품절 환불)보다 UX 우위 판단.
-- 2026-07-13 **취소+복원 단일 트랜잭션 확정(codex CRITICAL)**: 2단계 호출(cancel→restore)은 크래시 창·이중복원 — 0024/0026 RPC로 원자화. "조건부 전이가 이중가산 방지"라는 초기 논리는 오류였음(이중취소만 방지).
-- 2026-07-13 **claim = 배타 상태전이로 승격(웹훅 웨이브 W1)**: expires_at 연장 방식의 confirm/cancel 경쟁 창을 '승인중' 상태 도입으로 원천 차단. U6 reconcile cron을 W1에 편입해 "승인중 고아" 창을 코드 레벨에서 제거(배포 순서 약속 대신 구조 해소 — opus 게이트·codex CRITICAL 수렴).
-- 2026-07-13 **웹훅 보안 판정(codex CRITICAL)**: 토스 orderId=클라이언트 지정값이라 위조 결제로 타인 주문 취소 가능 → 웹훅의 '결제대기' 취소 경로 **삭제**(reclaim cron 전담·중복이었음), 승인중 변이는 저장 payment_key 바인딩 필수. tosspayments-webhook-signature는 payout/seller 전용(결제 웹훅 미제공) → HMAC 분기 제거, 재조회가 인증 권위.
-- 2026-07-13 **교훈 — 교차리뷰 역할 분담 실증**: Opus는 불변식·전 분기 추적(정적), Codex는 실행 경로 시뮬레이션(동적 — "재시도가 한 번도 발사 안 됨"·위조 시나리오)에 강함. 총 16라운드에서 서로 못 잡은 결함을 상호 보완 — 단일 리뷰어였으면 CRITICAL 최소 2건이 머지됐음.
-- 2026-07-13 **교훈 — React 진입 락 안티패턴**: 재시도 로직에 in-flight 진입 락을 걸면 자기 재시도까지 막는다(delayed 재시도가 죽은 코드였음). 세대(generation) 카운터 단일 통제 + 서버 멱등 + UI disabled가 정석.
+- 2026-07-13 **?ш퀬 ?좎젏 諛⑹떇(a) ?ъ슜???뱀씤**: 寃곗젣 ??PENDING ?앹꽦+李④컧(expires_at=+10遺? ???뱀씤 ?뺤젙 / ?ㅽ뙣쨌?댄깉쨌留뚮즺 ??蹂듭썝. ????뱀씤 ??李④컧=寃곗젣 ???덉젅 ?섎텋)蹂대떎 UX ?곗쐞 ?먮떒.
+- 2026-07-13 **痍⑥냼+蹂듭썝 ?⑥씪 ?몃옖??뀡 ?뺤젙(codex CRITICAL)**: 2?④퀎 ?몄텧(cancel?뭨estore)? ?щ옒??李승룹씠以묐났????0024/0026 RPC濡??먯옄?? "議곌굔遺 ?꾩씠媛 ?댁쨷媛??諛⑹?"?쇰뒗 珥덇린 ?쇰━???ㅻ쪟????댁쨷痍⑥냼留?諛⑹?).
+- 2026-07-13 **claim = 諛고? ?곹깭?꾩씠濡??밴꺽(?뱁썒 ?⑥씠釉?W1)**: expires_at ?곗옣 諛⑹떇??confirm/cancel 寃쎌웳 李쎌쓣 '?뱀씤以? ?곹깭 ?꾩엯?쇰줈 ?먯쿇 李⑤떒. U6 reconcile cron??W1???몄엯??"?뱀씤以?怨좎븘" 李쎌쓣 肄붾뱶 ?덈꺼?먯꽌 ?쒓굅(諛고룷 ?쒖꽌 ?쎌냽 ???援ъ“ ?댁냼 ??opus 寃뚯씠?맞톍odex CRITICAL ?섎졃).
+- 2026-07-13 **?뱁썒 蹂댁븞 ?먯젙(codex CRITICAL)**: ?좎뒪 orderId=?대씪?댁뼵??吏?뺢컪?대씪 ?꾩“ 寃곗젣濡????二쇰Ц 痍⑥냼 媛?????뱁썒??'寃곗젣?湲? 痍⑥냼 寃쎈줈 **??젣**(reclaim cron ?꾨떞쨌以묐났?댁뿀??, ?뱀씤以?蹂?대뒗 ???payment_key 諛붿씤???꾩닔. tosspayments-webhook-signature??payout/seller ?꾩슜(寃곗젣 ?뱁썒 誘몄젣怨? ??HMAC 遺꾧린 ?쒓굅, ?ъ“?뚭? ?몄쬆 沅뚯쐞.
+- 2026-07-13 **援먰썕 ??援먯감由щ럭 ??븷 遺꾨떞 ?ㅼ쬆**: Opus??遺덈??씲룹쟾 遺꾧린 異붿쟻(?뺤쟻), Codex???ㅽ뻾 寃쎈줈 ?쒕??덉씠???숈쟻 ??"?ъ떆?꾧? ??踰덈룄 諛쒖궗 ????쨌?꾩“ ?쒕굹由ъ삤)??媛뺥븿. 珥?16?쇱슫?쒖뿉???쒕줈 紐??≪? 寃고븿???곹샇 蹂댁셿 ???⑥씪 由щ럭?댁??쇰㈃ CRITICAL 理쒖냼 2嫄댁씠 癒몄??먯쓬.
+- 2026-07-13 **援먰썕 ??React 吏꾩엯 ???덊떚?⑦꽩**: ?ъ떆??濡쒖쭅??in-flight 吏꾩엯 ?쎌쓣 嫄몃㈃ ?먭린 ?ъ떆?꾧퉴吏 留됰뒗??delayed ?ъ떆?꾧? 二쎌? 肄붾뱶???. ?몃?(generation) 移댁슫???⑥씪 ?듭젣 + ?쒕쾭 硫깅벑 + UI disabled媛 ?뺤꽍.
 
-- 2026-07-13 **비밀글 정책 확정(사용자)**: 상품 문의 isSecret은 **제목 공개(자물쇠 아이콘) + 본문·답변만 비공개** — dad UI 현행 유지, 서버가 비작성자·비admin에게 content/answer를 빈 값으로 내려줌(클라 숨김이 아니라 서버 redaction).
-- 2026-07-13 **리뷰·문의 FK = ON DELETE RESTRICT 결정(mim)**: 상품 물리삭제보다 리뷰·문의 이력 보존 우선(수주 분쟁방어). admin 삭제는 23503→409 `product-has-history`→"리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요" 안내. ⚠️ 0029를 제자리 수정했으므로 CASCADE 버전이 선적용된 환경(스테이징)은 ALTER로 정정 — 완료.
-- 2026-07-13 **교훈 — codex 교차검증 3연속 실증**: opus 3~4라운드 GREEN 후에도 codex가 양 PR에서 9건 발굴(생성 400 기능파손·TOCTOU·FK CASCADE 등 — 경합/수명주기/기능실측 각도). **표적 재런 패턴**(픽스 diff 한정 + 컨텍스트 파일 지정)으로 codex 재검증을 40분→10분급으로 단축 — 재검증은 항상 이 방식으로.
-- 2026-07-13 **교훈 — 리뷰 픽스가 새 회귀를 만든다**: 미구매 차단 픽스(item 대조)가 optionName 미전달로 옵션 구매 후기를 전부 오차단. 보안 게이트 추가 시 **정상 경로 매트릭스(무옵션/옵션일치/불일치/복수옵션)를 같은 라운드에서 전수 추적**해야 종결.
-- 2026-07-13 **운영 규칙 재확인 — 스냅샷 PNG 병합 충돌은 자기 브랜치(ours) 채택**: 베이스라인은 브랜치별 프리뷰에서 재생성되므로 main 병합 시 바이너리 충돌이 정상 — 자기 PR의 visual job이 촬영할 화면과 일치해야 하므로 ours가 규칙(이번 세션 3회 적용).
-- 2026-07-13 **에이전트 운영 노트**: 백그라운드 에이전트의 최종 보고는 자동 중계되지 않을 수 있음 — idle 통지 후 SendMessage로 보고를 명시 요청하거나 산출물(git log·파일)을 직접 검사가 정석. codex CLI는 프롬프트를 stdin 파이프(`-`)로 줘야 함(인자로 주면 hang).
+- 2026-07-13 **鍮꾨?湲 ?뺤콉 ?뺤젙(?ъ슜??**: ?곹뭹 臾몄쓽 isSecret? **?쒕ぉ 怨듦컻(?먮Ъ???꾩씠肄? + 蹂몃Ц쨌?듬?留?鍮꾧났媛?* ??dad UI ?꾪뻾 ?좎?, ?쒕쾭媛 鍮꾩옉?깆옄쨌鍮꼆dmin?먭쾶 content/answer瑜?鍮?媛믪쑝濡??대젮以??대씪 ?④????꾨땲???쒕쾭 redaction).
+- 2026-07-13 **由щ럭쨌臾몄쓽 FK = ON DELETE RESTRICT 寃곗젙(mim)**: ?곹뭹 臾쇰━??젣蹂대떎 由щ럭쨌臾몄쓽 ?대젰 蹂댁〈 ?곗꽑(?섏＜ 遺꾩웳諛⑹뼱). admin ??젣??23503??09 `product-has-history`??由щ럭/臾몄쓽媛 ?덈뒗 ?곹뭹? ??젣 ????④? 泥섎━?섏꽭?? ?덈궡. ?좑툘 0029瑜??쒖옄由??섏젙?덉쑝誘濡?CASCADE 踰꾩쟾???좎쟻?⑸맂 ?섍꼍(?ㅽ뀒?댁쭠)? ALTER濡??뺤젙 ???꾨즺.
+- 2026-07-13 **援먰썕 ??codex 援먯감寃利?3?곗냽 ?ㅼ쬆**: opus 3~4?쇱슫??GREEN ?꾩뿉??codex媛 ??PR?먯꽌 9嫄?諛쒓뎬(?앹꽦 400 湲곕뒫?뚯넀쨌TOCTOU쨌FK CASCADE ????寃쏀빀/?섎챸二쇨린/湲곕뒫?ㅼ륫 媛곷룄). **?쒖쟻 ?щ윴 ?⑦꽩**(?쎌뒪 diff ?쒖젙 + 而⑦뀓?ㅽ듃 ?뚯씪 吏???쇰줈 codex ?ш?利앹쓣 40遺꾟넂10遺꾧툒?쇰줈 ?⑥텞 ???ш?利앹? ??긽 ??諛⑹떇?쇰줈.
+- 2026-07-13 **援먰썕 ??由щ럭 ?쎌뒪媛 ???뚭?瑜?留뚮뱺??*: 誘멸뎄留?李⑤떒 ?쎌뒪(item ?議?媛 optionName 誘몄쟾?щ줈 ?듭뀡 援щℓ ?꾧린瑜??꾨? ?ㅼ감?? 蹂댁븞 寃뚯씠??異붽? ??**?뺤긽 寃쎈줈 留ㅽ듃由?뒪(臾댁샃???듭뀡?쇱튂/遺덉씪移?蹂듭닔?듭뀡)瑜?媛숈? ?쇱슫?쒖뿉???꾩닔 異붿쟻**?댁빞 醫낃껐.
+- 2026-07-13 **?댁쁺 洹쒖튃 ?ы솗?????ㅻ깄??PNG 蹂묓빀 異⑸룎? ?먭린 釉뚮옖移?ours) 梨꾪깮**: 踰좎씠?ㅻ씪?몄? 釉뚮옖移섎퀎 ?꾨━酉곗뿉???ъ깮?깅릺誘濡?main 蹂묓빀 ??諛붿씠?덈━ 異⑸룎???뺤긽 ???먭린 PR??visual job??珥ъ쁺???붾㈃怨??쇱튂?댁빞 ?섎?濡?ours媛 洹쒖튃(?대쾲 ?몄뀡 3???곸슜).
+- 2026-07-13 **?먯씠?꾪듃 ?댁쁺 ?명듃**: 諛깃렇?쇱슫???먯씠?꾪듃??理쒖쥌 蹂닿퀬???먮룞 以묎퀎?섏? ?딆쓣 ???덉쓬 ??idle ?듭? ??SendMessage濡?蹂닿퀬瑜?紐낆떆 ?붿껌?섍굅???곗텧臾?git log쨌?뚯씪)??吏곸젒 寃?ш? ?뺤꽍. codex CLI???꾨＼?꾪듃瑜?stdin ?뚯씠??`-`)濡?以섏빞 ???몄옄濡?二쇰㈃ hang).
 
-- 2026-07-13 **(R4 마감) 교훈 — 시각 회귀 마스크는 픽셀이 아니라 레이아웃 원인까지 봐야 한다**: admin 목록형 화면에서 데이터 변동은 (a) fullPage 높이(행 수)와 (b) auto-layout 컬럼 폭(내용 길이 → thead까지 밈)으로 마스크 밖에서 어긋난다. tbody 마스크만으로는 못 막고, **뷰포트 고정(`fullPage:false`) + `table` 전체 마스크**가 정석. 진단은 추측 말고 diff PNG 아티팩트 다운로드로 확정.
-- 2026-07-13 **(R4 마감) 교훈 — 테스트 인프라 429는 스펙 실패가 아니다**: Supabase Management API는 병렬 워커+재시도에 429(ThrottlerException)를 던진다 — `tests/payments/helpers.ts` `q()`가 Retry-After/지수 백오프로 흡수하도록 내장(스펙마다 재시도 로직 중복 금지, 헬퍼 코어에 한 번).
-- 2026-07-13 **(R4 마감) 운영 노트 — update-baselines 봇 커밋은 required check를 `action_required`로 멈춘다**: github-actions[bot] push는 pull_request CI가 승인 대기로 걸림 → 빈 커밋(`chore(ci): 재실행`) push가 확립된 우회(main `78785e2`·`ba87f8e`와 동일 패턴).
+- 2026-07-13 **(R4 留덇컧) 援먰썕 ???쒓컖 ?뚭? 留덉뒪?щ뒗 ?쎌????꾨땲???덉씠?꾩썐 ?먯씤源뚯? 遊먯빞 ?쒕떎**: admin 紐⑸줉???붾㈃?먯꽌 ?곗씠??蹂?숈? (a) fullPage ?믪씠(????? (b) auto-layout 而щ읆 ???댁슜 湲몄씠 ??thead源뚯? 諛??쇰줈 留덉뒪??諛뽰뿉???닿툔?쒕떎. tbody 留덉뒪?щ쭔?쇰줈??紐?留됯퀬, **酉고룷??怨좎젙(`fullPage:false`) + `table` ?꾩껜 留덉뒪??*媛 ?뺤꽍. 吏꾨떒? 異붿륫 留먭퀬 diff PNG ?꾪떚?⑺듃 ?ㅼ슫濡쒕뱶濡??뺤젙.
+- 2026-07-13 **(R4 留덇컧) 援먰썕 ???뚯뒪???명봽??429???ㅽ럺 ?ㅽ뙣媛 ?꾨땲??*: Supabase Management API??蹂묐젹 ?뚯빱+?ъ떆?꾩뿉 429(ThrottlerException)瑜??섏쭊????`tests/payments/helpers.ts` `q()`媛 Retry-After/吏??諛깆삤?꾨줈 ?≪닔?섎룄濡??댁옣(?ㅽ럺留덈떎 ?ъ떆??濡쒖쭅 以묐났 湲덉?, ?ы띁 肄붿뼱????踰?.
+- 2026-07-13 **(R4 留덇컧) ?댁쁺 ?명듃 ??update-baselines 遊?而ㅻ컠? required check瑜?`action_required`濡?硫덉텣??*: github-actions[bot] push??pull_request CI媛 ?뱀씤 ?湲곕줈 嫄몃┝ ??鍮?而ㅻ컠(`chore(ci): ?ъ떎??) push媛 ?뺣┰???고쉶(main `78785e2`쨌`ba87f8e`? ?숈씪 ?⑦꽩).
 
-## 파일 흔적 (추가만)
-- (2026-07-13 리뷰·문의/파트너 마감) **PR #36**(`0cebb1c`): `supabase/migrations/0029_product_reviews_inquiries.sql` / `src/lib/{reviews,inquiries}/repo.ts` / API `src/app/api/{reviews{,/[id],/mine},inquiries{,/[id],/mine},products/[id]/{reviews,inquiries},admin/{reviews/[id],inquiries{,/[id]/answer}}}/route.ts` / `src/lib/{storage,adapters}.ts` async 전환 / `src/components/shop/ProductTabsClient.tsx`·`src/app/mypage/page.tsx`·`src/app/admin/inquiries/page.tsx` 호출부 / `src/components/{reviews/ReviewFormModal,inquiries/InquiryFormModal}.tsx` isSubmitting 가드. 주요 커밋: `8cab143`(주문검증)→`dbcc5f2`(optionName)→`fe70414`(RESTRICT+throw)→`1c629a3`(모달)→`54f6788`(seq 카운터)→`c083b29`(main 머지).
-- (동일 마감) **PR #37**(`7b9ea83`): `supabase/migrations/0030_member_managed_brand_ids.sql` / `src/lib/admin/requireBrandScoped.ts` / `src/app/api/partner/products{,/[id]}/route.ts` / `src/lib/products/repo.ts`(updateProductScoped·deleteProductScoped) / `src/lib/members/repo.ts`(managed_brand_ids 매퍼) / `src/lib/storage.ts` 파트너 4함수 / `src/components/brands/BrandProductsClient.tsx` 배선. 주요 커밋: `32f053f`→`682b7e6`(allowlist)→`21f6542`(TOCTOU)→`831b7d7`(image+목록보존+삭제가드)→`a205635`(null-price)→`31aecdc`·`d9cd1f4`(main 머지 2회).
-- (동일 마감) 스테이징 신규: 파트너 계정 `partner-e2e@test.baekjo`, 게이트3 데이터(review `a160936e`·inquiry `b012e42f`·주문 E2E배송*). dad 확인 아티팩트: https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d , scratchpad `gate3-{partner,reviews}-*.png`·`mypage-{email-banner,password-change}.png`.
-- 커밋(브랜치 `integrate/approval-and-design`): `4f9f1b9` 홈·헤더 / `f0a0eb8` 0원+업체필터 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`·`23189c2` CategorySettings(+fix) / `040cf2f` survey+게이트 / `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 로그인 가드+하드코딩 제거.
-- 마이그레이션: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(전부 실 DB 적용됨).
-- 러너: `scripts/apply-migrations.mjs`. CI: `.github/workflows/ci.yml`(verify+migrate).
-- Playwright: `playwright.config.ts`, `tests/golden/{home,shop,diagnosis,insurance}.spec.ts`(프리뷰 4/4 PASS). 프리뷰 URL alias: `baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app`.
-- 콘센트 추가: `storage.ts`의 getAdminMembers/insurance·survey·kits·partners·qna get/save. repo: `src/lib/{insurance,settings,categorySettings,survey,kits,partners,qna}/`.
-- SSOT: `AGENTS.md`(§3 분리기준·데이터오너십 / §4-6 lint강제 / §8-6 검증게이트).
-- (2026-07-13 마감) **PR #20**(`0bb79d7`, merge 커밋): dad 통합 — 신규 `src/components/shop/ProductTabsClient.tsx`·`src/components/{reviews,inquiries}/*Modal.tsx`·`src/components/brands/BrandProductsClient.tsx`·`src/app/mypage/components/`(10파일)·`src/app/admin/inquiries/page.tsx`·`src/app/concerns/[slug]/components/CareDetailNav.tsx`·`src/lib/adapters.ts` / 개편 `src/app/{shop/[id],brands/[id],concerns/[slug],mypage}/page.tsx`·`globals.css`(.care-detail 스코프) / 계약 가산 `types/index.ts`(+79)·`storage.ts`(리뷰·문의 목 콘센트 + getMyHistoryProducts) / 신규 API `src/app/api/orders/mine/products/route.ts` / repo 가산 `listProductsByIds(ids, {includeHidden})` / `eslint.config.mjs` files 글롭 확대 / dad 정본 보존 브랜치 `origin/dad/remove-audit-badges`(`1ce3b19`). 주요 커밋: `4576dce`(머지)·`cd0c96a`(b1 감사 백포트)·`ff98e2e`(기능 복원)·`5587fb3`·`3cb8395`(리뷰 픽스)·`c1e9cb1`(베이스라인).
-- (2차 마감) main 머지 PR 5건: `#13`(1ccca8c, integrate 잔여 docs/ci) / `#14`(2f4ed45, 시각 회귀 게이트: `.github/CODEOWNERS`·`.github/workflows/{visual,update-baselines}.yml`·`tests/golden/visual.spec.ts`+스냅샷14장·AGENTS §8-1) / `#15`(0d4a138, `eslint.config.mjs` no-restricted-imports+.claude ignore·AGENTS §0-1-1) / `#16`(33f62c2, `supabase/migrations/0021_decrement_stock_for_order.sql`·`src/app/api/orders/route.ts`·`src/lib/{orders,products}/repo.ts`·`src/lib/storage.ts` 409 분기) / `#17`(8ce12d7, `tests/golden/shop.spec.ts` 구조 검증화). 브랜치 전부 하루살이로 삭제.
-- (2차 마감) 보호 규칙: main required checks = `verify`+`visual`(strict). GitHub secrets 추가: `E2E_ADMIN_EMAIL`·`E2E_ADMIN_PASSWORD`. 라벨 신설: `update-baselines`.
-- (2차 마감) 0021 적용: staging(로컬 러너 `scripts/apply-migrations.mjs` — CI migrate가 be/* push에 안 도는 갭 때문) + prod(main push CI). ⚠️ CI migrate 갭: be/* 브랜치 마이그레이션은 머지 전 staging 수동 적용 필요(또는 ci.yml 분기 확장 검토).
-- (2026-07-13 결제 마감) **토스 결제 PR 9건**: `#19`(5ea0a1b) `src/types/index.ts`+`src/lib/orders/repo.ts`+`src/lib/storage.ts`+`supabase/migrations/0022~0024` / `#21`(659a855) `src/app/api/admin/orders/[id]/route.ts` / `#22` `src/app/api/cron/reclaim-stock/route.ts`+`vercel.json` / `#23`(42219a3) `src/lib/payments/toss.ts`+`src/app/api/payments/{confirm,cancel}/route.ts`+`src/app/api/orders/route.ts` / `#25`(bc52424) admin orders '승인중' / `#26`(02842bb) `src/app/order-complete/page.tsx` / `#27`(7819942) `src/app/checkout/page.tsx`+`@tosspayments/tosspayments-sdk` / `#28`(dc3535c) `0025~0027`+repo 상태기계+`src/app/api/cron/reconcile-confirming/route.ts`+`docs/runbooks/payment-dead-letter.md` / `#29`(b993a90) `src/app/api/payments/webhook/route.ts`. 라벨 신설: `data-integration`·`behavior`. 계획서: `.omc/plans/toss-payment-parallel-worktree.md`·`toss-webhook-wave.md`(리뷰 정정 이력 포함).
-- (2026-07-13 R4 마감) **PR #33**(`4a0e9b3`): 본체 = 이전 세션 커밋 20+(successUrl 서버 라우트화·`src/lib/payments/applyAuthoritativeAction` 공유 코어·`src/lib/orders/repo.ts` `markReclaimDead` 0행 검증·`.github/workflows/visual.yml` payments-routes 순차 잡·cancel 레이트리밋). 이 세션 마무리 커밋: `7aef27d`(main 머지+`tests/payments/helpers.ts` 429 백오프)→`074a772`(`tests/golden/visual.spec.ts` admin fullPage:false)→`55ebe23`·`c76d953`(봇 베이스라인 2회)→`923357e`(table 전체 마스크)→`ab3bc88`(빈 커밋 재실행). 브랜치 `refactor/payment-return-route` 머지 후 삭제. 워크트리 `wt-r4-return`·`wt-close-r4` 잔존(수동 제거 가능).
-- 상품상세 배치(2026-07-12, push `1291f8a..e3e1518`): `src/components/shop/ProductDetailClient.tsx` 8커밋 `68d5b09`(배지 제거)→`e2075a7`(갤러리 배선)→`c8cd729`(§6 토큰)→`c002215`(재고 게이트)→`f1c8f42`·`b90fd63`·`2eb32a1`·`c7d9e2a`(Codex findings 픽스 4연) / `src/app/shop/[id]/page.tsx`+`src/app/admin/products/page.tsx` 3커밋 `25a0af9`(PurchaseInfo 재배치)→`17fad71`(admin stock 입력)→`16ddfaa`(음수·소수 클램프) / 머지커밋 `e3e1518`. 작업 브랜치 `fe/design-product-detail-wiring`·`be/product-detail-server`는 머지 후 삭제(하루살이 규칙).
+## ?뚯씪 ?붿쟻 (異붽?留?
+- (2026-07-13 由щ럭쨌臾몄쓽/?뚰듃??留덇컧) **PR #36**(`0cebb1c`): `supabase/migrations/0029_product_reviews_inquiries.sql` / `src/lib/{reviews,inquiries}/repo.ts` / API `src/app/api/{reviews{,/[id],/mine},inquiries{,/[id],/mine},products/[id]/{reviews,inquiries},admin/{reviews/[id],inquiries{,/[id]/answer}}}/route.ts` / `src/lib/{storage,adapters}.ts` async ?꾪솚 / `src/components/shop/ProductTabsClient.tsx`쨌`src/app/mypage/page.tsx`쨌`src/app/admin/inquiries/page.tsx` ?몄텧遺 / `src/components/{reviews/ReviewFormModal,inquiries/InquiryFormModal}.tsx` isSubmitting 媛?? 二쇱슂 而ㅻ컠: `8cab143`(二쇰Ц寃利???dbcc5f2`(optionName)??fe70414`(RESTRICT+throw)??1c629a3`(紐⑤떖)??54f6788`(seq 移댁슫????c083b29`(main 癒몄?).
+- (?숈씪 留덇컧) **PR #37**(`7b9ea83`): `supabase/migrations/0030_member_managed_brand_ids.sql` / `src/lib/admin/requireBrandScoped.ts` / `src/app/api/partner/products{,/[id]}/route.ts` / `src/lib/products/repo.ts`(updateProductScoped쨌deleteProductScoped) / `src/lib/members/repo.ts`(managed_brand_ids 留ㅽ띁) / `src/lib/storage.ts` ?뚰듃??4?⑥닔 / `src/components/brands/BrandProductsClient.tsx` 諛곗꽑. 二쇱슂 而ㅻ컠: `32f053f`??682b7e6`(allowlist)??21f6542`(TOCTOU)??831b7d7`(image+紐⑸줉蹂댁〈+??젣媛????a205635`(null-price)??31aecdc`쨌`d9cd1f4`(main 癒몄? 2??.
+- (?숈씪 留덇컧) ?ㅽ뀒?댁쭠 ?좉퇋: ?뚰듃??怨꾩젙 `partner-e2e@test.baekjo`, 寃뚯씠?? ?곗씠??review `a160936e`쨌inquiry `b012e42f`쨌二쇰Ц E2E諛곗넚*). dad ?뺤씤 ?꾪떚?⑺듃: https://claude.ai/code/artifact/c569676c-f583-492d-b7fd-aedaced79b6d , scratchpad `gate3-{partner,reviews}-*.png`쨌`mypage-{email-banner,password-change}.png`.
+- 而ㅻ컠(釉뚮옖移?`integrate/approval-and-design`): `4f9f1b9` ?댟룻뿤??/ `f0a0eb8` 0???낆껜?꾪꽣 / `040fce0` AGENTS+CI / `ef68b80` P1 members / `c039f7c` P2 insurance / `a906574` CI migrate / `37d0dbd` P3 settings / `d4156e0`쨌`23189c2` CategorySettings(+fix) / `040cf2f` survey+寃뚯씠??/ `3281450` lint fix(CI green) / `7f1af3b` category-settings {} fix + Playwright / `d1b2c12` kits/partners/qna / `0ab8ba5` mypage 濡쒓렇??媛???섎뱶肄붾뵫 ?쒓굅.
+- 留덉씠洹몃젅?댁뀡: `supabase/migrations/0007_insurance`~`0013_qna_config.sql`(?꾨? ??DB ?곸슜??.
+- ?щ꼫: `scripts/apply-migrations.mjs`. CI: `.github/workflows/ci.yml`(verify+migrate).
+- Playwright: `playwright.config.ts`, `tests/golden/{home,shop,diagnosis,insurance}.spec.ts`(?꾨━酉?4/4 PASS). ?꾨━酉?URL alias: `baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app`.
+- 肄섏꽱??異붽?: `storage.ts`??getAdminMembers/insurance쨌survey쨌kits쨌partners쨌qna get/save. repo: `src/lib/{insurance,settings,categorySettings,survey,kits,partners,qna}/`.
+- SSOT: `AGENTS.md`(짠3 遺꾨━湲곗?쨌?곗씠?곗삤?덉떗 / 짠4-6 lint媛뺤젣 / 짠8-6 寃利앷쾶?댄듃).
+- (2026-07-13 留덇컧) **PR #20**(`0bb79d7`, merge 而ㅻ컠): dad ?듯빀 ???좉퇋 `src/components/shop/ProductTabsClient.tsx`쨌`src/components/{reviews,inquiries}/*Modal.tsx`쨌`src/components/brands/BrandProductsClient.tsx`쨌`src/app/mypage/components/`(10?뚯씪)쨌`src/app/admin/inquiries/page.tsx`쨌`src/app/concerns/[slug]/components/CareDetailNav.tsx`쨌`src/lib/adapters.ts` / 媛쒗렪 `src/app/{shop/[id],brands/[id],concerns/[slug],mypage}/page.tsx`쨌`globals.css`(.care-detail ?ㅼ퐫?? / 怨꾩빟 媛??`types/index.ts`(+79)쨌`storage.ts`(由щ럭쨌臾몄쓽 紐?肄섏꽱??+ getMyHistoryProducts) / ?좉퇋 API `src/app/api/orders/mine/products/route.ts` / repo 媛??`listProductsByIds(ids, {includeHidden})` / `eslint.config.mjs` files 湲濡??뺣? / dad ?뺣낯 蹂댁〈 釉뚮옖移?`origin/dad/remove-audit-badges`(`1ce3b19`). 二쇱슂 而ㅻ컠: `4576dce`(癒몄?)쨌`cd0c96a`(b1 媛먯궗 諛깊룷??쨌`ff98e2e`(湲곕뒫 蹂듭썝)쨌`5587fb3`쨌`3cb8395`(由щ럭 ?쎌뒪)쨌`c1e9cb1`(踰좎씠?ㅻ씪??.
+- (2李?留덇컧) main 癒몄? PR 5嫄? `#13`(1ccca8c, integrate ?붿뿬 docs/ci) / `#14`(2f4ed45, ?쒓컖 ?뚭? 寃뚯씠?? `.github/CODEOWNERS`쨌`.github/workflows/{visual,update-baselines}.yml`쨌`tests/golden/visual.spec.ts`+?ㅻ깄??4?Β텮GENTS 짠8-1) / `#15`(0d4a138, `eslint.config.mjs` no-restricted-imports+.claude ignore쨌AGENTS 짠0-1-1) / `#16`(33f62c2, `supabase/migrations/0021_decrement_stock_for_order.sql`쨌`src/app/api/orders/route.ts`쨌`src/lib/{orders,products}/repo.ts`쨌`src/lib/storage.ts` 409 遺꾧린) / `#17`(8ce12d7, `tests/golden/shop.spec.ts` 援ъ“ 寃利앺솕). 釉뚮옖移??꾨? ?섎（?댁씠濡???젣.
+- (2李?留덇컧) 蹂댄샇 洹쒖튃: main required checks = `verify`+`visual`(strict). GitHub secrets 異붽?: `E2E_ADMIN_EMAIL`쨌`E2E_ADMIN_PASSWORD`. ?쇰꺼 ?좎꽕: `update-baselines`.
+- (2李?留덇컧) 0021 ?곸슜: staging(濡쒖뺄 ?щ꼫 `scripts/apply-migrations.mjs` ??CI migrate媛 be/* push?????꾨뒗 媛??뚮Ц) + prod(main push CI). ?좑툘 CI migrate 媛? be/* 釉뚮옖移?留덉씠洹몃젅?댁뀡? 癒몄? ??staging ?섎룞 ?곸슜 ?꾩슂(?먮뒗 ci.yml 遺꾧린 ?뺤옣 寃??.
+- (2026-07-13 寃곗젣 留덇컧) **?좎뒪 寃곗젣 PR 9嫄?*: `#19`(5ea0a1b) `src/types/index.ts`+`src/lib/orders/repo.ts`+`src/lib/storage.ts`+`supabase/migrations/0022~0024` / `#21`(659a855) `src/app/api/admin/orders/[id]/route.ts` / `#22` `src/app/api/cron/reclaim-stock/route.ts`+`vercel.json` / `#23`(42219a3) `src/lib/payments/toss.ts`+`src/app/api/payments/{confirm,cancel}/route.ts`+`src/app/api/orders/route.ts` / `#25`(bc52424) admin orders '?뱀씤以? / `#26`(02842bb) `src/app/order-complete/page.tsx` / `#27`(7819942) `src/app/checkout/page.tsx`+`@tosspayments/tosspayments-sdk` / `#28`(dc3535c) `0025~0027`+repo ?곹깭湲곌퀎+`src/app/api/cron/reconcile-confirming/route.ts`+`docs/runbooks/payment-dead-letter.md` / `#29`(b993a90) `src/app/api/payments/webhook/route.ts`. ?쇰꺼 ?좎꽕: `data-integration`쨌`behavior`. 怨꾪쉷?? `.omc/plans/toss-payment-parallel-worktree.md`쨌`toss-webhook-wave.md`(由щ럭 ?뺤젙 ?대젰 ?ы븿).
+- (2026-07-13 R4 留덇컧) **PR #33**(`4a0e9b3`): 蹂몄껜 = ?댁쟾 ?몄뀡 而ㅻ컠 20+(successUrl ?쒕쾭 ?쇱슦?명솕쨌`src/lib/payments/applyAuthoritativeAction` 怨듭쑀 肄붿뼱쨌`src/lib/orders/repo.ts` `markReclaimDead` 0??寃利씲?.github/workflows/visual.yml` payments-routes ?쒖감 ?≤톍ancel ?덉씠?몃━諛?. ???몄뀡 留덈Т由?而ㅻ컠: `7aef27d`(main 癒몄?+`tests/payments/helpers.ts` 429 諛깆삤????074a772`(`tests/golden/visual.spec.ts` admin fullPage:false)??55ebe23`쨌`c76d953`(遊?踰좎씠?ㅻ씪??2????923357e`(table ?꾩껜 留덉뒪????ab3bc88`(鍮?而ㅻ컠 ?ъ떎??. 釉뚮옖移?`refactor/payment-return-route` 癒몄? ????젣. ?뚰겕?몃━ `wt-r4-return`쨌`wt-close-r4` ?붿〈(?섎룞 ?쒓굅 媛??.
+- ?곹뭹?곸꽭 諛곗튂(2026-07-12, push `1291f8a..e3e1518`): `src/components/shop/ProductDetailClient.tsx` 8而ㅻ컠 `68d5b09`(諛곗? ?쒓굅)??e2075a7`(媛ㅻ윭由?諛곗꽑)??c8cd729`(짠6 ?좏겙)??c002215`(?ш퀬 寃뚯씠????f1c8f42`쨌`b90fd63`쨌`2eb32a1`쨌`c7d9e2a`(Codex findings ?쎌뒪 4?? / `src/app/shop/[id]/page.tsx`+`src/app/admin/products/page.tsx` 3而ㅻ컠 `25a0af9`(PurchaseInfo ?щ같移???17fad71`(admin stock ?낅젰)??16ddfaa`(?뚯닔쨌?뚯닔 ?대옩?? / 癒몄?而ㅻ컠 `e3e1518`. ?묒뾽 釉뚮옖移?`fe/design-product-detail-wiring`쨌`be/product-detail-server`??癒몄? ????젣(?섎（?댁씠 洹쒖튃).
+
