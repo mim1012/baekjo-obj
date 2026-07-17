@@ -12,8 +12,8 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain("import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminConcernsConfig()');
     expect(pageSource).toContain('saveConcernsConfig({ items })');
-    // 로드 실패 시 저장을 막는다 — 공개 폴백을 default 로 덮어쓰는 사고 방지(insurance-content 미러).
-    expect(pageSource).toContain('loadError ? Promise.resolve({ ok: false })');
+    // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH).
+    expect(pageSource).toContain('!loaded || loadError ? Promise.resolve({ ok: false })');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');

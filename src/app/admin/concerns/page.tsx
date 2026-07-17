@@ -24,10 +24,15 @@ function draftText(
 }
 
 function splitList(value: unknown): string[] {
-  return asText(value)
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
+  // 중복 값 제거 — 공개 화면이 배열 값을 React key 로 쓰므로 중복이 key 충돌을 만든다.
+  return Array.from(
+    new Set(
+      asText(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    ),
+  );
 }
 
 function draftList(
@@ -38,8 +43,12 @@ function draftList(
   return hasDraftValue(draft, key) ? splitList(draft[key]) : previousValue ?? [];
 }
 
-/** faq textarea 형식: 한 줄에 "질문|답변" 하나. 구분자(|)가 없는 줄은 버린다. */
+/**
+ * faq textarea 형식: 한 줄에 "질문|답변" 하나. 구분자(|)가 없거나 질문/답변 한쪽이 빈 줄은 버린다
+ * (폼 라벨에 명시). 같은 질문이 여러 줄이면 첫 줄만 남긴다 — 공개 화면이 question 을 React key 로 쓴다.
+ */
 function parseFaqLines(value: unknown): FAQ[] {
+  const seenQuestions = new Set<string>();
   return (typeof value === 'string' ? value : '')
     .split('\n')
     .map((line) => line.trim())
@@ -51,7 +60,11 @@ function parseFaqLines(value: unknown): FAQ[] {
         answer: line.slice(separatorIndex + 1).trim(),
       };
     })
-    .filter((faq) => faq.question && faq.answer);
+    .filter((faq) => {
+      if (!faq.question || !faq.answer || seenQuestions.has(faq.question)) return false;
+      seenQuestions.add(faq.question);
+      return true;
+    });
 }
 
 function faqToLines(faq: FAQ[]): string {
@@ -101,8 +114,10 @@ export default function AdminConcernsPage() {
   // draft = 현재 편집 중인 고민 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
   // 불러온다. 관리자 getter(getAdminConcernsConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
   // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(insurance-content 미러).
-  // loadError 면 저장을 막는다.
+  // 로드 완료 전(loaded=false)·loadError 면 저장을 막는다 — 로드 완료 전 저장이 default 로 DB 를
+  // 덮어쓰는 레이스 방지(codex 리뷰 F-HIGH).
   const [items, setItems] = useState<Concern[]>(defaultConcernsConfig.items);
+  const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
@@ -112,6 +127,7 @@ export default function AdminConcernsPage() {
         if (cancelled) return;
         setLoadError(false);
         setItems(config.items);
+        setLoaded(true);
       })
       .catch(() => {
         if (cancelled) return;
@@ -122,11 +138,14 @@ export default function AdminConcernsPage() {
     };
   }, []);
 
+  // 로드 완료 전 편집은 default 를 편집하는 것 — no-op 으로 막는다(F-HIGH).
   const handleCreate = (draft: Record<string, string | number>) => {
+    if (!loaded) return;
     setItems((prev) => [...prev, draftToConcern(draft, prev.map((concern) => concern.slug))]);
   };
 
   const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded) return;
     setItems((prev) =>
       prev.map((concern) =>
         concern.slug === id ? draftToConcern(draft, prev.map((item) => item.slug), concern) : concern,
@@ -135,15 +154,16 @@ export default function AdminConcernsPage() {
   };
 
   const handleDelete = (id: string | number) => {
+    if (!loaded) return;
     setItems((prev) => prev.filter((concern) => concern.slug !== id));
   };
 
-  const handleSave = () => (loadError ? Promise.resolve({ ok: false }) : saveConcernsConfig({ items }));
+  const handleSave = () => (!loaded || loadError ? Promise.resolve({ ok: false }) : saveConcernsConfig({ items }));
 
   return (
     <AdminResourcePage
       title="고민 관리"
-      description={loadError ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : '증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 저장 버튼을 눌러야 공개 화면에 반영됩니다.'}
+      description={loadError ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 저장 버튼을 눌러야 공개 화면에 반영됩니다.'}
       actionLabel="고민 등록"
       searchPlaceholder="고민명 검색"
       columns={[
@@ -181,7 +201,7 @@ export default function AdminConcernsPage() {
         { key: 'recommendedProductIds', label: '추천 상품 ID(쉼표 구분)' },
         { key: 'recommendedBrandIds', label: '추천 브랜드 ID(쉼표 구분)' },
         { key: 'insuranceCta', label: '보험 CTA' },
-        { key: 'faq', label: 'FAQ(한 줄에 질문|답변)', type: 'textarea' },
+        { key: 'faq', label: 'FAQ(한 줄에 질문|답변 — 형식이 어긋난 줄은 저장 시 제외됨)', type: 'textarea' },
       ]}
       onCreateRow={handleCreate}
       onUpdateRow={handleUpdate}

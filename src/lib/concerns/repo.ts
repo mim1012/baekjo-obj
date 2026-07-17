@@ -7,8 +7,20 @@ import { logServerError } from '@/lib/logServerError';
 const CONFIG_ROW_ID = 'default';
 
 /**
- * 저장된 고민 config 를 반환한다. 행이 없으면 null(→ 호출부가 defaultConcernsConfig 로 폴백).
- * value jsonb 는 저장 시점의 ConcernsConfig 모양 그대로이므로 그대로 캐스팅해 돌려준다.
+ * value jsonb 가 저장 시점의 ConcernsConfig 모양({ items: [...] }, 1건 이상)인지 검사한다.
+ * 0041 마이그레이션의 value default 가 '{}' 라 빈 객체 행이 존재할 수 있고, 수동 조작된 행이
+ * malformed 일 수도 있다 — 무검증 캐스팅하면 request-time throw/렌더 깨짐으로 이어지므로
+ * 모양이 아니면 null(→ default 폴백) 처리한다.
+ */
+function isConcernsConfigShape(value: unknown): value is ConcernsConfig {
+  if (typeof value !== 'object' || value === null) return false;
+  const items = (value as { items?: unknown }).items;
+  return Array.isArray(items) && items.length > 0;
+}
+
+/**
+ * 저장된 고민 config 를 반환한다. 행이 없거나 value 가 config 모양이 아니면
+ * null(→ 호출부가 defaultConcernsConfig 로 폴백).
  */
 export async function getConcernsConfig(): Promise<ConcernsConfig | null> {
   const { data, error } = await getSupabase()
@@ -17,7 +29,12 @@ export async function getConcernsConfig(): Promise<ConcernsConfig | null> {
     .eq('id', CONFIG_ROW_ID)
     .maybeSingle();
   if (error) throw error;
-  return data ? (data.value as ConcernsConfig) : null;
+  if (!data) return null;
+  if (!isConcernsConfigShape(data.value)) {
+    logServerError('[concerns/repo] value 가 ConcernsConfig 모양이 아님 — null(default 폴백) 처리', 'malformed concerns_config.value');
+    return null;
+  }
+  return data.value;
 }
 
 /**

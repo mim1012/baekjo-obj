@@ -49,7 +49,17 @@ export default function SignupPage() {
   useEffect(() => {
     let cancelled = false;
     getConcernsConfig().then((config) => {
-      if (!cancelled) setConcerns(config.items);
+      if (cancelled) return;
+      setConcerns(config.items);
+      // 기본값 'tear' 는 관리자가 해당 slug 를 삭제했을 수 있다 — 옵션 로드 후 현재 선택값이
+      // 옵션에 없으면 첫 옵션 slug 로 보정해, 삭제된 slug 가 신규 회원에 저장되는 것을 막는다.
+      if (config.items.length > 0) {
+        setFormData((current) =>
+          config.items.some((concern) => concern.slug === current.mainConcern)
+            ? current
+            : { ...current, mainConcern: config.items[0].slug },
+        );
+      }
     });
     return () => {
       cancelled = true;
