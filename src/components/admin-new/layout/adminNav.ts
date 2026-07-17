@@ -16,6 +16,7 @@ import {
   HeartPulse,
   Handshake,
   Gift,
+  Inbox,
   Bell,
   Settings,
   FileText,
@@ -56,6 +57,7 @@ export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
   { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
   { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
   { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
+  { name: '제휴 문의 접수', href: '/admin/partner-inquiries', icon: Inbox },
   { name: '공지사항', href: '/admin/notices', icon: Bell },
   { name: '환경 설정', href: '/admin/settings', icon: Settings },
 ];

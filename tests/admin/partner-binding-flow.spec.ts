@@ -145,18 +145,32 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(repoSource).toContain('upsert({ id: CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
 
-  test('공개 케어키트 랜딩은 저장되지 않는 제휴 폼 대신 읽기 전용 문의 경로를 제공한다', () => {
+  test('공개 케어키트 랜딩은 mailto 대신 콘센트 경유 제휴 문의 폼을 제공한다', () => {
     const landingSource = src('src', 'app', 'landing', 'care-kit', 'page.tsx');
+    const formSource = src('src', 'components', 'care-kit', 'PartnerInquiryForm.tsx');
 
-    expect(landingSource).toContain("import { COMPANY } from '@/data/company';");
-    expect(landingSource).toContain('온라인 제휴 신청 저장 기능은 아직 준비 중입니다.');
-    expect(landingSource).toContain('mailto:${COMPANY.email}?subject=${encodeURIComponent');
-    expect(landingSource).toContain('{COMPANY.email}로 제휴 문의하기');
-    expect(landingSource).toContain('{COMPANY.supportHours}');
-    expect(landingSource).not.toContain('제휴 문의 제출하기');
-    expect(landingSource).not.toMatch(/<form\b/);
-    expect(landingSource).not.toMatch(/type=["']submit["']/);
-    expect(landingSource).not.toContain('onSubmit');
+    // 랜딩(page.tsx)은 서버 컴포넌트로 유지하고 폼만 클라이언트 컴포넌트로 분리한다(§3).
+    expect(landingSource).toContain(
+      "import PartnerInquiryForm from '@/components/care-kit/PartnerInquiryForm';",
+    );
+    expect(landingSource).toContain('<PartnerInquiryForm />');
+    expect(landingSource).not.toContain('mailto:');
+    expect(landingSource).not.toContain('온라인 제휴 신청 저장 기능은 아직 준비 중입니다.');
+    expect(landingSource).not.toContain("'use client'");
     expectNoMutableProductBrandImport(landingSource);
+
+    // 폼은 fetch 직접 호출 없이 storage 콘센트(addPartnerInquiry)만 거친다(§4).
+    expect(formSource).toContain("'use client'");
+    expect(formSource).toMatch(/<form\b/);
+    expect(formSource).toContain('onSubmit');
+    expect(formSource).toContain('제휴 문의 제출하기');
+    expect(formSource).toContain(
+      "import { addPartnerInquiry, type CreatePartnerInquiryInput } from '@/lib/storage';",
+    );
+    expect(formSource).toContain('await addPartnerInquiry(form)');
+    expect(formSource).not.toContain('fetch(');
+    expect(formSource).not.toContain('alert(');
+    expect(formSource).toContain('aria-live');
+    expectNoMutableProductBrandImport(formSource);
   });
 });
