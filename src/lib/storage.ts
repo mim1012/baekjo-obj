@@ -14,6 +14,7 @@ import type { KitsConfig } from '@/lib/kits/config';
 import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
+import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -990,6 +991,50 @@ export async function getAdminInsuranceContentConfig(): Promise<InsuranceContent
 export async function saveInsuranceContentConfig(config: InsuranceContentConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/insurance-content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 고민별 케어(concerns) ─────────────────────────────────────
+ * 공개 클라이언트 화면(회원가입 관심사 select 등)은 GET /api/concerns 로 고민 config 를 읽고,
+ * 관리자 화면(/admin/concerns)은 PUT /api/admin/concerns 로 통째로 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultConcernsConfig 로 접어 화면이 절대 빈 목록으로 깨지지 않게 한다.
+ * 서버 컴포넌트는 이 콘센트가 아니라 lib/concerns/repo 를 직접 읽는다(자기 API HTTP 왕복 금지).
+ */
+
+/** 공개 고민 config. GET /api/concerns. 실패·미저장 시 defaultConcernsConfig 로 폴백. */
+export async function getConcernsConfig(): Promise<ConcernsConfig> {
+  try {
+    const response = await fetch('/api/concerns');
+    if (!response.ok) return defaultConcernsConfig;
+    const { items } = (await response.json()) as ConcernsConfig;
+    if (!Array.isArray(items) || items.length === 0) return defaultConcernsConfig;
+    return { items };
+  } catch {
+    return defaultConcernsConfig;
+  }
+}
+
+/** 관리자 고민 config. GET /api/admin/concerns. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — insurance-content 미러). */
+export async function getAdminConcernsConfig(): Promise<ConcernsConfig> {
+  const response = await fetch('/api/admin/concerns');
+  if (!response.ok) throw new Error('concerns-config-load-failed');
+  const { items } = (await response.json()) as ConcernsConfig;
+  if (!Array.isArray(items)) throw new Error('concerns-config-invalid-response');
+  return { items };
+}
+
+/** 고민 config 저장(관리자). PUT /api/admin/concerns. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveConcernsConfig(config: ConcernsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/concerns', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),

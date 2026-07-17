@@ -4,8 +4,7 @@ import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
-import { Brand, Product } from '@/types';
-import { concerns } from '@/data/concerns';
+import { Brand, Concern, Product } from '@/types';
 import { normalizeShopCategory, toShopCategoryOption } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
@@ -39,9 +38,11 @@ const sortOptions: Array<{ id: SortOption; label: string }> = [
 interface Props {
   products: Product[];
   brands: Brand[];
+  /** 고민 필터 옵션. 서버 wrapper(page.tsx)가 concerns repo 로 읽어 내려준다(콘센트). */
+  concerns: Concern[];
 }
 
-function ShopInner({ products, brands }: Props) {
+function ShopInner({ products, brands, concerns }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
@@ -465,11 +466,11 @@ function ShopInner({ products, brands }: Props) {
   );
 }
 
-export default function ShopContent({ products, brands }: Props) {
+export default function ShopContent({ products, brands, concerns }: Props) {
   return (
     <main className="shop-page min-h-dvh bg-[#FBFAF7]">
       <Suspense fallback={<div className="shop-container mx-auto w-[calc(100%-32px)] max-w-[1280px] py-16"><div className="h-96 animate-pulse rounded-3xl bg-[#E7E0D5]/50" /></div>}>
-        <ShopInner products={products} brands={brands} />
+        <ShopInner products={products} brands={brands} concerns={concerns} />
       </Suspense>
     </main>
   );
