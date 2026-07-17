@@ -123,6 +123,29 @@ export async function upsertShipment(
   if (error) throw error;
 }
 
+/**
+ * 자동 구매확정(크론) — 배송완료된 지 오래된 송장을 한 방(set-based)에 '구매확정'으로 전이한다.
+ * WHERE delivery_status='배송완료' AND delivered_at < cutoff 인 모든 행을 단일 UPDATE로 처리하고
+ * 영향 행 수를 반환한다(per-row 루프 없음). confirmShipmentIfDelivered와 같은 조건부 UPDATE 사상이라
+ * 고객이 이미 확정한 행은 delivery_status가 '구매확정'이라 WHERE에 걸리지 않아 자연 제외된다
+ * (경합 안전 — 크론과 고객 버튼이 같은 행을 동시에 눌러도 조건부 전이라 이중 확정이 안 생긴다).
+ * delivered_at IS NOT NULL 을 명시해 (이론상 없어야 하지만) 스탬프 없는 배송완료 행을 방어적으로 뺀다.
+ */
+export async function autoConfirmDeliveredBefore(
+  cutoffIso: string,
+  confirmedAt: string,
+): Promise<number> {
+  const { data, error } = await getSupabase()
+    .from('shipments')
+    .update({ delivery_status: '구매확정', confirmed_at: confirmedAt })
+    .eq('delivery_status', CONFIRMABLE_DELIVERY_STATUS)
+    .not('delivered_at', 'is', null)
+    .lt('delivered_at', cutoffIso)
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 /** 고객 구매확정 — WHERE delivery_status='배송완료' 조건부 UPDATE(setOrderPaid와 같은 원자 전이 패턴).
  *  매치 0행이면 false(이미 확정됐거나 아직 배송완료가 아님) — 판별은 호출 라우트가 재조회로 한다. */
 export async function confirmShipmentIfDelivered(

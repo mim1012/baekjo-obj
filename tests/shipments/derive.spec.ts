@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import type { OrderItem, Shipment } from '@/types';
 import {
+  autoConfirmCutoff,
   deriveOrderDeliveryStatus,
   orderBrandIds,
   resolveShipmentStamps,
@@ -143,5 +144,22 @@ test.describe('resolveShipmentStamps', () => {
       deliveredAt: '2026-07-05T00:00:00.000Z',
     });
     expect(resolveShipmentStamps(current, '구매확정', NOW)).toEqual({ confirmedAt: NOW });
+  });
+});
+
+test.describe('autoConfirmCutoff', () => {
+  test('now 로부터 7일 이전 시각을 ISO로 돌려준다(D-2 기준)', () => {
+    const now = new Date('2026-07-17T18:00:00.000Z');
+    expect(autoConfirmCutoff(now, 7)).toBe('2026-07-10T18:00:00.000Z');
+  });
+
+  test('days=0 이면 now 그대로', () => {
+    const now = new Date('2026-07-17T18:00:00.000Z');
+    expect(autoConfirmCutoff(now, 0)).toBe('2026-07-17T18:00:00.000Z');
+  });
+
+  test('월 경계를 넘겨도 정확히 계산한다', () => {
+    const now = new Date('2026-08-03T00:00:00.000Z');
+    expect(autoConfirmCutoff(now, 7)).toBe('2026-07-27T00:00:00.000Z');
   });
 });
