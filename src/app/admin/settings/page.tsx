@@ -9,16 +9,17 @@ import HomeClient from '@/components/home/HomeClient';
 import type { Brand, Product } from '@/types';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
 
+// 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 아이콘·href·이미지 등 "구조"는
+// HomeClient 하드코딩이라 편집 대상이 아니고, 여기서는 "문구"만 편집한다(§ homeContent).
 const TABS = [
-  { id: 'intro', label: '메인 영상' },
-  { id: 'howToStart', label: '소개 (How to Start)' },
-  { id: 'audit', label: '오딧 (Audit)' },
-  { id: 'curation', label: '맞춤 큐레이션' },
-  { id: 'brands', label: '검증 브랜드관' },
+  { id: 'hero', label: '메인 히어로' },
+  { id: 'quickShop', label: '빠른 쇼핑' },
   { id: 'bestProducts', label: '오늘의 추천' },
-  { id: 'insurance', label: '펫보험 분석' },
-  { id: 'trustBoard', label: 'Trust Board (후기/공지)' },
-  { id: 'b2b', label: '하단 B2B 안내' },
+  { id: 'curation', label: '맞춤 큐레이션' },
+  { id: 'audit', label: '백조오브제 Audit' },
+  { id: 'solutions', label: '3가지 솔루션' },
+  { id: 'insuranceBanner', label: '펫보험 배너' },
+  { id: 'trustBoard', label: '후기/소식' },
 ] as const;
 
 type TabId = typeof TABS[number]['id'];
@@ -28,7 +29,7 @@ export default function SiteSettingsPage() {
   const [draft, setDraft] = useState<HomeSettings>(settings);
   const [dirty, setDirty] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('intro');
+  const [activeTab, setActiveTab] = useState<TabId>('hero');
   // 미리보기는 홈 화면(HomeClient)을 그대로 재사용한다 — repo(서버 전용)는 클라이언트
   // 컴포넌트에서 못 부르므로, 미리보기를 열 때 공개 API 로 상품·브랜드를 읽어 props 로 넘긴다.
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
@@ -122,11 +123,21 @@ export default function SiteSettingsPage() {
     </div>
   );
 
+  // 줄바꿈은 마크업(<br/>)이 아니라 구조(string[])로 다룬다 — 한 줄에 한 문장씩, 개행으로 구분한다.
+  // 빈 줄은 저장 시 제거해 정본이 깨지지 않도록 한다(normalize 가 최종 방어).
+  const renderLinesInput = (label: string, lines: string[], onChange: (lines: string[]) => void) =>
+    renderInput(
+      `${label} (한 줄에 한 문장, 줄바꿈으로 구분)`,
+      lines.join('\n'),
+      (v) => onChange(v.split('\n').map((line) => line.trimEnd())),
+      true,
+    );
+
   return (
     <div className="flex min-h-[calc(100dvh-9rem)] flex-col gap-8">
       <AdminPageHeader
         title="사이트 콘텐츠 설정"
-        description="홈페이지의 주요 콘텐츠를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다."
+        description="홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다."
         actions={<>
           <button
             onClick={() => setIsPreviewOpen(true)}
@@ -175,192 +186,133 @@ export default function SiteSettingsPage() {
               {TABS.find((t) => t.id === activeTab)?.label} 설정
             </h2>
 
-            {/* 메인 영상 */}
-            {activeTab === 'intro' && (
+            {/* 1. 메인 히어로 */}
+            {activeTab === 'hero' && (
               <div className="space-y-4">
-                {renderInput('영상 경로 (videoSrc)', draft.intro.videoSrc, (v) => updateDraft('intro', 'videoSrc', v))}
-              </div>
-            )}
-
-            {/* 소개 (How to Start) */}
-            {activeTab === 'howToStart' && (
-              <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-4">공통 영역</h4>
-                  {renderInput('섹션 제목 (Title)', draft.howToStart.title, (v) => updateDraft('howToStart', 'title', v), true)}
-                  {renderInput('설명문 (Description)', draft.howToStart.description, (v) => updateDraft('howToStart', 'description', v), true)}
-                </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-sm font-bold text-gray-900">3가지 스텝 설정</h4>
-                  {draft.howToStart.steps.map((step, idx) => (
-                    <div key={idx} className="bg-white p-4 rounded-sm border border-gray-200 relative">
-                      <div className="absolute top-0 right-0 bg-[#F8F7F2] text-[#2F3B34] text-[10px] font-bold px-2 py-1 rounded-bl-sm border-b border-l border-gray-200">
-                        Step {idx + 1}
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
-                        {renderInput('넘버 라벨 (num)', step.num, (v) => updateArrayField('howToStart', 'steps', idx, 'num', v))}
-                        {renderInput('스텝 제목 (title)', step.title, (v) => updateArrayField('howToStart', 'steps', idx, 'title', v))}
-                        <div className="col-span-2">
-                          {renderInput('스텝 설명 (desc)', step.desc, (v) => updateArrayField('howToStart', 'steps', idx, 'desc', v), true)}
-                        </div>
-                        {renderInput('링크 텍스트 (linkText)', step.linkText, (v) => updateArrayField('howToStart', 'steps', idx, 'linkText', v))}
-                        {renderInput('이동할 경로 (linkHref)', step.linkHref, (v) => updateArrayField('howToStart', 'steps', idx, 'linkHref', v))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 오딧 (Audit) */}
-            {activeTab === 'audit' && (
-              <div className="space-y-6">
-                {renderInput('상단 영문 뱃지 (badge)', draft.audit.badge, (v) => updateDraft('audit', 'badge', v))}
-                {renderInput('큰 제목 (title)', draft.audit.title, (v) => updateDraft('audit', 'title', v), true)}
-                {renderInput('설명 제목 (descriptionTitle)', draft.audit.descriptionTitle, (v) => updateDraft('audit', 'descriptionTitle', v))}
-                {renderInput('상세 설명 (descriptionText)', draft.audit.descriptionText, (v) => updateDraft('audit', 'descriptionText', v), true)}
-                {renderInput('자필 서명 텍스트 (signatureText)', draft.audit.signatureText, (v) => updateDraft('audit', 'signatureText', v), true)}
-                {renderInput('하단 띠배너 문구 (bannerText)', draft.audit.bannerText, (v) => updateDraft('audit', 'bannerText', v))}
-                
-                <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">4가지 기준 아이콘 설정</h4>
+                {renderInput('상단 영문 뱃지 (eyebrow)', draft.hero.eyebrow, (v) => updateDraft('hero', 'eyebrow', v))}
+                {renderLinesInput('큰 제목', draft.hero.titleLines, (v) => updateDraft('hero', 'titleLines', v))}
+                {renderLinesInput('설명문', draft.hero.descriptionLines, (v) => updateDraft('hero', 'descriptionLines', v))}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {draft.audit.icons.map((icon, idx) => (
+                  {renderInput('기본 버튼 텍스트 (primaryCta)', draft.hero.primaryCtaLabel, (v) => updateDraft('hero', 'primaryCtaLabel', v))}
+                  {renderInput('보조 버튼 텍스트 (secondaryCta)', draft.hero.secondaryCtaLabel, (v) => updateDraft('hero', 'secondaryCtaLabel', v))}
+                </div>
+                {renderInput('신뢰 문구 (trustNote)', draft.hero.trustNote, (v) => updateDraft('hero', 'trustNote', v))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {renderInput('이미지 뱃지 제목 (badgeTitle)', draft.hero.badgeTitle, (v) => updateDraft('hero', 'badgeTitle', v))}
+                  {renderInput('이미지 뱃지 부제 (badgeSubtitle)', draft.hero.badgeSubtitle, (v) => updateDraft('hero', 'badgeSubtitle', v))}
+                </div>
+              </div>
+            )}
+
+            {/* 2. 빠른 쇼핑 */}
+            {activeTab === 'quickShop' && (
+              <div className="space-y-4">
+                {renderInput('섹션 제목 (title)', draft.quickShop.title, (v) => updateDraft('quickShop', 'title', v))}
+                <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">바로가기 이름 (아이콘·링크는 고정)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {draft.quickShop.links.map((link, idx) => (
                     <div key={idx} className="bg-gray-50 p-3 rounded-sm border border-gray-200">
-                      {renderInput(`아이콘 ${idx + 1} 제목`, icon.title, (v) => updateArrayField('audit', 'icons', idx, 'title', v))}
+                      {renderInput(`바로가기 ${idx + 1} 이름`, link.name, (v) => updateArrayField('quickShop', 'links', idx, 'name', v))}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* 맞춤 큐레이션 */}
+            {/* 3. 오늘의 추천 */}
+            {activeTab === 'bestProducts' && (
+              <div className="space-y-4">
+                {renderInput('섹션 제목 (title)', draft.bestProducts.title, (v) => updateDraft('bestProducts', 'title', v))}
+                {renderInput('전체보기 링크 텍스트 (linkLabel)', draft.bestProducts.linkLabel, (v) => updateDraft('bestProducts', 'linkLabel', v))}
+              </div>
+            )}
+
+            {/* 4. 맞춤 큐레이션 */}
             {activeTab === 'curation' && (
               <div className="space-y-6">
                 <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-4">왼쪽 패널 텍스트</h4>
-                  {renderInput('상단 영문 뱃지 (badge)', draft.curation.badge, (v) => updateDraft('curation', 'badge', v))}
-                  {renderInput('메인 타이틀 (title)', draft.curation.title, (v) => updateDraft('curation', 'title', v), true)}
-                  {renderInput('상세 설명 (description)', draft.curation.description, (v) => updateDraft('curation', 'description', v), true)}
+                  <h4 className="text-sm font-bold text-gray-900 mb-4">공통 영역</h4>
+                  {renderInput('섹션 제목 (title)', draft.curation.title, (v) => updateDraft('curation', 'title', v))}
+                  {renderInput('설명 (description)', draft.curation.description, (v) => updateDraft('curation', 'description', v), true)}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderInput('버튼 1 텍스트', draft.curation.button1Text, (v) => updateDraft('curation', 'button1Text', v))}
-                    {renderInput('버튼 2 텍스트', draft.curation.button2Text, (v) => updateDraft('curation', 'button2Text', v))}
+                    {renderInput('진단 링크 텍스트', draft.curation.diagnosisLinkLabel, (v) => updateDraft('curation', 'diagnosisLinkLabel', v))}
+                    {renderInput('모든 고민 링크 텍스트', draft.curation.allConcernsLinkLabel, (v) => updateDraft('curation', 'allConcernsLinkLabel', v))}
                   </div>
                 </div>
 
-                <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-4">우측 보드 텍스트</h4>
-                  {renderInput('보드 상단 제목', draft.curation.boardTitle, (v) => updateDraft('curation', 'boardTitle', v))}
-                  {renderInput('보드 상단 설명', draft.curation.boardDesc, (v) => updateDraft('curation', 'boardDesc', v))}
-                  
-                  <h5 className="text-xs font-bold mt-4 mb-2">고민 4가지 카드</h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 mb-4">고민 4가지 카드 (아이콘·이미지·링크는 고정)</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {draft.curation.cards.map((card, idx) => (
-                      <div key={idx} className="bg-white p-3 border border-gray-200 rounded-sm">
-                        {renderInput(`카드 ${idx+1} 제목`, card.title, (v) => updateArrayField('curation', 'cards', idx, 'title', v))}
-                        {renderInput(`카드 ${idx+1} 설명`, card.desc, (v) => updateArrayField('curation', 'cards', idx, 'desc', v), true)}
+                      <div key={idx} className="bg-gray-50 p-3 border border-gray-200 rounded-sm">
+                        {renderInput(`카드 ${idx + 1} 제목`, card.title, (v) => updateArrayField('curation', 'cards', idx, 'title', v))}
+                        {renderInput(`카드 ${idx + 1} 설명`, card.desc, (v) => updateArrayField('curation', 'cards', idx, 'desc', v))}
                       </div>
                     ))}
                   </div>
-
-                  <h5 className="text-xs font-bold mt-4 mb-2">Step 2 (중앙)</h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    {renderInput('제목', draft.curation.step2Title, (v) => updateDraft('curation', 'step2Title', v))}
-                    {renderInput('설명', draft.curation.step2Desc, (v) => updateDraft('curation', 'step2Desc', v), true)}
-                  </div>
-
-                  <h5 className="text-xs font-bold mt-4 mb-2">Step 3 (하단 결과)</h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div className="bg-white p-3 border border-gray-200 rounded-sm">
-                      {renderInput('좌측 제목', draft.curation.step3LeftTitle, (v) => updateDraft('curation', 'step3LeftTitle', v))}
-                      {renderInput('좌측 설명', draft.curation.step3LeftDesc, (v) => updateDraft('curation', 'step3LeftDesc', v), true)}
-                    </div>
-                    <div className="bg-white p-3 border border-gray-200 rounded-sm">
-                      {renderInput('우측 제목', draft.curation.step3RightTitle, (v) => updateDraft('curation', 'step3RightTitle', v))}
-                      {renderInput('우측 설명', draft.curation.step3RightDesc, (v) => updateDraft('curation', 'step3RightDesc', v), true)}
-                    </div>
-                  </div>
-
-                  {renderInput('가장 하단 가이드 문구', draft.curation.bottomGuide, (v) => updateDraft('curation', 'bottomGuide', v))}
                 </div>
               </div>
             )}
 
-            {/* 검증 브랜드관 */}
-            {activeTab === 'brands' && (
-              <div className="space-y-4">
-                {renderInput('영문 뱃지 (eyebrow)', draft.brands.eyebrow, (v) => updateDraft('brands', 'eyebrow', v))}
-                {renderInput('섹션 제목 (title)', draft.brands.title, (v) => updateDraft('brands', 'title', v))}
-                {renderInput('섹션 설명 (description)', draft.brands.description, (v) => updateDraft('brands', 'description', v), true)}
-                {renderInput('버튼 텍스트 (buttonText)', draft.brands.buttonText, (v) => updateDraft('brands', 'buttonText', v))}
-              </div>
-            )}
-
-            {/* 오늘의 추천 */}
-            {activeTab === 'bestProducts' && (
-              <div className="space-y-4">
-                {renderInput('영문 뱃지 (eyebrow)', draft.bestProducts.eyebrow, (v) => updateDraft('bestProducts', 'eyebrow', v))}
-                {renderInput('섹션 제목 (title)', draft.bestProducts.title, (v) => updateDraft('bestProducts', 'title', v))}
-                {renderInput('섹션 설명 (description)', draft.bestProducts.description, (v) => updateDraft('bestProducts', 'description', v), true)}
-                {renderInput('버튼 텍스트 (linkLabel)', draft.bestProducts.linkLabel, (v) => updateDraft('bestProducts', 'linkLabel', v))}
-              </div>
-            )}
-
-            {/* 펫보험 분석 */}
-            {activeTab === 'insurance' && (
+            {/* 5. 백조오브제 Audit */}
+            {activeTab === 'audit' && (
               <div className="space-y-6">
-                <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                  <h4 className="text-sm font-bold text-gray-900 mb-4">공통 영역</h4>
-                  {renderInput('영문 뱃지 (eyebrow)', draft.insurance.eyebrow, (v) => updateDraft('insurance', 'eyebrow', v))}
-                  {renderInput('섹션 타이틀', draft.insurance.title, (v) => updateDraft('insurance', 'title', v), true)}
-                  {renderInput('섹션 설명', draft.insurance.description, (v) => updateDraft('insurance', 'description', v), true)}
-                  {renderInput('안내 문구 (disclaimer)', draft.insurance.disclaimer, (v) => updateDraft('insurance', 'disclaimer', v))}
-                  {renderInput('버튼 텍스트', draft.insurance.buttonText, (v) => updateDraft('insurance', 'buttonText', v))}
-                </div>
+                {renderInput('상단 영문 뱃지 (badge)', draft.audit.badge, (v) => updateDraft('audit', 'badge', v))}
+                {renderLinesInput('큰 제목', draft.audit.titleLines, (v) => updateDraft('audit', 'titleLines', v))}
+                {renderInput('설명 (description)', draft.audit.description, (v) => updateDraft('audit', 'description', v), true)}
+                {renderInput('링크 텍스트 (linkLabel)', draft.audit.linkLabel, (v) => updateDraft('audit', 'linkLabel', v))}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-3 border border-gray-200 rounded-sm">
-                    <h5 className="text-xs font-bold mb-2">Step 1</h5>
-                    {renderInput('제목', draft.insurance.step1Title, (v) => updateDraft('insurance', 'step1Title', v))}
-                    {renderInput('설명', draft.insurance.step1Desc, (v) => updateDraft('insurance', 'step1Desc', v), true)}
-                  </div>
-                  <div className="bg-white p-3 border border-gray-200 rounded-sm">
-                    <h5 className="text-xs font-bold mb-2">Step 2</h5>
-                    {renderInput('제목', draft.insurance.step2Title, (v) => updateDraft('insurance', 'step2Title', v))}
-                    {renderInput('설명', draft.insurance.step2Desc, (v) => updateDraft('insurance', 'step2Desc', v), true)}
-                  </div>
-                  <div className="bg-white p-3 border border-gray-200 rounded-sm">
-                    <h5 className="text-xs font-bold mb-2">Step 3</h5>
-                    {renderInput('제목', draft.insurance.step3Title, (v) => updateDraft('insurance', 'step3Title', v))}
-                    {renderInput('설명', draft.insurance.step3Desc, (v) => updateDraft('insurance', 'step3Desc', v), true)}
-                  </div>
+                <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">4가지 검증 기준 (아이콘은 고정)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {draft.audit.criteria.map((item, idx) => (
+                    <div key={idx} className="bg-gray-50 p-3 rounded-sm border border-gray-200">
+                      {renderInput(`기준 ${idx + 1} 제목`, item.title, (v) => updateArrayField('audit', 'criteria', idx, 'title', v))}
+                      {renderInput(`기준 ${idx + 1} 설명`, item.desc, (v) => updateArrayField('audit', 'criteria', idx, 'desc', v))}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Trust Board (후기/공지) */}
+            {/* 6. 3가지 솔루션 */}
+            {activeTab === 'solutions' && (
+              <div className="space-y-6">
+                {renderInput('섹션 제목 (title)', draft.solutions.title, (v) => updateDraft('solutions', 'title', v))}
+                <h4 className="text-sm font-bold text-gray-900 mt-2">3가지 솔루션 카드 (이미지·링크는 고정)</h4>
+                <div className="space-y-4">
+                  {draft.solutions.cards.map((card, idx) => (
+                    <div key={idx} className="bg-gray-50 p-4 rounded-sm border border-gray-200">
+                      <h5 className="text-xs font-bold mb-2">솔루션 {idx + 1}</h5>
+                      {renderInput('제목 (title)', card.title, (v) => updateArrayField('solutions', 'cards', idx, 'title', v))}
+                      {renderInput('설명 (desc)', card.desc, (v) => updateArrayField('solutions', 'cards', idx, 'desc', v), true)}
+                      {renderInput('링크 텍스트 (linkLabel)', card.linkLabel, (v) => updateArrayField('solutions', 'cards', idx, 'linkLabel', v))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 9. 펫보험 배너 */}
+            {activeTab === 'insuranceBanner' && (
+              <div className="space-y-4">
+                {renderInput('상단 영문 뱃지 (eyebrow)', draft.insuranceBanner.eyebrow, (v) => updateDraft('insuranceBanner', 'eyebrow', v))}
+                {renderInput('섹션 제목 (title)', draft.insuranceBanner.title, (v) => updateDraft('insuranceBanner', 'title', v))}
+                {renderInput('설명 (description)', draft.insuranceBanner.description, (v) => updateDraft('insuranceBanner', 'description', v), true)}
+                {renderInput('버튼 텍스트 (buttonLabel)', draft.insuranceBanner.buttonLabel, (v) => updateDraft('insuranceBanner', 'buttonLabel', v))}
+              </div>
+            )}
+
+            {/* 10. 후기/소식 */}
             {activeTab === 'trustBoard' && (
-              <div className="space-y-4">
-                {renderInput('영문 뱃지 (eyebrow)', draft.trustBoard.eyebrow, (v) => updateDraft('trustBoard', 'eyebrow', v))}
-                {renderInput('섹션 메인 제목 (title)', draft.trustBoard.title, (v) => updateDraft('trustBoard', 'title', v), true)}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
-                  <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
-                    {renderInput('후기 영역 제목', draft.trustBoard.reviewsTitle, (v) => updateDraft('trustBoard', 'reviewsTitle', v))}
-                    {renderInput('후기 버튼 텍스트', draft.trustBoard.reviewsLinkText, (v) => updateDraft('trustBoard', 'reviewsLinkText', v))}
-                  </div>
-                  <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
-                    {renderInput('공지사항 영역 제목', draft.trustBoard.noticesTitle, (v) => updateDraft('trustBoard', 'noticesTitle', v))}
-                    {renderInput('공지사항 버튼 텍스트', draft.trustBoard.noticesLinkText, (v) => updateDraft('trustBoard', 'noticesLinkText', v))}
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
+                  {renderInput('후기 영역 제목', draft.trustBoard.reviewsTitle, (v) => updateDraft('trustBoard', 'reviewsTitle', v))}
+                  {renderInput('후기 링크 텍스트', draft.trustBoard.reviewsLinkLabel, (v) => updateDraft('trustBoard', 'reviewsLinkLabel', v))}
                 </div>
-              </div>
-            )}
-
-            {/* B2B 하단 배너 */}
-            {activeTab === 'b2b' && (
-              <div className="space-y-4">
-                {renderInput('안내 텍스트', draft.b2b.text, (v) => updateDraft('b2b', 'text', v), true)}
-                {renderInput('링크(버튼) 텍스트', draft.b2b.linkText, (v) => updateDraft('b2b', 'linkText', v))}
+                <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
+                  {renderInput('소식 영역 제목', draft.trustBoard.noticesTitle, (v) => updateDraft('trustBoard', 'noticesTitle', v))}
+                  {renderInput('소식 링크 텍스트', draft.trustBoard.noticesLinkLabel, (v) => updateDraft('trustBoard', 'noticesLinkLabel', v))}
+                </div>
               </div>
             )}
 
@@ -368,7 +320,7 @@ export default function SiteSettingsPage() {
         </div>
       </div>
 
-      {/* 미리보기 모달 */}
+      {/* 미리보기 모달 — HomeClient 는 settings 를 prop 으로 받으므로 draft 를 직접 넘긴다. */}
       {isPreviewOpen && (
         <div className="fixed inset-0 z-[100] flex bg-black/80">
           <div className="flex-1 flex flex-col bg-white overflow-hidden relative">
@@ -393,14 +345,11 @@ export default function SiteSettingsPage() {
                 </button>
               </div>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto">
-              {/* SiteSettingsContext.Provider 로 임시 draft 설정 덮어씌우기 */}
-              <SiteSettingsContext.Provider value={{ settings: draft, updateSettings }}>
-                <div className="w-full relative pointer-events-none">
-                  <HomeClient products={previewProducts} brands={previewBrands} />
-                </div>
-              </SiteSettingsContext.Provider>
+              <div className="w-full relative pointer-events-none">
+                <HomeClient products={previewProducts} brands={previewBrands} settings={draft} />
+              </div>
             </div>
           </div>
         </div>
@@ -408,6 +357,3 @@ export default function SiteSettingsPage() {
     </div>
   );
 }
-
-// 이 하단 부분은 Context의 임시 재정의를 위해 필요합니다
-import { SiteSettingsContext } from '@/components/providers/SiteSettingsProvider';
