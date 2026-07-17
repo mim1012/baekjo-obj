@@ -4,7 +4,6 @@ import React from 'react';
 import type { Order } from '@/types';
 import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES } from '@/types';
 
-
 export type OrderInlineStatusUpdate = Partial<
   Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus'>
 >;

@@ -285,14 +285,6 @@ export const ORDER_STATUSES = [
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
-export const DELIVERY_STATUSES = [
-  '배송전',
-  '배송준비',
-  '배송중',
-  '배송완료',
-] as const;
-
-export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /**
  * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.
@@ -317,6 +309,18 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /** 결제가 실제로 확정된 유일한 값(setOrderPaid가 쓰는 값). 매출 집계의 진실 소스. */
 export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
+
+/**
+ * 배송 상태 — Order.deliveryStatus가 실제로 받아들이는 값의 전수. `src/app/api/admin/orders/[id]/route.ts`
+ * 와 `src/components/admin-new/orders/OrderInlineStatusControls.tsx`가 이 배열을 직접 import해서
+ * 쓴다(로컬 리터럴 사본 금지 — §4.6: 화이트리스트를 두 곳에 두면 드리프트). Order.deliveryStatus
+ * 자체는 레거시 호환 때문에 여전히 string이지만(위 PaymentStatus와 동일한 이유), 스마트택배
+ * 연동처럼 "이 배송 상태로 정규화한다"를 타입으로 강제해야 하는 새 코드는 로컬 유니온을 만들지
+ * 말고 이 타입을 재사용한다(§4: 데이터 모양은 설계도 한 장).
+ */
+export const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
+
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {
@@ -602,3 +606,31 @@ export interface AdminDashboardSummary {
   /** brandStats의 메타(기간·미매칭 상품 수·절삭/부분실패 플래그). brandStats와 함께 내려간다. */
   brandStatsMeta?: AdminDashboardBrandStatsMeta;
 }
+
+/**
+ * 스마트택배(Sweet Tracker) 조회 결과 — src/lib/tracking/sweettracker.ts 공용 데이터 모양.
+ * §4(콘센트 규칙): 앱이 쓰는 데이터 형태는 이 파일에만 정의한다. 벤더 wire-format(원본 응답 필드)은
+ * 여기 두지 않는다 — sweettracker.ts 내부의 RawTrackingInfoResponse/RawTrackingDetail 참고.
+ */
+export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface TrackingStep {
+  time: string;
+  where: string;
+  kind: string;
+}
+
+export type TrackingResult =
+  | {
+      ok: true;
+      level: TrackingLevel;
+      complete: boolean;
+      steps: TrackingStep[];
+      deliveryStatus: DeliveryStatus;
+      invoiceNo: string;
+    }
+  | {
+      ok: false;
+      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
+      message?: string;
+    };

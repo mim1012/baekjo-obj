@@ -26,6 +26,8 @@ import {
 // 컴파일러가 이 화이트리스트를 다시 검토하도록 강제한다(LOW-1). 파생 결과는 기존 리터럴 배열과
 // 정확히 같은 집합이어야 한다: ['결제대기','입금대기','결제완료','결제취소','환불완료'].
 const PAYMENT_STATUSES: readonly PaymentStatus[] = ALL_PAYMENT_STATUSES.filter((s) => s !== '승인중');
+// Order.deliveryStatus 화이트리스트는 @/types 의 DELIVERY_STATUSES 로 단일화 — 로컬 사본을 두면
+// 도메인에 상태가 추가돼도 이 검증만 조용히 뒤처진다(§4.6).
 // Order.carrier 화이트리스트는 @/lib/carriers 로 단일화(CARRIER_CODES) — 클라이언트(관리자 select)와
 // 여기 서버 검증이 각자 배열을 들면 드리프트가 난다(§4).
 const MAX_TRACKING = 100;
