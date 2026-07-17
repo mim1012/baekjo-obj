@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { concerns } from '@/data/concerns';
-import { registerUser, registerBusinessMember, isLoggedIn } from '@/lib/storage';
+import { registerUser, registerBusinessMember, isLoggedIn, getConcernsConfig } from '@/lib/storage';
+import { defaultConcernsConfig } from '@/lib/concerns/config';
+import type { Concern } from '@/types';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import B2BSignupForm from '@/components/signup/B2BSignupForm';
 import InsuranceSignupForm from '@/components/signup/InsuranceSignupForm';
@@ -22,6 +23,8 @@ export default function SignupPage() {
   const [pending, setPending] = useState(false);
   const [signupTab, setSignupTab] = useState<SignupTab>('user');
   const [businessResult, setBusinessResult] = useState<BusinessResult>(null);
+  // 주요 고민 select 옵션. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다(§4).
+  const [concerns, setConcerns] = useState<Concern[]>(defaultConcernsConfig.items);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,6 +45,16 @@ export default function SignupPage() {
       router.push('/mypage');
     }
   }, [router]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getConcernsConfig().then((config) => {
+      if (!cancelled) setConcerns(config.items);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = event.target;
