@@ -56,10 +56,10 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
     expect(repoSource).toContain('upsert({ id: CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
 
-  test('쓰기 API가 없는 공지/고민/후기 관리자 화면은 readOnly 로 비영속 버튼을 숨긴다', () => {
+  // concerns 는 2026-07-17 DB 싱글턴 config 로 이관돼 이 목록에서 빠졌다 — concern-binding-flow.spec.ts 가 커버한다.
+  test('쓰기 API가 없는 공지/후기 관리자 화면은 readOnly 로 비영속 버튼을 숨긴다', () => {
     const resourcePage = src('src', 'components', 'admin', 'AdminResourcePage.tsx');
     const noticesPage = src('src', 'app', 'admin', 'notices', 'page.tsx');
-    const concernsPage = src('src', 'app', 'admin', 'concerns', 'page.tsx');
     const reviewsPage = src('src', 'app', 'admin', 'reviews', 'page.tsx');
 
     expect(resourcePage).toContain('readOnly?: boolean;');
@@ -74,7 +74,7 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
     expect(resourcePage).toContain('try {');
     expect(resourcePage).toContain('} finally {');
 
-    for (const page of [noticesPage, concernsPage, reviewsPage]) {
+    for (const page of [noticesPage, reviewsPage]) {
       expect(page).toContain('readOnly');
       expect(page).toContain('AdminResourcePage');
       expectNoMutableProductBrandImport(page);
@@ -89,15 +89,13 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
     const noticesList = src('src', 'app', 'notices', 'page.tsx');
     const noticeDetail = src('src', 'app', 'notices', '[id]', 'page.tsx');
     const reviewsPage = src('src', 'app', 'reviews', 'page.tsx');
-    const concernsPage = src('src', 'app', 'concerns', 'page.tsx');
 
     expect(noticesList).toContain("import { notices } from '@/data/notices';");
     expect(noticeDetail).toContain("import { notices } from '@/data/notices';");
     expect(reviewsPage).toContain("import { reviews } from '@/data/reviews';");
-    expect(concernsPage).toContain("import { concerns } from '@/data/concerns';");
     expect(reviewsPage).toContain('const reviewConcernTagsByProductId: Record<string, string[]> = {');
 
-    for (const page of [noticesList, noticeDetail, reviewsPage, concernsPage]) {
+    for (const page of [noticesList, noticeDetail, reviewsPage]) {
       expectNoMutableProductBrandImport(page);
       expect(page).not.toContain('@/lib/products/repo');
       expect(page).not.toContain('@/lib/brands/repo');

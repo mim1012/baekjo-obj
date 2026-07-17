@@ -1,4 +1,4 @@
-import { concerns } from '@/data/concerns';
+import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import ConcernCard from '@/components/common/ConcernCard';
 
 export const metadata = {
@@ -6,7 +6,11 @@ export const metadata = {
   description: '우리 아이에게 보이는 변화를 따라 생활 속에서 살펴볼 신호와 관리 기준을 안내합니다.',
 };
 
-export default function ConcernsPage() {
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
+export default async function ConcernsPage() {
+  const { items: concerns } = await getConcernsConfigWithFallback();
   return (
     <main className="care-guide-page min-h-dvh flex flex-col">
       <div className="care-container py-10 md:py-14">

@@ -6,6 +6,7 @@ import {
   Order,
   PartnerInquiry,
   Product,
+  Shipment,
   User,
 } from '@/types';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
@@ -13,6 +14,7 @@ import type { KitsConfig } from '@/lib/kits/config';
 import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
+import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -361,6 +363,74 @@ export async function updateOrderStatus(
   });
   if (!response.ok) {
     throw new Error('order-update-failed');
+  }
+}
+
+/**
+ * 내 주문의 업체별 송장 목록. GET /api/orders/[id]/shipments(소유자 또는 admin). 이 함수가 P6
+ * 마이페이지 배송 모달이 송장을 읽는 유일한 데이터 경로다(§4 콘센트 규칙 — 컴포넌트는 fetch를 직접
+ * 부르지 않는다). 비소유·404·실패는 getMyOrders와 동일하게 빈 배열로 접는다.
+ */
+export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
+  try {
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`);
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 고객 구매확정. POST /api/orders/[id]/shipments/[brandId]/confirm. P6 배송 모달의 확정 버튼이
+ * 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌리거나 사용자에게 알릴 수
+ * 있게 한다 — 409(아직 배송완료 아님)는 'not-deliverable', 그 외는 'confirm-failed'로 구분한다.
+ */
+export async function confirmOrderShipment(orderId: string, brandId: string): Promise<void> {
+  const response = await fetch(
+    `/api/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(brandId)}/confirm`,
+    { method: 'POST' },
+  );
+  if (!response.ok) {
+    throw new Error(response.status === 409 ? 'not-deliverable' : 'confirm-failed');
+  }
+}
+
+/**
+ * 주문의 업체별 송장 목록(관리자). GET /api/admin/orders/[id]/shipments. P5 관리자 주문 상세의
+ * 업체별 배송 카드가 송장을 읽는 유일한 경로(§4 콘센트). 권한 없음·실패는 빈 배열로 접는다.
+ */
+export async function getAdminOrderShipments(orderId: string): Promise<Shipment[]> {
+  try {
+    const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/shipments`);
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 업체별 송장 생성/갱신(관리자). PATCH /api/admin/orders/[id]/shipments/[brandId]. P5 관리자 배송
+ * 카드의 입력이 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌릴 수 있게 한다.
+ */
+export async function updateOrderShipment(
+  orderId: string,
+  brandId: string,
+  updates: Partial<Pick<Shipment, 'carrier' | 'trackingNumber' | 'deliveryStatus'>>,
+): Promise<void> {
+  const response = await fetch(
+    `/api/admin/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(brandId)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    },
+  );
+  if (!response.ok) {
+    throw new Error('shipment-update-failed');
   }
 }
 
@@ -921,6 +991,50 @@ export async function getAdminInsuranceContentConfig(): Promise<InsuranceContent
 export async function saveInsuranceContentConfig(config: InsuranceContentConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/insurance-content', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 고민별 케어(concerns) ─────────────────────────────────────
+ * 공개 클라이언트 화면(회원가입 관심사 select 등)은 GET /api/concerns 로 고민 config 를 읽고,
+ * 관리자 화면(/admin/concerns)은 PUT /api/admin/concerns 로 통째로 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultConcernsConfig 로 접어 화면이 절대 빈 목록으로 깨지지 않게 한다.
+ * 서버 컴포넌트는 이 콘센트가 아니라 lib/concerns/repo 를 직접 읽는다(자기 API HTTP 왕복 금지).
+ */
+
+/** 공개 고민 config. GET /api/concerns. 실패·미저장 시 defaultConcernsConfig 로 폴백. */
+export async function getConcernsConfig(): Promise<ConcernsConfig> {
+  try {
+    const response = await fetch('/api/concerns');
+    if (!response.ok) return defaultConcernsConfig;
+    const { items } = (await response.json()) as ConcernsConfig;
+    if (!Array.isArray(items) || items.length === 0) return defaultConcernsConfig;
+    return { items };
+  } catch {
+    return defaultConcernsConfig;
+  }
+}
+
+/** 관리자 고민 config. GET /api/admin/concerns. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — insurance-content 미러). */
+export async function getAdminConcernsConfig(): Promise<ConcernsConfig> {
+  const response = await fetch('/api/admin/concerns');
+  if (!response.ok) throw new Error('concerns-config-load-failed');
+  const { items } = (await response.json()) as ConcernsConfig;
+  if (!Array.isArray(items)) throw new Error('concerns-config-invalid-response');
+  return { items };
+}
+
+/** 고민 config 저장(관리자). PUT /api/admin/concerns. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveConcernsConfig(config: ConcernsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/concerns', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
