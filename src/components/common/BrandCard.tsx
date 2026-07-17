@@ -11,7 +11,6 @@ interface Props {
 }
 
 export default function BrandCard({ brand, variant = 'default' }: Props) {
-
   if (variant === 'brand-page') {
     const linkedProductCount = brand.representativeProductIds ? brand.representativeProductIds.length : 0;
     
@@ -37,10 +36,10 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
         <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none w-full h-full">
           {/* Logo Stage */}
-          <div className="flex items-center justify-center h-[72px] md:h-[84px] mb-4">
-            <div className="relative w-full h-[40px] md:h-[48px] max-w-[80%] flex items-center justify-center">
+          <div className="mb-4 flex h-[72px] items-center justify-center md:h-[84px]">
+            <div className="relative flex h-10 w-full max-w-[150px] items-center justify-center">
               {brand.logo ? (
-                <img src={brand.logo} alt={brand.name} className="max-w-full max-h-full object-contain" />
+                <BrandLogo brand={brand} size="md" surface fluid uniformScale />
               ) : (
                 <span className="text-[16px] font-bold text-[#17251F]">{brand.name}</span>
               )}
@@ -54,7 +53,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F]">
             {brand.name}
           </h3>
-          <p className="line-clamp-2 text-[12px] md:text-[13px] leading-[1.6] text-[#6F756F] break-keep">
+          <p className="break-keep text-[12px] leading-[1.6] text-[#6F756F] md:text-[13px]">
             {brand.description}
           </p>
 

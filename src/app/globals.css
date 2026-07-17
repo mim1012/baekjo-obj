@@ -66,12 +66,18 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  
+  /* Korean Typography Optimization */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
 }
 
-main h1,
-main h2 {
+h1, h2, h3, h4, h5, h6 {
   text-wrap: balance;
   letter-spacing: -0.02em;
+  line-height: 1.35;
 }
 
 main p {
@@ -145,15 +151,15 @@ textarea {
   }
 
   .site-container {
-    @apply mx-auto w-full max-w-[1120px] px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1120px] px-5 sm:px-6 lg:px-8;
   }
   
   .site-container-wide {
-    @apply mx-auto w-full max-w-[1180px] px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8;
   }
   
   .site-container-hero {
-    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1240px] px-5 sm:px-6 lg:px-8;
   }
 
   .hide-scrollbar::-webkit-scrollbar {
@@ -231,36 +237,64 @@ textarea {
   }
 
   .page-eyebrow {
-    color: #a8742e;
-    font-family: var(--font-serif);
-    font-size: 0.875rem;
-    font-style: italic;
-    letter-spacing: 0.04em;
+    color: #b68b4e;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    line-height: 1.4;
+    text-transform: uppercase;
   }
 
   .page-title {
     color: #17211d;
-    font-size: clamp(2rem, 7vw, 3.5rem);
+    font-size: clamp(1.875rem, 4vw, 2.75rem);
     font-weight: 700;
-    line-height: 1.15;
-    letter-spacing: -0.04em;
+    line-height: 1.18;
+    letter-spacing: -0.035em;
     word-break: keep-all;
   }
 
   .section-title {
     color: #17211d;
-    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-size: clamp(1.375rem, 2.5vw, 1.75rem);
     font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.035em;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
     word-break: keep-all;
   }
 
   .body-copy {
     color: #6f766f;
-    font-size: 0.9375rem;
+    font-size: 1rem;
+    font-weight: 400;
     line-height: 1.8;
     word-break: keep-all;
+  }
+
+  .section-surface-muted {
+    border-block: 1px solid #e7e0d5;
+    background: #faf8f3;
+  }
+
+  .horizontal-snap-rail {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    gap: 1rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scroll-snap-type: inline mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .horizontal-snap-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .horizontal-snap-item {
+    flex: 0 0 min(82vw, 22rem);
+    scroll-snap-align: start;
   }
 
   .btn-primary,
@@ -343,11 +377,32 @@ textarea {
 /* Public pages share one calmer scale. Admin screens intentionally stay separate. */
 main.public-main {
   min-width: 0;
+  text-align: left;
 }
 
-main.public-main h1,
-main.public-main h2 {
+main.public-main :where(h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, figcaption, label) {
+  text-align: left;
   word-break: keep-all;
+}
+
+main.public-main :where(h1, h2) {
+  font-weight: 800;
+}
+
+main.public-main :where(h3, h4, h5, h6) {
+  font-weight: 700;
+}
+
+:where(main.public-main) p {
+  line-height: 1.7;
+}
+
+main.public-main .body-copy p {
+  line-height: inherit;
+}
+
+main.public-main p:not([class*="font-"]) {
+  font-weight: 400;
 }
 
 /* Signup forms use a quieter document-like treatment across all partner variants. */
@@ -430,48 +485,56 @@ main.public-main h2 {
   }
 
   main.public-main [class~="py-16"] {
-    padding-block: 3rem;
-  }
-
-  main.public-main [class~="py-20"] {
-    padding-block: 3.5rem;
-  }
-
-  main.public-main [class~="py-24"] {
-    padding-block: 4rem;
-  }
-
-  main.public-main [class~="py-32"] {
     padding-block: 4.5rem;
   }
 
+  main.public-main [class~="py-20"] {
+    padding-block: 5.25rem;
+  }
+
+  main.public-main [class~="py-24"] {
+    padding-block: 6rem;
+  }
+
+  main.public-main [class~="py-32"] {
+    padding-block: 6.75rem;
+  }
+
   main.public-main [class~="space-y-32"] {
-    row-gap: 4rem;
+    row-gap: 6rem;
   }
 }
 
 @media (min-width: 768px) {
   .page-section,
   .page-section-muted {
-    padding-block: 6rem;
+    padding-block: 5rem;
   }
 
   .body-copy {
     font-size: 1rem;
+    line-height: 1.7;
+  }
+}
+
+@media (min-width: 1200px) {
+  .page-section,
+  .page-section-muted {
+    padding-block: 6rem;
   }
 }
 
 @media (min-width: 768px) {
   main.public-main [class~="lg:py-28"] {
-    padding-block: 5rem;
+    padding-block: 7.5rem;
   }
 
   main.public-main [class~="lg:py-32"] {
-    padding-block: 6rem;
+    padding-block: 9rem;
   }
 
   main.public-main [class~="space-y-32"] {
-    row-gap: 5rem;
+    row-gap: 7.5rem;
   }
 }
 
@@ -555,11 +618,11 @@ main.public-main h2 {
 
 /* Home Unified Common Section Rules */
 .home-unified .home-section {
-  padding-block: 56px;
+  padding-block: 84px;
 }
 @media (min-width: 768px) {
   .home-unified .home-section {
-    padding-block: 80px;
+    padding-block: 120px;
   }
 }
 
@@ -607,7 +670,8 @@ main.public-main h2 {
 }
 .home-unified .home-desc {
   font-size: 15px;
-  line-height: 1.65;
+  font-weight: 400;
+  line-height: 1.6;
   color: var(--home-text-muted);
   word-break: keep-all;
   max-width: 600px;
@@ -615,7 +679,7 @@ main.public-main h2 {
 @media (min-width: 768px) {
   .home-unified .home-desc {
     font-size: 16px;
-    line-height: 1.7;
+    line-height: 1.6;
   }
 }
 
