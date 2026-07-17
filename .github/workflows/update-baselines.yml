@@ -74,7 +74,7 @@ jobs:
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Regenerate baselines
-        run: npx playwright test tests/golden/visual.spec.ts --update-snapshots --reporter=line
+        run: npx playwright test tests/golden/visual.spec.ts --update-snapshots=all --reporter=line
         env:
           E2E_BASE_URL: ${{ steps.preview.outputs.url }}
           # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
