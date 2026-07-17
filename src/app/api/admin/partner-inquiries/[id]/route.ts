@@ -8,11 +8,14 @@ const MAX_MEMO = 2000;
 
 type PartnerInquiryPatch = { status: PartnerInquiryStatus; memo?: string };
 
-/** status(필수, enum)와 memo(선택)만 추려낸다. 그 외 필드는 무시가 아니라 통째로 거부. */
+const ALLOWED_PATCH_KEYS = new Set(['status', 'memo']);
+
+/** status(필수, enum)와 memo(선택)만 허용한다. 그 외 필드가 섞이면 무시가 아니라 통째로 거부(400). */
 function validate(body: unknown): PartnerInquiryPatch | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
 
+  if (Object.keys(b).some((key) => !ALLOWED_PATCH_KEYS.has(key))) return null;
   if (typeof b.status !== 'string') return null;
   if (!PARTNER_INQUIRY_STATUSES.includes(b.status as PartnerInquiryStatus)) return null;
 
