@@ -1,15 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, ProductReview, Product } from '@/types';
+import { Order, ProductReview, Product, Brand } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
-import { buildReviewTargetKey } from '@/lib/storage';
-import { buildTrackingUrl, CARRIER_LABELS, isCarrierCode } from '@/lib/carriers';
+import { buildReviewTargetKey, getPublicBrands } from '@/lib/storage';
+import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import Pagination from './Pagination';
+import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
-import { PackageSearch } from 'lucide-react';
+import { PackageSearch, Truck } from 'lucide-react';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -22,6 +23,14 @@ const ITEMS_PER_PAGE = 20;
 
 export default function OrdersSection({ orders, reviews, products, onWriteReview }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
+  const [brands, setBrands] = useState<Brand[]>([]);
+  // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
+  const [tracking, setTracking] = useState<{ order: Order; bundle: OrderBundle } | null>(null);
+
+  useEffect(() => {
+    getPublicBrands().then(setBrands);
+  }, []);
 
   // 주문 역순 정렬 (최신순)
   const sortedOrders = [...orders].sort(
@@ -72,8 +81,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
 
       <div className="flex flex-col gap-6">
         {paginatedOrders.map((order) => {
-          const trackingUrl = buildTrackingUrl(order.carrier, order.trackingNumber);
-          const carrierLabel = order.carrier && isCarrierCode(order.carrier) ? CARRIER_LABELS[order.carrier] : null;
+          // 업체(브랜드)별 번들. 레거시 주문(brandId 없는 아이템)은 하나의 null 번들로 접혀 최소 1개 버튼을 갖는다.
+          const bundles = groupOrderItemsByBundle(order.items);
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
@@ -83,25 +92,6 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                   {formatDate(order.createdAt)}
                 </span>
                 <span className="text-sm text-[#68716C]">주문번호 {order.id}</span>
-                {order.trackingNumber && (
-                  trackingUrl ? (
-                    <a
-                      href={trackingUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-[#18231F] hover:underline"
-                    >
-                      배송조회
-                      <span className="ml-1 text-xs font-normal text-[#68716C]">
-                        {carrierLabel} {order.trackingNumber}
-                      </span>
-                    </a>
-                  ) : (
-                    <span className="text-xs text-[#68716C]">
-                      {carrierLabel ? `${carrierLabel} ` : ''}{order.trackingNumber}
-                    </span>
-                  )
-                )}
               </div>
               <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
                 상세보기
@@ -176,6 +166,32 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                 );
               })}
             </div>
+
+            {/* 업체별 배송조회 — 버튼은 항상 살아 있게 한다(숨기면 CS 문의가 는다). 레거시 단일 번들은 "배송조회"로 표기. */}
+            <div className="flex flex-col gap-2 border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">
+              {bundles.map((bundle) => {
+                const brand = bundle.brandId ? brands.find((b) => b.id === bundle.brandId) : null;
+                const label = brand?.name ?? (bundle.brandId ? '배송 정보' : '배송조회');
+                return (
+                  <div
+                    key={bundle.brandId ?? '__legacy__'}
+                    className="flex items-center justify-between gap-3"
+                  >
+                    <span className="text-sm text-[#68716C]">
+                      {label}
+                      <span className="ml-1 text-xs text-[#A29E93]">· {bundle.items.length}개 상품</span>
+                    </span>
+                    <button
+                      onClick={() => setTracking({ order, bundle })}
+                      className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
+                    >
+                      <Truck className="h-3.5 w-3.5" />
+                      배송조회
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
           );
         })}
@@ -187,6 +203,16 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
         itemsPerPage={ITEMS_PER_PAGE}
         onPageChange={setCurrentPage}
       />
+
+      {tracking && (
+        <TrackingModal
+          isOpen
+          onClose={() => setTracking(null)}
+          order={tracking.order}
+          bundle={tracking.bundle}
+          brands={brands}
+        />
+      )}
     </section>
   );
 }

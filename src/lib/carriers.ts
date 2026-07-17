@@ -5,7 +5,7 @@
  * 이 파일을 양쪽이 함께 import해 단일화한다.
  */
 
-export const CARRIER_CODES = ['cj', 'hanjin', 'lotte', 'post', 'logen'] as const;
+export const CARRIER_CODES = ['cj', 'hanjin', 'lotte', 'post', 'logen', 'gspostbox'] as const;
 
 export type CarrierCode = (typeof CARRIER_CODES)[number];
 
@@ -19,6 +19,7 @@ export const CARRIER_LABELS: Record<CarrierCode, string> = {
   lotte: '롯데택배',
   post: '우체국택배',
   logen: '로젠택배',
+  gspostbox: 'GS편의점택배',
 };
 
 /**
@@ -26,9 +27,21 @@ export const CARRIER_LABELS: Record<CarrierCode, string> = {
  * 항상 leading zero가 붙는 문자열이라 숫자로 파싱하지 않는다.
  * 내부 코드(CarrierCode)를 DB의 진실로 두고, 벤더 API 호출 직전에만 이 맵으로 변환한다 —
  * 벤더를 교체해도 저장된 데이터를 마이그레이션하지 않아도 되도록 하기 위함.
- * 아직 이 맵을 소비하는 코드는 없다(3단계 스마트택배 조회 API 연동 예정) — 의도적으로 미리 export.
+ * `@/lib/tracking/sweettracker.ts`가 이 맵으로 CarrierCode→t_code를 변환한다.
+ *
+ * ⚠️ `Partial<Record<...>>`인 이유: 모든 CarrierCode가 스마트택배 t_code를 갖는 건 아니다.
+ * 매핑이 없는 carrier는 여기서 빠지고(예: gspostbox — 아래 참조), 소비부는 `undefined`를
+ * 만나면 스마트택배 조회 대신 우아하게 폴백해야 한다. 만약 이 타입이 `Record`(전수)라면
+ * 검증 안 된 값을 억지로 채워 넣게 되므로(= 이 파일이 금지하는 "추측값 커밋"), Partial로 둔다.
+ *
+ * gspostbox(GS편의점택배) 누락 사유 (2026-07-17): companylist API(`GET
+ * info.sweettracker.co.kr/api/v1/companylist`)는 t_key가 있어야 응답한다. 이 워크트리·메인
+ * 레포 어디에도 SWEETTRACKER/SWEET_TRACKER 키가 없어(.env.local엔 SUPABASE 키만) 키 없이
+ * 호출하면 404를 돌려준다. t_code를 API 응답으로 실측할 수 없어, 메모리/블로그 추측 커밋 금지
+ * 규칙(이 파일 상단)에 따라 GS편의점택배는 t_code 없이 딥링크만 추가한다. 키가 등록되면
+ * companylist에서 GS네트웍스(편의점택배) Code를 실측해 여기에 문자열(leading zero 유지)로 채운다.
  */
-export const SWEET_TRACKER_CODES: Record<CarrierCode, string> = {
+export const SWEET_TRACKER_CODES: Partial<Record<CarrierCode, string>> = {
   post: '01',
   cj: '04',
   hanjin: '05',
@@ -40,6 +53,13 @@ export const SWEET_TRACKER_CODES: Record<CarrierCode, string> = {
  * 각 URL 템플릿은 2026-07-16 실 HTTP 요청으로 검증됨 — 값 변경 금지.
  * lotte는 `linkView`가 아니라 `invoiceView`여야 한다: `linkView`는 파라미터를 무시하고
  * 빈 폼을 렌더한다(무응답 확인).
+ *
+ * gspostbox(GS편의점택배) 검증 2026-07-17: `GET
+ * https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=<번호>`가
+ * 없는 송장(999999999999)에 HTTP 200(9195 bytes) + 조회 페이지("운송장"·"조회결과"·"없습니다"
+ * 마커 포함)를 렌더하고, 실 송장(210248544962)엔 HTTP 200(11952 bytes, 결과행 포함)을 렌더함을
+ * 실 curl 요청으로 확인. `reservation-inquiry/delivery/index.do`도 200이나 invoice 파라미터
+ * 딥링크가 아니라 조회 입력 폼이라 tracking.do를 채택.
  */
 function buildRawUrl(carrier: CarrierCode, invoice: string): string {
   const encoded = encodeURIComponent(invoice);
@@ -54,6 +74,8 @@ function buildRawUrl(carrier: CarrierCode, invoice: string): string {
       return `https://service.epost.go.kr/trace.RetrieveDomRigiTraceList.comm?sid1=${encoded}&displayHeader=N`;
     case 'logen':
       return `https://www.ilogen.com/web/personal/trace/${encoded}`;
+    case 'gspostbox':
+      return `https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=${encoded}`;
   }
 }
 
