@@ -67,7 +67,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | Animation | **framer-motion 12** | fade-up / wipe |
 | Icons / Charts | **lucide-react** / **recharts** | recharts=관리자 대시보드 |
 | Lint | **ESLint 9** | `npm run lint` |
-| 데이터(현재) | `src/data/*.ts` 가짜데이터 + `localStorage`(`src/lib/storage.ts`) | → 실 API로 교체 예정 |
+| DB | **Supabase** (`@supabase/supabase-js` 2) | 클라이언트는 `src/lib/supabase/server.ts` **하나뿐**(service-role·server-only) — §10-3 |
+| 인증 | **next-auth v5(beta)** + bcryptjs | Kakao·Naver + credentials. 가드는 `src/proxy.ts`(⚠️ middleware 아님) — §10-7 |
+| 결제 | **Toss Payments SDK 2** | `src/lib/payments/*` 상태기계, 재고 RPC는 마이그레이션 — §10-6·10-8 |
+| 메일 | **nodemailer 7** | `src/lib/email/*` |
+| E2E | **Playwright 1.61** | ⚠️ 기본 타깃이 라이브 프리뷰 — §10-10 |
+| 데이터 | **Supabase DB가 화면의 진실 소스.** 브라우저 → `storage.ts`(콘센트) / 서버 → `lib/*/repo.ts` | ⚠️ `src/data/{products,brands}.ts`는 **가짜데이터가 아니라 재시드용 정본**이다(고쳐도 화면 안 바뀜 — §3). 그 외(`notices`·`reviews`·`concerns` 등)는 아직 API 없는 정적 콘텐츠 — §4-6 |
 
 ## 스킬 & 워크플로우 프로파일 (이 프로젝트 전용 라우팅)
 
@@ -96,6 +101,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
 >   통짜 `'use client'`가 오히려 맞다. 억지로 분리하지 말 것.
 > - **남은 분리 대상(현황):** 서버 데이터를 client `useEffect`로 늦게 읽는 **admin 목록들**과
 >   `diagnosis/result`. 여기가 dad·mim 충돌이 재발하기 쉬운 지점이므로 순차적으로 wrapper 분리한다.
+>
+> **실측 (2026-07-17): `page.tsx` 57개 = 서버 28 + `'use client'` 통짜 29.** 통짜 client가 절반이며
+> **그 자체로 위반이 아니다**(§10-5 — 판단 기준은 "손님이 보나, 직원이 보나"). 새 페이지에 "무조건 쪼갠다"고
+> 오해하지 말 것. 서버 28개 중 실제로 repo를 읽는 건 12개고, `*Client.tsx`라는 **파일명 관례를 따르는 건 4개뿐**
+> (`/shop`은 `ShopContent.tsx`) — **파일명으로 세지 말고 `'use client'` 유무로 판단한다.** 상세는 §10-4.
 
 ### Role: dad — PM · UX · Frontend
 - **책임(제품 관점):** 무엇을 왜 만드는지, 화면 표현·인터랙션·기획 기능 연결(핸들러·상태·플로우).
@@ -165,10 +175,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
    homeContent/shopFilters` 등 **API 라우트가 없는 정적 콘텐츠**는 관리자가 실시간 변경하지 않아 drift 위험이
    없으므로 규칙에서 제외한다.
 
+   ✅ **적용 완료 (`eslint.config.mjs:17-35`).** 최초 제안(`src/components/**` + `*Client.tsx`)은 `page.tsx`처럼
+   Client가 아닌 파일명이 규칙을 우회하는 사각지대가 있어, 2026-07-13 opus 리뷰(H1)에서 **`src/app/**` 전체로
+   범위를 넓혀 봉합**했다. 서버 wrapper도 `@/data/*`가 아니라 repo 경유가 원칙이라 예외는 없다.
+
    ```js
-   // eslint.config.mjs 에 추가할 규칙(제안)
+   // eslint.config.mjs — 현행 (실측 2026-07-17)
    {
-     files: ["src/components/**", "src/app/**/*Client.tsx"],
+     files: ["src/app/**/*.{js,jsx,ts,tsx}", "src/components/**/*.{js,jsx,ts,tsx}"],
      rules: {
        "no-restricted-imports": ["error", { patterns: [
          { group: ["@/data/products", "@/data/brands"],
@@ -177,6 +191,11 @@ This version has breaking changes — APIs, conventions, and file structure may 
      },
    }
    ```
+
+   > **이 예외 목록은 설계도가 아니라 남은 공사 목록이다.** `concerns/notices/reviews/homeContent/shopFilters`가
+   > `@/data`에 남아 있는 건 "파일에 두는 게 옳아서"가 아니라 **아직 API 라우트·관리자 화면이 없어서**다.
+   > 이사가 끝나면 예외는 지워지고 최종 상태는 전부 콘센트 경유다. 반대로 **"전부 `@/data`로"는 불가능** —
+   > 파일은 배포 시점에 얼어붙어 관리자가 못 바꾸므로 골든플로우 7번(관리자 CRUD)이 죽는다.
 
 ## 5. 코드 규약
 - 파일 200–400줄 권장, 800줄 초과 금지. 불변성(기존 객체 mutate 금지, 새 객체 반환).
@@ -304,8 +323,172 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 9. 명령어
 ```bash
-npm install     # 의존성 설치
+npm install      # 의존성 설치
 npm run dev      # 개발 서버 (http://localhost:3000)
 npm run build    # 프로덕션 빌드 (배포 전·머지 전 필수)
 npm run lint     # ESLint (완료 전 필수)
+npm run test:e2e # Playwright 전체 (⚠️ 기본 타깃이 로컬이 아니라 라이브 프리뷰 — §10-10)
 ```
+
+```bash
+# 단일 테스트 (파일/프로젝트 지정)
+npx playwright test tests/golden/home.spec.ts --project=chromium
+npx playwright test --project=admin          # 브라우저 없는 순수 검증 프로젝트
+
+# 로컬을 타깃으로 e2e (이때만 dev 서버가 자동으로 뜬다)
+E2E_BASE_URL=http://localhost:3000 npx playwright test --project=chromium
+
+# 마이그레이션 적용 (npm 스크립트 없음 — 직접 실행)
+node scripts/apply-migrations.mjs           # SUPABASE_ACCESS_TOKEN(sbp_) 필요
+```
+
+## 10. 코드 아키텍처 (추측 말고 이 기준 — 전부 2026-07-17 실측)
+
+> §0~§9가 "어떻게 협업하나"라면, §10은 **"코드가 어떻게 생겼나"**다. 새 세션이 매번 코드를 뒤져
+> 재발견하던 것을 못 박는다. 숫자·경로는 실제로 읽고 센 값이다.
+
+### 10-1. ⭐ 뿌리 — 코드가 도는 곳이 두 군데고, 한쪽만 DB 비밀번호가 있다
+나머지 규칙은 전부 여기서 따라 나온다.
+
+| | 서버 | 브라우저 |
+|---|---|---|
+| DB 비밀번호(`SUPABASE_SECRET_KEY`) | **있음** | **없음** |
+| 할 수 있는 것 | DB 직접 읽기 | 클릭·입력·상태·애니메이션 |
+| 못 하는 것 | 클릭 못 받음 | DB 직접 못 읽음 |
+
+### 10-2. 그래서 데이터 문이 두 개 — storage.ts ↔ repo.ts는 **같은 선의 양 끝**
+⚠️ 이름이 헷갈리는 1순위. `repo`(repository)도 "저장소", `storage`도 "저장소"다. **이름 말고 비밀번호로 기억한다.**
+
+- **`src/lib/storage.ts` (1381줄) = 브라우저 측.** 비밀번호가 없으니 **우리 API 라우트로 `fetch` 심부름**을 보낸다.
+  `localStorage`(위시리스트 `baekjo_wishlist`)도 여기. **§4가 말하는 "콘센트"가 이것.**
+  이름의 유래도 `localStorage` — **브라우저 물건이라 storage.**
+- **`src/lib/<domain>/repo.ts` (13개) = 서버 전용.** **Supabase를 직접 부르는 유일한 계층.**
+  각 파일 머리에 "이 파일 밖에서는 Supabase를 직접 호출하지 않는다"가 박혀 있다. row↔도메인 매핑
+  (`ProductRow`→`Product`), snake_case↔camelCase, 방어적 정규화(`normalizePetType`→미지값은 `'both'`) 담당.
+  이름의 유래는 repository 패턴 — **서버(백엔드) 물건이라 repo.**
+
+```
+② 브라우저 → storage.ts → app/api/* → lib/*/repo.ts → Supabase   ※ 갔던 길로 되돌아온다
+① page.tsx(서버) ───────────────────→ lib/*/repo.ts → Supabase   ※ 자기 API HTTP 왕복 금지
+```
+
+### 10-3. 브라우저가 비밀번호 없이 데이터를 얻는 법 = **은행 창구**
+손님은 금고 열쇠가 없어도 잔액을 안다. 창구에 부탁하면 되니까. **결과만 나가고 열쇠는 서버 밖으로 안 나간다.**
+
+| 은행 | 우리 코드 |
+|---|---|
+| 손님(열쇠 없음) | 브라우저 |
+| 창구 직원 | `app/api/*` 라우트 |
+| 신분증 확인 | `lib/admin/requireAdmin.ts` |
+| 금고 | Supabase |
+| 열쇠 | `SUPABASE_SECRET_KEY` |
+
+**②의 경로가 긴 건 불편해서가 아니라, 중간에 창구(신분증 확인)를 끼워넣기 위해서다.**
+
+🚨 **금고 자체엔 잠금장치가 없다.** `src/lib/supabase/server.ts`가 유일한 클라이언트이고 **service-role 키**를 쓰므로
+**RLS가 사실상 무력**하다. 창구(가드)가 유일한 방어선 — **새 API 라우트에 가드를 빼먹으면 금고가 통째로 열린다.**
+DB가 막아줄 거라 가정하지 말 것.
+- 이중 잠금: `import 'server-only'`(컴파일 타임 — 클라 컴포넌트에서 import하면 **빌드 실패**) + 런타임
+  `typeof window !== 'undefined'` throw. 둘 다 의도된 것이니 **지우지 말 것.**
+- 지연 생성 + 모듈 캐시(`cachedClient`), `auth: { persistSession: false, autoRefreshToken: false }`.
+- **브라우저용 Supabase 클라이언트는 아예 없다.** ②가 API를 왕복할 수밖에 없는 이유이자, storage.ts가 1381줄인 이유.
+
+### 10-4. 그래서 page.tsx가 두 종류 — **첫 줄만 보면 3초 만에 안다**
+```
+① 'use client' 없음 = 서버      → repo.ts     (홈·/shop·/brands·/experts …)
+② 'use client' 있음 = 브라우저  → storage.ts  (/admin 목록·/cart·/checkout·/diagnosis …)
+```
+
+**실측 (2026-07-17) — 숫자 4개를 혼동하지 말 것:**
+
+| 세는 대상 | 개수 |
+|---|---|
+| `page.tsx` 전체 | **57** |
+| **② 클라이언트**(`'use client'` 있음) | **29** |
+| **① 서버**(`'use client'` 없음) | **28** |
+| ① 중 **repo로 DB를 직접 읽는 것** | **12** |
+| `*Client.tsx`라는 **파일명**을 가진 것 | 4 |
+
+⚠️ **①=28이지, 4도 12도 아니다.** 4는 파일명 관례를 센 것이고(`/shop`은 `ShopContent.tsx`라 여기서 빠진다),
+12는 그중 DB를 읽는 것이다. 나머지 16개는 **DB를 안 읽는 서버 페이지**다 — 서버 페이지라고 다 DB를 읽지 않는다.
+⚠️ **admin이 전부 ②인 것도 아니다** — `/admin/products/[id]`·`/new`·`/admin/brands/[id]`·`/admin/products/display`는 ①이다.
+
+**어기면 벌어지는 일 (한쪽만 시끄럽다):**
+- ②에서 `repo` import → **빌드 실패.** `server-only` 가드가 잡는다. **즉시 걸리니 오히려 안전하다.**
+- ①에서 `storage` 호출 → **빌드 통과.** 서버가 자기 자신에게 HTTP를 건다. 에러가 안 나고 **조용히 느려진다 — 더 위험.**
+
+### 10-5. ①/② 판단 기준 = **"손님이 보나, 직원이 보나"**
+- **손님이 봄 → ①.** 검색로봇은 ②의 **빈 껍데기 html만 받고 간다**(JS 실행·fetch를 기다려주지 않음).
+  `/shop`은 §7 골든플로우 2번의 **시작점**이라 여기가 검색에서 빠지면 구매 깔때기 입구가 막힌다.
+  로봇이 백지를 보면 **손님도 백지를 본다**(같은 html) → 이탈.
+- **직원만 봄 → ②로 충분.** admin은 로그인 뒤에 있고 검색 대상이 아니다. 첫 화면 0.5초 백지는 문제가 아니다.
+  **통짜 client는 위반이 아니라 선택이다.**
+- ⚠️ **`'use client'`는 보안 도구가 아니다.** 쓰는 이유는 **클릭·상태가 필요해서**고, 열쇠를 못 갖는 건
+  그 결과로 따라오는 제약이다. 목적과 부작용을 뒤집지 말 것.
+- 분리의 목적은 "브라우저가 먼저 그리게"가 **아니라** "서버가 DB를 미리 읽어 완성 html을 보내게"다(SSR·SEO·첫 페인트).
+  서버는 클릭을 못 받으므로 데이터는 `page.tsx`, 표현·상호작용은 `*Client.tsx`로 나뉜다 — §3의 dad/mim 경계가
+  **인위적 규칙이 아니라 이 구조적 경계선을 따라간 것**이다.
+
+### 10-6. repo의 두 종류 (건드리기 전에 어느 쪽인지 볼 것)
+| 종류 | 파일 | 모양 |
+|------|------|------|
+| **테이블 repo** | products·orders·members·brands·insurance·inquiries·reviews | 풀 CRUD. `SELECT_COLUMNS` 상수 + `XRow` 인터페이스 + `rowToX` 매퍼 |
+| **싱글턴 JSONB 설정 repo** (각 28줄) | kits·partners·qna·survey·settings·categorySettings | `id='default'` **한 행**의 `value jsonb`에 설정 통째로. `getXConfig`/`saveXConfig` upsert. 옆의 `config.ts`에 타입 + `defaultXConfig` 폴백(행 없을 때) |
+
+- **`payments/`는 repo가 없다** — 대신 상태기계: `decide.ts`(순수 결정 함수)·`execute.ts`·`confirmPayment.ts`·
+  `cancelPending.ts`·`toss.ts`(Toss PG 어댑터). 결제 로직은 `decide.ts`의 순수 함수부터 볼 것.
+- 도메인 부속: `products/`에 `validate.ts`·`formPayload.ts`·`splitProductInput.ts`(관리자 폼 입력을 컬럼 vs `detail` jsonb로 분리),
+  `members/`에 `password.ts`(bcrypt)·`tokens.ts`, `admin/`에 `requireAdmin.ts`·`requireBrandScoped.ts`·`dashboardStats.ts`.
+
+### 10-7. 인증 (next-auth v5) — 이중 방어
+- **`src/lib/auth.config.ts`** = Node 의존 없는 공용(Kakao·Naver, `session.strategy: 'jwt'`).
+  **`src/lib/auth.ts`** = Node 전용(credentials + bcrypt, `jwt()` 콜백). `{ handlers, auth, signIn, signOut }` export.
+- 🔒 **손대면 안 되는 보안 장치 3개:**
+  1. `DUMMY_PASSWORD_HASH`를 **유저가 없어도 항상 검증** — "없는 계정 / 소셜전용 / 틀린 비번"의 응답 시간을 맞춰
+     타이밍 오라클을 막는다. 최적화한답시고 early-return 넣지 말 것.
+  2. **소셜 로그인은 절대 admin이 될 수 없다** — kakao/naver는 `token.role`을 `'user'`로 하드 고정.
+  3. `status === 'active'`만 로그인(pending/rejected/inactive 차단).
+- ⚠️ **`middleware.ts`가 아니라 `src/proxy.ts` (36줄)** — Next 16이 `middleware` 파일 컨벤션을 폐기하고 `proxy`로 교체했다.
+  matcher: `['/admin/:path*', '/api/admin/:path*']`. `/api/admin/*`→401/403 JSON, `/admin/*`→`/login?error=admin`.
+- **`requireAdmin`을 왜 또 부르나:** JWT의 role은 **로그인 시점 스냅샷**이라, 강등·비활성화된 admin이 세션 만료까지
+  admin으로 남는다. 그래서 매 요청 DB를 재조회한다. proxy만 믿고 생략하지 말 것.
+
+### 10-8. 마이그레이션 · 시드 (`supabase/`)
+- `supabase/migrations/NNNN_snake_case.sql` — **수기 작성**(생성기 없음), 파일명 순 적용. 현재 **0001–0034**.
+  `0005` 결번, `0004b` 같은 letter suffix 변형 있음.
+- **시드 파일이 없다** — 시드/재시드도 마이그레이션이다(`0004b_seed_products_brands.sql`,
+  `0018_reseed_brands_products.sql`). §3의 "DB가 화면의 진실 소스"와 맞물린다.
+- 결제 상태기계는 상당수가 Postgres RPC: `0021_decrement_stock_for_order`, `0023_restore_stock_for_order`,
+  `0024_cancel_and_restore`, `0025_reclaim_deadletter`, `0027_increment_reclaim_attempts`.
+- **러너 `scripts/apply-migrations.mjs`가 특이하다** — 레포에 psql/Supabase CLI가 없어서 생 SQL을
+  **Supabase Management API**(`api.supabase.com/v1/projects/{ref}/database/query`)에 POST한다.
+  `SUPABASE_ACCESS_TOKEN`(`sbp_`) 필요. 적용 이력은 `public._migrations` 테이블.
+  ⚠️ **함정 2개:** `User-Agent` 헤더 필수(없으면 Cloudflare 1010) · 0001–0008은 러너 이전 것이라
+  "already exists"를 적용된 것으로 간주해 베이스라인 처리한다.
+- `scripts/session-close.ps1`의 `Get-EnvLabel`은 `.env.local`의 Supabase project ref를 읽어
+  `aeooyivfijthfcrfrnyk`=staging / `vgeqpbyyggxxaeowtbtj`=**prod(주의)**로 라벨링한다 — 로컬이 prod를 보는 사고 방지용.
+
+### 10-9. 타입 (`src/types/index.ts` — 559줄, 단일 배럴)
+- 서브 파일 없이 전 도메인 타입이 여기 하나에. **§4-3 "설계도 한 장"의 그 한 장이 이 파일이다.**
+- ⚠️ **상태값이 한글 문자열 리터럴이다**: `PAID_PAYMENT_STATUS: PaymentStatus = '결제완료'`. enum·영문 코드가 아니다.
+- 관용구: `ORDER_STATUSES`/`PAYMENT_STATUSES`를 `as const` 배열로 export하고
+  `type OrderStatus = (typeof ORDER_STATUSES)[number]`로 파생 — 런타임 순회와 타입을 한 소스에서 동시에 얻는다.
+  상태를 추가할 땐 배열에만 넣으면 타입이 따라온다.
+- 주요 export: `Product`·`ProductOption`·`ProductDetailBlock`(union)·`Brand`·`BrandAuditReport` / `Order`·`OrderItem`·
+  `CartItem` / `User`·`QnA`·`Review`·`ProductInquiry` / `InsuranceApplication` / `SurveyQuestion`·`SurveyResultRule` /
+  `AdminDashboard*` 클러스터.
+
+### 10-10. 테스트 (Playwright)
+- ⚠️ **`playwright.config.ts`의 baseURL 기본값이 로컬이 아니라 라이브 Vercel 프리뷰 URL이다.**
+  `E2E_BASE_URL` ?? `BASE_URL` ?? (하드코딩된 프리뷰). `webServer`(`npm run dev`)는 **baseURL이
+  localhost/127.0.0.1일 때만** 뜬다. 무심코 `npm run test:e2e`를 돌리면 로컬 코드가 아니라 **프리뷰 배포본**을 검증한다.
+- 4개 project: `chromium`(tests/golden — 유일하게 브라우저 사용) · `payments` · `products` · `admin`(브라우저 없는 순수 검증).
+  `retries: 1`, `timeout: 60s`, `fullyParallel`.
+- **`visual.spec.ts` (§8-2 시각 회귀 게이트):**
+  - 7 골든플로우 × {desktop 1280×800, mobile 390×844} = **14장 고정 예산**. `/shop/[id]`는 콘텐츠 변동이 커서 제외
+    (behavioral `shop.spec`이 커버).
+  - 🚫 **`networkidle` 금지** — Vercel 프리뷰 툴바가 websocket을 계속 열어둬서 14/14 타임아웃(2026-07-12 실측).
+    `settlePage()`가 `load` + 전체 스크롤 후 복귀로 framer-motion `whileInView`를 발화시킨 뒤 `fullPage` 캡처.
+  - 베이스라인 파일명의 `-chromium-linux` 접미사가 로컬 Windows 실행이 CI 베이스라인을 덮어쓰는 걸 막는다(§8-2·3).
+  - 관리자 샷은 `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD`가 없으면 **조용히 skip**(공개 레포라 폴백 없음).
+    프리뷰 Deployment Protection은 `VERCEL_AUTOMATION_BYPASS` 헤더로 통과.
