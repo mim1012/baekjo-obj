@@ -129,3 +129,14 @@ export function resolveShipmentStamps(
   if (r >= 4 && !current?.confirmedAt) stamps.confirmedAt = now;
   return stamps;
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * 자동 구매확정 크론(auto-confirm-shipments)의 기준점 계산 — now 로부터 days 일 이전 시각을 ISO로
+ * 돌려준다. delivered_at 이 이 값보다 오래된('<') 배송완료 행만 자동확정 대상이다(D-2 결정: 7일).
+ * 순수 계산이라 DB 없이 브라우저·테스트에서 그대로 구동된다(derive.ts의 다른 함수와 같은 사상).
+ */
+export function autoConfirmCutoff(now: Date, days: number): string {
+  return new Date(now.getTime() - days * MS_PER_DAY).toISOString();
+}
