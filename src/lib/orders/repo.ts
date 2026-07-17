@@ -207,6 +207,32 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
 }
 
 /**
+ * 관리자 수동 결제상태 전이(조건부 UPDATE = CAS). setOrderPaid/claimOrderForConfirmation와 같은
+ * 패턴으로 WHERE payment_status=<fromStatus> 를 걸어, 우리가 현재 상태를 읽은 시점과 UPDATE 시점
+ * 사이에 다른 요청이 상태를 바꿨으면 0행 매치로 무성 no-op 이 된다(경합 안전). 반환값 = 영향받은
+ * 행 수. 1 = 이번 호출이 전이시킴, 0 = 경합(호출부가 409로 분기).
+ *
+ * ⚠️ 이 함수는 **결제상태만** 바꾼다(order_status 등은 건드리지 않음). 어떤 전이가 허용되는지는
+ * 이 함수가 아니라 route.ts 가 paymentTransition.ts 화이트리스트로 먼저 검증한다 — 이 함수는
+ * "검증된 전이를 경합 안전하게 기록"하는 역할만 한다(관심사 분리). '결제취소'로의 전이(취소)는
+ * 이 경로가 아니라 cancel_order_reservation_and_restore RPC(재고 복원 동반)로만 일어난다.
+ */
+export async function updatePaymentStatusGuarded(
+  id: string,
+  fromStatus: string,
+  toStatus: string,
+): Promise<number> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update({ payment_status: toStatus })
+    .eq('id', id)
+    .eq('payment_status', fromStatus)
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
+/**
  * 토스 결제 승인 확정. WHERE payment_status='승인중' AND payment_key=? 조건으로 claim이
  * 발급한 바로 그 승인중 시도만 확정시킨다(이중승인 방어 핵심 — 같은 주문에 다른 paymentKey로
  * 재시도가 끼어들었거나 이미 확정된 행은 매치되지 않는다).
