@@ -1,0 +1,36 @@
+# 줄바꿈 정본 = LF. 약속이 아니라 기계가 막는다(§4 규칙 6과 같은 취지).
+#
+# 왜 필요한가 (2026-07-17, 하루에 4번 터져서 도입):
+#   이 레포엔 .gitattributes 가 없었고 core.autocrlf=false 였다. 그래서 Windows 에디터가
+#   파일을 CRLF 로 재작성하면 git 이 그대로 저장했고, 파일 전체가 "변경"으로 잡혔다.
+#   실측 피해:
+#     - contract/points-ledger        : 실제 556줄 변경이 6784줄로 부풀어 리뷰 불가
+#     - refactor/order-status-ssot    : 45줄 → 2183줄
+#     - contract/brand-shipping-policy: 423줄 → 4851줄
+#     - be/kill-static-seed-canon     : AGENTS.md 가 통째 재작성돼 머지 충돌(내용 차이는 88줄뿐)
+#   main 은 추적 텍스트 399개 전부 LF 로 깨끗했다 — 오염은 항상 작업트리에서 들어왔다.
+#
+# text=auto : 텍스트로 판정된 파일은 저장소에 항상 LF 로 저장(normalize)
+# eol=lf    : 체크아웃할 때도 LF 로 내림(Windows 에디터가 CRLF 로 되돌리는 것을 차단)
+* text=auto eol=lf
+
+# 바이너리 — 절대 손대지 않는다. 특히 시각 회귀 베이스라인 PNG 가 정규화되면 전부 깨진다.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary
+
+# Windows 전용 스크립트는 CRLF 가 아니면 실행이 깨질 수 있다.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

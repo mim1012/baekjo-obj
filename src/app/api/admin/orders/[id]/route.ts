@@ -9,16 +9,16 @@ import {
 import { logServerError } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
+  DELIVERY_STATUSES,
   ORDER_STATUSES,
   PAYMENT_STATUSES as ALL_PAYMENT_STATUSES,
-  DELIVERY_STATUSES,
+  type DeliveryStatus,
   type OrderStatus,
   type PaymentStatus,
 } from '@/types';
 
-// paymentStatus/deliveryStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
-// 실제 쓰이는 값만 담았다 — admin/orders/page.tsx의 select 옵션 + POST /api/orders 가 생성 시
-// 부여하는 값(입금대기/배송준비) 기준.
+// paymentStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
+// deliveryStatus는 src/types/index.ts DELIVERY_STATUSES를 클라이언트 옵션과 서버 검증의 진실 소스로 공유한다.
 //
 // '승인중'은 도메인 전체 상태값(PAYMENT_STATUSES)에는 있지만 관리자가 수동으로 세팅할 수 없다 —
 // claim 보호 상태라서다(토스 결제 승인 RPC가 `WHERE payment_status='승인중' AND payment_key=?`로
@@ -54,7 +54,7 @@ function validate(body: unknown): OrderStatusUpdate | null {
   }
   if (b.deliveryStatus !== undefined) {
     if (typeof b.deliveryStatus !== 'string') return null;
-    if (!DELIVERY_STATUSES.includes(b.deliveryStatus as (typeof DELIVERY_STATUSES)[number])) return null;
+    if (!DELIVERY_STATUSES.includes(b.deliveryStatus as DeliveryStatus)) return null;
     updates.deliveryStatus = b.deliveryStatus;
   }
   if (b.trackingNumber !== undefined) {

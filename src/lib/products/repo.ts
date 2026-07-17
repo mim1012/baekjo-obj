@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
-import { splitProductInput } from '@/lib/products/splitProductInput';
+import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
@@ -83,6 +83,8 @@ function rowToProduct(row: ProductRow): Product {
     ingredients: typeof d.ingredients === 'string' ? d.ingredients : undefined,
     howToUse: typeof d.howToUse === 'string' ? d.howToUse : undefined,
     shippingFee: typeof d.shippingFee === 'number' ? d.shippingFee : undefined,
+    pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined,
+    pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined,
     isVisible: row.is_visible,
     isBest: row.is_best,
     isRecommended: row.is_recommended,
@@ -109,6 +111,11 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
 
   const { data, error } = await query
     .order('created_at', { ascending: false })
+    // 시드가 단일 INSERT라 created_at 이 전 상품 동일(now()=트랜잭션 시각) → created_at 만으로는
+    // 전체가 동점이라 순서를 못 정한다. 동점이면 물리적 행 순서가 순서를 정하는데, 재고 차감·
+    // 브랜드 이관 같은 UPDATE 가 그 위치를 바꿔 /shop 목록과 에디터 추천 4개가 조용히 재배치됐다.
+    // id 를 최종 tiebreaker 로 둬 순서를 결정적으로 고정한다.
+    .order('id', { ascending: true })
     .limit(PRODUCTS_LIST_CAP);
   if (error) throw error;
   return (data as ProductRow[]).map(rowToProduct);
@@ -179,6 +186,7 @@ export function assertPriceInvariant(merged: Pick<Product, 'price' | 'salePrice'
   return merged.salePrice <= merged.price;
 }
 
+
 /**
  * 관리자 상품 수정. jsonb detail은 supabase update가 부분 병합을 지원하지 않으므로,
  * 기존 행을 Product로 읽어 patch를 얹은 뒤 컬럼/디테일을 통째로 다시 나눠 쓴다
@@ -193,7 +201,7 @@ export async function updateProduct(
   const existing = await getProductById(id, { includeHidden: true });
   if (!existing) return { status: 'not-found' };
 
-  const merged: Product = { ...existing, ...patch, id: existing.id };
+  const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
 
   const { columns, detail } = splitProductInput(merged);
@@ -241,7 +249,7 @@ export async function updateProductScoped(
   const existing = await getProductById(id, { includeHidden: true });
   if (!existing) return { status: 'not-found' };
 
-  const merged: Product = { ...existing, ...patch, id: existing.id };
+  const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
 
   const { columns, detail } = splitProductInput(merged);

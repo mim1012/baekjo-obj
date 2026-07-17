@@ -72,7 +72,7 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     );
 
     expect(updateFunction).toContain("const existing = await getProductById(id, { includeHidden: true });");
-    expect(updateFunction).toContain('const merged: Product = { ...existing, ...patch, id: existing.id };');
+    expect(updateFunction).toContain('const merged = mergeProductForStorage(existing, patch);');
     expect(updateFunction).toContain('const { columns, detail } = splitProductInput(merged);');
     expect(updateFunction).toContain(".from('products')");
     expect(updateFunction).toContain('.update({ ...columns, detail })');
@@ -80,6 +80,16 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(updateFunction).toContain('.select(SELECT_COLUMNS)');
     expect(updateFunction).toContain('.single()');
     expect(updateFunction).toContain('return { status: \'ok\', data: rowToProduct(data as ProductRow) };');
+  });
+
+  test('repo update 는 pointsEnabled=false 저장 시 기존 pointsRate 를 제거하는 merge helper 를 쓴다', () => {
+    const repoSource = src('src', 'lib', 'products', 'repo.ts');
+    const splitSource = src('src', 'lib', 'products', 'splitProductInput.ts');
+
+    expect(repoSource).toContain("import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput'");
+    expect(repoSource).toContain('const merged = mergeProductForStorage(existing, patch);');
+    expect(splitSource).toContain('if (patch.pointsEnabled === false)');
+    expect(splitSource).toContain('merged.pointsRate = undefined;');
   });
 
   test('공개 상품 목록/상세는 정적 products 데이터가 아니라 repo 를 읽는다', () => {
@@ -93,5 +103,35 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(detailPage).toContain("import { getProductById, listProducts } from '@/lib/products/repo'");
     expect(detailPage).toContain('const product = await getProductById(id);');
     expect(detailPage).not.toContain('@/data/products');
+  });
+
+  test('ProductForm 의 toFormState 는 pointsEnabled·pointsRate 를 화이트리스트에서 누락하지 않는다', () => {
+    const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
+
+    const toFormStateFunction = sliceBetween(
+      formSource,
+      'const toFormState = (): ProductFormState => ({',
+      'const handleSave = async',
+    );
+
+    expect(toFormStateFunction).toContain('pointsEnabled: formData.pointsEnabled');
+    expect(toFormStateFunction).toContain('pointsRate: formData.pointsRate');
+  });
+
+  test('repo 의 rowToProduct 는 pointsEnabled·pointsRate 를 DB 행에서 되읽는다', () => {
+    const repoSource = src('src', 'lib', 'products', 'repo.ts');
+
+    const rowToProductFunction = sliceBetween(
+      repoSource,
+      'function rowToProduct(row: ProductRow): Product {',
+      'export interface ProductListFilter',
+    );
+
+    expect(rowToProductFunction).toContain(
+      "pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined",
+    );
+    expect(rowToProductFunction).toContain(
+      "pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined",
+    );
   });
 });

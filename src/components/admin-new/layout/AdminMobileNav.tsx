@@ -103,7 +103,7 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
         }`}
       >
         <div className="h-[60px] flex items-center justify-between px-4 border-b border-gray-200 shrink-0 bg-white">
-          <Link href="/admin" className="font-bold text-[18px] text-[#17201B]" onClick={onClose}>
+          <Link href="/" className="font-bold text-[18px] text-[#17201B]" onClick={onClose} aria-label="백조오브제 홈">
             백조오브제
           </Link>
           <button 

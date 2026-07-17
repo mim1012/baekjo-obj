@@ -28,6 +28,8 @@ export const COMPANY = {
   privacyOfficer: '백보윤',
   /** 호스팅 서비스 제공자 */
   hostingProvider: 'Vercel Inc.',
+  /** 공정거래위원회 통신판매사업자 정보 조회 URL */
+  businessLookupUrl: 'https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658',
   /** 고객센터 운영시간 */
   supportHours: '평일 10:00 – 17:00 (점심 12:00 – 13:00) · 주말/공휴일 휴무',
 } as const;

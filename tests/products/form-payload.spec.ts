@@ -160,6 +160,25 @@ test('isMembersOnlyPrice 는 boolean 으로 항상 담고 미지정 시 false', 
   expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: undefined }), 'x').isMembersOnlyPrice).toBe(false);
 });
 
+/* ── pointsEnabled: boolean 으로 항상 담음(shippingFee 와 달리 조건부 아님) ── */
+
+test('pointsEnabled 는 boolean 으로 항상 담고 미지정 시 false', () => {
+  expect(buildProductUpdatePayload(form({ pointsEnabled: true }), 'x').pointsEnabled).toBe(true);
+  expect(buildProductUpdatePayload(form({ pointsEnabled: undefined }), 'x').pointsEnabled).toBe(false);
+});
+
+/* ── pointsRate: 적립금 지급이 켜져 있을 때만 저장, 해제 시 기존 rate 제거 경로 ── */
+
+test('pointsRate 는 pointsEnabled=true 인 숫자만 담고, 해제 상태면 숫자가 있어도 담지 않는다', () => {
+  expect(buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: 5 }), 'x').pointsRate).toBe(5);
+
+  const disabled = buildProductUpdatePayload(form({ pointsEnabled: false, pointsRate: 5 }), 'x') as Record<string, unknown>;
+  expect('pointsRate' in disabled).toBe(false);
+
+  const undef = buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: undefined }), 'x') as Record<string, unknown>;
+  expect('pointsRate' in undef).toBe(false);
+});
+
 /* ── normalizeOptions: 빈 행·유효하지 않은 행 제거, id 부여 ── */
 
 test('normalizeOptions: name 이 빈 행은 버린다', () => {

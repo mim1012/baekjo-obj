@@ -2,6 +2,7 @@
 
 import React from 'react';
 import FilterBar from '@/components/admin-new/common/FilterBar';
+import { DELIVERY_STATUSES, ORDER_STATUSES } from '@/types';
 
 interface OrderFiltersProps {
   searchTerm: string;
@@ -38,14 +39,11 @@ export default function OrderFilters({
           className="px-3 py-1.5 text-[14px] border border-gray-300 rounded-md bg-white focus:outline-none focus:border-[#2F3B34]"
         >
           <option value="전체">전체 주문 상태</option>
-          <option value="주문접수">주문접수</option>
-          <option value="결제완료">결제완료</option>
-          <option value="배송준비">배송준비</option>
-          <option value="배송중">배송중</option>
-          <option value="배송완료">배송완료</option>
-          <option value="취소요청">취소요청</option>
-          <option value="취소완료">취소완료</option>
-          <option value="환불완료">환불완료</option>
+          {ORDER_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
         </select>
       </div>
 
@@ -73,10 +71,11 @@ export default function OrderFilters({
           className="px-3 py-1.5 text-[14px] border border-gray-300 rounded-md bg-white focus:outline-none focus:border-[#2F3B34]"
         >
           <option value="전체">전체 배송 상태</option>
-          <option value="배송전">배송전</option>
-          <option value="배송준비">배송준비</option>
-          <option value="배송중">배송중</option>
-          <option value="배송완료">배송완료</option>
+          {DELIVERY_STATUSES.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
         </select>
       </div>
     </FilterBar>

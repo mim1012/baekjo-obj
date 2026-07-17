@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
 import { createOrder, cancelReservation, getPublicProducts } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
+import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
@@ -352,6 +354,34 @@ function CheckoutForm() {
                   )}
                 </div>
               )}
+            </section>
+
+            <section className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
+              <h2 className="text-lg font-bold text-[#202521] mb-4">주문 전 확인</h2>
+              <div className="space-y-3 text-sm leading-6 text-gray-600">
+                <p>
+                  주문·배송·결제 처리를 위해 받는 사람, 연락처, 배송지 주소, 배송 메모, 주문 상품, 결제수단 정보를
+                  수집·이용합니다. 주문 및 대금결제 기록은 전자상거래법에 따라 5년간 보관됩니다.
+                </p>
+                <p>
+                  기본 배송비는 {DEFAULT_COMMERCE_POLICY.shippingLabel}이며, 출고·교환·반품 기준은 상품 상세와{' '}
+                  <Link href="/refund-policy" className="font-semibold text-[#2F3B34] underline underline-offset-2">
+                    배송·교환·환불 안내
+                  </Link>
+                  를 따릅니다.
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold text-[#2F3B34]">
+                  <Link href="/terms" className="underline underline-offset-2">이용약관</Link>
+                  <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
+                  <Link href="/refund-policy" className="underline underline-offset-2">배송·교환·환불 안내</Link>
+                </div>
+                <label className="flex cursor-pointer items-start gap-3 pt-2 text-sm text-[#4A514A]">
+                  <input required type="checkbox" className="mt-1 size-4" />
+                  <span>
+                    <strong>[필수]</strong> 주문 정보, 결제 금액, 배송·교환·환불 기준 및 개인정보 수집·이용 안내를 확인했습니다.
+                  </span>
+                </label>
+              </div>
             </section>
 
           </div>
