@@ -16,8 +16,10 @@ import {
   HeartPulse,
   Handshake,
   Gift,
+  Inbox,
   Bell,
   Settings,
+  FileText,
 } from 'lucide-react';
 
 /** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
@@ -48,12 +50,14 @@ export const ADMIN_CS_NAV: AdminSidebarItem[] = [
   { name: '문의 관리', href: '/admin/qna', icon: MessageSquare },
   { name: '상품문의 관리', href: '/admin/inquiries', icon: MessageCircle },
   { name: '후기 관리', href: '/admin/reviews', icon: Star },
+  { name: '보험 콘텐츠', href: '/admin/insurance-content', icon: FileText },
 ];
 
 export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
   { name: '고민 관리', href: '/admin/concerns', icon: HeartPulse },
   { name: '제휴 관리', href: '/admin/partners', icon: Handshake },
   { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
+  { name: '제휴 문의 접수', href: '/admin/partner-inquiries', icon: Inbox },
   { name: '공지사항', href: '/admin/notices', icon: Bell },
   { name: '환경 설정', href: '/admin/settings', icon: Settings },
 ];

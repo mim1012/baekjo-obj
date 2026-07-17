@@ -4,6 +4,7 @@ import {
   ConfirmedOrderSummary,
   InsuranceApplication,
   Order,
+  PartnerInquiry,
   Product,
   User,
 } from '@/types';
@@ -11,6 +12,7 @@ import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import type { KitsConfig } from '@/lib/kits/config';
 import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
+import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -162,6 +164,74 @@ export async function updateInsuranceContacted(id: string, contacted: boolean): 
   });
   if (!response.ok) {
     throw new Error('insurance-update-failed');
+  }
+}
+
+/* ── B2B 제휴 문의(케어키트 랜딩 → 관리자 접수함) ─────────────────────────
+ * 생성은 POST /api/partner-inquiries(공개·게스트 허용), 관리자 목록은 GET /api/admin/partner-inquiries,
+ * 상태 변경은 PATCH /api/admin/partner-inquiries/[id]. 컴포넌트는 fetch 를 직접 하지 않고
+ * 아래 콘센트만 거친다(§4). 실패는 insurance 와 동일하게 읽기=빈 배열, 쓰기=throw 로 접는다.
+ */
+
+/**
+ * 제휴 문의 생성 입력(콘센트). id/createdAt/status/memo 는 서버(POST /api/partner-inquiries)가
+ * 정하므로 클라이언트는 신뢰시키지 않는다(mass-assignment·상태 위조 차단).
+ */
+export type CreatePartnerInquiryInput = Omit<
+  PartnerInquiry,
+  'id' | 'createdAt' | 'status' | 'memo'
+>;
+
+/**
+ * 제휴 문의 생성. POST /api/partner-inquiries(공개 — 게스트 제출 허용). 서버가 id·createdAt·status 를
+ * 정한다. 실패 시 throw — 호출부(랜딩 폼)가 사용자에게 실패를 알릴 수 있도록(addInsuranceApplication 과 동일 계약).
+ */
+export async function addPartnerInquiry(input: CreatePartnerInquiryInput): Promise<PartnerInquiry> {
+  const response = await fetch('/api/partner-inquiries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('partner-inquiry-create-failed');
+  }
+  const { inquiry } = (await response.json()) as { inquiry: PartnerInquiry };
+  return inquiry;
+}
+
+/**
+ * 전체 제휴 문의 목록(관리자). GET /api/admin/partner-inquiries. 권한 없음·실패 시 빈 배열
+ * (getInsuranceApplications 와 동일한 실패 계약).
+ */
+export async function getAdminPartnerInquiries(): Promise<PartnerInquiry[]> {
+  try {
+    const response = await fetch('/api/admin/partner-inquiries');
+    if (!response.ok) return [];
+    const { inquiries } = (await response.json()) as { inquiries: PartnerInquiry[] };
+    return inquiries;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 제휴 문의 상태/메모 변경(관리자). PATCH /api/admin/partner-inquiries/[id]. 실패 시 throw 해
+ * 호출부가 사용자에게 알리거나 재조회할 수 있게 한다(updateInsuranceStatus 와 동일 계약).
+ */
+export async function updatePartnerInquiryStatus(
+  id: string,
+  status: PartnerInquiry['status'],
+  memo?: string,
+): Promise<void> {
+  const body: { status: PartnerInquiry['status']; memo?: string } = { status };
+  if (memo !== undefined) body.memo = memo;
+  const response = await fetch(`/api/admin/partner-inquiries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('partner-inquiry-update-failed');
   }
 }
 
@@ -807,6 +877,50 @@ export async function getQnaConfig(): Promise<QnaConfig> {
 export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/qna', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 보험 페이지 콘텐츠(동의 전문·FAQ) ─────────────────────────
+ * 공개 /insurance 는 GET /api/insurance-content 로 동의 전문·FAQ 를 읽고, 관리자 화면
+ * (/admin/insurance-content)은 PUT /api/admin/insurance-content 로 통째로 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultInsuranceContentConfig 로 접어 보험 화면(Golden Flow #3)이
+ * 절대 동의 체크박스 없이 깨지지 않게 한다.
+ */
+
+/** 공개 보험 콘텐츠 config. GET /api/insurance-content. 실패·미저장 시 defaultInsuranceContentConfig 로 폴백. */
+export async function getInsuranceContentConfig(): Promise<InsuranceContentConfig> {
+  try {
+    const response = await fetch('/api/insurance-content');
+    if (!response.ok) return defaultInsuranceContentConfig;
+    const { consents, faqs } = (await response.json()) as InsuranceContentConfig;
+    if (!Array.isArray(consents) || !Array.isArray(faqs) || consents.length === 0) return defaultInsuranceContentConfig;
+    return { consents, faqs };
+  } catch {
+    return defaultInsuranceContentConfig;
+  }
+}
+
+/** 관리자 보험 콘텐츠 config. GET /api/admin/insurance-content. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — codex 리뷰 F5). */
+export async function getAdminInsuranceContentConfig(): Promise<InsuranceContentConfig> {
+  const response = await fetch('/api/admin/insurance-content');
+  if (!response.ok) throw new Error('insurance-content-config-load-failed');
+  const { consents, faqs } = (await response.json()) as InsuranceContentConfig;
+  if (!Array.isArray(consents) || !Array.isArray(faqs)) throw new Error('insurance-content-config-invalid-response');
+  return { consents, faqs };
+}
+
+/** 보험 콘텐츠 config 저장(관리자). PUT /api/admin/insurance-content. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveInsuranceContentConfig(config: InsuranceContentConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/insurance-content', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),

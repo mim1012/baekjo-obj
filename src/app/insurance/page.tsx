@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
@@ -15,7 +15,8 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { saveInsuranceApplication } from '@/lib/storage';
+import { getInsuranceContentConfig, saveInsuranceApplication } from '@/lib/storage';
+import { defaultInsuranceContentConfig, type ConsentDoc } from '@/lib/insuranceContent/config';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -66,23 +67,63 @@ const coverageOptions = [
   '가성비 중심',
 ];
 
-const faqs = [
-  {
-    q: '어떤 보험 증권을 제출해야 하나요?',
-    a: '현재 가입되어 있는 반려동물 보험의 보장 내용이 포함된 증권(PDF 또는 사진)을 올려주시면 됩니다. 전체 내용이 보이지 않아도 가입된 상품명과 기본 보장 내역만 확인 가능하면 분석이 가능합니다.',
-  },
-  {
-    q: '분석까지 얼마나 걸리나요?',
-    a: '평일 기준 접수 후 1~2일 내에 분석 결과를 안내해 드리고 있습니다. 주말이나 공휴일에 신청해주신 경우 다음 영업일로부터 순차적으로 안내해 드립니다.',
-  },
-  {
-    q: '분석 결과는 어떻게 확인하나요?',
-    a: '입력해주신 연락처(카카오톡 또는 문자)로 분석 결과 링크를 보내드립니다. 백조오브제 마이페이지에서도 언제든 다시 확인하실 수 있습니다.',
-  },
-];
-
 export default function InsurancePage() {
   const router = useRouter();
+
+  // 동의 전문·FAQ 는 관리자(/admin/insurance-content)가 편집하는 DB 콘텐츠 — 콘센트로 읽는다(§4).
+  // getInsuranceContentConfig 는 실패·미저장 시 defaultInsuranceContentConfig 로 폴백하므로 절대 깨지지 않는다.
+  const [content, setContent] = useState(defaultInsuranceContentConfig);
+  const [consentChecks, setConsentChecks] = useState<Record<string, boolean>>({});
+  const [openConsent, setOpenConsent] = useState<ConsentDoc | null>(null);
+  const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const consentCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+  const consentDialogRef = useRef<HTMLDivElement | null>(null);
+
+  // 전문 모달 접근성 — Escape 로 닫고, 열릴 때 닫기 버튼으로 포커스를 옮기며, Tab 은 모달 안에서만
+  // 순환(focus trap)하고, 닫힐 때 열기 전 포커스(전문 보기 버튼)로 복원한다.
+  useEffect(() => {
+    if (!openConsent) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    consentCloseButtonRef.current?.focus();
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenConsent(null);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const dialog = consentDialogRef.current;
+      if (!dialog) return;
+      const focusables = Array.from(
+        dialog.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'),
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialog.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !dialog.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      previouslyFocused?.focus();
+    };
+  }, [openConsent]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getInsuranceContentConfig().then((config) => {
+      if (!cancelled) setContent(config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Upload State
   const [isDragging, setIsDragging] = useState(false);
@@ -139,9 +180,10 @@ export default function InsurancePage() {
     companyName: '',
     productName: '',
     message: '',
-    privacyAgree: false,
-    thirdPartyAgree: false,
   });
+
+  // 필수 동의 문서가 전부 체크됐는지 — 동의 목록은 관리자가 바꿀 수 있으므로 id 기반으로 판정한다.
+  const allRequiredChecked = content.consents.filter((c) => c.required).every((c) => consentChecks[c.id]);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = event.target;
@@ -153,7 +195,7 @@ export default function InsurancePage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!formData.privacyAgree || !formData.thirdPartyAgree || submitting) return;
+    if (!allRequiredChecked || submitting) return;
 
     setSubmitting(true);
     try {
@@ -168,8 +210,10 @@ export default function InsurancePage() {
         coverageNeeds: [], // mock
         message: formData.message,
         concerns: formData.message,
-        privacyAgree: formData.privacyAgree,
-        thirdPartyAgree: formData.thirdPartyAgree,
+        // 관리자가 동의 문서를 교체해도 저장 API 계약(saveInsuranceApplication 시그니처)은 유지한다 —
+        // 기본 id('privacy'/'analysis')가 있으면 그 체크값을, 없으면 필수 전체 동의 여부를 접어 보낸다.
+        privacyAgree: consentChecks['privacy'] ?? allRequiredChecked,
+        thirdPartyAgree: consentChecks['analysis'] ?? allRequiredChecked,
         hasCurrentInsurance: true,
         currentInsuranceName: formData.companyName + ' ' + formData.productName,
         medicalHistory: '',
@@ -384,29 +428,38 @@ export default function InsurancePage() {
                 </label>
 
                 <div className="space-y-3 pt-4 border-t border-[#EBE8E1]">
-                  <label className="flex items-center justify-between cursor-pointer rounded-xl border border-[#EBE8E1] bg-[#FAF9F5] p-4 transition-colors hover:border-[#D8D6CE]">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex size-[18px] shrink-0 items-center justify-center rounded border border-[#C9C8C0] transition-colors has-[:checked]:border-[#1A221E] has-[:checked]:bg-[#1A221E]">
-                        <input required type="checkbox" name="privacyAgree" checked={formData.privacyAgree} onChange={handleChange} className="peer sr-only" />
-                        <Check className="size-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} aria-hidden="true" />
+                  {content.consents.map((consent) => (
+                    <label key={consent.id} className="flex items-center justify-between cursor-pointer rounded-xl border border-[#EBE8E1] bg-[#FAF9F5] p-4 transition-colors hover:border-[#D8D6CE]">
+                      <div className="flex items-center gap-3">
+                        <div className="relative flex size-[18px] shrink-0 items-center justify-center rounded border border-[#C9C8C0] transition-colors has-[:checked]:border-[#1A221E] has-[:checked]:bg-[#1A221E]">
+                          <input
+                            required={consent.required}
+                            type="checkbox"
+                            checked={!!consentChecks[consent.id]}
+                            onChange={() => setConsentChecks((prev) => ({ ...prev, [consent.id]: !prev[consent.id] }))}
+                            className="peer sr-only"
+                          />
+                          <Check className="size-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} aria-hidden="true" />
+                        </div>
+                        <span className="text-[14px] text-[#1A1D1B]">{consent.title}{consent.required ? ' (필수)' : ' (선택)'}</span>
                       </div>
-                      <span className="text-[14px] text-[#1A1D1B]">개인정보 수집 및 이용 동의 (필수)</span>
-                    </div>
-                    <span className="text-[13px] text-[#5F6761] underline underline-offset-2">전문 보기</span>
-                  </label>
-                  <label className="flex items-center justify-between cursor-pointer rounded-xl border border-[#EBE8E1] bg-[#FAF9F5] p-4 transition-colors hover:border-[#D8D6CE]">
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex size-[18px] shrink-0 items-center justify-center rounded border border-[#C9C8C0] transition-colors has-[:checked]:border-[#1A221E] has-[:checked]:bg-[#1A221E]">
-                        <input required type="checkbox" name="thirdPartyAgree" checked={formData.thirdPartyAgree} onChange={handleChange} className="peer sr-only" />
-                        <Check className="size-3 text-white opacity-0 peer-checked:opacity-100" strokeWidth={3} aria-hidden="true" />
-                      </div>
-                      <span className="text-[14px] text-[#1A1D1B]">보험 분석 서비스 이용 동의 (필수)</span>
-                    </div>
-                    <span className="text-[13px] text-[#5F6761] underline underline-offset-2">전문 보기</span>
-                  </label>
+                      {/* label 내부라 preventDefault 필수 — 클릭이 체크박스 토글로 번지지 않게 막는다. */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setOpenConsent(consent);
+                        }}
+                        className="text-[13px] text-[#5F6761] underline underline-offset-2 hover:text-[#1A1D1B]"
+                      >
+                        전문 보기
+                      </button>
+                    </label>
+                  ))}
                 </div>
 
-                <button type="submit" disabled={!formData.privacyAgree || !formData.thirdPartyAgree || submitting} className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A221E] py-[18px] text-[15px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
+                <button type="submit" disabled={!allRequiredChecked || submitting} className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A221E] py-[18px] text-[15px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
                   {submitting ? '신청 접수 중…' : '보험 분석 신청하기'}
                   {!submitting && <ArrowRight className="size-4" />}
                 </button>
@@ -490,12 +543,28 @@ export default function InsurancePage() {
           <div className="lg:w-[70%] rounded-[24px] bg-white border border-[#EBE8E1] p-8 md:p-10">
             <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">자주 묻는 질문</h2>
             <div className="grid md:grid-cols-3 gap-4">
-              {faqs.map((faq, idx) => (
-                <div key={idx} className="rounded-xl bg-[#FAF9F5] p-5 cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1]">
+              {content.faqs.map((faq) => (
+                <div
+                  key={faq.id}
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={openFaqId === faq.id}
+                  onClick={() => setOpenFaqId((current) => (current === faq.id ? null : faq.id))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setOpenFaqId((current) => (current === faq.id ? null : faq.id));
+                    }
+                  }}
+                  className="rounded-xl bg-[#FAF9F5] p-5 cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1]"
+                >
                    <div className="flex items-center justify-between">
                      <p className="text-[14px] font-bold text-[#1A1D1B]">{faq.q}</p>
-                     <ChevronDown className="size-4 text-[#5F6761] shrink-0" />
+                     <ChevronDown className={`size-4 text-[#5F6761] shrink-0 transition-transform ${openFaqId === faq.id ? 'rotate-180' : ''}`} />
                    </div>
+                   {openFaqId === faq.id && (
+                     <p className="mt-3 text-[13px] leading-[1.65] text-[#5F6761]">{faq.a}</p>
+                   )}
                 </div>
               ))}
             </div>
@@ -511,6 +580,23 @@ export default function InsurancePage() {
           </div>
         </div>
       </section>
+
+      {/* 동의 문서 전문 모달 — '전문 보기' 클릭 시 관리자가 저장한 약관 전문을 그대로 보여준다. */}
+      {openConsent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setOpenConsent(null)}>
+          <div ref={consentDialogRef} role="dialog" aria-modal="true" aria-label={openConsent.title} className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-[#FAF9F5]" onClick={(e) => e.stopPropagation()}>
+            <div className="flex shrink-0 items-center justify-between border-b border-[#EBE8E1] px-6 py-5">
+              <h2 className="text-[16px] font-bold text-[#1A1D1B]">{openConsent.title}</h2>
+              <button ref={consentCloseButtonRef} type="button" aria-label="닫기" onClick={() => setOpenConsent(null)} className="rounded p-1 text-[#5F6761] transition-colors hover:bg-[#F4F2EC]">
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-5">
+              <p className="whitespace-pre-line text-[14px] leading-[1.7] text-[#4F5751]">{openConsent.body}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
