@@ -7,6 +7,7 @@ import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import { formatDate, formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
 import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
+import DepositConfirmButton from './DepositConfirmButton';
 
 interface OrderMobileCardProps {
   order: Order;
@@ -46,14 +47,20 @@ export default function OrderMobileCard({ order, saving = false, onStatusChange 
         { label: '배송상태', value: order.deliveryStatus },
       ]}
       action={
-        <div className="space-y-3">
+        <div className="space-y-3 w-full">
           <OrderInlineStatusControls
             order={order}
             disabled={saving}
             layout="stack"
             onChange={onStatusChange}
           />
-          <Link 
+          <DepositConfirmButton
+            order={order}
+            disabled={saving}
+            className="w-full"
+            onStatusChange={onStatusChange}
+          />
+          <Link
             href={`/admin/orders/${order.id}`}
             className="text-[#2F3B34] hover:bg-gray-50 font-medium text-[13px] border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block w-full text-center"
           >

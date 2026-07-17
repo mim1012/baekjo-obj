@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FileText, CreditCard, Truck, RefreshCcw } from 'lucide-react';
+import { FileText, CreditCard, Truck, RefreshCcw, Wallet } from 'lucide-react';
 import { getAllOrders, updateOrderStatus } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import PageHeader from '@/components/admin-new/common/PageHeader';
@@ -132,6 +132,14 @@ export default function OrderListPage() {
     setCurrentPage(1);
   }, []);
 
+  const handleDepositPendingClick = useCallback(() => {
+    setSearchTerm('');
+    setOrderStatusFilter('전체');
+    setDeliveryStatusFilter('전체');
+    setPaymentStatusFilter('입금대기');
+    setCurrentPage(1);
+  }, []);
+
   if (!mounted) return null;
 
   if (loading && orders.length === 0) {
@@ -158,6 +166,7 @@ export default function OrderListPage() {
 
   const totalCount = orders.length;
   const paymentCompletedCount = orders.filter((o) => o.paymentStatus === '결제완료').length;
+  const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
   const canceledCount = orders.filter((o) => o.orderStatus === '취소완료' || o.orderStatus === '환불완료').length;
 
@@ -172,6 +181,7 @@ export default function OrderListPage() {
         items={[
           { label: '전체 주문', value: totalCount, icon: FileText },
           { label: '결제 완료', value: paymentCompletedCount, icon: CreditCard, highlight: true },
+          { label: '입금 대기', value: depositPendingCount, icon: Wallet, highlight: true, onClick: handleDepositPendingClick },
           { label: '배송 중', value: shippingCount, icon: Truck },
           { label: '취소·환불', value: canceledCount, icon: RefreshCcw, highlight: true },
         ]}

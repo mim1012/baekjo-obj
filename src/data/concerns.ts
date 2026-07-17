@@ -79,7 +79,8 @@ export const concerns: Concern[] = [
       '기생충(진드기, 벼룩)',
     ],
     recommendedProductIds: ['p4', 'p5', 'p20'],
-    recommendedBrandIds: ['b2', 'b4'],
+    // b4(캣코드) 제거(2026-07-16) — 실재하지 않는 브랜드. 소속 상품이 알로밍(b5)으로 이관돼 b5 로 흡수.
+    recommendedBrandIds: ['b2', 'b5'],
     insuranceCta: '피부 질환은 만성화될 수 있습니다. 보험으로 통원비 부담을 줄여보세요.',
     faq: [
       { question: '목욕을 자주 하면 피부에 좋지 않나요?', answer: '과도한 목욕은 피부 장벽을 약화시킬 수 있습니다. 2-4주에 한 번, 반려동물 전용 저자극 샴푸를 사용하는 것을 권장합니다.' },
@@ -187,8 +188,12 @@ export const concerns: Concern[] = [
       '소음 공포(천둥, 불꽃놀이)',
       '운동 부족',
     ],
-    recommendedProductIds: ['p9', 'p10', 'p11'],
-    recommendedBrandIds: ['b4', 'b5'],
+    // p9·p10·p11 은 제품명·실사진 확정까지 노출 보류(0034) — 셋만 두면 이 페이지의 추천 상품이
+    // 통째로 비므로, 같은 알로밍 그루밍 라인이자 노출 중인 p12 를 앞에 둔다. 숨긴 상품은 공개
+    // 조회에서 자동으로 걸러지므로(visibleOnly) 재노출 시 원래 구성이 그대로 복원된다.
+    recommendedProductIds: ['p12', 'p9', 'p10', 'p11'],
+    // b4(캣코드) 제거(2026-07-16) — 소속 상품이 알로밍(b5)으로 이관돼 b5 로 흡수(중복 제거).
+    recommendedBrandIds: ['b5'],
     insuranceCta: '행동 치료 상담비도 보험으로 보장받을 수 있습니다.',
     faq: [
       { question: '분리 불안을 어떻게 완화할 수 있나요?', answer: '짧은 외출부터 시작해 서서히 시간을 늘려가세요. 외출 시 특별한 간식이나 장난감을 제공하고, 출퇴근 시 과도한 인사를 삼가는 것이 도움됩니다.' },
@@ -299,7 +304,9 @@ export const concerns: Concern[] = [
       '교감 없이 관리만 하려는 접근',
     ],
     recommendedProductIds: ['p9', 'p12', 'p13'],
-    recommendedBrandIds: ['b4', 'b5'],
+    // b4(캣코드) 제거(2026-07-16) — 소속 상품이 알로밍(b5)으로 이관돼 b5 로 흡수(중복 제거).
+    // p9·p13 은 노출 보류/미가격이라 걸러지고 p12 가 남는다 — 빈 페이지 아님.
+    recommendedBrandIds: ['b5'],
     insuranceCta: '그루밍 중 발견한 피부 이상이 걱정되시나요? 무료 보험 분석으로 피부 진료 보장을 확인해보세요.',
     faq: [
       { question: '브러싱은 얼마나 자주 해야 하나요?', answer: '장모종은 매일, 단모종은 주 2~3회를 권장합니다. 털갈이 시기에는 빈도를 늘려 엉킴과 날림을 줄이는 것이 좋습니다.' },

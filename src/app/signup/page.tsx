@@ -210,14 +210,27 @@ export default function SignupPage() {
                 </select>
               </Field>
 
-              <div className="space-y-3 border-t border-[#D8D6CE] pt-6">
+              <div className="space-y-4 border-t border-[#D8D6CE] pt-6">
+                <div className="rounded-sm border border-[#D8D6CE] bg-white/55 p-4 text-xs leading-6 text-[#6F766F]">
+                  회원 식별, 가입/로그인, 맞춤 큐레이션 제공을 위해 이름, 이메일, 비밀번호, 연락처,
+                  반려동물 정보와 주요 고민을 수집·이용합니다. 회원정보는 회원 탈퇴 시까지 보관하며,
+                  법령상 보존이 필요한 기록은 정해진 기간 동안 분리 보관됩니다.
+                </div>
                 <label className="flex cursor-pointer items-start gap-3 text-sm text-[#5F6761]">
                   <input required type="checkbox" name="termsAgree" checked={formData.termsAgree} onChange={handleChange} className="mt-0.5 size-4" />
-                  <span><strong>[필수]</strong> 이용약관에 동의합니다.</span>
+                  <span>
+                    <strong>[필수]</strong>{' '}
+                    <Link href="/terms" className="font-semibold text-[#2F3B34] underline underline-offset-2">이용약관</Link>
+                    에 동의합니다.
+                  </span>
                 </label>
                 <label className="flex cursor-pointer items-start gap-3 text-sm text-[#5F6761]">
                   <input required type="checkbox" name="privacyAgree" checked={formData.privacyAgree} onChange={handleChange} className="mt-0.5 size-4" />
-                  <span><strong>[필수]</strong> 개인정보 수집 및 이용에 동의합니다.</span>
+                  <span>
+                    <strong>[필수]</strong>{' '}
+                    <Link href="/privacy" className="font-semibold text-[#2F3B34] underline underline-offset-2">개인정보 수집 및 이용</Link>
+                    에 동의합니다.
+                  </span>
                 </label>
               </div>
 
