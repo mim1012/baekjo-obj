@@ -107,6 +107,52 @@ This version has breaking changes — APIs, conventions, and file structure may 
 > 오해하지 말 것. 서버 28개 중 실제로 repo를 읽는 건 12개고, `*Client.tsx`라는 **파일명 관례를 따르는 건 4개뿐**
 > (`/shop`은 `ShopContent.tsx`) — **파일명으로 세지 말고 `'use client'` 유무로 판단한다.** 상세는 §10-4.
 
+### ⭐ 3-1. 배선보다 분리가 먼저다 (2026-07-17 신설 — 표현 드리프트의 유일한 근본 대책)
+
+> **드리프트는 두 종류다. 하나로 묶어서 규칙을 쓰면 반드시 실패한다.**
+>
+> | | **A. 값 드리프트** | **B. 표현 드리프트** |
+> |---|---|---|
+> | 언제 | dad→mim 인계 후 | dad가 UI를 고칠 때 |
+> | 뭐가 어긋나나 | `rating` 4.8 vs 4.5 (**값**) | 섹션 사라짐·카피 바뀜 (**마크업**) |
+> | 원인 | Mock가 안 죽고 "정본"이 됨 | **같은 파일을 둘이 편집** |
+> | 대책 | 사본을 **하나로** (§4 원칙 0) | 파일을 **둘로** (이 절) |
+>
+> 방향이 정반대라 한 문장으로 못 쓴다. §4 콘센트 규칙과 eslint 가드는 **A만** 겨냥한 무기였고,
+> 그래서 B는 손도 대지 않은 채 계속 재발했다.
+
+**규칙: mim이 dad에게서 페이지를 받으면, 첫 작업은 데이터 배선이 아니라 레이어 분리다.**
+쪼갠 다음에야 배선한다. 서버 데이터를 읽지 않는 순수 폼 페이지는 위 예외대로 분리 대상이 아니다.
+
+**왜 이 순서인가 — 안 쪼갠 채 배선하면 mim이 dad 마크업을 덮어쓸 경로가 열려 있다:**
+- `SESSION.md:302` — 백엔드 커밋 `d572653`이 **dad 상세 패널을 덮어씀**. dad가 지운 감사 뱃지 부활,
+  §6 팔레트 위반(`text-red-600`), `<ProductPurchaseInfo />` 섹션 삭제, aria-live 토스트 → `alert()` 퇴화.
+- `b7e895e` — 커밋 제목이 문자 그대로 **"섹션 카피 드리프트"**. 배선 중 밀려난 dad 카피를 손으로 되돌린
+  기록이며, 대상 파일이 `src/app/brands/[id]/page.tsx` — **안 쪼개진 페이지**다.
+- `b85e723` — dad 리디자인을 mim 백엔드 위에 손으로 재통합(40파일 +2891/−1150).
+
+쪼개면 mim이 `*Client.tsx`를 열 이유 자체가 사라진다. **충돌은 합의가 아니라 구조로 막는다**(§4-6과 같은 사상).
+
+**분리 현황 (2026-07-17 실측):**
+- ✅ 분리 완료 **4개**: `HomeClient` · `ProductDetailClient` · `ProductTabsClient` · `BrandProductsClient`
+  (전부 `src/components/` 아래 있다 — `src/app/**/*Client.tsx` 글롭이 매칭 0건이던 이유)
+- ❌ 미분리 **21개**(통짜 `'use client'` + `useEffect`로 서버 데이터 읽음) — **여기가 현재의 충돌 표면이다**:
+  `/admin`(대시보드) · `/admin/brands` · `/admin/categories` · `/admin/inquiries` · `/admin/kits` ·
+  `/admin/partners` · `/admin/products` · `/admin/settings` · `/admin/survey` · `/admin/survey-results` ·
+  `/diagnosis` · `/diagnosis/result` · `/cart` · `/checkout` · `/login` · `/signup` · `/mypage` ·
+  `/order-complete` · `/auth/complete` · `/verify-email` · `/insurance/recommend`
+  - 교과서적 사례: `src/app/diagnosis/result/page.tsx:3-16` — `'use client'` + `useEffect` +
+    `getPublicBrands`/`getPublicProducts`/`getSurveyConfig`가 한 파일에.
+  - ⚠️ 위 목록 중 `/cart`·`/checkout`·`/login`·`/signup` 등 **순수 폼은 분리 대상이 아니다**(위 예외).
+    실제 분리 대상은 **서버 데이터를 첫 화면에 그려야 하는** admin 목록들과 `diagnosis/result`다.
+- 🔸 `/admin/orders`·`/admin/members`·`/admin/qna`·`/admin/insurance`는 7줄 `'use client'` shim이
+  `src/components/admin-new/**`에 위임한다. **파일은 갈렸지만 §3 모양이 아니다** — 서버 wrapper가 없어
+  데이터 페칭이 여전히 dad 컴포넌트 트리 안에 있다. 분리 대상.
+
+**게이트 순서(중요):** `.github/CODEOWNERS`의 `require_code_owner_review`는 **이 분리가 끝난 뒤** 켠다.
+지금 켜면 mim의 배선 PR이 상시로 `src/components/**`를 건드려 전부 dad 승인 대기에 걸리고,
+admin bypass(`current_user_can_bypass: always`)로 우회하는 습관만 남는다(PR #98 참조).
+
 ### Role: dad — PM · UX · Frontend
 - **책임(제품 관점):** 무엇을 왜 만드는지, 화면 표현·인터랙션·기획 기능 연결(핸들러·상태·플로우).
 - **변경 가능:** `*Client.tsx`·`src/components/**`·`src/app/globals.css`·`src/data/**`(mock)·`public/**`.
@@ -140,19 +186,54 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 | 데이터 | 오너 | 넣는 위치 | 미정일 때 |
 |--------|------|-----------|-----------|
-| 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` + `brands` 데이터/seed `logo` 경로 | placeholder → 채우면 즉시 표시 |
-| 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 또는 seed `price` | 카드에 `0원` 표시(저장값은 `null` 유지) |
+| 브랜드 로고 이미지 | **dad**(디자인) | `public/brands/*` 업로드 + `/admin/brands`에서 `logo` 경로 지정 | placeholder → 채우면 즉시 표시 |
+| 상품 판매가·재고 | **mim/기획** | `/admin/products` 입력 | 카드에 `0원` 표시(저장값은 `null` 유지) |
 | 정적 콘텐츠(공지·후기·케어가이드) | **dad** | `src/data/*` (아직 API 라우트 없음) | 해당 없음 |
-| 상품 상세 본문(detailBlocks)·썸네일 | **mim**(시드) → 추후 업체 관리자 | `src/data/products.ts` + 재시드 | 폴백: 단일 image 박스 |
+| 상품 상세 본문(detailBlocks)·썸네일 | **mim** → 추후 업체 관리자 | `/admin/products` 입력 | 폴백: 단일 image 박스 |
 
-> ⭐ **products·brands 는 이제 DB가 화면의 진실 소스다 (2026-07-12, 0018~0020 재시드 이후).**
-> `src/data/{products,brands}.ts`만 고치면 **화면은 안 바뀐다** — 정본(파일)과 DB를 함께 맞춰야 한다.
-> 콘텐츠를 바꾸려면 ① `/admin`에서 수정(즉시 반영, 단 정본 파일과 drift 생기니 mim에게 공유) 또는
-> ② 정본 `src/data/*.ts` 수정 후 **mim에게 재시드 요청**(gen 스크립트로 `00XX` 마이그레이션 기계 생성 — 수기 SQL 금지).
+> ⭐ **products·brands 는 DB가 유일한 진실이다 (2026-07-17 개정 — `be/kill-static-seed-canon`).**
+> `src/data/{products,brands}.ts`는 **삭제됐다.** 두 도메인의 값을 바꾸는 경로는 **`/admin` 하나뿐**이다.
+>
+> **왜 지웠나:** 화면은 이미 DB만 읽고 있었는데(런타임 import 0건) 그 파일들이 "재시드의 정본"으로 남아
+> **같은 값이 파일과 DB 두 곳에 손으로 적히고 있었다.** 사람 기억력 말고는 둘을 맞추는 게 없었고,
+> 그 결과가 정적↔DB 불일치를 수습하려고 만든 마이그레이션 `0014`·`0015`·`0016`·`0017`·`0018`이다.
+> `0035`는 프로덕션 값을 파일에 **역기입**까지 했다. lint(`no-restricted-imports`)는 *읽기 경로*만 막았기
+> 때문에 드리프트가 화면 레이어에서 **시드 레이어로 이사**했을 뿐이었다 — 거기엔 테스트도 CI도 없다.
+>
+> **DB 재구축 경로:** 정본 파일이 아니라 `supabase/migrations/`다(`0004b` 최초 시드 + `0018` 전량 재시드 +
+> 이후 정정분). `node scripts/apply-migrations.mjs`로 재생한다. 파일이 유일한 복구 수단이 아니었다.
+>
+> 🚫 **`src/data/`에 products·brands를 재도입하지 말 것.** 필요해 보이면 그건 `/admin`에 없는 필드라는
+> 뜻이므로 admin 편집 경로를 추가하는 게 맞다. eslint `no-restricted-imports`가 재도입을 계속 막는다.
 
 ## 4. ⭐ drift 방지 — "콘센트" 규칙 (이 프로젝트의 제1원칙)
 프론트는 가짜 데이터로, 백엔드는 진짜 데이터로 만든다. **둘이 따로 놀아(=drift) 화면이 조용히 깨지는 것**이
 가장 위험하다. 이 리포엔 이미 그걸 막는 구조가 있으니 아래를 지키면 drift가 구조적으로 불가능해진다.
+
+> ⭐ **원칙 0 — Mock의 수명 (2026-07-17 신설. 아래 1~6번보다 먼저 읽을 것).**
+>
+> **UI Mock는 화면 검증과 클라이언트 승인만을 위한 임시 산출물이며,
+> 운영 데이터·Seed·복구 데이터의 정본으로 사용하지 않는다.**
+>
+> **Mock는 DB에 시드된 순간 죽는다.** 이후 그 값의 입력구는 `/admin` 하나뿐이고,
+> 복구 정본은 `supabase/migrations/`다.
+>
+> 🚫 **"복구용으로 남겨두자"가 Mock를 살려두는 단골 명분이다** — 그 명분이 `src/data/{products,brands}.ts`를
+> "재시드의 정본"으로 승격시켰고, 그래서 같은 값이 ① 정본 파일 ② 손으로 타이핑한 시드 SQL ③ `/admin`이
+> 실시간 수정하는 라이브 DB **세 곳에 손으로** 적히게 됐다. 그 결과가 `0014`~`0018`(정적↔DB 불일치 수습)과
+> `0035`(프로덕션→파일 **역기입**)다. 아래 1~6번(콘센트·eslint 가드)은 *읽기 경로*만 막기 때문에
+> 드리프트를 화면 레이어에서 **시드 레이어로 이사시킬 뿐** 없애지 못한다 — 거긴 lint도 테스트도 CI도 없다.
+>
+> **알려진 예외 (2026-07-17 기준 — 늘리지 말 것):**
+> - `reviews.ts`·`qna.ts` — `src/lib/adapters.ts:45`가 seed와 DB를 **의도적으로 병합**한다
+>   (`source: 'seed' | 'user'` 태깅). 설계된 동작이라 예외. 단 seed 리뷰는 admin 편집 경로가 없어
+>   수정이 저장되지 않는다 — 별도 결정 필요.
+> - `homeContent.ts`·`survey.ts` — config **기본값 전용**(저장값이 없을 때만 쓰는 fallback).
+>   운영 데이터의 정본이 아니라서 예외.
+> - `company.ts` — 법정정보/정적 config. 관리자 운영 대상 아님.
+>
+> **새 도메인을 이 예외 목록에 추가하려면 admin 편집 경로를 먼저 만들 것.** 예외가 늘어나는 건
+> "관리자에 그 필드가 없다"는 신호지, Mock를 살려둘 근거가 아니다.
 
 1. **화면은 콘센트에만 꽂는다.** 프론트(컴포넌트)는 데이터를 `src/lib/storage.ts`의 함수로만 읽고 쓴다.
    🚫 컴포넌트에서 `fetch(...)`·`localStorage` **직접 호출 금지.**
