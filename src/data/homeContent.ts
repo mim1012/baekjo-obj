@@ -4,7 +4,7 @@
 // 않는다(zero-visual-change, 시각 회귀 게이트 유지).
 //
 // 규칙:
-// - HTML 금지. 문자열은 전부 평문이다. dangerouslySetInnerHTML 은 CI(no-html-sink)가 막는다.
+// - HTML 금지. 문자열은 전부 평문이다. HTML 싱크는 CI(no-html-sink 스펙)가 막는다.
 // - 줄바꿈이 필요한 문구는 마크업이 아니라 구조(string[] 줄 배열)로 표현한다 — HomeClient 가
 //   각 줄 사이에 <br /> 를 넣어 렌더한다.
 // - 카드/아이콘/링크 배열의 "구조"(아이콘·href·이미지)는 HomeClient 에 하드코딩되어 있고,
@@ -40,7 +40,7 @@ export interface HomeSettings {
     allConcernsLinkLabel: string;
     cards: Array<{ title: string; desc: string }>;
   };
-  /** 5. 백조 Audit 검증 기준 (기준 아이콘은 하드코딩) */
+  /** 5. 백조오브제 Audit 검증 기준 (기준 아이콘은 하드코딩) */
   audit: {
     badge: string;
     titleLines: string[];

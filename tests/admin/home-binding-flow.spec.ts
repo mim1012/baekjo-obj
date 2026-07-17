@@ -22,14 +22,20 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain("export const dynamic = 'force-dynamic'");
     expect(pageSource).toContain('listProducts({ visibleOnly: true })');
     expect(pageSource).toContain('listBrands(true)');
-    expect(pageSource).toContain('<HomeClient products={products} brands={brands} />');
+    // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
+    expect(pageSource).toContain('<HomeClient products={products} brands={brands} settings={settings ?? defaultHomeSettings} />');
     expectNoMutableDataBypass(pageSource);
   });
 
   test('HomeClient 는 관리자 변경 대상 products/brands 를 props 로만 받고 정적 콘텐츠만 직접 import 한다', () => {
     const clientSource = src('src', 'components', 'home', 'HomeClient.tsx');
 
-    expect(clientSource).toContain('export default function HomeClient({ products, brands }: { products: Product[]; brands: Brand[] })');
+    // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
+    expect(clientSource).toContain('export default function HomeClient({');
+    expect(clientSource).toContain('settings = defaultHomeSettings,');
+    expect(clientSource).toContain('products: Product[];');
+    expect(clientSource).toContain('brands: Brand[];');
+    expect(clientSource).toContain('settings?: HomeSettings;');
     expect(clientSource).toContain('products.filter((product) => product.isBest || product.isRecommended)');
     expect(clientSource).toContain('brands.filter(b => b.isVisible !== false)');
     expect(clientSource).toContain("import { notices } from '@/data/notices'");
