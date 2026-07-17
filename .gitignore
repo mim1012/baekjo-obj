@@ -61,3 +61,17 @@ cookies.txt
 /blob-report/
 /playwright/.cache/
 .gstack/
+
+# 에이전트 세션 로컬 상태·검증 산출물 (레포 루트 오염 방지 — 증빙은 docs/evidence/ 또는 스크래치패드에)
+.claude/
+.gjc/
+.ralplan-tmp/
+RESEARCH/
+.ultragoal-brief-*.md
+AGENTS.md.resolved
+/g[0-9][0-9][0-9]-*
+/goal-snapshot-*.json
+/quality-gate-*.json
+/gate3-*.png
+/__*.mjs
+/tests/golden/__*.spec.ts
