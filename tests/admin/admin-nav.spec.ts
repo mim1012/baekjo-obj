@@ -24,13 +24,14 @@ test.describe('메뉴 스냅샷', () => {
     '/admin/brands',
     '/admin/orders',
     '/admin/members',
-    // cs (6)
+    // cs (7)
     '/admin/insurance',
     '/admin/survey',
     '/admin/survey-results',
     '/admin/qna',
     '/admin/inquiries',
     '/admin/reviews',
+    '/admin/insurance-content',
     // etc (5)
     '/admin/concerns',
     '/admin/partners',
@@ -39,15 +40,15 @@ test.describe('메뉴 스냅샷', () => {
     '/admin/settings',
   ];
 
-  test('전체 사이드바 href 목록이 18개이고 순서까지 일치한다', () => {
+  test('전체 사이드바 href 목록이 19개이고 순서까지 일치한다', () => {
     const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
-    expect(all).toHaveLength(18);
+    expect(all).toHaveLength(19);
     expect(all.map((i) => i.href)).toEqual(EXPECTED_HREFS);
   });
 
-  test('그룹별 개수 — main=7, cs=6, etc=5', () => {
+  test('그룹별 개수 — main=7, cs=7, etc=5', () => {
     expect(ADMIN_MAIN_NAV).toHaveLength(7);
-    expect(ADMIN_CS_NAV).toHaveLength(6);
+    expect(ADMIN_CS_NAV).toHaveLength(7);
     expect(ADMIN_ETC_NAV).toHaveLength(5);
   });
 
