@@ -2,9 +2,8 @@
 
 import React from 'react';
 import type { Order } from '@/types';
-import { ORDER_STATUSES, PAYMENT_STATUSES } from '@/types';
+import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES } from '@/types';
 
-const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
 
 export type OrderInlineStatusUpdate = Partial<
   Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus'>

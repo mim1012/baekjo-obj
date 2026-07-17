@@ -75,12 +75,32 @@
 - **고아 라우트 가드** `tests/admin/admin-nav.spec.ts` — `src/app/admin/**/page.tsx`를 스캔해 **메뉴에 없는 라우트를 CI에서 잡는다**. 2026-07-14 유실 사고 + `/display` 고아 라우트가 실제로 이 형태였다. href 18개 스냅샷·순서·그룹 개수·아이콘 전수·`resolveActiveHref` 테이블도 함께 잠금. required check 편입(16건).
 - dead code: `src/data/{orders,insuranceApplications,users}.ts` 삭제 + `storage.ts`의 `getUsers`·`mockUsers`·`REGISTERED_USERS_KEY` 제거 + `admin/page.tsx` 중복 import 제거.
 - ⚠️ **`src/data/products.ts`·`brands.ts`는 삭제 금지** — import 0건이지만 **재시드의 정본**(마이그레이션 `0004b`·`0014`~`0018` 주석 + eslint `no-restricted-imports` 대상 + `generate_placeholders.mjs`가 읽음).
+  - **2026-07-17 이 결정 뒤집음** (`be/kill-static-seed-canon`) — 사유: "재시드의 정본" 지위가 **드리프트의 원인 그 자체**였다. 같은 값이 ① `src/data/*.ts` ② 손으로 타이핑한 시드 SQL(`0004b`) ③ `/admin`이 실시간 수정하는 라이브 DB **세 곳에 손으로** 적혔고, 셋을 맞추는 건 사람 기억력뿐 — 그 실패 영수증이 `0014`~`0018`(정적↔DB 불일치 수습)과 `0035`(프로덕션→파일 **역기입**)다. 삭제 금지의 근거였던 "복구 경로"는 파일이 아니라 `supabase/migrations/`(`0004b`+`0018`+정정분 → `node scripts/apply-migrations.mjs`)에 이미 있었다. `generate_placeholders.mjs`는 실사진 webp 도입 후 죽은 부트스트랩이라 함께 삭제. **이제 products·brands 값 입력구는 `/admin` 하나뿐.** 검증: `tsc --noEmit`·`npm run build` green(두 파일 관련 에러 0건).
 - a11y: 활성 메뉴에 `aria-current="page"`, 무명 버튼(사이드바 접기·햄버거)에 `aria-label`.
 
 ### ⚠️ 시각 회귀 게이트를 신뢰할 수 없다 (이번 세션 최대 발견)
 1. **임계값이 메뉴 유실을 못 잡는다** — 사이드바 17→18인데 `visual` **초록 통과**(`maxDiffPixelRatio: 0.01` 아래, 메뉴 한 줄 ≈ 전체 픽셀의 0.2%). **2026-07-14 메뉴 4종 유실 때 CI가 조용했던 이유가 이것으로 설명된다.**
-2. **베이스라인 재생성이 실화면과 다른 것을 찍는다** — 브랜치 프리뷰 URL을 명시해 재생성해도 `admin-products` 베이스라인에 **옛 17개 사이드바**가 담긴다. 같은 URL을 실구동하면 **18개가 전부 보이고 전부 열린다**(스크린샷으로 확인). **원인 미규명.**
+2. **베이스라인 재생성이 실화면과 다른 것을 찍는다** — 브랜치 프리뷰 URL을 명시해 재생성해도 `admin-products` 베이스라인에 **옛 17개 사이드바**가 담긴다. 같은 URL을 실구동하면 **18개가 전부 보이고 전부 열린다**(스크린샷으로 확인). ~~**원인 미규명.**~~
 3. **그래서 "변경 없음 — 커밋 생략"으로 조용히 넘어간다** → 의도된 표현 변경이 베이스라인에 반영되지 않고, 다음 PR이 낡은 기준으로 비교된다.
+
+#### ✅ 원인 규명 (2026-07-17) — 위 1·2·3은 **원인이 하나**다
+
+**`maxDiffPixelRatio: 0.01`이 판정과 베이스라인 갱신 두 역할을 겸하는 것**이 원인이다. 재생성이 "옛 화면을 찍는" 게 아니라, **아예 안 고쳐 쓴다**(옛 파일이 그대로 남는다).
+
+- `.github/workflows/update-baselines.yml:77`이 `npx playwright test … --update-snapshots`를 **값 없이** 넘긴다.
+- Playwright CLI 실측(v1.61.1): `-u, --update-snapshots [mode] … (choices: "all", "changed", "missing", "none", **preset: "changed"**)` — 값을 안 주면 `changed`다.
+- 공식 문서 `TestConfig.updateSnapshots` 원문:
+  - **`changed`**: *"All tests that are executed will update snapshots **that did not match. Matching snapshots will not be updated.**"*
+  - **`all`**: *"All tests that are executed will update snapshots."* (무조건)
+- **"did not match" 판정을 `maxDiffPixelRatio: 0.01`이 한다.** 사이드바 17→18 = 전체 픽셀의 ≈0.2% → 1% 임계값 아래 → **"매칭됨"으로 분류** → `changed` 모드가 파일을 **안 고쳐 씀** → `git diff --cached --quiet`가 참 → `update-baselines.yml:92` *"베이스라인 변경 없음 — 커밋 생략"*.
+
+즉 **임계값 아래의 변화는 (1) 판정에서도 조용하고 (2) 베이스라인 갱신에서도 조용하다.** 한 노브가 두 일을 하니 증상이 셋으로 갈라져 보였을 뿐이다.
+
+**고칠 때 (지금은 안 함 — 분리 작업을 시작할 때 함께):**
+- `update-baselines.yml:77` → **`--update-snapshots=all`**. 갱신은 판정 임계값을 타면 안 된다(의도된 변경을 무조건 반영하는 게 이 워크플로의 목적).
+- 판정 임계값(`visual.spec.ts:105`·`:130`)은 **별도 결정**. 다만 임계값만 조여도 위 2·3은 안 고쳐진다 — 갱신 모드가 진짜 원인이라 **둘은 따로 고쳐야 한다.**
+- ⚠️ **임계값을 조이기 전에 갱신을 먼저 고칠 것.** 지금 베이스라인 14장 중 일부가 이미 낡았을 수 있는데(위 메커니즘상 조용히 누적됨), 갱신이 고장난 채로 임계값만 조이면 낡은 기준 대비 대량 오탐이 터진다.
+- 미확인 가설(별건): `visual` 잡의 `if:`(`visual.yml:34-37`) 때문에 Preview가 아닌 `deployment_status` 이벤트에서 잡이 **skipped**로 보고되는데, GitHub은 skipped를 required check 충족으로 센다 → Production 배포 이벤트가 뒤에 도착하면 **픽셀 한 장 안 비교하고 게이트가 초록**일 수 있다. 검증 필요.
 - **부분 해소(#51)**: `/shop` 만성 flaky는 고쳤다. staging 재고를 `payments-routes` 잡의 합성 구매가 매 실행 깎고(p15 25→22…), 상품 수가 바뀌면 `fullPage` 높이까지 변해(7203↔7235px 실측) 마스크가 무력화됐다 → `admin-products`가 이미 쓰던 **뷰포트 고정 + 동적 영역 마스크**를 `/shop`에 적용해 데이터 의존을 끊었다.
 
 ### 🔴 사용자 결정 대기

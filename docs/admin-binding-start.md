@@ -47,8 +47,8 @@
 | 관리자 화면 | `/admin/products`, `/admin/products/[id]`, `/admin/products/[id]/editor`, `/admin/products/display` |
 | 공개 화면 | `/shop`, `/shop/[id]`, Home 추천 상품, 진단 결과 추천 |
 | 런타임 source | DB `products` → `src/lib/products/repo.ts` → API/storage/repo |
-| seed 파일 | `src/data/products.ts` = seed-only. 런타임 화면 직접 import 금지. |
-| import guard | `eslint.config.mjs`가 `@/data/products` 직접 import를 차단한다. |
+| seed 파일 | **없음.** `src/data/products.ts`는 2026-07-17 삭제(`be/kill-static-seed-canon`) — DB가 유일한 진실, 값 입력구는 `/admin`뿐. |
+| import guard | `eslint.config.mjs`가 `@/data/products` 직접 import를 차단한다(파일 삭제 후엔 재도입 트립와이어). |
 | 저장 경로 | `src/lib/storage.ts`의 `createProduct/updateProduct/deleteProduct` → `/api/admin/products*` → repo |
 | 공개 readback | `/shop`·PDP 서버 컴포넌트가 repo를 직접 호출한다. |
 | 현재 강점 | 상품 가격/재고/갤러리/옵션/상세 블록 등 주요 필드가 최근 PR들로 상당 부분 열렸다. |
@@ -92,8 +92,8 @@ Home 실제 시나리오:
 | 관리자 화면 | `/admin/brands`, `/admin/brands/[id]` |
 | 공개 화면 | `/brands`, `/brands/[id]`, PDP 하단 브랜드 링크/자료 |
 | 런타임 source | DB `brands` → `src/lib/brands/repo.ts` |
-| seed 파일 | `src/data/brands.ts` = seed-only. 런타임 화면 직접 import 금지. |
-| import guard | `eslint.config.mjs`가 `@/data/brands` 직접 import를 차단한다. |
+| seed 파일 | **없음.** `src/data/brands.ts`는 2026-07-17 삭제(`be/kill-static-seed-canon`) — DB가 유일한 진실, 값 입력구는 `/admin`뿐. |
+| import guard | `eslint.config.mjs`가 `@/data/brands` 직접 import를 차단한다(파일 삭제 후엔 재도입 트립와이어). |
 | 저장 경로 | `/api/admin/brands*` + `updateBrand` + `buildBrandDetailPayload` |
 | 공개 readback | 브랜드 목록/상세 서버 컴포넌트가 repo를 직접 호출한다. |
 | 현재 강점 | 상세 에디터가 노출/신규/순서/감사 리포트/대표상품/연관 고민/출처 URL 등 대형 필드를 연다. |
@@ -167,8 +167,8 @@ Partner 실제 시나리오:
 
 | 파일 | 현재 import 위치 | 분류 | 다음 처리 |
 |---|---|---|---|
-| `src/data/products.ts` | 런타임 직접 import 없음(guard 대상) | seed-only | 유지. 삭제 금지. |
-| `src/data/brands.ts` | 런타임 직접 import 없음(guard 대상) | seed-only | 유지. 삭제 금지. |
+| ~~`src/data/products.ts`~~ | — | ~~seed-only~~ | ✅ **삭제 완료** (2026-07-17, `be/kill-static-seed-canon`). "seed 정본" 지위가 곧 드리프트 원인이었다 — 같은 값이 파일·시드 SQL·라이브 DB 세 곳에 손으로 적혔고 그 수습이 마이그레이션 `0014`~`0018`·`0035`다. 재도입 금지. |
+| ~~`src/data/brands.ts`~~ | — | ~~seed-only~~ | ✅ **삭제 완료** (동일). DB 재구축은 `supabase/migrations/`로 한다. |
 | `src/data/homeContent.ts` | settings provider/API/repo type/default | default-only 후보 | Home PR에서 현재 화면 정본에 맞게 축소/재정렬. |
 | `src/data/shopFilters.ts` | Header, ShopContent, filters | live-editable 후보 또는 default-only | Category PR에서 category settings와 통합. |
 | `src/data/notices.ts` | notices pages, admin notices, Home | live-editable 후보 | Content PR에서 DB 바인딩 또는 read-only 처리. |
