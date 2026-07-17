@@ -86,6 +86,19 @@ export interface Brand {
   isNew?: boolean;
   isVisible?: boolean;
   displayOrder?: number;
+  shipping?: BrandShippingPolicy;
+}
+export interface BrandShippingPolicy {
+  defaultCarrier?: import('@/lib/carriers').CarrierCode;
+  shippingFee?: number;
+  freeShippingThreshold?: number;
+  dispatchEstimate?: string;
+  returnAddress?: string;
+  returnShippingFee?: number;
+  exchangeShippingFee?: number;
+  asNotice?: string;
+  supportContact?: string;
+  supportHours?: string;
 }
 
 export interface BrandAuditReport {

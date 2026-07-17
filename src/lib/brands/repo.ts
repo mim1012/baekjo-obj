@@ -1,7 +1,8 @@
 // brands 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
-import type { Brand, BrandAuditReport } from '@/types';
+import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
+import { isCarrierCode } from '@/lib/carriers';
 
 const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
 
@@ -30,6 +31,41 @@ function detailAuditReport(raw: unknown): BrandAuditReport | undefined {
   if (!AUDIT_REPORT_STR_FIELDS.every((k) => typeof r[k] === 'string')) return undefined;
   if (!Array.isArray(r.process)) return undefined;
   return raw as BrandAuditReport;
+}
+
+const SHIPPING_TEXT_FIELDS = [
+  'dispatchEstimate',
+  'returnAddress',
+  'asNotice',
+  'supportContact',
+  'supportHours',
+] as const;
+
+const SHIPPING_NUMBER_FIELDS = [
+  'shippingFee',
+  'freeShippingThreshold',
+  'returnShippingFee',
+  'exchangeShippingFee',
+] as const;
+
+function detailShipping(raw: unknown): BrandShippingPolicy | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  const shipping: BrandShippingPolicy = {};
+  if (typeof r.defaultCarrier === 'string' && isCarrierCode(r.defaultCarrier)) {
+    shipping.defaultCarrier = r.defaultCarrier;
+  }
+  for (const key of SHIPPING_NUMBER_FIELDS) {
+    if (typeof r[key] === 'number' && Number.isFinite(r[key]) && r[key] >= 0) {
+      shipping[key] = r[key];
+    }
+  }
+  for (const key of SHIPPING_TEXT_FIELDS) {
+    if (typeof r[key] === 'string' && r[key].trim().length > 0) {
+      shipping[key] = r[key];
+    }
+  }
+  return Object.keys(shipping).length > 0 ? shipping : undefined;
 }
 
 interface BrandRow {
@@ -69,6 +105,7 @@ function rowToBrand(row: BrandRow): Brand {
     isNew: typeof d.isNew === 'boolean' ? d.isNew : undefined,
     isVisible: row.is_visible,
     displayOrder: typeof d.displayOrder === 'number' ? d.displayOrder : undefined,
+    shipping: detailShipping(d.shipping),
   };
 }
 
