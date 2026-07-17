@@ -111,6 +111,11 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
 
   const { data, error } = await query
     .order('created_at', { ascending: false })
+    // 시드가 단일 INSERT라 created_at 이 전 상품 동일(now()=트랜잭션 시각) → created_at 만으로는
+    // 전체가 동점이라 순서를 못 정한다. 동점이면 물리적 행 순서가 순서를 정하는데, 재고 차감·
+    // 브랜드 이관 같은 UPDATE 가 그 위치를 바꿔 /shop 목록과 에디터 추천 4개가 조용히 재배치됐다.
+    // id 를 최종 tiebreaker 로 둬 순서를 결정적으로 고정한다.
+    .order('id', { ascending: true })
     .limit(PRODUCTS_LIST_CAP);
   if (error) throw error;
   return (data as ProductRow[]).map(rowToProduct);

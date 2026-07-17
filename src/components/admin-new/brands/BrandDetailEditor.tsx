@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Plus, X } from 'lucide-react';
-import type { Brand } from '@/types';
+import type { Brand, BrandShippingPolicy } from '@/types';
 import { updateBrand, type UpdateBrandInput } from '@/lib/storage';
 import {
   buildBrandDetailPayload,
@@ -15,9 +15,16 @@ import {
   canClearAuditReport,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
+import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
 
 /** sourceUrls 서버 상한(validate.ts MAX_SOURCE_URLS)과 동일. 초과 입력을 클라에서 막는다. */
 const MAX_SOURCE_URLS = 20;
+const SHIPPING_MONEY_FIELDS = [
+  'shippingFee',
+  'freeShippingThreshold',
+  'returnShippingFee',
+  'exchangeShippingFee',
+] as const;
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -56,6 +63,17 @@ function toAuditReportForm(report: Brand['auditReport']): AuditReportFormState {
   };
 }
 
+function optionalNumberInput(value: string): number | undefined {
+  return value === '' ? undefined : Number(value);
+}
+
+function hasInvalidShippingMoney(shipping: BrandShippingPolicy): boolean {
+  return SHIPPING_MONEY_FIELDS.some((field) => {
+    const value = shipping[field];
+    return value !== undefined && (!Number.isFinite(value) || value < 0);
+  });
+}
+
 export default function BrandDetailEditor({
   initialBrand,
   brandProducts,
@@ -79,6 +97,7 @@ export default function BrandDetailEditor({
   const [auditReport, setAuditReport] = useState<AuditReportFormState>(() =>
     toAuditReportForm(initialBrand.auditReport),
   );
+  const [shipping, setShipping] = useState<BrandShippingPolicy>(() => ({ ...initialBrand.shipping }));
   const [representativeProductIds, setRepresentativeProductIds] = useState<string[]>(
     initialBrand.representativeProductIds ?? [],
   );
@@ -114,6 +133,13 @@ export default function BrandDetailEditor({
     setAuditReport((prev) => ({ ...prev, [field]: value }));
   };
 
+  const setShippingField = <K extends keyof BrandShippingPolicy>(
+    field: K,
+    value: BrandShippingPolicy[K],
+  ) => {
+    setShipping((prev) => ({ ...prev, [field]: value }));
+  };
+
   const toggleId = (list: string[], id: string): string[] =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
 
@@ -125,6 +151,10 @@ export default function BrandDetailEditor({
 
     const orderError = validateDisplayOrder(displayOrder);
     if (orderError) return setError(orderError);
+
+    if (hasInvalidShippingMoney(shipping)) {
+      return setError('배송비·교환/반품비·무료배송 기준은 0원 이상의 숫자로 입력해주세요.');
+    }
 
     // auditReport 는 "전부 채우거나 전부 비우거나"만 유효(서버 validate 가 8필드 전부 요구).
     // 부분 입력이면 여기서 사람 말로 막아 서버 400 을 예방한다.
@@ -162,6 +192,7 @@ export default function BrandDetailEditor({
         relatedConcernSlugs,
         auditPoints,
         sourceUrls,
+        shipping,
       });
 
       const { error: updateError } = await updateBrand(
@@ -326,6 +357,151 @@ export default function BrandDetailEditor({
           </div>
         </section>
 
+        {/* ── 배송/출고/교환 정책 ── */}
+        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6">
+          <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">배송/출고/교환 정책</h2>
+          <p className="text-[13px] text-gray-500 mb-4">
+            브랜드 기본 배송 정책입니다. 빈 텍스트 항목은 저장 시 자동 제거됩니다.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormField label="기본 택배사" htmlFor="ship-carrier">
+              <select
+                id="ship-carrier"
+                value={shipping.defaultCarrier ?? ''}
+                onChange={(e) =>
+                  setShippingField(
+                    'defaultCarrier',
+                    e.target.value === '' ? undefined : (e.target.value as CarrierCode),
+                  )
+                }
+                className={INPUT_CLASS}
+              >
+                <option value="">선택 안 함</option>
+                {CARRIER_CODES.map((carrier) => (
+                  <option key={carrier} value={carrier}>
+                    {CARRIER_LABELS[carrier]}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <FormField label="출고 예정" htmlFor="ship-dispatch">
+              <input
+                id="ship-dispatch"
+                type="text"
+                value={shipping.dispatchEstimate ?? ''}
+                onChange={(e) => setShippingField('dispatchEstimate', e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 결제 후 1~2영업일"
+              />
+            </FormField>
+
+            <FormField label="배송비" htmlFor="ship-fee">
+              <input
+                id="ship-fee"
+                type="number"
+                min={0}
+                step={1}
+                value={shipping.shippingFee ?? ''}
+                onChange={(e) => setShippingField('shippingFee', optionalNumberInput(e.target.value))}
+                className={INPUT_CLASS}
+                placeholder="예: 3000"
+              />
+            </FormField>
+
+            <FormField label="무료배송 기준" htmlFor="ship-free-threshold">
+              <input
+                id="ship-free-threshold"
+                type="number"
+                min={0}
+                step={1}
+                value={shipping.freeShippingThreshold ?? ''}
+                onChange={(e) =>
+                  setShippingField('freeShippingThreshold', optionalNumberInput(e.target.value))
+                }
+                className={INPUT_CLASS}
+                placeholder="예: 50000"
+              />
+            </FormField>
+
+            <FormField label="반품 배송비" htmlFor="ship-return-fee">
+              <input
+                id="ship-return-fee"
+                type="number"
+                min={0}
+                step={1}
+                value={shipping.returnShippingFee ?? ''}
+                onChange={(e) =>
+                  setShippingField('returnShippingFee', optionalNumberInput(e.target.value))
+                }
+                className={INPUT_CLASS}
+                placeholder="예: 3000"
+              />
+            </FormField>
+
+            <FormField label="교환 배송비" htmlFor="ship-exchange-fee">
+              <input
+                id="ship-exchange-fee"
+                type="number"
+                min={0}
+                step={1}
+                value={shipping.exchangeShippingFee ?? ''}
+                onChange={(e) =>
+                  setShippingField('exchangeShippingFee', optionalNumberInput(e.target.value))
+                }
+                className={INPUT_CLASS}
+                placeholder="예: 6000"
+              />
+            </FormField>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <FormField label="반품/교환 주소" htmlFor="ship-return-address">
+              <textarea
+                id="ship-return-address"
+                value={shipping.returnAddress ?? ''}
+                onChange={(e) => setShippingField('returnAddress', e.target.value)}
+                className={`${INPUT_CLASS} h-20 resize-none`}
+                placeholder="반품·교환 수령 주소"
+              />
+            </FormField>
+
+            <FormField label="A/S 안내" htmlFor="ship-as-notice">
+              <textarea
+                id="ship-as-notice"
+                value={shipping.asNotice ?? ''}
+                onChange={(e) => setShippingField('asNotice', e.target.value)}
+                className={`${INPUT_CLASS} h-24 resize-none`}
+                placeholder="제품 하자·A/S 접수 기준과 안내 문구"
+              />
+            </FormField>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField label="고객지원 연락처" htmlFor="ship-support-contact">
+                <input
+                  id="ship-support-contact"
+                  type="text"
+                  value={shipping.supportContact ?? ''}
+                  onChange={(e) => setShippingField('supportContact', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 010-0000-0000 / help@example.com"
+                />
+              </FormField>
+
+              <FormField label="고객지원 시간" htmlFor="ship-support-hours">
+                <input
+                  id="ship-support-hours"
+                  type="text"
+                  value={shipping.supportHours ?? ''}
+                  onChange={(e) => setShippingField('supportHours', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 평일 10:00~17:00"
+                />
+              </FormField>
+            </div>
+          </div>
+        </section>
         {/* ── 감사 보고서 ── */}
         <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6">
           <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">감사 보고서</h2>
