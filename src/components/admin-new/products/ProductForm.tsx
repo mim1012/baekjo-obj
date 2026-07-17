@@ -118,6 +118,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     isBest: false,
     isRecommended: false,
     isMembersOnlyPrice: false,
+    pointsEnabled: false,
     summary: '',
     description: '',
     ingredients: '',
@@ -193,6 +194,8 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     isVisible: formData.isVisible,
     isBest: formData.isBest,
     isRecommended: formData.isRecommended,
+    pointsEnabled: formData.pointsEnabled,
+    pointsRate: formData.pointsRate,
   });
 
   const handleSave = async () => {
@@ -457,6 +460,39 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
               />
             </label>
+            <label className="mt-2 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+              <span className="text-[14px] font-medium text-[#17201B]">적립금 지급</span>
+              <input
+                type="checkbox"
+                checked={formData.pointsEnabled || false}
+                // 해제해도 pointsRate 를 지우지 않는다 — buildEditableFields 는 값이 undefined 면
+                // 키를 생략해 서버가 기존값을 보존하므로, UI 만 비우면 "화면은 빈칸인데 DB 엔 5%"
+                // 라는 불일치가 생기고 다시 켜는 순간 서버가 옛 값을 되살린다(codex 리뷰 지적).
+                // pointsEnabled=false 면 적립 자체를 안 하므로 값 보존은 무해하고, UI 가 서버의
+                // 보존 정책을 그대로 반영하는 편이 정직하다.
+                onChange={(e) => handleChange('pointsEnabled', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+            </label>
+            {formData.pointsEnabled && (
+              <FormField label="적립률 (%)">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.1}
+                  value={formData.pointsRate ?? ''}
+                  onChange={(e) =>
+                    handleChange('pointsRate', e.target.value === '' ? undefined : Number(e.target.value))
+                  }
+                  className={INPUT_CLASS}
+                  placeholder="상품금액 기준. 배송비 제외"
+                />
+                <p className="mt-1 text-[12px] text-[#9AA39B]">
+                  적립 지급은 구매확정 기능 구현 후 동작합니다(현재는 설정만 저장).
+                </p>
+              </FormField>
+            )}
           </SectionCard>
 
           {/* 상품 옵션 */}

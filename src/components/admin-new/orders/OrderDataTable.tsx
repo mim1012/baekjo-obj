@@ -6,6 +6,7 @@ import DataTable, { Column } from '@/components/admin-new/common/DataTable';
 import { formatDate, formatPrice } from '@/lib/format';
 import type { Order } from '@/types';
 import OrderInlineStatusControls, { type OrderInlineStatusUpdate } from './OrderInlineStatusControls';
+import DepositConfirmButton from './DepositConfirmButton';
 
 interface OrderDataTableProps {
   orders: Order[];
@@ -81,12 +82,19 @@ export default function OrderDataTable({ orders, isLoading, savingOrderIds = new
       header: '관리',
       align: 'right',
       render: (row) => (
-        <Link 
-          href={`/admin/orders/${row.id}`}
-          className="text-[#2F3B34] hover:underline font-medium text-xs border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block"
-        >
-          상세보기
-        </Link>
+        <div className="flex flex-col items-end gap-2">
+          <DepositConfirmButton
+            order={row}
+            disabled={savingOrderIds.has(row.id)}
+            onStatusChange={onStatusChange}
+          />
+          <Link
+            href={`/admin/orders/${row.id}`}
+            className="text-[#2F3B34] hover:underline font-medium text-xs border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block"
+          >
+            상세보기
+          </Link>
+        </div>
       )
     }
   ];

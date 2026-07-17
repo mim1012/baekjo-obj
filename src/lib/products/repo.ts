@@ -83,6 +83,8 @@ function rowToProduct(row: ProductRow): Product {
     ingredients: typeof d.ingredients === 'string' ? d.ingredients : undefined,
     howToUse: typeof d.howToUse === 'string' ? d.howToUse : undefined,
     shippingFee: typeof d.shippingFee === 'number' ? d.shippingFee : undefined,
+    pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined,
+    pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined,
     isVisible: row.is_visible,
     isBest: row.is_best,
     isRecommended: row.is_recommended,

@@ -120,25 +120,10 @@ export const brands: Brand[] = [
     relatedConcernSlugs: ['oral'],
     isRecommended: true,
   },
-  {
-    id: 'b4',
-    name: '캣코드 (Catcode)',
-    isVisible: false,
-    logo: '/brands/catcode.svg',
-    description: '고양이와 보호자의 교감을 위한 브러싱 케어 브랜드',
-    philosophy: '캣코드는 고양이의 편안함과 보호자의 다정한 손길을 함께 고려한 케어 브랜드입니다.\n\n당신이 받은 고결한 사랑에 답하는 가장 다정한 언어.\n캣코드는 관리가 아닌 교감의 시간을 제안합니다.',
-    auditPoints: [
-      '고양이가 거부감 없이 받아들이기 쉬운 케어 방향',
-      '보호자와 고양이의 관계성을 고려한 제품 구조',
-      '손가락 사이에 자연스럽게 안정되는 손잡이 설계',
-      '브러싱과 마사지가 함께 가능한 사용 경험',
-      '공간과 감성을 해치지 않는 오브제형 디자인'
-    ],
-    representativeProductIds: ['p9', 'p10', 'p11'],
-    relatedConcernSlugs: ['grooming', 'stress'],
-    isRecommended: false,
-    isNew: true,
-  },
+  // b4 '캣코드 (Catcode)' 제거(2026-07-16): 실재하지 않는 브랜드다(사용자 확정 — 브랜드는
+  // 페네핏·오미프로·노블독·알로밍·re펫·메종슈슈·챠콜스토리·써니사이드업 8종이 전부).
+  // prod/staging DB 에서는 이미 삭제돼 있었는데 정본에만 남아, 재시드하면 부활하는 상태였다.
+  // 소속 상품 p9·p10·p11 은 알로밍(b5)으로 이관했다(마이그레이션 0034).
   {
     id: 'b5',
     name: '알로밍 (ALLOMING)',

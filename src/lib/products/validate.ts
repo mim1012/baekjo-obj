@@ -386,6 +386,16 @@ export function validateProductFields(
     out.isRecommended = false;
   }
 
+  if (b.pointsEnabled !== undefined) {
+    if (!isBool(b.pointsEnabled)) return null;
+    out.pointsEnabled = b.pointsEnabled;
+  }
+
+  if (b.pointsRate !== undefined) {
+    if (!isNum(b.pointsRate, 0, 100)) return null;
+    out.pointsRate = b.pointsRate;
+  }
+
   // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는
   // body에 함께 넘어온 값만 교차검증한다(한쪽만 온 경우는 DB의 기존 값과 합쳐야 하므로
   // repo의 assertPriceInvariant(merged)가 최종 방어선이다).
