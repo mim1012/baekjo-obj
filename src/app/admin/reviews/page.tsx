@@ -1,14 +1,10 @@
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { reviews } from '@/data/reviews';
-import { listProducts } from '@/lib/products/repo';
 import { formatDate } from '@/lib/format';
 
-// 'use client' 가 없는 서버 컴포넌트라 repo 를 직접 부른다(콘센트 예외 — §서버 컴포넌트는 repo 직접).
-// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
-export const dynamic = 'force-dynamic';
-
-export default async function AdminReviewsPage() {
-  const products = await listProducts();
+// 쓰기 API가 없는 정적 후기 콘텐츠 관리자 화면이다. productId 그대로 표시해
+// DB 상품 readback 과 섞지 않고 readOnly 표를 렌더한다.
+export default function AdminReviewsPage() {
   return (
     <AdminResourcePage
       title="후기 관리"
@@ -27,7 +23,7 @@ export default async function AdminReviewsPage() {
       ]}
       rows={reviews.map((review) => ({
         id: review.id,
-        product: products.find((product) => product.id === review.productId)?.name ?? review.productId,
+        product: review.productId,
         pet: `${review.breed} / ${review.age}`,
         rating: review.rating,
         photo: review.isPhotoReview ? '있음' : '없음',
@@ -35,6 +31,7 @@ export default async function AdminReviewsPage() {
         status: review.isVisible === false ? '숨김' : review.isBest ? '노출중 · BEST' : '노출중',
         date: formatDate(review.createdAt),
       }))}
+      readOnly
       createFields={['상품', '반려동물 종류', '견종/묘종', '나이', '사용기간', '별점', '후기 내용', '사진', '노출 상태', '베스트 설정']}
     />
   );

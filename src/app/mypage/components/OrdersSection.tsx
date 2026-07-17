@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Order, ProductReview, Product } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
+import { buildTrackingUrl, CARRIER_LABELS, isCarrierCode } from '@/lib/carriers';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { PackageSearch } from 'lucide-react';
@@ -70,14 +71,37 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
       </div>
 
       <div className="flex flex-col gap-6">
-        {paginatedOrders.map((order) => (
+        {paginatedOrders.map((order) => {
+          const trackingUrl = buildTrackingUrl(order.carrier, order.trackingNumber);
+          const carrierLabel = order.carrier && isCarrierCode(order.carrier) ? CARRIER_LABELS[order.carrier] : null;
+
+          return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#EBE6DC] bg-[#F8F6F0] px-6 py-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <span className="font-editorial text-sm font-semibold text-[#18231F]">
                   {formatDate(order.createdAt)}
                 </span>
                 <span className="text-sm text-[#68716C]">주문번호 {order.id}</span>
+                {order.trackingNumber && (
+                  trackingUrl ? (
+                    <a
+                      href={trackingUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold text-[#18231F] hover:underline"
+                    >
+                      배송조회
+                      <span className="ml-1 text-xs font-normal text-[#68716C]">
+                        {carrierLabel} {order.trackingNumber}
+                      </span>
+                    </a>
+                  ) : (
+                    <span className="text-xs text-[#68716C]">
+                      {carrierLabel ? `${carrierLabel} ` : ''}{order.trackingNumber}
+                    </span>
+                  )
+                )}
               </div>
               <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
                 상세보기
@@ -87,29 +111,44 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
             <div className="flex flex-col divide-y divide-[#EBE6DC]">
               {order.items.map((item, idx) => {
                 const product = products.find((p) => p.id === item.productId);
+                const canOpenProduct = Boolean(product && product.isVisible !== false);
                 const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
                 const hasReview = reviews.some((r) => r.reviewTargetKey === reviewTargetKey);
-                const canWriteReview = order.orderStatus === '배송완료' && !hasReview;
+                const canWriteReview = Boolean(product) && order.orderStatus === '배송완료' && !hasReview;
 
                 return (
                   <div key={`${order.id}-${idx}`} className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex gap-4">
-                      <Link href={`/shop/${item.productId}`} className="shrink-0">
-                        <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                      {canOpenProduct ? (
+                        <Link href={`/shop/${item.productId}`} className="shrink-0">
+                          <div className="relative h-20 w-20 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                            {product?.image ? (
+                              <Image src={product.image} alt={item.productName} fill className="object-cover" />
+                            ) : (
+                              <div className="h-full w-full bg-gray-100" />
+                            )}
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
                           {product?.image ? (
                             <Image src={product.image} alt={item.productName} fill className="object-cover" />
                           ) : (
                             <div className="h-full w-full bg-gray-100" />
                           )}
                         </div>
-                      </Link>
+                      )}
                       <div className="flex flex-col justify-center">
                         {product?.brandName && (
                           <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
                         )}
-                        <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
-                          {item.productName}
-                        </Link>
+                        {canOpenProduct ? (
+                          <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
+                            {item.productName}
+                          </Link>
+                        ) : (
+                          <span className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1">{item.productName}</span>
+                        )}
                         {item.optionName && (
                           <span className="mt-1 text-xs text-[#68716C] line-clamp-1">{item.optionName}</span>
                         )}
@@ -138,7 +177,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
               })}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       <Pagination

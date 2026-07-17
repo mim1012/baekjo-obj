@@ -111,19 +111,28 @@ export default function InquiriesSection({
         <div className="flex flex-col gap-4">
           {paginatedItems.map((inquiry) => {
             const product = products.find((p) => p.id === inquiry.productId);
+            const canOpenProduct = Boolean(product && product.isVisible !== false);
             const isExpanded = expandedId === inquiry.id;
 
             return (
               <div key={inquiry.id} className="mypage-card flex flex-col p-0 overflow-hidden">
                 <div className="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex gap-4">
-                    <Link href={`/shop/${inquiry.productId}`} className="shrink-0">
-                      <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                    {canOpenProduct ? (
+                      <Link href={`/shop/${inquiry.productId}`} className="shrink-0">
+                        <div className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
+                          {product?.image && (
+                            <Image src={product.image} alt={product.name} fill className="object-cover" />
+                          )}
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-[#EBE6DC] bg-white">
                         {product?.image && (
                           <Image src={product.image} alt={product.name} fill className="object-cover" />
                         )}
                       </div>
-                    </Link>
+                    )}
                     <div className="flex flex-col justify-center">
                       <div className="mb-1 flex items-center gap-2">
                         <span
@@ -137,15 +146,19 @@ export default function InquiriesSection({
                         </span>
                         <span className="font-editorial text-xs text-[#68716C]">{formatDate(inquiry.createdAt)}</span>
                       </div>
-                      <Link href={`/shop/${inquiry.productId}`} className="text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
-                        {product?.name || '알 수 없는 상품'}
-                      </Link>
+                      {canOpenProduct ? (
+                        <Link href={`/shop/${inquiry.productId}`} className="text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
+                          {product?.name || '알 수 없는 상품'}
+                        </Link>
+                      ) : (
+                        <span className="text-sm font-semibold text-[#18231F] line-clamp-1">{product?.name || '알 수 없는 상품'}</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 self-end sm:self-start">
-                    {inquiry.status === 'waiting' && (
+                    {inquiry.status === 'waiting' && product && (
                       <button
-                        onClick={() => product && onEditInquiry(inquiry, product)}
+                        onClick={() => onEditInquiry(inquiry, product)}
                         className="flex items-center gap-1 rounded px-2 py-1 text-xs text-[#68716C] transition-colors hover:bg-gray-100"
                       >
                         <Edit2 className="h-3 w-3" />

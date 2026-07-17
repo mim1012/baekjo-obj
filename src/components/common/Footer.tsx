@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import BrandMark from './BrandMark';
+import { COMPANY } from '@/data/company';
 
 const exploreLinks = [
   { label: '고민별 케어', href: '/concerns' },
@@ -38,7 +39,7 @@ export default function Footer() {
 
           <div>
             <h2 className="text-sm font-semibold text-[#FBFAF7]">도움이 필요하신가요?</h2>
-            <p className="mt-5 text-xl font-semibold tabular-nums text-[#FBFAF7]">1644-0000</p>
+            <p className="mt-5 text-xl font-semibold tabular-nums text-[#FBFAF7]">{COMPANY.tel}</p>
             <ul className="mt-3 space-y-1 text-xs leading-6">
               <li>평일 오전 10시 — 오후 5시</li>
               <li>점심 오후 12시 — 1시</li>
@@ -50,11 +51,22 @@ export default function Footer() {
         <div className="mt-14 flex flex-col gap-6 border-t border-[#FBFAF7]/10 pt-8 text-xs md:flex-row md:items-end md:justify-between">
           <div>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
-              <Link href="#" className="transition-colors duration-500 hover:text-[#FBFAF7]">이용약관</Link>
-              <Link href="#" className="font-semibold text-[#FBFAF7]/85 transition-colors duration-500 hover:text-[#FBFAF7]">개인정보처리방침</Link>
+              <Link href="/terms" className="transition-colors duration-500 hover:text-[#FBFAF7]">이용약관</Link>
+              <Link href="/privacy" className="font-semibold text-[#FBFAF7]/85 transition-colors duration-500 hover:text-[#FBFAF7]">개인정보처리방침</Link>
+              <Link href="/refund-policy" className="transition-colors duration-500 hover:text-[#FBFAF7]">배송·교환·환불 안내</Link>
+              <a
+                href={COMPANY.businessLookupUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors duration-500 hover:text-[#FBFAF7]"
+              >
+                사업자정보확인
+              </a>
             </div>
             <p className="mt-4 max-w-2xl leading-6 text-[#FBFAF7]/45">
-              백조컴퍼니 · 대표 김백조 · 사업자등록번호 123-45-67890 · 통신판매업신고 2023-서울강남-1234
+              {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
+              <br />
+              {COMPANY.address} · 고객센터 {COMPANY.tel}
             </p>
           </div>
           <p className="shrink-0 text-[#FBFAF7]/45">© 2026 Baekjo Company.</p>

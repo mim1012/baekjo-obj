@@ -35,6 +35,16 @@ export type CancelPendingOutcome =
 
 async function cancelViaRpc(orderId: string): Promise<CancelPendingOutcome> {
   const didCancel = await cancelReservationAndRestore(orderId);
+  if (!didCancel) {
+    // 취소 RPC가 0행 매치(no-op)했다는 뜻 — 이 무음 no-op이 "취소 안 됐는데 200 응답"을 만든
+    // 원인이었다(무통장입금 주문이 '입금대기'로 생성되는데 0024 RPC는 '결제대기'만 봐서 항상
+    // 여기로 빠졌던 실제 프로덕션 결함). 라우트의 200 응답 계약(멱등)은 그대로 두되, 최소한
+    // 서버 로그에는 남긴다.
+    logServerError(
+      `[cancelPendingOrderIfUnpaid] 취소 RPC 미매치(already-settled) orderId=${orderId}`,
+      {},
+    );
+  }
   return didCancel ? { kind: 'canceled' } : { kind: 'already-settled' };
 }
 

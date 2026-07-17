@@ -1,20 +1,30 @@
 import { RotateCcw, Store, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import type { Product } from '@/types';
+import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
 interface ProductPurchaseInfoProps {
   product: Product;
 }
 
+const nonBlank = (value: string | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+};
+
 export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProps) {
-  const deliveryLabel = product.deliveryEstimate ?? product.shippingNotice ?? '판매 일정과 함께 안내할게요.';
-  const returnLabel = product.returnNotice ?? '판매가 시작되면 교환과 반품 기준도 함께 안내할게요.';
+  const deliveryLabel =
+    nonBlank(product.deliveryEstimate) ??
+    nonBlank(product.shippingNotice) ??
+    DEFAULT_COMMERCE_POLICY.deliveryEstimate;
+  const returnLabel = nonBlank(product.returnNotice) ?? DEFAULT_COMMERCE_POLICY.returnNotice;
+  const sellerName = nonBlank(product.sellerName) ?? '백조오브제 셀렉션';
   const shippingLabel =
     product.shippingFee === 0
       ? '무료 배송'
       : product.shippingFee !== undefined
         ? formatPrice(product.shippingFee)
-        : '판매 일정과 함께 안내할게요.';
+        : DEFAULT_COMMERCE_POLICY.shippingLabel;
 
   return (
     <section aria-labelledby="purchase-information-title" className="mt-8 rounded-3xl border border-[#E7E0D5] bg-[#FAF8F3] p-6">
@@ -28,7 +38,7 @@ export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProp
         <InfoRow icon={Truck} title="배송비" description={shippingLabel} />
         <InfoRow icon={Truck} title="출고 일정" description={deliveryLabel} />
         <InfoRow icon={RotateCcw} title="교환·반품" description={returnLabel} />
-        <InfoRow icon={Store} title="판매 주체" description={product.sellerName ?? '백조오브제 셀렉션'} />
+        <InfoRow icon={Store} title="판매 주체" description={sellerName} />
       </dl>
     </section>
   );

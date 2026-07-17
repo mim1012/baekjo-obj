@@ -37,6 +37,24 @@ export default defineConfig({
       testDir: './tests/payments',
       use: {},
     },
+    {
+      // 상품 입력 검증 단위 스펙 — 순수 함수, 브라우저·DB·네트워크 불필요.
+      name: 'products',
+      testDir: './tests/products',
+      use: {},
+    },
+    {
+      // 어드민 내비 SSOT 회귀 스펙 — 순수 데이터/함수, 브라우저·DB 불필요.
+      name: 'admin',
+      testDir: './tests/admin',
+      use: {},
+    },
+    {
+      // 스마트택배 조회 클라이언트 스펙 — 순수 함수 + fetch stub, 브라우저·DB·실 네트워크 불필요.
+      name: 'tracking',
+      testDir: './tests/tracking',
+      use: {},
+    },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
   ...(isLocal

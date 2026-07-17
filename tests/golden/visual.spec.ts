@@ -41,14 +41,45 @@ async function settlePage(page: Page) {
   await page.waitForTimeout(800);
 }
 
-const PUBLIC_PAGES = [
+const PUBLIC_PAGES: Array<{
+  flow: string;
+  path: string;
+  slug: string;
+  // 페이지별 옵션(기본은 fullPage:true, mask 없음). /shop만 아래에서 오버라이드한다.
+  fullPage?: boolean;
+  mask?: (page: Page) => import('@playwright/test').Locator[];
+}> = [
   { flow: '#1 진단', path: '/diagnosis', slug: 'diagnosis' },
-  { flow: '#2 구매', path: '/shop', slug: 'shop' },
+  {
+    flow: '#2 구매',
+    path: '/shop',
+    slug: 'shop',
+    // ⚠️ /shop 전용 안정화 (2026-07-15, PR #51 — visual flaky 근본 원인 수정):
+    // staging DB 재고는 payments-routes CI 잡의 합성 구매가 매 실행 깎는다(p15 stock 25→22…).
+    // ProductCard(가격·재고뱃지)와 ShopContent(전체 상품 N개 카운트)가 이 값을 그대로 렌더하므로
+    // fullPage 스냅샷이 매번 달라진다. 게다가 상품 수 자체가 바뀌면(재입고/품절 전환) 그리드
+    // 행 수가 변해 fullPage 높이 자체가 달라진다(admin-products와 동일한 함정, 주석 참고) —
+    // 높이가 상수가 아니면 마스크를 씌워도 그 아래 레이아웃이 전부 밀려 무력화된다.
+    // 그래서 admin-products 선례와 동일하게 (1) fullPage:false로 뷰포트만 고정 촬영해 높이를
+    // 상수로 만들고, (2) 카드의 가격 영역·품절/재고 배지·상단 "전체 상품 N개" 카운트를 마스크한다.
+    fullPage: false,
+    mask: (page) => [
+      // 가격 영역: ProductCard.tsx의 가격 <p>는 formatPrice()가 '원'을 붙여 렌더한다(src/lib/format.ts).
+      // 추천 상품 섹션(page 1 상단, "에디터 추천 상품")과 메인 그리드(.shop-product-grid) 양쪽 모두 렌더.
+      page.locator('.shop-product-grid p', { hasText: '원' }),
+      page.locator('section', { hasText: '에디터 추천 상품' }).locator('p', { hasText: '원' }),
+      // 품절/재고 배지: ProductCard.tsx availabilityLabel = '판매 준비 중' | '잠시 품절'.
+      page.locator('.shop-product-grid').getByText(/판매 준비 중|잠시 품절/),
+      page.locator('section', { hasText: '에디터 추천 상품' }).getByText(/판매 준비 중|잠시 품절/),
+      // 상단 "전체 상품 N개" 카운트: ShopContent.tsx #shop-toolbar 안의 {totalItems} 숫자 span.
+      page.locator('#shop-toolbar').locator('span').filter({ hasText: /^\d+$/ }),
+    ],
+  },
   { flow: '#3 보험', path: '/insurance', slug: 'insurance' },
   { flow: '#4 브랜드', path: '/brands/b1', slug: 'brand-detail' },
   { flow: '#5 B2B', path: '/landing/care-kit', slug: 'care-kit' },
   { flow: '#6 회원', path: '/login', slug: 'login' },
-] as const;
+];
 
 test.describe('시각 회귀 — 골든플로우', () => {
   test.use({
@@ -70,9 +101,10 @@ test.describe('시각 회귀 — 골든플로우', () => {
           await page.goto(p.path);
           await settlePage(page);
           await expect(page).toHaveScreenshot(`${p.slug}-${vp.name}.png`, {
-            fullPage: true,
+            fullPage: p.fullPage ?? true,
             maxDiffPixelRatio: 0.01,
             animations: 'disabled',
+            mask: p.mask?.(page),
           });
         });
       }

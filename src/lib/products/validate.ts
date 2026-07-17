@@ -1,6 +1,6 @@
 // 관리자 상품 생성/수정 입력 검증. POST/PATCH 라우트가 공유한다.
 // id/createdAt은 여기서 받지 않는다(서버 결정, mass-assignment 차단).
-import type { Product, ProductOption } from '@/types';
+import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
 
 const MAX_NAME = 200;
@@ -10,6 +10,15 @@ const MAX_LONG_TEXT = 3000;
 const MAX_URL = 500;
 const MAX_ARRAY_ITEMS = 50;
 const MAX_OPTIONS = 50;
+const MAX_DETAIL_BLOCKS = 60;
+const MAX_BLOCK_TEXT = 2000;
+/**
+ * detailBlocks 전체 직렬화 상한(바이트). detail jsonb는 listProducts가 최대 1000행까지
+ * 통째로 읽어 공개 /api/products가 그대로 직렬화하므로, 상품 1건의 상세가 응답 크기를
+ * 좌우한다. 60블록 × 2000자(ASCII 기준 ≈120KB)는 이 상한 아래지만, 한글은 UTF-8에서
+ * 글자당 3바이트라 같은 블록 수로도 ~360KB까지 부풀 수 있다 → 실제 바이트로 재서 막는다.
+ */
+const MAX_DETAIL_BYTES = 256 * 1024;
 const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
@@ -68,6 +77,96 @@ function validateOptions(raw: unknown): ProductOption[] | null | undefined {
     options.push(option);
   }
   return options;
+}
+
+/** 오리진 비교용 더미 base. 상대경로가 실제로 자사 오리진에 머무는지 파서로 확인한다. */
+const SITE_ORIGIN_PROBE = 'https://baekjo.invalid';
+
+/**
+ * 자사 상대경로인지 판정한다. 접두사 검사만으로는 부족하다 — 브라우저 URL 파서는 special
+ * scheme에서 백슬래시를 '/'로 정규화하고 탭·개행(\t\n\r)을 제거하므로 `/\evil.com/x.png`나
+ * `/<TAB>/evil.com/x.png`가 `//evil.com/x.png`(프로토콜 상대 URL)과 동치가 되어 외부 오리진을
+ * 로드한다. 그래서 위험 문자를 먼저 거부하고, URL 파서로 실제 오리진을 확인한다.
+ */
+function isSitePath(src: string): boolean {
+  if (/[\\\t\n\r]/.test(src)) return false;
+  if (!src.startsWith('/') || src.startsWith('//')) return false;
+  try {
+    return new URL(src, SITE_ORIGIN_PROBE).origin === SITE_ORIGIN_PROBE;
+  } catch {
+    return false;
+  }
+}
+
+/** 업로드 대상인 Supabase storage 오리진. 미설정이면 null → 상대경로만 허용(fail-closed). */
+function supabaseOrigin(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 상세 이미지 src 화이트리스트. 공개 상세가 이 값을 raw <img src>로 렌더하므로 임의 오리진을
+ * 허용하면 구매자 IP/UA가 제3자 서버로 새고, 콘텐츠도 원격에서 교체될 수 있다. 자사 경로(`/...`)
+ * 또는 Supabase storage 오리진만 통과시키고, 환경변수가 없으면 상대경로만 허용한다.
+ * (순수 함수 — 테스트에서 직접 호출 가능하도록 export)
+ */
+export function isAllowedBlockImageSrc(src: string): boolean {
+  if (isSitePath(src)) return true;
+  const origin = supabaseOrigin();
+  if (!origin) return false;
+  try {
+    const url = new URL(src);
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false;
+    return url.origin === origin;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 상세 본문 블록(네이버식 text|image 순차 렌더). 관리자 상세 에디터(ProductDetailEditor)가
+ * 이 필드만 담아 PATCH를 보내므로, 여기 분기가 없으면 out이 빈 객체가 되어 라우트가
+ * "수정할 필드 없음"으로 400을 반환한다 — 상세 본문이 DB에 영영 저장되지 않는다.
+ *
+ * text content는 sanitize하지 않는다(길이 상한만 검증): content는 공개 상세·에디터 미리보기
+ * 모두에서 React가 이스케이프하는 평문으로 렌더된다(HTML 파싱 경로 없음). 태그 문자열 거부는
+ * 정당한 문구(`<A/S 안내>`, `<NEW>`, `x<y`)를 막으면서 인코딩 우회는 못 막는 새는 방어라
+ * 두지 않는다. 이 전제(=평문 렌더)는 tests/products/no-html-sink.spec.ts가 기계로 강제한다.
+ * image src는 실제 싱크(raw <img src>)가 있으므로 자사/Supabase 오리진만 허용한다.
+ */
+function validateDetailBlock(raw: unknown): ProductDetailBlock | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const b = raw as Record<string, unknown>;
+  if (b.type === 'text') {
+    if (!isStr(b.content, 0, MAX_BLOCK_TEXT)) return null;
+    return { type: 'text', content: b.content };
+  }
+  if (b.type === 'image') {
+    if (!isStr(b.src, 1, MAX_URL)) return null;
+    if (!isAllowedBlockImageSrc(b.src)) return null;
+    if (!isOptStr(b.alt, MAX_TEXT)) return null;
+    return { type: 'image', src: b.src, ...(b.alt !== undefined ? { alt: b.alt } : {}) };
+  }
+  return null;
+}
+
+function validateDetailBlocks(raw: unknown): ProductDetailBlock[] | null | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length > MAX_DETAIL_BLOCKS) return null;
+  const blocks: ProductDetailBlock[] = [];
+  for (const item of raw) {
+    const block = validateDetailBlock(item);
+    if (!block) return null;
+    blocks.push(block);
+  }
+  // 블록 수·개별 길이 상한을 통과해도 합계는 커질 수 있다(특히 한글) — 실제 바이트로 최종 확인.
+  if (new TextEncoder().encode(JSON.stringify(blocks)).length > MAX_DETAIL_BYTES) return null;
+  return blocks;
 }
 
 export type ValidatedProductFields = Partial<Product>;
@@ -170,6 +269,10 @@ export function validateProductFields(
     out.images = b.images;
   }
 
+  const detailBlocks = validateDetailBlocks(b.detailBlocks);
+  if (detailBlocks === null) return null;
+  if (detailBlocks !== undefined) out.detailBlocks = detailBlocks;
+
   const options = validateOptions(b.options);
   if (options === null) return null;
   if (options !== undefined) out.options = options;
@@ -184,14 +287,37 @@ export function validateProductFields(
     out.summary = b.summary;
   }
 
+  // 상세 본문은 detailBlocks(에디터)가 정본이고 description은 "간단 텍스트 상세"(선택)다.
+  // 과거엔 생성 시 필수였는데, 폼이 "에디터를 쓰려면 비워두세요"라고 안내하면서도 비우면
+  // 400을 뱉는 모순이 있었다 — 안내가 맞고 검증이 틀렸으므로 선택 필드로 정정한다.
+  // Product.description은 non-optional(string)이라 미제공 시 ''로 채워 타입 계약을 유지한다.
   if (b.description !== undefined) {
-    if (!isStr(b.description, 1, MAX_LONG_TEXT)) return null;
+    if (!isStr(b.description, 0, MAX_LONG_TEXT)) return null;
     out.description = b.description;
-  } else if (requireAll) return null;
+  } else if (requireAll) {
+    out.description = '';
+  }
 
   if (b.shippingNotice !== undefined) {
     if (!isOptStr(b.shippingNotice, MAX_TEXT)) return null;
     out.shippingNotice = b.shippingNotice;
+  }
+
+  // 구매 정보 3종. 화이트리스트에 없어서 저장 자체가 불가능했고(rowToProduct도 되읽지 않아
+  // 영영 undefined), 상세 페이지는 항상 기본 문구만 렌더했다.
+  if (b.deliveryEstimate !== undefined) {
+    if (!isOptStr(b.deliveryEstimate, MAX_TEXT)) return null;
+    out.deliveryEstimate = b.deliveryEstimate;
+  }
+
+  if (b.returnNotice !== undefined) {
+    if (!isOptStr(b.returnNotice, MAX_TEXT)) return null;
+    out.returnNotice = b.returnNotice;
+  }
+
+  if (b.sellerName !== undefined) {
+    if (!isOptStr(b.sellerName, MAX_NAME)) return null;
+    out.sellerName = b.sellerName;
   }
 
   if (b.tags !== undefined) {
@@ -260,12 +386,24 @@ export function validateProductFields(
     out.isRecommended = false;
   }
 
-  // salePrice는 price보다 클 수 없다. 이 패스는 body에 함께 넘어온 값만 교차검증한다
-  // (patch에서 price를 안 건드리고 salePrice만 보내는 경우는 DB의 기존 price와 비교할 수
-  // 없어 여기서는 건너뛴다 — updateProduct의 read-modify-write에서 최종 값으로 합쳐진다).
+  if (b.pointsEnabled !== undefined) {
+    if (!isBool(b.pointsEnabled)) return null;
+    out.pointsEnabled = b.pointsEnabled;
+  }
+
+  if (b.pointsRate !== undefined) {
+    if (!isNum(b.pointsRate, 0, 100)) return null;
+    out.pointsRate = b.pointsRate;
+  }
+
+  // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는
+  // body에 함께 넘어온 값만 교차검증한다(한쪽만 온 경우는 DB의 기존 값과 합쳐야 하므로
+  // repo의 assertPriceInvariant(merged)가 최종 방어선이다).
+  // price=null + salePrice=null 은 "가격 미정" 상태로 모순이 아니다 — 시드 상품 20건이
+  // price:null 이라, 이걸 거부하면 그 상품들은 폼에서 저장 자체가 불가능해진다.
   if (out.salePrice !== undefined && out.price !== undefined) {
-    if (out.price === null) return null;
-    if (out.salePrice !== null && out.salePrice > out.price) return null;
+    if (out.salePrice !== null && out.price === null) return null;
+    if (out.salePrice !== null && out.price !== null && out.salePrice > out.price) return null;
   }
 
   return out;

@@ -1,619 +1,350 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
-import {
-  getAdminProducts,
-  getAdminBrands,
-  createProduct,
-  updateProduct,
-  deleteProduct,
-} from '@/lib/storage';
+import React, { useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Plus, Edit, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
+
+import { useProductList } from '@/hooks/admin-new/useProductList';
+import PageHeader from '@/components/admin-new/common/PageHeader';
+import DataTable from '@/components/admin-new/common/DataTable';
+import FilterBar from '@/components/admin-new/common/FilterBar';
+import Badge from '@/components/admin-new/common/Badge';
 import { formatPrice } from '@/lib/format';
-import { Plus, Trash2, Edit2, Search, Settings } from 'lucide-react';
-import type { Brand, Product } from '@/types';
+import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import type { Product } from '@/types';
 
-interface ProductFormState {
-  name: string;
-  brandId: string;
-  category: string;
-  lifestyleCategory: string;
-  price: string;
-  stock: string;
-}
+export default function AdminProductsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { categorySettings } = useCategorySettings();
+  
+  const {
+    products,
+    brands,
+    loading,
+    error,
+    filters,
+    setFilters,
+    currentPage,
+    setCurrentPage,
+    totalPages,
+    paginatedProducts,
+    totalFiltered,
+    selectedIds,
+    toggleSelection,
+    toggleSelectAll,
+    clearSelection,
+    refreshData,
+    performBulkDelete,
+    performBulkUpdate,
+  } = useProductList(20);
 
-const emptyForm: ProductFormState = { name: '', brandId: '', category: '', lifestyleCategory: '', price: '', stock: '' };
-
-export default function AdminProductsDashboard() {
-  const { categorySettings, updateCategorySettings } = useCategorySettings();
-  const [activeCategory, setActiveCategory] = useState<string | null>(null); // null means 'All'
-  const [activeGroup, setActiveGroup] = useState<'product' | 'lifestyle' | 'brand'>('product');
-
-  // Local state for categories
-  const [productCats, setProductCats] = useState<string[]>(categorySettings.productCategories);
-  const [lifestyleCats, setLifestyleCats] = useState<string[]>(categorySettings.lifestyleCategories);
-  // 관리자가 카테고리를 편집하기 시작하면(dirty) provider 하이드레이트가 편집 내용을 덮지 않도록 막는다.
-  const [dirty, setDirty] = useState(false);
-
-  // provider 가 GET /api/category-settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) 로컬
-  // 카테고리를 그 값에 맞춘다. 단 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
+  // URL 쿼리 파라미터 초기화 연동
   useEffect(() => {
-    if (dirty) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setProductCats(categorySettings.productCategories);
-    setLifestyleCats(categorySettings.lifestyleCategories);
-  }, [categorySettings, dirty]);
+    const missing = searchParams.get('missing');
+    const isVisible = searchParams.get('isVisible');
+    const isRecommended = searchParams.get('isRecommended');
+    const isBest = searchParams.get('isBest');
 
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [editingIndex, setEditingIndex] = useState<number | null>(null);
-  const [editValue, setEditValue] = useState('');
+    setFilters(prev => ({
+      ...prev,
+      missing: missing || 'all',
+      isVisible: isVisible || 'all',
+      isRecommended: isRecommended || 'all',
+      isBest: isBest || 'all',
+    }));
+  }, [searchParams, setFilters]);
 
-  // 상품·브랜드는 서버(관리자)에서 비동기로 불러온다(§4 콘센트 — 컴포넌트에서 fetch 직접 금지).
-  const [products, setProducts] = useState<Product[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const handleCreate = () => {
+    router.push('/admin/products/new');
+  };
 
-  // Add/Edit product modal state
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [form, setForm] = useState<ProductFormState>(emptyForm);
-  const [saving, setSaving] = useState(false);
+  const handleEdit = (id: string) => {
+    router.push(`/admin/products/${id}`);
+  };
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([getAdminProducts(), getAdminBrands()]).then(([productList, brandList]) => {
-      if (cancelled) return;
-      setProducts(productList);
-      setBrands(brandList);
-      setLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const handleEditDetails = (id: string) => {
+    router.push(`/admin/products/${id}/editor`);
+  };
 
-  const handleSaveCategories = async (newCats: string[], type: 'product' | 'lifestyle') => {
-    setDirty(true);
-    if (type === 'product') {
-      const prev = productCats;
-      setProductCats(newCats);
-      const ok = await updateCategorySettings({ ...categorySettings, productCategories: newCats });
-      if (!ok) {
-        setProductCats(prev);
-        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      } else {
-        setDirty(false);
+  const columns = [
+    {
+      key: 'image',
+      header: '이미지',
+      width: '64px',
+      render: (p: Product) => (
+        <div className="w-10 h-10 bg-gray-100 rounded border border-gray-200 bg-cover bg-center shrink-0 overflow-hidden" 
+             style={{ backgroundImage: p.image ? `url(${p.image})` : 'none' }}>
+          {!p.image && <div className="w-full h-full flex items-center justify-center text-gray-300 text-[10px]">No Img</div>}
+        </div>
+      )
+    },
+    {
+      key: 'name',
+      header: '상품명 / 분류',
+      render: (p: Product) => {
+        const brandName = brands.find(b => b.id === p.brandId)?.name || '브랜드 없음';
+        return (
+          <div>
+            <div className="font-medium text-[#17201B] hover:underline cursor-pointer" onClick={() => handleEdit(p.id)}>
+              {p.name}
+            </div>
+            <div className="text-[12px] text-gray-500 mt-1 flex items-center gap-1">
+              <span>{brandName}</span>
+              <span className="text-gray-300">|</span>
+              <span>{p.categoryName || p.category}</span>
+            </div>
+          </div>
+        );
       }
-    } else {
-      const prev = lifestyleCats;
-      setLifestyleCats(newCats);
-      const ok = await updateCategorySettings({ ...categorySettings, lifestyleCategories: newCats });
-      if (!ok) {
-        setLifestyleCats(prev);
-        alert('카테고리 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      } else {
-        setDirty(false);
+    },
+    {
+      key: 'price',
+      header: '판매가 / 재고',
+      render: (p: Product) => (
+        <div>
+          <div className="font-medium text-[#17201B]">
+            {p.price ? formatPrice(p.price) : <span className="text-[#A65348] text-[12px]">가격 미등록</span>}
+          </div>
+          <div className="text-[12px] mt-1">
+            {p.stock > 0 ? (
+              <span className="text-gray-500">재고: {p.stock}개</span>
+            ) : (
+              <span className="text-[#A65348] font-medium">품절</span>
+            )}
+          </div>
+        </div>
+      )
+    },
+    {
+      key: 'status',
+      header: '상태 / 노출',
+      width: '180px',
+      render: (p: Product) => {
+        const hasDetailBlocks = p.detailBlocks && p.detailBlocks.length > 0;
+        const hasDescription = p.description && p.description.trim() !== '';
+        const missingDetail = !hasDetailBlocks && !hasDescription;
+        
+        return (
+          <div className="flex flex-wrap gap-1">
+            <Badge 
+              label={p.isVisible ? '노출' : '숨김'} 
+              variant={p.isVisible ? 'success' : 'default'} 
+            />
+            {p.isBest && <Badge label="베스트" variant="warning" />}
+            {p.isRecommended && <Badge label="추천" variant="primary" />}
+            {missingDetail && <Badge label="상세 미작성" variant="error" />}
+          </div>
+        );
       }
+    },
+    {
+      key: 'actions',
+      header: '관리',
+      width: '120px',
+      align: 'right' as const,
+      render: (p: Product) => (
+        <div className="flex justify-end gap-2">
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEditDetails(p.id); }}
+            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            title="상세페이지 편집"
+          >
+            <LayoutTemplate size={16} />
+          </button>
+          <button 
+            onClick={(e) => { e.stopPropagation(); handleEdit(p.id); }}
+            className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
+            title="상품 수정"
+          >
+            <Edit size={16} />
+          </button>
+        </div>
+      )
     }
-  };
-
-  const handleAddCategory = (e: React.FormEvent, type: 'product' | 'lifestyle') => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) return;
-    const list = type === 'product' ? productCats : lifestyleCats;
-    const newCats = [...list, newCategoryName.trim()];
-    handleSaveCategories(newCats, type);
-    setNewCategoryName('');
-  };
-
-  const handleDeleteCategory = (idx: number, type: 'product' | 'lifestyle', e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (window.confirm('이 카테고리를 삭제하시겠습니까?')) {
-      const list = type === 'product' ? productCats : lifestyleCats;
-      const newCats = list.filter((_, i) => i !== idx);
-      handleSaveCategories(newCats, type);
-      if (activeCategory === list[idx]) {
-        setActiveCategory(null);
-      }
-    }
-  };
-
-  const startEditCategory = (idx: number, type: 'product' | 'lifestyle', e: React.MouseEvent) => {
-    e.stopPropagation();
-    setActiveGroup(type);
-    setEditingIndex(idx);
-    setEditValue(type === 'product' ? productCats[idx] : lifestyleCats[idx]);
-  };
-
-  const saveEditCategory = (type: 'product' | 'lifestyle') => {
-    if (editingIndex === null) return;
-    const list = type === 'product' ? productCats : lifestyleCats;
-    const newCats = [...list];
-    newCats[editingIndex] = editValue.trim() || newCats[editingIndex];
-    handleSaveCategories(newCats, type);
-    setEditingIndex(null);
-  };
-
-  // Filter products
-  const filteredProducts = products.filter(p => {
-    if (searchQuery && !p.name.includes(searchQuery)) return false;
-    if (activeCategory) {
-      if (activeGroup === 'product' && p.category !== activeCategory) return false;
-      if (activeGroup === 'lifestyle' && p.lifestyleCategory !== activeCategory) return false;
-      // brand 모드: activeCategory 는 브랜드 id 를 담는다(§ 이중 의미 주의).
-      if (activeGroup === 'brand' && p.brandId !== activeCategory) return false;
-    }
-    return true;
-  });
-
-  // 카테고리 관리 패널(선택된 카테고리의 사이드바 내 인덱스 — 이름수정/삭제 버튼에 재사용)
-  // 카테고리 관리 함수는 'product' | 'lifestyle' 만 받는다. brand 모드에서는 카테고리 UI 가
-  // 렌더되지 않지만, 콜백에 넘길 좁혀진 그룹값이 필요하므로 여기서 브랜드를 product 로 접는다.
-  const categoryGroup: 'product' | 'lifestyle' = activeGroup === 'lifestyle' ? 'lifestyle' : 'product';
-  const activeCategoryList = activeGroup === 'product' ? productCats : lifestyleCats;
-  const activeCategoryIndex = activeCategory ? activeCategoryList.indexOf(activeCategory) : -1;
-
-  // brand 모드에서 선택된 업체 이름(라벨/헤더 표기용). activeCategory 는 브랜드 id.
-  const selectedBrandName =
-    activeGroup === 'brand' && activeCategory
-      ? brands.find((b) => b.id === activeCategory)?.name ?? null
-      : null;
-
-  const openAddModal = () => {
-    setForm({
-      name: '',
-      brandId: activeGroup === 'brand' && activeCategory ? activeCategory : (brands[0]?.id ?? ''),
-      category: activeGroup === 'product' && activeCategory ? activeCategory : (productCats[0] ?? ''),
-      lifestyleCategory: activeGroup === 'lifestyle' && activeCategory ? activeCategory : '',
-      price: '',
-      stock: '',
-    });
-    setEditingProduct(null);
-    setIsAddingProduct(true);
-  };
-
-  const openEditModal = (product: Product) => {
-    setForm({
-      name: product.name,
-      brandId: product.brandId,
-      category: product.category,
-      lifestyleCategory: product.lifestyleCategory ?? '',
-      price: product.price !== null && product.price !== undefined ? String(product.price) : '',
-      stock: product.stock !== null && product.stock !== undefined ? String(product.stock) : '',
-    });
-    setEditingProduct(product);
-    setIsAddingProduct(true);
-  };
-
-  const closeModal = () => {
-    setIsAddingProduct(false);
-    setEditingProduct(null);
-  };
-
-  const handleDelete = async (product: Product) => {
-    if (!window.confirm(`'${product.name}' 상품을 삭제하시겠습니까?`)) return;
-    const before = products;
-    setProducts((prev) => prev.filter((p) => p.id !== product.id));
-    const { error } = await deleteProduct(product.id);
-    if (error) {
-      alert(
-        error === 'product-has-history'
-          ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
-          : '상품 삭제에 실패했습니다.',
-      );
-      setProducts(before);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.name.trim() || !form.brandId || !form.category) {
-      alert('상품명, 브랜드, 카테고리는 필수입니다.');
-      return;
-    }
-    setSaving(true);
-    const brandName = brands.find((b) => b.id === form.brandId)?.name;
-    const price = form.price.trim() ? Number(form.price) : null;
-    const parsedStock = Number(form.stock.trim());
-    const stock = Number.isFinite(parsedStock) ? Math.max(0, Math.trunc(parsedStock)) : 0;
-
-    if (editingProduct) {
-      const { product, error } = await updateProduct(editingProduct.id, {
-        name: form.name.trim(),
-        brandId: form.brandId,
-        brandName,
-        category: form.category,
-        lifestyleCategory: form.lifestyleCategory || form.category,
-        price,
-        stock,
-      });
-      setSaving(false);
-      if (error || !product) {
-        alert('상품 수정에 실패했습니다.');
-        return;
-      }
-      setProducts((prev) => prev.map((p) => (p.id === product.id ? product : p)));
-      closeModal();
-      return;
-    }
-
-    const { product, error } = await createProduct({
-      name: form.name.trim(),
-      brandId: form.brandId,
-      brandName,
-      category: form.category,
-      lifestyleCategory: form.lifestyleCategory || form.category,
-      price,
-      rating: 0,
-      reviewCount: 0,
-      concernTags: [],
-      petType: 'both',
-      ageGroup: 'all',
-      // 이미지 업로드는 이번 범위 밖 — 플레이스홀더 아이콘으로 등록 후 추후 교체.
-      image: '/images/icon-product.svg',
-      stock,
-      description: form.name.trim(),
-      isBest: false,
-      isRecommended: false,
-    });
-    setSaving(false);
-    if (error || !product) {
-      alert('상품 등록에 실패했습니다.');
-      return;
-    }
-    setProducts((prev) => [product, ...prev]);
-    closeModal();
-  };
-
-  if (loading) {
-    return <p className="p-12 text-center text-sm text-[#7B827C]">상품 목록 불러오는 중…</p>;
-  }
+  ];
 
   return (
-    <div className="flex flex-col h-[calc(100vh-64px)]">
-      {/* Header */}
-      <div className="px-6 py-5 border-b border-[#D1D0C8] bg-white shrink-0">
-        <p className="text-xs font-semibold text-[#697269]">DASHBOARD</p>
-        <h1 className="mt-1 text-2xl font-normal text-[#202521]">상품 관리</h1>
-        <p className="mt-1 text-sm text-[#737A74]">상품을 카테고리별로 쉽게 분류하고 등록하세요.</p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="상품 관리"
+        description="전체 상품 목록을 확인하고, 수정하거나 새 상품을 등록합니다."
+      >
+        <button 
+          onClick={() => router.push('/admin/products/display')}
+          className="flex items-center gap-2 border border-[#E7E0D5] bg-white text-gray-700 hover:bg-[#F3EEE6] px-4 py-2 rounded text-[13px] font-medium transition-colors"
+        >
+          <LayoutTemplate size={16} />
+          진열 관리
+        </button>
+        <button 
+          onClick={handleCreate}
+          className="flex items-center gap-2 bg-[#17201B] hover:bg-[#2F3B34] text-white px-4 py-2 rounded text-[13px] font-medium transition-colors"
+        >
+          <Plus size={16} />
+          새 상품 등록
+        </button>
+      </PageHeader>
 
-      <div className="flex flex-1 min-h-0 bg-[#F4F2EC]">
-        {/* Sidebar: Categories */}
-        <div className="w-72 shrink-0 bg-white border-r border-[#D1D0C8] flex flex-col h-full overflow-hidden">
-          <div className="p-2 border-b border-[#D1D0C8] bg-slate-50 flex gap-1">
-            <button
-              onClick={() => { setActiveGroup('product'); setActiveCategory(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${activeGroup === 'product' ? 'bg-white shadow-sm text-[#202521]' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              일반 상품
-            </button>
-            <button
-              onClick={() => { setActiveGroup('lifestyle'); setActiveCategory(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${activeGroup === 'lifestyle' ? 'bg-white shadow-sm text-[#202521]' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              라이프스타일
-            </button>
-            <button
-              onClick={() => { setActiveGroup('brand'); setActiveCategory(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${activeGroup === 'brand' ? 'bg-white shadow-sm text-[#202521]' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              업체
-            </button>
-          </div>
+      <FilterBar
+        searchPlaceholder="상품명 또는 상품코드 검색..."
+        searchValue={filters.keyword}
+        onSearch={(val) => setFilters(prev => ({ ...prev, keyword: val }))}
+      >
+        <select 
+          value={filters.category} 
+          onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+          className="border border-gray-300 rounded-md text-[13px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2F3B34] focus:border-[#2F3B34]"
+        >
+          <option value="">카테고리 (전체)</option>
+          {categorySettings.productCategories.map(c => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+        
+        <select 
+          value={filters.brandId} 
+          onChange={(e) => setFilters(prev => ({ ...prev, brandId: e.target.value }))}
+          className="border border-gray-300 rounded-md text-[13px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2F3B34] focus:border-[#2F3B34]"
+        >
+          <option value="">브랜드 (전체)</option>
+          {brands.map(b => (
+            <option key={b.id} value={b.id}>{b.name}</option>
+          ))}
+        </select>
 
-          <div className="flex-1 overflow-y-auto p-2">
-            <button
-              onClick={() => setActiveCategory(null)}
-              className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors mb-2 ${
-                activeCategory === null ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
-              }`}
-            >
-              전체 보기 <span className="float-right opacity-60 text-xs mt-0.5">{products.length}</span>
-            </button>
+        <select 
+          value={filters.isVisible} 
+          onChange={(e) => setFilters(prev => ({ ...prev, isVisible: e.target.value }))}
+          className="border border-gray-300 rounded-md text-[13px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2F3B34] focus:border-[#2F3B34]"
+        >
+          <option value="all">노출 상태 (전체)</option>
+          <option value="true">노출</option>
+          <option value="false">숨김</option>
+        </select>
 
-            {activeGroup === 'brand' ? (
-              brands.map((brand) => (
-                <div key={brand.id} className="group relative mb-1">
-                  <button
-                    onClick={() => setActiveCategory(brand.id)}
-                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors pr-16 ${
-                      activeCategory === brand.id ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
-                    }`}
-                  >
-                    <span className="truncate block">{brand.name}</span>
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 text-xs">
-                      {products.filter(p => p.brandId === brand.id).length}
-                    </span>
-                  </button>
-                </div>
-              ))
-            ) : (
-              (activeGroup === 'product' ? productCats : lifestyleCats).map((cat, idx) => (
-              <div key={idx} className="group relative mb-1">
-                {editingIndex === idx ? (
-                  <div className="flex items-center px-2 py-1.5 bg-[#F0EEE8] rounded-md">
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      onBlur={() => saveEditCategory(categoryGroup)}
-                      onKeyDown={e => e.key === 'Enter' && saveEditCategory(categoryGroup)}
-                      className="flex-1 bg-white border border-[#D1D0C8] rounded px-2 py-1 text-sm outline-none"
-                      autoFocus
-                    />
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setActiveCategory(cat)}
-                    className={`w-full text-left px-3 py-2.5 rounded-md text-sm font-medium transition-colors pr-16 ${
-                      activeCategory === cat ? 'bg-[#2F3B34] text-white' : 'text-[#4F5751] hover:bg-[#F0EEE8]'
-                    }`}
-                  >
-                    <span className="truncate block">{cat}</span>
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 opacity-60 text-xs">
-                      {products.filter(p => activeGroup === 'product' ? p.category === cat : p.lifestyleCategory === cat).length}
-                    </span>
+        <select 
+          value={filters.missing} 
+          onChange={(e) => setFilters(prev => ({ ...prev, missing: e.target.value }))}
+          className="border border-gray-300 rounded-md text-[13px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2F3B34] focus:border-[#2F3B34]"
+        >
+          <option value="all">조치 현황 (전체)</option>
+          <option value="stock">품절</option>
+          <option value="price">가격 미등록</option>
+          <option value="image">이미지 미등록</option>
+          <option value="detail">상세 미작성</option>
+          <option value="any">조치 필요 (전체)</option>
+        </select>
+      </FilterBar>
 
-                    <div className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${activeCategory === cat ? 'text-white' : 'text-[#4F5751]'}`}>
-                      <span onClick={(e) => startEditCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer"><Edit2 className="size-3" /></span>
-                      <span onClick={(e) => handleDeleteCategory(idx, categoryGroup, e)} className="p-1 hover:bg-black/10 rounded cursor-pointer text-red-400"><Trash2 className="size-3" /></span>
-                    </div>
-                  </button>
-                )}
-              </div>
-            )))}
-          </div>
-
-          {activeGroup !== 'brand' && (
-          <div className="p-4 border-t border-[#D1D0C8] bg-[#F8F7F2]">
-            <form onSubmit={(e) => handleAddCategory(e, categoryGroup)} className="flex gap-2">
-              <input
-                type="text"
-                placeholder={`${activeGroup === 'product' ? '일반' : '라이프스타일'} 카테고리 추가`}
-                value={newCategoryName}
-                onChange={e => setNewCategoryName(e.target.value)}
-                className="flex-1 bg-white border border-[#D1D0C8] rounded-md px-3 py-2 text-sm outline-none focus:border-[#2F3B34]"
-              />
-              <button type="submit" className="bg-[#2F3B34] text-white p-2 rounded-md hover:bg-[#1f2823] transition-colors">
-                <Plus className="size-4" />
+      <div className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden">
+        <DataTable
+          columns={columns}
+          data={paginatedProducts}
+          isLoading={loading}
+          keyExtractor={(row) => row.id}
+          selectedIds={selectedIds}
+          onSelect={toggleSelection}
+          onSelectAll={toggleSelectAll}
+        />
+        
+        {totalPages > 1 && (
+          <div className="px-5 py-4 border-t border-gray-200 flex justify-center">
+            <nav className="flex items-center gap-1">
+              <button 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-[13px] font-medium text-gray-500 hover:bg-gray-50 border border-gray-200 rounded-l-md disabled:opacity-50"
+              >
+                이전
               </button>
-            </form>
-          </div>
-          )}
-        </div>
-
-        {/* Main Content: Products */}
-        <div className="flex-1 flex flex-col h-full overflow-hidden relative">
-          <div className="p-6 pb-4 shrink-0 flex flex-col gap-4">
-            {/* brand 모드: 업체 헤더만 노출(카테고리 관리 없음) */}
-            {activeGroup === 'brand' && selectedBrandName ? (
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xl font-bold text-[#202521]">{selectedBrandName}</h2>
-                  <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">업체</span>
-                </div>
-                <p className="mt-1 text-sm text-[#59615B]">해당 업체의 상품을 등록·수정·삭제할 수 있습니다.</p>
-              </div>
-            ) : /* 카테고리 관리 패널 — 선택된 카테고리가 있을 때만 노출 */
-            activeCategory && activeGroup !== 'brand' ? (
-              <div className="bg-white border border-[#D1D0C8] rounded-xl p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold text-[#202521]">{activeCategory}</h2>
-                      <span className="inline-flex px-2 py-0.5 rounded text-xs font-bold bg-[#F0EEE8] text-[#4F5751]">
-                        {activeGroup === 'product' ? '일반 상품 카테고리' : '라이프스타일 카테고리'}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-[#59615B]">해당 카테고리의 이름을 수정하거나 삭제할 수 있습니다.</p>
-                  </div>
-                  {activeCategoryIndex !== -1 && (
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={(e) => startEditCategory(activeCategoryIndex, activeGroup, e)}
-                        className="px-3 py-1.5 text-sm font-medium bg-[#F0EEE8] text-[#4F5751] rounded hover:bg-[#E1DFD8] transition-colors flex items-center gap-1.5"
-                      >
-                        <Edit2 className="size-3.5" /> 이름 수정
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteCategory(activeCategoryIndex, activeGroup, e)}
-                        className="px-3 py-1.5 text-sm font-medium bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors flex items-center gap-1.5"
-                      >
-                        <Trash2 className="size-3.5" /> 삭제
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <h2 className="text-xl font-bold text-[#202521]">전체 상품 목록</h2>
-                <p className="mt-1 text-sm text-[#737A74]">모든 상품을 한눈에 관리합니다.</p>
-              </div>
-            )}
-
-            <div className="flex items-end justify-between gap-4">
-              <p className="text-sm font-medium text-[#59615B]">
-                총 <span className="font-bold text-[#202521]">{filteredProducts.length}</span>개의 상품
-              </p>
-              <div className="flex items-center gap-3">
-                <label className="relative">
-                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8B928C]" />
-                  <input
-                    placeholder="상품명 검색..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-64 border border-[#D1D0C8] rounded-full bg-white py-2 pl-9 pr-4 text-sm outline-none focus:border-[#2F3B34]"
-                  />
-                </label>
-                <button
-                  onClick={openAddModal}
-                  className="flex items-center gap-2 bg-[#2F3B34] px-4 py-2 text-sm font-semibold text-white rounded-full hover:bg-[#1f2823] transition-colors shadow-sm"
-                >
-                  <Plus className="size-4" />
-                  {activeGroup === 'brand'
-                    ? (selectedBrandName ? `'${selectedBrandName}'에 상품 등록` : '새 상품 등록')
-                    : (activeCategory ? `'${activeCategory}'에 상품 등록` : '새 상품 등록')}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-6">
-            {filteredProducts.length > 0 ? (
-              <div className="bg-white border border-[#D1D0C8] rounded-xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] text-left text-sm">
-                    <thead className="bg-[#F0EEE8] text-xs text-[#697069] border-b border-[#D1D0C8]">
-                      <tr>
-                        <th className="px-5 py-3.5 font-semibold">상품명</th>
-                        <th className="px-5 py-3.5 font-semibold">브랜드</th>
-                        <th className="px-5 py-3.5 font-semibold">일반 카테고리</th>
-                        <th className="px-5 py-3.5 font-semibold">라이프스타일</th>
-                        <th className="px-5 py-3.5 font-semibold">판매가</th>
-                        <th className="px-5 py-3.5 text-right font-semibold">관리</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#E1DFD8]">
-                      {filteredProducts.map((product) => (
-                        <tr key={product.id} className="hover:bg-[#FAF9F5] transition-colors">
-                          <td className="px-5 py-3 font-medium text-[#202521]">{product.name}</td>
-                          <td className="px-5 py-3 text-[#59615B]">{product.brandName ?? product.brandId}</td>
-                          <td className="px-5 py-3">
-                            <span className="inline-flex bg-[#EDF0EC] border border-[#C9CEC9] px-2 py-0.5 rounded text-[11px] text-[#4F5751]">
-                              {product.category}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3">
-                            {product.lifestyleCategory ? (
-                              <span className="inline-flex bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[11px] text-slate-600">
-                                {product.lifestyleCategory}
-                              </span>
-                            ) : <span className="text-slate-300">-</span>}
-                          </td>
-                          <td className="px-5 py-3 tabular-nums text-[#4F5751]">
-                            {formatPrice(product.salePrice ?? product.price ?? 0)}
-                          </td>
-                          <td className="px-5 py-3 text-right">
-                            <button onClick={() => openEditModal(product)} className="text-[#59615B] hover:bg-slate-100 p-1.5 rounded-md transition-colors mr-1" title="상품 설정">
-                              <Settings className="size-4" />
-                            </button>
-                            <button className="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="상품 삭제" onClick={() => handleDelete(product)}>
-                              <Trash2 className="size-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center border-2 border-dashed border-[#D1D0C8] rounded-xl bg-white/50 text-[#7B827C]">
-                <p>해당하는 상품이 없습니다.</p>
-                <button onClick={openAddModal} className="mt-3 text-sm font-semibold text-[#2F3B34] underline underline-offset-4">
-                  첫 상품 등록하기
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Add/Edit Product Modal */}
-          {isAddingProduct && (
-            <div className="absolute inset-0 z-50 bg-black/40 flex items-center justify-center p-4 backdrop-blur-sm">
-              <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-                <div className="px-6 py-4 border-b border-[#D1D0C8] bg-[#F8F7F2] flex justify-between items-center shrink-0">
-                  <h3 className="font-bold text-[#202521]">{editingProduct ? '상품 수정' : '새 상품 등록'}</h3>
-                  <button type="button" onClick={closeModal} className="text-[#8B928C] hover:text-black">✕</button>
-                </div>
-                <div className="p-6 space-y-4 overflow-y-auto">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">상품명</label>
-                    <input
-                      type="text"
-                      required
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
-                      placeholder="예: 시그니처 연어 사료 2kg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">브랜드</label>
-                    <select
-                      required
-                      value={form.brandId}
-                      onChange={(e) => setForm({ ...form, brandId: e.target.value })}
-                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+                .map((p, i, arr) => (
+                  <React.Fragment key={p}>
+                    {i > 0 && arr[i-1] !== p - 1 && (
+                      <span className="px-2 text-gray-400">...</span>
+                    )}
+                    <button
+                      onClick={() => setCurrentPage(p)}
+                      className={`px-3 py-1.5 text-[13px] font-medium border-y border-r border-gray-200 ${
+                        currentPage === p 
+                          ? 'bg-[#17201B] text-white border-[#17201B]' 
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
                     >
-                      <option value="" disabled>선택...</option>
-                      {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">일반 카테고리</label>
-                      <select
-                        required
-                        value={form.category}
-                        onChange={(e) => setForm({ ...form, category: e.target.value })}
-                        className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
-                      >
-                        <option value="" disabled>선택...</option>
-                        {productCats.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-[#59615B] mb-1.5">라이프스타일 카테고리</label>
-                      <select
-                        value={form.lifestyleCategory}
-                        onChange={(e) => setForm({ ...form, lifestyleCategory: e.target.value })}
-                        className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm bg-white"
-                      >
-                        <option value="">(없음)</option>
-                        {lifestyleCats.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">판매가(원, 비우면 0원 표시)</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={form.price}
-                      onChange={(e) => setForm({ ...form, price: e.target.value })}
-                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
-                      placeholder="예: 32000"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#59615B] mb-1.5">재고</label>
-                    <input
-                      type="number"
-                      min={0}
-                      step={1}
-                      value={form.stock}
-                      onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                      className="w-full border border-[#D1D0C8] rounded-md px-3 py-2 text-sm"
-                      placeholder="예: 100"
-                    />
-                  </div>
-                </div>
-                <div className="px-6 py-4 border-t border-[#D1D0C8] bg-slate-50 flex justify-end gap-2 shrink-0">
-                  <button type="button" onClick={closeModal} className="px-4 py-2 text-sm font-medium text-[#59615B] bg-white border border-[#D1D0C8] rounded-md hover:bg-slate-50">취소</button>
-                  <button type="submit" disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#2F3B34] rounded-md hover:bg-[#1f2823] disabled:opacity-60">
-                    {saving ? '저장 중…' : editingProduct ? '수정 완료' : '등록 완료'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-        </div>
+                      {p}
+                    </button>
+                  </React.Fragment>
+              ))}
+              <button 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-[13px] font-medium text-gray-500 hover:bg-gray-50 border-y border-r border-gray-200 rounded-r-md disabled:opacity-50"
+              >
+                다음
+              </button>
+            </nav>
+          </div>
+        )}
       </div>
+
+      {selectedIds.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px] transition-all duration-300">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+            <div className="text-[14px] font-medium text-gray-600 hidden sm:block flex-1">
+              {selectedIds.length}개 상품 선택됨
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 숨김 처리하시겠습니까?`)) return;
+                  await performBulkUpdate(selectedIds, { isVisible: false });
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
+              >
+                <EyeOff size={14} /> 숨김 처리
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 노출 처리하시겠습니까?`)) return;
+                  await performBulkUpdate(selectedIds, { isVisible: true });
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
+              >
+                <Eye size={14} /> 노출 처리
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`정말로 선택한 ${selectedIds.length}개 상품을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) return;
+                  const { failedItems, hasHistoryConflict } = await performBulkDelete(selectedIds);
+                  if (failedItems.length > 0) {
+                    alert(
+                      hasHistoryConflict
+                        ? '리뷰/문의가 있는 상품은 삭제 대신 숨김 처리하세요.'
+                        : '상품 삭제에 실패했습니다.',
+                    );
+                  }
+                }}
+                className="px-3 py-1.5 text-[13px] font-medium text-[#A65348] bg-white hover:bg-[#FDF2F2] rounded border border-[#A65348] flex items-center gap-1.5"
+              >
+                <Trash2 size={14} /> 삭제
+              </button>
+              <button
+                type="button"
+                onClick={clearSelection}
+                className="px-4 py-2 border border-gray-300 rounded-md text-[14px] font-medium text-gray-700 bg-white hover:bg-gray-50"
+              >
+                선택 해제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

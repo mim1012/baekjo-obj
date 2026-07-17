@@ -1,7 +1,8 @@
 // brands 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
-import type { Brand, BrandAuditReport } from '@/types';
+import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
+import { isCarrierCode } from '@/lib/carriers';
 
 const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
 
@@ -11,9 +12,60 @@ function normalizeAuditGrade(raw: unknown): Brand['auditGrade'] {
   return typeof raw === 'string' && AUDIT_GRADES.has(raw) ? (raw as Brand['auditGrade']) : 'B';
 }
 
+// 되읽기 방어 — 무검증 캐스트 금지. 공개 BrandAuditReport 컴포넌트가 report.headline·
+// report.process.map(...) 등으로 필드에 바로 접근하므로, 필수 필드가 없는 부분 객체를
+// auditReport로 담으면 상세 페이지가 런타임에 터진다. 누락 시 undefined(=미확인 상태 폴백).
+const AUDIT_REPORT_STR_FIELDS = [
+  'reportNo',
+  'auditedAt',
+  'status',
+  'headline',
+  'summaryTitle',
+  'summary',
+  'selectionReason',
+] as const;
+
 function detailAuditReport(raw: unknown): BrandAuditReport | undefined {
-  if (raw && typeof raw === 'object' && !Array.isArray(raw)) return raw as BrandAuditReport;
-  return undefined;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  if (!AUDIT_REPORT_STR_FIELDS.every((k) => typeof r[k] === 'string')) return undefined;
+  if (!Array.isArray(r.process)) return undefined;
+  return raw as BrandAuditReport;
+}
+
+const SHIPPING_TEXT_FIELDS = [
+  'dispatchEstimate',
+  'returnAddress',
+  'asNotice',
+  'supportContact',
+  'supportHours',
+] as const;
+
+const SHIPPING_NUMBER_FIELDS = [
+  'shippingFee',
+  'freeShippingThreshold',
+  'returnShippingFee',
+  'exchangeShippingFee',
+] as const;
+
+function detailShipping(raw: unknown): BrandShippingPolicy | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  const shipping: BrandShippingPolicy = {};
+  if (typeof r.defaultCarrier === 'string' && isCarrierCode(r.defaultCarrier)) {
+    shipping.defaultCarrier = r.defaultCarrier;
+  }
+  for (const key of SHIPPING_NUMBER_FIELDS) {
+    if (typeof r[key] === 'number' && Number.isFinite(r[key]) && r[key] >= 0) {
+      shipping[key] = r[key];
+    }
+  }
+  for (const key of SHIPPING_TEXT_FIELDS) {
+    if (typeof r[key] === 'string' && r[key].trim().length > 0) {
+      shipping[key] = r[key];
+    }
+  }
+  return Object.keys(shipping).length > 0 ? shipping : undefined;
 }
 
 interface BrandRow {
@@ -37,6 +89,8 @@ function rowToBrand(row: BrandRow): Brand {
   return {
     id: row.id,
     name: row.name,
+    officialUrl: typeof d.officialUrl === 'string' ? d.officialUrl : undefined,
+    sourceUrls: Array.isArray(d.sourceUrls) ? (d.sourceUrls as string[]) : undefined,
     logo: typeof d.logo === 'string' ? d.logo : '',
     description: typeof d.description === 'string' ? d.description : '',
     philosophy: typeof d.philosophy === 'string' ? d.philosophy : '',
@@ -51,6 +105,7 @@ function rowToBrand(row: BrandRow): Brand {
     isNew: typeof d.isNew === 'boolean' ? d.isNew : undefined,
     isVisible: row.is_visible,
     displayOrder: typeof d.displayOrder === 'number' ? d.displayOrder : undefined,
+    shipping: detailShipping(d.shipping),
   };
 }
 
@@ -79,7 +134,8 @@ function splitBrandInput(input: Partial<Brand>): {
   return { columns, detail };
 }
 
-const BRANDS_LIST_CAP = 500;
+/** 브랜드 목록 조회 상한. 집계 호출부의 절삭 감지(truncated)용으로 export한다. */
+export const BRANDS_LIST_CAP = 500;
 
 export async function listBrands(visibleOnly = true): Promise<Brand[]> {
   let query = getSupabase().from('brands').select(SELECT_COLUMNS);

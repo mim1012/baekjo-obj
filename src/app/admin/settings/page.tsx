@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Settings, Eye, Save, X } from 'lucide-react';
+import { Eye, Save, X } from 'lucide-react';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { HomeSettings } from '@/data/homeContent';
 import { getPublicProducts, getPublicBrands } from '@/lib/storage';
 import HomeClient from '@/components/home/HomeClient';
 import type { Brand, Product } from '@/types';
+import { AdminPageHeader } from '@/components/admin/AdminUi';
 
 const TABS = [
   { id: 'intro', label: '메인 영상' },
@@ -122,50 +123,43 @@ export default function SiteSettingsPage() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.16))]">
-      <div className="flex items-center justify-between mb-6 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Settings className="w-6 h-6 text-gray-400" />
-            환경설정 (CMS)
-          </h1>
-          <p className="mt-1 text-sm text-[#737A74]">
-            홈페이지의 전체 콘텐츠를 관리합니다. (HTML 태그 사용 가능)
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
+    <div className="flex min-h-[calc(100dvh-9rem)] flex-col gap-8">
+      <AdminPageHeader
+        title="사이트 콘텐츠 설정"
+        description="홈페이지의 주요 콘텐츠를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다."
+        actions={<>
           <button
             onClick={() => setIsPreviewOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#D1D0C8] text-[#17211D] rounded-sm hover:bg-gray-50 font-medium text-sm transition-colors"
+            className="flex min-h-11 items-center gap-2 border border-[#E7E0D5] bg-white px-4 text-sm font-semibold text-[#17211D] transition-colors hover:bg-[#F3EEE6]"
           >
             <Eye className="w-4 h-4" />
             미리보기
           </button>
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-sm hover:bg-[#1f2823] font-medium text-sm transition-colors"
+            className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]"
           >
             <Save className="w-4 h-4" />
             변경사항 저장
           </button>
-        </div>
-      </div>
+        </>}
+      />
 
-      <div className="flex flex-1 gap-6 min-h-0 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row">
         {/* Left Tabs */}
-        <div className="w-64 shrink-0 bg-white border border-[#D1D0C8] rounded-sm overflow-hidden flex flex-col h-full">
-          <div className="p-3 bg-[#F8F7F2] border-b border-[#D1D0C8]">
-            <h2 className="text-xs font-bold text-[#2F3B34] uppercase tracking-wider">메뉴 섹션</h2>
+        <div className="flex h-auto shrink-0 flex-col overflow-hidden border border-[#E7E0D5] bg-white lg:h-full lg:w-64">
+          <div className="border-b border-[#E7E0D5] bg-[#FAF8F3] p-4">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#59615B]">콘텐츠 섹션</h2>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex flex-1 overflow-x-auto lg:block lg:overflow-y-auto">
             {TABS.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`w-full text-left px-4 py-3 text-sm border-b border-gray-100 transition-colors ${
+                className={`shrink-0 border-b px-4 py-3 text-left text-sm transition-colors lg:w-full ${
                   activeTab === tab.id
-                    ? 'bg-blue-50 text-blue-700 font-bold border-l-4 border-l-blue-600'
-                    : 'text-[#59615B] hover:bg-gray-50 border-l-4 border-l-transparent'
+                    ? 'border-[#D8C4A3] bg-[#F3EEE6] font-bold text-[#17211D] lg:border-l-2 lg:border-l-[#A8742E]'
+                    : 'border-[#E7E0D5] text-[#59615B] hover:bg-[#FAF8F3] lg:border-l-2 lg:border-l-transparent'
                 }`}
               >
                 {tab.label}
@@ -175,9 +169,9 @@ export default function SiteSettingsPage() {
         </div>
 
         {/* Right Content */}
-        <div className="flex-1 bg-white border border-[#D1D0C8] rounded-sm overflow-y-auto h-full relative">
+        <div className="relative h-full flex-1 overflow-y-auto border border-[#E7E0D5] bg-white">
           <div className="p-6 md:p-8 max-w-3xl">
-            <h2 className="text-xl font-bold text-gray-900 mb-6 pb-4 border-b border-gray-100">
+            <h2 className="mb-6 border-b border-[#E7E0D5] pb-4 text-xl font-semibold text-[#17211D]">
               {TABS.find((t) => t.id === activeTab)?.label} 설정
             </h2>
 

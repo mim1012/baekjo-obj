@@ -1,8 +1,15 @@
-import { Brand, ConfirmedOrderSummary, InsuranceApplication, Order, Product, User } from '@/types';
-import { users as mockUsers } from '@/data/users';
+import {
+  AdminDashboardSummary,
+  Brand,
+  ConfirmedOrderSummary,
+  InsuranceApplication,
+  Order,
+  Product,
+  User,
+} from '@/types';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
-import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
-import { defaultPartnersConfig, type PartnersConfig } from '@/lib/partners/config';
+import type { KitsConfig } from '@/lib/kits/config';
+import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 
 function cloneFallback<T>(fallback: T): T {
@@ -266,7 +273,15 @@ export async function getLastOrder(): Promise<Order | null> {
 export async function updateOrderStatus(
   id: string,
   updates: Partial<
-    Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier'>
+    Pick<
+      Order,
+      | 'orderStatus'
+      | 'paymentStatus'
+      | 'deliveryStatus'
+      | 'trackingNumber'
+      | 'carrier'
+      | 'deliveryMemo'
+    >
   >,
 ): Promise<void> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(id)}`, {
@@ -457,7 +472,12 @@ export async function getPublicBrandById(id: string): Promise<Brand | null> {
   }
 }
 
-/** 관리자 상품 목록(비노출 포함). GET /api/admin/products(관리자 세션 필요). 실패 시 빈 배열. */
+/**
+ * 관리자 상품 목록(비노출 포함). GET /api/admin/products(관리자 세션 필요). 실패 시 빈 배열.
+ * ⚠️ **클라이언트 전용** — 서버 컴포넌트에서 호출 금지. 상대경로 fetch라 서버 런타임엔 origin이
+ * 없어 throw하고, 그 예외를 catch가 조용히 삼켜 빈 배열을 반환한다(→ 상세/수정 페이지가 원인불명 404).
+ * 서버 컴포넌트에서는 `@/lib/products/repo`의 `getProductById`/`listProducts`를 직접 호출할 것.
+ */
 export async function getAdminProducts(): Promise<Product[]> {
   try {
     const response = await fetch('/api/admin/products');
@@ -607,7 +627,12 @@ export async function deletePartnerProduct(id: string): Promise<{ ok?: true; err
   }
 }
 
-/** 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열. */
+/**
+ * 관리자 브랜드 목록(비노출 포함). GET /api/admin/brands(관리자 세션 필요). 실패 시 빈 배열.
+ * ⚠️ **클라이언트 전용** — 서버 컴포넌트에서 호출 금지. 상대경로 fetch라 서버 런타임엔 origin이
+ * 없어 throw하고, 그 예외를 catch가 조용히 삼켜 빈 배열을 반환한다(→ 브랜드 select가 원인불명 공백).
+ * 서버 컴포넌트에서는 `@/lib/brands/repo`의 `listAllBrandsForAdmin`을 직접 호출할 것.
+ */
 export async function getAdminBrands(): Promise<Brand[]> {
   try {
     const response = await fetch('/api/admin/brands');
@@ -716,20 +741,16 @@ export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: bool
  * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
  *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
  *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
- * 공개/관리자 조회 모두 실패·미저장을 default* 로 접어 화면이 빈 목록으로 조용히 깨지지 않게 한다.
+ * 공개 조회는 실패·미저장을 default* 로 접지만, 관리자 kits/partners 는 실패를 throw 해 저장을 막는다.
  */
 
-/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·미저장 시 defaultKitsConfig 로 폴백. */
+/** 관리자 케어 키트 config. GET /api/admin/kits. 실패·깨진 응답은 throw 해서 저장을 막는다. */
 export async function getKitsConfig(): Promise<KitsConfig> {
-  try {
-    const response = await fetch('/api/admin/kits');
-    if (!response.ok) return defaultKitsConfig;
-    const { items } = (await response.json()) as KitsConfig;
-    if (!Array.isArray(items)) return defaultKitsConfig;
-    return { items };
-  } catch {
-    return defaultKitsConfig;
-  }
+  const response = await fetch('/api/admin/kits');
+  if (!response.ok) throw new Error('kits-config-load-failed');
+  const { items } = (await response.json()) as KitsConfig;
+  if (!Array.isArray(items)) throw new Error('kits-config-invalid-response');
+  return { items };
 }
 
 /** 케어 키트 config 저장(관리자). PUT /api/admin/kits. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
@@ -746,17 +767,13 @@ export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean 
   }
 }
 
-/** 관리자 제휴처 config. GET /api/admin/partners. 실패·미저장 시 defaultPartnersConfig 로 폴백. */
+/** 관리자 제휴처 config. GET /api/admin/partners. 실패·깨진 응답은 throw 해서 저장을 막는다. */
 export async function getPartnersConfig(): Promise<PartnersConfig> {
-  try {
-    const response = await fetch('/api/admin/partners');
-    if (!response.ok) return defaultPartnersConfig;
-    const { items } = (await response.json()) as PartnersConfig;
-    if (!Array.isArray(items)) return defaultPartnersConfig;
-    return { items };
-  } catch {
-    return defaultPartnersConfig;
-  }
+  const response = await fetch('/api/admin/partners');
+  if (!response.ok) throw new Error('partners-config-load-failed');
+  const { items } = (await response.json()) as PartnersConfig;
+  if (!Array.isArray(items)) throw new Error('partners-config-invalid-response');
+  return { items };
 }
 
 /** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
@@ -801,7 +818,6 @@ export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }>
 }
 
 const USER_KEY = 'baekjo_user';
-const REGISTERED_USERS_KEY = 'baekjo_registered_users';
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -814,14 +830,6 @@ export function setCurrentUser(user: User | null): void {
   } else {
     localStorage.removeItem(USER_KEY);
   }
-}
-
-export function getUsers(): User[] {
-  const registered = getJSON<User[]>(REGISTERED_USERS_KEY, []);
-  const merged = [...mockUsers, ...registered];
-  return merged.filter(
-    (user, index) => merged.findIndex((candidate) => candidate.email === user.email) === index,
-  );
 }
 
 /**
@@ -935,6 +943,24 @@ export async function getAdminMembers(): Promise<{
     return { error: 'network' };
   } catch {
     return { error: 'network' };
+  }
+}
+
+export type AdminDashboardResult =
+  | { ok: true; data: AdminDashboardSummary }
+  | { ok: false; status: number; message: string };
+
+/** 관리자 대시보드 요약(최근 주문·보험 신청·가입 승인 대기). GET /api/admin/dashboard. */
+export async function getAdminDashboardSummary(): Promise<AdminDashboardResult> {
+  try {
+    const response = await fetch('/api/admin/dashboard');
+    if (!response.ok) {
+      return { ok: false, status: response.status, message: 'network-error' };
+    }
+    const data = (await response.json()) as AdminDashboardSummary;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, status: 500, message: 'network-error' };
   }
 }
 
@@ -1299,4 +1325,57 @@ export async function answerProductInquiry(id: string, answer: string): Promise<
     throw new Error('inquiry-answer-failed');
   }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+}
+
+/* ── 관리자 이미지 업로드 ──────────────────────────────────────
+ * 상품·브랜드·배너 이미지를 Supabase Storage(catalog-assets 버킷)에 올린다.
+ * 엔티티가 아직 없는 신규 작성 화면은 entityId 대신 draftId 를 넘겨 temp/ 경로에
+ * 임시 업로드하고, 저장을 취소하면 deleteTemporaryAdminImage 로 폐기한다. */
+
+export type AdminImageDomain = 'product' | 'brand' | 'banner';
+
+/** usage 는 domain 별 허용값이 다르다 — product: main|gallery|detail / brand: logo|cover / banner: hero.
+ *  서버(/api/admin/upload)가 최종 검증하므로 여기서는 문자열로 받는다. */
+export interface AdminImageUploadInput {
+  file: File;
+  domain: AdminImageDomain;
+  usage: string;
+  entityId?: string;
+  draftId?: string;
+}
+
+export interface AdminImageUploadResult {
+  success: boolean;
+  path: string;
+  publicUrl: string;
+  bucket: string;
+}
+
+/** 관리자 전용 — 이미지 업로드. POST /api/admin/upload (multipart/form-data). */
+export async function uploadAdminImage(input: AdminImageUploadInput): Promise<AdminImageUploadResult> {
+  const formData = new FormData();
+  formData.append('file', input.file);
+  formData.append('domain', input.domain);
+  formData.append('usage', input.usage);
+  if (input.entityId) formData.append('entityId', input.entityId);
+  if (input.draftId) formData.append('draftId', input.draftId);
+
+  const response = await fetch('/api/admin/upload', { method: 'POST', body: formData });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'upload-failed');
+  }
+  return data as AdminImageUploadResult;
+}
+
+/** 관리자 전용 — 임시(temp/) 업로드본 폐기. DELETE /api/admin/upload?path=...
+ *  정식 경로 파일은 물리 삭제하지 않고 `deleted:false` 로 응답한다(참조만 해제). */
+export async function deleteTemporaryAdminImage(path: string): Promise<{ deleted: boolean; reason: string }> {
+  const params = new URLSearchParams({ path });
+  const response = await fetch(`/api/admin/upload?${params.toString()}`, { method: 'DELETE' });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || 'delete-failed');
+  }
+  return data as { deleted: boolean; reason: string };
 }

@@ -29,6 +29,7 @@ export default function AdminNoticesPage() {
         status: '노출중',
         date: formatDate(notice.date),
       }))}
+      readOnly
       createFields={['유형', '제목', '본문', '작성자', '대표 이미지', '노출 상태', '게시일']}
     />
   );

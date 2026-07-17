@@ -46,6 +46,10 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
+  /** 적립금 지급 여부. */
+  pointsEnabled?: boolean;
+  /** 적립률(%). 지급 로직은 구매확정 구현 후. */
+  pointsRate?: number;
 }
 
 export interface ProductOption {
@@ -82,6 +86,19 @@ export interface Brand {
   isNew?: boolean;
   isVisible?: boolean;
   displayOrder?: number;
+  shipping?: BrandShippingPolicy;
+}
+export interface BrandShippingPolicy {
+  defaultCarrier?: import('@/lib/carriers').CarrierCode;
+  shippingFee?: number;
+  freeShippingThreshold?: number;
+  dispatchEstimate?: string;
+  returnAddress?: string;
+  returnShippingFee?: number;
+  exchangeShippingFee?: number;
+  asNotice?: string;
+  supportContact?: string;
+  supportHours?: string;
 }
 
 export interface BrandAuditReport {
@@ -220,6 +237,30 @@ export interface OrderItem {
   optionName?: string;
   quantity: number;
   price: number;
+  /**
+   * 주문 시점의 브랜드를 스냅샷한다 — 상품이 삭제·재브랜딩돼도 과거 주문의 판매자 귀속이
+   * 흔들리지 않게. 레거시 주문(이 필드 도입 전 생성된 items jsonb)엔 없으므로 optional이다.
+   * 현재 소비자는 없다 — dashboardStats.ts는 아직 이 필드를 읽지 않고 products 조인으로
+   * brandIdByProductId를 만들어 귀속한다(dashboardStats.ts:143). 이 필드를 실제로 읽어
+   * 레거시 폴백(조인) 구조로 바꾸는 것은 후속 과제다.
+   */
+  brandId?: string;
+}
+
+/**
+ * 입점업체(브랜드)별 배송 정보 — 한 주문이 여러 브랜드 상품을 포함할 때 업체마다 독립된
+ * 송장을 붙일 수 있게 한다(0034 마이그레이션). Order 자체의 carrier/trackingNumber/
+ * deliveryStatus는 레거시 단일 배송 경로로 그대로 두고 건드리지 않는다.
+ */
+export interface Shipment {
+  id: string;
+  orderId: string;
+  brandId: string;
+  carrier?: string;
+  trackingNumber?: string;
+  deliveryStatus: string;
+  shippedAt?: string;
+  createdAt: string;
 }
 
 /**
@@ -244,6 +285,42 @@ export const ORDER_STATUSES = [
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/**
+ * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.
+ * 근거(코드로 확인한 생산 지점):
+ * - 주문 생성: '입금대기'(무통장) / '결제대기'(카드) — src/app/api/orders/route.ts
+ * - 승인 착수: '승인중' — claimOrderForConfirmation (src/lib/orders/repo.ts)
+ * - 승인 확정: '결제완료' — setOrderPaid (src/lib/orders/repo.ts)
+ * - 관리자 수동 변경: '결제취소' / '환불완료' — src/app/api/admin/orders/[id]/route.ts
+ * Order.paymentStatus 자체는 레거시 호환 때문에 여전히 string이지만, "돈이 실제로 들어왔는가"를
+ * 판정해야 하는 곳(매출 집계 등)은 반드시 PAID_PAYMENT_STATUS를 진실 소스로 쓴다.
+ */
+export const PAYMENT_STATUSES = [
+  '결제대기',
+  '입금대기',
+  '승인중',
+  '결제완료',
+  '결제취소',
+  '환불완료',
+] as const;
+
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+/** 결제가 실제로 확정된 유일한 값(setOrderPaid가 쓰는 값). 매출 집계의 진실 소스. */
+export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
+
+/**
+ * 배송 상태 — Order.deliveryStatus가 실제로 받아들이는 값의 전수. `src/app/api/admin/orders/[id]/route.ts`
+ * 와 `src/components/admin-new/orders/OrderInlineStatusControls.tsx`가 이 배열을 직접 import해서
+ * 쓴다(로컬 리터럴 사본 금지 — §4.6: 화이트리스트를 두 곳에 두면 드리프트). Order.deliveryStatus
+ * 자체는 레거시 호환 때문에 여전히 string이지만(위 PaymentStatus와 동일한 이유), 스마트택배
+ * 연동처럼 "이 배송 상태로 정규화한다"를 타입으로 강제해야 하는 새 코드는 로컬 유니온을 만들지
+ * 말고 이 타입을 재사용한다(§4: 데이터 모양은 설계도 한 장).
+ */
+export const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
+
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /* ── 사용자 ─────────────────────────────────── */
 export interface User {
@@ -455,3 +532,105 @@ export interface Partner {
   isContracted: boolean;
   isDelivered: boolean;
 }
+
+/* ── 관리자 대시보드 요약(가산 타입, GET /api/admin/dashboard 전용) ────── */
+export interface AdminDashboardRecentOrder {
+  id: string;
+  customerName: string;
+  orderNumber: string;
+  totalAmount: number;
+  status: string;
+}
+
+export interface AdminDashboardPendingApplication {
+  id: string;
+  name: string;
+  companyName?: string;
+  role: 'b2b' | 'insurance' | 'partner';
+  status: string;
+}
+
+/**
+ * 브랜드별 대시보드 통계(가산 타입). 새 테이블 없이 brands·products·orders·inquiries 조인으로 계산한다.
+ * 설계: docs/admin-dashboard-uiux-improvement.md §6-3.
+ */
+export interface AdminDashboardBrandStat {
+  brandId: string;
+  brandName: string;
+  logo?: string;
+  isVisible: boolean;
+  /** 브랜드에 속한 전체 상품 수(숨김 포함). */
+  productCount: number;
+  /** isVisible !== false 인 상품 수. */
+  visibleProductCount: number;
+  /** 정보 미완성 상품 수 — 가격·대표이미지·상세·재고(품절) 중 하나라도 결손(대시보드 클라이언트 집계와 동일 기준). */
+  incompleteCount: number;
+  /**
+   * 기간(since 이후) 내 **결제 확정('결제완료')** 주문 금액(원) — 아이템 단위로 브랜드에 귀속.
+   * 미결제(결제대기·입금대기·승인중)와 취소완료·환불완료 주문은 제외된다.
+   */
+  orderAmount: number;
+  /** status === 'waiting' 인 상품문의 수. */
+  unansweredInquiryCount: number;
+  /** 브랜드 노출 순서(§6-4). 미지정 브랜드는 undefined(정렬 시 뒤로). */
+  displayOrder?: number;
+}
+
+/** 브랜드 통계의 해석에 필요한 메타(가산 optional). UI가 기간·결손을 하드코딩하지 않게 한다. */
+export interface AdminDashboardBrandStatsMeta {
+  /** 금액 집계 시작 시각(ISO). 서버 상수를 바꿔도 화면 라벨이 거짓말하지 않도록 값으로 내린다. */
+  since: string;
+  /** 금액 집계 기간(일). */
+  windowDays: number;
+  /** 어느 브랜드에도 매칭되지 않아 집계에서 빠진 상품 수. */
+  unmatchedProductCount: number;
+  /** repo 조회 상한(LIST_CAP)에 도달해 모집단 일부가 잘렸을 수 있음 — 숫자를 신뢰하면 안 된다. */
+  truncated?: boolean;
+  /** 일부 소스 조회 실패로 해당 지표가 결손됨(0으로 내려감). */
+  partial?: boolean;
+  /**
+   * partial=true일 때 어느 소스가 실패했는지('orders'|'products'|'inquiries' 등). partial 하나만으로는
+   * products 실패(productCount·incompleteCount 결손)와 orders 실패(orderAmount 결손)를 구분할 수 없어
+   * 가산했다. 빈 배열/undefined면 결손 없음.
+   */
+  failedSources?: string[];
+}
+
+export interface AdminDashboardSummary {
+  recentOrders: AdminDashboardRecentOrder[];
+  recentInsurances: InsuranceApplication[];
+  /** 가입 승인 대기(B2B/보험사/입점업체) 회원 — 별도 신청서 테이블이 없어 members를 role/status로 좁혀 구성. */
+  recentApplications: AdminDashboardPendingApplication[];
+  /** 브랜드별 통계(가산 optional — 집계 실패 시 생략되고 나머지 요약은 그대로 내려간다). */
+  brandStats?: AdminDashboardBrandStat[];
+  /** brandStats의 메타(기간·미매칭 상품 수·절삭/부분실패 플래그). brandStats와 함께 내려간다. */
+  brandStatsMeta?: AdminDashboardBrandStatsMeta;
+}
+
+/**
+ * 스마트택배(Sweet Tracker) 조회 결과 — src/lib/tracking/sweettracker.ts 공용 데이터 모양.
+ * §4(콘센트 규칙): 앱이 쓰는 데이터 형태는 이 파일에만 정의한다. 벤더 wire-format(원본 응답 필드)은
+ * 여기 두지 않는다 — sweettracker.ts 내부의 RawTrackingInfoResponse/RawTrackingDetail 참고.
+ */
+export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface TrackingStep {
+  time: string;
+  where: string;
+  kind: string;
+}
+
+export type TrackingResult =
+  | {
+      ok: true;
+      level: TrackingLevel;
+      complete: boolean;
+      steps: TrackingStep[];
+      deliveryStatus: DeliveryStatus;
+      invoiceNo: string;
+    }
+  | {
+      ok: false;
+      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
+      message?: string;
+    };
