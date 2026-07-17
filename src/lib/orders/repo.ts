@@ -181,7 +181,9 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
-/** 관리자 주문 상태 변경. 허용 필드만 반영한다(라우트에서 화이트리스트 검증됨). */
+/** 관리자 주문 상태 변경 요청(라우트에서 화이트리스트 검증됨). paymentStatus 는 취소 감지·전이 판정에
+ *  쓰이지만 **updateOrderStatus 로는 절대 흐르지 않는다**(아래 OrderFieldsUpdate 로 배제) — 결제상태
+ *  쓰기는 오직 updatePaymentStatusGuarded(CAS)와 취소 RPC 로만 일어난다. */
 export type OrderStatusUpdate = Partial<
   Pick<
     Order,
@@ -189,10 +191,13 @@ export type OrderStatusUpdate = Partial<
   >
 >;
 
-export async function updateOrderStatus(id: string, updates: OrderStatusUpdate): Promise<void> {
+/** updateOrderStatus 가 받는 비결제 필드 집합. paymentStatus 를 타입 레벨에서 제외해, 조건 없는
+ *  payment_status 쓰기 경로가 이 함수에 **한 줄도** 남지 않게 강제한다(리플레이 우회 봉합, opus HIGH). */
+export type OrderFieldsUpdate = Omit<OrderStatusUpdate, 'paymentStatus'>;
+
+export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate): Promise<void> {
   const patch: Record<string, string | null> = {};
   if (updates.orderStatus !== undefined) patch.order_status = updates.orderStatus;
-  if (updates.paymentStatus !== undefined) patch.payment_status = updates.paymentStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
   // 빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
   // 매번 falsy 검사를 해야 한다. trackingNumber/carrier가 같은 규칙을 따라야 `tracking_number IS NULL`
@@ -204,6 +209,32 @@ export async function updateOrderStatus(id: string, updates: OrderStatusUpdate):
 
   const { error } = await getSupabase().from('orders').update(patch).eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * 관리자 수동 결제상태 전이(조건부 UPDATE = CAS). setOrderPaid/claimOrderForConfirmation와 같은
+ * 패턴으로 WHERE payment_status=<fromStatus> 를 걸어, 우리가 현재 상태를 읽은 시점과 UPDATE 시점
+ * 사이에 다른 요청이 상태를 바꿨으면 0행 매치로 무성 no-op 이 된다(경합 안전). 반환값 = 영향받은
+ * 행 수. 1 = 이번 호출이 전이시킴, 0 = 경합(호출부가 409로 분기).
+ *
+ * ⚠️ 이 함수는 **결제상태만** 바꾼다(order_status 등은 건드리지 않음). 어떤 전이가 허용되는지는
+ * 이 함수가 아니라 route.ts 가 paymentTransition.ts 화이트리스트로 먼저 검증한다 — 이 함수는
+ * "검증된 전이를 경합 안전하게 기록"하는 역할만 한다(관심사 분리). '결제취소'로의 전이(취소)는
+ * 이 경로가 아니라 cancel_order_reservation_and_restore RPC(재고 복원 동반)로만 일어난다.
+ */
+export async function updatePaymentStatusGuarded(
+  id: string,
+  fromStatus: string,
+  toStatus: string,
+): Promise<number> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update({ payment_status: toStatus })
+    .eq('id', id)
+    .eq('payment_status', fromStatus)
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 /**

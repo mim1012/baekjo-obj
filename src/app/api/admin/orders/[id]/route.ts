@@ -3,10 +3,16 @@ import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import {
   updateOrderStatus,
+  updatePaymentStatusGuarded,
   cancelReservationAndRestore,
+  getOrderById,
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
-import { logServerError } from '@/lib/logServerError';
+import {
+  isManualPaymentTransitionAllowed,
+  resolveCancelFallbackPaymentWrite,
+} from '@/lib/orders/paymentTransition';
+import { logServerError, logServerWarn } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
   DELIVERY_STATUSES,
@@ -77,6 +83,34 @@ function validate(body: unknown): OrderStatusUpdate | null {
   return updates;
 }
 
+/** 주문이 없어 상태를 바꿀 수 없다 → 404. */
+class OrderNotFoundError extends Error {
+  constructor(id: string) {
+    super(`order-not-found:${id}`);
+    this.name = 'OrderNotFoundError';
+  }
+}
+
+/** 관리자 수동 결제상태 전이가 화이트리스트에 없다 → 409(현재 상태가 이 전이를 허용하지 않음).
+ *  이중 재고복원 재생(취소→'입금대기' 되돌리기)과 증빙 없는 '결제완료' 위조를 여기서 끊는다. */
+class PaymentTransitionError extends Error {
+  constructor(
+    public readonly fromStatus: string,
+    public readonly toStatus: string,
+  ) {
+    super(`invalid-payment-transition:${fromStatus}->${toStatus}`);
+    this.name = 'PaymentTransitionError';
+  }
+}
+
+/** 현재 상태를 읽은 뒤 CAS UPDATE 사이에 다른 요청이 상태를 바꿔 0행 매치 → 409(경합). */
+class PaymentStatusConflictError extends Error {
+  constructor(id: string) {
+    super(`payment-status-conflict:${id}`);
+    this.name = 'PaymentStatusConflictError';
+  }
+}
+
 /**
  * 관리자 취소 요청이면 재고 복원을 취소 RPC(cancelReservationAndRestore)로 배선한다
  * (재고 유실 버그 수정 — 이전엔 관리자 취소가 상태만 바꾸고 복원 RPC를 전혀 호출하지 않았다).
@@ -89,34 +123,71 @@ function validate(body: unknown): OrderStatusUpdate | null {
  * - RPC가 true(복원 수행)면 orderStatus='취소완료'/paymentStatus='결제취소'는 이미 RPC가
  *   세팅했으므로 updateOrderStatus에서 그 두 필드를 제외한 나머지(trackingNumber 등)만 반영한다.
  * - RPC가 false면(이미 결제완료로 확정된 주문을 취소하는 경우 등 — 환불은 별도 절차이므로
- *   의도적으로 복원하지 않는다. 또는 이미 취소된 주문에 대한 멱등 재호출) 기존과 동일하게
- *   updateOrderStatus로 요청된 모든 필드를 그대로 반영한다. 복원이 일어나지 않았음을 로그로
- *   남긴다.
+ *   의도적으로 복원하지 않는다. 또는 이미 취소된 주문에 대한 멱등 재호출) 비결제 필드만
+ *   updateOrderStatus로 반영하고, payment_status는 조건 없이 쓰지 않는다 — '결제완료' 확정 주문의
+ *   취소 기록('결제취소')만 CAS(from='결제완료')로 쓴다(리플레이 우회 봉합, opus HIGH). 복원이
+ *   일어나지 않았음을 로그로 남긴다.
  */
 async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promise<void> {
   const isCancelRequest =
     updates.orderStatus === '취소완료' || updates.paymentStatus === '결제취소';
 
-  if (!isCancelRequest) {
-    await updateOrderStatus(id, updates);
+  if (isCancelRequest) {
+    const restored = await cancelReservationAndRestore(id);
+    if (!restored) {
+      logServerError(
+        `[PATCH /api/admin/orders/[id]] 관리자 취소 요청이나 재고 복원 RPC 미매치(이미 결제완료로 ` +
+          `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
+        {},
+      );
+      // ⚠️ 리플레이 봉합(opus HIGH): fallback 은 payment_status 를 **조건 없이 쓰지 않는다**.
+      // 비결제 필드(orderStatus 등)만 반영하고, 결제상태는 '결제완료' 확정 주문의 취소 기록
+      // ('결제취소')에 한해서만 CAS(from='결제완료')로 쓴다 — 어떤 입력으로도 restore-eligible
+      // 상태('입금대기'/'결제대기')로 되돌릴 수 없어, 재취소 2차 재고복원 우회로가 닫힌다.
+      const { paymentStatus: reqPayment, ...cancelFields } = updates;
+      if (Object.keys(cancelFields).length > 0) {
+        await updateOrderStatus(id, cancelFields);
+      }
+      const write = resolveCancelFallbackPaymentWrite(reqPayment);
+      if (write) {
+        await updatePaymentStatusGuarded(id, write.from, write.to);
+      }
+      return;
+    }
+
+    // RPC가 이미 orderStatus/paymentStatus를 세팅했으므로 나머지 필드만 반영한다.
+    const { orderStatus: _orderStatus, paymentStatus: _paymentStatus, ...rest } = updates;
+    if (Object.keys(rest).length > 0) {
+      await updateOrderStatus(id, rest);
+    }
     return;
   }
 
-  const restored = await cancelReservationAndRestore(id);
-  if (!restored) {
-    logServerError(
-      `[PATCH /api/admin/orders/[id]] 관리자 취소 요청이나 재고 복원 RPC 미매치(이미 결제완료로 ` +
-        `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
-      {},
-    );
-    await updateOrderStatus(id, updates);
-    return;
+  // 비취소 경로: paymentStatus 변경은 조건 없는 UPDATE(updateOrderStatus)로 흘리지 않고 화이트리스트
+  // (isManualPaymentTransitionAllowed) + CAS(updatePaymentStatusGuarded)를 반드시 통과시킨다.
+  // 이게 이중 재고복원 재생과 증빙 없는 '결제완료' 위조를 막는 지점이다. paymentStatus를 떼어낸
+  // 나머지 필드(orderStatus/deliveryStatus/tracking 등)만 updateOrderStatus로 반영한다 — 그래서
+  // 수동 결제상태 변경은 이 라우트에서 updateOrderStatus의 무조건 payment_status 쓰기에 절대
+  // 도달하지 않는다(그 쓰기는 위 취소 경로 전용).
+  const { paymentStatus, ...fields } = updates;
+
+  if (paymentStatus !== undefined) {
+    const current = await getOrderById(id);
+    if (!current) throw new OrderNotFoundError(id);
+
+    // 무변경(같은 값 재전송 — 상세 패널은 결제상태를 항상 함께 보낸다)은 전이가 아니므로 CAS를
+    // 태우지 않고 건너뛴다. 실제로 값이 바뀔 때만 화이트리스트·CAS를 적용한다.
+    if (current.paymentStatus !== paymentStatus) {
+      if (!isManualPaymentTransitionAllowed(current.paymentStatus, paymentStatus)) {
+        throw new PaymentTransitionError(current.paymentStatus, paymentStatus);
+      }
+      const changed = await updatePaymentStatusGuarded(id, current.paymentStatus, paymentStatus);
+      if (changed === 0) throw new PaymentStatusConflictError(id);
+    }
   }
 
-  // RPC가 이미 orderStatus/paymentStatus를 세팅했으므로 나머지 필드만 반영한다.
-  const { orderStatus: _orderStatus, paymentStatus: _paymentStatus, ...rest } = updates;
-  if (Object.keys(rest).length > 0) {
-    await updateOrderStatus(id, rest);
+  if (Object.keys(fields).length > 0) {
+    await updateOrderStatus(id, fields);
   }
 }
 
@@ -156,6 +227,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     await applyOrderUpdates(id, updates);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof OrderNotFoundError) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    // 아래 둘은 정상적인 거절(공격/경합)이라 error 레벨이 아니라 감사용 warn 으로 남긴다.
+    if (error instanceof PaymentTransitionError) {
+      logServerWarn(
+        `[PATCH /api/admin/orders/[id]] 결제상태 전이 거부 orderId=${id}`,
+        { message: `${error.fromStatus}->${error.toStatus}` },
+      );
+      return NextResponse.json({ error: 'invalid-payment-transition' }, { status: 409 });
+    }
+    if (error instanceof PaymentStatusConflictError) {
+      logServerWarn(`[PATCH /api/admin/orders/[id]] 결제상태 경합(CAS 0행) orderId=${id}`, {});
+      return NextResponse.json({ error: 'payment-status-conflict' }, { status: 409 });
+    }
     logServerError('[PATCH /api/admin/orders/[id]] 수정 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
