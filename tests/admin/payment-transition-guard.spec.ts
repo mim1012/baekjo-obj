@@ -2,8 +2,13 @@ import { test, expect } from '@playwright/test';
 import {
   ALLOWED_MANUAL_PAYMENT_TRANSITIONS,
   isManualPaymentTransitionAllowed,
+  resolveCancelFallbackPaymentWrite,
 } from '@/lib/orders/paymentTransition';
 import { PAYMENT_STATUSES } from '@/types';
+
+// restore_stock_for_order(0031 RPC)가 재매치하는 재고 복원 대상 상태. 취소 경로가 이 상태로
+// payment_status 를 되돌리면 재취소 시 이중 복원이 난다.
+const RESTORE_ELIGIBLE = ['결제대기', '입금대기'] as const;
 
 // 관리자 수동 결제상태 전이 가드 순수 함수 스펙 — DB/브라우저/네트워크 불필요.
 // 회귀 배경(W3): PATCH /api/admin/orders/[id]의 결제상태 변경이 조건 없는 UPDATE라, 관리자 UI의
@@ -68,5 +73,41 @@ test.describe('관리자 수동 결제상태 전이 화이트리스트', () => {
     // route.ts applyOrderUpdates가 '결제취소' 요청을 이 가드에 닿기 전에 취소 RPC로 가로챈다.
     expect(ALLOWED_MANUAL_PAYMENT_TRANSITIONS['결제완료']).not.toContain('결제취소');
     expect(ALLOWED_MANUAL_PAYMENT_TRANSITIONS['입금대기']).not.toContain('결제취소');
+  });
+});
+
+// opus HIGH 회귀 — 취소 브랜치 fallback 우회로. 취소 요청은 orderStatus='취소완료' 하나로도
+// isCancelRequest=true 가 되므로, 이미 취소된 주문에 {orderStatus:'취소완료', paymentStatus:'입금대기'}
+// 를 보내면 취소 브랜치 → RPC 0행 → fallback 이 payment_status 를 되돌릴 수 있었다. 이 결정을
+// resolveCancelFallbackPaymentWrite 로 좁혔고, 여기서 그 결정을 라우트 관점으로 고정한다.
+test.describe('취소 fallback 결제상태 쓰기 결정 (리플레이 봉합)', () => {
+  test('3단계 리플레이 — 취소된 주문에 취소완료+입금대기 crafted 요청은 결제상태를 되돌리지 않는다', () => {
+    // 3단계: ① 주문 취소됨(결제취소) → ② 공격이 paymentStatus='입금대기'를 실어 취소 브랜치 재진입 →
+    // ③ fallback 결정. '입금대기'는 '결제취소'가 아니므로 결정은 null = payment_status 미기록.
+    // 재취소가 매치할 '입금대기' 상태 자체가 만들어지지 않아 2차 재고복원이 불가능하다.
+    expect(resolveCancelFallbackPaymentWrite('입금대기')).toBeNull();
+    expect(resolveCancelFallbackPaymentWrite('결제대기')).toBeNull();
+  });
+
+  test('결제완료 확정 주문의 취소 기록만 허용 — {from:결제완료, to:결제취소} (환불 별도, 재고 미복원)', () => {
+    expect(resolveCancelFallbackPaymentWrite('결제취소')).toEqual({ from: '결제완료', to: '결제취소' });
+  });
+
+  test('취소가 아닌/무의미한 paymentStatus(결제완료·환불완료·승인중·undefined)는 기록하지 않는다', () => {
+    expect(resolveCancelFallbackPaymentWrite('결제완료')).toBeNull();
+    expect(resolveCancelFallbackPaymentWrite('환불완료')).toBeNull();
+    expect(resolveCancelFallbackPaymentWrite('승인중')).toBeNull();
+    expect(resolveCancelFallbackPaymentWrite(undefined)).toBeNull();
+  });
+
+  test('어떤 입력으로도 fallback 은 restore-eligible 상태(결제대기·입금대기)로 payment_status 를 쓰지 않는다', () => {
+    // 전수 대조 — from 도 to 도 절대 restore-eligible 이 될 수 없다(우회로 원천 차단).
+    for (const input of [...PAYMENT_STATUSES, undefined]) {
+      const write = resolveCancelFallbackPaymentWrite(input);
+      if (write) {
+        expect(RESTORE_ELIGIBLE).not.toContain(write.from);
+        expect(RESTORE_ELIGIBLE).not.toContain(write.to);
+      }
+    }
   });
 });

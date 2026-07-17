@@ -332,5 +332,18 @@ test.describe.serial('결제 상태기계 — W3 관리자 수동 결제상태 C
     expect(reCancel).toBe(false); // 이미 결제취소라 두 번째 취소 RPC는 0행 매치 → 복원 없음
     expect(await stockOf(P)).toBe(8); // ★재고가 두 번 복원되지 않았다
   });
+
+  test('opus HIGH — 취소 fallback 의 결제완료→결제취소 CAS 는 이미 취소된 주문엔 0행이라 restore-eligible 로 못 되돌린다', async () => {
+    // 고정된 취소 fallback(route.ts)은 오직 from='결제완료' CAS 만 시도한다(resolveCancelFallbackPaymentWrite).
+    // replayOrderId 는 이미 '결제취소'라 이 CAS 는 0행 무변경 — 어떤 취소 재요청도 payment_status 를
+    // '입금대기'/'결제대기'로 되돌리지 못한다. 이게 crafted {취소완료+입금대기} 리플레이 우회로를 닫는
+    // DB 레벨 증거다(fallback 이 '입금대기'를 조건 없이 쓰던 옛 경로였다면 여기서 값이 바뀌어 재취소가
+    // 재매치했을 것).
+    const rows = await q(`update public.orders set payment_status='결제취소'
+                    where id='${replayOrderId}' and payment_status='결제완료' returning id;`);
+    expect(rows).toHaveLength(0);
+    expect((await orderRow(replayOrderId)).payment_status).toBe('결제취소');
+    expect(await stockOf(P)).toBe(8); // 재고 불변
+  });
 });
 });

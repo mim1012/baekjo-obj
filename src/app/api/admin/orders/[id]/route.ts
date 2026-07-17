@@ -8,7 +8,10 @@ import {
   getOrderById,
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
-import { isManualPaymentTransitionAllowed } from '@/lib/orders/paymentTransition';
+import {
+  isManualPaymentTransitionAllowed,
+  resolveCancelFallbackPaymentWrite,
+} from '@/lib/orders/paymentTransition';
 import { logServerError, logServerWarn } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
@@ -120,9 +123,10 @@ class PaymentStatusConflictError extends Error {
  * - RPC가 true(복원 수행)면 orderStatus='취소완료'/paymentStatus='결제취소'는 이미 RPC가
  *   세팅했으므로 updateOrderStatus에서 그 두 필드를 제외한 나머지(trackingNumber 등)만 반영한다.
  * - RPC가 false면(이미 결제완료로 확정된 주문을 취소하는 경우 등 — 환불은 별도 절차이므로
- *   의도적으로 복원하지 않는다. 또는 이미 취소된 주문에 대한 멱등 재호출) 기존과 동일하게
- *   updateOrderStatus로 요청된 모든 필드를 그대로 반영한다. 복원이 일어나지 않았음을 로그로
- *   남긴다.
+ *   의도적으로 복원하지 않는다. 또는 이미 취소된 주문에 대한 멱등 재호출) 비결제 필드만
+ *   updateOrderStatus로 반영하고, payment_status는 조건 없이 쓰지 않는다 — '결제완료' 확정 주문의
+ *   취소 기록('결제취소')만 CAS(from='결제완료')로 쓴다(리플레이 우회 봉합, opus HIGH). 복원이
+ *   일어나지 않았음을 로그로 남긴다.
  */
 async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promise<void> {
   const isCancelRequest =
@@ -136,7 +140,18 @@ async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promis
           `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
         {},
       );
-      await updateOrderStatus(id, updates);
+      // ⚠️ 리플레이 봉합(opus HIGH): fallback 은 payment_status 를 **조건 없이 쓰지 않는다**.
+      // 비결제 필드(orderStatus 등)만 반영하고, 결제상태는 '결제완료' 확정 주문의 취소 기록
+      // ('결제취소')에 한해서만 CAS(from='결제완료')로 쓴다 — 어떤 입력으로도 restore-eligible
+      // 상태('입금대기'/'결제대기')로 되돌릴 수 없어, 재취소 2차 재고복원 우회로가 닫힌다.
+      const { paymentStatus: reqPayment, ...cancelFields } = updates;
+      if (Object.keys(cancelFields).length > 0) {
+        await updateOrderStatus(id, cancelFields);
+      }
+      const write = resolveCancelFallbackPaymentWrite(reqPayment);
+      if (write) {
+        await updatePaymentStatusGuarded(id, write.from, write.to);
+      }
       return;
     }
 

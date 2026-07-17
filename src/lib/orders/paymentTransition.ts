@@ -31,3 +31,30 @@ export function isManualPaymentTransitionAllowed(from: string, to: string): bool
   const allowed = ALLOWED_MANUAL_PAYMENT_TRANSITIONS[from as PaymentStatus];
   return allowed?.includes(to as PaymentStatus) ?? false;
 }
+
+// 취소 요청 중 재고 복원 RPC 가 매치하지 않은(0행) 경우의 payment_status 처리 결정(순수 함수).
+// route.ts applyOrderUpdates 의 취소 fallback 이 이 결정만 실행한다.
+//
+// ⚠️ 왜 필요한가(opus HIGH): 취소 fallback 이 요청의 paymentStatus 를 조건 없이 기록하면 리플레이
+// 우회로가 열린다 — 이미 취소된 주문에 {orderStatus:'취소완료', paymentStatus:'입금대기'} 를 보내면
+// isCancelRequest=true 로 취소 브랜치에 진입하고, RPC 0행 후 fallback 이 payment_status='입금대기'
+// 로 되돌려 재취소 시 0031 RPC 가 재매치 → 재고 2차 복원. 그래서 fallback 이 쓸 수 있는 값은 오직
+// 하나뿐이다: '결제완료' 확정 주문을 '결제취소'로 취소 기록(환불은 별도라 재고 미복원 — 기존
+// 시맨틱 보존). from='결제완료'로 고정된 CAS 라, 어떤 입력으로도 restore-eligible 상태
+// ('결제대기'/'입금대기')로는 payment_status 를 절대 쓸 수 없다.
+export const CANCEL_RECORD_FROM: PaymentStatus = '결제완료';
+export const CANCEL_RECORD_TO: PaymentStatus = '결제취소';
+
+/**
+ * 취소 fallback 이 수행할 CAS 결제상태 쓰기를 결정한다. null = payment_status 를 건드리지 않음.
+ * '결제취소' 요청일 때만 {from:'결제완료', to:'결제취소'} 를 돌려준다 — CAS from 이 '결제완료'라
+ * 실제로 확정 주문일 때만 기록되고, 그 외(취소·환불·승인중·pending)엔 0행 no-op 이 된다.
+ */
+export function resolveCancelFallbackPaymentWrite(
+  requestedPaymentStatus: string | undefined,
+): { from: PaymentStatus; to: PaymentStatus } | null {
+  if (requestedPaymentStatus === CANCEL_RECORD_TO) {
+    return { from: CANCEL_RECORD_FROM, to: CANCEL_RECORD_TO };
+  }
+  return null;
+}

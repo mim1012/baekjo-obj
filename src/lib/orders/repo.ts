@@ -181,7 +181,9 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
-/** 관리자 주문 상태 변경. 허용 필드만 반영한다(라우트에서 화이트리스트 검증됨). */
+/** 관리자 주문 상태 변경 요청(라우트에서 화이트리스트 검증됨). paymentStatus 는 취소 감지·전이 판정에
+ *  쓰이지만 **updateOrderStatus 로는 절대 흐르지 않는다**(아래 OrderFieldsUpdate 로 배제) — 결제상태
+ *  쓰기는 오직 updatePaymentStatusGuarded(CAS)와 취소 RPC 로만 일어난다. */
 export type OrderStatusUpdate = Partial<
   Pick<
     Order,
@@ -189,10 +191,13 @@ export type OrderStatusUpdate = Partial<
   >
 >;
 
-export async function updateOrderStatus(id: string, updates: OrderStatusUpdate): Promise<void> {
+/** updateOrderStatus 가 받는 비결제 필드 집합. paymentStatus 를 타입 레벨에서 제외해, 조건 없는
+ *  payment_status 쓰기 경로가 이 함수에 **한 줄도** 남지 않게 강제한다(리플레이 우회 봉합, opus HIGH). */
+export type OrderFieldsUpdate = Omit<OrderStatusUpdate, 'paymentStatus'>;
+
+export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate): Promise<void> {
   const patch: Record<string, string | null> = {};
   if (updates.orderStatus !== undefined) patch.order_status = updates.orderStatus;
-  if (updates.paymentStatus !== undefined) patch.payment_status = updates.paymentStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
   // 빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
   // 매번 falsy 검사를 해야 한다. trackingNumber/carrier가 같은 규칙을 따라야 `tracking_number IS NULL`
