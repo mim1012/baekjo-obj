@@ -195,16 +195,23 @@ export type OrderStatusUpdate = Partial<
  *  payment_status 쓰기 경로가 이 함수에 **한 줄도** 남지 않게 강제한다(리플레이 우회 봉합, opus HIGH). */
 export type OrderFieldsUpdate = Omit<OrderStatusUpdate, 'paymentStatus'>;
 
-export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate): Promise<void> {
+/** 비결제 필드(OrderFieldsUpdate)를 snake_case 컬럼 patch로 변환한다. updateOrderStatus 와
+ *  updatePaymentStatusGuarded(동반 필드 원자 반영)가 **같은** 정규화를 쓰도록 단일화한다.
+ *  빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
+ *  매번 falsy 검사를 해야 하고, `tracking_number IS NULL` 같은 운영 쿼리(미발송 주문 조회 등)가
+ *  조용히 어긋난다. */
+function buildOrderFieldsPatch(updates: OrderFieldsUpdate): Record<string, string | null> {
   const patch: Record<string, string | null> = {};
   if (updates.orderStatus !== undefined) patch.order_status = updates.orderStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
-  // 빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
-  // 매번 falsy 검사를 해야 한다. trackingNumber/carrier가 같은 규칙을 따라야 `tracking_number IS NULL`
-  // 같은 운영 쿼리(미발송 주문 조회 등)가 조용히 어긋나지 않는다.
   if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber || null;
   if (updates.carrier !== undefined) patch.carrier = updates.carrier || null;
   if (updates.deliveryMemo !== undefined) patch.delivery_memo = updates.deliveryMemo ?? null;
+  return patch;
+}
+
+export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate): Promise<void> {
+  const patch = buildOrderFieldsPatch(updates);
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await getSupabase().from('orders').update(patch).eq('id', id);
@@ -217,19 +224,26 @@ export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate):
  * 사이에 다른 요청이 상태를 바꿨으면 0행 매치로 무성 no-op 이 된다(경합 안전). 반환값 = 영향받은
  * 행 수. 1 = 이번 호출이 전이시킴, 0 = 경합(호출부가 409로 분기).
  *
- * ⚠️ 이 함수는 **결제상태만** 바꾼다(order_status 등은 건드리지 않음). 어떤 전이가 허용되는지는
- * 이 함수가 아니라 route.ts 가 paymentTransition.ts 화이트리스트로 먼저 검증한다 — 이 함수는
- * "검증된 전이를 경합 안전하게 기록"하는 역할만 한다(관심사 분리). '결제취소'로의 전이(취소)는
- * 이 경로가 아니라 cancel_order_reservation_and_restore RPC(재고 복원 동반)로만 일어난다.
+ * ⚠️ 어떤 전이가 허용되는지는 이 함수가 아니라 route.ts 가 paymentTransition.ts 화이트리스트로 먼저
+ * 검증한다 — 이 함수는 "검증된 전이를 경합 안전하게 기록"하는 역할만 한다(관심사 분리). '결제취소'로의
+ * 전이(취소)는 이 경로가 아니라 cancel_order_reservation_and_restore RPC(재고 복원 동반)로만 일어난다.
+ *
+ * ⚠️ extraFields(동반 비결제 필드)를 **같은 조건부 UPDATE 에 실어** 원자화한다(codex MEDIUM). 관리자
+ * 상세 폼(OrderStatusPanel)은 결제상태 전이와 orderStatus/tracking 등을 한 번에 제출하는데, 이를 CAS
+ * 한 방과 updateOrderStatus 한 방으로 나누면 2번째 실패 시 payment_status 만 커밋되는 부분 쓰기가
+ * 난다. 하나의 UPDATE(WHERE payment_status=<from>)로 묶어 전이와 나머지 필드가 함께 커밋되거나 함께
+ * 무산되게 한다.
  */
 export async function updatePaymentStatusGuarded(
   id: string,
   fromStatus: string,
   toStatus: string,
+  extraFields: OrderFieldsUpdate = {},
 ): Promise<number> {
+  const patch = { payment_status: toStatus, ...buildOrderFieldsPatch(extraFields) };
   const { data, error } = await getSupabase()
     .from('orders')
-    .update({ payment_status: toStatus })
+    .update(patch)
     .eq('id', id)
     .eq('payment_status', fromStatus)
     .select('id');

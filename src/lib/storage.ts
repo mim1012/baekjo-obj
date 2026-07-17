@@ -363,7 +363,17 @@ export async function updateOrderStatus(
     body: JSON.stringify(updates),
   });
   if (!response.ok) {
-    throw new Error('order-update-failed');
+    // 서버가 준 구체 코드(invalid-payment-transition / payment-status-conflict / not-found 등)를
+    // Error 메시지에 실어 호출부가 결제상태 전이 거부·경합을 구분·안내할 수 있게 한다. 콘센트
+    // 시그니처는 불변(throw Error 유지) — body 파싱 실패 시 기존 일반 코드로 폴백한다.
+    let code = 'order-update-failed';
+    try {
+      const body = (await response.json()) as { error?: unknown };
+      if (typeof body?.error === 'string' && body.error) code = body.error;
+    } catch {
+      /* 본문 없음/비JSON — 일반 코드 유지 */
+    }
+    throw new Error(code);
   }
 }
 
