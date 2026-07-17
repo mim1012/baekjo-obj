@@ -248,6 +248,14 @@ export const ORDER_STATUSES = [
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
+export const DELIVERY_STATUSES = [
+  '배송전',
+  '배송준비',
+  '배송중',
+  '배송완료',
+] as const;
+
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /**
  * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.

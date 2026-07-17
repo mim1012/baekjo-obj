@@ -36,7 +36,9 @@ test.describe('주문 목록 상태 변경 UX', () => {
   test('상세 화면의 결제 상태 select 도 입금대기 값을 잃지 않는다', () => {
     const detailPanel = src('src', 'components', 'admin-new', 'orders', 'OrderStatusPanel.tsx');
 
-    expect(detailPanel).toContain("import { PAYMENT_STATUSES, type Order } from '@/types'");
+    expect(detailPanel).toContain('PAYMENT_STATUSES');
+    expect(detailPanel).toContain('ORDER_STATUSES.map');
+    expect(detailPanel).toContain('DELIVERY_STATUSES.map');
     expect(detailPanel).toContain('PAYMENT_STATUSES.map');
     expect(detailPanel).not.toContain('<option value="결제대기">결제대기</option>');
   });

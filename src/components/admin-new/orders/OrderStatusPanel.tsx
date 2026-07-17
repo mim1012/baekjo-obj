@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { PAYMENT_STATUSES, type Order } from '@/types';
+import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
 import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import FormSection from '@/components/admin-new/common/FormSection';
@@ -61,14 +61,11 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
               onChange={(e) => handleChange('orderStatus', e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
             >
-              <option value="주문접수">주문접수</option>
-              <option value="결제완료">결제완료</option>
-              <option value="배송준비">배송준비</option>
-              <option value="배송중">배송중</option>
-              <option value="배송완료">배송완료</option>
-              <option value="취소요청">취소요청</option>
-              <option value="취소완료">취소완료</option>
-              <option value="환불완료">환불완료</option>
+              {ORDER_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </FormField>
 
@@ -92,10 +89,11 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
               onChange={(e) => handleChange('deliveryStatus', e.target.value)}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
             >
-              <option value="배송전">배송전</option>
-              <option value="배송준비">배송준비</option>
-              <option value="배송중">배송중</option>
-              <option value="배송완료">배송완료</option>
+              {DELIVERY_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
             </select>
           </FormField>
 
