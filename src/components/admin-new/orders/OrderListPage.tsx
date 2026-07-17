@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { FileText, CreditCard, Truck, RefreshCcw, Wallet } from 'lucide-react';
-import { getAllOrders, updateOrderStatus } from '@/lib/storage';
+import { FileText, CreditCard, Truck, RefreshCcw, Wallet, X } from 'lucide-react';
+import { getAllOrders, updateOrderStatus, getAdminBrands } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
@@ -10,22 +10,25 @@ import Pagination from '@/components/admin-new/common/Pagination';
 import LoadingState from '@/components/admin-new/common/LoadingState';
 import ErrorState from '@/components/admin-new/common/ErrorState';
 import OrderFilters from './OrderFilters';
+import OrderFunnelTabs, { type FunnelTab } from './OrderFunnelTabs';
 import OrderDataTable from './OrderDataTable';
 import OrderMobileCard from './OrderMobileCard';
-import type { Order } from '@/types';
-import type { OrderInlineStatusUpdate } from './OrderInlineStatusControls';
+import { deriveFunnelStage, stageCounts } from './orderFunnel';
+import { DEPOSIT_CONFIRM_UPDATE, type OrderStatusUpdate } from './DepositConfirmButton';
+import type { Brand, Order } from '@/types';
 
 export default function OrderListPage() {
   const mounted = useMounted();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [brandMap, setBrandMap] = useState<Record<string, Brand>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [savingOrderIds, setSavingOrderIds] = useState<Set<string>>(new Set());
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [orderStatusFilter, setOrderStatusFilter] = useState('전체');
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState('전체');
-  const [deliveryStatusFilter, setDeliveryStatusFilter] = useState('전체');
+  const [activeTab, setActiveTab] = useState<FunnelTab>('전체');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkRunning, setBulkRunning] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -44,7 +47,12 @@ export default function OrderListPage() {
 
   useEffect(() => {
     (async () => {
-      await loadOrders();
+      // 브랜드 맵은 발송처리 팝오버의 기본 택배사·업체명 프리필용 — 실패해도 목록은 뜬다.
+      const [, brands] = await Promise.all([
+        loadOrders(),
+        getAdminBrands().catch(() => [] as Brand[]),
+      ]);
+      setBrandMap(Object.fromEntries(brands.map((b) => [b.id, b])));
     })();
   }, [loadOrders]);
 
@@ -52,23 +60,21 @@ export default function OrderListPage() {
     setLoading(true);
     loadOrders();
   }, [loadOrders]);
-  const handleInlineStatusChange = useCallback(async (id: string, updates: OrderInlineStatusUpdate) => {
+
+  // 입금확인(단건) — 결제상태만 '결제완료'로 낙관적 전이 후 서버 반영, 실패 시 롤백.
+  const handleDepositConfirm = useCallback(async (id: string, updates: OrderStatusUpdate) => {
     const previousOrder = orders.find((order) => order.id === id);
     if (!previousOrder) return;
 
     setSavingOrderIds((prev) => new Set(prev).add(id));
-    setOrders((prev) => prev.map((order) => (
-      order.id === id ? { ...order, ...updates } : order
-    )));
+    setOrders((prev) => prev.map((order) => (order.id === id ? { ...order, ...updates } : order)));
 
     try {
       await updateOrderStatus(id, updates);
       await loadOrders();
     } catch {
-      setOrders((prev) => prev.map((order) => (
-        order.id === id ? previousOrder : order
-      )));
-      alert('주문 상태 변경에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      setOrders((prev) => prev.map((order) => (order.id === id ? previousOrder : order)));
+      alert('입금확인 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
     } finally {
       setSavingOrderIds((prev) => {
         const next = new Set(prev);
@@ -78,11 +84,11 @@ export default function OrderListPage() {
     }
   }, [loadOrders, orders]);
 
-  const filteredOrders = useMemo(() => {
+  // 검색만 먼저 적용(탭 카운트는 검색 범위 기준으로 센다).
+  const searchedOrders = useMemo(() => {
     let result = [...orders].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
@@ -93,52 +99,101 @@ export default function OrderListPage() {
           o.items.some((item) => item.productName.toLowerCase().includes(term))
       );
     }
-
-    if (orderStatusFilter !== '전체') {
-      result = result.filter((o) => o.orderStatus === orderStatusFilter);
-    }
-    if (paymentStatusFilter !== '전체') {
-      result = result.filter((o) => o.paymentStatus === paymentStatusFilter);
-    }
-    if (deliveryStatusFilter !== '전체') {
-      result = result.filter((o) => o.deliveryStatus === deliveryStatusFilter);
-    }
-
     return result;
-  }, [orders, searchTerm, orderStatusFilter, paymentStatusFilter, deliveryStatusFilter]);
+  }, [orders, searchTerm]);
+
+  const counts = useMemo(() => stageCounts(searchedOrders), [searchedOrders]);
+
+  // 탭(진행 단계)이 1차 필터.
+  const filteredOrders = useMemo(() => {
+    if (activeTab === '전체') return searchedOrders;
+    return searchedOrders.filter((o) => deriveFunnelStage(o) === activeTab);
+  }, [searchedOrders, activeTab]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
   const paginatedOrders = useMemo(() => {
     return filteredOrders.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
   }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
+  // 일괄 입금확인은 입금대기 탭에서만 제공한다(발송대기는 송장이 주문별 입력이라 일괄 불가 → 선택 자체를 끈다).
+  const selectable = activeTab === '입금대기';
+
+  const resetSelectionAndPage = useCallback(() => {
+    setSelectedIds([]);
+    setCurrentPage(1);
+  }, []);
+
   const handleSearchChange = useCallback((val: string) => {
     setSearchTerm(val);
-    setCurrentPage(1);
+    resetSelectionAndPage();
+  }, [resetSelectionAndPage]);
+
+  const handleTabChange = useCallback((tab: FunnelTab) => {
+    setActiveTab(tab);
+    resetSelectionAndPage();
+  }, [resetSelectionAndPage]);
+
+  // 페이지 이동 시 선택을 초기화한다. 선택이 페이지를 넘어 유지되면 화면에 없는 행을 일괄
+  // 입금확인하게 되고(운영 무결성), DataTable 헤더 체크박스 표시도 어긋난다 — 탭/검색 변경과 동일하게 초기화.
+  const handlePageChange = useCallback((page: number) => {
+    setSelectedIds([]);
+    setCurrentPage(page);
   }, []);
 
-  const handleOrderStatusChange = useCallback((val: string) => {
-    setOrderStatusFilter(val);
-    setCurrentPage(1);
+  const handleSelect = useCallback((id: string, checked: boolean) => {
+    setSelectedIds((prev) => (checked ? [...prev, id] : prev.filter((x) => x !== id)));
   }, []);
 
-  const handlePaymentStatusChange = useCallback((val: string) => {
-    setPaymentStatusFilter(val);
-    setCurrentPage(1);
-  }, []);
+  // 전체선택 범위는 현재 페이지(DataTable 헤더 체크박스 상태와 일치시키기 위함).
+  const handleSelectAll = useCallback((checked: boolean) => {
+    setSelectedIds(checked ? paginatedOrders.map((o) => o.id) : []);
+  }, [paginatedOrders]);
 
-  const handleDeliveryStatusChange = useCallback((val: string) => {
-    setDeliveryStatusFilter(val);
-    setCurrentPage(1);
-  }, []);
+  // 일괄 입금확인 — 같은 입금확인 경로를 순차 호출하고 성공/실패를 집계해 요약을 보여준다.
+  const handleBulkDepositConfirm = useCallback(async () => {
+    if (selectedIds.length === 0) return;
+    const confirmed = window.confirm(
+      `선택한 ${selectedIds.length}건의 입금을 확인 처리하시겠습니까?\n\n` +
+        `· 각 주문의 결제상태가 '결제완료'로 변경됩니다(주문상태는 그대로).\n\n` +
+        `⚠️ 확인 후에는 미결제 취소로 재고가 자동 복원되지 않습니다. 실제 입금을 확인한 뒤 진행하세요.`
+    );
+    if (!confirmed) return;
+
+    const targets = [...selectedIds];
+    setBulkRunning(true);
+    setSavingOrderIds(new Set(targets));
+
+    let success = 0;
+    const failedIds: string[] = [];
+    for (const id of targets) {
+      try {
+        await updateOrderStatus(id, DEPOSIT_CONFIRM_UPDATE);
+        success += 1;
+      } catch {
+        failedIds.push(id);
+      }
+    }
+
+    await loadOrders();
+    setSelectedIds([]);
+    setSavingOrderIds(new Set());
+    setBulkRunning(false);
+
+    if (failedIds.length === 0) {
+      alert(`${success}건 모두 입금확인 완료했습니다.`);
+    } else {
+      alert(
+        `${targets.length}건 중 ${success}건 완료, ${failedIds.length}건 실패했습니다.\n` +
+          `실패 주문: ${failedIds.join(', ')}`
+      );
+    }
+  }, [selectedIds, loadOrders]);
 
   const handleDepositPendingClick = useCallback(() => {
     setSearchTerm('');
-    setOrderStatusFilter('전체');
-    setDeliveryStatusFilter('전체');
-    setPaymentStatusFilter('입금대기');
-    setCurrentPage(1);
-  }, []);
+    setActiveTab('입금대기');
+    resetSelectionAndPage();
+  }, [resetSelectionAndPage]);
 
   if (!mounted) return null;
 
@@ -172,9 +227,9 @@ export default function OrderListPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader 
-        title="주문 관리" 
-        description="접수부터 결제, 배송, 취소까지 고객 주문의 전체 흐름을 관리합니다." 
+      <PageHeader
+        title="주문 관리"
+        description="접수부터 결제, 배송, 취소까지 고객 주문의 전체 흐름을 관리합니다."
       />
 
       <SummaryStrip
@@ -188,16 +243,42 @@ export default function OrderListPage() {
       />
 
       <div className="space-y-4">
-        <OrderFilters
-          searchTerm={searchTerm}
-          onSearchChange={handleSearchChange}
-          orderStatus={orderStatusFilter}
-          onOrderStatusChange={handleOrderStatusChange}
-          paymentStatus={paymentStatusFilter}
-          onPaymentStatusChange={handlePaymentStatusChange}
-          deliveryStatus={deliveryStatusFilter}
-          onDeliveryStatusChange={handleDeliveryStatusChange}
+        <OrderFunnelTabs
+          active={activeTab}
+          counts={counts}
+          totalCount={searchedOrders.length}
+          onChange={handleTabChange}
         />
+
+        <OrderFilters searchTerm={searchTerm} onSearchChange={handleSearchChange} />
+
+        {/* 일괄 입금확인 바 — 입금대기 탭에서 1건 이상 선택 시 노출. */}
+        {selectable && selectedIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#2F3B34]/20 bg-[#F4F2EC] px-4 py-3">
+            <span className="text-[14px] font-medium text-[#17201B]">
+              {selectedIds.length}건 선택됨
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBulkDepositConfirm}
+                disabled={bulkRunning}
+                className="inline-flex items-center gap-1.5 rounded-md bg-[#2F3B34] px-4 py-1.5 text-[13px] font-medium text-white hover:bg-[#232B25] disabled:cursor-wait disabled:bg-gray-300"
+              >
+                <Wallet className="w-4 h-4" />
+                {bulkRunning ? '처리 중...' : `선택 ${selectedIds.length}건 입금확인`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                disabled={bulkRunning}
+                className="inline-flex items-center gap-1 rounded-md border border-gray-300 px-3 py-1.5 text-[13px] font-medium text-gray-600 hover:bg-white disabled:opacity-50"
+              >
+                <X className="w-3.5 h-3.5" /> 선택 해제
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* PC Table View */}
         <div className="hidden md:block">
@@ -205,7 +286,13 @@ export default function OrderListPage() {
             orders={paginatedOrders}
             isLoading={loading}
             savingOrderIds={savingOrderIds}
-            onStatusChange={handleInlineStatusChange}
+            onDepositConfirm={handleDepositConfirm}
+            brandMap={brandMap}
+            onShipped={loadOrders}
+            selectable={selectable}
+            selectedIds={selectedIds}
+            onSelect={handleSelect}
+            onSelectAll={handleSelectAll}
           />
         </div>
 
@@ -221,7 +308,9 @@ export default function OrderListPage() {
                 key={order.id}
                 order={order}
                 saving={savingOrderIds.has(order.id)}
-                onStatusChange={handleInlineStatusChange}
+                onDepositConfirm={handleDepositConfirm}
+                brandMap={brandMap}
+                onShipped={loadOrders}
               />
             ))
           )}
@@ -232,7 +321,7 @@ export default function OrderListPage() {
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={setCurrentPage}
+              onPageChange={handlePageChange}
             />
           </div>
         )}

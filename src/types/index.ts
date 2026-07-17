@@ -316,7 +316,7 @@ export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
 
 /**
  * 배송 상태 — Order.deliveryStatus가 실제로 받아들이는 값의 전수. `src/app/api/admin/orders/[id]/route.ts`
- * 와 `src/components/admin-new/orders/OrderInlineStatusControls.tsx`가 이 배열을 직접 import해서
+ * 와 `src/components/admin-new/orders/orderFunnel.ts`(목록 퍼널 파생)가 이 배열을 직접 import해서
  * 쓴다(로컬 리터럴 사본 금지 — §4.6: 화이트리스트를 두 곳에 두면 드리프트). Order.deliveryStatus
  * 자체는 레거시 호환 때문에 여전히 string이지만(위 PaymentStatus와 동일한 이유), 스마트택배
  * 연동처럼 "이 배송 상태로 정규화한다"를 타입으로 강제해야 하는 새 코드는 로컬 유니온을 만들지
@@ -330,7 +330,7 @@ export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
  * 업체별 배송(Shipment.deliveryStatus)이 받아들이는 값의 전수 — DELIVERY_STATUSES에 '구매확정'을
  * 가산한 상위집합. '구매확정'은 고객 버튼(D-2, POST .../confirm) 또는 자동확정 크론만이 만드는
  * 종결 상태라 **주문 단위 레거시(Order.deliveryStatus)에는 존재하지 않는다** — 주문 단위 화이트리스트
- * (관리자 PATCH·OrderInlineStatusControls)는 계속 DELIVERY_STATUSES를 쓰고, 여기에 '구매확정'을
+ * (관리자 PATCH·상세 OrderStatusPanel)는 계속 DELIVERY_STATUSES를 쓰고, 여기에 '구매확정'을
  * 섞지 말 것(관리자가 주문 단위 select에서 고객 확정을 임의 세팅하는 경로가 생긴다).
  */
 export const SHIPMENT_DELIVERY_STATUSES = [...DELIVERY_STATUSES, '구매확정'] as const;
