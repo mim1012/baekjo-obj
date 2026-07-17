@@ -85,12 +85,12 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
     >
       <div className="h-[60px] flex items-center justify-between px-4 border-b border-gray-200">
         {!collapsed && (
-          <Link href="/admin" className="font-bold text-[18px] text-[#17201B] truncate">
+          <Link href="/" className="font-bold text-[18px] text-[#17201B] truncate" aria-label="백조오브제 홈">
             백조오브제
           </Link>
         )}
         {collapsed && (
-          <Link href="/admin" className="mx-auto font-bold text-[18px] text-[#17201B]">
+          <Link href="/" className="mx-auto font-bold text-[18px] text-[#17201B]" aria-label="백조오브제 홈">
             B
           </Link>
         )}
