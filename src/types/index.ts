@@ -551,6 +551,26 @@ export interface Partner {
   isDelivered: boolean;
 }
 
+/* ── B2B 제휴 문의(공개 폼 제출 → 관리자 접수함) ─────────────────────────
+ * admin/partners(제휴처 마스터 config)와는 별개의 "제출 레코드 누적" 도메인.
+ * status 는 배열을 SSOT 로 두고 타입을 파생한다(ORDER_STATUSES 관용구, §10-9). */
+export const PARTNER_INQUIRY_STATUSES = ['접수', '상담중', '완료', '보류'] as const;
+
+export type PartnerInquiryStatus = (typeof PARTNER_INQUIRY_STATUSES)[number];
+
+export interface PartnerInquiry {
+  id: string;
+  companyName: string;
+  contactPerson: string;
+  phone: string;
+  email: string;
+  partnerType: Partner['type'];
+  message: string;
+  status: PartnerInquiryStatus;
+  memo?: string;
+  createdAt: string;
+}
+
 /* ── 관리자 대시보드 요약(가산 타입, GET /api/admin/dashboard 전용) ────── */
 export interface AdminDashboardRecentOrder {
   id: string;

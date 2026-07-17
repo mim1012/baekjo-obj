@@ -7,11 +7,15 @@ const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativeP
 
 test.describe('brand naming normalization', () => {
   test('home uses the full Baekjo Objet Audit label', () => {
+    // PR #112(홈 문구 → 관리자 설정 이관)로 홈 카피의 정본이 HomeClient 하드코딩에서
+    // src/data/homeContent.ts 의 defaultHomeSettings 로 이동했다. 라벨 표기는 정본에서 검증한다.
     const home = read('src/components/home/HomeClient.tsx');
+    const defaults = read('src/data/homeContent.ts');
 
-    expect(home).toContain('백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.');
-    expect(home).toContain('백조오브제 Audit</span>');
+    expect(defaults).toContain('백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.');
+    expect(defaults).toContain("badge: '백조오브제 Audit'");
     expect(home).not.toContain('백조 Audit');
+    expect(defaults).not.toContain('백조 Audit');
   });
 
   // NOTE: the former "canonical seed data" assertion read src/data/{brands,products}.ts,

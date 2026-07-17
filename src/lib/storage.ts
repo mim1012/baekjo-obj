@@ -4,6 +4,7 @@ import {
   ConfirmedOrderSummary,
   InsuranceApplication,
   Order,
+  PartnerInquiry,
   Product,
   Shipment,
   User,
@@ -164,6 +165,74 @@ export async function updateInsuranceContacted(id: string, contacted: boolean): 
   });
   if (!response.ok) {
     throw new Error('insurance-update-failed');
+  }
+}
+
+/* ── B2B 제휴 문의(케어키트 랜딩 → 관리자 접수함) ─────────────────────────
+ * 생성은 POST /api/partner-inquiries(공개·게스트 허용), 관리자 목록은 GET /api/admin/partner-inquiries,
+ * 상태 변경은 PATCH /api/admin/partner-inquiries/[id]. 컴포넌트는 fetch 를 직접 하지 않고
+ * 아래 콘센트만 거친다(§4). 실패는 insurance 와 동일하게 읽기=빈 배열, 쓰기=throw 로 접는다.
+ */
+
+/**
+ * 제휴 문의 생성 입력(콘센트). id/createdAt/status/memo 는 서버(POST /api/partner-inquiries)가
+ * 정하므로 클라이언트는 신뢰시키지 않는다(mass-assignment·상태 위조 차단).
+ */
+export type CreatePartnerInquiryInput = Omit<
+  PartnerInquiry,
+  'id' | 'createdAt' | 'status' | 'memo'
+>;
+
+/**
+ * 제휴 문의 생성. POST /api/partner-inquiries(공개 — 게스트 제출 허용). 서버가 id·createdAt·status 를
+ * 정한다. 실패 시 throw — 호출부(랜딩 폼)가 사용자에게 실패를 알릴 수 있도록(addInsuranceApplication 과 동일 계약).
+ */
+export async function addPartnerInquiry(input: CreatePartnerInquiryInput): Promise<PartnerInquiry> {
+  const response = await fetch('/api/partner-inquiries', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (response.status !== 201) {
+    throw new Error('partner-inquiry-create-failed');
+  }
+  const { inquiry } = (await response.json()) as { inquiry: PartnerInquiry };
+  return inquiry;
+}
+
+/**
+ * 전체 제휴 문의 목록(관리자). GET /api/admin/partner-inquiries. 권한 없음·실패 시 빈 배열
+ * (getInsuranceApplications 와 동일한 실패 계약).
+ */
+export async function getAdminPartnerInquiries(): Promise<PartnerInquiry[]> {
+  try {
+    const response = await fetch('/api/admin/partner-inquiries');
+    if (!response.ok) return [];
+    const { inquiries } = (await response.json()) as { inquiries: PartnerInquiry[] };
+    return inquiries;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 제휴 문의 상태/메모 변경(관리자). PATCH /api/admin/partner-inquiries/[id]. 실패 시 throw 해
+ * 호출부가 사용자에게 알리거나 재조회할 수 있게 한다(updateInsuranceStatus 와 동일 계약).
+ */
+export async function updatePartnerInquiryStatus(
+  id: string,
+  status: PartnerInquiry['status'],
+  memo?: string,
+): Promise<void> {
+  const body: { status: PartnerInquiry['status']; memo?: string } = { status };
+  if (memo !== undefined) body.memo = memo;
+  const response = await fetch(`/api/admin/partner-inquiries/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('partner-inquiry-update-failed');
   }
 }
 
