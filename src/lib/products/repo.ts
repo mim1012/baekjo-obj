@@ -2,7 +2,7 @@
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
-import { splitProductInput } from '@/lib/products/splitProductInput';
+import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
@@ -186,6 +186,7 @@ export function assertPriceInvariant(merged: Pick<Product, 'price' | 'salePrice'
   return merged.salePrice <= merged.price;
 }
 
+
 /**
  * 관리자 상품 수정. jsonb detail은 supabase update가 부분 병합을 지원하지 않으므로,
  * 기존 행을 Product로 읽어 patch를 얹은 뒤 컬럼/디테일을 통째로 다시 나눠 쓴다
@@ -200,7 +201,7 @@ export async function updateProduct(
   const existing = await getProductById(id, { includeHidden: true });
   if (!existing) return { status: 'not-found' };
 
-  const merged: Product = { ...existing, ...patch, id: existing.id };
+  const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
 
   const { columns, detail } = splitProductInput(merged);
@@ -248,7 +249,7 @@ export async function updateProductScoped(
   const existing = await getProductById(id, { includeHidden: true });
   if (!existing) return { status: 'not-found' };
 
-  const merged: Product = { ...existing, ...patch, id: existing.id };
+  const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
 
   const { columns, detail } = splitProductInput(merged);
