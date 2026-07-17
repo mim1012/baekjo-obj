@@ -13,3 +13,11 @@
 alter table public.shipments
   add column if not exists delivered_at timestamptz,
   add column if not exists confirmed_at timestamptz;
+
+-- 백필: 이 마이그레이션 이전에 이미 '배송완료'였던 행은 이후 PATCH 전이가 없는 한 delivered_at이
+-- 영영 null로 남아 자동확정 크론의 대상에서 조용히 빠진다(codex 리뷰 M1). 실제 배송완료 시각은
+-- 알 수 없으므로 now()로 찍는다 — created_at으로 소급하면 마이그레이션 직후 크론이 과거 건을
+-- 일괄 확정해버릴 수 있어, "지금부터 N일" 쪽이 고객 확정 권리에 보수적이다.
+update public.shipments
+  set delivered_at = now()
+  where delivery_status = '배송완료' and delivered_at is null;
