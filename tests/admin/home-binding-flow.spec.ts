@@ -22,12 +22,15 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain("export const dynamic = 'force-dynamic'");
     expect(pageSource).toContain('listProducts({ visibleOnly: true })');
     expect(pageSource).toContain('listBrands(true)');
+    // 공지도 DB 정본(notices_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
+    expect(pageSource).toContain("import { getNoticesConfigWithFallback } from '@/lib/notices/repo'");
+    expect(pageSource).toContain('getNoticesConfigWithFallback()');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('<HomeClient products={products} brands={brands} settings={settings ?? defaultHomeSettings} />');
+    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={noticesConfig.items} settings={settings ?? defaultHomeSettings} />');
     expectNoMutableDataBypass(pageSource);
   });
 
-  test('HomeClient 는 관리자 변경 대상 products/brands 를 props 로만 받고 정적 콘텐츠만 직접 import 한다', () => {
+  test('HomeClient 는 관리자 변경 대상 products/brands/notices 를 props 로만 받고 정적 콘텐츠만 직접 import 한다', () => {
     const clientSource = src('src', 'components', 'home', 'HomeClient.tsx');
 
     // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
@@ -35,10 +38,13 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(clientSource).toContain('settings = defaultHomeSettings,');
     expect(clientSource).toContain('products: Product[];');
     expect(clientSource).toContain('brands: Brand[];');
+    expect(clientSource).toContain('notices: Notice[];');
     expect(clientSource).toContain('settings?: HomeSettings;');
     expect(clientSource).toContain('products.filter((product) => product.isBest || product.isRecommended)');
     expect(clientSource).toContain('brands.filter(b => b.isVisible !== false)');
-    expect(clientSource).toContain("import { notices } from '@/data/notices'");
+    // notices 는 DB 정본으로 이관 — 정적 import 금지, 서버 wrapper 가 props 로 주입한다.
+    expect(clientSource).not.toMatch(/from ['"]@\/data\/notices['"]/);
+    expect(clientSource).toContain('notices.slice(0, 4)');
     expect(clientSource).toContain("import { reviews } from '@/data/reviews'");
     expectNoMutableDataBypass(clientSource);
   });

@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { Eye, Save, X } from 'lucide-react';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { HomeSettings } from '@/data/homeContent';
-import { getPublicProducts, getPublicBrands } from '@/lib/storage';
+import { getPublicProducts, getPublicBrands, getNoticesConfig } from '@/lib/storage';
 import HomeClient from '@/components/home/HomeClient';
-import type { Brand, Product } from '@/types';
+import type { Brand, Notice, Product } from '@/types';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
 
 // 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 아이콘·href·이미지 등 "구조"는
@@ -34,6 +34,7 @@ export default function SiteSettingsPage() {
   // 컴포넌트에서 못 부르므로, 미리보기를 열 때 공개 API 로 상품·브랜드를 읽어 props 로 넘긴다.
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const [previewBrands, setPreviewBrands] = useState<Brand[]>([]);
+  const [previewNotices, setPreviewNotices] = useState<Notice[]>([]);
 
   // provider 가 GET /api/settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) draft 를 그 값에
   // 맞춘다. 단 관리자가 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
@@ -46,10 +47,11 @@ export default function SiteSettingsPage() {
   useEffect(() => {
     if (!isPreviewOpen) return;
     let cancelled = false;
-    Promise.all([getPublicProducts(), getPublicBrands()]).then(([products, brands]) => {
+    Promise.all([getPublicProducts(), getPublicBrands(), getNoticesConfig()]).then(([products, brands, noticesConfig]) => {
       if (cancelled) return;
       setPreviewProducts(products);
       setPreviewBrands(brands);
+      setPreviewNotices(noticesConfig.items);
     });
     return () => {
       cancelled = true;
@@ -348,7 +350,7 @@ export default function SiteSettingsPage() {
 
             <div className="flex-1 overflow-y-auto">
               <div className="w-full relative pointer-events-none">
-                <HomeClient products={previewProducts} brands={previewBrands} settings={draft} />
+                <HomeClient products={previewProducts} brands={previewBrands} notices={previewNotices} settings={draft} />
               </div>
             </div>
           </div>

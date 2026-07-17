@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { ArrowUpRight, Bell } from 'lucide-react';
-import { notices } from '@/data/notices';
+import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
 
@@ -9,7 +9,12 @@ export const metadata = {
   description: '백조오브제의 새로운 소식과 이벤트, 서비스 안내를 확인하세요.',
 };
 
-export default function NoticesPage() {
+// 서버 컴포넌트 — notices repo 를 직접 읽는다(자기 API HTTP 왕복 금지, §10-2 ①경로).
+// 관리자 저장이 즉시 반영돼야 하므로 요청 시점 DB 조회(정적 프리렌더 제외).
+export const dynamic = 'force-dynamic';
+
+export default async function NoticesPage() {
+  const { items: notices } = await getNoticesConfigWithFallback();
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">

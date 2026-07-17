@@ -33,6 +33,11 @@ const eslintConfig = defineConfig([
               message:
                 "고민 콘텐츠는 콘센트(storage) 또는 concerns repo 로만 읽으세요 — 정적 파일 재도입 금지(AGENTS.md §4 원칙 0).",
             },
+            {
+              group: ["@/data/notices"],
+              message:
+                "공지 콘텐츠는 콘센트(storage) 또는 notices repo 로만 읽으세요 — 정적 파일 재도입 금지(AGENTS.md §4 원칙 0).",
+            },
           ],
         },
       ],

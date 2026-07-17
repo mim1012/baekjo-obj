@@ -1,6 +1,7 @@
 import { listProducts } from '@/lib/products/repo';
 import { listBrands } from '@/lib/brands/repo';
 import { getSiteSettings } from '@/lib/settings/repo';
+import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { defaultHomeSettings } from '@/data/homeContent';
 import HomeClient from '@/components/home/HomeClient';
 
@@ -10,12 +11,14 @@ import HomeClient from '@/components/home/HomeClient';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [products, brands, settings] = await Promise.all([
+  const [products, brands, settings, noticesConfig] = await Promise.all([
     listProducts({ visibleOnly: true }),
     listBrands(true),
     // 홈 문구의 정본은 관리자 설정(site_settings)이다. 저장 행이 없거나 조회 실패 시엔
     // defaultHomeSettings 로 폴백한다 — 공개 홈은 어떤 경우에도 문구가 비면 안 된다.
     getSiteSettings().catch(() => null),
+    // 공지도 DB 가 정본(notices_config) — 미저장·실패는 repo 가 default 로 접는다.
+    getNoticesConfigWithFallback(),
   ]);
-  return <HomeClient products={products} brands={brands} settings={settings ?? defaultHomeSettings} />;
+  return <HomeClient products={products} brands={brands} notices={noticesConfig.items} settings={settings ?? defaultHomeSettings} />;
 }

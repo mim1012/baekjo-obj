@@ -12,6 +12,8 @@ export function calcDiscount(price: number, salePrice?: number): number {
 // 날짜 포맷
 export function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
+  // 파싱 불가 문자열이면 "NaN.NaN.NaN" 으로 렌더된다 — 원본을 그대로 돌려준다(invalid 입력에서만 동작 변화).
+  if (Number.isNaN(d.getTime())) return dateStr;
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 

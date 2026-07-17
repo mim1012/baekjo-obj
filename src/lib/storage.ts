@@ -15,6 +15,7 @@ import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
+import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -1035,6 +1036,50 @@ export async function getAdminConcernsConfig(): Promise<ConcernsConfig> {
 export async function saveConcernsConfig(config: ConcernsConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/concerns', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 공지사항(notices) ─────────────────────────────────────
+ * 공개 클라이언트 화면은 GET /api/notices 로 공지 config 를 읽고,
+ * 관리자 화면(/admin/notices)은 PUT /api/admin/notices 로 통째로 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultNoticesConfig 로 접어 화면이 절대 빈 목록으로 깨지지 않게 한다.
+ * 서버 컴포넌트는 이 콘센트가 아니라 lib/notices/repo 를 직접 읽는다(자기 API HTTP 왕복 금지).
+ */
+
+/** 공개 공지 config. GET /api/notices. 실패·미저장 시 defaultNoticesConfig 로 폴백. */
+export async function getNoticesConfig(): Promise<NoticesConfig> {
+  try {
+    const response = await fetch('/api/notices');
+    if (!response.ok) return defaultNoticesConfig;
+    const { items } = (await response.json()) as NoticesConfig;
+    if (!Array.isArray(items) || items.length === 0) return defaultNoticesConfig;
+    return { items };
+  } catch {
+    return defaultNoticesConfig;
+  }
+}
+
+/** 관리자 공지 config. GET /api/admin/notices. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — concerns 미러). */
+export async function getAdminNoticesConfig(): Promise<NoticesConfig> {
+  const response = await fetch('/api/admin/notices');
+  if (!response.ok) throw new Error('notices-config-load-failed');
+  const { items } = (await response.json()) as NoticesConfig;
+  if (!Array.isArray(items)) throw new Error('notices-config-invalid-response');
+  return { items };
+}
+
+/** 공지 config 저장(관리자). PUT /api/admin/notices. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveNoticesConfig(config: NoticesConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/notices', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
