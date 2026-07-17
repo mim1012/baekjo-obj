@@ -1,4 +1,4 @@
--- 0038_insurance_content_config.sql — 보험 페이지 콘텐츠(동의 전문·FAQ) 싱글턴 테이블
+-- 0039_insurance_content_config.sql — 보험 페이지 콘텐츠(동의 전문·FAQ) 싱글턴 테이블
 -- 접근 경로: 서버(secret key)만. 클라이언트 직접 접근 없음 → RLS on + 정책 없음.
 -- 보험 콘텐츠 config({ consents: ConsentDoc[], faqs: InsuranceFaq[] })를 한 행(id='default')에
 -- jsonb 로 통째로 담는다. 관리자 보험 콘텐츠 화면(/admin/insurance-content)이 저장하면
