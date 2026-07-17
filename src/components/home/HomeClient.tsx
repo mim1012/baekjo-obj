@@ -65,7 +65,7 @@ export default function HomeClient({ products, brands }: { products: Product[]; 
             </div>
             <div className="mt-6 flex items-center gap-2 text-[13px] font-medium text-[#68716C]">
               <ShieldCheck className="size-4 text-[#B99562]" strokeWidth={2} />
-              백조 Audit 검증을 통과한 브랜드만 소개합니다.
+              백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.
             </div>
           </div>
           <div className="w-full lg:w-[53%] h-[300px] sm:h-[400px] lg:h-full relative overflow-hidden rounded-[24px]">
@@ -155,11 +155,11 @@ export default function HomeClient({ products, brands }: { products: Product[]; 
         </div>
       </section>
 
-      {/* 5. 백조 Audit 검증 기준 */}
+      {/* 5. 백조오브제 Audit 검증 기준 */}
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-20 lg:mb-28">
         <div className="flex flex-col lg:flex-row overflow-hidden rounded-[24px] bg-white border border-[#F2EFE9] lg:h-[340px] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div className="flex flex-col justify-center bg-[#FAF9F5] p-8 md:p-10 lg:w-[34%]">
-            <span className="text-[12px] font-bold tracking-widest text-[#B99562] uppercase mb-3">백조 Audit</span>
+            <span className="text-[12px] font-bold tracking-widest text-[#B99562] uppercase mb-3">백조오브제 Audit</span>
             <h2 className="break-keep text-[28px] md:text-[32px] font-bold leading-[1.25] tracking-tight text-[#18231F]">
               100개 중<br />5개만 선택합니다.
             </h2>
