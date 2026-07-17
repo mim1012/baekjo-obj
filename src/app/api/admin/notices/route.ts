@@ -2,48 +2,19 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { getNoticesConfig, saveNoticesConfig } from '@/lib/notices/repo';
-import type { Notice } from '@/types';
+import { isNoticeShape, normalizeNotice } from '@/lib/notices/validate';
 import { logServerError } from '@/lib/logServerError';
 
-const NOTICE_CATEGORIES = ['notice', 'event', 'brand'] as const;
-
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
-
-/** views/likes 는 표시 카운트 — 숫자가 아니거나 음수면 거부한다. */
-function isCount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
-}
-
-function isNoticeCategory(value: unknown): value is Notice['category'] {
-  return value === undefined || NOTICE_CATEGORIES.includes(value as (typeof NOTICE_CATEGORIES)[number]);
-}
-
-function isNotice(item: unknown): item is Notice {
-  if (!item || typeof item !== 'object') return false;
-  const notice = item as Partial<Record<keyof Notice, unknown>>;
-  return (
-    isNonEmptyString(notice.id) &&
-    isNonEmptyString(notice.title) &&
-    isNonEmptyString(notice.writer) &&
-    isNonEmptyString(notice.date) &&
-    isNonEmptyString(notice.content) &&
-    isCount(notice.views) &&
-    isCount(notice.likes) &&
-    isNoticeCategory(notice.category)
-  );
-}
-
 /**
- * 본문이 NoticesConfig 모양인지 검증한다.
- * items 는 최소 1건 — 전부 삭제하면 공개 공지 목록·홈 소식 4건이 통째로 빈다.
- * id 는 상세 라우트(/notices/[id])의 식별 키라 중복을 거부한다.
+ * 본문이 NoticesConfig 모양인지 검증한다. item 단위 형상은 repo 와 공용인
+ * isNoticeShape(validate.ts)로 검사하고, 아래는 관리자 저장에만 있는 추가 규칙이다:
+ * - items 는 최소 1건 — 전부 삭제하면 공개 공지 목록·홈 소식 4건이 통째로 빈다.
+ * - id 는 상세 라우트(/notices/[id])의 식별 키라 중복을 거부한다.
  */
 function isNoticesConfig(body: unknown): body is NoticesConfig {
   if (!body || typeof body !== 'object') return false;
   const { items } = body as { items?: unknown };
-  if (!Array.isArray(items) || items.length < 1 || !items.every(isNotice)) return false;
+  if (!Array.isArray(items) || items.length < 1 || !items.every(isNoticeShape)) return false;
   const ids = items.map((notice) => notice.id);
   return new Set(ids).size === ids.length;
 }
@@ -83,7 +54,8 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    await saveNoticesConfig({ items: body.items });
+    // category null 은 검증을 통과하므로 저장 전 undefined 로 정규화한다(validate.ts 주석).
+    await saveNoticesConfig({ items: body.items.map(normalizeNotice) });
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     logServerError('[PUT /api/admin/notices] 저장 실패', error);

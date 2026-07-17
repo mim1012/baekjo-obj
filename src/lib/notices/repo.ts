@@ -2,6 +2,7 @@
 // 공지 config({ items })를 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
+import { isNoticeShape, normalizeNotice } from '@/lib/notices/validate';
 import { logServerError } from '@/lib/logServerError';
 
 const CONFIG_ROW_ID = 'default';
@@ -10,12 +11,13 @@ const CONFIG_ROW_ID = 'default';
  * value jsonb 가 저장 시점의 NoticesConfig 모양({ items: [...] }, 1건 이상)인지 검사한다.
  * 0042 마이그레이션의 value default 가 '{}' 라 빈 객체 행이 존재할 수 있고, 수동 조작된 행이
  * malformed 일 수도 있다 — 무검증 캐스팅하면 request-time throw/렌더 깨짐으로 이어지므로
- * 모양이 아니면 null(→ default 폴백) 처리한다.
+ * 모양이 아니면 null(→ default 폴백) 처리한다. item 단위 형상(isNoticeShape)까지 검사한다 —
+ * 겉모양만 맞는 기형 item(빈 title·NaN views 등)이 소비부에서 crash 하는 것을 막는다(codex F1).
  */
 function isNoticesConfigShape(value: unknown): value is NoticesConfig {
   if (typeof value !== 'object' || value === null) return false;
   const items = (value as { items?: unknown }).items;
-  return Array.isArray(items) && items.length > 0;
+  return Array.isArray(items) && items.length > 0 && items.every(isNoticeShape);
 }
 
 /**
@@ -34,7 +36,8 @@ export async function getNoticesConfig(): Promise<NoticesConfig | null> {
     logServerError('[notices/repo] value 가 NoticesConfig 모양이 아님 — null(default 폴백) 처리', 'malformed notices_config.value');
     return null;
   }
-  return data.value;
+  // category 는 jsonb 왕복에서 null 로 저장될 수 있다 — 반환 전 undefined 로 정규화(validate.ts 주석).
+  return { items: data.value.items.map(normalizeNotice) };
 }
 
 /**

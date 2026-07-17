@@ -95,7 +95,10 @@ export default function AdminNoticesPage() {
     };
   }, []);
 
-  // 로드 완료 전 편집은 default 를 편집하는 것 — no-op 으로 막는다(F-HIGH).
+  // 로드 완료 전·로드 실패 시에는 CRUD 콜백을 아예 안 넘긴다(→ AdminResourcePage 가 해당 UI 를 숨김).
+  // 콜백 내부 !loaded 가드만으로는 버튼이 보이는데 눌러도 조용히 무시되는 no-op 이 된다(codex F3).
+  const ready = loaded && !loadError;
+
   const handleCreate = (draft: Record<string, string | number>) => {
     if (!loaded) return;
     setItems((prev) => [...prev, draftToNotice(draft)]);
@@ -151,9 +154,9 @@ export default function AdminNoticesPage() {
         { key: 'writer', label: '작성자' },
         { key: 'date', label: '작성일(YYYY-MM-DD 형식)' },
       ]}
-      onCreateRow={handleCreate}
-      onUpdateRow={handleUpdate}
-      onDeleteRow={handleDelete}
+      onCreateRow={ready ? handleCreate : undefined}
+      onUpdateRow={ready ? handleUpdate : undefined}
+      onDeleteRow={ready ? handleDelete : undefined}
       onSave={handleSave}
     />
   );
