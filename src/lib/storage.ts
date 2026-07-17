@@ -11,6 +11,7 @@ import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import type { KitsConfig } from '@/lib/kits/config';
 import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
+import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -807,6 +808,50 @@ export async function getQnaConfig(): Promise<QnaConfig> {
 export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/qna', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 보험 페이지 콘텐츠(동의 전문·FAQ) ─────────────────────────
+ * 공개 /insurance 는 GET /api/insurance-content 로 동의 전문·FAQ 를 읽고, 관리자 화면
+ * (/admin/insurance-content)은 PUT /api/admin/insurance-content 로 통째로 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultInsuranceContentConfig 로 접어 보험 화면(Golden Flow #3)이
+ * 절대 동의 체크박스 없이 깨지지 않게 한다.
+ */
+
+/** 공개 보험 콘텐츠 config. GET /api/insurance-content. 실패·미저장 시 defaultInsuranceContentConfig 로 폴백. */
+export async function getInsuranceContentConfig(): Promise<InsuranceContentConfig> {
+  try {
+    const response = await fetch('/api/insurance-content');
+    if (!response.ok) return defaultInsuranceContentConfig;
+    const { consents, faqs } = (await response.json()) as InsuranceContentConfig;
+    if (!Array.isArray(consents) || !Array.isArray(faqs) || consents.length === 0) return defaultInsuranceContentConfig;
+    return { consents, faqs };
+  } catch {
+    return defaultInsuranceContentConfig;
+  }
+}
+
+/** 관리자 보험 콘텐츠 config. GET /api/admin/insurance-content. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — codex 리뷰 F5). */
+export async function getAdminInsuranceContentConfig(): Promise<InsuranceContentConfig> {
+  const response = await fetch('/api/admin/insurance-content');
+  if (!response.ok) throw new Error('insurance-content-config-load-failed');
+  const { consents, faqs } = (await response.json()) as InsuranceContentConfig;
+  if (!Array.isArray(consents) || !Array.isArray(faqs)) throw new Error('insurance-content-config-invalid-response');
+  return { consents, faqs };
+}
+
+/** 보험 콘텐츠 config 저장(관리자). PUT /api/admin/insurance-content. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveInsuranceContentConfig(config: InsuranceContentConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/insurance-content', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),

@@ -18,6 +18,7 @@ import {
   Gift,
   Bell,
   Settings,
+  FileText,
 } from 'lucide-react';
 
 /** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
@@ -48,6 +49,7 @@ export const ADMIN_CS_NAV: AdminSidebarItem[] = [
   { name: '문의 관리', href: '/admin/qna', icon: MessageSquare },
   { name: '상품문의 관리', href: '/admin/inquiries', icon: MessageCircle },
   { name: '후기 관리', href: '/admin/reviews', icon: Star },
+  { name: '보험 콘텐츠', href: '/admin/insurance-content', icon: FileText },
 ];
 
 export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
