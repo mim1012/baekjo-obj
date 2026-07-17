@@ -148,6 +148,13 @@ export async function fetchTrackingInfo(carrier: string, invoice: string): Promi
   }
 
   const tCode = SWEET_TRACKER_CODES[carrier];
+  if (!tCode) {
+    // isCarrierCode는 통과했지만 스마트택배 t_code 매핑이 없는 carrier(예: gspostbox — 아직
+    // companylist로 실측된 벤더 코드가 없음, @/lib/carriers 참조). 이 경우 `encodeURIComponent`에
+    // undefined가 들어가면 리터럴 "undefined"를 t_code로 벤더에 보내게 되므로, 그 전에 차단하고
+    // 조회 불가로 처리한다 — 앱은 carriers.ts의 딥링크로 우아하게 폴백한다.
+    return { ok: false, reason: 'invalid-carrier' };
+  }
   const url =
     `${SWEET_TRACKER_BASE}/api/v1/trackingInfo` +
     `?t_key=${encodeURIComponent(apiKey)}` +
