@@ -66,7 +66,7 @@ body {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  
+
   /* Korean Typography Optimization */
   word-break: keep-all;
   overflow-wrap: break-word;
