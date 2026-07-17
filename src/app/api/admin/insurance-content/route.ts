@@ -31,9 +31,17 @@ function isInsuranceFaq(item: unknown): item is InsuranceFaq {
 }
 
 /**
+ * 법정 동의 문서 id — consents 에 이 id 들이 required 로 반드시 존재해야 한다(추가 문서는 자유).
+ * 공개 신청 저장 API(saveInsuranceApplication)의 privacyAgree/thirdPartyAgree 법정 동의 플래그가
+ * 이 두 id 에 매핑된다 — 삭제·id변경을 허용하면 동의 기록의 의미가 소실된다(codex 리뷰 F1).
+ */
+const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;
+
+/**
  * 본문이 InsuranceContentConfig 모양인지 검증한다.
  * consents 는 최소 1건 — 전부 삭제하면 공개 신청 폼의 동의 체크가 사라져 신청 플로우가 깨진다.
- * consents id 는 공개 폼 체크 상태 매핑 키라 중복도 거부한다. faqs 는 빈 배열을 허용한다.
+ * consents id 는 공개 폼 체크 상태 매핑 키라 중복도 거부한다. 법정 동의 문서('privacy'/'analysis')는
+ * required 상태로 반드시 존재해야 한다. faqs 는 빈 배열을 허용한다.
  */
 function isInsuranceContentConfig(body: unknown): body is InsuranceContentConfig {
   if (!body || typeof body !== 'object') return false;
@@ -41,6 +49,10 @@ function isInsuranceContentConfig(body: unknown): body is InsuranceContentConfig
   if (!Array.isArray(consents) || consents.length < 1 || !consents.every(isConsentDoc)) return false;
   const consentIds = consents.map((consent) => consent.id);
   if (new Set(consentIds).size !== consentIds.length) return false;
+  const hasRequiredLegalConsents = REQUIRED_LEGAL_CONSENT_IDS.every((legalId) =>
+    consents.some((consent) => consent.id === legalId && consent.required),
+  );
+  if (!hasRequiredLegalConsents) return false;
   return Array.isArray(faqs) && faqs.every(isInsuranceFaq);
 }
 

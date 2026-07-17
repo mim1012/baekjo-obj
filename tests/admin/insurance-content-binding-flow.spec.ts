@@ -9,9 +9,11 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
   test('관리자 보험 콘텐츠 화면은 storage 콘센트와 CRUD 콜백을 모두 연결한다', () => {
     const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
 
-    expect(pageSource).toContain("import { getInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';");
-    expect(pageSource).toContain('getInsuranceContentConfig()');
+    expect(pageSource).toContain("import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';");
+    expect(pageSource).toContain('getAdminInsuranceContentConfig()');
     expect(pageSource).toContain('saveInsuranceContentConfig({ consents, faqs })');
+    // 로드 실패 시 저장을 막는다 — 공개 폴백을 default 로 덮어쓰는 사고 방지(codex 리뷰 F5).
+    expect(pageSource).toContain('loadError ? Promise.resolve({ ok: false })');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
@@ -29,6 +31,10 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(storageSource).toContain('return defaultInsuranceContentConfig;');
     expect(storageSource).toContain("fetch('/api/admin/insurance-content', {");
     expect(storageSource).toContain("method: 'PUT'");
+    // 관리자 getter 는 실패·깨진 응답에 throw 해서 저장을 막는다(공개 폴백과 분리 — codex 리뷰 F5).
+    expect(storageSource).toContain('export async function getAdminInsuranceContentConfig');
+    expect(storageSource).toContain("throw new Error('insurance-content-config-load-failed')");
+    expect(storageSource).toContain("throw new Error('insurance-content-config-invalid-response')");
   });
 
   test('관리자 API 라우트는 requireAdmin 가드와 콘텐츠 모양 검증을 거친다', () => {
@@ -39,6 +45,9 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(routeSource).toContain('function isInsuranceFaq(item: unknown): item is InsuranceFaq');
     // consents 최소 1건 — 전부 삭제하면 공개 신청 폼의 동의 체크가 사라져 신청 플로우가 깨진다.
     expect(routeSource).toContain('consents.length < 1');
+    // 법정 동의 문서('privacy'/'analysis')는 required 로 반드시 존재 — 삭제·id변경 시 동의 기록 의미 소실(codex 리뷰 F1).
+    expect(routeSource).toContain("const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;");
+    expect(routeSource).toContain('consent.id === legalId && consent.required');
     expect(routeSource).toContain('return NextResponse.json({ ok: true }, { status: 200 });');
   });
 

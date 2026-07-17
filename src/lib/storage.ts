@@ -838,6 +838,16 @@ export async function getInsuranceContentConfig(): Promise<InsuranceContentConfi
   }
 }
 
+/** 관리자 보험 콘텐츠 config. GET /api/admin/insurance-content. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — codex 리뷰 F5). */
+export async function getAdminInsuranceContentConfig(): Promise<InsuranceContentConfig> {
+  const response = await fetch('/api/admin/insurance-content');
+  if (!response.ok) throw new Error('insurance-content-config-load-failed');
+  const { consents, faqs } = (await response.json()) as InsuranceContentConfig;
+  if (!Array.isArray(consents) || !Array.isArray(faqs)) throw new Error('insurance-content-config-invalid-response');
+  return { consents, faqs };
+}
+
 /** 보험 콘텐츠 config 저장(관리자). PUT /api/admin/insurance-content. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
 export async function saveInsuranceContentConfig(config: InsuranceContentConfig): Promise<{ ok: boolean }> {
   try {

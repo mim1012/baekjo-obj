@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { getInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';
+import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';
 import { defaultInsuranceContentConfig, type ConsentDoc, type InsuranceFaq } from '@/lib/insuranceContent/config';
 
 const booleanOptions = [
@@ -56,32 +56,40 @@ function summarize(text: string, max = 60): string {
 }
 
 export default function AdminInsuranceContentPage() {
-  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다.
-  // 공개 콘센트(getInsuranceContentConfig)는 실패 시 defaultInsuranceContentConfig 로 폴백하므로 reject 하지
-  // 않는다 — 폴백이면 기본 콘텐츠가 뜨는 것도 수용한다(저장하면 그 값이 정본이 된다).
+  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
+  // 불러온다. 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
+  // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(codex 리뷰 F5). loadError 면
+  // 저장을 막는다(partners 패턴 미러링).
   const [consents, setConsents] = useState<ConsentDoc[]>(defaultInsuranceContentConfig.consents);
   const [faqs, setFaqs] = useState<InsuranceFaq[]>(defaultInsuranceContentConfig.faqs);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getInsuranceContentConfig().then((config) => {
-      if (cancelled) return;
-      setConsents(config.consents);
-      setFaqs(config.faqs);
-    });
+    getAdminInsuranceContentConfig()
+      .then((config) => {
+        if (cancelled) return;
+        setLoadError(false);
+        setConsents(config.consents);
+        setFaqs(config.faqs);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError(true);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
   // 한쪽 섹션의 저장 버튼이 동의 문서·FAQ 전체를 함께 저장한다(싱글턴 config 통째 저장).
-  const handleSave = () => saveInsuranceContentConfig({ consents, faqs });
+  const handleSave = () => (loadError ? Promise.resolve({ ok: false }) : saveInsuranceContentConfig({ consents, faqs }));
 
   return (
     <div className="space-y-10">
       <AdminResourcePage
         title="보험 동의 문서"
-        description="공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다."
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
         actionLabel="동의 문서 등록"
         searchPlaceholder="동의 문서 제목 검색"
         columns={[
@@ -110,7 +118,7 @@ export default function AdminInsuranceContentPage() {
 
       <AdminResourcePage
         title="보험 자주 묻는 질문"
-        description="공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다."
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
         actionLabel="FAQ 등록"
         searchPlaceholder="질문 검색"
         columns={[

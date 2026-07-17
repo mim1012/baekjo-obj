@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   CheckCircle2,
@@ -76,6 +76,20 @@ export default function InsurancePage() {
   const [consentChecks, setConsentChecks] = useState<Record<string, boolean>>({});
   const [openConsent, setOpenConsent] = useState<ConsentDoc | null>(null);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const consentCloseButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // 전문 모달 접근성 — Escape 로 닫고, 열릴 때 닫기 버튼으로 포커스를 옮긴다(간단 구현, 풀 focus trap 은 범위 밖).
+  useEffect(() => {
+    if (!openConsent) return;
+    consentCloseButtonRef.current?.focus();
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpenConsent(null);
+    };
+    window.addEventListener('keydown', handleKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+    };
+  }, [openConsent]);
 
   useEffect(() => {
     let cancelled = false;
@@ -509,8 +523,15 @@ export default function InsurancePage() {
                 <div
                   key={faq.id}
                   role="button"
+                  tabIndex={0}
                   aria-expanded={openFaqId === faq.id}
                   onClick={() => setOpenFaqId((current) => (current === faq.id ? null : faq.id))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setOpenFaqId((current) => (current === faq.id ? null : faq.id));
+                    }
+                  }}
                   className="rounded-xl bg-[#FAF9F5] p-5 cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1]"
                 >
                    <div className="flex items-center justify-between">
@@ -542,7 +563,7 @@ export default function InsurancePage() {
           <div role="dialog" aria-modal="true" aria-label={openConsent.title} className="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-[20px] bg-[#FAF9F5]" onClick={(e) => e.stopPropagation()}>
             <div className="flex shrink-0 items-center justify-between border-b border-[#EBE8E1] px-6 py-5">
               <h2 className="text-[16px] font-bold text-[#1A1D1B]">{openConsent.title}</h2>
-              <button type="button" aria-label="닫기" onClick={() => setOpenConsent(null)} className="rounded p-1 text-[#5F6761] transition-colors hover:bg-[#F4F2EC]">
+              <button ref={consentCloseButtonRef} type="button" aria-label="닫기" onClick={() => setOpenConsent(null)} className="rounded p-1 text-[#5F6761] transition-colors hover:bg-[#F4F2EC]">
                 <X className="size-5" />
               </button>
             </div>
