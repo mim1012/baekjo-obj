@@ -548,6 +548,13 @@ DB가 막아줄 거라 가정하지 말 것.
   "already exists"를 적용된 것으로 간주해 베이스라인 처리한다.
 - `scripts/session-close.ps1`의 `Get-EnvLabel`은 `.env.local`의 Supabase project ref를 읽어
   `aeooyivfijthfcrfrnyk`=staging / `vgeqpbyyggxxaeowtbtj`=**prod(주의)**로 라벨링한다 — 로컬이 prod를 보는 사고 방지용.
+- 🚫 **커밋 안 된 SQL을 prod에 직접 적용 금지 (2026-07-17 사고에서 신설, mim 승인).** 스키마·데이터를 바꾸는
+  SQL이 prod에 도달하는 경로는 **`supabase/migrations/`에 커밋 → PR 머지 → CI `migrate` 잡** 하나뿐이다.
+  Management API로 prod에 직접 날리는 건 읽기 전용 조회만 허용(단건 hotfix도 같은 SQL을 마이그레이션
+  파일로 먼저 커밋한 뒤 push가 적용하게 한다). — 근거: 미커밋 `0021_official_brand_catalog_sync.sql`이
+  prod에 직접 적용된 뒤 어느 브랜치·워크트리에도 남지 않아 유실됐고, `_migrations`는 이름·적용시각만
+  저장해 SQL 복구가 불가능했다. 그 결과가 2026-07-17 상품 이미지 404(p15~p18이 배포된 적 없는
+  `.jpg`를 참조). 이력 없는 prod 변경 = 재현 불가·롤백 불가·원인 추적 곤란.
 
 ### 10-9. 타입 (`src/types/index.ts` — 559줄, 단일 배럴)
 - 서브 파일 없이 전 도메인 타입이 여기 하나에. **§4-3 "설계도 한 장"의 그 한 장이 이 파일이다.**
