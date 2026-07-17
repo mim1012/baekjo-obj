@@ -1,7 +1,7 @@
 // BrandForm 이 실제로 편집하는 필드만 서버로 보내기 위한 순수 페이로드 빌더.
 // React 컴포넌트에서 분리해 단위 테스트(tests/admin/brand-validate.spec.ts)가
 // 브라우저 없이 payload 형태를 직접 검증할 수 있게 한다.
-import type { Brand, BrandAuditReport } from '@/types';
+import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
 
 /**
  * BrandForm 화이트리스트 — 이 폼이 편집 UI를 가진 필드만 나열한다.
@@ -108,6 +108,32 @@ function cleanStringList(items: string[]): string[] {
   return items.map((s) => s.trim()).filter((s) => s.length > 0);
 }
 
+function cleanOptionalText(value: string | undefined): string | undefined {
+  const trimmed = value?.trim() ?? '';
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function cleanOptionalMoney(value: number | undefined): number | undefined {
+  return value === undefined || !Number.isFinite(value) ? undefined : value;
+}
+
+export function buildBrandShippingPayload(form: BrandShippingPolicy): BrandShippingPolicy {
+  const shipping: BrandShippingPolicy = {};
+
+  if (form.defaultCarrier) shipping.defaultCarrier = form.defaultCarrier;
+  shipping.shippingFee = cleanOptionalMoney(form.shippingFee);
+  shipping.freeShippingThreshold = cleanOptionalMoney(form.freeShippingThreshold);
+  shipping.returnShippingFee = cleanOptionalMoney(form.returnShippingFee);
+  shipping.exchangeShippingFee = cleanOptionalMoney(form.exchangeShippingFee);
+  shipping.dispatchEstimate = cleanOptionalText(form.dispatchEstimate);
+  shipping.returnAddress = cleanOptionalText(form.returnAddress);
+  shipping.asNotice = cleanOptionalText(form.asNotice);
+  shipping.supportContact = cleanOptionalText(form.supportContact);
+  shipping.supportHours = cleanOptionalText(form.supportHours);
+
+  return shipping;
+}
+
 /**
  * auditReport 폼의 채움 상태 — '전무'(empty) | '완전'(complete) | '부분'(partial).
  * 서버 validate 가 8필드 전부를 요구하므로 "일부만 채움"은 400 이다. 그래서 클라이언트에서
@@ -200,6 +226,7 @@ export interface BrandDetailFormState {
   relatedConcernSlugs: string[];
   auditPoints: string[];
   sourceUrls: string[];
+  shipping?: BrandShippingPolicy;
 }
 
 /** 상세 에디터가 명시적으로 담는 전 필드 화이트리스트(문서·테스트용). */
@@ -219,6 +246,7 @@ export const BRAND_DETAIL_FIELDS = [
   'relatedConcernSlugs',
   'auditPoints',
   'sourceUrls',
+  'shipping',
 ] as const;
 
 /**
@@ -246,6 +274,7 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     relatedConcernSlugs: [...form.relatedConcernSlugs],
     auditPoints: cleanStringList(form.auditPoints),
     sourceUrls: cleanStringList(form.sourceUrls),
+    shipping: buildBrandShippingPayload(form.shipping ?? {}),
     auditReport: buildAuditReportPayload(form.auditReport),
   };
 

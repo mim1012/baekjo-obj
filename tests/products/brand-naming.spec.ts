@@ -14,22 +14,10 @@ test.describe('brand naming normalization', () => {
     expect(home).not.toContain('백조 Audit');
   });
 
-  test('canonical seed data uses RE:펫 as the visible brand label', () => {
-    const brands = read('src/data/brands.ts');
-    const products = read('src/data/products.ts');
-
-    expect(brands).toContain("name: 'RE:펫'");
-    expect(brands).toContain("philosophy: 'RE:펫은");
-    expect(brands).not.toContain("name: 're펫");
-    expect(brands).not.toContain('re펫은');
-
-    expect(products).toContain("brandName: 'RE:펫'");
-    expect(products).not.toContain("brandName: 're펫'");
-
-    // Product/model English stays intact by design: the product names still use RePet.
-    expect(products).toContain("name: 'RePet 강아지 뿌리는 배변유도제 80ml × 2개'");
-    expect(products).toContain("name: 'RePet 강아지·고양이 약용·진정 샴푸 400ml'");
-  });
+  // NOTE: the former "canonical seed data" assertion read src/data/{brands,products}.ts,
+  // which were removed on main (be/kill-static-seed-canon) — the DB is now the sole SSOT
+  // for products/brands. The brand-name display label now lives only in the DB and is
+  // asserted below against migration 0036, which is the vehicle for that value.
 
   test('runtime DB migration backfills only display labels', () => {
     const migration = read('supabase/migrations/0036_brand_naming_normalization.sql');
