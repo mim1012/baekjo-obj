@@ -9,11 +9,17 @@ import {
 } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
-import { ORDER_STATUSES, PAYMENT_STATUSES as ALL_PAYMENT_STATUSES, type OrderStatus, type PaymentStatus } from '@/types';
+import {
+  DELIVERY_STATUSES,
+  ORDER_STATUSES,
+  PAYMENT_STATUSES as ALL_PAYMENT_STATUSES,
+  type DeliveryStatus,
+  type OrderStatus,
+  type PaymentStatus,
+} from '@/types';
 
-// paymentStatus/deliveryStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
-// 실제 쓰이는 값만 담았다 — admin/orders/page.tsx의 select 옵션 + POST /api/orders 가 생성 시
-// 부여하는 값(입금대기/배송준비) 기준.
+// paymentStatus는 Order 타입에서 자유 text라 서버가 별도 화이트리스트로 좁힌다.
+// deliveryStatus는 src/types/index.ts DELIVERY_STATUSES를 클라이언트 옵션과 서버 검증의 진실 소스로 공유한다.
 //
 // '승인중'은 도메인 전체 상태값(PAYMENT_STATUSES)에는 있지만 관리자가 수동으로 세팅할 수 없다 —
 // claim 보호 상태라서다(토스 결제 승인 RPC가 `WHERE payment_status='승인중' AND payment_key=?`로
@@ -21,7 +27,8 @@ import { ORDER_STATUSES, PAYMENT_STATUSES as ALL_PAYMENT_STATUSES, type OrderSta
 // 컴파일러가 이 화이트리스트를 다시 검토하도록 강제한다(LOW-1). 파생 결과는 기존 리터럴 배열과
 // 정확히 같은 집합이어야 한다: ['결제대기','입금대기','결제완료','결제취소','환불완료'].
 const PAYMENT_STATUSES: readonly PaymentStatus[] = ALL_PAYMENT_STATUSES.filter((s) => s !== '승인중');
-const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
+// Order.deliveryStatus 화이트리스트는 @/types 의 DELIVERY_STATUSES 로 단일화 — 로컬 사본을 두면
+// 도메인에 상태가 추가돼도 이 검증만 조용히 뒤처진다(§4.6).
 // Order.carrier 화이트리스트는 @/lib/carriers 로 단일화(CARRIER_CODES) — 클라이언트(관리자 select)와
 // 여기 서버 검증이 각자 배열을 들면 드리프트가 난다(§4).
 const MAX_TRACKING = 100;
@@ -48,7 +55,7 @@ function validate(body: unknown): OrderStatusUpdate | null {
   }
   if (b.deliveryStatus !== undefined) {
     if (typeof b.deliveryStatus !== 'string') return null;
-    if (!DELIVERY_STATUSES.includes(b.deliveryStatus as (typeof DELIVERY_STATUSES)[number])) return null;
+    if (!DELIVERY_STATUSES.includes(b.deliveryStatus as DeliveryStatus)) return null;
     updates.deliveryStatus = b.deliveryStatus;
   }
   if (b.trackingNumber !== undefined) {

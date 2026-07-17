@@ -86,6 +86,19 @@ export interface Brand {
   isNew?: boolean;
   isVisible?: boolean;
   displayOrder?: number;
+  shipping?: BrandShippingPolicy;
+}
+export interface BrandShippingPolicy {
+  defaultCarrier?: import('@/lib/carriers').CarrierCode;
+  shippingFee?: number;
+  freeShippingThreshold?: number;
+  dispatchEstimate?: string;
+  returnAddress?: string;
+  returnShippingFee?: number;
+  exchangeShippingFee?: number;
+  asNotice?: string;
+  supportContact?: string;
+  supportHours?: string;
 }
 
 export interface BrandAuditReport {
@@ -228,6 +241,30 @@ export interface OrderItem {
   optionName?: string;
   quantity: number;
   price: number;
+  /**
+   * 주문 시점의 브랜드를 스냅샷한다 — 상품이 삭제·재브랜딩돼도 과거 주문의 판매자 귀속이
+   * 흔들리지 않게. 레거시 주문(이 필드 도입 전 생성된 items jsonb)엔 없으므로 optional이다.
+   * 현재 소비자는 없다 — dashboardStats.ts는 아직 이 필드를 읽지 않고 products 조인으로
+   * brandIdByProductId를 만들어 귀속한다(dashboardStats.ts:143). 이 필드를 실제로 읽어
+   * 레거시 폴백(조인) 구조로 바꾸는 것은 후속 과제다.
+   */
+  brandId?: string;
+}
+
+/**
+ * 입점업체(브랜드)별 배송 정보 — 한 주문이 여러 브랜드 상품을 포함할 때 업체마다 독립된
+ * 송장을 붙일 수 있게 한다(0034 마이그레이션). Order 자체의 carrier/trackingNumber/
+ * deliveryStatus는 레거시 단일 배송 경로로 그대로 두고 건드리지 않는다.
+ */
+export interface Shipment {
+  id: string;
+  orderId: string;
+  brandId: string;
+  carrier?: string;
+  trackingNumber?: string;
+  deliveryStatus: string;
+  shippedAt?: string;
+  createdAt: string;
 }
 
 /**
@@ -276,6 +313,18 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /** 결제가 실제로 확정된 유일한 값(setOrderPaid가 쓰는 값). 매출 집계의 진실 소스. */
 export const PAID_PAYMENT_STATUS: PaymentStatus = '결제완료';
+
+/**
+ * 배송 상태 — Order.deliveryStatus가 실제로 받아들이는 값의 전수. `src/app/api/admin/orders/[id]/route.ts`
+ * 와 `src/components/admin-new/orders/OrderInlineStatusControls.tsx`가 이 배열을 직접 import해서
+ * 쓴다(로컬 리터럴 사본 금지 — §4.6: 화이트리스트를 두 곳에 두면 드리프트). Order.deliveryStatus
+ * 자체는 레거시 호환 때문에 여전히 string이지만(위 PaymentStatus와 동일한 이유), 스마트택배
+ * 연동처럼 "이 배송 상태로 정규화한다"를 타입으로 강제해야 하는 새 코드는 로컬 유니온을 만들지
+ * 말고 이 타입을 재사용한다(§4: 데이터 모양은 설계도 한 장).
+ */
+export const DELIVERY_STATUSES = ['배송전', '배송준비', '배송중', '배송완료'] as const;
+
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 /* ── 적립금 ───────────────────────────────────── */
 export interface PointsBalance {
@@ -583,3 +632,31 @@ export interface AdminDashboardSummary {
   /** brandStats의 메타(기간·미매칭 상품 수·절삭/부분실패 플래그). brandStats와 함께 내려간다. */
   brandStatsMeta?: AdminDashboardBrandStatsMeta;
 }
+
+/**
+ * 스마트택배(Sweet Tracker) 조회 결과 — src/lib/tracking/sweettracker.ts 공용 데이터 모양.
+ * §4(콘센트 규칙): 앱이 쓰는 데이터 형태는 이 파일에만 정의한다. 벤더 wire-format(원본 응답 필드)은
+ * 여기 두지 않는다 — sweettracker.ts 내부의 RawTrackingInfoResponse/RawTrackingDetail 참고.
+ */
+export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface TrackingStep {
+  time: string;
+  where: string;
+  kind: string;
+}
+
+export type TrackingResult =
+  | {
+      ok: true;
+      level: TrackingLevel;
+      complete: boolean;
+      steps: TrackingStep[];
+      deliveryStatus: DeliveryStatus;
+      invoiceNo: string;
+    }
+  | {
+      ok: false;
+      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
+      message?: string;
+    };

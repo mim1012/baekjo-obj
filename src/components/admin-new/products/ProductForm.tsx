@@ -465,11 +465,9 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
               <input
                 type="checkbox"
                 checked={formData.pointsEnabled || false}
-                // 해제해도 pointsRate 를 지우지 않는다 — buildEditableFields 는 값이 undefined 면
-                // 키를 생략해 서버가 기존값을 보존하므로, UI 만 비우면 "화면은 빈칸인데 DB 엔 5%"
-                // 라는 불일치가 생기고 다시 켜는 순간 서버가 옛 값을 되살린다(codex 리뷰 지적).
-                // pointsEnabled=false 면 적립 자체를 안 하므로 값 보존은 무해하고, UI 가 서버의
-                // 보존 정책을 그대로 반영하는 편이 정직하다.
+                // 해제 상태에서는 pointsRate 를 payload 에 싣지 않는다.
+                // 서버 updateProduct 는 pointsEnabled=false 패치를 받으면 기존 detail.pointsRate 를 제거해
+                // "체크는 꺼졌는데 DB에는 5%가 남아 재활성화 때 되살아나는" 불일치를 막는다.
                 onChange={(e) => handleChange('pointsEnabled', e.target.checked)}
                 className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
               />

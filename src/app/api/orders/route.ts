@@ -103,6 +103,7 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
       productName: product.name,
       quantity: shape.quantity,
       price: unitPrice,
+      brandId: product.brandId,
       ...(shape.optionName !== undefined ? { optionName: shape.optionName } : {}),
     });
   }
