@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import {
   buildBrandDetailPayload,
   buildAuditReportPayload,
+  buildBrandShippingPayload,
   auditReportFillState,
   validateAuditReportForm,
   emptyAuditReportForm,
@@ -193,6 +194,58 @@ test('auditPoints·sourceUrls 의 공백 항목은 payload 에서 제거된다',
   );
   expect(payload.auditPoints).toEqual(['유효']);
   expect(payload.sourceUrls).toEqual(['https://a.com']);
+});
+
+test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화한다', () => {
+  const payload = buildBrandDetailPayload(
+    form({
+      shipping: {
+        defaultCarrier: 'cj',
+        shippingFee: 3000,
+        freeShippingThreshold: 50000,
+        returnShippingFee: 3000,
+        exchangeShippingFee: 6000,
+        dispatchEstimate: '  결제 후 1~2영업일  ',
+        returnAddress: '  서울시 반품로 1  ',
+        asNotice: '  하자 접수 안내  ',
+        supportContact: '  help@example.com  ',
+        supportHours: '  평일 10:00~17:00  ',
+      },
+    }),
+  );
+
+  expect(payload.shipping).toEqual({
+    defaultCarrier: 'cj',
+    shippingFee: 3000,
+    freeShippingThreshold: 50000,
+    returnShippingFee: 3000,
+    exchangeShippingFee: 6000,
+    dispatchEstimate: '결제 후 1~2영업일',
+    returnAddress: '서울시 반품로 1',
+    asNotice: '하자 접수 안내',
+    supportContact: 'help@example.com',
+    supportHours: '평일 10:00~17:00',
+  });
+});
+
+test('shipping payload 는 빈 텍스트와 미입력 숫자를 제거한다', () => {
+  const shipping = buildBrandShippingPayload({
+    defaultCarrier: undefined,
+    shippingFee: undefined,
+    freeShippingThreshold: Number.NaN,
+    returnShippingFee: 0,
+    exchangeShippingFee: undefined,
+    dispatchEstimate: '   ',
+    returnAddress: '',
+    asNotice: 'A/S 안내',
+    supportContact: undefined,
+    supportHours: '  ',
+  });
+
+  expect(shipping).toEqual({
+    returnShippingFee: 0,
+    asNotice: 'A/S 안내',
+  });
 });
 
 test('auditReport 전무면 payload.auditReport 는 undefined(플레이스백)', () => {
