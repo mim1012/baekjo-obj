@@ -388,6 +388,7 @@ admin bypass(`current_user_can_bypass: always`)로 우회하는 습관만 남는
 (해당 번호 / 없음)
 ## 검증
 - [ ] npm run build  [ ] npm run lint  [ ] (디자인 변경 시) 스크린샷 첨부
+- [ ] (버그 수정 시) 실패조건 재현 + 독립 경로 검증 + 회귀 스펙 박제 (§8-6 자기개선 루프)
 ```
 
 ### 8-4. CI · 배포
@@ -418,6 +419,18 @@ admin bypass(`current_user_can_bypass: always`)로 우회하는 습관만 남는
 >
 > 셋 중 하나라도 findings·실패가 나오면 **수정 후 재검증**한다(빌드 green 만으로는 완료가 아니다).
 > 이 게이트는 어떤 IDE(Antigravity/Claude/Codex)로 짰든 동일하게 적용된다.
+
+### 자기개선 루프 (2026-07-18 신설)
+버그·리뷰 finding 을 수정할 때 "완료"의 기준은 세 단계다:
+1. **실패 조건을 인위로 재현한다(pre-seed)** — 수정 전이라면 실패했을 상황을 데이터/상태로 직접 만든다
+   (예: staging에 잔여 테스트 상품 2건을 API로 직접 선주입한 뒤 정리 로직을 실행 — PR #158,
+   `cleanupStaleProducts`의 멱등 버그 수정 검증).
+2. **독립 경로로 검증한다** — 테스트 자체의 pass/fail 판정을 믿지 않고, API 재조회·공개 화면
+   재확인 등 별도 경로로 결과를 대조한다(예: 홈 설정 스냅샷 복원 — `admin UI 저장 성공` 알림 문구가
+   아니라 공개 홈(`/`)을 다시 열어 실제 텍스트가 복원됐는지 확인, `tests/golden/admin-crud-home-settings.spec.ts`).
+3. **재현 시나리오를 회귀 테스트로 박제한다** — 소스 계약 스펙 또는 golden-crud 실구동 스펙으로.
+   커버리지 감사(`tests/admin/golden-crud-coverage.spec.ts`)가 신규 도메인의 스펙 부재를 막고,
+   이 루프가 수정된 버그의 재발을 막는다 — **게이트는 버그가 잡힐 때마다 강해진다.**
 
 ## 9. 명령어
 ```bash
