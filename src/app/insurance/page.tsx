@@ -462,7 +462,7 @@ export default function InsurancePage() {
                 <ShieldCheck className="size-8 text-[#1A221E]" strokeWidth={1.5} />
                 <div>
                   <p className="text-[15px] font-bold text-[#1A1D1B]">백조오브제는 소중한 정보를 안전하게 보호합니다.</p>
-                  <p className="mt-1 text-[13px] text-[#5F6761]">업로드된 증권과 개인정보는 암호화되어 저장되며, 분석 목적 외에는 절대 사용되지 않습니다.</p>
+                  <p className="mt-1 text-[13px] text-[#5F6761]">증권과 개인정보는 다음 단계(신청서 제출) 시 안전하게 처리되며, 분석 목적 외에는 사용되지 않습니다.</p>
                 </div>
               </div>
               <a href="#" className="mt-4 md:mt-0 text-[13px] font-bold text-[#1A1D1B] flex items-center gap-1">

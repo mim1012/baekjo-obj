@@ -45,4 +45,12 @@ test.describe('보험 랜딩 폼 → 실제 신청서 리다이렉트 (디코이
     const applySource = src('src', 'app', 'insurance', 'apply', 'page.tsx');
     expect(applySource).toContain('saveInsuranceApplication');
   });
+
+  test('랜딩의 개인정보 보호 안내 바는 실제로 안 하는 저장을 했다고 주장하지 않는다', () => {
+    const landingSource = src('src', 'app', 'insurance', 'page.tsx');
+    // opus 리뷰 MEDIUM(#166) — 랜딩은 파일을 저장하지 않는데(위쪽 업로드 패널 문구가 이미
+    // "실제 첨부·접수는 다음 단계에서"로 정직화됨) 안내 바는 여전히 "암호화되어 저장"이라고
+    // 주장해 서로 모순됐다. 그 허위 문구가 되살아나지 않는지 고정한다.
+    expect(landingSource).not.toContain('업로드된 증권과 개인정보는 암호화되어 저장되며');
+  });
 });
