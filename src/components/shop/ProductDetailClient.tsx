@@ -139,10 +139,10 @@ export default function ProductDetailClient({ product }: Props) {
             )}
           </>
         ) : (
-          <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-12 shadow-sm overflow-hidden relative group">
-            <div className="flex h-full w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
-              <span className="font-editorial text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
-              <span className="mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
+          <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-6 md:p-12 shadow-sm overflow-hidden relative group">
+            <div className="flex h-full w-[80%] md:w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
+              <span className="font-editorial text-5xl md:text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
+              <span className="mt-4 md:mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
               <span className="mt-2 text-[10px] text-[#6F766F]">{product.name}</span>
             </div>
           </div>
@@ -208,7 +208,7 @@ export default function ProductDetailClient({ product }: Props) {
               <select 
                 value={effectiveOptionId}
                 onChange={(e) => setSelectedOption(e.target.value)}
-                className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
+                className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 md:py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
               >
                 {product.options.map(opt => (
                   <option key={opt.id} value={opt.id}>
@@ -262,24 +262,24 @@ export default function ProductDetailClient({ product }: Props) {
         )}
 
         {/* Action Buttons */}
-        <div className="mt-8 flex gap-3">
+        <div className="mt-6 md:mt-8 flex gap-2 md:gap-3">
           {hasPrice ? (
             <>
               <button
                 type="button"
                 onClick={handleAddToCart}
                 disabled={!isSellable}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <ShoppingCart className="mr-2 h-5 w-5" /> {isSellable ? '장바구니' : '품절'}
+                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '장바구니' : '품절'}
               </button>
               <button
                 type="button"
                 onClick={handleBuyNow}
                 disabled={!isSellable}
-                className="flex h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-[14px] md:text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <CreditCard className="mr-2 h-5 w-5" /> {isSellable ? '바로구매' : '품절'}
+                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '바로구매' : '품절'}
               </button>
             </>
           ) : (
@@ -288,17 +288,17 @@ export default function ProductDetailClient({ product }: Props) {
                 type="button"
                 disabled
                 aria-disabled="true"
-                className="flex h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-base font-semibold text-[#6F766F] opacity-70 shadow-sm"
+                className="flex h-[54px] md:h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#6F766F] opacity-70 shadow-sm"
               >
-                <ShoppingCart className="mr-2 h-5 w-5" /> 장바구니 준비중
+                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> 장바구니 준비중
               </button>
               <button
                 type="button"
                 disabled
                 aria-disabled="true"
-                className="flex h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] bg-[#17211D]/45 text-base font-semibold text-white opacity-80 shadow-md"
+                className="flex h-[54px] md:h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] bg-[#17211D]/45 text-[14px] md:text-base font-semibold text-white opacity-80 shadow-md"
               >
-                <CreditCard className="mr-2 h-5 w-5" /> 결제 준비중
+                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> 결제 준비중
               </button>
             </>
           )}

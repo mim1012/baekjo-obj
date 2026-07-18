@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
@@ -85,6 +86,7 @@ function CheckoutForm() {
     paymentMethod: '무통장입금'
   });
   const [submitting, setSubmitting] = useState(false);
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
   const [widgetReady, setWidgetReady] = useState(false);
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
@@ -284,45 +286,45 @@ function CheckoutForm() {
   };
 
   return (
-    <div className="bg-[#F4F2EC] min-h-dvh py-12">
+    <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
       <div className="site-container">
-        <h1 className="text-2xl font-bold text-[#202521] mb-8">주문/결제</h1>
-        
-        <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-8">
+        <h1 className="text-xl md:text-2xl font-bold text-[#202521] mb-5 md:mb-8">주문/결제</h1>
+
+        <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Form Fields */}
-          <div className="lg:w-2/3 space-y-6">
-            
-            <section className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-[#202521] mb-6">배송지 정보</h2>
-              <div className="space-y-4">
+          <div className="lg:w-2/3 space-y-5 md:space-y-6">
+
+            <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
+              <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-4 md:mb-6">배송지 정보</h2>
+              <div className="space-y-3 md:space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">받는 사람 *</label>
-                  <input required type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34]" placeholder="이름을 입력하세요" />
+                  <label className="block text-[13px] md:text-sm font-medium text-gray-700 mb-1">받는 사람 *</label>
+                  <input required type="text" name="customerName" value={formData.customerName} onChange={handleChange} className="w-full p-3 h-12 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34] text-[16px] md:text-sm" placeholder="이름을 입력하세요" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">연락처 *</label>
-                  <input required type="tel" name="phone" value={formData.phone} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34]" placeholder="010-0000-0000" />
+                  <label className="block text-[13px] md:text-sm font-medium text-gray-700 mb-1">연락처 *</label>
+                  <input required type="tel" name="phone" value={formData.phone} onChange={handleChange} className="w-full p-3 h-12 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34] text-[16px] md:text-sm" placeholder="010-0000-0000" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">주소 *</label>
-                  <input required type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34]" placeholder="배송지 주소를 입력하세요" />
+                  <label className="block text-[13px] md:text-sm font-medium text-gray-700 mb-1">주소 *</label>
+                  <input required type="text" name="address" value={formData.address} onChange={handleChange} className="w-full p-3 h-12 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34] text-[16px] md:text-sm" placeholder="배송지 주소를 입력하세요" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">배송 메모</label>
-                  <input type="text" name="memo" value={formData.memo} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34]" placeholder="예) 문 앞에 놓아주세요" />
+                  <label className="block text-[13px] md:text-sm font-medium text-gray-700 mb-1">배송 메모</label>
+                  <input type="text" name="memo" value={formData.memo} onChange={handleChange} className="w-full p-3 h-12 border border-gray-300 rounded-sm focus:ring-[#2F3B34] focus:border-[#2F3B34] text-[16px] md:text-sm" placeholder="예) 문 앞에 놓아주세요" />
                 </div>
               </div>
             </section>
 
-            <section className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-[#202521] mb-6">결제 수단</h2>
-              <div className="grid grid-cols-2 gap-4">
+            <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
+              <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-4 md:mb-6">결제 수단</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                 {(['무통장입금', '카드결제'] as const).map(method => {
                   const disabled = method === '카드결제' && !TOSS_CLIENT_KEY;
                   return (
                     <label
                       key={method}
-                      className={`border p-4 rounded-sm flex items-center justify-center transition-colors ${disabled ? 'cursor-not-allowed border-gray-100 text-gray-400' : 'cursor-pointer'} ${formData.paymentMethod === method && !disabled ? 'border-[#2F3B34] bg-[#E4E8E3] text-[#2F3B34] font-bold' : 'border-gray-200 hover:border-gray-300'}`}
+                      className={`border p-4 h-14 rounded-sm flex items-center justify-center transition-colors text-[14px] md:text-base ${disabled ? 'cursor-not-allowed border-gray-100 text-gray-400' : 'cursor-pointer'} ${formData.paymentMethod === method && !disabled ? 'border-[#2F3B34] bg-[#E4E8E3] text-[#2F3B34] font-bold' : 'border-gray-200 hover:border-gray-300'}`}
                     >
                       <input
                         type="radio"
@@ -357,9 +359,18 @@ function CheckoutForm() {
               )}
             </section>
 
-            <section className="bg-white p-8 rounded-sm shadow-sm border border-gray-100">
-              <h2 className="text-lg font-bold text-[#202521] mb-4">주문 전 확인</h2>
-              <div className="space-y-3 text-sm leading-6 text-gray-600">
+            <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
+              <button
+                type="button"
+                aria-expanded={isNoticeOpen}
+                aria-controls="checkout-notice"
+                onClick={() => setIsNoticeOpen((current) => !current)}
+                className="flex w-full items-center justify-between gap-4 text-left"
+              >
+                <h2 className="text-[16px] md:text-lg font-bold text-[#202521]">주문 전 확인</h2>
+                <ChevronDown className={`size-5 shrink-0 text-[#6F756F] transition-transform duration-300 ${isNoticeOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+              </button>
+              <div id="checkout-notice" className={`space-y-3 text-sm leading-6 text-gray-600 pt-4 ${isNoticeOpen ? 'block' : 'hidden'}`}>
                 <p>
                   주문·배송·결제 처리를 위해 받는 사람, 연락처, 배송지 주소, 배송 메모, 주문 상품, 결제수단 정보를
                   수집·이용합니다. 주문 및 대금결제 기록은 전자상거래법에 따라 5년간 보관됩니다.
@@ -376,35 +387,35 @@ function CheckoutForm() {
                   <Link href="/privacy" className="underline underline-offset-2">개인정보처리방침</Link>
                   <Link href="/refund-policy" className="underline underline-offset-2">배송·교환·환불 안내</Link>
                 </div>
-                <label className="flex cursor-pointer items-start gap-3 pt-2 text-sm text-[#4A514A]">
-                  <input required type="checkbox" className="mt-1 size-4" />
-                  <span>
-                    <strong>[필수]</strong> 주문 정보, 결제 금액, 배송·교환·환불 기준 및 개인정보 수집·이용 안내를 확인했습니다.
-                  </span>
-                </label>
               </div>
+              <label className="flex cursor-pointer items-start gap-3 pt-4 text-sm text-[#4A514A]">
+                <input required type="checkbox" className="mt-1 size-4" />
+                <span>
+                  <strong>[필수]</strong> 주문 정보, 결제 금액, 배송·교환·환불 기준 및 개인정보 수집·이용 안내를 확인했습니다.
+                </span>
+              </label>
             </section>
 
           </div>
 
           {/* Sidebar */}
           <div className="lg:w-1/3">
-            <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 sticky top-24">
-              <h2 className="text-lg font-bold text-[#202521] mb-6">주문 상품</h2>
-              
-              <div className="space-y-4 mb-6 max-h-60 overflow-y-auto hide-scrollbar">
+            <div className="bg-white p-5 md:p-6 rounded-sm shadow-sm border border-gray-100 sticky top-24">
+              <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-5 md:mb-6">주문 상품 ({cartItems.length}개)</h2>
+
+              <div className="space-y-4 mb-5 md:mb-6 max-h-60 overflow-y-auto hide-scrollbar">
                 {cartItems.map((item, idx) => (
                   <div key={idx} className="flex justify-between items-start text-sm">
                     <div className="flex-1 pr-4">
-                      <div className="font-medium text-gray-900 line-clamp-1">{item.product.name}</div>
-                      <div className="text-gray-500 mt-1">{item.option?.name ? `${item.option.name} / ` : ''}{item.quantity}개</div>
+                      <div className="break-keep font-medium leading-[1.5] text-gray-900">{item.product.name}</div>
+                      <div className="text-[13px] text-gray-500 mt-1">{item.option?.name ? `${item.option.name} / ` : ''}{item.quantity}개</div>
                     </div>
-                    <div className="font-bold text-[#2F3B34]">{formatPrice(item.totalPrice)}</div>
+                    <div className="font-bold text-[14px] text-[#2F3B34] shrink-0">{formatPrice(item.totalPrice)}</div>
                   </div>
                 ))}
               </div>
 
-              <div className="pt-6 border-t border-gray-100 space-y-4 text-sm mb-6">
+              <div className="pt-5 md:pt-6 border-t border-gray-100 space-y-3 md:space-y-4 text-[13px] md:text-sm mb-5 md:mb-6">
                 <div className="flex justify-between text-gray-600">
                   <span>총 상품금액</span>
                   <span className="font-medium text-gray-900">{formatPrice(totalProductsPrice)}</span>
@@ -414,16 +425,16 @@ function CheckoutForm() {
                   <span className="font-medium text-gray-900">{formatPrice(deliveryFee)}</span>
                 </div>
               </div>
-              
-              <div className="pt-6 border-t border-gray-100 flex items-end justify-between mb-8">
-                <span className="font-bold text-gray-900">최종 결제금액</span>
-                <span className="text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
+
+              <div className="pt-5 md:pt-6 border-t border-gray-100 flex items-end justify-between mb-6 md:mb-8">
+                <span className="font-bold text-gray-900 text-[14px] md:text-base">최종 결제금액</span>
+                <span className="text-xl md:text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
               </div>
 
               <button
                 type="submit"
                 disabled={submitting || (isCardPayment && !widgetReady)}
-                className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? '주문 처리 중…' : `${formatPrice(finalPrice)} 결제하기`}
               </button>

@@ -141,8 +141,8 @@ function ShopInner({ products, brands, concerns }: Props) {
   const endIndex = startIndex + PRODUCTS_PER_PAGE;
   const paginatedProducts = filtered.slice(startIndex, endIndex);
 
-  // Recommended products (independent of pagination, max 4)
-  const recommendedProducts = products.filter((p) => p.isRecommended || p.isBest).slice(0, 4);
+  // 추천 상품은 페이지네이션과 분리해 전체를 가로 탐색한다.
+  const recommendedProducts = products.filter((p) => p.isRecommended || p.isBest);
 
   const makeHref = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -316,9 +316,11 @@ function ShopInner({ products, brands, concerns }: Props) {
             <h2 className="text-[22px] font-bold text-[#17211D]">에디터 추천 상품</h2>
             <p className="text-sm text-[#6F766F]">지금 백조오브제가 가장 주목하는 제품</p>
           </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
+          <div className="flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-4 hide-scrollbar">
             {recommendedProducts.map(product => (
-              <ProductCard key={product.id} product={product} variant="shop" />
+              <div key={product.id} className="min-w-0 basis-[calc(50%-0.5rem)] shrink-0 snap-start sm:basis-[18.75rem] lg:basis-[calc(25%-0.75rem)]">
+                <ProductCard product={product} variant="shop" />
+              </div>
             ))}
           </div>
         </section>
