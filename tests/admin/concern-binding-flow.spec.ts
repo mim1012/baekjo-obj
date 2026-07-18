@@ -12,8 +12,9 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain("import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminConcernsConfig()');
     expect(pageSource).toContain('saveConcernsConfig({ items })');
-    // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH).
-    expect(pageSource).toContain('if (!loaded || loadError) return Promise.resolve({ ok: false });');
+    // 로드 완료 전·로드 실패 시, 그리고 삭제와 동시 진행 중일 때 저장을 막는다
+    // (codex F-HIGH, codex 2차 리뷰 HIGH — busyRef 상호배제).
+    expect(pageSource).toContain('if (!loaded || loadError || busyRef.current) return { ok: false };');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
@@ -33,10 +34,10 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain('persistedItemsRef.current = config.items;');
     expect(pageSource).toContain('const handleDelete = async (id: string | number) => {');
     expect(pageSource).toContain('if (!loaded || loadError) return;');
-    // 재진입(연타) 방지 가드(opus 리뷰 LOW-1).
-    expect(pageSource).toContain('const deletingRef = useRef(false);');
-    expect(pageSource).toContain('if (deletingRef.current) return;');
-    expect(pageSource).toContain('deletingRef.current = true;');
+    // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
+    expect(pageSource).toContain('const busyRef = useRef(false);');
+    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('busyRef.current = true;');
     expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((concern) => concern.slug !== id);');
     expect(pageSource).toContain('const { ok } = await saveConcernsConfig({ items: nextItems });');
     // 관리자 PUT 라우트가 items.length < 1 을 거부하므로 마지막 항목은 저장 전에 막는다.

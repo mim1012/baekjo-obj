@@ -79,9 +79,9 @@ export default function AdminInsuranceContentPage() {
     consents: defaultInsuranceContentConfig.consents,
     faqs: defaultInsuranceContentConfig.faqs,
   });
-  // 같은 행에 대한 삭제 클릭이 저장 왕복 중 중복 발생하지 않게 막는다(opus 리뷰 LOW-1). 두 섹션이
-  // 같은 싱글턴 config 를 저장하므로 하나의 ref 로 공유한다.
-  const deletingRef = useRef(false);
+  // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH). 두 섹션의
+  // 삭제 핸들러와 배치 저장이 같은 싱글턴 config 를 쓰므로 하나의 ref 로 셋을 함께 배타한다.
+  const busyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,12 +104,16 @@ export default function AdminInsuranceContentPage() {
   }, []);
 
   // 한쪽 섹션의 저장 버튼이 동의 문서·FAQ 전체를 함께 저장한다(싱글턴 config 통째 저장).
-  const handleSave = () => {
-    if (!loaded || loadError) return Promise.resolve({ ok: false });
-    return saveInsuranceContentConfig({ consents, faqs }).then((result) => {
+  const handleSave = async () => {
+    if (!loaded || loadError || busyRef.current) return { ok: false };
+    busyRef.current = true;
+    try {
+      const result = await saveInsuranceContentConfig({ consents, faqs });
       if (result.ok) persistedRef.current = { consents, faqs };
       return result;
-    });
+    } finally {
+      busyRef.current = false;
+    }
   };
 
   // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
@@ -119,8 +123,8 @@ export default function AdminInsuranceContentPage() {
   // 서버 왕복 없이 클라이언트에서 먼저 막아 정직한 메시지를 보여준다(opus 리뷰 LOW-2).
   const handleDeleteConsent = async (id: string | number) => {
     if (!loaded || loadError) return;
-    if (deletingRef.current) return;
-    deletingRef.current = true;
+    if (busyRef.current) return;
+    busyRef.current = true;
     try {
       if ((REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)) {
         window.alert('필수(법정) 동의 문서는 삭제할 수 없습니다.');
@@ -139,15 +143,15 @@ export default function AdminInsuranceContentPage() {
         window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
-      deletingRef.current = false;
+      busyRef.current = false;
     }
   };
 
   // faqs 는 관리자 PUT 라우트가 빈 배열을 허용하므로 마지막 항목 차단은 없다.
   const handleDeleteFaq = async (id: string | number) => {
     if (!loaded || loadError) return;
-    if (deletingRef.current) return;
-    deletingRef.current = true;
+    if (busyRef.current) return;
+    busyRef.current = true;
     try {
       const nextFaqs = persistedRef.current.faqs.filter((faq) => faq.id !== id);
       const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });
@@ -158,7 +162,7 @@ export default function AdminInsuranceContentPage() {
         window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
-      deletingRef.current = false;
+      busyRef.current = false;
     }
   };
 

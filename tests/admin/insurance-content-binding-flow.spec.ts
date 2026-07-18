@@ -12,8 +12,9 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(pageSource).toContain("import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminInsuranceContentConfig()');
     expect(pageSource).toContain('saveInsuranceContentConfig({ consents, faqs })');
-    // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH, F5).
-    expect(pageSource).toContain('if (!loaded || loadError) return Promise.resolve({ ok: false });');
+    // 로드 완료 전·로드 실패 시, 그리고 삭제와 동시 진행 중일 때 저장을 막는다
+    // (codex F-HIGH, F5, codex 2차 리뷰 HIGH — busyRef 상호배제).
+    expect(pageSource).toContain('if (!loaded || loadError || busyRef.current) return { ok: false };');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
@@ -31,12 +32,14 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     // 공유하므로 ref 도 { consents, faqs } 를 함께 든다(opus 리뷰 MEDIUM-1).
     expect(pageSource).toContain('const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({');
     expect(pageSource).toContain('persistedRef.current = { consents: config.consents, faqs: config.faqs };');
-    expect(pageSource).toContain('const deletingRef = useRef(false);');
+    // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH). 두 섹션의
+    // 삭제와 배치 저장이 하나의 ref 를 공유한다.
+    expect(pageSource).toContain('const busyRef = useRef(false);');
     // 법정 동의 문서('privacy'/'analysis')는 서버 왕복 없이 클라이언트에서 먼저 막는다(opus 리뷰 LOW-2).
     expect(pageSource).toContain("const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;");
     expect(pageSource).toContain('const handleDeleteConsent = async (id: string | number) => {');
     expect(pageSource).toContain('if (!loaded || loadError) return;');
-    expect(pageSource).toContain('if (deletingRef.current) return;');
+    expect(pageSource).toContain('if (busyRef.current) return;');
     expect(pageSource).toContain('(REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)');
     expect(pageSource).toContain('필수(법정) 동의 문서는 삭제할 수 없습니다.');
     expect(pageSource).toContain('const nextConsents = persistedRef.current.consents.filter((consent) => consent.id !== id);');

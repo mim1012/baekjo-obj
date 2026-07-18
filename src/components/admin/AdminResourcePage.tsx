@@ -370,7 +370,7 @@ export default function AdminResourcePage({
                             <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
                           )}
                           {canDeleteRows && (
-                            <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
+                            <button type="button" onClick={() => handleDelete(rowId)} disabled={saving} className="text-xs font-semibold text-red-600 hover:underline disabled:opacity-50">삭제</button>
                           )}
                         </td>
                       )}
