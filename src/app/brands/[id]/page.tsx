@@ -220,12 +220,15 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         </div>
       </section>
 
-      {/* 3-1. 감사 리포트 상세 (관리자 입력 — 값 없으면 확인중 상태로 폴백) */}
-      <section className="mb-10 md:mb-12">
-        <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
-          <BrandAuditReport brand={brand} />
-        </div>
-      </section>
+      {/* 3-1. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만. 없으면 위 아코디언의
+          "확인 중" 배지만 남기고 이 패널은 렌더하지 않는다 — 컴포넌트 내장 폴백과 중복 방지) */}
+      {hasPublishedAudit && (
+        <section className="mb-10 md:mb-12 [&>section]:mt-0">
+          <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+            <BrandAuditReport brand={brand} />
+          </div>
+        </section>
+      )}
 
       {/* 3-2. 브랜드 배송 정책 (값 있을 때만 렌더) */}
       <BrandShippingInfo brand={brand} />

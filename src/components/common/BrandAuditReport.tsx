@@ -109,7 +109,10 @@ export default function BrandAuditReport({ brand }: { brand: Brand }) {
       <div className="relative z-10 grid border-b border-[#FBFAF7]/10 lg:grid-cols-2 lg:divide-x lg:divide-[#FBFAF7]/10">
         <div className="px-6 py-10 sm:px-10 lg:px-16 lg:py-14">
           <p className="text-sm font-semibold text-[#D8C4A3]">살펴본 내용</p>
-          <h3 className="mt-4 break-keep font-editorial text-2xl italic leading-[1.3] text-[#FBFAF7]">
+          {/* summaryTitle은 관리자가 입력하는 한글 시드 데이터라 §6 도메인 규칙(한글에 Playfair
+              Display/font-editorial 강제 금지 — 렌더 깨짐)을 어긴다. Pretendard가 자연히
+              상속되도록 font-editorial/italic을 제거하고 크기·굵기·색상만 유지한다. */}
+          <h3 className="mt-4 break-keep text-2xl leading-[1.3] text-[#FBFAF7]">
             {report.summaryTitle}
           </h3>
           <p className="mt-5 break-keep text-sm leading-7 text-[#FBFAF7]/70 sm:text-[15px] sm:leading-8">
