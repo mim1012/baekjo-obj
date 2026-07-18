@@ -28,8 +28,11 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     // 전시 후기도 DB 정본(showcase_reviews_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
     expect(pageSource).toContain("import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo'");
     expect(pageSource).toContain('getShowcaseReviewsConfigWithFallback()');
+    // 공지 config 는 append 순서로 저장된다 — 홈 소식(notices.slice(0,4))이 항상 최신 4건을 보이도록
+    // 서버 wrapper 에서 최신순으로 정렬한 뒤 넘긴다(2026-07-18: 신규 공지가 홈에 안 뜨던 버그 수정).
+    expect(pageSource).toContain('const sortedNotices = [...noticesConfig.items].sort((a, b) => b.date.localeCompare(a.date));');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={noticesConfig.items} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />');
+    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />');
     expectNoMutableDataBypass(pageSource);
   });
 
