@@ -89,8 +89,9 @@ function itemAmount(item: { price: unknown; quantity: unknown }): number | null 
  * - **숨김 브랜드도 포함**한다(관리자는 숨김을 봐야 한다 → `isVisible: false`로 내려간다).
  * - 정렬은 `displayOrder` 오름차순(§6-4), 미지정 브랜드는 뒤로. 동순위는 입력 순서 유지(안정 정렬).
  * - 금액은 **결제 확정('결제완료') 주문만** 합산한다 — 미결제(결제대기/입금대기/승인중)는 매출이 아니다.
- *   특히 무통장입금은 expires_at 없이 '입금대기'로 생성되고 만료 cron이 건드리지 않아 영원히 미결제로
- *   남을 수 있다(orders/repo.ts listExpiredPendingOrders) — orderStatus만 보면 영구히 매출로 잡힌다.
+ *   무통장입금('입금대기')도 72h expires_at을 받고 만료되면 reclaim-stock cron이 취소·재고복원한다
+ *   (orders/repo.ts listExpiredPendingOrders — '입금대기' 포함). 그래도 만료 전(입금 대기 중)이거나
+ *   dead-letter로 남은 미결제는 여전히 매출이 아니므로, orderStatus가 아니라 payment_status로 거른다.
  * - 어떤 브랜드에도 매칭되지 않는 상품(`brandId`가 빈 문자열이거나 brands에 없는 id)은 결과 행이 없다.
  *   그 개수는 {@link countUnmatchedProducts}로 세어 응답 meta에 담는다.
  * - 매칭되지 않는 상품을 참조하는 주문 아이템·문의도 같은 이유로 어느 브랜드에도 합산되지 않는다.

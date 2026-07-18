@@ -376,11 +376,17 @@ const ORPHANED_CONFIRMING_ORDERS_CAP = 100;
  *  걸릴 때 항상 가장 오래 만료된 건부터 결정적으로 처리한다(정렬 없으면 DB가 임의 순서로 잘라
  *  같은 100건이 반복 누락될 수 있음). reclaim_dead=false로 좁혀 dead-letter 처리된 건은 cron이
  *  더 이상 반복 조회하지 않는다(U7). '승인중' 주문은 이 목록에서 항상 제외된다 — 그건 U6 담당. */
+// 만료 재고 회수 대상 결제상태 — 카드 선점('결제대기')과 무통장 선점('입금대기') 둘 다.
+// '입금대기'는 무통장입금 주문이 입금 확인 전까지 갖는 상태다(W2). 입금이 확인되면 '결제완료'로
+// 승격돼 이 집합에서 빠지므로 절대 만료 취소되지 않고, 취소 RPC(0031)도 이 두 상태만 UPDATE 해
+// 이중으로 '결제완료'를 보호한다. '승인중'은 여기 없다 — reconcile-confirming cron 전담(상태기계 배타).
+const RECLAIMABLE_PENDING_STATUSES = ['결제대기', '입금대기'];
+
 export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()
     .from('orders')
     .select(SELECT_COLUMNS)
-    .eq('payment_status', '결제대기')
+    .in('payment_status', RECLAIMABLE_PENDING_STATUSES)
     .eq('reclaim_dead', false)
     .not('expires_at', 'is', null)
     .lt('expires_at', new Date().toISOString())
