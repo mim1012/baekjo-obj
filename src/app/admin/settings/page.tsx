@@ -25,7 +25,7 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function SiteSettingsPage() {
-  const { settings, updateSettings, loaded } = useSiteSettings();
+  const { settings, updateSettings, loaded, loadError } = useSiteSettings();
   const [draft, setDraft] = useState<HomeSettings>(settings);
   const [dirty, setDirty] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -154,7 +154,9 @@ export default function SiteSettingsPage() {
     <div className="flex min-h-[calc(100dvh-9rem)] flex-col gap-8">
       <AdminPageHeader
         title="사이트 콘텐츠 설정"
-        description="홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다."
+        // loadError 면 왜 편집·저장이 막혔는지 알려준다(opus 리뷰 MEDIUM — loaded 는 노출해도 소비하지
+        // 않으면 버튼만 영문 모른 채 계속 비활성화된 것처럼 보인다). notices/concerns 화면과 같은 톤.
+        description={loadError ? '설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다.'}
         actions={<>
           <button
             onClick={() => setIsPreviewOpen(true)}

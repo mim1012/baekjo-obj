@@ -27,7 +27,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
-    expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded } = useCategorySettings();');
+    expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded, loadError } = useCategorySettings();');
     expect(adminPage).toContain('const [settings, setSettings] = useState<CategorySettings>(categorySettings);');
     expect(saveFunction).toContain('const ok = await updateCategorySettings(settings);');
     expect(saveFunction).toContain('setHasChanges(false);');
@@ -50,6 +50,14 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(changeFunction).toContain('if (!loaded) return;');
     expect(saveFunction).toContain('if (!loaded) return;');
     expect(adminPage).toContain('disabled={!loaded}');
+  });
+
+  test('loadError 는 PageHeader 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
+
+    expect(adminPage).toContain(
+      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 드래그하여 순서를 변경할 수 있습니다.'}",
+    );
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {

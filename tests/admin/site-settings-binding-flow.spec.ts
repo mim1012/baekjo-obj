@@ -42,7 +42,7 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     const pageSource = src('src', 'app', 'admin', 'settings', 'page.tsx');
 
     expect(pageSource).toContain("import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';");
-    expect(pageSource).toContain('const { settings, updateSettings, loaded } = useSiteSettings();');
+    expect(pageSource).toContain('const { settings, updateSettings, loaded, loadError } = useSiteSettings();');
 
     const saveFunction = sliceBetween(pageSource, 'const handleSave = async () => {', 'const updateDraft = ');
     expect(saveFunction).toContain('if (!loaded) return;');
@@ -56,6 +56,14 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
 
     // 헤더 저장 버튼과 미리보기 모달의 저장 버튼 둘 다 loaded 로 비활성화된다.
     expect((pageSource.match(/disabled=\{!loaded\}/g) ?? []).length).toBe(2);
+  });
+
+  test('loadError 는 헤더 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
+    const pageSource = src('src', 'app', 'admin', 'settings', 'page.tsx');
+
+    expect(pageSource).toContain(
+      "description={loadError ? '설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다.'}",
+    );
   });
 });
 
