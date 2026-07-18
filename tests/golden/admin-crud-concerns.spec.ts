@@ -23,6 +23,12 @@ import {
 // 플래그한다. slug는 title로부터 결정론적으로 생성되므로(createConcernSlug) 상세 페이지는 직접
 // URL로 검증 가능하다.
 //
+// ⚠️ #148(AdminIdMultiPicker) — 추천 상품/브랜드 필드가 "쉼표 구분 ID" 텍스트 입력에서 이름
+// 검색+체크 드롭다운으로 바뀌었다(src/components/admin/AdminIdMultiPicker.tsx). formFields의
+// label도 '추천 상품 ID(쉼표 구분)' → '추천 상품'(브랜드도 동일 패턴)으로 바뀌어, 트리거 버튼의
+// aria-label이 그 label 그대로 붙는다(AdminResourcePage.tsx renderField: `ariaLabel={field.label}`).
+// 저장 형식(쉼표 구분 id 문자열)은 그대로라 공개 화면 소비 로직은 무변화 — 선택 UI만 바뀌었다.
+//
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 고민별 케어', () => {
@@ -64,6 +70,22 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 고민별 케어
     await page.close();
   });
 
+  /**
+   * AdminIdMultiPicker(#148) 트리거를 열고 이름으로 검색해 옵션을 체크한 뒤 닫는다.
+   * 트리거 버튼의 aria-label은 field.label 그대로다(예: '추천 상품'·'추천 브랜드').
+   */
+  async function selectIdPickerOption(
+    page: import('@playwright/test').Page,
+    triggerLabel: string,
+    optionName: string,
+  ) {
+    const trigger = page.getByRole('button', { name: triggerLabel, exact: true });
+    await trigger.click();
+    await page.getByRole('textbox', { name: `${triggerLabel} 검색` }).fill(optionName);
+    await page.getByRole('option', { name: optionName }).first().click();
+    await trigger.click(); // 드롭다운 닫기 — 다음 필드 조작 시 겹치는 오버레이 방지.
+  }
+
   test('등록 → 필드 단위로 /concerns/[slug] 상세에 반영 → 삭제 → 404로 사라짐', async ({ page }) => {
     page.on('dialog', (dialog) => {
       dialog.accept().catch(() => {});
@@ -103,8 +125,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 고민별 케어
     await page.getByLabel('설명', { exact: true }).fill(`E2E 설명 ${runId}`);
     await page.getByLabel('확인 증상(쉼표 구분)').fill(`${symptomA}, ${symptomB}`);
     await page.getByLabel('원인 정보(쉼표 구분)').fill(`${causeA}, ${causeB}`);
-    await page.getByLabel('추천 상품 ID(쉼표 구분)').fill('p1');
-    await page.getByLabel('추천 브랜드 ID(쉼표 구분)').fill('b1');
+    await selectIdPickerOption(page, '추천 상품', productName);
+    await selectIdPickerOption(page, '추천 브랜드', brandName);
     await page.getByLabel('보험 CTA').fill(`E2E 보험CTA ${runId}`);
     await page.getByLabel('FAQ(').fill(`${faqQuestion}|${faqAnswer}`);
     await page.getByRole('button', { name: '저장' }).click();

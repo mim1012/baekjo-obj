@@ -9,6 +9,7 @@ import {
 } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/notices → 공지를 노출하는 모든 공개 화면.
+// 2026-07-18 #147: 폼이 제목·유형·본문 3필드로 축소, 작성자/작성일은 자동값 — 스펙도 그 기준.
 //
 // 2026-07-18 배경: 관리자 삭제가 저장 안 되고, 수정이 새로고침하면 되돌아오는 버그 2건이
 // 209개 소스-계약 테스트를 통과한 채로 배포됐다 — 아무 테스트도 실제로 화면을 클릭하지
@@ -20,9 +21,10 @@ import {
 // src/app/page.tsx·src/app/notices/page.tsx를 `[...items].sort((a, b) => b.date.localeCompare(a.date))`로
 // 고쳐서, 이제 신규 공지가 date만 충분히 크면 홈 "소식" 위젯(상위 4건)과 공개 목록 맨 위에 뜬다
 // (직전 wave에서는 이 정렬이 없어 append-순서 그대로 slice(0,4)해 신규 공지가 절대 안 보였다 —
-// 그 버그를 이 스펙이 실제로 잡아서 #144로 이어졌다). 아래 date를 미래로 멀리 잡아 다른 실데이터와
-// 정렬 경쟁에서 항상 이기게 한다 — 오늘 날짜를 쓰면 같은 날 등록된 다른 공지와 안정정렬 순서가
-// 갈릴 수 있어 신뢰할 수 없다.
+// 그 버그를 이 스펙이 실제로 잡아서 #144로 이어졌다). #147이 작성일 입력 필드 자체를 없애고
+// 등록 시점을 자동 기록하게 바꿔서, wave2에서 쓰던 인위적 미래 날짜(2099-06-15)는 더 이상 쓸 수
+// 없다 — 자동 기록된 "오늘" 날짜가 date desc 정렬에서 staging의 기존(대개 과거) 공지보다 앞에
+// 온다는 약한 가정에 기댄다(오늘 등록된 다른 공지가 없는 한 안전 — 실측 확인 완료).
 //
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
@@ -38,14 +40,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
   const SEARCH_PREFIX = 'E2E-공지-';
   const title = `${SEARCH_PREFIX}${runId}`;
   const editedTitle = `${title}-수정`;
-  const writer = `E2E작성자-${runId}`;
+  // 작성자는 폼에서 제거됨 — 미노출 시 '관리자' 기본값이 자동 기록된다(#147, draftToNotice).
+  const writer = '관리자';
   const content = `E2E 테스트 본문 ${runId}`;
-  // 실제 오늘 날짜(폼 기본값)와도, 다른 실데이터와도 겹치지 않을 만큼 먼 미래로 잡는다 —
-  // (a) "입력한 값이 그대로 반영되는지" 검증(오늘 날짜가 기본값이라 우연히 맞아떨어지는 걸 배제),
-  // (b) 홈 소식 위젯·공개 목록이 date desc 정렬이므로(#144) 항상 최상단에 뜨게 만들어 정렬 검증을
-  // 결정적으로 만든다.
-  const date = '2099-06-15';
-  const dateLabel = '2099.06.15';
+  // 작성일은 폼에서 제거됨 — 등록/수정 시점이 자동 기록된다(#147, draftToNotice). UTC 기준
+  // todayString()과 동일 계산. 홈 소식 위젯·공개 목록은 date desc 정렬(#144)이라 "오늘" 날짜는
+  // staging의 기존 공지(대개 과거 날짜) 대부분보다 먼저 온다 — wave2에서 쓰던 2099년 같은 인위적
+  // 미래 날짜는 더 이상 못 쓴다(입력 필드 자체가 없어졌다), 그래서 이 날짜값의 정렬 우선순위는
+  // "오늘 등록된 다른 공지가 없다"는 약한 가정에 기댄다(실무상 안전 — 실측 확인 완료).
+  const date = new Date().toISOString().slice(0, 10);
+  const dateLabel = date.replace(/-/g, '.'); // formatDate(src/lib/format.ts) = 'YYYY.MM.DD'
   const categoryLabel = '이벤트'; // formFields의 유형 select에서 'event'를 고른다.
   const NOTICES_SEARCH_PLACEHOLDER = '제목, 본문, 작성자 검색';
 
@@ -78,11 +82,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await page.getByLabel('제목', { exact: true }).fill(title);
     await page.getByLabel('유형').selectOption('event');
     await page.getByLabel('본문', { exact: true }).fill(content);
-    await page.getByLabel('작성자', { exact: true }).fill(writer);
-    await page.getByLabel('작성일').fill(date);
     await page.getByRole('button', { name: '저장' }).click();
 
-    // 2) 관리자 목록 — 등록한 필드 전부(유형·제목·작성자·작성일)가 정확히 반영됐는지 행 단위로 확인.
+    // 2) 관리자 목록 — 입력 필드(유형·제목) + 자동값(작성자 '관리자'·오늘 날짜)이 행 단위로 반영됐는지 확인.
     const adminRow = page.locator('tr', { hasText: title });
     await expect(adminRow).toBeVisible({ timeout: 15_000 });
     await expect(adminRow).toContainText(categoryLabel);
@@ -96,8 +98,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await expect(publicListItem).toContainText(categoryLabel);
     await expect(publicListItem).toContainText(dateLabel);
 
-    // 3-1) 홈 "소식" 위젯(recentNotices = 정렬 후 상위 4건, #144) — date를 미래로 잡아뒀으니
-    // 항상 맨 위에 뜬다. 이 검증 자체가 #144의 회귀 방지 게이트다(정렬이 다시 깨지면 여기서 잡힌다).
+    // 3-1) 홈 "소식" 위젯(recentNotices = 정렬 후 상위 4건, #144) — 오늘 날짜로 자동 기록되니
+    // staging의 기존(대개 과거 날짜) 공지보다 앞에 온다. 이 검증 자체가 #144의 회귀 방지
+    // 게이트다(정렬이 다시 깨지면 여기서 잡힌다).
     await page.goto('/');
     await expect(page.locator('body')).toContainText(title);
     await expect(page.locator('body')).toContainText(dateLabel);
@@ -138,7 +141,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await expect(page.locator('body')).not.toContainText(editedTitle);
     await expect(page.locator('body')).not.toContainText(title);
 
-    // 9) 홈 소식 위젯에서도 사라졌는지 확인 — date가 미래라 지워지지 않았다면 계속 최상단에 남아 있다.
+    // 9) 홈 소식 위젯에서도 사라졌는지 확인 — date가 오늘이라 지워지지 않았다면 계속 상위권에 남아 있다.
     await page.goto('/');
     await expect(page.locator('body')).not.toContainText(editedTitle);
     await expect(page.locator('body')).not.toContainText(title);

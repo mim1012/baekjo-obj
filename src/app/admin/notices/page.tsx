@@ -46,7 +46,7 @@ function createNoticeId(): string {
   return `notice-${globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2)}`;
 }
 
-/** 오늘 날짜를 기존 데이터와 같은 YYYY-MM-DD 문자열로 만든다(신규 공지의 date 기본값). */
+/** 오늘 날짜를 기존 데이터와 같은 YYYY-MM-DD 문자열로 만든다(작성일 자동 기록값). */
 function todayString(): string {
   return new Date().toISOString().slice(0, 10);
 }
@@ -57,7 +57,8 @@ function draftToNotice(draft: Record<string, string | number>, previous?: Notice
     id: previous?.id ?? createNoticeId(),
     title: draftText(draft, 'title', previous?.title, '새 공지'),
     writer: draftText(draft, 'writer', previous?.writer, '관리자'),
-    date: draftText(draft, 'date', previous?.date, todayString()),
+    // date 는 폼에 노출하지 않고 등록·수정 시점의 오늘 날짜로 자동 기록한다.
+    date: todayString(),
     // views/likes 는 폼에 노출하지 않는다 — 신규는 0, 기존값은 그대로 보존한다.
     views: previous?.views ?? 0,
     likes: previous?.likes ?? 0,
@@ -208,8 +209,6 @@ export default function AdminNoticesPage() {
           options: CATEGORY_VALUES.map((value) => ({ value, label: CATEGORY_LABELS[value] })),
         },
         { key: 'content', label: '본문', type: 'textarea' },
-        { key: 'writer', label: '작성자' },
-        { key: 'date', label: '작성일(YYYY-MM-DD 형식)' },
       ]}
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}

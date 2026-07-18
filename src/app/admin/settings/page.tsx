@@ -25,7 +25,7 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function SiteSettingsPage() {
-  const { settings, updateSettings } = useSiteSettings();
+  const { settings, updateSettings, loaded, loadError } = useSiteSettings();
   const [draft, setDraft] = useState<HomeSettings>(settings);
   const [dirty, setDirty] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -63,7 +63,11 @@ export default function SiteSettingsPage() {
     };
   }, [isPreviewOpen]);
 
+  // loaded 이전엔 저장을 막는다 — provider 의 GET 이 resolve 되기 전 저장은 draft 가 여전히
+  // defaultHomeSettings 시드일 수 있어, 안 보인 섹션들이 default 값 그대로 실 DB 위에 PUT 된다
+  // (전수조사 A-1, 2026-07-18).
   const handleSave = async () => {
+    if (!loaded) return;
     const ok = await updateSettings(draft);
     if (ok) {
       setDirty(false);
@@ -73,7 +77,12 @@ export default function SiteSettingsPage() {
     }
   };
 
+  // loaded 이전엔 편집(dirty=true)도 막는다 — dirty 락이 걸리면 그 뒤로 도착하는 실제 GET 값이
+  // draft 에 절대 반영되지 못한다(아래 resync effect 의 `if (dirty) return;`). 그 상태로 저장하면
+  // 화면에 보이지 않은 다른 섹션들이 default 값 그대로 커밋된다 — loaded 이전 편집을 원천 차단하는
+  // 것이 dirty 락과 지연 도착 GET 이 충돌하지 않는 최소 변경이다(전수조사 A-1).
   const updateDraft = (section: keyof HomeSettings, field: string, value: unknown) => {
+    if (!loaded) return;
     setDirty(true);
     setDraft((prev) => {
       const sectionData = prev[section] as unknown;
@@ -97,6 +106,7 @@ export default function SiteSettingsPage() {
   // Array Handlers
   // ----------------------------------------------------
   const updateArrayField = (section: keyof HomeSettings, arrayField: string, index: number, itemField: string, value: string) => {
+    if (!loaded) return;
     setDirty(true);
     setDraft((prev) => {
       const sectionData = prev[section] as Record<string, unknown>;
@@ -144,7 +154,9 @@ export default function SiteSettingsPage() {
     <div className="flex min-h-[calc(100dvh-9rem)] flex-col gap-8">
       <AdminPageHeader
         title="사이트 콘텐츠 설정"
-        description="홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다."
+        // loadError 면 왜 편집·저장이 막혔는지 알려준다(opus 리뷰 MEDIUM — loaded 는 노출해도 소비하지
+        // 않으면 버튼만 영문 모른 채 계속 비활성화된 것처럼 보인다). notices/concerns 화면과 같은 톤.
+        description={loadError ? '설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다.'}
         actions={<>
           <button
             onClick={() => setIsPreviewOpen(true)}
@@ -155,7 +167,8 @@ export default function SiteSettingsPage() {
           </button>
           <button
             onClick={handleSave}
-            className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]"
+            disabled={!loaded}
+            className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
             변경사항 저장
@@ -339,7 +352,8 @@ export default function SiteSettingsPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-md hover:bg-[#1f2823] font-medium text-sm transition-colors"
+                  disabled={!loaded}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-md hover:bg-[#1f2823] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4" />
                   현재 상태로 저장

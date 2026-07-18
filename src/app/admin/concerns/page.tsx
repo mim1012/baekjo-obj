@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';
+import { buildBrandOptions, buildProductOptions } from '@/components/admin/adminPickerOptions';
+import type { AdminIdPickerOption } from '@/components/admin/AdminIdMultiPicker';
+import { getAdminBrands, getAdminConcernsConfig, getAdminProducts, saveConcernsConfig } from '@/lib/storage';
 import type { Concern, FAQ } from '@/types';
 
 function asText(value: unknown): string {
@@ -125,6 +127,26 @@ export default function AdminConcernsPage() {
   const persistedItemsRef = useRef<Concern[]>([]);
   // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
   const busyRef = useRef(false);
+  // 추천 상품/브랜드 이름 기반 선택 드롭다운 옵션. config 로드와 독립적으로 불러오고, 실패해도
+  // 화면은 죽지 않는다(빈 옵션 → 기존 id 는 dangling chip 으로 계속 보인다).
+  const [productOptions, setProductOptions] = useState<AdminIdPickerOption[]>([]);
+  const [brandOptions, setBrandOptions] = useState<AdminIdPickerOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getAdminProducts(), getAdminBrands()])
+      .then(([products, brands]) => {
+        if (cancelled) return;
+        setProductOptions(buildProductOptions(products, brands));
+        setBrandOptions(buildBrandOptions(brands));
+      })
+      .catch(() => {
+        // 실패 시 옵션 없이 진행 — 텍스트 폴백 대신 dangling chip 으로 기존 값을 유지한다.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -250,8 +272,8 @@ export default function AdminConcernsPage() {
         { key: 'description', label: '설명', type: 'textarea' },
         { key: 'symptoms', label: '확인 증상(쉼표 구분)', type: 'textarea' },
         { key: 'causes', label: '원인 정보(쉼표 구분)', type: 'textarea' },
-        { key: 'recommendedProductIds', label: '추천 상품 ID(쉼표 구분)' },
-        { key: 'recommendedBrandIds', label: '추천 브랜드 ID(쉼표 구분)' },
+        { key: 'recommendedProductIds', label: '추천 상품', type: 'multiPicker', pickerOptions: productOptions },
+        { key: 'recommendedBrandIds', label: '추천 브랜드', type: 'multiPicker', pickerOptions: brandOptions },
         { key: 'insuranceCta', label: '보험 CTA' },
         { key: 'faq', label: 'FAQ(한 줄에 질문|답변 — 형식이 어긋난 줄은 저장 시 제외됨)', type: 'textarea' },
       ]}

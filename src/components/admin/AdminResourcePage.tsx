@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect } from 'react';
 import { Filter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import AdminIdMultiPicker, { type AdminIdPickerOption } from './AdminIdMultiPicker';
 
 interface Column {
   key: string;
@@ -13,8 +14,10 @@ type ResourceRow = Record<string, string | number>;
 interface FormField {
   key: string;
   label: string;
-  type?: 'text' | 'number' | 'textarea' | 'select';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'multiPicker';
   options?: Array<{ value: string; label: string }>;
+  /** type='multiPicker' 일 때 이름 기반 선택 드롭다운에 넣을 항목들. */
+  pickerOptions?: AdminIdPickerOption[];
 }
 
 interface AdminResourcePageProps {
@@ -193,10 +196,21 @@ export default function AdminResourcePage({
     if (field.type === 'textarea') {
       return (
         <textarea
-          className="mt-2 min-h-24 w-full border border-[#D1D0C8] bg-white px-3 py-2.5 text-sm focus:border-[#2F3B34]"
+          className="mt-2 min-h-48 w-full border border-[#D1D0C8] bg-white px-3 py-2.5 text-sm focus:border-[#2F3B34]"
           value={String(value)}
           placeholder={`${field.label} 입력`}
           onChange={(event) => setValue(event.target.value)}
+        />
+      );
+    }
+
+    if (field.type === 'multiPicker') {
+      return (
+        <AdminIdMultiPicker
+          value={String(value)}
+          onChange={(next) => setValue(next)}
+          options={field.pickerOptions ?? []}
+          ariaLabel={field.label}
         />
       );
     }
@@ -273,12 +287,12 @@ export default function AdminResourcePage({
                   <Plus className="size-4" /> {actionLabel}
                 </button>
                 {createOpen && (
-                  <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
+                  <div className="absolute right-0 z-20 mt-2 max-h-[75dvh] w-[min(92vw,620px)] overflow-y-auto border border-[#D1D0C8] bg-white p-6 shadow-lg">
                     <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
                     <p className="mt-2 text-xs text-[#7B827C]">{onSave == null ? '저장하면 바로 반영됩니다.' : `입력 후 상단의 ${saveLabel} 버튼을 눌러 DB에 반영하세요.`}</p>
                     <div className="mt-5 grid gap-4 sm:grid-cols-2">
                       {editableFields.map((field) => (
-                        <label key={field.key} className="text-xs font-medium text-[#59615B]">
+                        <label key={field.key} className={`text-xs font-medium text-[#59615B] ${field.type === 'textarea' ? 'sm:col-span-2' : ''}`}>
                           {field.label}
                           {renderField(field, createDraft, setCreateDraft)}
                         </label>
@@ -367,10 +381,10 @@ export default function AdminResourcePage({
                         <td className="px-5 py-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           {customActions?.(row)}
                           {canEditRows && (
-                            <button type="button" onClick={() => handleEdit(row)} className="text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
+                            <button type="button" onClick={() => handleEdit(row)} className="inline-flex min-h-11 items-center text-xs font-semibold text-[#2F3B34] hover:underline mr-4">수정</button>
                           )}
                           {canDeleteRows && (
-                            <button type="button" onClick={() => handleDelete(rowId)} className="text-xs font-semibold text-red-600 hover:underline">삭제</button>
+                            <button type="button" onClick={() => handleDelete(rowId)} className="inline-flex min-h-11 items-center text-xs font-semibold text-red-600 hover:underline">삭제</button>
                           )}
                         </td>
                       )}
@@ -394,6 +408,25 @@ export default function AdminResourcePage({
         {/* Pagination Controls */}
         {filteredRows.length > 0 && (
           <div className="flex items-center justify-between border-t border-[#D1D0C8] bg-[#F8F7F2] px-4 py-3 sm:px-6">
+            <div className="flex w-full items-center justify-between gap-3 sm:hidden">
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="inline-flex min-h-11 items-center border border-[#D1D0C8] bg-white px-4 text-sm font-medium text-[#59615B] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                이전
+              </button>
+              <span className="text-sm tabular-nums text-[#59615B]">{currentPage} / {totalPages}</span>
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="inline-flex min-h-11 items-center border border-[#D1D0C8] bg-white px-4 text-sm font-medium text-[#59615B] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+            </div>
             <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-[#59615B]">
@@ -438,8 +471,14 @@ export default function AdminResourcePage({
 
       {/* 수정 모달 */}
       {canEditRows && editingRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={closeEdit}>
+          <div
+            className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90dvh] overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label={`${title} 수정`}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
               <h2 className="text-lg font-semibold">{title} - 상세 / 수정</h2>
               <button onClick={closeEdit} className="p-1 hover:bg-white/20 rounded">
@@ -450,7 +489,7 @@ export default function AdminResourcePage({
               <p className="mb-6 text-xs text-[#7B827C]">{onSave == null ? '저장하면 바로 반영됩니다.' : `수정 후 상단의 ${saveLabel} 버튼을 눌러 DB에 반영하세요.`}</p>
               <div className="grid gap-5 sm:grid-cols-2">
                 {editableFields.map((field) => (
-                  <label key={field.key} className="text-xs font-medium text-[#59615B]">
+                  <label key={field.key} className={`text-xs font-medium text-[#59615B] ${field.type === 'textarea' ? 'sm:col-span-2' : ''}`}>
                     {field.label}
                     {renderField(field, editingDraft, setEditingDraft)}
                   </label>
