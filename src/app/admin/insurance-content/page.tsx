@@ -78,8 +78,8 @@ export default function AdminInsuranceContentPage() {
   // ref 도 { consents, faqs } 를 함께 들고, 성공한 저장(배치 저장 포함)마다 두 필드를 함께 갱신한다.
   // 삭제는 이 기준으로 저장해 미저장 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
   const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({
-    consents: defaultInsuranceContentConfig.consents,
-    faqs: defaultInsuranceContentConfig.faqs,
+    consents: [],
+    faqs: [],
   });
   // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH). 두 섹션의
   // 삭제 핸들러와 배치 저장이 같은 싱글턴 config 를 쓰므로 하나의 ref 로 셋을 함께 배타한다.
