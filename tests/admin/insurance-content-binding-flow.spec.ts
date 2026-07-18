@@ -61,9 +61,9 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     // 저장 성공 시에만 draft 를 갱신한다.
     expect(pageSource).toContain('persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };');
     expect(pageSource).toContain('setConsents((prev) => prev.filter((consent) => consent.id !== id));');
-    expect(pageSource).toContain('onCreateRow={handleCreateConsent}');
-    expect(pageSource).toContain('onUpdateRow={handleUpdateConsent}');
-    expect(pageSource).toContain('onDeleteRow={handleDeleteConsent}');
+    expect(pageSource).toContain('onCreateRow={ready ? handleCreateConsent : undefined}');
+    expect(pageSource).toContain('onUpdateRow={ready ? handleUpdateConsent : undefined}');
+    expect(pageSource).toContain('onDeleteRow={ready ? handleDeleteConsent : undefined}');
   });
 
   test('FAQ 등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
@@ -82,11 +82,17 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     );
     expect(pageSource).toContain('persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };');
     expect(pageSource).toContain('setFaqs((prev) => prev.filter((faq) => faq.id !== id));');
-    expect(pageSource).toContain('onCreateRow={handleCreateFaq}');
-    expect(pageSource).toContain('onUpdateRow={handleUpdateFaq}');
-    expect(pageSource).toContain('onDeleteRow={handleDeleteFaq}');
+    expect(pageSource).toContain('onCreateRow={ready ? handleCreateFaq : undefined}');
+    expect(pageSource).toContain('onUpdateRow={ready ? handleUpdateFaq : undefined}');
+    expect(pageSource).toContain('onDeleteRow={ready ? handleDeleteFaq : undefined}');
     // 등록·수정·삭제 모두 즉시 반영됨을 두 섹션 설명 문구 모두에 명시한다.
     expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다');
+  });
+
+  test('로드 완료 전에는 두 섹션 모두 CRUD 콜백을 아예 안 넘겨 버튼을 숨긴다(ready 게이트, wave-2 e2e 발견)', () => {
+    const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
+
+    expect(pageSource).toContain('const ready = loaded && !loadError;');
   });
 
   test('storage 콘센트는 공개 GET 폴백과 관리자 PUT 경로를 제공한다', () => {
