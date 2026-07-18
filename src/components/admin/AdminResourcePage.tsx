@@ -46,9 +46,17 @@ interface AdminResourcePageProps {
   /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
   renderExpandedRow?: (row: ResourceRow) => React.ReactNode;
   /**
-   * 지정 시 삭제가 내부 로컬 Set(비영속)이 아니라 이 콜백으로 위임된다 — 부모(관리자 page)가
-   * draft 에서 항목을 제거하고 rows 를 다시 내려보내 화면에 반영한다. 미지정 시 기존 동작
-   * (로컬 숨김)을 유지한다(concerns/notices/reviews 화면 하위호환).
+   * 실제 삭제 API로 이어지는 화면만 지정한다 — 지정하면 부모(관리자 page)가 draft 에서
+   * 항목을 제거하고 rows 를 다시 내려보내 화면에 반영한다. 미지정 시 삭제 UI(버튼) 자체를
+   * 숨긴다.
+   *
+   * ⚠️ 2026-07-19 이전엔 미지정 시 로컬 비영속 Set으로 "숨기기만" 하는 폴백이 있었다.
+   * `canDeleteRows`가 `onSave == null`도 참으로 쳐서, batch save(`onSave`)를 안 쓰는
+   * 화면(2026-07-18 즉시저장 전환 이후 전부)은 `onDeleteRow`를 안 넘겨도 삭제 버튼이 항상
+   * 보였다 — 눌러도 DB는 그대로고 새로고침하면 되살아나는 가짜 삭제였다(wave-4, B2B 제휴
+   * 문의 삭제 버그로 처음 발견, 전수 스윕 결과 `/admin/inquiries`도 동일 증상). 폴백을 제거해
+   * "onDeleteRow가 없으면 버튼도 없다"를 유일한 규칙으로 만들었다 — 이 클래스의 재발이
+   * 구조적으로 불가능해진다.
    */
   onDeleteRow?: (id: string | number) => void;
   /**
@@ -92,7 +100,6 @@ export default function AdminResourcePage({
   const [editingDraft, setEditingDraft] = useState<ResourceRow>({});
   const [createOpen, setCreateOpen] = useState(false);
   const [createDraft, setCreateDraft] = useState<ResourceRow>({});
-  const [deletedIds, setDeletedIds] = useState<Set<string | number>>(new Set());
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>(filters[0]);
@@ -105,7 +112,7 @@ export default function AdminResourcePage({
     : columns.map((column) => ({ key: column.key, label: column.label })));
   const canCreateRows = !readOnly && Boolean(actionLabel) && onCreateRow != null;
   const canEditRows = !readOnly && !disableEdit && onUpdateRow != null;
-  const canDeleteRows = !readOnly && (onDeleteRow != null || onSave == null);
+  const canDeleteRows = !readOnly && onDeleteRow != null;
   const hasRowActions = canEditRows || canDeleteRows || customActions != null;
 
   const handleEdit = (row: ResourceRow) => {
@@ -145,13 +152,11 @@ export default function AdminResourcePage({
   }, []);
 
   const handleDelete = (id: string | number) => {
+    // canDeleteRows가 onDeleteRow != null 을 이미 강제하므로 이 버튼은 onDeleteRow가 있을
+    // 때만 렌더링된다 — 방어적으로 한 번 더 확인한다.
+    if (!onDeleteRow) return;
     if (window.confirm('정말로 삭제하시겠습니까?')) {
-      // 부모가 draft 를 소유하면(onDeleteRow) 로컬 숨김 대신 부모에 위임한다.
-      if (onDeleteRow) {
-        onDeleteRow(id);
-        return;
-      }
-      setDeletedIds(prev => new Set(prev).add(id));
+      onDeleteRow(id);
     }
   };
 
@@ -240,8 +245,10 @@ export default function AdminResourcePage({
     );
   };
 
-  const visibleRows = rows.filter(r => !deletedIds.has(r.id));
-  
+  // 삭제는 이제 항상 onDeleteRow(부모 콘센트)로 위임되므로 rows 자체가 이미 최신 상태다
+  // (로컬 비영속 숨김 Set은 wave-4 수정으로 제거됨 — 위 onDeleteRow JSDoc 참고).
+  const visibleRows = rows;
+
   const filteredRows = visibleRows.filter(r => {
     const matchesFilter = activeFilter === filters[0] || Object.values(r).some(val => String(val).includes(activeFilter));
     const matchesSearch = searchQuery === '' || Object.values(r).some(val => String(val).toLowerCase().includes(searchQuery.toLowerCase()));

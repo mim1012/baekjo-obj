@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
-import { getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';
+import { deletePartnerInquiry, getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import {
   PARTNER_INQUIRY_STATUSES,
@@ -30,6 +30,11 @@ function summarize(message: string): string {
  * 신규 등록 버튼은 없다(onCreateRow 미지정). status/memo 는 수정 모달에서 저장하는 즉시
  * PATCH 콘센트로 반영한다 — 상단 일괄 저장(onSave) 단계는 "반영했는데 새로고침하면
  * 되돌아온다" 오인을 낳아 제거했다(2026-07-18 즉시저장 전환, notices·partners 패턴 미러).
+ *
+ * ⚠️ onDeleteRow 필수(wave-4 발견, 2026-07-19 수정): 일괄 저장 prop을 안 쓰는 이 페이지는
+ * AdminResourcePage의 삭제버튼 노출 판정이 그 prop 미지정만으로도 참이 돼 삭제 버튼이 항상
+ * 보였다. onDeleteRow 없이 두면 그 버튼을 눌러도 AdminResourcePage가 로컬 deletedIds로만
+ * 숨기고 DB는 그대로라 새로고침하면 되살아난다 — 실제 DELETE 콘센트로 반드시 연결해야 한다.
  */
 export default function AdminPartnerInquiriesPage() {
   const [inquiries, setInquiries] = useState<PartnerInquiry[]>([]);
@@ -57,6 +62,20 @@ export default function AdminPartnerInquiriesPage() {
       );
     } catch {
       window.alert('상태 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleDelete = async (id: string | number) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      // 콘센트 계약: 실패는 throw — 성공했을 때만 로컬 목록에서 제거한다(handleUpdate와 동일 계약).
+      await deletePartnerInquiry(String(id));
+      setInquiries((current) => current.filter((inquiry) => inquiry.id !== String(id)));
+    } catch {
+      window.alert('삭제에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
     } finally {
       busyRef.current = false;
     }
@@ -99,6 +118,7 @@ export default function AdminPartnerInquiriesPage() {
           { key: 'memo', label: '메모', type: 'textarea' },
         ]}
         onUpdateRow={handleUpdate}
+        onDeleteRow={handleDelete}
         renderExpandedRow={(row) => {
           const inquiry = inquiries.find((item) => item.id === row.id);
           if (!inquiry) return null;
