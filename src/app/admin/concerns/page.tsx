@@ -234,10 +234,28 @@ export default function AdminConcernsPage() {
     }
   };
 
+  // 로드 완료 전에는 CRUD 콜백을 아예 안 넘겨 버튼을 숨긴다 — 로드 전 클릭이 조용히 no-op 되는
+  // 걸 막는다(notices/kits/partners 와 동일 컨벤션, wave-2 e2e 발견).
+  const ready = loaded && !loadError;
+
+  // 공개 /concerns 는 목록 순서 그대로 상위 8개만 메인 카드(slice(0,8)), 9~12번째만 서브 목록
+  // (slice(8,12))으로 그리고 13번째부터는 어디에도 노출하지 않는다(src/app/concerns/page.tsx).
+  // 관리자 화면엔 이 규칙이 어디에도 적혀 있지 않아 "등록했는데 안 보임" 문의가 반복됐다
+  // (wave-2 e2e 발견). 정상 상태 설명에 규칙을 명시하고, 12개를 넘으면 경고를 덧붙인다.
+  const exposureRuleNote = '목록 순서가 곧 공개 노출 순서입니다 — 상위 8개는 메인 카드, 9~12번째는 서브 목록, 13번째부터는 공개 목록에 노출되지 않습니다.';
+  const exposureOverflowWarning =
+    items.length > 12 ? ` 현재 ${items.length}개 — 13번째 이후 고민은 공개 목록에 노출되지 않습니다.` : '';
+
   return (
     <AdminResourcePage
       title="고민 관리"
-      description={loadError ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
+      description={
+        loadError
+          ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.'
+          : !loaded
+            ? '콘텐츠 로딩 중…'
+            : `증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 등록·수정·삭제가 모두 즉시 반영됩니다. ${exposureRuleNote}${exposureOverflowWarning}`
+      }
       actionLabel="고민 등록"
       searchPlaceholder="고민명 검색"
       columns={[
@@ -277,9 +295,9 @@ export default function AdminConcernsPage() {
         { key: 'insuranceCta', label: '보험 CTA' },
         { key: 'faq', label: 'FAQ(한 줄에 질문|답변 — 형식이 어긋난 줄은 저장 시 제외됨)', type: 'textarea' },
       ]}
-      onCreateRow={handleCreate}
-      onUpdateRow={handleUpdate}
-      onDeleteRow={handleDelete}
+      onCreateRow={ready ? handleCreate : undefined}
+      onUpdateRow={ready ? handleUpdate : undefined}
+      onDeleteRow={ready ? handleDelete : undefined}
     />
   );
 }

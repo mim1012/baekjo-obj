@@ -231,6 +231,11 @@ export default function AdminInsuranceContentPage() {
     }
   };
 
+  // 로드 완료 전에는 CRUD 콜백을 아예 안 넘겨 버튼을 숨긴다 — 로드 전 클릭이 조용히 no-op 되는
+  // 걸 막는다(notices/kits/partners 와 동일 컨벤션, wave-2 e2e 발견). 두 섹션이 loaded/loadError
+  // 를 공유하므로 ready 하나로 둘 다 게이트한다.
+  const ready = loaded && !loadError;
+
   return (
     <div className="space-y-10">
       <AdminResourcePage
@@ -256,9 +261,9 @@ export default function AdminInsuranceContentPage() {
           { key: 'required', label: '필수 여부', type: 'select', options: booleanOptions },
           { key: 'body', label: '전문(줄바꿈 유지)', type: 'textarea' },
         ]}
-        onCreateRow={handleCreateConsent}
-        onUpdateRow={handleUpdateConsent}
-        onDeleteRow={handleDeleteConsent}
+        onCreateRow={ready ? handleCreateConsent : undefined}
+        onUpdateRow={ready ? handleUpdateConsent : undefined}
+        onDeleteRow={ready ? handleDeleteConsent : undefined}
       />
 
       <AdminResourcePage
@@ -280,9 +285,9 @@ export default function AdminInsuranceContentPage() {
           { key: 'q', label: '질문' },
           { key: 'a', label: '답변', type: 'textarea' },
         ]}
-        onCreateRow={handleCreateFaq}
-        onUpdateRow={handleUpdateFaq}
-        onDeleteRow={handleDeleteFaq}
+        onCreateRow={ready ? handleCreateFaq : undefined}
+        onUpdateRow={ready ? handleUpdateFaq : undefined}
+        onDeleteRow={ready ? handleDeleteFaq : undefined}
       />
     </div>
   );
