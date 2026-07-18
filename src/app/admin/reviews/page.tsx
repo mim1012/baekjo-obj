@@ -131,23 +131,50 @@ export default function AdminReviewsPage() {
   // 콜백 내부 !loaded 가드만으로는 버튼이 보이는데 눌러도 조용히 무시되는 no-op 이 된다(codex F3).
   const ready = loaded && !loadError;
 
-  const handleCreate = (draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => [...prev, draftToReview(draft)]);
+  // 등록·수정·삭제 모두 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "등록/수정/삭제를 했는데
+  // 새로고침하면 되돌아온다" 오인 방지(2026-07-18 저장 유실 리포트 — 2단계 저장 함정 제거).
+  // persistedItemsRef(마지막으로 DB 와 일치한 목록) 기준으로 nextItems 를 만들어 저장한다 — items
+  // (현재 draft)를 기준으로 저장하면 다른 미저장 편집이 이 저장에 딸려 함께 커밋된다(opus 리뷰
+  // MEDIUM-1 의 연장). 성공 시에만 draft(items)·persisted 를 함께 갱신해 계속 서로 일치시킨다.
+  // notices 와 달리 전시 후기는 빈 목록을 허용하므로 마지막 1건 삭제를 막지 않는다. busyRef 로
+  // 등록·수정·삭제 세 액션을 전부 상호배제한다(codex 2차 리뷰 HIGH).
+  const handleCreate = async (draft: Record<string, string | number>) => {
+    if (!loaded || loadError || busyRef.current) return;
+    const newReview = draftToReview(draft);
+    const nextItems = [...persistedItemsRef.current, newReview];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveShowcaseReviewsConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
   };
 
-  const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => prev.map((review) => (review.id === id ? draftToReview(draft, review) : review)));
+  const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded || loadError || busyRef.current) return;
+    const nextItems = persistedItemsRef.current.map((review) =>
+      review.id === id ? draftToReview(draft, review) : review,
+    );
+    busyRef.current = true;
+    try {
+      const { ok } = await saveShowcaseReviewsConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
   };
 
-  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
-  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 공지 삭제 오인 리포트와 동일 UX). persistedItemsRef
-  // (마지막으로 DB 와 일치한 목록) 기준으로 nextItems 를 만들어 저장한다 — items(현재 draft)를
-  // 기준으로 저장하면 미저장 등록·수정 드래프트가 삭제에 딸려 함께 커밋된다(opus 리뷰 MEDIUM-1).
-  // notices 와 달리 전시 후기는 빈 목록을 허용하므로 마지막 1건 삭제를 막지 않는다. 성공 시에만
-  // draft(items)에서 해당 행을 제거해 다른 미저장 편집은 그대로 남긴다. 등록·수정은 여전히 변경사항
-  // 저장 버튼을 통한 batch save 다.
   const handleDelete = async (id: string | number) => {
     if (!loaded || loadError || busyRef.current) return;
     const nextItems = persistedItemsRef.current.filter((review) => review.id !== id);
@@ -165,22 +192,10 @@ export default function AdminReviewsPage() {
     }
   };
 
-  const handleSave = async () => {
-    if (!loaded || loadError || busyRef.current) return { ok: false };
-    busyRef.current = true;
-    try {
-      const result = await saveShowcaseReviewsConfig({ items });
-      if (result.ok) persistedItemsRef.current = items;
-      return result;
-    } finally {
-      busyRef.current = false;
-    }
-  };
-
   return (
     <AdminResourcePage
       title="후기 관리"
-      description={loadError ? '후기 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '사진과 별점, 후기 내용을 확인하고 노출 및 베스트 상태를 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고, 삭제는 즉시 반영됩니다.'}
+      description={loadError ? '후기 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '사진과 별점, 후기 내용을 확인하고 노출 및 베스트 상태를 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
       actionLabel="후기 등록"
       searchPlaceholder="상품명, 견종, 후기 내용 검색"
       columns={[
@@ -259,7 +274,6 @@ export default function AdminReviewsPage() {
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
-      onSave={handleSave}
     />
   );
 }
