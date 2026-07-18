@@ -62,7 +62,8 @@ jobs:
         run: |
           if [ "${{ github.event_name == 'workflow_dispatch' && inputs.all }}" = "true" ]; then
             for d in notices reviews concerns home_settings insurance_content kits_partners \
-                     products brands members qna_inquiries survey; do
+                     products brands members qna_inquiries survey category_settings insurance \
+                     order_policy partner_inquiries qna_config members_signup; do
               echo "$d=true" >> "$GITHUB_OUTPUT"
             done
             echo "전체 스윕(workflow_dispatch all=true) — 매핑 무시"
@@ -100,6 +101,12 @@ jobs:
           MEMBERS=false
           QNA_INQUIRIES=false
           SURVEY=false
+          CATEGORY_SETTINGS=false
+          INSURANCE=false
+          ORDER_POLICY=false
+          PARTNER_INQUIRIES=false
+          QNA_CONFIG=false
+          MEMBERS_SIGNUP=false
           if echo "$CHANGED" | grep -qE "$GATE_SELF"; then
             NOTICES=true
             REVIEWS=true
@@ -112,6 +119,12 @@ jobs:
             MEMBERS=true
             QNA_INQUIRIES=true
             SURVEY=true
+            CATEGORY_SETTINGS=true
+            INSURANCE=true
+            ORDER_POLICY=true
+            PARTNER_INQUIRIES=true
+            QNA_CONFIG=true
+            MEMBERS_SIGNUP=true
           fi
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
@@ -148,6 +161,27 @@ jobs:
           if echo "$CHANGED" | grep -qE '^(src/lib/survey/|src/app/admin/survey/|src/app/diagnosis/|src/app/api/survey/|src/app/api/admin/survey/)'; then
             SURVEY=true
           fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/categorySettings/|src/app/admin/categories/|src/app/api/category-settings/|src/app/api/admin/category-settings/|src/components/providers/CategorySettingsProvider\.tsx|src/components/shop/ShopContent\.tsx)'; then
+            CATEGORY_SETTINGS=true
+          fi
+          # 보험 "신청"(상담) 도메인 — insurance-content(FAQ·동의문서)와는 다른 경로 집합.
+          if echo "$CHANGED" | grep -qE '^(src/lib/insurance/|src/app/admin/insurance/|src/app/insurance/|src/app/api/insurance/|src/app/api/admin/insurance/|src/components/admin-new/insurance/)'; then
+            INSURANCE=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/orderPolicy/|src/app/admin/order-policy/|src/app/api/admin/order-policy/)'; then
+            ORDER_POLICY=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/partnerInquiries/|src/app/admin/partner-inquiries/|src/app/api/partner-inquiries/|src/app/api/admin/partner-inquiries/|src/components/care-kit/PartnerInquiryForm\.tsx|src/app/landing/care-kit/)'; then
+            PARTNER_INQUIRIES=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/qna/|src/lib/adapters\.ts|src/app/admin/qna/|src/app/api/qna/|src/app/api/admin/qna/|src/components/admin-new/qna/|src/components/shop/ProductTabsClient\.tsx)'; then
+            QNA_CONFIG=true
+          fi
+          # 회원 승인 pending-seed 스펙 전용 — 기존 MEMBERS(admin/members) 경로에 더해 B2B 가입
+          # 폼(신규 pending 계정을 만드는 경로) 변경도 감지해야 한다.
+          if echo "$CHANGED" | grep -qE '^(src/lib/members/|src/app/admin/members/|src/app/api/admin/members/|src/app/signup/|src/components/signup/|src/app/api/members/business/)'; then
+            MEMBERS_SIGNUP=true
+          fi
 
           echo "notices=$NOTICES" >> "$GITHUB_OUTPUT"
           echo "reviews=$REVIEWS" >> "$GITHUB_OUTPUT"
@@ -160,11 +194,19 @@ jobs:
           echo "members=$MEMBERS" >> "$GITHUB_OUTPUT"
           echo "qna_inquiries=$QNA_INQUIRIES" >> "$GITHUB_OUTPUT"
           echo "survey=$SURVEY" >> "$GITHUB_OUTPUT"
+          echo "category_settings=$CATEGORY_SETTINGS" >> "$GITHUB_OUTPUT"
+          echo "insurance=$INSURANCE" >> "$GITHUB_OUTPUT"
+          echo "order_policy=$ORDER_POLICY" >> "$GITHUB_OUTPUT"
+          echo "partner_inquiries=$PARTNER_INQUIRIES" >> "$GITHUB_OUTPUT"
+          echo "qna_config=$QNA_CONFIG" >> "$GITHUB_OUTPUT"
+          echo "members_signup=$MEMBERS_SIGNUP" >> "$GITHUB_OUTPUT"
 
           if [ "$NOTICES" = "false" ] && [ "$REVIEWS" = "false" ] && [ "$CONCERNS" = "false" ] && \
              [ "$HOME_SETTINGS" = "false" ] && [ "$INSURANCE_CONTENT" = "false" ] && [ "$KITS_PARTNERS" = "false" ] && \
              [ "$PRODUCTS" = "false" ] && [ "$BRANDS" = "false" ] && [ "$MEMBERS" = "false" ] && \
-             [ "$QNA_INQUIRIES" = "false" ] && [ "$SURVEY" = "false" ]; then
+             [ "$QNA_INQUIRIES" = "false" ] && [ "$SURVEY" = "false" ] && [ "$CATEGORY_SETTINGS" = "false" ] && \
+             [ "$INSURANCE" = "false" ] && [ "$ORDER_POLICY" = "false" ] && [ "$PARTNER_INQUIRIES" = "false" ] && \
+             [ "$QNA_CONFIG" = "false" ] && [ "$MEMBERS_SIGNUP" = "false" ]; then
             echo "변경 경로에 해당 골든플로우 없음 — skip"
           fi
 
@@ -277,6 +319,71 @@ jobs:
       - name: 관리자 CRUD — 맞춤 진단 설문(스냅샷/복원)
         if: steps.changes.outputs.survey == 'true'
         run: npx playwright test tests/golden/admin-crud-survey.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # ⚠️ 순서 주의 — 주문 정책은 무통장입금 주문 생성 시점에 읽히는 설정이다. 향후 orders 스펙이
+      # 추가되면 이 스텝을 orders 스텝보다 먼저 두어(job 내 순차 실행) 정책 토글 창과 주문 생성이
+      # 겹치지 않게 한다(admin-crud-order-policy.spec.ts 상단 주석 참고).
+      - name: 관리자 CRUD — 주문 정책(무통장입금 자동취소, 스냅샷/복원)
+        if: steps.changes.outputs.order_policy == 'true'
+        run: npx playwright test tests/golden/admin-crud-order-policy.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 카테고리(상품/라이프스타일)
+        if: steps.changes.outputs.category_settings == 'true'
+        run: npx playwright test tests/golden/admin-crud-category-settings.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — B2B 제휴 문의
+        if: steps.changes.outputs.partner_inquiries == 'true'
+        run: npx playwright test tests/golden/admin-crud-partner-inquiries.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 보험 분석 신청(상담 상태 관리)
+        if: steps.changes.outputs.insurance == 'true'
+        run: npx playwright test tests/golden/admin-crud-insurance.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — QnA(qna_config 공개 배선 실증)
+        if: steps.changes.outputs.qna_config == 'true'
+        run: npx playwright test tests/golden/admin-crud-qna-config.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 회원 승인(B2B 신규가입 pending→active)
+        if: steps.changes.outputs.members_signup == 'true'
+        run: npx playwright test tests/golden/admin-crud-members-pending-signup.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           E2E_ADMIN_CRUD: '1'
