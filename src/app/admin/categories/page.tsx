@@ -9,8 +9,8 @@ import PageHeader from '@/components/admin-new/common/PageHeader';
 import SaveBar from '@/components/admin-new/common/SaveBar';
 
 export default function CategoryManagerPage() {
-  const { categorySettings, updateCategorySettings } = useCategorySettings();
-  
+  const { categorySettings, updateCategorySettings, loaded } = useCategorySettings();
+
   const [settings, setSettings] = useState<CategorySettings>(categorySettings);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -23,12 +23,16 @@ export default function CategoryManagerPage() {
     }
   }, [categorySettings, hasChanges]);
 
+  // loaded 이전엔 편집을 막는다 — 그래야 hasChanges 락이 실제 GET 값의 resync 를 영구히 막는
+  // 레이스가 구조적으로 생기지 않는다(전수조사 A-2). GET 이 대개 즉시 오므로 체감 지연은 없다.
   const handleChange = (field: 'productCategories' | 'lifestyleCategories', value: string[]) => {
+    if (!loaded) return;
     setSettings(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 
   const handleSave = async () => {
+    if (!loaded) return;
     setIsSaving(true);
     const ok = await updateCategorySettings(settings);
     setIsSaving(false);
@@ -159,6 +163,7 @@ export default function CategoryManagerPage() {
         saveLabel="설정 저장"
         cancelLabel="취소"
         isSaving={isSaving}
+        disabled={!loaded}
       />
     </div>
   );

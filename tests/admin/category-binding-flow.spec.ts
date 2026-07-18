@@ -27,7 +27,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
-    expect(adminPage).toContain('const { categorySettings, updateCategorySettings } = useCategorySettings();');
+    expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded } = useCategorySettings();');
     expect(adminPage).toContain('const [settings, setSettings] = useState<CategorySettings>(categorySettings);');
     expect(saveFunction).toContain('const ok = await updateCategorySettings(settings);');
     expect(saveFunction).toContain('setHasChanges(false);');
@@ -38,6 +38,18 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(adminPage).toContain("field: 'productCategories' | 'lifestyleCategories'");
     expect(adminPage).toContain("'productCategories'");
     expect(adminPage).toContain("'lifestyleCategories'");
+  });
+
+  test('로드 완료 전에는 편집·저장을 막고 SaveBar 저장 버튼도 비활성화한다(전수조사 A-2)', () => {
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
+    const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
+
+    expect(adminPage).toContain('const handleChange = (field:');
+    // handleChange 가 handleSave 보다 먼저 정의되므로 handleChange 만 잘라서 loaded 가드를 확인한다.
+    const changeFunction = sliceBetween(adminPage, 'const handleChange = (field:', 'const handleSave = async () => {');
+    expect(changeFunction).toContain('if (!loaded) return;');
+    expect(saveFunction).toContain('if (!loaded) return;');
+    expect(adminPage).toContain('disabled={!loaded}');
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
@@ -59,6 +71,21 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(updateFunction).not.toContain('@/data/brands');
     expectNoCategoryBypass(providerSource);
     expect(providerSource).toContain("throw new Error('useCategorySettings must be used within CategorySettingsProvider');");
+  });
+
+  test('provider 는 GET resolve 여부를 loaded/loadError 로 노출한다(전수조사 A-2)', () => {
+    const providerSource = src('src', 'components', 'providers', 'CategorySettingsProvider.tsx');
+    const hydrationEffect = sliceBetween(providerSource, 'useEffect(() => {', '}, []);');
+
+    expect(providerSource).toContain('loaded: boolean;');
+    expect(providerSource).toContain('loadError: boolean;');
+    expect(providerSource).toContain('const [loaded, setLoaded] = useState(false);');
+    expect(providerSource).toContain('const [loadError, setLoadError] = useState(false);');
+    expect(hydrationEffect).toContain('setLoaded(true);');
+    expect(hydrationEffect).toContain('setLoadError(true);');
+    expect(providerSource).toContain(
+      '<CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, loaded, loadError }}>',
+    );
   });
 
   test('카테고리 API 는 공개 readback 과 관리자 저장을 repo 계층으로 위임한다', () => {
