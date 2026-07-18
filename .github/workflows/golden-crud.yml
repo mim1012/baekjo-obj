@@ -63,7 +63,7 @@ jobs:
           if [ "${{ github.event_name == 'workflow_dispatch' && inputs.all }}" = "true" ]; then
             for d in notices reviews concerns home_settings insurance_content kits_partners \
                      products brands members qna_inquiries survey category_settings insurance \
-                     order_policy partner_inquiries qna_config members_signup; do
+                     order_policy orders partner_inquiries qna_config members_signup; do
               echo "$d=true" >> "$GITHUB_OUTPUT"
             done
             echo "전체 스윕(workflow_dispatch all=true) — 매핑 무시"
@@ -104,6 +104,7 @@ jobs:
           CATEGORY_SETTINGS=false
           INSURANCE=false
           ORDER_POLICY=false
+          ORDERS=false
           PARTNER_INQUIRIES=false
           QNA_CONFIG=false
           MEMBERS_SIGNUP=false
@@ -122,6 +123,7 @@ jobs:
             CATEGORY_SETTINGS=true
             INSURANCE=true
             ORDER_POLICY=true
+            ORDERS=true
             PARTNER_INQUIRIES=true
             QNA_CONFIG=true
             MEMBERS_SIGNUP=true
@@ -171,6 +173,9 @@ jobs:
           if echo "$CHANGED" | grep -qE '^(src/lib/orderPolicy/|src/app/admin/order-policy/|src/app/api/admin/order-policy/)'; then
             ORDER_POLICY=true
           fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/orders/|src/lib/payments/|src/app/admin/orders/|src/app/checkout/|src/app/cart/|src/app/api/orders/|src/app/api/admin/orders/|src/components/admin-new/orders/)'; then
+            ORDERS=true
+          fi
           if echo "$CHANGED" | grep -qE '^(src/lib/partnerInquiries/|src/app/admin/partner-inquiries/|src/app/api/partner-inquiries/|src/app/api/admin/partner-inquiries/|src/components/care-kit/PartnerInquiryForm\.tsx|src/app/landing/care-kit/)'; then
             PARTNER_INQUIRIES=true
           fi
@@ -197,6 +202,7 @@ jobs:
           echo "category_settings=$CATEGORY_SETTINGS" >> "$GITHUB_OUTPUT"
           echo "insurance=$INSURANCE" >> "$GITHUB_OUTPUT"
           echo "order_policy=$ORDER_POLICY" >> "$GITHUB_OUTPUT"
+          echo "orders=$ORDERS" >> "$GITHUB_OUTPUT"
           echo "partner_inquiries=$PARTNER_INQUIRIES" >> "$GITHUB_OUTPUT"
           echo "qna_config=$QNA_CONFIG" >> "$GITHUB_OUTPUT"
           echo "members_signup=$MEMBERS_SIGNUP" >> "$GITHUB_OUTPUT"
@@ -205,7 +211,8 @@ jobs:
              [ "$HOME_SETTINGS" = "false" ] && [ "$INSURANCE_CONTENT" = "false" ] && [ "$KITS_PARTNERS" = "false" ] && \
              [ "$PRODUCTS" = "false" ] && [ "$BRANDS" = "false" ] && [ "$MEMBERS" = "false" ] && \
              [ "$QNA_INQUIRIES" = "false" ] && [ "$SURVEY" = "false" ] && [ "$CATEGORY_SETTINGS" = "false" ] && \
-             [ "$INSURANCE" = "false" ] && [ "$ORDER_POLICY" = "false" ] && [ "$PARTNER_INQUIRIES" = "false" ] && \
+             [ "$INSURANCE" = "false" ] && [ "$ORDER_POLICY" = "false" ] && [ "$ORDERS" = "false" ] && \
+             [ "$PARTNER_INQUIRIES" = "false" ] && \
              [ "$QNA_CONFIG" = "false" ] && [ "$MEMBERS_SIGNUP" = "false" ]; then
             echo "변경 경로에 해당 골든플로우 없음 — skip"
           fi
@@ -337,6 +344,21 @@ jobs:
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # ⚠️ 순서 주의 — 이 스텝은 반드시 위 주문 정책 스텝 뒤에 온다(admin-crud-orders.spec.ts 상단
+      # 주석 참고). 같은 잡의 스텝은 순차 실행되므로 실제로 겹쳐 돌 일은 없지만, 이 스펙 자신도
+      # 시작 시 주문 정책을 직접 조회해 bankTransferAutoCancelEnabled=true면 스킵이 아니라 실패한다.
+      - name: 관리자 CRUD — 주문(안전 전이, 일회용 상품)
+        if: steps.changes.outputs.orders == 'true'
+        run: npx playwright test tests/golden/admin-crud-orders.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: 관리자 CRUD — 카테고리(상품/라이프스타일)

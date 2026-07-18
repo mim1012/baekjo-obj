@@ -57,6 +57,7 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
   members: { spec: 'admin-crud-members.spec.ts', pathNeedle: 'src/app/api/admin/members/' },
   notices: { spec: 'admin-crud-notices.spec.ts', pathNeedle: 'src/app/api/admin/notices/' },
   'order-policy': { spec: 'admin-crud-order-policy.spec.ts', pathNeedle: 'src/app/api/admin/order-policy/' },
+  orders: { spec: 'admin-crud-orders.spec.ts', pathNeedle: 'src/app/api/admin/orders/' },
   'partner-inquiries': {
     spec: 'admin-crud-partner-inquiries.spec.ts',
     pathNeedle: 'src/app/api/admin/partner-inquiries/',
@@ -75,10 +76,6 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
 /** 실구동 스펙이 의도적으로 없는 도메인 — 사유를 반드시 적는다. */
 const EXCLUDED: Record<string, string> = {
   dashboard: '조회 전용 통계 집계 — GET만 존재, 쓰기 동작 없음.',
-  orders:
-    '결제 상태기계 + 재고 RPC — 실구동 스펙은 존재 시 order-policy와의 실행 순서·재고 소모 트레이드오프에' +
-    ' 대한 팀리드 승인이 먼저 필요해 wave4에서도 별도 ack 대기 중(주문 생성 시 재고가 즉시 차감되고,' +
-    ' 삭제/취소 API가 없어 취소만이 유일한 재고 복원 경로인데 취소는 금지됨 — 트레이드오프 인터림 리포트 발송함).',
   reviews:
     '고아 엔드포인트로 보인다 — PATCH /api/admin/reviews/[id](구매평 노출 토글, setReviewStatus)를 ' +
     '호출하는 관리자 UI를 찾지 못했다(showcase-reviews와는 다른 도메인). 별도 확인 필요.',

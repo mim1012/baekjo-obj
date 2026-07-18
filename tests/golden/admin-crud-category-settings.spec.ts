@@ -135,6 +135,19 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 카테고리(상
       newRowInput.press('Tab'),
     ]);
 
+    // 부정 케이스 — productCategories가 배열이 아닌 깨진 페이로드는 400으로 거부되고 DB는 그대로다
+    // (isCategorySettings, category-settings/route.ts:16-22).
+    const invalidRes = await page.request.put('/api/admin/category-settings', {
+      data: { productCategories: 'not-an-array', lifestyleCategories: [], brandFilters: [] },
+    });
+    expect(invalidRes.status()).toBe(400);
+    const unchangedRes = await page.request.get('/api/category-settings');
+    const unchanged = (await unchangedRes.json()) as { settings: { productCategories: string[] } };
+    expect(
+      unchanged.settings.productCategories.includes(name),
+      '깨진 페이로드가 실제로 저장돼 방금 등록한 항목이 사라졌습니다',
+    ).toBe(true);
+
     // 2) 새로고침 후 영속 확인.
     // ⚠️ goto/reload 뒤에 waitForResponse를 순차로 호출하면(goto가 'load' 이벤트까지만 기다리고
     // 클라이언트 fetch는 그 이후에 register되므로 이론상 안전해 보이지만) 실측에서 레이스가 났다 —
