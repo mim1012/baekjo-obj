@@ -241,6 +241,19 @@ export async function updatePartnerInquiryStatus(
   }
 }
 
+/**
+ * 제휴 문의 삭제(관리자). DELETE /api/admin/partner-inquiries/[id]. 실패 시 throw 해 호출부가
+ * 사용자에게 알리거나 재조회할 수 있게 한다(updatePartnerInquiryStatus와 동일 계약 — additive).
+ */
+export async function deletePartnerInquiry(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/partner-inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('partner-inquiry-delete-failed');
+  }
+}
+
 // 주문완료 화면 전용 스냅샷. 서버 재조회 없이 sessionStorage 에서만 읽는다
 // → 게스트 주문의 PII 가 /api/orders/[id] IDOR 로 새지 않게 한다(§보안 요건).
 const LAST_ORDER_KEY = 'baekjo_last_order';
@@ -1347,6 +1360,36 @@ export async function updateUserStatus(
     if (response.status === 400) return { error: 'invalid-input' };
     if (response.status === 404) return { error: 'not-found' };
     if (response.status === 401 || response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/**
+ * 마이페이지 회원정보(이름/연락처/반려동물종·견종/주요고민) 저장. 서버가 진실이므로
+ * 200 응답을 받은 뒤에만 호출부가 setCurrentUser로 로컬 캐시를 갱신해야 한다(그 전엔 갱신 금지 —
+ * 예전엔 이 API 호출이 아예 없어 localStorage만 바꾸고 새로고침하면 되돌아가던 문제가 있었다).
+ */
+export async function updateMyProfile(input: {
+  name?: string;
+  phone?: string;
+  petType?: string;
+  breed?: string;
+  mainConcern?: string;
+}): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (response.ok) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 400) return { error: 'invalid-input' };
+    if (response.status === 404) return { error: 'not-found' };
     return { error: 'network' };
   } catch {
     return { error: 'network' };
