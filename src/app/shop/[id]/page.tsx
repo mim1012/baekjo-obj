@@ -7,6 +7,7 @@ import { getBrandById } from '@/lib/brands/repo';
 import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
+import AuditAccordion from '@/components/common/AuditAccordion';
 import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
 import ProductTabsClient from '@/components/shop/ProductTabsClient';
 
@@ -115,9 +116,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 />
               </div>
 
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <ChecklistCard title="함께 확인하면 좋아요" items={recommendedFor} tone="positive" />
-                <ChecklistCard title="조금 더 주의해 주세요" items={cautions} tone="caution" />
+              <div className="mt-4 md:mt-5 flex snap-x snap-mandatory overflow-x-auto pb-4 hide-scrollbar md:grid md:grid-cols-2 md:gap-5 md:overflow-visible md:pb-0">
+                <div className="w-[85vw] shrink-0 snap-center sm:w-[400px] md:w-auto pr-4 md:pr-0">
+                  <ChecklistCard title="함께 확인하면 좋아요" items={recommendedFor} tone="positive" />
+                </div>
+                <div className="w-[85vw] shrink-0 snap-center sm:w-[400px] md:w-auto pr-4 md:pr-0">
+                  <ChecklistCard title="조금 더 주의해 주세요" items={cautions} tone="caution" />
+                </div>
               </div>
             </div>
           </section>
@@ -125,14 +130,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           <ProductPurchaseInfo product={product} />
 
           <section id="standard" className="scroll-mt-36">
-            <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-[#202521] p-7 text-[#FBFAF7] sm:p-10">
+            <AuditAccordion
+              title={brand?.auditReport ? '확인한 내용을 솔직하게 전해요.' : '브랜드 자료를 차근차근 살펴보고 있어요.'}
+              subtitle="백조오브제가 살펴본 내용"
+            >
               <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
                 <div>
-                  <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">백조가 살펴본 내용</p>
-                  <h2 className="mt-3 break-keep text-2xl font-bold tracking-tight text-[#FBFAF7] sm:text-3xl">
-                    {brand?.auditReport ? '확인한 내용을 솔직하게 전해요.' : '브랜드 자료를 차근차근 살펴보고 있어요.'}
-                  </h2>
-                  <p className="mt-5 break-keep text-sm leading-7 text-[#FBFAF7]/70">
+                  <p className="break-keep text-sm leading-7 text-[#FBFAF7]/70">
                     {brand?.auditReport
                       ? '브랜드가 제공한 자료와 공개 정보를 바탕으로 정리한 내용이에요. 새로운 정보가 확인되면 계속 업데이트할게요.'
                       : '아직 모든 확인이 끝나지 않았어요. 판매를 시작하기 전에 필요한 자료와 상품 정보를 더 살펴볼게요.'}
@@ -164,16 +168,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   )}
                 </div>
               </div>
-            </div>
+            </AuditAccordion>
           </section>
         </ProductTabsClient>
 
         <div className="mt-20 lg:mt-28">
           {relatedProducts.length > 0 && (
             <section>
-              <div className="mb-8">
+              <div className="mb-6 md:mb-8">
                 <p className="page-eyebrow">함께 둘러보기</p>
-                <h2 className="mt-2 text-2xl font-bold tracking-tight text-[#17211D]">이런 상품도 함께 살펴보세요.</h2>
+                <h2 className="mt-2 text-xl md:text-2xl font-bold tracking-tight text-[#17211D]">이런 상품도 함께 살펴보세요.</h2>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:gap-6">
                 {relatedProducts.map((item) => (

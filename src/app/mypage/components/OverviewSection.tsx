@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Package, Truck, Star, MessageCircle, Shield } from 'lucide-react';
+import { Package, Truck, Heart, Star, MessageCircle, Shield } from 'lucide-react';
 
 interface OverviewSectionProps {
   stats: {
     processingOrders: number;
     shippingOrders: number;
+    wishlistCount: number;
     writableReviews: number;
     waitingInquiries: number;
     insuranceCount: number;
@@ -28,6 +29,13 @@ export default function OverviewSection({ stats }: OverviewSectionProps) {
       value: stats.shippingOrders,
       href: '/mypage?tab=orders',
       icon: Truck,
+    },
+    {
+      id: 'wishlist',
+      label: '관심 상품',
+      value: stats.wishlistCount,
+      href: '/mypage?tab=wishlist',
+      icon: Heart,
     },
     {
       id: 'reviews',

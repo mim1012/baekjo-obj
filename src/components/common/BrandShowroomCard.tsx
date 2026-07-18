@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, Star } from 'lucide-react';
 import { Brand, Product } from '@/types';
-import { formatPrice } from '@/lib/format';
 
 interface Props {
   brand: Brand;
@@ -34,7 +33,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
             {brand.name}
           </h3>
           
-          <p className="text-sm lg:text-base leading-relaxed text-[#334155] mb-6 line-clamp-3 lg:pr-8">
+          <p className="mb-6 break-keep text-sm leading-[1.6] text-[#6F766F] lg:pr-8 lg:text-base">
             {brand.description}
           </p>
         </div>
@@ -49,7 +48,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
                 </div>
                 <div className="flex flex-col justify-center min-w-0">
                   <span className="text-[10px] font-bold text-slate-400 mb-1 tracking-wider">REPRESENTATIVE</span>
-                  <span className="text-sm font-semibold text-[#17211D] truncate group-hover/product:text-[#1D3E2F] transition-colors">{product.name}</span>
+                  <span className="break-keep text-sm font-semibold leading-[1.5] text-[#17211D] transition-colors group-hover/product:text-[#1D3E2F]">{product.name}</span>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-[#64748B]">
                     <Star className="size-3 fill-current text-slate-300" />
                     <span>{product.rating}</span>

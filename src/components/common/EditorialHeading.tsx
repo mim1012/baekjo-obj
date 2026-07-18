@@ -28,7 +28,7 @@ export function PageIntro({
       {description && (
         <div className={`${centered ? 'mx-auto' : ''} body-copy mt-5 max-w-2xl`}>{description}</div>
       )}
-      {action && <div className="mt-8">{action}</div>}
+      {action && <div className="mt-8 w-full">{action}</div>}
     </header>
   );
 }

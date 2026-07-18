@@ -30,38 +30,10 @@ const getBrandCategory = (products: Product[]) => {
 };
 
 export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) {
-  const [shuffledBrands, setShuffledBrands] = useState<Brand[]>(brands);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [hasShuffled, setHasShuffled] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const brandRailRef = useRef<HTMLDivElement>(null);
 
-  const displayList = useMemo(() => {
-    if (shuffledBrands.length === 0) return [];
-    return shuffledBrands; // 무한 스크롤 제거, 원본 배열만 반환
-  }, [shuffledBrands]);
-
-  // 클라이언트 마운트 시 최초 8개 브랜드를 순서대로 표시 (Hydration 에러 방지)
-  useEffect(() => {
-    if (!hasShuffled && brands.length > 0) {
-      // 8개만 고정하여 차례대로 표시 (랜덤 셔플 제거)
-      const selected = brands.slice(0, 8);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setShuffledBrands(selected);
-      setActiveIndex(0); // 첫 번째 아이템부터 시작
-      setHasShuffled(true);
-      
-      // 초기 스크롤 위치 맞추기
-      setTimeout(() => {
-        const initialTab = document.getElementById(`brand-tab-0`);
-        if (initialTab && brandRailRef.current) {
-          initialTab.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'start' });
-        }
-      }, 50);
-    }
-  }, [brands, hasShuffled]);
-
-
+  const displayList = brands;
 
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(displayList.length > 1);
@@ -86,28 +58,23 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
     });
   };
 
-  const selectedBrand = displayList[activeIndex] ?? shuffledBrands[0];
+  const selectedBrand = displayList[activeIndex] ?? displayList[0];
   const selectedProducts = selectedBrand ? productsByBrand[selectedBrand.id] ?? [] : [];
-  const displayProducts = selectedProducts.slice(0, 2);
   // 원래 배열 기준 인덱스 (1~N)
-  const originalIndex = selectedBrand ? shuffledBrands.findIndex((brand) => brand.id === selectedBrand.id) + 1 : 0;
+  const originalIndex = selectedBrand ? displayList.findIndex((brand) => brand.id === selectedBrand.id) + 1 : 0;
   const totalProducts = useMemo(
-    () => shuffledBrands.reduce((total, brand) => total + (productsByBrand[brand.id]?.length ?? 0), 0),
-    [shuffledBrands, productsByBrand],
+    () => displayList.reduce((total, brand) => total + (productsByBrand[brand.id]?.length ?? 0), 0),
+    [displayList, productsByBrand],
   );
 
   if (!selectedBrand) return null;
 
   const selectedNames = extractNames(selectedBrand.name);
   const selectedCategory = getBrandCategory(selectedProducts);
-  const verificationLabel = selectedBrand.auditReport ? '백조 검증 완료' : '입점 자료 확인 중';
+  const verificationLabel = selectedBrand.auditReport ? '백조오브제 검증 완료' : '입점 자료 확인 중';
 
   return (
-    <div
-      className="w-full"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="w-full">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="home-label">08 curated houses</p>
@@ -118,7 +85,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
         <div className="flex items-center gap-3 text-[13px] font-semibold text-[#68716C]">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F2EEE5] px-3 py-1.5 text-[#B99562]">
             <ShieldCheck className="size-4" strokeWidth={1.5} />
-            브랜드 {shuffledBrands.length}곳
+            브랜드 {displayList.length}곳
           </span>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-[#DED8CC] bg-white px-3 py-1.5">
             <Package className="size-4" strokeWidth={1.5} />
@@ -147,7 +114,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
             const isSelected = activeIndex === index;
             const names = extractNames(brand.name);
             const products = productsByBrand[brand.id] ?? [];
-            const originalI = shuffledBrands.findIndex(b => b.id === brand.id);
+            const originalI = displayList.findIndex(b => b.id === brand.id);
 
             return (
               <button
@@ -163,7 +130,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
                   }
                 }}
                 aria-pressed={isSelected}
-                className={`group relative min-h-[132px] w-[180px] shrink-0 snap-start overflow-hidden rounded-[16px] p-4 text-left transition-all duration-300 sm:w-[200px] lg:w-[calc(16.666%-13.333px)] ${
+                className={`group relative min-h-[152px] w-[180px] shrink-0 snap-start overflow-hidden rounded-[16px] p-4 pb-9 text-left transition-all duration-300 sm:w-[200px] lg:w-[calc(16.666%-13.333px)] ${
                   isSelected
                     ? 'border-[1.5px] border-[#18231F] bg-[#1A2F25] text-white shadow-md'
                     : 'border border-[#DED8CC] bg-white text-[#18231F] hover:border-[#B99562]'
@@ -176,11 +143,11 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
                   <ArrowRight className={`size-4 transition-transform duration-300 group-hover:translate-x-0.5 ${isSelected ? 'text-[#B99562]' : 'text-[#68716C]'}`} strokeWidth={1.5} />
                 </div>
 
-                <BrandLogo brand={brand} size="md" surface className="mt-3" />
+                <BrandLogo brand={brand} size="md" surface fluid uniformScale className="mt-3" />
 
                 <div className="mt-3">
-                  <p className={`truncate text-[14px] font-bold ${isSelected ? 'text-white' : 'text-[#18231F]'}`}>{names.ko}</p>
-                  <p className={`mt-0.5 truncate text-[10px] font-medium uppercase tracking-[0.15em] ${isSelected ? 'text-[#B99562]' : 'text-[#68716C]'}`}>
+                  <p className={`break-keep text-[14px] font-bold leading-[1.45] ${isSelected ? 'text-white' : 'text-[#18231F]'}`}>{names.ko}</p>
+                  <p className={`mt-0.5 break-words text-[10px] font-medium uppercase leading-[1.5] tracking-[0.15em] ${isSelected ? 'text-[#B99562]' : 'text-[#68716C]'}`}>
                     {names.en}
                   </p>
                 </div>
@@ -205,10 +172,10 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
       </div>
 
       <div className="mt-8 grid overflow-hidden rounded-[24px] border border-[#DED8CC] bg-[var(--home-surface)] lg:grid-cols-[34%_66%]">
-        <div className="bg-[var(--home-surface-muted)] p-6 sm:p-8 lg:p-10">
+        <div className="bg-[var(--home-surface-muted)] p-5 md:p-6 sm:p-8 lg:p-10">
           <div className="flex items-center justify-between">
             <p className="font-editorial text-[17px] italic text-[#B99562]">
-              {String(originalIndex).padStart(2, '0')} / {String(shuffledBrands.length).padStart(2, '0')}
+              {String(originalIndex).padStart(2, '0')} / {String(displayList.length).padStart(2, '0')}
             </p>
             <span className="rounded-full border border-[#DED8CC] bg-white px-3 py-1 text-[11px] font-semibold tracking-wider text-[#68716C]">
               {selectedCategory}
@@ -217,12 +184,12 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
 
           <div className="mt-8">
             <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-[#68716C]">Baekjo selected brand</p>
-            <BrandLogo brand={selectedBrand} size="lg" surface className="mt-4" />
+            <BrandLogo brand={selectedBrand} size="lg" surface uniformScale className="mt-4" />
             <h4 className="mt-4 text-[26px] font-bold leading-[1.25] tracking-tight text-[#18231F] sm:text-[32px]">
               {selectedNames.ko}
             </h4>
             <p className="mt-1 font-editorial text-[18px] italic text-[#B99562]">{selectedNames.en}</p>
-            <p className="mt-6 max-w-[440px] break-keep text-[14px] leading-[1.8] text-[#68716C]">
+            <p className="mt-6 max-w-[440px] break-keep text-[14px] leading-[1.6] text-[#68716C]">
               {selectedBrand.description}
             </p>
           </div>
@@ -239,7 +206,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
           </div>
 
           <ul className="mt-8 space-y-3">
-            {selectedBrand.auditPoints.slice(0, 3).map((point) => (
+            {selectedBrand.auditPoints.map((point) => (
               <li key={point} className="flex items-start gap-2.5 break-keep text-[13px] leading-[1.6] text-[#68716C]">
                 <Check className="mt-0.5 size-4 shrink-0 text-[#B99562]" strokeWidth={2} />
                 {point}
@@ -247,23 +214,25 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
             ))}
           </ul>
 
-          <div className="mt-10 flex flex-col gap-3 sm:flex-row">
+          <div className="mt-8 grid grid-cols-2 gap-2 sm:mt-10 sm:flex sm:gap-3">
             <Link
               href={`/brands/${selectedBrand.id}`}
-              className="group flex h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-[#DED8CC] bg-[var(--home-surface)] text-[14px] font-bold text-[#18231F] transition-all duration-300 hover:border-[#B99562]"
+              className="group flex min-h-12 min-w-0 items-center justify-between rounded-2xl bg-[#F3EEE6] px-4 text-[13px] font-bold text-[#17211D] transition-all duration-500 hover:bg-[#EAE2D3] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 sm:h-12 sm:flex-1 sm:justify-center sm:gap-2 sm:rounded-xl sm:border sm:border-[#DED8CC] sm:bg-[var(--home-surface)] sm:text-[14px] sm:hover:border-[#B99562] sm:hover:bg-[var(--home-surface)]"
             >
-              브랜드 스토리 <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              <span className="whitespace-nowrap">브랜드 스토리</span>
+              <ArrowRight className="size-4 shrink-0 text-[#A8742E] transition-transform duration-500 group-hover:translate-x-0.5 sm:text-current" />
             </Link>
             <Link
               href={`/shop?brandId=${selectedBrand.id}`}
-              className="group flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#18231F] text-[14px] font-bold text-white transition-all duration-300 hover:bg-[#2F3B34]"
+              className="group flex min-h-12 min-w-0 items-center justify-between rounded-2xl bg-[#17211D] px-4 text-[13px] font-bold text-[#FBFAF7] transition-all duration-500 hover:bg-[#202521] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 sm:h-12 sm:flex-1 sm:justify-center sm:gap-2 sm:rounded-xl sm:text-[14px]"
             >
-              전체 상품 보기 <ArrowRight className="size-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+              <span className="whitespace-nowrap">전체 상품 보기</span>
+              <ArrowRight className="size-4 shrink-0 transition-transform duration-500 group-hover:translate-x-0.5" />
             </Link>
           </div>
         </div>
 
-        <div className="min-w-0 bg-[var(--home-surface)] p-6 sm:p-8 lg:p-10">
+        <div className="min-w-0 bg-[var(--home-surface)] p-5 md:p-6 sm:p-8 lg:p-10">
           <div className="flex items-end justify-between border-b border-[#DED8CC] pb-5">
             <div>
               <p className="font-editorial text-[17px] italic text-[#B99562]">Selected products</p>
@@ -272,9 +241,9 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
             <span className="text-[12px] font-medium text-[#68716C]">백조오브제에서 판매</span>
           </div>
 
-          {displayProducts.length > 0 ? (
-            <div className="mt-8 grid grid-cols-2 gap-4">
-              {displayProducts.map((product) => (
+          {selectedProducts.length > 0 ? (
+            <div className="mt-6 grid grid-cols-2 gap-3 pb-4 sm:mt-8 sm:gap-4">
+              {selectedProducts.map((product) => (
                 <div key={product.id} className="min-w-0">
                   <ProductCard product={product} />
                 </div>

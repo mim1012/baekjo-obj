@@ -1,104 +1,233 @@
-import { Stethoscope, Utensils, Activity } from 'lucide-react';
+import { Stethoscope, Utensils, Activity, Search, ShieldCheck, ListChecks, FileText, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { listProducts } from '@/lib/products/repo';
 import ProductCard from '@/components/common/ProductCard';
 
 export const metadata = {
-  title: '전문가추천 | 백조오브제',
-  description: '수의학, 영양, 행동 관점의 추천 기준과 검수 예정 상품을 안내합니다.',
+  title: '전문가 추천 | 백조오브제',
+  description: '전문가 관점으로 살펴보는 상품 선택 기준을 확인하세요.',
 };
 
-// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
 
-export default async function ExpertsPage() {
+export default async function ExpertsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>;
+}) {
+  const { filter = 'all' } = await searchParams;
   const products = await listProducts();
-  const recommendedProducts = products.filter(p => p.isRecommended).slice(0, 4);
+  
+  const filteredProducts = products.filter(p => {
+    if (!p.isRecommended) return false;
+    if (filter === 'all') return true;
+    if (filter === '수의 관점') return p.recommendedFor?.includes('veterinary') || p.category === '영양제' || p.category === '간식';
+    if (filter === '영양 관점') return p.category === '사료' || p.category === '간식';
+    if (filter === '행동·생활 관점') return p.category === '장난감' || p.category === '용품';
+    return true;
+  }).slice(0, 12);
 
   return (
-    <div className="bg-[#F4F2EC] min-h-dvh py-16">
-      <div className="site-container">
-        <div className="mb-16 text-center">
-          <div className="mb-4 inline-flex items-center justify-center rounded-full bg-white px-4 py-1.5 text-sm font-bold text-[#2F3B34] shadow-sm">
-            Expert’s Pick
-          </div>
-          <h1 className="text-3xl font-bold text-[#202521] md:text-5xl">전문가 관점의 추천 기준</h1>
-          <p className="mt-6 text-lg text-gray-500 max-w-2xl mx-auto leading-relaxed">
-            현재는 실제 전문가 연결 전 단계의 mock 큐레이션입니다.<br />
-            각 분야에서 확인할 기준을 투명하게 먼저 안내합니다.
-          </p>
+    <div className="bg-[#FAF9F5] min-h-dvh pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }}>
+      {/* 1. 전문가 추천 인트로 (박스 없음) */}
+      <section className="pt-16 pb-12 overflow-hidden">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+           <div className="flex flex-col md:flex-row items-center relative">
+              <div className="relative z-10 w-full md:w-[58%] pt-4 pb-6 md:py-0">
+                 <p className="font-editorial text-[12px] tracking-widest text-[#A8742E] font-semibold uppercase mb-4">
+                    Expert&apos;s View
+                 </p>
+                 <h1 className="text-[38px] md:text-[46px] font-bold text-[#1A1D1B] leading-[1.25] tracking-[-0.035em] break-keep mb-5">
+                    전문가 관점으로 살펴보는<br />
+                    상품 선택 기준
+                 </h1>
+                 <p className="text-[14px] md:text-[15px] text-[#5F6761] leading-[1.65] break-keep">
+                    백조오브제가 수의·영양·행동 전문가의 관점을 바탕으로<br />
+                    우리 아이에게 맞는 상품 선택 기준을 정리했습니다.
+                 </p>
+              </div>
+              <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
+                 {/* 우측 이미지 - 시안의 강아지 이미지 */}
+                 <div className="relative w-full h-full max-w-[400px]">
+                    {/* 이미지가 없을 경우를 대비한 구조. 실제 프로젝트에 전문가 이미지 에셋이 있다면 교체. 
+                        현재 에셋이 확실치 않아 투명 배경의 강아지 이미지라고 가정합니다. */}
+                    {/* TODO(dad): experts-dog.png 원본이 dad 레포에 미커밋 상태 — 확보되면 교체 */}
+                    <Image src="/images/poodle-pet-food.png" alt="전문가 추천 강아지" fill className="object-contain object-bottom" />
+                 </div>
+              </div>
+           </div>
         </div>
+      </section>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-20">
-          
-          {/* 수의사 */}
-          <div className="bg-white rounded-sm p-8 shadow-sm border border-gray-100 flex flex-col items-center text-center">
-            <div className="h-20 w-20 rounded-full bg-[#E4E8E3] flex items-center justify-center text-[#2F3B34] mb-6">
-              <Stethoscope className="h-10 w-10" />
+      {/* 2. 전문가 관점 카드 3개 */}
+      <section className="mt-4">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* 수의 관점 */}
+            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
+              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
+                <Stethoscope className="size-8" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">수의 관점</h2>
+              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
+                건강 상태와 안전성을<br />
+                중심으로 확인합니다.
+              </p>
+              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 대상 연령과 건강 상태</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 성분과 사용상 주의사항</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 질환·복용약과의 관계</li>
+              </ul>
+              <Link href="/experts?filter=수의+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
+                수의 관점 상품 보기
+              </Link>
             </div>
-            <h2 className="text-2xl font-bold text-[#202521] mb-3">수의사 추천</h2>
-            <span className="mb-4 border border-[#D8D6CE] px-3 py-1 text-[10px] font-semibold text-[#68776C]">전문가 검수 예정</span>
-            <p className="text-gray-600 leading-relaxed text-sm mb-8 flex-1">
-              “질환의 예방과 관리를 목적으로 합니다.<br/>
-              관절, 피부, 치아 등 건강과 직결되는 제품은<br/>
-              임상적 유효성과 안전성을 최우선으로 봅니다.”
-            </p>
-            <Link href="/shop?sort=recommended" className="w-full rounded-full bg-[#2F3B34] py-3 text-sm font-bold text-white hover:bg-[#2F3B34]/90 transition">
-              수의사 추천 제품 보기
-            </Link>
-          </div>
 
-          {/* 영양사 */}
-          <div className="bg-white rounded-sm p-8 shadow-sm border border-gray-100 flex flex-col items-center text-center">
-            <div className="h-20 w-20 rounded-full bg-[#E7E4DC] flex items-center justify-center text-[#68776C] mb-6">
-              <Utensils className="h-10 w-10" />
+            {/* 영양 관점 */}
+            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
+              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
+                <Utensils className="size-8" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">영양 관점</h2>
+              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
+                원료와 영양 균형을<br />
+                꼼꼼하게 확인합니다.
+              </p>
+              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 주요 원료, 영양 성분</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 알레르기 유발 가능성</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 급여 목적과 영양 균형</li>
+              </ul>
+              <Link href="/experts?filter=영양+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
+                영양 관점 상품 보기
+              </Link>
             </div>
-            <h2 className="text-2xl font-bold text-[#202521] mb-3">반려동물 영양사 추천</h2>
-            <span className="mb-4 border border-[#D8D6CE] px-3 py-1 text-[10px] font-semibold text-[#68776C]">추천 기준 확인 필요</span>
-            <p className="text-gray-600 leading-relaxed text-sm mb-8 flex-1">
-              “식이는 생명 유지의 기본입니다.<br/>
-              생물학적 적합성, 원료의 투명성, 영양 밸런스를<br/>
-              가장 꼼꼼하게 따져보고 선별합니다.”
-            </p>
-            <Link href="/shop?category=사료" className="w-full rounded-full bg-white border border-[#68776C] py-3 text-sm font-bold text-[#68776C] hover:bg-[#68776C]/10 transition">
-              영양사 추천 사료 보기
-            </Link>
-          </div>
 
-          {/* 훈련사 */}
-          <div className="bg-white rounded-sm p-8 shadow-sm border border-gray-100 flex flex-col items-center text-center">
-            <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 mb-6">
-              <Activity className="h-10 w-10" />
+            {/* 행동·생활 관점 */}
+            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
+              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
+                <Activity className="size-8" strokeWidth={1.5} />
+              </div>
+              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">행동·생활 관점</h2>
+              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
+                생활 환경과 습관을<br />
+                함께 고려합니다.
+              </p>
+              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 스트레스 완화에 도움</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 활동량과 생활 패턴</li>
+                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 관리의 편의성과 지속성</li>
+              </ul>
+              <Link href="/experts?filter=행동·생활+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
+                행동·생활 관점 상품 보기
+              </Link>
             </div>
-            <h2 className="text-2xl font-bold text-[#202521] mb-3">행동 전문가 추천</h2>
-            <span className="mb-4 border border-[#D8D6CE] px-3 py-1 text-[10px] font-semibold text-[#68776C]">전문가 검수 예정</span>
-            <p className="text-gray-600 leading-relaxed text-sm mb-8 flex-1">
-              “신체적 건강만큼 정신적 건강도 중요합니다.<br/>
-              본능을 해소하고 스트레스를 줄여주는<br/>
-              올바른 장난감과 용품을 제안합니다.”
-            </p>
-            <Link href="/shop?category=장난감" className="w-full rounded-full bg-white border border-gray-300 py-3 text-sm font-bold text-gray-700 hover:bg-gray-50 transition">
-              훈련사 추천 용품 보기
-            </Link>
           </div>
-
         </div>
+      </section>
 
-        <section className="bg-white rounded-sm p-8 md:p-12 shadow-sm border border-gray-100">
-          <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-10">
-            <div>
-              <h2 className="text-2xl font-bold text-[#202521] mb-2">추천 기준 적용 상품</h2>
-              <p className="text-gray-500">공개된 기준으로 선별한 mock 큐레이션이며 실제 전문가 검수 전 단계입니다.</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:gap-6">
-            {recommendedProducts.map(product => (
-              <ProductCard key={product.id} product={product} />
+      {/* 3. 상품 선정 과정 4단계 (시안처럼 투명/화이트 배경에 둥근 아이콘, 화살표) */}
+      <section className="mt-20">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">상품은 이렇게 살펴봅니다.</h2>
+          <div
+            className="hide-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 items-stretch gap-4 overflow-x-auto px-5 pb-4 md:mx-0 md:items-center md:justify-between md:overflow-visible md:px-2 md:pb-0"
+            role="region"
+            aria-label="상품 선정 과정 네 단계"
+          >
+            
+            {[
+              { icon: Search, title: '반려동물 상태 확인', num: '01' },
+              { icon: ShieldCheck, title: '성분·원료 확인', num: '02' },
+              { icon: ListChecks, title: '제조·사용 기준 확인', num: '03' },
+              { icon: FileText, title: '실제 사용 목적과 적합성 정리', num: '04' }
+            ].map((step, idx) => (
+              <div key={idx} className="relative z-10 flex min-h-[176px] w-[78vw] max-w-[316px] shrink-0 snap-start flex-col items-start gap-4 rounded-[20px] border border-[#E7E0D5] bg-white p-5 md:min-h-0 md:w-[22%] md:max-w-none md:items-center md:border-0 md:bg-transparent md:p-0">
+                <div className="font-editorial text-[14px] font-semibold text-[#1A1D1B]">{step.num}</div>
+                <div className="flex size-[56px] shrink-0 items-center justify-center rounded-full border border-[#EBE8E1] bg-[#FAF8F3] text-[#1A221E] shadow-sm md:size-[72px] md:bg-white">
+                  <step.icon className="size-6 md:size-7 text-[#5F6761]" strokeWidth={1.5} />
+                </div>
+                <h3 className="mt-auto w-full break-keep text-left text-[16px] font-bold leading-snug text-[#1A1D1B] md:mt-0 md:w-[70%] md:text-center md:text-[15px]">{step.title}</h3>
+                
+                {/* 화살표 */}
+                {idx < 3 && (
+                   <div className="hidden md:block absolute right-[-15%] top-[50%] -translate-y-1/2 text-[#D8D6CE]">
+                      <ArrowRight className="size-5" />
+                   </div>
+                )}
+              </div>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-      </div>
+      {/* 4. 추천 상품 섹션 */}
+      <section className="mt-20 border-t border-[#EBE8E1] pt-16">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">전문가 기준으로 엄선한 추천 상품</h2>
+          
+          {/* 필터 - 윤곽선 있는 알약 형태, 활성화시 짙은 녹색 */}
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-8 scrollbar-hide">
+            {['all', '수의 관점', '영양 관점', '행동·생활 관점'].map((f) => {
+              const isSelected = filter === f || (filter === 'all' && f === 'all');
+              return (
+                <Link
+                  key={f}
+                  href={f === 'all' ? '/experts' : `/experts?filter=${f}`}
+                  scroll={false}
+                  className={`flex h-[40px] shrink-0 items-center rounded-full border px-6 text-[14px] font-semibold whitespace-nowrap transition-colors ${
+                    isSelected 
+                      ? 'border-[#1A221E] bg-[#1A221E] text-white' 
+                      : 'border-[#EBE8E1] bg-white text-[#5F6761] hover:border-[#D8D6CE] hover:text-[#1A1D1B]'
+                  }`}
+                >
+                  {f === 'all' ? '전체' : f}
+                </Link>
+              )
+            })}
+          </div>
+
+          {/* 상품 그리드 */}
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
+              {filteredProducts.map(product => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EBE8E1] bg-white h-[180px]">
+              <Search className="size-8 text-[#D8D6CE] mb-3" />
+              <p className="text-[#5F6761] text-[15px] font-medium">선택한 관점의 추천 상품이 없습니다.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* 5. 추천 기준 안내 CTA */}
+      <section className="mt-16">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="bg-[#F4F2EC] rounded-[16px] p-6 md:px-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-[#EBE8E1]">
+            <div className="flex items-start gap-4">
+              <div className="mt-0.5">
+                 <ShieldCheck className="size-6 text-[#A8742E]" strokeWidth={1.5} />
+              </div>
+              <div>
+                <p className="text-[14px] md:text-[15px] font-bold text-[#1A1D1B] mb-1 break-keep">
+                  추천 결과는 반려동물의 상태와 사용 목적에 따라 달라질 수 있습니다.
+                </p>
+                <p className="text-[13px] text-[#5F6761] break-keep">
+                  질환·복용 약·알레르기 등이 있는 경우 전문가 상담이 필요합니다.
+                </p>
+              </div>
+            </div>
+            <Link href="/concerns" className="shrink-0 w-full md:w-auto flex h-[44px] items-center justify-center rounded-full bg-white border border-[#EBE8E1] px-5 text-[13px] font-bold text-[#1A1D1B] transition-colors hover:bg-[#FAF9F5]">
+              케어 가이드 더 보기
+              <ArrowRight className="ml-2 size-4 text-[#5F6761]" />
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
