@@ -63,6 +63,16 @@ export default function SiteSettingsPage() {
     };
   }, [isPreviewOpen]);
 
+  // 미리보기 전체화면 모달은 ESC 로도 닫는다(X 버튼과 병행).
+  useEffect(() => {
+    if (!isPreviewOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsPreviewOpen(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPreviewOpen]);
+
   // loaded 이전엔 저장을 막는다 — provider 의 GET 이 resolve 되기 전 저장은 draft 가 여전히
   // defaultHomeSettings 시드일 수 있어, 안 보인 섹션들이 default 값 그대로 실 DB 위에 PUT 된다
   // (전수조사 A-1, 2026-07-18).
@@ -360,7 +370,8 @@ export default function SiteSettingsPage() {
                 </button>
                 <button
                   onClick={() => setIsPreviewOpen(false)}
-                  className="p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
+                  aria-label="미리보기 닫기"
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-500 hover:bg-gray-200 rounded-full transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>

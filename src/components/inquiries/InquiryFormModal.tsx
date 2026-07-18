@@ -55,7 +55,10 @@ export default function InquiryFormModal({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, initialData, product]);
+    // 부모 리렌더마다 새 객체 리터럴 → effect 재발화로 작성 중 문의가 소리 없이 증발하던 버그
+    // (2026-07-18 e2e 실측). deps는 참조가 아니라 원시값으로 — initialData/product 객체 전체가
+    // 아니라 그 안의 원시 필드만 의존성에 넣어, 값이 실제로 바뀔 때만 재동기화한다.
+  }, [isOpen, initialData?.title, initialData?.content, initialData?.isSecret, product?.id]);
 
   if (!isOpen) return null;
 
