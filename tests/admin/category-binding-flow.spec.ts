@@ -103,7 +103,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const shopContent = src('src', 'components', 'shop', 'ShopContent.tsx');
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productForm = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
-    const adminProducts = src('src', 'app', 'admin', 'products', 'page.tsx');
+    const adminProducts = src('src', 'components', 'admin-new', 'products', 'AdminProductsClient.tsx');
 
     expect(layoutSource).toContain("import { CategorySettingsProvider } from \"@/components/providers/CategorySettingsProvider\";");
     expect(layoutSource).toContain('<CategorySettingsProvider>');
