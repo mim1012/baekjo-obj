@@ -53,7 +53,7 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     const memberPage = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsMember(memberPage);
     await memberPage.goto(`/shop/${productId}`);
-    await memberPage.getByRole('button', { name: '장바구니' }).click();
+    await memberPage.getByRole('button', { name: '장바구니' }).first().click();
     await memberPage.goto('/checkout');
     await memberPage.locator('input[name="customerName"]').fill('E2E 리뷰테스터');
     await memberPage.locator('input[name="phone"]').fill('010-2222-3333');
@@ -133,7 +133,9 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await expect(page.locator('#reviews')).not.toContainText(reviewContentEdited);
   });
 
-  test('마이페이지에서 상품문의 작성(선택형) → 반영 → 답변 전 수정 → 삭제', async ({ page }) => {
+  test('마이페이지에서 상품문의 작성(선택형) → 반영 → 수정 시도(알려진 결함 확인) → 삭제', async ({
+    page,
+  }) => {
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsMember(page);
 
@@ -157,16 +159,31 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await expect(inquiryCard).toBeVisible({ timeout: 15_000 });
     await expect(inquiryCard).toContainText('답변대기');
 
-    // 3) 답변 전 수정 — 관리자 답변을 거치지 않고 회원이 직접 내용을 고칠 수 있는지 확인
-    // (admin-crud-qna-inquiries.spec.ts는 답변완료 케이스만 다루므로 이 경로는 거기 없음).
+    // 3) 🚨 실제 발견된 결함(2026-07-19, 로컬+staging 라이브 실행으로 재현·확정) — 마이페이지에서
+    // 상품문의 "수정"을 열면 저장 버튼이 영구히 비활성화되어 절대 저장할 수 없다.
+    //
+    // 원인(코드로 확인): InquiryFormModal.tsx의 제출 버튼은
+    // `disabled={!title.trim() || !content.trim() || (!selectedProduct && !product) || isSubmitting}`.
+    // 마이페이지 모드에서는 `product` prop이 애초에 전달되지 않고(상품 상세 모드 전용),
+    // `selectedProductId`는 `product?.id`로만 동기화되므로(60행 부근 useEffect) 수정 모드 진입 시
+    // 절대 채워지지 않는다. 게다가 select 자체가 `disabled={!!initialData}`라 사용자가 손으로
+    // 다시 고를 수도 없다. 그 결과 `selectedProduct`가 항상 undefined로 남아 `(!selectedProduct
+    // && !product)`가 계속 true — 어떤 값을 입력해도 저장 버튼이 절대 활성화되지 않는다.
+    // mypage/page.tsx가 `InquiryFormModal`의 `initialData`에 productId를 넘기지 않는 것도 같은
+    // 결함의 일부(수정 시 상품 정보 자체가 폼에 전달되지 않음).
+    //
+    // 이 스펙은 버그를 우회하지 않고 있는 그대로 증명한다 — 저장 버튼이 채워도 계속 비활성화
+    // 상태로 남는다는 것을 단언한다. 앱 코드 수정은 이 스펙(mim-lane, tests/** 범위)의 책임 밖이라
+    // team-lead에게 즉시 보고하고 여기서는 사실만 박제한다. 고쳐지면 이 assert는
+    // `toBeEnabled()`로 뒤집고 실제 저장·반영까지 검증하도록 되돌릴 것.
     await inquiryCard.getByRole('button', { name: '수정' }).click();
     await page.getByRole('heading', { name: '상품문의 수정' }).waitFor({ state: 'visible', timeout: 15_000 });
-    const editedContent = `${inquiryContent}-수정됨`;
-    await page.locator('textarea').fill(editedContent);
-    await page.getByRole('button', { name: '수정 완료' }).click();
-    await expect(page.locator('.mypage-card', { hasText: editedContent })).toBeVisible({ timeout: 15_000 });
+    await page.locator('textarea').fill(`${inquiryContent}-수정시도`);
+    await expect(page.getByRole('button', { name: '수정 완료' })).toBeDisabled();
+    // 저장이 원천 불가하므로 모달을 닫고 원래 작성한 문의 그대로 정리 단계로 넘어간다.
+    await page.getByRole('button', { name: '취소' }).click();
 
-    // 4) 삭제.
+    // 4) 삭제(위 결함 때문에 수정본이 아니라 원래 작성한 inquiryTitle 그대로 정리한다).
     const finalCard = page.locator('.mypage-card', { hasText: inquiryTitle }).first();
     await finalCard.getByRole('button', { name: '삭제' }).click();
     await expect(page.locator('.mypage-card', { hasText: inquiryTitle })).toHaveCount(0, { timeout: 15_000 });

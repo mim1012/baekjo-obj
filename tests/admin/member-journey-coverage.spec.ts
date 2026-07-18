@@ -36,15 +36,19 @@ const COVERED: Record<string, CoveredFeature> = {
   'inquiry-lifecycle': {
     spec: 'member-review-inquiry.spec.ts',
     description:
-      '마이페이지발 상품문의 작성(상품 선택형)→반영→답변 전 수정→삭제. ' +
-      'admin-crud-qna-inquiries.spec.ts(상품상세발 작성→관리자 답변→공개반영)와 상호보완 — 중복 아님.',
+      '마이페이지발 상품문의 작성(상품 선택형)→반영→삭제. ' +
+      'admin-crud-qna-inquiries.spec.ts(상품상세발 작성→관리자 답변→공개반영)와 상호보완 — 중복 아님. ' +
+      '🚨 2026-07-19 라이브 실행으로 재현·확정된 결함: 마이페이지에서 문의 "수정"은 저장 버튼이 ' +
+      '영구 비활성화되어 절대 저장 불가(InquiryFormModal이 mypage 모드에서 productId를 못 받아 ' +
+      'selectedProduct가 항상 undefined). 스펙이 이 결함을 우회하지 않고 그대로 단언·박제함 — ' +
+      'app 수정은 mim-lane 범위 밖이라 team-lead에게 별도 보고, 고쳐지면 assert 방향을 뒤집을 것.',
   },
   profile: {
     spec: 'member-profile.spec.ts',
     description:
-      '마이페이지 회원정보 수정(알려진 결함: 서버 미영속 — localStorage만 반영, 스펙이 명시 검증) ' +
-      '+ 배송추적 모달 렌더. 수정 PR fe/behavior-profile-save-wire 진행 중(2026-07-19 team-lead 라우팅) ' +
-      '— 머지되면 이 스펙은 "서버 미영속"이 아니라 "실제 영속"을 단언하도록 뒤집을 것.',
+      '마이페이지 회원정보 수정 + 배송추적 모달 렌더. PR #171(fe/behavior-profile-save-wire, ' +
+      '2026-07-18 머지)로 실배선 완료 — 이 스펙은 이제 서버(members 테이블) 실제 영속을 단언한다 ' +
+      '(예전엔 localStorage만 반영되는 결함이 있어 "미영속"을 확인했었음, 2026-07-19 뒤집음).',
   },
   'admin-edit-propagation': {
     spec: 'member-admin-edit-propagation.spec.ts',

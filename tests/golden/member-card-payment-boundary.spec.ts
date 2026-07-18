@@ -57,7 +57,7 @@ test.describe('골든플로우 #2 경계: 회원 여정 — 카드결제 위젯 
 
     await page.goto(`/shop/${productId}`);
     await expect(page.getByRole('heading', { name: productName })).toBeVisible({ timeout: 15_000 });
-    await page.getByRole('button', { name: '장바구니' }).click();
+    await page.getByRole('button', { name: '장바구니' }).first().click();
 
     await page.goto('/checkout');
     await expect(page.locator('body')).toContainText(productName, { timeout: 15_000 });

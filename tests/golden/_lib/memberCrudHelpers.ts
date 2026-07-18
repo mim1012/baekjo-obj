@@ -71,13 +71,19 @@ export async function createThrowawayProduct(
     await page.getByRole('button', { name: /등록|저장/ }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 15_000 });
 
-    // 목록에서 방금 만든 상품 행을 찾아 상세 링크의 id를 얻는다.
+    // 목록에서 방금 만든 상품 행을 찾아 id를 얻는다. ⚠️ 실측(2026-07-19 로컬+staging 라이브 스모크) —
+    // AdminProductsClient.tsx의 상품명 셀은 <a href>가 아니라 onClick={() => handleEdit(p.id)}인
+    // 클릭 가능한 <div>다(router.push, 154·161행도 동일 패턴). href 파싱은 항상 timeout 나므로
+    // 행을 클릭해 실제로 이동한 뒤 그 URL에서 id를 읽는다.
     await page.getByPlaceholder('상품명 또는 상품코드 검색...').fill(name);
     const row = page.locator('tr', { hasText: name }).first();
     await expect(row).toBeVisible({ timeout: 15_000 });
-    const editHref = await row.locator('a[href^="/admin/products/"]').first().getAttribute('href');
-    const id = editHref?.split('/').filter(Boolean).pop();
-    if (!id) throw new Error(`스로어웨이 상품 id를 목록에서 찾지 못함: ${name}`);
+    await row.getByText(name, { exact: true }).click();
+    await page.waitForURL(/\/admin\/products\/[^/]+$/, { timeout: 15_000 });
+    const id = new URL(page.url()).pathname.split('/').filter(Boolean).pop();
+    if (!id) throw new Error(`스로어웨이 상품 id를 URL에서 얻지 못함: ${name}`);
+    // 상세 편집 페이지에 머물러 있으면 다음 호출(cleanup 등)이 목록 검색을 못 하므로 되돌아간다.
+    await page.goto('/admin/products');
 
     return { id, name };
   } finally {

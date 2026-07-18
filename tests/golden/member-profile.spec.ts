@@ -4,18 +4,18 @@ import { MEMBER_EMAIL, MEMBER_PASSWORD, loginAsMember } from './_lib/memberCrudH
 
 // 골든플로우 회원 여정(wave6) — 마이페이지 프로필(회원정보 수정) + 배송 추적 모달.
 //
-// 🚨 발견(버그 후보, mim 확인 필요) — ProfileSection.tsx:25 "회원정보 저장"은
-// `setCurrentUser()`(src/lib/storage.ts:1190)만 호출한다. 이 함수는 **localStorage만 쓰고
-// API 호출이 전혀 없다** — 서버 회원 레코드(members 테이블)에 반영되지 않는다. §4 원칙0
-// "Mock는 DB에 시드된 순간 죽는다"의 반례로, 이 폼은 Phase 1 mock 잔재로 보인다. 이 스펙은
-// 실제로 관찰 가능한 동작(같은 세션에서 로컬 반영·"저장되었습니다" 토스트)만 검증하고,
-// **서버에 반영되지 않는다는 것도 명시적으로 증명**한다(새 세션/새로고침 후 서버가 재조회한
-// 값으로 되돌아옴) — 조용히 넘어가지 않는다.
+// ✅ 실제 영속 확인(2026-07-19) — wave6 조사 중 발견했던 "회원정보 저장이 localStorage만
+// 쓰고 서버에 반영되지 않는다"는 결함은 PR #171(fe/behavior-profile-save-wire, fix(mypage):
+// 회원정보 저장 실배선)로 이미 고쳐져 main에 머지됐다. 지금 `ProfileSection.tsx`의 저장은
+// `updateMyProfile()`(src/lib/storage.ts) → `PATCH /api/members/me`를 실제로 호출하고,
+// 성공 시 서버가 돌려준 `result.user`로 로컬 캐시(setCurrentUser)를 갱신한다("서버가
+// 진실이므로 200 응답을 받은 뒤에만 로컬 캐시를 갱신"). 그래서 이 스펙은 더 이상 "미영속"을
+// 증명하지 않고 **실제 서버 영속**을 증명한다: 편집 → 저장(서버 200) → 새 브라우저 컨텍스트로
+// 재로그인해도 서버가 재조회한 값이 그대로 보여야 한다.
 //
-// 📌 후속(2026-07-19, team-lead 라우팅) — 실제 API 배선 수정 PR(fe/behavior-profile-save-wire)이
-// 별도 에이전트로 진행 중이다. 그 PR이 머지되면 이 스펙의 단언 방향이 뒤집힌다: "새 컨텍스트에는
-// 반영 안 됨"이 아니라 "새 컨텍스트에서도 서버가 실제로 영속한 값을 보여줌"을 확인하도록 고쳐야
-// 한다 — 지금 이 스펙은 그 PR 이전의 실제 동작을 정직하게 박제해둔 것이지, 목표 동작이 아니다.
+// 🧹 테스트 후 원래 이름으로 복원한다 — 이 계정(member-e2e@test.baekjo)은 고정 공유 E2E
+// 계정이라, 영속이 실제로 되는 지금은 복원하지 않으면 이름이 매 실행마다 새 값으로 계속
+// 바뀌어 남는다(예전엔 미영속이라 자동으로 원복됐지만 이제는 아니다).
 //
 // 비밀번호 변경(PasswordChangeSection)은 의도적으로 SKIP한다 — 이 스펙이 쓰는 고정 E2E 계정
 // 크리덴셜을 바꾸면 이후 모든 wave6 스펙의 로그인이 깨진다(팀 지시사항).
@@ -25,7 +25,7 @@ test.describe('골든플로우: 회원 여정 — 마이페이지 프로필·배
 
   test.use({ extraHTTPHeaders: bypassHeaders() });
 
-  test('회원정보 수정은 같은 세션에서만 반영되고 새 세션에는 반영되지 않는다(서버 미영속 — 알려진 결함)', async ({
+  test('회원정보 수정은 서버(members 테이블)에 실제로 영속되어 새 세션에서도 그대로 보인다', async ({
     browser,
   }) => {
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
@@ -33,25 +33,35 @@ test.describe('골든플로우: 회원 여정 — 마이페이지 프로필·배
     await page.goto('/mypage?tab=profile');
     await expect(page.getByRole('heading', { name: '회원정보 수정' })).toBeVisible({ timeout: 15_000 });
 
+    const nameInput = page.locator('input[name="name"]');
+    const originalName = await nameInput.inputValue();
+
     const runId = Date.now();
     const editedName = `E2E프로필${runId}`;
-    const nameInput = page.locator('input[name="name"]');
-    await nameInput.fill(editedName);
-    await page.getByRole('button', { name: '회원정보 저장' }).click();
-    await expect(page.getByText('저장되었습니다.')).toBeVisible({ timeout: 10_000 });
 
-    // 같은 세션·새로고침에는 반영된다(localStorage에 그대로 남아 getCurrentUser가 그걸 읽음).
+    async function saveName(target: import('@playwright/test').Page, name: string): Promise<void> {
+      await target.locator('input[name="name"]').fill(name);
+      await target.getByRole('button', { name: '회원정보 저장' }).click();
+      await expect(target.getByText('저장되었습니다.')).toBeVisible({ timeout: 10_000 });
+    }
+
+    await saveName(page, editedName);
+
+    // 같은 세션·새로고침엔 당연히 반영된다(로컬 캐시가 서버 응답으로 갱신됨).
     await page.reload();
     await expect(page.locator('input[name="name"]')).toHaveValue(editedName, { timeout: 15_000 });
     await page.close();
 
-    // 새 브라우저 컨텍스트(=localStorage 없음)로 다시 로그인하면 서버(/api/members/me)가
-    // 재조회한 원래 이름으로 돌아온다 — 서버에는 전혀 반영되지 않았다는 뜻.
+    // 새 브라우저 컨텍스트(=localStorage 없음)로 다시 로그인 — 서버(/api/members/me)가
+    // 실제로 저장한 값을 재조회해서 보여줘야 한다(예전엔 여기서 원래 값으로 되돌아갔었다).
     const freshContext = await browser.newContext({ extraHTTPHeaders: bypassHeaders() });
     const freshPage = await freshContext.newPage();
     await loginAsMember(freshPage);
     await freshPage.goto('/mypage?tab=profile');
-    await expect(freshPage.locator('input[name="name"]')).not.toHaveValue(editedName, { timeout: 15_000 });
+    await expect(freshPage.locator('input[name="name"]')).toHaveValue(editedName, { timeout: 15_000 });
+
+    // 정리 — 공유 E2E 계정 이름을 원상복구(더 이상 미영속이 아니므로 복원하지 않으면 영구 드리프트).
+    await saveName(freshPage, originalName);
     await freshContext.close();
   });
 

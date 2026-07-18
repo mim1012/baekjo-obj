@@ -66,7 +66,7 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     // 1) 원래 이름·가격으로 장바구니에 담는다.
     await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.getByRole('heading', { name: originalName })).toBeVisible({ timeout: 15_000 });
-    await memberPage.getByRole('button', { name: '장바구니' }).click();
+    await memberPage.getByRole('button', { name: '장바구니' }).first().click();
 
     await memberPage.goto('/cart');
     await expect(memberPage.locator('body')).toContainText(originalName, { timeout: 15_000 });
@@ -78,9 +78,12 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     await patchProductAsAdmin(adminPage, productId, { name: updatedName, price: updatedPrice });
 
     // 3) 장바구니는 스냅샷이 아니라 매번 최신 카탈로그와 조인한다 — 새로고침하면 즉시 새 값.
+    // ⚠️ updatedName은 `${originalName}-수정됨`이라 "originalName을 포함하지 않는다"는 검증은
+    // 애초에 성립 불가(수정된 이름 자체가 원래 이름을 접두어로 포함) — 대신 명확히 분리되는
+    // 신호인 "옛 가격이 더 이상 없다"로 스냅샷이 아님을 확인한다.
     await memberPage.reload();
     await expect(memberPage.locator('body')).toContainText(updatedName, { timeout: 15_000 });
-    await expect(memberPage.locator('body')).not.toContainText(originalName);
+    await expect(memberPage.locator('body')).not.toContainText(`${INITIAL_PRICE.toLocaleString()}원`);
     await expect(memberPage.locator('body')).toContainText(`${updatedPrice.toLocaleString()}원`);
 
     // 4) 체크아웃도 동일 — 최종 결제금액이 새 가격 기준으로 계산된다.
@@ -134,7 +137,7 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
 
     await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.getByRole('heading', { name: productName })).toBeVisible({ timeout: 15_000 });
-    await memberPage.getByRole('button', { name: '장바구니' }).click();
+    await memberPage.getByRole('button', { name: '장바구니' }).first().click();
 
     await memberPage.goto('/cart');
     await expect(memberPage.locator('body')).toContainText(productName, { timeout: 15_000 });
