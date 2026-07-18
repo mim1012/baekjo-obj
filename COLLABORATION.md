@@ -53,7 +53,7 @@ npm run dev   # http://localhost:3000
   `dad041566-hue/BAGJO1`은 이관 완료 — 새 작업은 전부 새 저장소에서. dad041566은 collaborator로 초대받아 작업.
 - **브랜치 보호(하드 강제, 1회 설정)**: mim1012 계정으로 GitHub → `baekjo-obj` → Settings → Branches →
   `main`에 보호 규칙: ☑ Require a pull request before merging ☑ Require status checks to pass (CI 선택).
-  이걸 켜야 "main 직접 push 금지"가 문서가 아니라 시스템으로 강제된다. 절차 상세: [`docs/dad041566-워크플로우-안내.md`](./docs/dad041566-워크플로우-안내.md).
+  이걸 켜야 "main 직접 push 금지"가 문서가 아니라 시스템으로 강제된다. 절차 상세: [`docs/archive/dad041566-워크플로우-안내.md`](./docs/archive/dad041566-워크플로우-안내.md).
 
 ## 5. 핸드오프 (UI ↔ 로직 왕복)
 - 디자이너가 로직 필요한 자리에 마커: `// HANDOFF(logic): 실제 주문 API 필요` → 내가 `storage.ts` 속을 채운다.
@@ -69,5 +69,6 @@ npm run dev   # http://localhost:3000
 - 정리: *가이드는 자동으로 읽히고(소프트), 실제 방어는 CI가 IDE 무관하게 자동으로 한다(하드).*
 
 ## 7. 진행 현황
-- 상태 SSOT: [`docs/baekjo-platform-completion/PROGRESS.md`](./docs/baekjo-platform-completion/PROGRESS.md).
+- 상태 SSOT: **`SESSION.md` + 세션 메모리**(`docs/baekjo-platform-completion/PROGRESS.md`는
+  진행 SSOT 역할을 종료하고 [`docs/archive/baekjo-platform-completion/PROGRESS.md`](./docs/archive/baekjo-platform-completion/PROGRESS.md)로 보관됨, 2026-07-18 docs 재구성).
 - 기획/설계: [`docs_for_notebooklm/`](./docs_for_notebooklm/) (브랜드·기능·데이터·디자인).

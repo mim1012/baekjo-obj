@@ -12,7 +12,7 @@ import {
 /**
  * 관리자 대시보드 브랜드별 통계 — 순수 집계(DB를 모른다).
  * 라우트(`/api/admin/dashboard`)가 repo로 데이터를 읽어 이 함수에 넘긴다.
- * 설계: docs/admin-dashboard-uiux-improvement.md §6-3.
+ * 설계: docs/archive/admin-dashboard-uiux-improvement.md §6-3.
  *
  * ⚠️ 입력은 **모집단 전체가 아닐 수 있다** — repo가 LIST_CAP(orders/products/inquiries 1000, brands 500)으로
  * 자른다. 절삭 감지·표시는 호출부(라우트)의 책임이며 응답 meta.truncated로 내려간다.
