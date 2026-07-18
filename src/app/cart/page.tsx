@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { getCart, updateCartQuantity, removeFromCart } from '@/lib/cart';
+import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';
 import { getPublicProducts, getPublicBrands } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
@@ -27,6 +27,11 @@ export default function CartPage() {
     let cancelled = false;
     Promise.all([getPublicProducts(), getPublicBrands()]).then(([productList, brandList]) => {
       if (cancelled) return;
+      // 자가치유(wave-6 발견 수정) — getPublicProducts는 이미 노출 상품만 반환하므로
+      // 이 목록이 곧 "유효한 카트 항목"의 기준이다. 숨겨지거나 삭제된 상품이 카트에 남아
+      // 있으면 여기서 localStorage 자체를 정리해 헤더 뱃지(getCartCount)와 이 화면이
+      // 다시 같은 개수를 보게 만든다 — 화면 필터(enrichedItems)만으로는 뱃지가 안 맞았다.
+      pruneCartToVisibleProducts(new Set(productList.map((product) => product.id)));
       setProducts(productList);
       setBrands(brandList);
       setProductsLoading(false);
