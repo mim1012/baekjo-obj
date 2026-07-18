@@ -15,7 +15,7 @@ import {
   Check,
   X
 } from 'lucide-react';
-import { getInsuranceContentConfig, saveInsuranceApplication } from '@/lib/storage';
+import { getInsuranceContentConfig } from '@/lib/storage';
 import { defaultInsuranceContentConfig, type ConsentDoc } from '@/lib/insuranceContent/config';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -191,44 +191,29 @@ export default function InsurancePage() {
     setFormData((current) => ({ ...current, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const [submitting, setSubmitting] = useState(false);
-
-  const handleSubmit = async (event: React.FormEvent) => {
+  // 랜딩은 접수를 완결하지 않는다 — 여기서 모은 값(보험사·상품명·궁금한 점)은 실제 신청서
+  // (/insurance/apply, 이름·연락처·반려동물 정보까지 받는 진짜 폼)로 프리필해 넘기고, 실제
+  // 저장은 그 페이지의 saveInsuranceApplication 호출 한 곳에서만 일어난다. 예전엔 이 랜딩이
+  // 직접 saveInsuranceApplication을 호출했는데, 이 폼엔 이름/연락처/반려동물 입력란이 아예
+  // 없어 그 값들을 전부 고정 문자열('사용자' 등)로 채워 보냈다 — 관리자가 연락할 수 없는
+  // 유령 신청 레코드가 쌓였다. 증권 업로드도 이 페이지엔 저장 경로가 없어(파일이 그대로
+  // 버려짐) 실제 첨부·접수는 다음 단계(신청서)에서 진행한다.
+  const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (!allRequiredChecked || submitting) return;
+    if (!allRequiredChecked) return;
 
-    setSubmitting(true);
-    try {
-      await saveInsuranceApplication({
-        name: '사용자', // mock
-        phone: '010-0000-0000', // mock
-        petName: '반려동물', // mock
-        petType: '강아지', // mock
-        breed: '', // mock
-        petBreed: '', // mock
-        petAge: 0, // mock
-        coverageNeeds: [], // mock
-        message: formData.message,
-        concerns: formData.message,
-        // 관리자가 동의 문서를 교체해도 저장 API 계약(saveInsuranceApplication 시그니처)은 유지한다 —
-        // 기본 id('privacy'/'analysis')가 있으면 그 체크값을, 없으면 필수 전체 동의 여부를 접어 보낸다.
-        privacyAgree: consentChecks['privacy'] ?? allRequiredChecked,
-        thirdPartyAgree: consentChecks['analysis'] ?? allRequiredChecked,
-        hasCurrentInsurance: true,
-        currentInsuranceName: formData.companyName + ' ' + formData.productName,
-        medicalHistory: '',
-        targetPremium: '',
-        neutered: true,
-        gender: 'male',
-        ownerName: '사용자',
-      });
-    } catch {
-      setSubmitting(false);
-      alert('신청 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-      return;
+    const params = new URLSearchParams();
+    const insuranceName = `${formData.companyName} ${formData.productName}`.trim();
+    if (insuranceName) {
+      params.set('hasCurrentInsurance', 'yes');
+      params.set('currentInsuranceName', insuranceName);
+    }
+    if (formData.message) {
+      params.set('message', formData.message);
     }
 
-    router.push('/insurance/complete');
+    const query = params.toString();
+    router.push(`/insurance/apply${query ? `?${query}` : ''}`);
   };
 
   const fieldClass = 'w-full rounded-xl border border-[#D8D6CE] bg-[#FAF9F5] px-4 py-3 text-sm transition-colors focus:border-[#2F3B34] focus:outline-none focus:ring-1 focus:ring-[#2F3B34]';
@@ -351,8 +336,8 @@ export default function InsurancePage() {
 
             {/* 우측 실제 신청 폼 (68%) */}
             <div className="rounded-[24px] border border-[#EBE8E1] bg-white p-8 lg:w-[68%] lg:p-10">
-              <h3 className="text-xl font-bold text-[#1A1D1B]">가지고 있는 증권을 선택해 주세요.</h3>
-              <p className="mt-2 text-[14px] text-[#5F6761]">파일을 업로드하고 기본 정보를 입력하시면 분석 준비가 완료됩니다.</p>
+              <h3 className="text-xl font-bold text-[#1A1D1B]">가지고 있는 증권을 미리 확인해 보세요.</h3>
+              <p className="mt-2 text-[14px] text-[#5F6761]">실제 증권 첨부와 접수는 다음 단계(신청서 작성)에서 진행돼요. 아래 정보를 남겨주시면 신청서에 그대로 이어드립니다.</p>
 
               {/* 업로드 영역 */}
               <div className="mt-8">
@@ -459,9 +444,9 @@ export default function InsurancePage() {
                   ))}
                 </div>
 
-                <button type="submit" disabled={!allRequiredChecked || submitting} className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A221E] py-[18px] text-[15px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
-                  {submitting ? '신청 접수 중…' : '보험 분석 신청하기'}
-                  {!submitting && <ArrowRight className="size-4" />}
+                <button type="submit" disabled={!allRequiredChecked} className="w-full flex items-center justify-center gap-2 rounded-xl bg-[#1A221E] py-[18px] text-[15px] font-bold text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed">
+                  다음 단계로 (신청서 작성)
+                  <ArrowRight className="size-4" />
                 </button>
               </form>
             </div>

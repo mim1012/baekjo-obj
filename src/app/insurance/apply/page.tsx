@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { saveInsuranceApplication } from '@/lib/storage';
 
 const coverageOptions = [
@@ -11,26 +11,30 @@ const coverageOptions = [
   '가성비 중심',
 ];
 
-export default function InsuranceApplyPage() {
+function InsuranceApplyForm() {
   const router = useRouter();
-  const [formData, setFormData] = useState({
+  // /insurance(랜딩)에서 보험사·상품명·궁금한 점을 남기고 넘어온 경우 쿼리로 프리필한다
+  // (§랜딩 폼 지혈 — 랜딩은 더 이상 자체 접수하지 않고 이 폼으로 이어준다). 최초 렌더에서
+  // 한 번만 읽으면 되므로 lazy initializer로 처리.
+  const searchParams = useSearchParams();
+  const [formData, setFormData] = useState(() => ({
     name: '',
     phone: '',
     petName: '',
     petType: '강아지',
     breed: '',
     petAge: '',
-    hasCurrentInsurance: 'no',
-    currentInsuranceName: '',
+    hasCurrentInsurance: searchParams.get('hasCurrentInsurance') === 'yes' ? 'yes' : 'no',
+    currentInsuranceName: searchParams.get('currentInsuranceName') ?? '',
     medicalHistory: '',
     targetPremium: '',
     neutered: 'yes',
     gender: 'male',
     coverageNeeds: [] as string[],
-    message: '',
+    message: searchParams.get('message') ?? '',
     privacyAgree: false,
     thirdPartyAgree: false,
-  });
+  }));
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = event.target;
@@ -225,5 +229,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-2 block text-sm font-medium text-[#4F5751]">{label}</span>
       {children}
     </label>
+  );
+}
+
+// useSearchParams는 정적 사전렌더 시 Suspense 경계가 필요하다(Next 16) — 다른 쿼리 프리필
+// 페이지(checkout·mypage·order-complete)와 동일한 래핑 패턴.
+export default function InsuranceApplyPage() {
+  return (
+    <Suspense fallback={null}>
+      <InsuranceApplyForm />
+    </Suspense>
   );
 }
