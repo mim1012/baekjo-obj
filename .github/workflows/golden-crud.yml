@@ -22,6 +22,10 @@ on:
         description: '경로 매핑 무시하고 두 스펙 모두 강제 실행'
         type: boolean
         default: false
+      base_url:
+        description: '대상 Preview URL (workflow_dispatch 전용 — deployment_status에는 event payload가 있어 불필요)'
+        required: true
+        type: string
 
 concurrency:
   group: golden-crud-${{ github.event.deployment.sha || github.sha }}
@@ -75,8 +79,18 @@ jobs:
           echo "변경 경로:"
           echo "$CHANGED"
 
+          # 게이트 자신의 변경도 게이트를 통과해야 한다 — 스펙을 고치면 그 스펙이 돈다.
+          # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 두 도메인 모두 실행해 회귀를 잡는다.
+          # (opus 리뷰 HIGH: 이 매핑에 테스트 레이어 경로가 빠져 있으면 이 PR의 프리뷰 실행이
+          # 항상 skip-green으로 떨어져 새 스펙이 CI에서 한 번도 실제로 돌지 않는다.)
+          GATE_SELF='^(tests/golden/admin-crud-.*\.spec\.ts|tests/golden/_lib/|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
+
           NOTICES=false
           REVIEWS=false
+          if echo "$CHANGED" | grep -qE "$GATE_SELF"; then
+            NOTICES=true
+            REVIEWS=true
+          fi
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
           fi
@@ -95,7 +109,9 @@ jobs:
         if: steps.changes.outputs.notices == 'true'
         run: npx playwright test tests/golden/admin-crud-notices.spec.ts --project=golden-crud --reporter=line
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # dispatch 이벤트는 deployment_status payload가 없어 environment_url이 빈 문자열이다
+          # (opus 리뷰 MEDIUM) — workflow_dispatch일 때는 사람이 입력한 base_url을 쓴다.
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
@@ -105,7 +121,9 @@ jobs:
         if: steps.changes.outputs.reviews == 'true'
         run: npx playwright test tests/golden/admin-crud-showcase-reviews.spec.ts --project=golden-crud --reporter=line
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          # dispatch 이벤트는 deployment_status payload가 없어 environment_url이 빈 문자열이다
+          # (opus 리뷰 MEDIUM) — workflow_dispatch일 때는 사람이 입력한 base_url을 쓴다.
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}

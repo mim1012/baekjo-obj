@@ -3,10 +3,15 @@ import { defineConfig, devices } from '@playwright/test';
 // 골든플로우(배포 게이트) E2E. 기본 타깃은 LIVE Vercel preview(공개).
 // 로컬 실행: E2E_BASE_URL=http://localhost:3000 로 오버라이드하면 dev 서버를 자동 기동한다.
 // 실행: `E2E_BASE_URL=<url> npx playwright test --reporter=line`
+//
+// ⚠️ `??`가 아니라 `||`로 빈 문자열도 미설정 취급한다(opus 리뷰 MEDIUM) — GitHub Actions에서
+// `${{ github.event.deployment_status.environment_url }}`처럼 이벤트에 값이 없는 표현식은
+// undefined가 아니라 빈 문자열('')로 주입된다. `??`는 빈 문자열을 "설정됨"으로 보고 그대로
+// 통과시켜 baseURL=''이 되고, 그 상태로 page.goto()가 던진다 — 이 폴백은 golden-crud 등
+// 다른 프로젝트에도 공유되는 일반 강건성 수정이라 항상 켜둔다.
+const fromEnv = process.env.E2E_BASE_URL || process.env.BASE_URL;
 const baseURL =
-  process.env.E2E_BASE_URL ??
-  process.env.BASE_URL ??
-  'https://baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app';
+  fromEnv || 'https://baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app';
 
 const isLocal = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
 
