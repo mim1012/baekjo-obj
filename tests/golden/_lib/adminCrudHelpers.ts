@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 // admin-crud-*.spec.ts 전용 헬퍼. 파일명이 *.spec.ts 가 아니라 Playwright 테스트로 수집되지 않는다.
 //
@@ -51,6 +51,35 @@ export async function deleteMatchingAdminRows(
 
   // 검색 결과 첫 행을 반복 삭제 — 즉시 저장(auto-save) 반영을 기다리며 매칭이 사라질 때까지.
   const deleteButton = page.getByRole('button', { name: '삭제' });
+  for (let i = 0; i < 25; i += 1) {
+    const count = await deleteButton.count();
+    if (count === 0) break;
+    await deleteButton.first().click();
+    await page.waitForTimeout(600);
+  }
+}
+
+/**
+ * deleteMatchingAdminRows의 스코프드 버전 — 한 페이지에 AdminResourcePage 인스턴스가
+ * 여러 개(예: /admin/insurance-content 의 동의 문서 + FAQ) 있을 때 쓴다. 페이지 전역에서
+ * '삭제' 버튼을 찾으면 검색으로 걸러지지 않은 다른 섹션의 행까지 지울 위험이 있다 —
+ * scope(예: 그 섹션의 검색창을 포함하는 카드 컨테이너) 안에서만 검색·삭제한다.
+ */
+export async function deleteMatchingRowsWithin(
+  page: Page,
+  scope: Locator,
+  searchPlaceholder: string,
+  searchTerm: string,
+): Promise<void> {
+  page.on('dialog', (dialog) => {
+    dialog.accept().catch(() => {});
+  });
+
+  const searchInput = scope.getByPlaceholder(searchPlaceholder);
+  await searchInput.waitFor({ state: 'visible', timeout: 15_000 });
+  await searchInput.fill(searchTerm);
+
+  const deleteButton = scope.getByRole('button', { name: '삭제' });
   for (let i = 0; i < 25; i += 1) {
     const count = await deleteButton.count();
     if (count === 0) break;
