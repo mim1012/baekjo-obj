@@ -28,7 +28,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const saveFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
-    expect(adminPage).toContain('const { categorySettings, updateCategorySettings } = useCategorySettings();');
+    expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded, loadError } = useCategorySettings();');
     expect(adminPage).toContain('const [settings, setSettings] = useState<CategorySettings>(categorySettings);');
     expect(saveFunction).toContain('const ok = await updateCategorySettings(next);');
     expect(saveFunction).toContain('setDirty(false);');
@@ -42,6 +42,28 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     // 일괄 저장 UI 재도입 방지 — 저장은 commit(즉시) 하나뿐이어야 한다.
     expect(adminPage).not.toContain('SaveBar');
     expect(adminPage).not.toContain('handleSave');
+  });
+
+  test('로드 완료 전에는 commit(즉시저장)을 막는다(전수조사 A-2, 즉시저장 신구조에 재접붙임)', () => {
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
+    // commit 이 모든 저장 경로(추가·삭제·순서변경·이름 blur 커밋)의 유일한 관문이므로 여기 하나만
+    // 가드하면 된다 — addItem/removeItem/moveItem/commitItemName 이 전부 commit 을 거친다.
+    const commitFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
+    expect(commitFunction).toContain('if (!loaded || loadError) return;');
+    expect(commitFunction).toContain('if (busyRef.current) return;');
+
+    // 타이핑(updateItemLocal)도 loaded 이전엔 막는다 — 그래야 dirty 락이 걸려 늦게 도착한 실제
+    // GET 값의 resync(`if (!dirty)`)를 영구히 막는 레이스가 생기지 않는다.
+    const updateItemLocalFunction = sliceBetween(adminPage, 'const updateItemLocal = (index: number, val: string) => {', 'const commitItemName = ');
+    expect(updateItemLocalFunction).toContain('if (!loaded) return;');
+  });
+
+  test('loadError 는 PageHeader 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
+
+    expect(adminPage).toContain(
+      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
+    );
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
@@ -63,6 +85,21 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(updateFunction).not.toContain('@/data/brands');
     expectNoCategoryBypass(providerSource);
     expect(providerSource).toContain("throw new Error('useCategorySettings must be used within CategorySettingsProvider');");
+  });
+
+  test('provider 는 GET resolve 여부를 loaded/loadError 로 노출한다(전수조사 A-2)', () => {
+    const providerSource = src('src', 'components', 'providers', 'CategorySettingsProvider.tsx');
+    const hydrationEffect = sliceBetween(providerSource, 'useEffect(() => {', '}, []);');
+
+    expect(providerSource).toContain('loaded: boolean;');
+    expect(providerSource).toContain('loadError: boolean;');
+    expect(providerSource).toContain('const [loaded, setLoaded] = useState(false);');
+    expect(providerSource).toContain('const [loadError, setLoadError] = useState(false);');
+    expect(hydrationEffect).toContain('setLoaded(true);');
+    expect(hydrationEffect).toContain('setLoadError(true);');
+    expect(providerSource).toContain(
+      '<CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, loaded, loadError }}>',
+    );
   });
 
   test('카테고리 API 는 공개 readback 과 관리자 저장을 repo 계층으로 위임한다', () => {

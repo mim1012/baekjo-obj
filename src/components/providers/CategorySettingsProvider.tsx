@@ -11,6 +11,13 @@ export { defaultCategorySettings } from '@/lib/categorySettings/config';
 interface CategorySettingsContextType {
   categorySettings: CategorySettings;
   updateCategorySettings: (newSettings: CategorySettings) => Promise<boolean>;
+  /** true = 마운트 후 GET /api/category-settings 가 성공적으로 resolve 됐다(DB 실 데이터든, 서버
+   * 폴백 default 든 무관). 공개 소비자(ShopContent·BrandsContent 등, audit class C)는 이 값을 쓰지
+   * 않고 그대로 default-first 렌더를 유지한다 — 관리자 편집 화면(admin/categories)만 이 값으로
+   * 저장 레이스를 막는다(전수조사 A-2). */
+  loaded: boolean;
+  /** true = 초기 GET 이 네트워크 실패 등으로 완전히 실패했다. loaded 와 동시에 true 가 될 수 없다. */
+  loadError: boolean;
 }
 
 export const CategorySettingsContext = createContext<CategorySettingsContextType | undefined>(undefined);
@@ -20,19 +27,31 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
   // DB 에 저장된 실제 설정으로 하이드레이트한다(콘센트 경계 — provider 만 fetch, §4).
   const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);
   // 사용자가 한 번이라도 편집(updateCategorySettings 호출)했으면 true — 늦게 도착하는 초기 GET 이
-  // 그 편집을 덮어쓰지 못하도록 막는 가드(하드 리로드 레이스 방지).
+  // 그 편집을 덮어쓰지 못하도록 막는 가드(하드 리로드 레이스 방지). loaded 는 이것과 별개다 —
+  // userWrote 는 "늦게 도착한 GET 이 이미 한 편집을 덮지 않게" 막고, loaded 는 "GET 이 오기 전에는
+  // 편집·저장을 아예 시작할 수 없게" 막는다(전수조사 A-2, 2026-07-18 — 로드 전 편집을 허용하면
+  // 화면에 안 보인 카테고리들이 default 값 그대로 실 DB 위에 PUT 될 수 있었다).
   const userWrote = useRef(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch('/api/category-settings')
       .then((res) => res.json())
       .then((data: { settings?: CategorySettings }) => {
-        if (cancelled || userWrote.current || !data?.settings) return;
-        setCategorySettings(data.settings);
+        if (cancelled) return;
+        if (!data?.settings) {
+          setLoadError(true);
+          return;
+        }
+        if (!userWrote.current) setCategorySettings(data.settings);
+        setLoaded(true);
       })
       .catch((e) => {
+        if (cancelled) return;
         console.error('Failed to load category settings from /api/category-settings', e);
+        setLoadError(true);
       });
     return () => {
       cancelled = true;
@@ -66,7 +85,7 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
   };
 
   return (
-    <CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings }}>
+    <CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, loaded, loadError }}>
       {children}
     </CategorySettingsContext.Provider>
   );

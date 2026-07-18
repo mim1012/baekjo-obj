@@ -8,7 +8,7 @@ import type { CategorySettings } from '@/lib/categorySettings/config';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 
 export default function CategoryManagerPage() {
-  const { categorySettings, updateCategorySettings } = useCategorySettings();
+  const { categorySettings, updateCategorySettings, loaded, loadError } = useCategorySettings();
 
   // 로컬 미러는 "타이핑 중" 상태만 담는다 — 이름 입력은 키 입력마다 PUT 하지 않고 blur 시 커밋.
   // 추가·삭제·순서 변경은 즉시 커밋한다(2026-07-18 즉시저장 전환 — 일괄저장 UI 제거).
@@ -27,7 +27,11 @@ export default function CategoryManagerPage() {
   }, [categorySettings, dirty]);
 
   // next 스냅샷을 즉시 DB 에 커밋한다. 실패하면 provider 가 롤백하므로 로컬 미러도 원복한다.
+  // loaded 이전엔 커밋을 막는다 — 그래야 dirty 락이 실제 GET 값의 resync 를 영구히 막는 레이스가
+  // 구조적으로 생기지 않는다(전수조사 A-2 재접붙임, 2026-07-18 즉시저장 전환 병합). GET 이 대개
+  // 즉시 오므로 체감 지연은 없다.
   const commit = async (next: CategorySettings) => {
+    if (!loaded || loadError) return;
     if (busyRef.current) return;
     busyRef.current = true;
     setSettings(next);
@@ -57,8 +61,12 @@ export default function CategoryManagerPage() {
       void commit(withList([...list, '새 항목']));
     };
 
-    // 타이핑은 로컬만 갱신 — blur 에서 커밋한다(키 입력마다 PUT 방지).
+    // 타이핑은 로컬만 갱신 — blur 에서 커밋한다(키 입력마다 PUT 방지). loaded 이전엔 dirty 를
+    // 세우지 않는다 — dirty 가 걸리면 그 뒤로 도착하는 실제 GET 값이 resync effect(`if (!dirty)`)
+    // 로 절대 반영되지 못해, blur 커밋이 여전히 default 값 기반 settings 를 PUT 하게 된다
+    // (전수조사 A-2 재접붙임).
     const updateItemLocal = (index: number, val: string) => {
+      if (!loaded) return;
       const newList = [...list];
       newList[index] = val;
       setSettings((prev) => ({ ...prev, [field]: newList }));
@@ -139,9 +147,11 @@ export default function CategoryManagerPage() {
 
   return (
     <div className="space-y-6 pb-24 h-[calc(100vh-64px)] overflow-y-auto">
+      {/* loadError 면 왜 편집·저장이 막혔는지 알려준다(opus 리뷰 MEDIUM — loaded 를 노출해도 소비하지
+          않으면 버튼만 이유 없이 계속 비활성화된 것처럼 보인다). notices/concerns 화면과 같은 톤. */}
       <PageHeader
         title="카테고리 관리"
-        description="전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다."
+        description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start h-full pb-10">
