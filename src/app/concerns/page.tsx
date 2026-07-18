@@ -17,11 +17,16 @@ export default async function ConcernsPage() {
   const mainConcerns = concerns.slice(0, 8);
   const subConcerns = concerns.slice(8, 12);
 
+  // 고민 핵심 6개(눈물·피부·관절·비만·스트레스·구강) 정리로 nutrition·grooming 이 삭제될 예정이라
+  // 매거진 카드도 함께 교체한다(2026-07-18, 데이터 삭제는 이 PR 병합 후 별도 진행). 이미지는 새로
+  // 마련하지 않고 기존 자산을 재사용했다 — 구강 카드는 아직 안 쓰인 일반 케어 사진으로, 체중 카드는
+  // 원래 목욕 카드 사진(페이지 상단 히어로와 동일한 일반 반려묘 사진)을 그대로 유지했다. 사진 폴리싱은
+  // dad 후속 작업.
   const infoCards = [
     { title: '강아지가 자꾸 긁어요. 피부 가려움의 원인과 관리법', category: '#피부', href: '/concerns/skin', image: '/images/hero-bg.jpg' },
-    { title: '장 건강이 면역력의 시작! 유산균과 식이섬유의 중요성', category: '#영양', href: '/concerns/nutrition', image: '/images/poodle-pet-food.png' },
+    { title: '양치를 어려워하는 아이, 구강 관리 루틴 만들기', category: '#구강', href: '/concerns/oral', image: '/images/care_guide_hero.png' },
     { title: '산책, 얼마나 해야 적당할까? 활동량과 에너지 관리 가이드', category: '#운동', href: '/concerns/joint', image: '/images/hero-curation-visual-natural.png' },
-    { title: '목욕, 자주 해도 괜찮을까? 피부 타입별 목욕 가이드', category: '#목욕', href: '/concerns/grooming', image: '/images/care-guide-hero-cat.webp' },
+    { title: '천천히, 건강하게 — 우리 아이 체중 관리의 기준', category: '#체중', href: '/concerns/obesity', image: '/images/care-guide-hero-cat.webp' },
     { title: '분리불안, 혼자 두는 연습이 필요할 때', category: '#행동', href: '/concerns/stress', image: '/images/brand-curation-hero.webp' },
   ];
 
