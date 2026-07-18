@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';
-import { defaultInsuranceContentConfig, type ConsentDoc, type InsuranceFaq } from '@/lib/insuranceContent/config';
+import type { ConsentDoc, InsuranceFaq } from '@/lib/insuranceContent/config';
 
 const booleanOptions = [
   { value: 'true', label: '예' },
@@ -63,21 +63,23 @@ function summarize(text: string, max = 60): string {
 const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;
 
 export default function AdminInsuranceContentPage() {
-  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
-  // 불러온다. 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
+  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 마운트 후 관리자 콘센트로 실제 config 를 불러온다.
+  // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
+  // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0).
+  // 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
   // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(codex 리뷰 F5). loadError 면
   // 저장을 막는다(partners 패턴 미러링). 로드 완료 전(loaded=false)에도 저장·편집을 막는다 —
   // 로드 완료 전 저장이 default 로 DB 를 덮어쓰는 레이스 방지(codex 리뷰 F-HIGH, concerns 미러).
-  const [consents, setConsents] = useState<ConsentDoc[]>(defaultInsuranceContentConfig.consents);
-  const [faqs, setFaqs] = useState<InsuranceFaq[]>(defaultInsuranceContentConfig.faqs);
+  const [consents, setConsents] = useState<ConsentDoc[]>([]);
+  const [faqs, setFaqs] = useState<InsuranceFaq[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // persisted = 마지막으로 DB 와 일치한 동의 문서·FAQ. 두 섹션이 하나의 싱글턴 config 를 공유하므로
   // ref 도 { consents, faqs } 를 함께 들고, 성공한 저장(배치 저장 포함)마다 두 필드를 함께 갱신한다.
   // 삭제는 이 기준으로 저장해 미저장 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
   const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({
-    consents: defaultInsuranceContentConfig.consents,
-    faqs: defaultInsuranceContentConfig.faqs,
+    consents: [],
+    faqs: [],
   });
   // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH). 두 섹션의
   // 삭제 핸들러와 배치 저장이 같은 싱글턴 config 를 쓰므로 하나의 ref 로 셋을 함께 배타한다.
