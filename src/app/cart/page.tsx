@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { getCart, updateCartQuantity, removeFromCart } from '@/lib/cart';
 import { getPublicProducts } from '@/lib/storage';
@@ -87,9 +88,24 @@ export default function CartPage() {
             <div className="lg:w-2/3 space-y-3 md:space-y-4">
               {enrichedItems.map((item, idx) => (
                 <div key={`${item.productId}-${item.optionId || 'none'}-${idx}`} className="flex gap-3 sm:gap-4 bg-white p-4 md:p-6 rounded-sm shadow-sm border border-gray-100">
-                  <div className="h-[88px] w-[88px] sm:h-24 sm:w-24 shrink-0 rounded-sm bg-[#ECEAE3] flex items-center justify-center text-xs text-gray-400">
-                    이미지
-                  </div>
+                  <Link
+                    href={`/shop/${item.product?.id}`}
+                    className="relative block h-[88px] w-[88px] sm:h-24 sm:w-24 shrink-0 overflow-hidden rounded-sm bg-[#F2EEE6]"
+                  >
+                    {item.product?.image ? (
+                      <Image
+                        src={item.product.image}
+                        alt={item.product.name}
+                        fill
+                        sizes="96px"
+                        className="object-contain p-1.5"
+                      />
+                    ) : (
+                      <span className="flex h-full w-full items-center justify-center text-xs text-[#A39B90]">
+                        이미지 준비 중
+                      </span>
+                    )}
+                  </Link>
                   <div className="flex-1 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                       <div className="min-w-0">
