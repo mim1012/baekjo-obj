@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { Brand } from '@/types';
 import { createBrand, updateBrand, type UpdateBrandInput, type CreateBrandInput } from '@/lib/storage';
@@ -37,6 +37,14 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const handleChange = (field: keyof Brand, value: Brand[keyof Brand]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -78,9 +86,12 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17201B]/50 p-4">
-      <div 
-        className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#17201B]/50 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90dvh]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? '브랜드 정보 수정' : '새 브랜드 등록'}
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
@@ -103,8 +114,8 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
           )}
 
           <form id="brand-form" onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-3 gap-6">
-              <div className="col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="sm:col-span-1">
                 <FormField label="브랜드 로고">
                   <ImageUploader 
                     value={formData.logo || ''}
@@ -119,7 +130,7 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
                 </FormField>
               </div>
               
-              <div className="col-span-2 space-y-4">
+              <div className="sm:col-span-2 space-y-4">
                 <FormField label="브랜드명" required>
                   <input 
                     type="text" 
