@@ -15,6 +15,7 @@ import OrderDataTable from './OrderDataTable';
 import OrderMobileCard from './OrderMobileCard';
 import { deriveFunnelStage, stageCounts } from './orderFunnel';
 import { DEPOSIT_CONFIRM_UPDATE, type OrderStatusUpdate } from './DepositConfirmButton';
+import { orderUpdateErrorMessage, summarizeBulkFailures } from './orderUpdateErrorMessage';
 import type { Brand, Order } from '@/types';
 
 export default function OrderListPage() {
@@ -72,9 +73,11 @@ export default function OrderListPage() {
     try {
       await updateOrderStatus(id, updates);
       await loadOrders();
-    } catch {
+    } catch (error) {
+      // 재조회하지 않는다 — getAllOrders()는 네트워크/HTTP 실패를 삼키고 []를 반환하므로,
+      // PATCH와 재조회가 함께 실패하면 롤백해 둔 목록이 빈 화면으로 덮인다. 롤백 + alert만 한다.
       setOrders((prev) => prev.map((order) => (order.id === id ? previousOrder : order)));
-      alert('입금확인 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      alert(orderUpdateErrorMessage(error));
     } finally {
       setSavingOrderIds((prev) => {
         const next = new Set(prev);
@@ -164,13 +167,13 @@ export default function OrderListPage() {
     setSavingOrderIds(new Set(targets));
 
     let success = 0;
-    const failedIds: string[] = [];
+    const failed: { id: string; code: string }[] = [];
     for (const id of targets) {
       try {
         await updateOrderStatus(id, DEPOSIT_CONFIRM_UPDATE);
         success += 1;
-      } catch {
-        failedIds.push(id);
+      } catch (error) {
+        failed.push({ id, code: error instanceof Error ? error.message : '' });
       }
     }
 
@@ -179,13 +182,10 @@ export default function OrderListPage() {
     setSavingOrderIds(new Set());
     setBulkRunning(false);
 
-    if (failedIds.length === 0) {
+    if (failed.length === 0) {
       alert(`${success}건 모두 입금확인 완료했습니다.`);
     } else {
-      alert(
-        `${targets.length}건 중 ${success}건 완료, ${failedIds.length}건 실패했습니다.\n` +
-          `실패 주문: ${failedIds.join(', ')}`
-      );
+      alert(summarizeBulkFailures(targets.length, success, failed));
     }
   }, [selectedIds, loadOrders]);
 
