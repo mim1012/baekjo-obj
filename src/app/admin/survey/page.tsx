@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSurveyConfig, saveSurveyConfig } from '@/lib/storage';
+import { getAdminBrands, getAdminProducts, getSurveyConfig, saveSurveyConfig } from '@/lib/storage';
 import type { SurveyQuestion, SurveyResultRule } from '@/types';
 import { X } from 'lucide-react';
 import Pagination from '@/components/admin/Pagination';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
+import AdminIdMultiPicker, { type AdminIdPickerOption } from '@/components/admin/AdminIdMultiPicker';
+import { buildBrandOptions, buildProductOptions } from '@/components/admin/adminPickerOptions';
+import { joinIdList, parseIdList } from '@/components/admin/idListValue';
 
 const EMPTY_RECOMMENDATION: SurveyResultRule['recommendation'] = {
   direction: '',
@@ -29,6 +32,24 @@ export default function AdminSurveyPage() {
   const [isAddingRule, setIsAddingRule] = useState(false);
   const [newQuestion, setNewQuestion] = useState<Partial<SurveyQuestion>>({ type: 'single' });
   const [newRule, setNewRule] = useState<Partial<SurveyResultRule>>({ condition: {}, recommendation: EMPTY_RECOMMENDATION });
+  // 추천 상품/브랜드 이름 기반 선택 드롭다운 옵션. 설문 config 로드와 독립적으로 불러오고,
+  // 실패해도 규칙 편집은 계속 가능하다(빈 옵션 → 기존 id 는 dangling chip 으로 유지).
+  const [productOptions, setProductOptions] = useState<AdminIdPickerOption[]>([]);
+  const [brandOptions, setBrandOptions] = useState<AdminIdPickerOption[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getAdminProducts(), getAdminBrands()])
+      .then(([products, brands]) => {
+        if (cancelled) return;
+        setProductOptions(buildProductOptions(products, brands));
+        setBrandOptions(buildBrandOptions(brands));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -286,19 +307,21 @@ export default function AdminSurveyPage() {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
-                  결과: 추천 브랜드 ID (쉼표 구분)
-                  <input
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
-                    value={editingRule.recommendation.brandIds.join(', ')}
-                    onChange={(e) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})} 
+                  결과: 추천 브랜드
+                  <AdminIdMultiPicker
+                    value={joinIdList(editingRule.recommendation.brandIds)}
+                    onChange={(next) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, brandIds: parseIdList(next)}})}
+                    options={brandOptions}
+                    ariaLabel="추천 브랜드"
                   />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  결과: 추천 상품 ID (쉼표 구분)
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={editingRule.recommendation.productIds.join(', ')} 
-                    onChange={(e) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, productIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})} 
+                  결과: 추천 상품
+                  <AdminIdMultiPicker
+                    value={joinIdList(editingRule.recommendation.productIds)}
+                    onChange={(next) => setEditingRule({...editingRule, recommendation: {...editingRule.recommendation, productIds: parseIdList(next)}})}
+                    options={productOptions}
+                    ariaLabel="추천 상품"
                   />
                 </label>
               </div>
@@ -425,19 +448,21 @@ export default function AdminSurveyPage() {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
-                  결과: 추천 브랜드 ID (쉼표 구분)
-                  <input
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white"
-                    value={newRule.recommendation?.brandIds?.join(', ') || ''}
-                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), brandIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})}
+                  결과: 추천 브랜드
+                  <AdminIdMultiPicker
+                    value={joinIdList(newRule.recommendation?.brandIds ?? [])}
+                    onChange={(next) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), brandIds: parseIdList(next)}})}
+                    options={brandOptions}
+                    ariaLabel="추천 브랜드"
                   />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  결과: 추천 상품 ID (쉼표 구분)
-                  <input 
-                    className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" 
-                    value={newRule.recommendation?.productIds?.join(', ') || ''} 
-                    onChange={(e) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), productIds: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)}})}
+                  결과: 추천 상품
+                  <AdminIdMultiPicker
+                    value={joinIdList(newRule.recommendation?.productIds ?? [])}
+                    onChange={(next) => setNewRule({...newRule, recommendation: {...(newRule.recommendation ?? EMPTY_RECOMMENDATION), productIds: parseIdList(next)}})}
+                    options={productOptions}
+                    ariaLabel="추천 상품"
                   />
                 </label>
               </div>

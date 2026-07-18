@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect } from 'react';
 import { Filter, Plus, Search, SlidersHorizontal, X } from 'lucide-react';
+import AdminIdMultiPicker, { type AdminIdPickerOption } from './AdminIdMultiPicker';
 
 interface Column {
   key: string;
@@ -13,8 +14,10 @@ type ResourceRow = Record<string, string | number>;
 interface FormField {
   key: string;
   label: string;
-  type?: 'text' | 'number' | 'textarea' | 'select';
+  type?: 'text' | 'number' | 'textarea' | 'select' | 'multiPicker';
   options?: Array<{ value: string; label: string }>;
+  /** type='multiPicker' 일 때 이름 기반 선택 드롭다운에 넣을 항목들. */
+  pickerOptions?: AdminIdPickerOption[];
 }
 
 interface AdminResourcePageProps {
@@ -197,6 +200,17 @@ export default function AdminResourcePage({
           value={String(value)}
           placeholder={`${field.label} 입력`}
           onChange={(event) => setValue(event.target.value)}
+        />
+      );
+    }
+
+    if (field.type === 'multiPicker') {
+      return (
+        <AdminIdMultiPicker
+          value={String(value)}
+          onChange={(next) => setValue(next)}
+          options={field.pickerOptions ?? []}
+          ariaLabel={field.label}
         />
       );
     }
