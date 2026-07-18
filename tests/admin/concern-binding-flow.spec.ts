@@ -63,6 +63,27 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다.');
   });
 
+  test('로드 완료 전에는 CRUD 콜백을 아예 안 넘겨 버튼을 숨긴다(ready 게이트, wave-2 e2e 발견)', () => {
+    const pageSource = src('src', 'app', 'admin', 'concerns', 'page.tsx');
+
+    expect(pageSource).toContain('const ready = loaded && !loadError;');
+    expect(pageSource).toContain('onCreateRow={ready ? handleCreate : undefined}');
+    expect(pageSource).toContain('onUpdateRow={ready ? handleUpdate : undefined}');
+    expect(pageSource).toContain('onDeleteRow={ready ? handleDelete : undefined}');
+  });
+
+  test('설명 문구가 공개 노출 규칙(상위 8·9~12·13+ 미노출)과 초과 경고를 안내한다(wave-2 e2e 발견)', () => {
+    const pageSource = src('src', 'app', 'admin', 'concerns', 'page.tsx');
+
+    expect(pageSource).toContain(
+      "const exposureRuleNote = '목록 순서가 곧 공개 노출 순서입니다 — 상위 8개는 메인 카드, 9~12번째는 서브 목록, 13번째부터는 공개 목록에 노출되지 않습니다.';",
+    );
+    expect(pageSource).toContain(
+      "items.length > 12 ? ` 현재 ${items.length}개 — 13번째 이후 고민은 공개 목록에 노출되지 않습니다.` : ''",
+    );
+    expect(pageSource).toContain('${exposureRuleNote}${exposureOverflowWarning}');
+  });
+
   test('storage 콘센트는 공개 GET 폴백과 관리자 PUT 경로를 제공한다', () => {
     const storageSource = src('src', 'lib', 'storage.ts');
 
