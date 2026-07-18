@@ -9,7 +9,12 @@ import {
 import { listProductsByIds } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
-import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
+import {
+  reservationExpiryIso,
+  BANK_TRANSFER_METHOD,
+  BANK_TRANSFER_RESERVATION_MS,
+} from '@/lib/orders/reservationExpiry';
+import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import type { OrderItem, Product } from '@/types';
 
@@ -66,7 +71,11 @@ function validateItemShape(raw: unknown): OrderItemShape | null {
  *   주문 전체를 400으로 거부한다.
  * - totalPrice/deliveryFee: 조회 가격 × 수량으로 재계산(0원 위조 차단). 본문 값은 무시한다.
  */
-function validate(body: unknown, productMap: Map<string, Product>): InsertOrderInput | null {
+function validate(
+  body: unknown,
+  productMap: Map<string, Product>,
+  bankTransferTtlMs: number,
+): InsertOrderInput | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
 
@@ -94,11 +103,12 @@ function validate(body: unknown, productMap: Map<string, Product>): InsertOrderI
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
   const isBankTransfer = b.paymentMethod === BANK_TRANSFER_METHOD;
   const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';
-  // 카드(10분)·무통장(72h, 정책 기본값) 모두 유한 선점 만료를 부여한다 — 예전엔 무통장만
+  // 카드(10분)·무통장(관리자 설정값, 기본 72h) 모두 유한 선점 만료를 부여한다 — 예전엔 무통장만
   // expiresAt 없이 생성돼 재고가 무기한 선점됐고, 익명 주문 루프로 재고를 고갈시킬 수 있었다(W2).
+  // 무통장 TTL 은 async 핸들러가 resolveBankTransferTtlMs 로 미리 해석해 주입한다(이 함수는 순수 유지).
   // 만료된 '입금대기'는 reclaim-stock cron 이 취소·재고복원한다(입금 확인돼 '결제완료'가 된
   // 주문은 스캔/RPC guard 가 제외 — reservationExpiry.ts 주석 참고).
-  const expiresAt = reservationExpiryIso(b.paymentMethod);
+  const expiresAt = reservationExpiryIso(b.paymentMethod, Date.now(), bankTransferTtlMs);
 
   return {
     customerName: b.customerName,
@@ -161,7 +171,17 @@ export async function POST(request: NextRequest) {
   const productList = await listProductsByIds(productIds);
   const productMap = new Map(productList.map((product) => [product.id, product]));
 
-  const validated = validate(body, productMap);
+  // 무통장 TTL(관리자 설정값·기본 72h) — 조회 실패 시에도 repo 가 기본값으로 폴백하므로
+  // 정책 테이블 장애가 주문 생성 실패로 번지지 않는다. 카드 주문(대다수 트래픽)과 무관한
+  // 요청이 정책 테이블 조회를 유발하지 않도록 무통장 주장이 있을 때만 읽는다(공개 엔드포인트).
+  const claimsBankTransfer =
+    body && typeof body === 'object' &&
+    (body as Record<string, unknown>).paymentMethod === BANK_TRANSFER_METHOD;
+  const bankTransferTtlMs = claimsBankTransfer
+    ? await resolveBankTransferTtlMs()
+    : BANK_TRANSFER_RESERVATION_MS;
+
+  const validated = validate(body, productMap, bankTransferTtlMs);
   if (!validated) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }

@@ -26,6 +26,20 @@ test('카드결제 주문은 기존과 동일하게 10분 만료를 유지한다
   expect(deltaMs).toBe(10 * 60 * 1000);
 });
 
+test('관리자 설정 TTL(bankTransferTtlMs)을 주입하면 무통장 만료가 그 값을 따른다', () => {
+  const customTtlMs = 24 * 60 * 60 * 1000; // 관리자가 24시간으로 줄인 경우
+  const iso = reservationExpiryIso('무통장입금', NOW, customTtlMs);
+  const deltaMs = new Date(iso).getTime() - NOW;
+  expect(deltaMs).toBe(customTtlMs);
+});
+
+test('카드 경로는 주입된 무통장 TTL 을 무시하고 10분을 유지한다(설정이 카드에 새면 안 됨)', () => {
+  const customTtlMs = 24 * 60 * 60 * 1000;
+  const iso = reservationExpiryIso('신용카드', NOW, customTtlMs);
+  const deltaMs = new Date(iso).getTime() - NOW;
+  expect(deltaMs).toBe(CARD_RESERVATION_MS);
+});
+
 test('무통장 만료가 카드 만료보다 확실히 길다(무기한 선점 제거의 핵심)', () => {
   const bank = new Date(reservationExpiryIso('무통장입금', NOW)).getTime();
   const card = new Date(reservationExpiryIso('카카오페이', NOW)).getTime();
