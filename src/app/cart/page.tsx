@@ -70,9 +70,9 @@ export default function CartPage() {
   const finalPrice = totalProductsPrice + deliveryFee;
 
   return (
-    <div className="bg-[#F4F2EC] min-h-dvh py-12">
+    <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
       <div className="site-container">
-        <h1 className="text-2xl font-bold text-[#202521] mb-8">장바구니</h1>
+        <h1 className="text-xl md:text-2xl font-bold text-[#202521] mb-5 md:mb-8">장바구니</h1>
         
         {enrichedItems.length === 0 ? (
           <EmptyState 
@@ -82,51 +82,51 @@ export default function CartPage() {
             actionHref="/shop"
           />
         ) : (
-          <div className="flex flex-col lg:flex-row gap-8">
+          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* Cart Items */}
-            <div className="lg:w-2/3 space-y-4">
+            <div className="lg:w-2/3 space-y-3 md:space-y-4">
               {enrichedItems.map((item, idx) => (
-                <div key={`${item.productId}-${item.optionId || 'none'}-${idx}`} className="flex flex-col sm:flex-row gap-4 bg-white p-6 rounded-sm shadow-sm border border-gray-100">
-                  <div className="h-24 w-24 shrink-0 rounded-sm bg-[#ECEAE3] flex items-center justify-center text-xs text-gray-400">
+                <div key={`${item.productId}-${item.optionId || 'none'}-${idx}`} className="flex gap-3 sm:gap-4 bg-white p-4 md:p-6 rounded-sm shadow-sm border border-gray-100">
+                  <div className="h-[88px] w-[88px] sm:h-24 sm:w-24 shrink-0 rounded-sm bg-[#ECEAE3] flex items-center justify-center text-xs text-gray-400">
                     이미지
                   </div>
                   <div className="flex-1 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">{item.product?.brandId}</div>
-                        <Link href={`/shop/${item.product?.id}`} className="font-bold text-[#202521] hover:text-[#68776C] transition-colors">
+                      <div className="min-w-0">
+                        <div className="text-[11px] md:text-xs font-medium text-gray-500 mb-1">{item.product?.brandId}</div>
+                        <Link href={`/shop/${item.product?.id}`} className="break-keep text-[14px] font-bold leading-[1.5] text-[#202521] transition-colors hover:text-[#68776C] md:text-base">
                           {item.product?.name}
                         </Link>
                         {item.option && (
-                          <div className="text-sm text-gray-600 mt-1">옵션: {item.option.name}</div>
+                          <div className="mt-1 break-keep text-[13px] leading-[1.6] text-gray-600 md:text-sm">옵션: {item.option.name}</div>
                         )}
                       </div>
-                      <button onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-1">
+                      <button onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                     
-                      <div className="flex items-end justify-between mt-4">
+                      <div className="flex items-end justify-between mt-3 sm:mt-4">
                         {/* Quantity Control */}
                         <div className="flex items-center rounded-lg border border-gray-200 bg-white">
                           <button 
                             onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity - 1)}
-                            className="flex h-8 w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="flex h-8 w-10 items-center justify-center text-sm font-bold text-gray-900">
+                          <span className="flex h-10 w-8 sm:h-8 sm:w-10 items-center justify-center text-[14px] sm:text-sm font-bold text-gray-900">
                             {item.quantity}
                           </span>
                           <button 
                             onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity + 1)}
-                            className="flex h-8 w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                        <div className="font-bold text-[#2F3B34]">
-                          {item.hasPrice ? formatPrice(item.totalPrice) : <span className="text-[#A65348] text-sm">가격 확인 필요</span>}
+                        <div className="font-bold text-[15px] sm:text-base text-[#2F3B34]">
+                          {item.hasPrice ? formatPrice(item.totalPrice) : <span className="text-[#A65348] text-[13px] sm:text-sm">가격 확인 필요</span>}
                         </div>
                       </div>
                   </div>
@@ -136,10 +136,10 @@ export default function CartPage() {
 
             {/* Order Summary */}
             <div className="lg:w-1/3">
-              <div className="bg-white p-6 rounded-sm shadow-sm border border-gray-100 sticky top-24">
-                <h2 className="text-lg font-bold text-[#202521] mb-6">결제 정보</h2>
+              <div className="bg-white p-5 md:p-6 rounded-sm shadow-sm border border-gray-100 sticky top-24">
+                <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-5 md:mb-6">결제 정보</h2>
                 
-                <div className="space-y-4 text-sm mb-6">
+                <div className="space-y-3 md:space-y-4 text-[13px] md:text-sm mb-5 md:mb-6">
                   <div className="flex justify-between text-gray-600">
                     <span>총 상품금액</span>
                     <span className="font-medium text-gray-900">{formatPrice(totalProductsPrice)}</span>
@@ -155,12 +155,12 @@ export default function CartPage() {
                   )}
                 </div>
                 
-                <div className="pt-6 border-t border-gray-100 flex items-end justify-between mb-8">
-                  <span className="font-bold text-gray-900">총 결제 예정금액</span>
+                <div className="pt-5 md:pt-6 border-t border-gray-100 flex items-end justify-between mb-6 md:mb-8">
+                  <span className="font-bold text-gray-900 text-[14px] md:text-base">총 결제 예정금액</span>
                   <div className="text-right">
-                    <span className="text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
+                    <span className="text-xl md:text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
                     {unpricedItems.length > 0 && (
-                      <div className="text-xs text-[#A65348] mt-1">+ 가격 미확정 상품 {unpricedItems.length}개</div>
+                      <div className="text-[11px] md:text-xs text-[#A65348] mt-1">+ 가격 미확정 상품 {unpricedItems.length}개</div>
                     )}
                   </div>
                 </div>
@@ -171,14 +171,14 @@ export default function CartPage() {
                     onClick={() => {
                       alert('가격 확인이 필요한 상품이 포함되어 있습니다. 주문 전 확인해주세요.');
                     }}
-                    className="flex w-full items-center justify-center rounded-sm bg-[#9CA3AF] px-6 py-4 text-base font-bold text-white cursor-not-allowed"
+                    className="flex w-full items-center justify-center rounded-sm bg-[#9CA3AF] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white cursor-not-allowed"
                   >
                     일부 상품 가격 확인 필요
                   </button>
                 ) : (
                   <Link 
                     href="/checkout"
-                    className="flex w-full items-center justify-center rounded-sm bg-[#2F3B34] px-6 py-4 text-base font-bold text-white transition hover:bg-[#2F3B34]/90"
+                    className="flex w-full items-center justify-center rounded-sm bg-[#2F3B34] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white transition hover:bg-[#2F3B34]/90"
                   >
                     주문하기 ({cartItems.length}개)
                   </Link>

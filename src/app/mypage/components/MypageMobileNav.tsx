@@ -10,6 +10,7 @@ export default function MypageMobileNav({ activeTab }: MypageMobileNavProps) {
   const tabs = [
     { id: 'overview', label: '마이페이지' },
     { id: 'orders', label: '주문내역' },
+    { id: 'wishlist', label: '관심 상품' },
     { id: 'reviews', label: '구매평 관리' },
     { id: 'inquiries', label: '상품문의 관리' },
     { id: 'insurance', label: '보험 분석 내역' },

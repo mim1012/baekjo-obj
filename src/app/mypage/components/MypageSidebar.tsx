@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { User } from '@/types';
-import { LogOut, User as UserIcon, Package, Star, MessageCircle, Shield, Settings } from 'lucide-react';
+import { LogOut, User as UserIcon, Package, Heart, Star, MessageCircle, Shield, Settings } from 'lucide-react';
 import { logout } from '@/lib/storage';
 
 interface MypageSidebarProps {
@@ -23,6 +23,7 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
       title: '나의 쇼핑',
       items: [
         { id: 'orders', label: '주문내역', icon: Package },
+        { id: 'wishlist', label: '관심 상품', icon: Heart },
       ],
     },
     {
