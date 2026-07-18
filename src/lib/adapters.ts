@@ -1,6 +1,5 @@
 import { ReviewViewItem, InquiryViewItem } from '@/types';
-import { qnaList as seedQna } from '@/data/qna';
-import { getProductReviewsByProduct, getProductInquiriesByProduct, getShowcaseReviews } from './storage';
+import { getProductReviewsByProduct, getProductInquiriesByProduct, getShowcaseReviews, getQnaConfig } from './storage';
 
 /**
  * 특정 상품의 통합 구매평 (전시용 후기 + 사용자 작성) 반환
@@ -52,7 +51,11 @@ export async function getMergedReviews(productId: string): Promise<ReviewViewIte
  * 특정 상품의 통합 문의 (시드 + 사용자 작성) 반환
  */
 export async function getMergedInquiries(productId: string): Promise<InquiryViewItem[]> {
-  // 1. 시드 데이터
+  // 1. 전시 문의(qna_config — DB 정본, 관리자 /admin/qna 가 편집). InquiryViewItem.source 는
+  // 'seed' | 'user' 유니온을 그대로 쓴다 — 'seed' 는 이제 정적 파일이 아니라 DB config 기반
+  // 전시 문의를 뜻한다(구매 기반 사용자 문의와 구분하는 태그로 재해석, getMergedReviews 미러 —
+  // #140 전시후기 전환과 동일 패턴, 커버리지 감사 발견 — 이전엔 관리자 편집이 화면에 반영되지 않았다).
+  const { items: seedQna } = await getQnaConfig();
   const seed = seedQna
     .filter((q) => q.productId === productId)
     .map((q): InquiryViewItem => ({
