@@ -9,6 +9,9 @@ interface SaveBarProps {
   onSave: () => void;
   onCancel?: () => void;
   isSaving?: boolean;
+  /** true 면 저장 버튼을 비활성화한다(isSaving 과 별개 사유 — 예: provider 초기 로드가 아직
+   * 끝나지 않아 draft 가 실제 DB 값으로 확정되지 않은 상태, 전수조사 A-1·A-2). */
+  disabled?: boolean;
   saveText?: string;
   cancelText?: string;
   saveLabel?: string;
@@ -16,13 +19,14 @@ interface SaveBarProps {
   children?: React.ReactNode;
 }
 
-export default function SaveBar({ 
+export default function SaveBar({
   isDirty,
   isVisible,
   message,
-  onSave, 
-  onCancel, 
+  onSave,
+  onCancel,
   isSaving = false,
+  disabled = false,
   saveText,
   saveLabel,
   cancelText,
@@ -54,7 +58,7 @@ export default function SaveBar({
           <button
             type="button"
             onClick={onSave}
-            disabled={isSaving}
+            disabled={isSaving || disabled}
             className="px-6 py-2 rounded-md text-[14px] font-medium text-white bg-[#2F3B34] hover:bg-[#1f2823] disabled:opacity-70 flex items-center justify-center min-w-[100px] flex-1 sm:flex-none"
           >
             {isSaving ? (

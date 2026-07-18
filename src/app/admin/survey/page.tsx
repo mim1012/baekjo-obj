@@ -65,6 +65,10 @@ export default function AdminSurveyPage() {
   }, []);
 
   const handleSave = () => {
+    // 로드 완료 전엔 저장을 막는다 — 렌더 게이트(아래 `if (loading) return`)가 저장 버튼 자체를
+    // 이미 가려서 실사용 경로로는 못 타지만, 서버 검증(isSurveyConfig)에만 기대지 않고 일관된
+    // 방어를 남긴다(전수조사 A-3, 다른 3개 화면과 동일 패턴).
+    if (loading) return;
     setSaving(true);
     saveSurveyConfig({ questions, rules }).then(({ ok }) => {
       setSaving(false);
