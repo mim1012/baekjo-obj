@@ -87,7 +87,7 @@ jobs:
           # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 전체 도메인을 실행해 회귀를 잡는다.
           # (opus 리뷰 HIGH: 이 매핑에 테스트 레이어 경로가 빠져 있으면 이 PR의 프리뷰 실행이
           # 항상 skip-green으로 떨어져 새 스펙이 CI에서 한 번도 실제로 돌지 않는다.)
-          GATE_SELF='^(tests/golden/admin-crud-.*\.spec\.ts|tests/golden/_lib/|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
+          GATE_SELF='^(tests/golden/admin-crud-.*\.spec\.ts|tests/golden/all-pages-smoke\.spec\.ts|tests/golden/_lib/|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
 
           NOTICES=false
           REVIEWS=false
@@ -282,6 +282,24 @@ jobs:
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # ⚠️ 이 블록은 위의 변경-경로 매핑(steps.changes.outputs.*)과 무관하게 매 배포마다 항상 돈다 —
+      # 다른 웨이브(w4/w5)가 위 도메인 매핑 블록에 항목을 추가·수정해도 이 블록과는 충돌하지 않도록
+      # 파일 맨 끝(Upload failure artifacts 앞)에 별도 스텝으로 추가한다(2026-07-19, 좌표 조율).
+      #
+      # 전 페이지 스모크 검수(읽기 전용) — CRUD 를 전혀 하지 않으므로 도메인 매핑 없이 항상 실행해도
+      # 안전하고 저렴하다(브라우저 렌더 확인만, DB 쓰기 없음). 새 page.tsx 가 매핑 없이 추가되는 걸
+      # route-coverage-audit.spec.ts(상시 tests/admin 레이어)가 잡고, 이 스텝은 실제로 그 페이지들을
+      # 클릭해 HTTP 200·에러 오버레이 부재·앵커 렌더를 확인한다.
+      - name: 전 페이지 스모크 검수(읽기 전용, 매핑 무관 항상 실행)
+        run: npx playwright test tests/golden/all-pages-smoke.spec.ts --project=golden-smoke --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Upload failure artifacts

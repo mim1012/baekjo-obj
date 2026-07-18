@@ -28,7 +28,9 @@ export default defineConfig({
       testDir: './tests/golden',
       // admin-crud-*.spec.ts는 실제 DB에 쓰는 별도 project(golden-crud)에서만 돈다 — 여기서
       // 중복 실행하면 E2E_ADMIN_CRUD 게이트 없이도 매 CI 실행마다 두 번 쓰기를 시도하게 된다.
-      testIgnore: ['**/admin-crud-*.spec.ts'],
+      // all-pages-smoke.spec.ts도 별도 project(golden-smoke)에서만 돈다 — 여긴 읽기 전용이라
+      // 매핑 없이 매 배포마다 돌아야 하므로(§ golden-crud.yml smoke 블록) 중복 실행만 막는다.
+      testIgnore: ['**/admin-crud-*.spec.ts', '**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
         navigationTimeout: 30_000,
@@ -45,6 +47,24 @@ export default defineConfig({
       name: 'golden-crud',
       testDir: './tests/golden',
       testMatch: ['**/admin-crud-*.spec.ts'],
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      // 전 페이지 스모크 검수(읽기 전용) — src/app 의 모든 page.tsx 를 실제로 방문해 HTTP 200·
+      // 에러 오버레이 부재·페이지별 앵커 렌더를 확인한다. CRUD 를 전혀 안 하므로 golden-crud 와
+      // 달리 변경 경로 매핑 없이 매 배포마다 돈다(golden-crud.yml smoke 블록). E2E_ADMIN_CRUD
+      // 게이트가 없어도 항상 실행 가능 — 안전하게 어떤 환경에도 겨냥할 수 있다.
+      name: 'golden-smoke',
+      testDir: './tests/golden',
+      testMatch: ['**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
         navigationTimeout: 30_000,
