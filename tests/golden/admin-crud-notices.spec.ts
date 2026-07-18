@@ -9,6 +9,7 @@ import {
 } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/notices → 공지를 노출하는 모든 공개 화면.
+// 2026-07-18 #147: 폼이 제목·유형·본문 3필드로 축소, 작성자/작성일은 자동값 — 스펙도 그 기준.
 //
 // 2026-07-18 배경: 관리자 삭제가 저장 안 되고, 수정이 새로고침하면 되돌아오는 버그 2건이
 // 209개 소스-계약 테스트를 통과한 채로 배포됐다 — 아무 테스트도 실제로 화면을 클릭하지
@@ -38,12 +39,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
   const SEARCH_PREFIX = 'E2E-공지-';
   const title = `${SEARCH_PREFIX}${runId}`;
   const editedTitle = `${title}-수정`;
-  const writer = `E2E작성자-${runId}`;
+  // 작성자는 폼에서 제거됨 — 미노출 시 '관리자' 기본값이 자동 기록된다(#147, draftToNotice).
+  const writer = '관리자';
   const content = `E2E 테스트 본문 ${runId}`;
-  // 실제 오늘 날짜(폼 기본값)와 겹치지 않는 값을 골라 "입력한 값이 그대로 반영되는지"를
-  // 정확히 검증한다 — 오늘 날짜가 기본값이라 우연히 맞아떨어지는 걸 배제하기 위함.
-  const date = '2030-06-15';
-  const dateLabel = '2030.06.15';
+  // 작성일은 폼에서 제거됨 — 등록/수정 시점이 자동 기록된다(#147). UTC 기준 todayString()과 동일 계산.
+  // 여기서는 "자동 기록된 오늘 날짜가 화면에 반영되는지"를 검증한다.
+  const date = new Date().toISOString().slice(0, 10);
+  const dateLabel = date.replace(/-/g, '.'); // formatDate(src/lib/format.ts) = 'YYYY.MM.DD'
   const categoryLabel = '이벤트'; // formFields의 유형 select에서 'event'를 고른다.
   const NOTICES_SEARCH_PLACEHOLDER = '제목, 본문, 작성자 검색';
 
@@ -76,11 +78,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await page.getByLabel('제목', { exact: true }).fill(title);
     await page.getByLabel('유형').selectOption('event');
     await page.getByLabel('본문', { exact: true }).fill(content);
-    await page.getByLabel('작성자', { exact: true }).fill(writer);
-    await page.getByLabel('작성일').fill(date);
     await page.getByRole('button', { name: '저장' }).click();
 
-    // 2) 관리자 목록 — 등록한 필드 전부(유형·제목·작성자·작성일)가 정확히 반영됐는지 행 단위로 확인.
+    // 2) 관리자 목록 — 입력 필드(유형·제목) + 자동값(작성자 '관리자'·오늘 날짜)이 행 단위로 반영됐는지 확인.
     const adminRow = page.locator('tr', { hasText: title });
     await expect(adminRow).toBeVisible({ timeout: 15_000 });
     await expect(adminRow).toContainText(categoryLabel);
