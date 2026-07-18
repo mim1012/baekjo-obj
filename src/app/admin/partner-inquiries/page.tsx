@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
@@ -27,41 +27,38 @@ function summarize(message: string): string {
 
 /**
  * B2B 제휴 문의 접수함. 공개 랜딩 폼(POST /api/partner-inquiries) 제출이 쌓이는 곳이라
- * 신규 등록 버튼은 없다(onCreateRow 미지정). status/memo 는 수정 모달(formFields)로 draft 에
- * 반영한 뒤 상단 저장 버튼(onSave)이 PATCH 콘센트로 일괄 반영한다(partners 관리자 배치 저장 패턴).
+ * 신규 등록 버튼은 없다(onCreateRow 미지정). status/memo 는 수정 모달에서 저장하는 즉시
+ * PATCH 콘센트로 반영한다 — 상단 일괄 저장(onSave) 단계는 "반영했는데 새로고침하면
+ * 되돌아온다" 오인을 낳아 제거했다(2026-07-18 즉시저장 전환, notices·partners 패턴 미러).
  */
 export default function AdminPartnerInquiriesPage() {
   const [inquiries, setInquiries] = useState<PartnerInquiry[]>([]);
-  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
+  // PATCH 상호배제 — 연타·동시 수정이 서로를 덮어쓰는 레이스 방지(즉시저장 공통 패턴).
+  const busyRef = useRef(false);
 
   // 콘센트 계약상 실패는 빈 배열로 접힌다(getAdminPartnerInquiries) — 별도 오류 상태 불필요.
   useEffect(() => {
     getAdminPartnerInquiries().then(setInquiries);
   }, []);
 
-  const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
+  const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
+    if (busyRef.current) return;
     const status = String(draft.status ?? '') as PartnerInquiryStatus;
     if (!PARTNER_INQUIRY_STATUSES.includes(status)) return;
     const memo = String(draft.memo ?? '');
-    setInquiries((current) =>
-      current.map((inquiry) =>
-        inquiry.id === String(id) ? { ...inquiry, status, memo } : inquiry,
-      ),
-    );
-    setDirtyIds((prev) => new Set(prev).add(String(id)));
-  };
-
-  const handleSave = async () => {
+    busyRef.current = true;
     try {
-      const targets = inquiries.filter((inquiry) => dirtyIds.has(inquiry.id));
-      for (const target of targets) {
-        await updatePartnerInquiryStatus(target.id, target.status, target.memo ?? '');
-      }
-      setDirtyIds(new Set());
-      setInquiries(await getAdminPartnerInquiries());
-      return { ok: true };
+      // 콘센트 계약: 실패는 throw — 성공했을 때만 로컬 목록을 갱신한다.
+      await updatePartnerInquiryStatus(String(id), status, memo);
+      setInquiries((current) =>
+        current.map((inquiry) =>
+          inquiry.id === String(id) ? { ...inquiry, status, memo } : inquiry,
+        ),
+      );
     } catch {
-      return { ok: false };
+      window.alert('상태 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+    } finally {
+      busyRef.current = false;
     }
   };
 
@@ -80,7 +77,7 @@ export default function AdminPartnerInquiriesPage() {
     <div className="p-6">
       <AdminResourcePage
         title="제휴 문의 접수"
-        description="케어키트 랜딩에서 접수된 B2B 제휴 문의를 확인하고 상담 상태를 관리합니다."
+        description="케어키트 랜딩에서 접수된 B2B 제휴 문의를 확인하고 상담 상태를 관리합니다. 수정 내용은 저장 즉시 반영됩니다."
         searchPlaceholder="업체명·담당자·문의 내용 검색..."
         filters={['전체 상태', ...PARTNER_INQUIRY_STATUSES]}
         columns={[
@@ -102,7 +99,6 @@ export default function AdminPartnerInquiriesPage() {
           { key: 'memo', label: '메모', type: 'textarea' },
         ]}
         onUpdateRow={handleUpdate}
-        onSave={handleSave}
         renderExpandedRow={(row) => {
           const inquiry = inquiries.find((item) => item.id === row.id);
           if (!inquiry) return null;
