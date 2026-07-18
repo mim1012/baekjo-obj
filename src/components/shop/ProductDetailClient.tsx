@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
+import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
 import { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
-import { getCurrentUser } from '@/lib/storage';
+import { getCurrentUser, isWishlisted, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
@@ -23,6 +23,13 @@ export default function ProductDetailClient({ product }: Props) {
   const [selectedOption, setSelectedOption] = useState(product.options?.[0]?.id || '');
   const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
   const [activeImage, setActiveImage] = useState(0);
+  const [, refreshWishlist] = useState(0);
+  const wishlisted = mounted && isWishlisted(product.id);
+
+  const handleWishlist = () => {
+    toggleWishlist(product.id);
+    refreshWishlist((version) => version + 1);
+  };
 
   // 상품 전환 시 로컬 state 재동기화(이전 상품의 인덱스·수량 잔존 방지)
   // — effect 내 동기 setState 는 lint(cascading render) 에러라 렌더 단계 리셋 패턴 사용.
@@ -263,6 +270,14 @@ export default function ProductDetailClient({ product }: Props) {
 
         {/* Action Buttons */}
         <div className="mt-6 md:mt-8 flex gap-2 md:gap-3">
+          <button
+            type="button"
+            aria-label={wishlisted ? `${product.name} 찜 해제` : `${product.name} 찜하기`}
+            onClick={handleWishlist}
+            className={`flex h-[54px] w-[54px] md:h-[60px] md:w-[60px] shrink-0 items-center justify-center rounded-[16px] border shadow-sm transition-all ${wishlisted ? 'border-[#9E3939]/45 bg-[#9E3939]/10 text-[#9E3939]' : 'border-[rgba(15,23,42,0.12)] bg-white text-[#8A918B] hover:border-[#17211D] hover:text-[#17211D]'}`}
+          >
+            <Heart className={`h-5 w-5 md:h-6 md:w-6 ${wishlisted ? 'fill-current' : ''}`} strokeWidth={wishlisted ? 1.5 : 2} />
+          </button>
           {hasPrice ? (
             <>
               <button

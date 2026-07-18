@@ -7,6 +7,7 @@ import {
   getCurrentUser,
   getMyOrders,
   getMyInsuranceApplications,
+  getWishlist,
   getPublicProducts,
   getMyHistoryProducts,
   getProductReviewsByUser,
@@ -25,6 +26,7 @@ import MypageSidebar from './components/MypageSidebar';
 import MypageMobileNav from './components/MypageMobileNav';
 import OverviewSection from './components/OverviewSection';
 import OrdersSection from './components/OrdersSection';
+import WishlistSection from './components/WishlistSection';
 import ReviewsSection from './components/ReviewsSection';
 import InquiriesSection from './components/InquiriesSection';
 import InsuranceSection from './components/InsuranceSection';
@@ -49,6 +51,7 @@ function MypageContent() {
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [insuranceApps, setInsuranceApps] = useState<InsuranceApplication[]>([]);
+  const [wishlist, setWishlist] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
   const [inquiries, setInquiries] = useState<ProductInquiry[]>([]);
   // 정적 @/data/products 직접 import 대신 콘센트(getPublicProducts)로 로드(§4 drift 방지).
@@ -97,6 +100,7 @@ function MypageContent() {
       historyProducts.forEach((product) => merged.set(product.id, product));
       setProducts(Array.from(merged.values()));
     });
+    setWishlist(getWishlist());
 
     const reviewsSeq = ++reviewsSeqRef.current;
     getProductReviewsByUser(currentUser.id).then((reviews) => {
@@ -136,6 +140,7 @@ function MypageContent() {
       const hashMap: Record<string, string> = {
         '#orders': 'orders',
         '#insurance': 'insurance',
+        '#wishlist': 'wishlist',
         '#reviews': 'reviews',
         '#inquiries': 'inquiries',
         '#profile': 'profile',
@@ -158,6 +163,7 @@ function MypageContent() {
   const stats = {
     processingOrders: orders.filter(o => !['배송완료', '취소완료', '환불완료'].includes(o.orderStatus)).length,
     shippingOrders: orders.filter(o => o.orderStatus === '배송중').length,
+    wishlistCount: wishlist.length,
     writableReviews: orders
       .filter(o => o.orderStatus === '배송완료')
       .flatMap(o => o.items.map(item => ({ orderId: o.id, item })))
@@ -241,6 +247,8 @@ function MypageContent() {
     switch (tab) {
       case 'orders':
         return <OrdersSection orders={orders} reviews={reviews} products={products} onWriteReview={handleWriteReview} />;
+      case 'wishlist':
+        return <WishlistSection wishlistIds={wishlist} products={products} onWishlistChange={() => setWishlist(getWishlist())} />;
       case 'reviews':
         return (
           <ReviewsSection

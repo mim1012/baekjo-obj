@@ -2,10 +2,12 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { ShoppingBag, Star, Package } from 'lucide-react';
+import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
 import { useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
+import { isWishlisted, toggleWishlist } from '@/lib/storage';
+import { useMounted } from '@/lib/useMounted';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -36,7 +38,10 @@ export default function ProductCard({
   density = 'default',
   mobileLayout = 'vertical',
 }: ProductCardProps) {
+  const mounted = useMounted();
+  const [, refreshWishlist] = useState(0);
   const [cartMessage, setCartMessage] = useState('');
+  const wishlisted = mounted && isWishlisted(product.id);
   const brandName = product.brandName ?? product.brandId;
   const hasPrice = product.price !== null && product.price !== undefined;
   const isSellable = hasPrice && product.stock > 0;
@@ -45,6 +50,11 @@ export default function ProductCard({
   const isMobileHorizontal = mobileLayout === 'horizontal';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const detailHref = `/shop/${product.id}`;
+
+  const handleWishlist = () => {
+    toggleWishlist(product.id);
+    refreshWishlist((version) => version + 1);
+  };
 
   const handleCart = () => {
     if (!isSellable) return;
@@ -183,6 +193,17 @@ export default function ProductCard({
             >
               <ShoppingBag className="size-3.5 shrink-0 sm:size-4" />
               <span className="whitespace-nowrap">{isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={wishlisted ? `${product.name} 찜 해제` : `${product.name} 찜하기`}
+              onClick={(e) => {
+                e.preventDefault();
+                handleWishlist();
+              }}
+              className={`flex shrink-0 items-center justify-center rounded-xl border border-[#E7E0D5] bg-white text-[#17211D] transition-colors duration-300 hover:bg-[#F3EEE6] ${isCompact ? 'size-10' : 'size-[42px] sm:size-[44px]'}`}
+            >
+              <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
             </button>
           </div>
         </div>
