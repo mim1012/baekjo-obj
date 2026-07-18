@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';
 import { defaultInsuranceContentConfig, type ConsentDoc, type InsuranceFaq } from '@/lib/insuranceContent/config';
@@ -55,6 +55,13 @@ function summarize(text: string, max = 60): string {
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
+/**
+ * 법정 동의 문서 id — 관리자 PUT 라우트(src/app/api/admin/insurance-content/route.ts)의
+ * REQUIRED_LEGAL_CONSENT_IDS 를 그대로 미러링한다. 삭제 시 이 id 를 서버 왕복 없이 클라이언트에서
+ * 먼저 막아, 400 이 "네트워크 오류"처럼 보이는 오해를 방지한다(opus 리뷰 LOW-2).
+ */
+const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;
+
 export default function AdminInsuranceContentPage() {
   // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
   // 불러온다. 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
@@ -65,6 +72,16 @@ export default function AdminInsuranceContentPage() {
   const [faqs, setFaqs] = useState<InsuranceFaq[]>(defaultInsuranceContentConfig.faqs);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // persisted = 마지막으로 DB 와 일치한 동의 문서·FAQ. 두 섹션이 하나의 싱글턴 config 를 공유하므로
+  // ref 도 { consents, faqs } 를 함께 들고, 성공한 저장(배치 저장 포함)마다 두 필드를 함께 갱신한다.
+  // 삭제는 이 기준으로 저장해 미저장 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
+  const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({
+    consents: defaultInsuranceContentConfig.consents,
+    faqs: defaultInsuranceContentConfig.faqs,
+  });
+  // 같은 행에 대한 삭제 클릭이 저장 왕복 중 중복 발생하지 않게 막는다(opus 리뷰 LOW-1). 두 섹션이
+  // 같은 싱글턴 config 를 저장하므로 하나의 ref 로 공유한다.
+  const deletingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +91,7 @@ export default function AdminInsuranceContentPage() {
         setLoadError(false);
         setConsents(config.consents);
         setFaqs(config.faqs);
+        persistedRef.current = { consents: config.consents, faqs: config.faqs };
         setLoaded(true);
       })
       .catch(() => {
@@ -86,13 +104,69 @@ export default function AdminInsuranceContentPage() {
   }, []);
 
   // 한쪽 섹션의 저장 버튼이 동의 문서·FAQ 전체를 함께 저장한다(싱글턴 config 통째 저장).
-  const handleSave = () => (!loaded || loadError ? Promise.resolve({ ok: false }) : saveInsuranceContentConfig({ consents, faqs }));
+  const handleSave = () => {
+    if (!loaded || loadError) return Promise.resolve({ ok: false });
+    return saveInsuranceContentConfig({ consents, faqs }).then((result) => {
+      if (result.ok) persistedRef.current = { consents, faqs };
+      return result;
+    });
+  };
+
+  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
+  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 사용자 리포트). persisted 기준으로 저장해 미저장
+  // 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1). 관리자 PUT 라우트가
+  // consents.length < 1 을 거부하므로 마지막 항목도 막는다. 법정 동의 문서('privacy'/'analysis') 삭제는
+  // 서버 왕복 없이 클라이언트에서 먼저 막아 정직한 메시지를 보여준다(opus 리뷰 LOW-2).
+  const handleDeleteConsent = async (id: string | number) => {
+    if (!loaded || loadError) return;
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    try {
+      if ((REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)) {
+        window.alert('필수(법정) 동의 문서는 삭제할 수 없습니다.');
+        return;
+      }
+      const nextConsents = persistedRef.current.consents.filter((consent) => consent.id !== id);
+      if (nextConsents.length === 0) {
+        window.alert('동의 문서는 최소 1건 남아 있어야 합니다. 마지막 항목은 삭제할 수 없습니다.');
+        return;
+      }
+      const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });
+      if (ok) {
+        persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
+        setConsents((prev) => prev.filter((consent) => consent.id !== id));
+      } else {
+        window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      deletingRef.current = false;
+    }
+  };
+
+  // faqs 는 관리자 PUT 라우트가 빈 배열을 허용하므로 마지막 항목 차단은 없다.
+  const handleDeleteFaq = async (id: string | number) => {
+    if (!loaded || loadError) return;
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    try {
+      const nextFaqs = persistedRef.current.faqs.filter((faq) => faq.id !== id);
+      const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });
+      if (ok) {
+        persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
+        setFaqs((prev) => prev.filter((faq) => faq.id !== id));
+      } else {
+        window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      deletingRef.current = false;
+    }
+  };
 
   return (
     <div className="space-y-10">
       <AdminResourcePage
         title="보험 동의 문서"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고(동의 문서·FAQ 전체 저장), 삭제는 즉시 반영됩니다.'}
         actionLabel="동의 문서 등록"
         searchPlaceholder="동의 문서 제목 검색"
         columns={[
@@ -121,16 +195,13 @@ export default function AdminInsuranceContentPage() {
           if (!loaded) return;
           setConsents((prev) => prev.map((consent) => (consent.id === id ? draftToConsent(draft, consent) : consent)));
         }}
-        onDeleteRow={(id) => {
-          if (!loaded) return;
-          setConsents((prev) => prev.filter((consent) => consent.id !== id));
-        }}
+        onDeleteRow={handleDeleteConsent}
         onSave={handleSave}
       />
 
       <AdminResourcePage
         title="보험 자주 묻는 질문"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 저장 버튼은 동의 문서·FAQ 전체를 함께 저장합니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고(동의 문서·FAQ 전체 저장), 삭제는 즉시 반영됩니다.'}
         actionLabel="FAQ 등록"
         searchPlaceholder="질문 검색"
         columns={[
@@ -155,10 +226,7 @@ export default function AdminInsuranceContentPage() {
           if (!loaded) return;
           setFaqs((prev) => prev.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq)));
         }}
-        onDeleteRow={(id) => {
-          if (!loaded) return;
-          setFaqs((prev) => prev.filter((faq) => faq.id !== id));
-        }}
+        onDeleteRow={handleDeleteFaq}
         onSave={handleSave}
       />
     </div>

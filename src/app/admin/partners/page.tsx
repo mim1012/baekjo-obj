@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getPartnersConfig, savePartnersConfig } from '@/lib/storage';
 import { defaultPartnersConfig } from '@/lib/partners/config';
@@ -118,7 +118,13 @@ function typeLabel(type: Partner['type']): string {
 export default function AdminPartnersPage() {
   // draft = 현재 편집 중인 제휴처 목록. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다.
   const [items, setItems] = useState<Partner[]>(defaultPartnersConfig.items);
+  const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
+  // 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
+  const persistedItemsRef = useRef<Partner[]>(defaultPartnersConfig.items);
+  // 같은 행에 대한 삭제 클릭이 저장 왕복 중 중복 발생하지 않게 막는다(opus 리뷰 LOW-1).
+  const deletingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +133,8 @@ export default function AdminPartnersPage() {
         if (cancelled) return;
         setLoadError(false);
         setItems(config.items);
+        persistedItemsRef.current = config.items;
+        setLoaded(true);
       })
       .catch(() => {
         if (cancelled) return;
@@ -137,24 +145,53 @@ export default function AdminPartnersPage() {
     };
   }, []);
 
-  const handleDelete = (id: string | number) => {
-    setItems((prev) => prev.filter((partner) => partner.id !== id));
+  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
+  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 사용자 리포트). persisted 기준으로 저장해 미저장
+  // 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1). 로드 완료 전에는 default
+  // 목록을 저장하는 레이스를 막는다(opus 리뷰 MEDIUM-2). 관리자 PUT 라우트는 빈 배열을 허용하므로
+  // 마지막 항목 차단은 없다.
+  const handleDelete = async (id: string | number) => {
+    if (!loaded || loadError) return;
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    try {
+      const nextItems = persistedItemsRef.current.filter((partner) => partner.id !== id);
+      const { ok } = await savePartnersConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems((prev) => prev.filter((partner) => partner.id !== id));
+      } else {
+        window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      deletingRef.current = false;
+    }
   };
 
   const handleCreate = (draft: Record<string, string | number>) => {
+    if (!loaded) return;
     setItems((prev) => [...prev, draftToPartner(draft)]);
   };
 
   const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded) return;
     setItems((prev) => prev.map((partner) => (partner.id === id ? draftToPartner(draft, partner) : partner)));
   };
 
-  const handleSave = () => (loadError ? Promise.resolve({ ok: false }) : savePartnersConfig({ items }));
+  const handleSave = () => {
+    if (!loaded || loadError) return Promise.resolve({ ok: false });
+    return savePartnersConfig({ items }).then((result) => {
+      if (result.ok) persistedItemsRef.current = items;
+      return result;
+    });
+  };
+
+  const ready = loaded && !loadError;
 
   return (
     <AdminResourcePage
       title="B2B 제휴 관리"
-      description={loadError ? '제휴처 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : '제휴 병원, 호텔 등 B2B 파트너십을 관리하고 키트 제공 현황을 파악합니다.'}
+      description={loadError ? '제휴처 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '제휴 병원, 호텔 등 B2B 파트너십을 관리하고 키트 제공 현황을 파악합니다. 등록·수정은 저장 버튼을 눌러야 반영되고, 삭제는 즉시 반영됩니다.'}
       actionLabel="제휴처 등록"
       searchPlaceholder="제휴처명, 담당자 검색"
       filters={['전체 유형', '동물병원', '호텔/리조트', '활성', '대기중']}
@@ -194,9 +231,9 @@ export default function AdminPartnersPage() {
         { key: 'isDelivered', label: '납품 완료 여부', type: 'select', options: booleanOptions },
         { key: 'memo', label: '메모', type: 'textarea' },
       ]}
-      onCreateRow={handleCreate}
-      onUpdateRow={handleUpdate}
-      onDeleteRow={handleDelete}
+      onCreateRow={ready ? handleCreate : undefined}
+      onUpdateRow={ready ? handleUpdate : undefined}
+      onDeleteRow={ready ? handleDelete : undefined}
       onSave={handleSave}
     />
   );

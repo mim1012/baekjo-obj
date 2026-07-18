@@ -13,7 +13,7 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(pageSource).toContain('getAdminInsuranceContentConfig()');
     expect(pageSource).toContain('saveInsuranceContentConfig({ consents, faqs })');
     // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH, F5).
-    expect(pageSource).toContain('!loaded || loadError ? Promise.resolve({ ok: false })');
+    expect(pageSource).toContain('if (!loaded || loadError) return Promise.resolve({ ok: false });');
     expect(pageSource).toContain('onSave={handleSave}');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
@@ -22,6 +22,51 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(pageSource).not.toContain('Date.now()');
     // id 는 공개 폼 체크 상태 매핑 키 — 편집 시 이전 id 를 유지하고, 생성 시에만 발급한다.
     expect(pageSource).toContain('previous?.id ?? createContentId(');
+  });
+
+  test('동의 문서 삭제는 persisted 기준으로 즉시 저장하고 마지막·법정 항목은 차단한다', () => {
+    const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
+
+    // persisted = 마지막으로 DB 와 일치한 consents/faqs — 두 섹션이 하나의 싱글턴 config 를
+    // 공유하므로 ref 도 { consents, faqs } 를 함께 든다(opus 리뷰 MEDIUM-1).
+    expect(pageSource).toContain('const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({');
+    expect(pageSource).toContain('persistedRef.current = { consents: config.consents, faqs: config.faqs };');
+    expect(pageSource).toContain('const deletingRef = useRef(false);');
+    // 법정 동의 문서('privacy'/'analysis')는 서버 왕복 없이 클라이언트에서 먼저 막는다(opus 리뷰 LOW-2).
+    expect(pageSource).toContain("const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;");
+    expect(pageSource).toContain('const handleDeleteConsent = async (id: string | number) => {');
+    expect(pageSource).toContain('if (!loaded || loadError) return;');
+    expect(pageSource).toContain('if (deletingRef.current) return;');
+    expect(pageSource).toContain('(REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)');
+    expect(pageSource).toContain('필수(법정) 동의 문서는 삭제할 수 없습니다.');
+    expect(pageSource).toContain('const nextConsents = persistedRef.current.consents.filter((consent) => consent.id !== id);');
+    // 관리자 PUT 라우트가 consents.length < 1 을 거부하므로 마지막 항목은 저장 전에 막는다.
+    expect(pageSource).toContain('if (nextConsents.length === 0) {');
+    expect(pageSource).toContain('동의 문서는 최소 1건 남아 있어야 합니다.');
+    expect(pageSource).toContain(
+      'const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });',
+    );
+    // 저장 성공 시에만 draft 에서 해당 행만 제거해 다른 미저장 편집을 보존한다.
+    expect(pageSource).toContain('persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };');
+    expect(pageSource).toContain('setConsents((prev) => prev.filter((consent) => consent.id !== id));');
+    expect(pageSource).toContain('onDeleteRow={handleDeleteConsent}');
+  });
+
+  test('FAQ 삭제는 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
+    const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
+
+    expect(pageSource).toContain('const handleDeleteFaq = async (id: string | number) => {');
+    expect(pageSource).toContain('const nextFaqs = persistedRef.current.faqs.filter((faq) => faq.id !== id);');
+    expect(pageSource).toContain(
+      'const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });',
+    );
+    expect(pageSource).toContain('persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };');
+    expect(pageSource).toContain('setFaqs((prev) => prev.filter((faq) => faq.id !== id));');
+    expect(pageSource).toContain('onDeleteRow={handleDeleteFaq}');
+    // 배치 저장 성공 시에도 persisted 기준을 draft 로 갱신한다.
+    expect(pageSource).toContain('if (result.ok) persistedRef.current = { consents, faqs };');
+    // 등록·수정과 달리 삭제는 즉시 반영됨을 두 섹션 설명 문구 모두에 명시한다.
+    expect(pageSource).toContain('삭제는 즉시 반영됩니다.');
   });
 
   test('storage 콘센트는 공개 GET 폴백과 관리자 PUT 경로를 제공한다', () => {

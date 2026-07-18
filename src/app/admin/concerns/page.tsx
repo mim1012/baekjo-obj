@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';
 import { defaultConcernsConfig } from '@/lib/concerns/config';
@@ -119,6 +119,11 @@ export default function AdminConcernsPage() {
   const [items, setItems] = useState<Concern[]>(defaultConcernsConfig.items);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
+  // 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
+  const persistedItemsRef = useRef<Concern[]>(defaultConcernsConfig.items);
+  // 같은 행에 대한 삭제 클릭이 저장 왕복 중 중복 발생하지 않게 막는다(opus 리뷰 LOW-1).
+  const deletingRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,6 +132,7 @@ export default function AdminConcernsPage() {
         if (cancelled) return;
         setLoadError(false);
         setItems(config.items);
+        persistedItemsRef.current = config.items;
         setLoaded(true);
       })
       .catch(() => {
@@ -153,17 +159,45 @@ export default function AdminConcernsPage() {
     );
   };
 
-  const handleDelete = (id: string | number) => {
-    if (!loaded) return;
-    setItems((prev) => prev.filter((concern) => concern.slug !== id));
+  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
+  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 사용자 리포트). persisted 기준(마지막 DB 일치
+  // 목록)으로 저장해 미저장 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
+  // 저장 성공 시에만 draft 에서 해당 행만 제거해 다른 미저장 편집을 보존한다. 관리자 PUT 라우트가
+  // items.length < 1 을 거부하므로 마지막 항목도 막는다.
+  const handleDelete = async (id: string | number) => {
+    if (!loaded || loadError) return;
+    if (deletingRef.current) return;
+    deletingRef.current = true;
+    try {
+      const nextItems = persistedItemsRef.current.filter((concern) => concern.slug !== id);
+      if (nextItems.length === 0) {
+        window.alert('고민은 최소 1건 남아 있어야 합니다. 마지막 항목은 삭제할 수 없습니다.');
+        return;
+      }
+      const { ok } = await saveConcernsConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems((prev) => prev.filter((concern) => concern.slug !== id));
+      } else {
+        window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      deletingRef.current = false;
+    }
   };
 
-  const handleSave = () => (!loaded || loadError ? Promise.resolve({ ok: false }) : saveConcernsConfig({ items }));
+  const handleSave = () => {
+    if (!loaded || loadError) return Promise.resolve({ ok: false });
+    return saveConcernsConfig({ items }).then((result) => {
+      if (result.ok) persistedItemsRef.current = items;
+      return result;
+    });
+  };
 
   return (
     <AdminResourcePage
       title="고민 관리"
-      description={loadError ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 저장 버튼을 눌러야 공개 화면에 반영됩니다.'}
+      description={loadError ? '고민 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '증상과 원인 정보, 추천 상품·브랜드, 보험 CTA와 FAQ를 연결합니다. 등록·수정은 저장 버튼을 눌러야 반영되고, 삭제는 즉시 반영됩니다.'}
       actionLabel="고민 등록"
       searchPlaceholder="고민명 검색"
       columns={[
