@@ -24,13 +24,14 @@ function expectNoCategoryBypass(source: string): void {
 test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로', () => {
   test('관리자 카테고리 화면은 provider 콘센트의 updateCategorySettings 로만 저장한다', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
-    const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
+    // 즉시저장 전환(2026-07-18): 일괄 handleSave/SaveBar 가 사라지고 commit 이 유일한 저장 경로다.
+    const saveFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(adminPage).toContain('const { categorySettings, updateCategorySettings } = useCategorySettings();');
     expect(adminPage).toContain('const [settings, setSettings] = useState<CategorySettings>(categorySettings);');
-    expect(saveFunction).toContain('const ok = await updateCategorySettings(settings);');
-    expect(saveFunction).toContain('setHasChanges(false);');
+    expect(saveFunction).toContain('const ok = await updateCategorySettings(next);');
+    expect(saveFunction).toContain('setDirty(false);');
     expect(saveFunction).not.toContain('fetch(');
     expect(saveFunction).not.toContain('saveCategorySettings');
     expect(saveFunction).not.toContain('getSupabase');
@@ -38,6 +39,9 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(adminPage).toContain("field: 'productCategories' | 'lifestyleCategories'");
     expect(adminPage).toContain("'productCategories'");
     expect(adminPage).toContain("'lifestyleCategories'");
+    // 일괄 저장 UI 재도입 방지 — 저장은 commit(즉시) 하나뿐이어야 한다.
+    expect(adminPage).not.toContain('SaveBar');
+    expect(adminPage).not.toContain('handleSave');
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
