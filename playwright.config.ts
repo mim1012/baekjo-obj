@@ -58,10 +58,10 @@ export default defineConfig({
       },
     },
     {
-      // 전 페이지 스모크 검수(읽기 전용) — src/app 의 모든 page.tsx 를 실제로 방문해 HTTP 200·
-      // 에러 오버레이 부재·페이지별 앵커 렌더를 확인한다. CRUD 를 전혀 안 하므로 golden-crud 와
-      // 달리 변경 경로 매핑 없이 매 배포마다 돈다(golden-crud.yml smoke 블록). E2E_ADMIN_CRUD
-      // 게이트가 없어도 항상 실행 가능 — 안전하게 어떤 환경에도 겨냥할 수 있다.
+      // 전 페이지 스모크 검수(읽기 전용, 데스크톱 뷰포트) — src/app 의 모든 page.tsx 를 실제로
+      // 방문해 HTTP 200·에러 오버레이 부재·페이지별 앵커 렌더를 확인한다. CRUD 를 전혀 안 하므로
+      // golden-crud 와 달리 변경 경로 매핑 없이 매 배포마다 돈다(golden-crud.yml smoke 블록).
+      // E2E_ADMIN_CRUD 게이트가 없어도 항상 실행 가능 — 안전하게 어떤 환경에도 겨냥할 수 있다.
       name: 'golden-smoke',
       testDir: './tests/golden',
       testMatch: ['**/all-pages-smoke.spec.ts'],
@@ -73,6 +73,27 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      // 전 페이지 스모크 검수(읽기 전용, 모바일 390×844) — 데스크톱과 동일한 스펙 파일을 그대로
+      // 재사용해 같은 검증(HTTP 200·에러 없음·앵커 렌더)을 모바일 뷰포트에서도 돈다(2026-07-19,
+      // dad 모바일 개편이 기계 검증을 받은 적이 없어 확장). 390×844 는 팀 리드 지정값 — 기본
+      // 디바이스 프리셋('iPhone 13' 등)은 높이가 다르므로(390×664) 커스텀 viewport 로 고정한다.
+      name: 'golden-smoke-mobile',
+      testDir: './tests/golden',
+      testMatch: ['**/all-pages-smoke.spec.ts'],
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
       },
     },
     {

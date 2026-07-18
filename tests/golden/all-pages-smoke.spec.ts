@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
 import { ALL_APP_ROUTES, type RouteEntry } from './_lib/allPagesRoutes';
+import { ALL_ADMIN_API_ROUTES, fillApiRoute } from './_lib/allAdminApiRoutes';
 
 // 전 페이지 스모크 검수 — 읽기 전용(READ-ONLY, 쓰기 없음). src/app 의 모든 page.tsx(62개, 정적+동적)를
 // 실제로 방문해 HTTP 200(또는 문서화된 리다이렉트)·에러 오버레이 부재·페이지별 앵커 렌더를 확인한다.
@@ -28,6 +29,19 @@ const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL;
 const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 
 test.use({ extraHTTPHeaders: bypassHeaders() });
+
+/** 로그인 폼 셀렉터는 loginAsAdmin(adminCrudHelpers.ts)과 동일 — 계정만 다르다. 회원 전용 페이지
+ * 검증과 "비관리자(회원) API 차단" 검증이 모두 쓰므로 모듈 스코프로 둔다. */
+async function loginAsMember(page: Page): Promise<void> {
+  await page.goto('/login');
+  await page.locator('input[type="email"]').fill(MEMBER_EMAIL!);
+  await page.locator('input[type="password"]').fill(MEMBER_PASSWORD!);
+  await page
+    .getByRole('button', { name: /로그인/ })
+    .first()
+    .click();
+  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+}
 
 // ── 에러 캡처 ────────────────────────────────────────────────────────────
 // 알려진 무해 노이즈만 여기 등록한다 — 새 패턴을 발견하면 "왜 무해한지" 이유를 주석에 남기고 추가할 것.
@@ -245,13 +259,56 @@ test.describe('전 페이지 스모크 검수(읽기 전용)', () => {
     }
   });
 
-  test.describe('관리자 대리 확인 — 비로그인 방문은 /login 으로 막힌다', () => {
-    // proxy.ts 의 matcher(/admin/:path*)는 서브경로와 무관하게 동일하게 적용되므로(AGENTS.md
-    // §10-7), 28개 관리자 라우트마다 반복하지 않고 대표 경로 하나로 게이트 동작만 확인한다.
-    test('/admin (비로그인) → /login?error=admin', async ({ page }) => {
-      await page.goto('/admin');
-      await page.waitForURL((url) => url.pathname.startsWith('/login'), { timeout: 15_000 });
-    });
+  test.describe('관리자 페이지 비로그인 차단(전수 — src/proxy.ts matcher 실측 확인)', () => {
+    // 2026-07-19 확장: 대표 1개(/admin)만 확인하던 것을 전수로 넓힌다 — proxy.ts 의
+    // matcher(/admin/:path*)는 경로 접두사만 보고 세그먼트 값의 유효성은 검사하지 않으므로
+    // (§10-3 "창구가 유일한 방어선"), 동적 라우트도 더미 id 로 방문하면 충분하다 — 어차피
+    // 페이지 컴포넌트가 실행되기 전에 프록시가 막는다. route-coverage-audit.spec.ts 가
+    // ALL_APP_ROUTES 의 admin 라우트 auth 값을 검사하므로, 새 admin 페이지를 등록하면 이
+    // 차단 검사도 자동으로 대상에 포함된다.
+    for (const entry of ALL_APP_ROUTES.filter((r) => r.auth === 'admin')) {
+      const probePath = entry.kind === 'dynamic' ? entry.route.replace(/\[[^\]]+\]/g, 'e2e-smoke-probe') : entry.route;
+      test(`${entry.route} (비로그인) → /login?error=admin`, async ({ page }) => {
+        await page.goto(probePath);
+        await page.waitForURL((url) => url.pathname.startsWith('/login'), { timeout: 15_000 });
+      });
+    }
+  });
+
+  test.describe('관리자 API 비로그인 차단(전수 — src/proxy.ts matcher 실측 확인)', () => {
+    // 실측(2026-07-19, 로컬 dev+staging): 익명 GET /api/admin/orders/1(PATCH 전용 라우트)이
+    // 405가 아니라 401 {"error":"unauthorized"} 로 응답 — proxy.ts 가 라우트 핸들러 실행 전에
+    // 가로채므로 실제 구현 메서드와 무관하게 GET 으로 통일 프로브한다(allAdminApiRoutes.ts 주석
+    // 참고). route-coverage-audit.spec.ts 가 신규 route.ts 를 이 목록 등록 없이 놔두면 CI 를
+    // 실패시키므로, 새 관리자 API 를 추가하면 이 차단 검사도 자동으로 대상에 포함된다.
+    for (const route of ALL_ADMIN_API_ROUTES) {
+      test(`GET ${route} (비로그인) → 401/403, 절대 200 아님`, async ({ request }) => {
+        const response = await request.get(fillApiRoute(route), { headers: bypassHeaders() });
+        expect([401, 403], `${route} 응답 status=${response.status()}`).toContain(response.status());
+        const body = await response.json().catch(() => null);
+        expect(body?.error, `${route} 응답에 error 필드 없음: ${JSON.stringify(body)}`).toBeTruthy();
+      });
+    }
+  });
+
+  test.describe('관리자 API 비관리자(회원) 차단 — 대표 2개', () => {
+    // 전수(30개)가 아니라 대표 2개만 확인한다 — proxy.ts 의 차단 로직은 경로가 아니라
+    // req.auth.user.role 하나만 보므로(§10-3), 라우트마다 다른 결과가 나올 이유가 없다. 회원
+    // 로그인이 필요한 만큼 전수 검사는 비용 대비 신호가 낮다고 판단(팀 리드 지시 "1~2개 대표").
+    test.skip(
+      !MEMBER_EMAIL || !MEMBER_PASSWORD,
+      'E2E_MEMBER_* 시크릿 미주입(member-e2e@test.baekjo) — 회원 로그인 불가로 skip.',
+    );
+
+    for (const route of ['/api/admin/orders', '/api/admin/products']) {
+      test(`GET ${route} (회원, 비관리자) → 403`, async ({ page }) => {
+        await loginAsMember(page);
+        const response = await page.request.get(route, { headers: bypassHeaders() });
+        expect(response.status(), `${route} 응답 status`).toBe(403);
+        const body = await response.json().catch(() => null);
+        expect(body?.error, `${route} 응답에 error 필드 없음: ${JSON.stringify(body)}`).toBeTruthy();
+      });
+    }
   });
 
   test.describe('관리자 정적 페이지(관리자 로그인 후)', () => {
@@ -325,18 +382,6 @@ test.describe('전 페이지 스모크 검수(읽기 전용)', () => {
       'E2E_MEMBER_* 시크릿 미주입(member-e2e@test.baekjo) — 회원 로그인 불가로 skip. ' +
         'CI(golden-crud.yml)에는 아직 이 시크릿이 등록돼 있지 않다(admin-crud-qna-inquiries.spec.ts 와 동일 한계).',
     );
-
-    /** 로그인 폼 셀렉터는 loginAsAdmin(adminCrudHelpers.ts)과 동일 — 계정만 다르다. */
-    async function loginAsMember(page: Page): Promise<void> {
-      await page.goto('/login');
-      await page.locator('input[type="email"]').fill(MEMBER_EMAIL!);
-      await page.locator('input[type="password"]').fill(MEMBER_PASSWORD!);
-      await page
-        .getByRole('button', { name: /로그인/ })
-        .first()
-        .click();
-      await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
-    }
 
     test('/mypage — 마이페이지(개요 탭)', async ({ page }) => {
       await loginAsMember(page);
