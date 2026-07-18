@@ -71,7 +71,7 @@ export default function BrandShowcaseSlider({ brands, productsByBrand }: Props) 
 
   const selectedNames = extractNames(selectedBrand.name);
   const selectedCategory = getBrandCategory(selectedProducts);
-  const verificationLabel = selectedBrand.auditReport ? '백조 검증 완료' : '입점 자료 확인 중';
+  const verificationLabel = selectedBrand.auditReport ? '백조오브제 검증 완료' : '입점 자료 확인 중';
 
   return (
     <div className="w-full">
