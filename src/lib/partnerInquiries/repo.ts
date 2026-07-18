@@ -76,6 +76,17 @@ export async function createPartnerInquiry(
   return rowToPartnerInquiry(data as PartnerInquiryRow);
 }
 
+/** 관리자 문의 삭제. 삭제된 행이 실제로 존재했는지 반환한다(라우트에서 404 판정에 사용, deleteBrand와 동일 패턴). */
+export async function deletePartnerInquiryById(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('partner_inquiries')
+    .delete()
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  return Array.isArray(data) && data.length > 0;
+}
+
 /** 관리자 상태/메모 변경. 허용 필드만 반영한다. 대상이 없으면 null. */
 export async function updatePartnerInquiryStatus(
   id: string,

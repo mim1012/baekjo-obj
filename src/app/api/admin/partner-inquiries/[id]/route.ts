@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { updatePartnerInquiryStatus } from '@/lib/partnerInquiries/repo';
+import { deletePartnerInquiryById, updatePartnerInquiryStatus } from '@/lib/partnerInquiries/repo';
 import { PARTNER_INQUIRY_STATUSES, type PartnerInquiryStatus } from '@/types';
 import { logServerError } from '@/lib/logServerError';
 
@@ -57,6 +57,30 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ inquiry }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/admin/partner-inquiries/[id]] 수정 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/admin/partner-inquiries/[id] — 관리자 제휴 문의 삭제(brands의 DELETE 라우트와
+ * 동일 패턴). 이전엔 삭제 API 자체가 없어 관리자 화면의 삭제 버튼이 AdminResourcePage의
+ * 로컬 숨김(setDeletedIds)으로만 처리돼 새로고침하면 되살아났다(wave-4 발견, 2026-07-18
+ * notices 저장 유실 사고와 동일 클래스).
+ */
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+
+  try {
+    const existed = await deletePartnerInquiryById(id);
+    if (!existed) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (error) {
+    logServerError('[DELETE /api/admin/partner-inquiries/[id]] 삭제 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
