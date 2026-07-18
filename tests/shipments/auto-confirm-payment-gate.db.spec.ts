@@ -115,7 +115,7 @@ test.describe.serial('자동 구매확정 결제 게이트 DB 스펙', () => {
     await q(`update public.orders set payment_status='결제완료' where id='${unpaidOrderId}';`);
     const rows = await q(gatedAutoConfirmSql(`now() - interval '7 days'`));
     expect(rows).toHaveLength(2); // B_UNPAID_OLD + (원복해둔) B_OLDBUG — 둘 다 이제 결제완료 주문
-    const brands = rows.map((r: { brand_id: string }) => r.brand_id).sort();
+    const brands = rows.map((r) => String(r.brand_id)).sort();
     expect(brands).toEqual([B_OLDBUG, B_UNPAID_OLD].sort());
   });
 });
