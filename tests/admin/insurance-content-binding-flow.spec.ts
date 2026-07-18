@@ -11,11 +11,11 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
 
     expect(pageSource).toContain("import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminInsuranceContentConfig()');
-    expect(pageSource).toContain('saveInsuranceContentConfig({ consents, faqs })');
-    // 로드 완료 전·로드 실패 시, 그리고 삭제와 동시 진행 중일 때 저장을 막는다
-    // (codex F-HIGH, F5, codex 2차 리뷰 HIGH — busyRef 상호배제).
-    expect(pageSource).toContain('if (!loaded || loadError || busyRef.current) return { ok: false };');
-    expect(pageSource).toContain('onSave={handleSave}');
+    expect(pageSource).toContain('saveInsuranceContentConfig({');
+    // 등록·수정·삭제가 모두 즉시 저장으로 전환되며 header batch save(onSave)는 제거됐다
+    // (2026-07-18 저장 유실 리포트 — 모달 "목록에 반영"이 새로고침에 사라지는 2단계 저장 함정 제거).
+    expect(pageSource).not.toContain('onSave=');
+    expect(pageSource).not.toContain('const handleSave');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
     expect(pageSource).toContain('onDeleteRow=');
@@ -25,16 +25,28 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     expect(pageSource).toContain('previous?.id ?? createContentId(');
   });
 
-  test('동의 문서 삭제는 persisted 기준으로 즉시 저장하고 마지막·법정 항목은 차단한다', () => {
+  test('동의 문서 등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(마지막·법정 항목은 삭제 차단)', () => {
     const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
 
     // persisted = 마지막으로 DB 와 일치한 consents/faqs — 두 섹션이 하나의 싱글턴 config 를
-    // 공유하므로 ref 도 { consents, faqs } 를 함께 든다(opus 리뷰 MEDIUM-1).
+    // 공유하므로 ref 도 { consents, faqs } 를 함께 든다(opus 리뷰 MEDIUM-1). 각 핸들러는 자기
+    // 섹션만 바꾸고 다른 섹션은 persisted 값 그대로 전달해 상대 섹션의 미저장 드래프트를
+    // 함께 커밋하지 않는다.
     expect(pageSource).toContain('const persistedRef = useRef<{ consents: ConsentDoc[]; faqs: InsuranceFaq[] }>({');
     expect(pageSource).toContain('persistedRef.current = { consents: config.consents, faqs: config.faqs };');
     // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH). 두 섹션의
-    // 삭제와 배치 저장이 하나의 ref 를 공유한다.
+    // 등록·수정·삭제 핸들러가 하나의 ref 를 공유한다.
     expect(pageSource).toContain('const busyRef = useRef(false);');
+
+    expect(pageSource).toContain('const handleCreateConsent = async (draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('const nextConsents = [...persistedRef.current.consents, draftToConsent(draft)];');
+    expect(pageSource).toContain(
+      'const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });',
+    );
+
+    expect(pageSource).toContain('const handleUpdateConsent = async (id: string | number, draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('consent.id === id ? draftToConsent(draft, consent) : consent,');
+
     // 법정 동의 문서('privacy'/'analysis')는 서버 왕복 없이 클라이언트에서 먼저 막는다(opus 리뷰 LOW-2).
     expect(pageSource).toContain("const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;");
     expect(pageSource).toContain('const handleDeleteConsent = async (id: string | number) => {');
@@ -46,17 +58,22 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     // 관리자 PUT 라우트가 consents.length < 1 을 거부하므로 마지막 항목은 저장 전에 막는다.
     expect(pageSource).toContain('if (nextConsents.length === 0) {');
     expect(pageSource).toContain('동의 문서는 최소 1건 남아 있어야 합니다.');
-    expect(pageSource).toContain(
-      'const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });',
-    );
-    // 저장 성공 시에만 draft 에서 해당 행만 제거해 다른 미저장 편집을 보존한다.
+    // 저장 성공 시에만 draft 를 갱신한다.
     expect(pageSource).toContain('persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };');
     expect(pageSource).toContain('setConsents((prev) => prev.filter((consent) => consent.id !== id));');
+    expect(pageSource).toContain('onCreateRow={handleCreateConsent}');
+    expect(pageSource).toContain('onUpdateRow={handleUpdateConsent}');
     expect(pageSource).toContain('onDeleteRow={handleDeleteConsent}');
   });
 
-  test('FAQ 삭제는 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
+  test('FAQ 등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
     const pageSource = src('src', 'app', 'admin', 'insurance-content', 'page.tsx');
+
+    expect(pageSource).toContain('const handleCreateFaq = async (draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('const nextFaqs = [...persistedRef.current.faqs, draftToFaq(draft)];');
+
+    expect(pageSource).toContain('const handleUpdateFaq = async (id: string | number, draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('persistedRef.current.faqs.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq));');
 
     expect(pageSource).toContain('const handleDeleteFaq = async (id: string | number) => {');
     expect(pageSource).toContain('const nextFaqs = persistedRef.current.faqs.filter((faq) => faq.id !== id);');
@@ -65,11 +82,11 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     );
     expect(pageSource).toContain('persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };');
     expect(pageSource).toContain('setFaqs((prev) => prev.filter((faq) => faq.id !== id));');
+    expect(pageSource).toContain('onCreateRow={handleCreateFaq}');
+    expect(pageSource).toContain('onUpdateRow={handleUpdateFaq}');
     expect(pageSource).toContain('onDeleteRow={handleDeleteFaq}');
-    // 배치 저장 성공 시에도 persisted 기준을 draft 로 갱신한다.
-    expect(pageSource).toContain('if (result.ok) persistedRef.current = { consents, faqs };');
-    // 등록·수정과 달리 삭제는 즉시 반영됨을 두 섹션 설명 문구 모두에 명시한다.
-    expect(pageSource).toContain('삭제는 즉시 반영됩니다.');
+    // 등록·수정·삭제 모두 즉시 반영됨을 두 섹션 설명 문구 모두에 명시한다.
+    expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다');
   });
 
   test('storage 콘센트는 공개 GET 폴백과 관리자 PUT 경로를 제공한다', () => {

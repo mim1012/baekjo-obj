@@ -128,11 +128,11 @@ export default function AdminKitsPage() {
     };
   }, []);
 
-  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
-  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 사용자 리포트). persisted 기준으로 저장해 미저장
-  // 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1). 로드 완료 전에는 default
-  // 목록을 저장하는 레이스를 막는다(opus 리뷰 MEDIUM-2). 관리자 PUT 라우트는 빈 배열을 허용하므로
-  // 마지막 항목 차단은 없다.
+  // 등록·수정·삭제 모두 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — 모달에서 "목록에 반영"을
+  // 눌러도 새로고침하면 사라지는 2단계 저장 함정 제거(2026-07-18 저장 유실 리포트). persisted 기준으로
+  // 저장해 다른 미저장 편집이 함께 커밋되지 않게 한다(opus 리뷰 MEDIUM-1 확장). 로드 완료 전에는
+  // default 목록을 저장하는 레이스를 막는다(opus 리뷰 MEDIUM-2). 관리자 PUT 라우트는 빈 배열을
+  // 허용하므로 마지막 항목 차단은 없다.
   const handleDelete = async (id: string | number) => {
     if (!loaded || loadError) return;
     if (busyRef.current) return;
@@ -151,23 +151,37 @@ export default function AdminKitsPage() {
     }
   };
 
-  const handleCreate = (draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => [...prev, draftToCareKit(draft)]);
-  };
-
-  const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => prev.map((kit) => (kit.id === id ? draftToCareKit(draft, kit) : kit)));
-  };
-
-  const handleSave = async () => {
-    if (!loaded || loadError || busyRef.current) return { ok: false };
+  const handleCreate = async (draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
     busyRef.current = true;
     try {
-      const result = await saveKitsConfig({ items });
-      if (result.ok) persistedItemsRef.current = items;
-      return result;
+      const nextItems = [...persistedItemsRef.current, draftToCareKit(draft)];
+      const { ok } = await saveKitsConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const nextItems = persistedItemsRef.current.map((kit) => (kit.id === id ? draftToCareKit(draft, kit) : kit));
+      const { ok } = await saveKitsConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
       busyRef.current = false;
     }
@@ -178,7 +192,7 @@ export default function AdminKitsPage() {
   return (
     <AdminResourcePage
       title="케어 키트 관리"
-      description={loadError ? '케어 키트 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '상황별 맞춤형 케어 키트 구성과 재고를 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고, 삭제는 즉시 반영됩니다.'}
+      description={loadError ? '케어 키트 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '상황별 맞춤형 케어 키트 구성과 재고를 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
       actionLabel="키트 등록"
       searchPlaceholder="키트명, 구성품 검색"
       filters={['전체 유형', '병원 비치용', '이벤트 증정용', '노출 숨김']}
@@ -223,7 +237,6 @@ export default function AdminKitsPage() {
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
-      onSave={handleSave}
     />
   );
 }

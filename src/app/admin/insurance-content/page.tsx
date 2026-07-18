@@ -103,24 +103,87 @@ export default function AdminInsuranceContentPage() {
     };
   }, []);
 
-  // 한쪽 섹션의 저장 버튼이 동의 문서·FAQ 전체를 함께 저장한다(싱글턴 config 통째 저장).
-  const handleSave = async () => {
-    if (!loaded || loadError || busyRef.current) return { ok: false };
+  // 등록·수정·삭제 모두 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — 모달에서 "목록에 반영"을
+  // 눌러도 새로고침하면 사라지는 2단계 저장 함정 제거(2026-07-18 저장 유실 리포트). 두 섹션이 하나의
+  // 싱글턴 config 를 공유하므로 각 핸들러는 persisted 기준에서 자기 섹션만 바꾸고 다른 섹션은 그대로
+  // 전달한다 — 상대 섹션의 미저장 드래프트를 절대 함께 커밋하지 않는다.
+  const handleCreateConsent = async (draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
     busyRef.current = true;
     try {
-      const result = await saveInsuranceContentConfig({ consents, faqs });
-      if (result.ok) persistedRef.current = { consents, faqs };
-      return result;
+      const nextConsents = [...persistedRef.current.consents, draftToConsent(draft)];
+      const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });
+      if (ok) {
+        persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
+        setConsents(nextConsents);
+      } else {
+        window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
       busyRef.current = false;
     }
   };
 
-  // 삭제는 파괴적 액션이라 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "삭제를 눌렀는데
-  // 새로고침하면 되살아난다" 오인 방지(2026-07-18 사용자 리포트). persisted 기준으로 저장해 미저장
-  // 등록·수정 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1). 관리자 PUT 라우트가
-  // consents.length < 1 을 거부하므로 마지막 항목도 막는다. 법정 동의 문서('privacy'/'analysis') 삭제는
-  // 서버 왕복 없이 클라이언트에서 먼저 막아 정직한 메시지를 보여준다(opus 리뷰 LOW-2).
+  const handleUpdateConsent = async (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const nextConsents = persistedRef.current.consents.map((consent) =>
+        consent.id === id ? draftToConsent(draft, consent) : consent,
+      );
+      const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });
+      if (ok) {
+        persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
+        setConsents(nextConsents);
+      } else {
+        window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleCreateFaq = async (draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const nextFaqs = [...persistedRef.current.faqs, draftToFaq(draft)];
+      const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });
+      if (ok) {
+        persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
+        setFaqs(nextFaqs);
+      } else {
+        window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleUpdateFaq = async (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded || loadError) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
+    try {
+      const nextFaqs = persistedRef.current.faqs.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq));
+      const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });
+      if (ok) {
+        persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
+        setFaqs(nextFaqs);
+      } else {
+        window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  // 관리자 PUT 라우트가 consents.length < 1 을 거부하므로 마지막 항목도 막는다. 법정 동의 문서
+  // ('privacy'/'analysis') 삭제는 서버 왕복 없이 클라이언트에서 먼저 막아 정직한 메시지를 보여준다
+  // (opus 리뷰 LOW-2).
   const handleDeleteConsent = async (id: string | number) => {
     if (!loaded || loadError) return;
     if (busyRef.current) return;
@@ -170,7 +233,7 @@ export default function AdminInsuranceContentPage() {
     <div className="space-y-10">
       <AdminResourcePage
         title="보험 동의 문서"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고(동의 문서·FAQ 전체 저장), 삭제는 즉시 반영됩니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다(동의 문서·FAQ 는 같은 콘텐츠를 공유합니다).'}
         actionLabel="동의 문서 등록"
         searchPlaceholder="동의 문서 제목 검색"
         columns={[
@@ -191,21 +254,14 @@ export default function AdminInsuranceContentPage() {
           { key: 'required', label: '필수 여부', type: 'select', options: booleanOptions },
           { key: 'body', label: '전문(줄바꿈 유지)', type: 'textarea' },
         ]}
-        onCreateRow={(draft) => {
-          if (!loaded) return;
-          setConsents((prev) => [...prev, draftToConsent(draft)]);
-        }}
-        onUpdateRow={(id, draft) => {
-          if (!loaded) return;
-          setConsents((prev) => prev.map((consent) => (consent.id === id ? draftToConsent(draft, consent) : consent)));
-        }}
+        onCreateRow={handleCreateConsent}
+        onUpdateRow={handleUpdateConsent}
         onDeleteRow={handleDeleteConsent}
-        onSave={handleSave}
       />
 
       <AdminResourcePage
         title="보험 자주 묻는 질문"
-        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 등록·수정은 저장 버튼을 눌러야 반영되고(동의 문서·FAQ 전체 저장), 삭제는 즉시 반영됩니다.'}
+        description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다(동의 문서·FAQ 는 같은 콘텐츠를 공유합니다).'}
         actionLabel="FAQ 등록"
         searchPlaceholder="질문 검색"
         columns={[
@@ -222,16 +278,9 @@ export default function AdminInsuranceContentPage() {
           { key: 'q', label: '질문' },
           { key: 'a', label: '답변', type: 'textarea' },
         ]}
-        onCreateRow={(draft) => {
-          if (!loaded) return;
-          setFaqs((prev) => [...prev, draftToFaq(draft)]);
-        }}
-        onUpdateRow={(id, draft) => {
-          if (!loaded) return;
-          setFaqs((prev) => prev.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq)));
-        }}
+        onCreateRow={handleCreateFaq}
+        onUpdateRow={handleUpdateFaq}
         onDeleteRow={handleDeleteFaq}
-        onSave={handleSave}
       />
     </div>
   );
