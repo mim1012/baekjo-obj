@@ -24,13 +24,14 @@ function expectNoCategoryBypass(source: string): void {
 test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로', () => {
   test('관리자 카테고리 화면은 provider 콘센트의 updateCategorySettings 로만 저장한다', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
-    const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
+    // 즉시저장 전환(2026-07-18): 일괄 handleSave/SaveBar 가 사라지고 commit 이 유일한 저장 경로다.
+    const saveFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded, loadError } = useCategorySettings();');
     expect(adminPage).toContain('const [settings, setSettings] = useState<CategorySettings>(categorySettings);');
-    expect(saveFunction).toContain('const ok = await updateCategorySettings(settings);');
-    expect(saveFunction).toContain('setHasChanges(false);');
+    expect(saveFunction).toContain('const ok = await updateCategorySettings(next);');
+    expect(saveFunction).toContain('setDirty(false);');
     expect(saveFunction).not.toContain('fetch(');
     expect(saveFunction).not.toContain('saveCategorySettings');
     expect(saveFunction).not.toContain('getSupabase');
@@ -38,25 +39,30 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(adminPage).toContain("field: 'productCategories' | 'lifestyleCategories'");
     expect(adminPage).toContain("'productCategories'");
     expect(adminPage).toContain("'lifestyleCategories'");
+    // 일괄 저장 UI 재도입 방지 — 저장은 commit(즉시) 하나뿐이어야 한다.
+    expect(adminPage).not.toContain('SaveBar');
+    expect(adminPage).not.toContain('handleSave');
   });
 
-  test('로드 완료 전에는 편집·저장을 막고 SaveBar 저장 버튼도 비활성화한다(전수조사 A-2)', () => {
+  test('로드 완료 전에는 commit(즉시저장)을 막는다(전수조사 A-2, 즉시저장 신구조에 재접붙임)', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
-    const saveFunction = sliceBetween(adminPage, 'const handleSave = async () => {', 'const renderStringListEditor = (');
+    // commit 이 모든 저장 경로(추가·삭제·순서변경·이름 blur 커밋)의 유일한 관문이므로 여기 하나만
+    // 가드하면 된다 — addItem/removeItem/moveItem/commitItemName 이 전부 commit 을 거친다.
+    const commitFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
+    expect(commitFunction).toContain('if (!loaded || loadError) return;');
+    expect(commitFunction).toContain('if (busyRef.current) return;');
 
-    expect(adminPage).toContain('const handleChange = (field:');
-    // handleChange 가 handleSave 보다 먼저 정의되므로 handleChange 만 잘라서 loaded 가드를 확인한다.
-    const changeFunction = sliceBetween(adminPage, 'const handleChange = (field:', 'const handleSave = async () => {');
-    expect(changeFunction).toContain('if (!loaded) return;');
-    expect(saveFunction).toContain('if (!loaded) return;');
-    expect(adminPage).toContain('disabled={!loaded}');
+    // 타이핑(updateItemLocal)도 loaded 이전엔 막는다 — 그래야 dirty 락이 걸려 늦게 도착한 실제
+    // GET 값의 resync(`if (!dirty)`)를 영구히 막는 레이스가 생기지 않는다.
+    const updateItemLocalFunction = sliceBetween(adminPage, 'const updateItemLocal = (index: number, val: string) => {', 'const commitItemName = ');
+    expect(updateItemLocalFunction).toContain('if (!loaded) return;');
   });
 
   test('loadError 는 PageHeader 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
     expect(adminPage).toContain(
-      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 드래그하여 순서를 변경할 수 있습니다.'}",
+      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
     );
   });
 
