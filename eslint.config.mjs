@@ -42,6 +42,10 @@ const eslintConfig = defineConfig([
               group: ["@/data/reviews"],
               message:
                 "전시 후기는 콘센트(storage) 또는 reviews repo 로만 읽으세요 — 정적 파일 재도입 금지(AGENTS.md §4 원칙 0).",
+            },            {
+              group: ["@/data/qna"],
+              message:
+                "전시 문의는 콘센트(storage, getQnaConfig) 로만 읽으세요 — 정적 파일 재도입 금지(AGENTS.md §4 원칙 0). src/lib/qna/config.ts 는 규칙 범위 밖이라 기본값 조립 용도로 계속 import 한다.",
             },
           ],
         },
