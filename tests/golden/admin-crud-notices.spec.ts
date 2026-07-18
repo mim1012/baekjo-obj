@@ -17,13 +17,14 @@ import {
 // 노출하는 모든 화면에 정확히 반영되는지 → 수정 → 삭제 → 새로고침 후 사라짐까지 실제로
 // 클릭해 검증한다.
 //
-// ⚠️ 홈 화면 소식 위젯(HomeClient.tsx `recentNotices = notices.slice(0, 4)`)은 이 스펙의
-// 검증 대상에서 제외했다 — 등록은 배열 끝에 append(admin/notices/page.tsx handleCreate:
-// `[...persistedItemsRef.current, newNotice]`)하고 홈은 "최근 4건"이 아니라 배열의
-// "앞에서 4건"을 보여준다. 신규 공지는 구조적으로 그 4건에 들 수 없으므로(기존 공지가
-// 4건 이상이면 항상 제외) 여기서 검증하면 상시 실패하는 스펙이 된다 — 실제로는 홈이
-// "최근 소식"이라는 라벨과 달리 가장 오래된 4건을 보여주는 제품 버그일 가능성이 있어
-// 별도로 팀 리드에게 플래그했다.
+// ⚠️ 홈 화면 소식 위젯 의존성 — PR #144(fix(notices): 공개 공지·홈 소식 최신순 정렬)가
+// src/app/page.tsx·src/app/notices/page.tsx를 `[...items].sort((a, b) => b.date.localeCompare(a.date))`로
+// 고쳐서, 이제 신규 공지가 date만 충분히 크면 홈 "소식" 위젯(상위 4건)과 공개 목록 맨 위에 뜬다
+// (직전 wave에서는 이 정렬이 없어 append-순서 그대로 slice(0,4)해 신규 공지가 절대 안 보였다 —
+// 그 버그를 이 스펙이 실제로 잡아서 #144로 이어졌다). #147이 작성일 입력 필드 자체를 없애고
+// 등록 시점을 자동 기록하게 바꿔서, wave2에서 쓰던 인위적 미래 날짜(2099-06-15)는 더 이상 쓸 수
+// 없다 — 자동 기록된 "오늘" 날짜가 date desc 정렬에서 staging의 기존(대개 과거) 공지보다 앞에
+// 온다는 약한 가정에 기댄다(오늘 등록된 다른 공지가 없는 한 안전 — 실측 확인 완료).
 //
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
@@ -42,8 +43,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
   // 작성자는 폼에서 제거됨 — 미노출 시 '관리자' 기본값이 자동 기록된다(#147, draftToNotice).
   const writer = '관리자';
   const content = `E2E 테스트 본문 ${runId}`;
-  // 작성일은 폼에서 제거됨 — 등록/수정 시점이 자동 기록된다(#147). UTC 기준 todayString()과 동일 계산.
-  // 여기서는 "자동 기록된 오늘 날짜가 화면에 반영되는지"를 검증한다.
+  // 작성일은 폼에서 제거됨 — 등록/수정 시점이 자동 기록된다(#147, draftToNotice). UTC 기준
+  // todayString()과 동일 계산. 홈 소식 위젯·공개 목록은 date desc 정렬(#144)이라 "오늘" 날짜는
+  // staging의 기존 공지(대개 과거 날짜) 대부분보다 먼저 온다 — wave2에서 쓰던 2099년 같은 인위적
+  // 미래 날짜는 더 이상 못 쓴다(입력 필드 자체가 없어졌다), 그래서 이 날짜값의 정렬 우선순위는
+  // "오늘 등록된 다른 공지가 없다"는 약한 가정에 기댄다(실무상 안전 — 실측 확인 완료).
   const date = new Date().toISOString().slice(0, 10);
   const dateLabel = date.replace(/-/g, '.'); // formatDate(src/lib/format.ts) = 'YYYY.MM.DD'
   const categoryLabel = '이벤트'; // formFields의 유형 select에서 'event'를 고른다.
@@ -94,8 +98,17 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await expect(publicListItem).toContainText(categoryLabel);
     await expect(publicListItem).toContainText(dateLabel);
 
+    // 3-1) 홈 "소식" 위젯(recentNotices = 정렬 후 상위 4건, #144) — 오늘 날짜로 자동 기록되니
+    // staging의 기존(대개 과거 날짜) 공지보다 앞에 온다. 이 검증 자체가 #144의 회귀 방지
+    // 게이트다(정렬이 다시 깨지면 여기서 잡힌다).
+    await page.goto('/');
+    await expect(page.locator('body')).toContainText(title);
+    await expect(page.locator('body')).toContainText(dateLabel);
+
     // 4) 공지 클릭 → 상세 페이지 — 제목·본문·작성자·작성일이 전부 반영되는지 확인.
-    await publicListItem.getByRole('link', { name: title }).first().click();
+    // (홈을 들렀다 왔으니 /notices로 다시 돌아가 이 페이지의 locator를 새로 잡는다.)
+    await page.goto('/notices');
+    await page.locator('li', { hasText: title }).getByRole('link', { name: title }).first().click();
     await expect(page).toHaveURL(/\/notices\/.+/);
     await expect(page.locator('h1')).toContainText(title);
     await expect(page.locator('body')).toContainText(content);
@@ -125,6 +138,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     // 8) 공개 화면 새로고침 후 완전히 사라졌는지 확인(삭제가 진짜 DB에 반영됐는지 검증).
     await page.goto('/notices');
     await page.reload();
+    await expect(page.locator('body')).not.toContainText(editedTitle);
+    await expect(page.locator('body')).not.toContainText(title);
+
+    // 9) 홈 소식 위젯에서도 사라졌는지 확인 — date가 오늘이라 지워지지 않았다면 계속 상위권에 남아 있다.
+    await page.goto('/');
     await expect(page.locator('body')).not.toContainText(editedTitle);
     await expect(page.locator('body')).not.toContainText(title);
   });
