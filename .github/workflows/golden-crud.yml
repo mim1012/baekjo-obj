@@ -4,13 +4,14 @@ name: golden-crud (관리자 CRUD 실구동)
 # 통과한 채 배포된 사고에서 도출):
 #   1) 상시(always-on) 소스-계약 테스트 — tests/admin, tests/products 등. 순수 함수/타입
 #      검증. 빠르고 항상 돈다. 하지만 "화면을 실제로 클릭"하지는 않는다.
-#   2) 변경-매핑(change-mapped) 실구동 CRUD — 바로 이 워크플로. 배포된 커밋이 notices/
-#      reviews 관련 경로를 건드렸을 때만, 실제 Preview에 로그인해서 등록→공개 반영→수정→
-#      공개 반영→삭제→새로고침까지 진짜로 클릭한다(tests/golden/admin-crud-*.spec.ts).
-#      매번 전체를 돌리면 다른 도메인 PR까지 느려지고 DB 쓰기가 불필요하게 늘어나므로
-#      "변경된 파일이 그 도메인에 속하는가"로 게이트한다.
+#   2) 변경-매핑(change-mapped) 실구동 CRUD — 바로 이 워크플로. 배포된 커밋이 6개 도메인
+#      (공지·전시후기·고민별케어·홈문구·보험FAQ·케어키트/B2B제휴처) 중 관련 경로를 건드렸을
+#      때만, 실제 Preview에 로그인해서 등록→공개 반영(해당 시)→수정→삭제→새로고침까지
+#      진짜로 클릭한다(tests/golden/admin-crud-*.spec.ts). 매번 전체를 돌리면 다른 도메인
+#      PR까지 느려지고 DB 쓰기가 불필요하게 늘어나므로 "변경된 파일이 그 도메인에
+#      속하는가"로 게이트한다.
 #   3) 수동/야간 전체 스윕(dispatch full sweep) — workflow_dispatch(all=true)로 매핑 무시
-#      하고 두 스펙 모두 강제 실행. 배포 직전 확인이나 정기 회귀용.
+#      하고 전체 스펙 강제 실행. 배포 직전 확인이나 정기 회귀용.
 #
 # 🚨 이 워크플로에서만 E2E_ADMIN_CRUD=1 을 주입한다 — 스펙 자체는 이 값이 없으면 항상 skip.
 # 대상은 Vercel Preview(=staging DB, AGENTS.md §8-4)뿐이다. production을 겨냥하지 말 것.
@@ -19,7 +20,7 @@ on:
   workflow_dispatch:
     inputs:
       all:
-        description: '경로 매핑 무시하고 두 스펙 모두 강제 실행'
+        description: '경로 매핑 무시하고 전체 스펙 강제 실행'
         type: boolean
         default: false
       base_url:
@@ -59,8 +60,9 @@ jobs:
         id: changes
         run: |
           if [ "${{ github.event_name == 'workflow_dispatch' && inputs.all }}" = "true" ]; then
-            echo "notices=true" >> "$GITHUB_OUTPUT"
-            echo "reviews=true" >> "$GITHUB_OUTPUT"
+            for d in notices reviews concerns home_settings insurance_content kits_partners; do
+              echo "$d=true" >> "$GITHUB_OUTPUT"
+            done
             echo "전체 스윕(workflow_dispatch all=true) — 매핑 무시"
             exit 0
           fi
@@ -80,16 +82,24 @@ jobs:
           echo "$CHANGED"
 
           # 게이트 자신의 변경도 게이트를 통과해야 한다 — 스펙을 고치면 그 스펙이 돈다.
-          # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 두 도메인 모두 실행해 회귀를 잡는다.
+          # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 전체 도메인을 실행해 회귀를 잡는다.
           # (opus 리뷰 HIGH: 이 매핑에 테스트 레이어 경로가 빠져 있으면 이 PR의 프리뷰 실행이
           # 항상 skip-green으로 떨어져 새 스펙이 CI에서 한 번도 실제로 돌지 않는다.)
           GATE_SELF='^(tests/golden/admin-crud-.*\.spec\.ts|tests/golden/_lib/|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
 
           NOTICES=false
           REVIEWS=false
+          CONCERNS=false
+          HOME_SETTINGS=false
+          INSURANCE_CONTENT=false
+          KITS_PARTNERS=false
           if echo "$CHANGED" | grep -qE "$GATE_SELF"; then
             NOTICES=true
             REVIEWS=true
+            CONCERNS=true
+            HOME_SETTINGS=true
+            INSURANCE_CONTENT=true
+            KITS_PARTNERS=true
           fi
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
@@ -97,11 +107,30 @@ jobs:
           if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
             REVIEWS=true
           fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/concerns/|src/app/admin/concerns/|src/app/concerns/|src/app/api/concerns/|src/app/api/admin/concerns/|src/components/admin/AdminResourcePage\.tsx)'; then
+            CONCERNS=true
+          fi
+          # 홈 문구(사이트 설정)는 AdminResourcePage가 아니라 전용 폼(SiteSettingsProvider)이라
+          # 그 경로만 매핑한다 — homeContent 스키마·HomeClient 렌더(문구 소비부)도 포함.
+          if echo "$CHANGED" | grep -qE '^(src/lib/settings/|src/app/admin/settings/|src/app/api/settings/|src/app/api/admin/settings/|src/data/homeContent\.ts|src/components/providers/SiteSettingsProvider\.tsx|src/components/home/HomeClient\.tsx|src/app/page\.tsx)'; then
+            HOME_SETTINGS=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/insuranceContent/|src/app/admin/insurance-content/|src/app/insurance/|src/app/api/insurance-content/|src/app/api/admin/insurance-content/|src/components/admin/AdminResourcePage\.tsx)'; then
+            INSURANCE_CONTENT=true
+          fi
+          if echo "$CHANGED" | grep -qE '^(src/lib/kits/|src/lib/partners/|src/app/admin/kits/|src/app/admin/partners/|src/app/api/admin/kits/|src/app/api/admin/partners/|src/components/admin/AdminResourcePage\.tsx)'; then
+            KITS_PARTNERS=true
+          fi
 
           echo "notices=$NOTICES" >> "$GITHUB_OUTPUT"
           echo "reviews=$REVIEWS" >> "$GITHUB_OUTPUT"
+          echo "concerns=$CONCERNS" >> "$GITHUB_OUTPUT"
+          echo "home_settings=$HOME_SETTINGS" >> "$GITHUB_OUTPUT"
+          echo "insurance_content=$INSURANCE_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "kits_partners=$KITS_PARTNERS" >> "$GITHUB_OUTPUT"
 
-          if [ "$NOTICES" = "false" ] && [ "$REVIEWS" = "false" ]; then
+          if [ "$NOTICES" = "false" ] && [ "$REVIEWS" = "false" ] && [ "$CONCERNS" = "false" ] && \
+             [ "$HOME_SETTINGS" = "false" ] && [ "$INSURANCE_CONTENT" = "false" ] && [ "$KITS_PARTNERS" = "false" ]; then
             echo "변경 경로에 해당 골든플로우 없음 — skip"
           fi
 
@@ -121,8 +150,46 @@ jobs:
         if: steps.changes.outputs.reviews == 'true'
         run: npx playwright test tests/golden/admin-crud-showcase-reviews.spec.ts --project=golden-crud --reporter=line
         env:
-          # dispatch 이벤트는 deployment_status payload가 없어 environment_url이 빈 문자열이다
-          # (opus 리뷰 MEDIUM) — workflow_dispatch일 때는 사람이 입력한 base_url을 쓴다.
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 고민별 케어
+        if: steps.changes.outputs.concerns == 'true'
+        run: npx playwright test tests/golden/admin-crud-concerns.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 홈 문구(사이트 설정, 스냅샷/복원)
+        if: steps.changes.outputs.home_settings == 'true'
+        run: npx playwright test tests/golden/admin-crud-home-settings.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 보험 FAQ
+        if: steps.changes.outputs.insurance_content == 'true'
+        run: npx playwright test tests/golden/admin-crud-insurance-content.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 케어 키트·B2B 제휴처(영속성)
+        if: steps.changes.outputs.kits_partners == 'true'
+        run: npx playwright test tests/golden/admin-crud-kits-partners.spec.ts --project=golden-crud --reporter=line
+        env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
