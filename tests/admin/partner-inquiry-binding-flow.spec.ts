@@ -28,7 +28,8 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
     expect(formSource).not.toContain('alert(');
     expect(formSource).toContain('aria-live');
     // 개인정보 수집 동의(필수 체크) — docs/legal 고지 형식의 간단 고지 포함.
-    expect(formSource).toContain('개인정보 수집·이용 동의 (필수)');
+    // dad 랜딩 개편(0a20952 이식)으로 동의 문구 표기가 바뀜 — 의미 동일(필수 동의 + 보관기간 고지).
+    expect(formSource).toContain('개인정보 수집 및 이용에 동의합니다. (필수)');
     expect(formSource).toContain('상담 종료 후 1년');
     expectNoMutableProductBrandImport(formSource);
 

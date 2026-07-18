@@ -22,9 +22,14 @@ const MAIN_LINKS = [
   { label: '케어 가이드', href: '/concerns' },
   { label: '브랜드', href: '/brands' },
   { label: '보험 분석', href: '/insurance' },
+  { label: 'B2B', href: '/b2b' },
 ];
 
+const DESKTOP_NAV_TEXT_CLASS =
+  'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]';
+
 const STORY_LINKS = [
+  { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
   { label: '전문가의 기준', description: '건강과 생활을 살피는 기준', href: '/experts' },
   { label: '반려가족 이야기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
   { label: '백조 소식', description: '새로운 서비스와 안내', href: '/notices' },
@@ -96,10 +101,10 @@ export default function Header() {
             <Link
               href="/shop"
               aria-current={isActive('/shop') ? 'page' : undefined}
-              className={`flex h-full items-center gap-1 border-b-2 text-sm font-semibold transition-colors duration-500 ${
+              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
                 isActive('/shop')
-                  ? 'border-[#17211D] text-[#17211D]'
-                  : 'border-transparent text-[#6F766F] hover:text-[#17211D]'
+                  ? 'border-[#A8742E]'
+                  : 'border-transparent'
               }`}
             >
               셀렉션
@@ -120,16 +125,18 @@ export default function Header() {
             </div>
           </div>
 
-          <NavLink {...MAIN_LINKS[2]} active={isActive(MAIN_LINKS[2].href)} />
+          {MAIN_LINKS.slice(2).map((link) => (
+            <NavLink key={link.href} {...link} active={isActive(link.href)} />
+          ))}
 
           <div className="group relative flex h-full items-center">
             <button
               type="button"
               aria-label="백조 이야기 메뉴"
-              className={`flex h-full items-center gap-1 border-b-2 text-sm font-semibold transition-colors duration-500 ${
+              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
                 storyActive
-                  ? 'border-[#17211D] text-[#17211D]'
-                  : 'border-transparent text-[#6F766F] hover:text-[#17211D]'
+                  ? 'border-[#A8742E]'
+                  : 'border-transparent'
               }`}
             >
               백조 이야기
@@ -251,7 +258,9 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            <MobileLink {...MAIN_LINKS[2]} active={isActive(MAIN_LINKS[2].href)} onClick={closeMenu} />
+            {MAIN_LINKS.slice(2).map((link) => (
+              <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
+            ))}
 
             <MobileAccordion
               title="백조 이야기"
@@ -296,22 +305,14 @@ interface NavLinkProps {
 }
 
 function NavLink({ label, href, active }: NavLinkProps) {
-  if (href === '/concerns' && active) {
-    return (
-      <Link href={href} aria-current="page" className="flex h-full items-center text-sm font-semibold text-[#18231F]">
-        <span className="border-b-[2px] border-[#18231F] pb-0.5">{label}</span>
-      </Link>
-    );
-  }
-
   return (
     <Link
       href={href}
       aria-current={active ? 'page' : undefined}
-      className={`flex h-full items-center border-b-2 text-sm font-semibold transition-colors duration-500 ${
+      className={`${DESKTOP_NAV_TEXT_CLASS} ${
         active
-          ? 'border-[#17211D] text-[#17211D]'
-          : 'border-transparent text-[#6F766F] hover:text-[#17211D]'
+          ? 'border-[#A8742E]'
+          : 'border-transparent'
       }`}
     >
       {label}
