@@ -79,8 +79,11 @@ export default function AdminNoticesPage() {
   // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
   // 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
   const persistedItemsRef = useRef<Notice[]>(defaultNoticesConfig.items);
-  // 삭제 진행 중 재진입 방지 — 실패한 첫 삭제가 두 번째 삭제와 경합하지 않게 한다(opus 리뷰 LOW-1).
-  const deletingRef = useRef(false);
+  // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
+  // 저장 중(batch save PUT in flight)에 삭제를 누르면 삭제가 persisted 기준 nextItems 를 저장하고,
+  // 뒤늦게 도착한 저장 PUT 이 방금 지운 항목을 되살릴 수 있었다 — busyRef 로 저장·삭제·삭제-삭제
+  // 세 경우 모두 상호배제한다.
+  const busyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,13 +124,13 @@ export default function AdminNoticesPage() {
   // 미저장 등록·수정 드래프트가 삭제에 딸려 함께 커밋된다(opus 리뷰 MEDIUM-1). 성공 시에만 draft(items)
   // 에서 해당 행을 제거해 다른 미저장 편집은 그대로 남긴다. 저장 실패 시 draft 는 건드리지 않고 알린다.
   const handleDelete = async (id: string | number) => {
-    if (!loaded || loadError || deletingRef.current) return;
+    if (!loaded || loadError || busyRef.current) return;
     const nextItems = persistedItemsRef.current.filter((notice) => notice.id !== id);
     if (nextItems.length === 0) {
       window.alert('공지는 최소 1건 남아 있어야 합니다. 마지막 공지는 삭제할 수 없습니다.');
       return;
     }
-    deletingRef.current = true;
+    busyRef.current = true;
     try {
       const { ok } = await saveNoticesConfig({ items: nextItems });
       if (ok) {
@@ -137,15 +140,20 @@ export default function AdminNoticesPage() {
         window.alert('삭제 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
       }
     } finally {
-      deletingRef.current = false;
+      busyRef.current = false;
     }
   };
 
   const handleSave = async () => {
-    if (!loaded || loadError) return { ok: false };
-    const result = await saveNoticesConfig({ items });
-    if (result.ok) persistedItemsRef.current = items;
-    return result;
+    if (!loaded || loadError || busyRef.current) return { ok: false };
+    busyRef.current = true;
+    try {
+      const result = await saveNoticesConfig({ items });
+      if (result.ok) persistedItemsRef.current = items;
+      return result;
+    } finally {
+      busyRef.current = false;
+    }
   };
 
   return (
