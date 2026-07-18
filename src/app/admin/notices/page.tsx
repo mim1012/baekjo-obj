@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminNoticesConfig, saveNoticesConfig } from '@/lib/storage';
 import { defaultNoticesConfig } from '@/lib/notices/config';
@@ -76,6 +76,14 @@ export default function AdminNoticesPage() {
   const [items, setItems] = useState<Notice[]>(defaultNoticesConfig.items);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
+  // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
+  // 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
+  const persistedItemsRef = useRef<Notice[]>(defaultNoticesConfig.items);
+  // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
+  // 저장 중(batch save PUT in flight)에 삭제를 누르면 삭제가 persisted 기준 nextItems 를 저장하고,
+  // 뒤늦게 도착한 저장 PUT 이 방금 지운 항목을 되살릴 수 있었다 — busyRef 로 저장·삭제·삭제-삭제
+  // 세 경우 모두 상호배제한다.
+  const busyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +92,7 @@ export default function AdminNoticesPage() {
         if (cancelled) return;
         setLoadError(false);
         setItems(config.items);
+        persistedItemsRef.current = config.items;
         setLoaded(true);
       })
       .catch(() => {
@@ -99,27 +108,74 @@ export default function AdminNoticesPage() {
   // 콜백 내부 !loaded 가드만으로는 버튼이 보이는데 눌러도 조용히 무시되는 no-op 이 된다(codex F3).
   const ready = loaded && !loadError;
 
-  const handleCreate = (draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => [...prev, draftToNotice(draft)]);
+  // 등록·수정·삭제 모두 batch save 를 기다리지 않고 즉시 DB 에 저장한다 — "등록/수정/삭제를 했는데
+  // 새로고침하면 되돌아온다" 오인 방지(2026-07-18 저장 유실 리포트 — 2단계 저장 함정 제거).
+  // persistedItemsRef(마지막으로 DB 와 일치한 목록) 기준으로 nextItems 를 만들어 저장한다 — items
+  // (현재 draft)를 기준으로 저장하면 다른 미저장 편집이 이 저장에 딸려 함께 커밋된다(opus 리뷰
+  // MEDIUM-1 의 연장). 성공 시에만 draft(items)·persisted 를 함께 갱신해 계속 서로 일치시킨다.
+  // busyRef 로 등록·수정·삭제 세 액션을 전부 상호배제한다(codex 2차 리뷰 HIGH).
+  const handleCreate = async (draft: Record<string, string | number>) => {
+    if (!loaded || loadError || busyRef.current) return;
+    const newNotice = draftToNotice(draft);
+    const nextItems = [...persistedItemsRef.current, newNotice];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveNoticesConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
   };
 
-  const handleUpdate = (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded) return;
-    setItems((prev) => prev.map((notice) => (notice.id === id ? draftToNotice(draft, notice) : notice)));
+  const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
+    if (!loaded || loadError || busyRef.current) return;
+    const nextItems = persistedItemsRef.current.map((notice) =>
+      notice.id === id ? draftToNotice(draft, notice) : notice,
+    );
+    busyRef.current = true;
+    try {
+      const { ok } = await saveNoticesConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems(nextItems);
+      } else {
+        window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
   };
 
-  const handleDelete = (id: string | number) => {
-    if (!loaded) return;
-    setItems((prev) => prev.filter((notice) => notice.id !== id));
+  const handleDelete = async (id: string | number) => {
+    if (!loaded || loadError || busyRef.current) return;
+    const nextItems = persistedItemsRef.current.filter((notice) => notice.id !== id);
+    if (nextItems.length === 0) {
+      window.alert('공지는 최소 1건 남아 있어야 합니다. 마지막 공지는 삭제할 수 없습니다.');
+      return;
+    }
+    busyRef.current = true;
+    try {
+      const { ok } = await saveNoticesConfig({ items: nextItems });
+      if (ok) {
+        persistedItemsRef.current = nextItems;
+        setItems((prev) => prev.filter((notice) => notice.id !== id));
+      } else {
+        window.alert('삭제 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+      }
+    } finally {
+      busyRef.current = false;
+    }
   };
-
-  const handleSave = () => (!loaded || loadError ? Promise.resolve({ ok: false }) : saveNoticesConfig({ items }));
 
   return (
     <AdminResourcePage
       title="공지사항 관리"
-      description={loadError ? '공지 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공지, 이벤트, 브랜드 소식을 등록하고 관리합니다. 저장 버튼을 눌러야 공개 화면에 반영됩니다.'}
+      description={loadError ? '공지 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공지, 이벤트, 브랜드 소식을 등록하고 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
       actionLabel="공지 등록"
       searchPlaceholder="제목, 본문, 작성자 검색"
       columns={[
@@ -157,7 +213,6 @@ export default function AdminNoticesPage() {
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
-      onSave={handleSave}
     />
   );
 }

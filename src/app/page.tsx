@@ -2,6 +2,7 @@ import { listProducts } from '@/lib/products/repo';
 import { listBrands } from '@/lib/brands/repo';
 import { getSiteSettings } from '@/lib/settings/repo';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
+import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { defaultHomeSettings } from '@/data/homeContent';
 import HomeClient from '@/components/home/HomeClient';
 
@@ -11,7 +12,7 @@ import HomeClient from '@/components/home/HomeClient';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [products, brands, settings, noticesConfig] = await Promise.all([
+  const [products, brands, settings, noticesConfig, reviewsConfig] = await Promise.all([
     listProducts({ visibleOnly: true }),
     listBrands(true),
     // 홈 문구의 정본은 관리자 설정(site_settings)이다. 저장 행이 없거나 조회 실패 시엔
@@ -19,6 +20,8 @@ export default async function Home() {
     getSiteSettings().catch(() => null),
     // 공지도 DB 가 정본(notices_config) — 미저장·실패는 repo 가 default 로 접는다.
     getNoticesConfigWithFallback(),
+    // 전시용 후기도 DB 가 정본(showcase_reviews_config) — 미저장·실패는 repo 가 default 로 접는다.
+    getShowcaseReviewsConfigWithFallback(),
   ]);
-  return <HomeClient products={products} brands={brands} notices={noticesConfig.items} settings={settings ?? defaultHomeSettings} />;
+  return <HomeClient products={products} brands={brands} notices={noticesConfig.items} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />;
 }
