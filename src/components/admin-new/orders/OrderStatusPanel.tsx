@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
 import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
+import { orderUpdateErrorMessage } from './orderUpdateErrorMessage';
 import FormSection from '@/components/admin-new/common/FormSection';
 import FormField from '@/components/admin-new/common/FormField';
 import SaveBar from '@/components/admin-new/common/SaveBar';
@@ -42,7 +43,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
       await updateOrderStatus(order.id, formData);
       onUpdate(); // refresh data
     } catch (error) {
-      alert('주문 상태 변경에 실패했습니다.');
+      alert(orderUpdateErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
