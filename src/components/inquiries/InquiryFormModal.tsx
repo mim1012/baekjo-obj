@@ -20,6 +20,9 @@ interface InquiryFormModalProps {
     title: string;
     content: string;
     isSecret: boolean;
+    /** 수정 대상 문의의 상품 id — 마이페이지 수정 모드는 product를 안 넘기고 이걸로 상품을
+     * 특정한다(상품 select는 수정 중 잠기지만, 저장 버튼 활성화 판단엔 여전히 필요하다). */
+    productId?: string;
   };
   product?: ProductInfo; // 상품 상세에서 띄울 때는 고정
   availableProducts?: ProductInfo[]; // 마이페이지에서 띄울 때 선택 가능 목록
@@ -33,7 +36,7 @@ export default function InquiryFormModal({
   product,
   availableProducts,
 }: InquiryFormModalProps) {
-  const [selectedProductId, setSelectedProductId] = useState<string>(product?.id || '');
+  const [selectedProductId, setSelectedProductId] = useState<string>(product?.id || initialData?.productId || '');
   const [title, setTitle] = useState(initialData?.title || '');
   const [content, setContent] = useState(initialData?.content || '');
   const [isSecret, setIsSecret] = useState(initialData?.isSecret || false);
@@ -44,8 +47,12 @@ export default function InquiryFormModal({
       document.body.style.overflow = 'hidden';
       // 모달이 열릴 때마다 initialData/product prop 으로 폼을 재동기화한다(dad 동작 보존,
       // 부모가 매번 새 인스턴스를 마운트하지 않으므로 effect 로 동기화 — DB 전환 PR에서 재작업 예정).
+      // 수정 모드(마이페이지)는 product를 안 넘긴다 — initialData.productId로 대신 특정한다.
+      // 상품 select는 disabled(아래 129행 부근)라 사용자가 바꿀 수 없지만, 저장 가능 여부를
+      // 가리는 selectedProduct 파생값은 이 값이 있어야 채워진다(안 채우면 저장 버튼이 영구
+      // 비활성 — wave-6 e2e 발견 실버그).
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedProductId(product?.id || '');
+      setSelectedProductId(product?.id || initialData?.productId || '');
       setTitle(initialData?.title || '');
       setContent(initialData?.content || '');
       setIsSecret(initialData?.isSecret || false);
@@ -58,7 +65,7 @@ export default function InquiryFormModal({
     // 부모 리렌더마다 새 객체 리터럴 → effect 재발화로 작성 중 문의가 소리 없이 증발하던 버그
     // (2026-07-18 e2e 실측). deps는 참조가 아니라 원시값으로 — initialData/product 객체 전체가
     // 아니라 그 안의 원시 필드만 의존성에 넣어, 값이 실제로 바뀔 때만 재동기화한다.
-  }, [isOpen, initialData?.title, initialData?.content, initialData?.isSecret, product?.id]);
+  }, [isOpen, initialData?.title, initialData?.content, initialData?.isSecret, initialData?.productId, product?.id]);
 
   if (!isOpen) return null;
 

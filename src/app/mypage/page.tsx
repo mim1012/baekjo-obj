@@ -320,7 +320,12 @@ function MypageContent() {
         onSubmit={submitInquiry}
         initialData={
           inquiryInitialData
-            ? { title: inquiryInitialData.title, content: inquiryInitialData.content, isSecret: inquiryInitialData.isSecret ?? false }
+            ? {
+                title: inquiryInitialData.title,
+                content: inquiryInitialData.content,
+                isSecret: inquiryInitialData.isSecret ?? false,
+                productId: inquiryInitialData.productId,
+              }
             : undefined
         }
         availableProducts={products}
