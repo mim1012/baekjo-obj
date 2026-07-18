@@ -50,4 +50,4 @@ import { isSocialLoginEnabled, loginWithProvider } from '@/lib/socialAuth';
 
 - 소셜 로그인 실패 시 `/login?error=...`로 복귀 + 로그인 페이지가 안내 문구 표시
 - 소셜 버튼 클릭 시 잠금 + "이동 중…" 표시 (중복 시도 방지)
-- OAuth 흐름 전체 (`docs/social-login-setup.md` 참고)
+- OAuth 흐름 전체 (`docs/guides/social-login-setup.md` 참고)
