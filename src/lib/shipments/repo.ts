@@ -184,25 +184,23 @@ export async function updateShipmentUnlessConfirmed(
 
 /**
  * 자동 구매확정(크론) — 배송완료된 지 오래된 송장을 한 방(set-based)에 '구매확정'으로 전이한다.
- * WHERE delivery_status='배송완료' AND delivered_at < cutoff 인 모든 행을 단일 UPDATE로 처리하고
- * 영향 행 수를 반환한다(per-row 루프 없음). confirmShipmentIfDelivered와 같은 조건부 UPDATE 사상이라
- * 고객이 이미 확정한 행은 delivery_status가 '구매확정'이라 WHERE에 걸리지 않아 자연 제외된다
- * (경합 안전 — 크론과 고객 버튼이 같은 행을 동시에 눌러도 조건부 전이라 이중 확정이 안 생긴다).
- * delivered_at IS NOT NULL 을 명시해 (이론상 없어야 하지만) 스탬프 없는 배송완료 행을 방어적으로 뺀다.
+ * ⭐ 결제 게이트(0044): orders 조인으로 payment_status='결제완료'인 주문의 송장만 확정한다.
+ * 미결제(입금대기·결제대기) 주문은 관리자가 배송완료로 바꿔도 자동확정되지 않는다 — 수동 확정 경로의
+ * decideShipmentConfirm('blocked-unpaid')과 대칭인 크론 측 가드(#127 opus 관찰 봉합, 정산 전제).
+ * supabase-js가 UPDATE ... FROM 조인을 표현하지 못해 RPC로 원자화했다(0021·0031과 같은 사상).
+ * 조건부 UPDATE라 고객이 이미 확정한 행(구매확정)은 WHERE에 안 걸려 자연 제외된다(멱등·경합 안전).
  */
 export async function autoConfirmDeliveredBefore(
   cutoffIso: string,
   confirmedAt: string,
 ): Promise<number> {
-  const { data, error } = await getSupabase()
-    .from('shipments')
-    .update({ delivery_status: '구매확정', confirmed_at: confirmedAt })
-    .eq('delivery_status', CONFIRMABLE_DELIVERY_STATUS)
-    .not('delivered_at', 'is', null)
-    .lt('delivered_at', cutoffIso)
-    .select('id');
-  if (error) throw error;
-  return data?.length ?? 0;
+  const { data, error } = await getSupabase().rpc('auto_confirm_paid_delivered_shipments', {
+    p_cutoff: cutoffIso,
+    p_confirmed_at: confirmedAt,
+  });
+  // PostgrestError는 instanceof Error가 아니라 그대로 던지면 메시지가 유실된다 — 진짜 Error로 감싼다.
+  if (error) throw new Error(error.message);
+  return data ?? 0;
 }
 
 /** 고객 구매확정 — WHERE delivery_status='배송완료' 조건부 UPDATE(setOrderPaid와 같은 원자 전이 패턴).
