@@ -21,6 +21,25 @@ export default defineConfig({
     {
       name: 'chromium',
       testDir: './tests/golden',
+      // admin-crud-*.spec.ts는 실제 DB에 쓰는 별도 project(golden-crud)에서만 돈다 — 여기서
+      // 중복 실행하면 E2E_ADMIN_CRUD 게이트 없이도 매 CI 실행마다 두 번 쓰기를 시도하게 된다.
+      testIgnore: ['**/admin-crud-*.spec.ts'],
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      // 관리자 CRUD 실구동(쓰기) 스펙 전용 — DB에 실제로 create/update/delete 한다.
+      // E2E_ADMIN_CRUD=1 이 없으면 스펙 내부 test.skip으로 전부 건너뛴다(.github/workflows/golden-crud.yml).
+      name: 'golden-crud',
+      testDir: './tests/golden',
+      testMatch: ['**/admin-crud-*.spec.ts'],
       use: {
         baseURL,
         navigationTimeout: 30_000,
