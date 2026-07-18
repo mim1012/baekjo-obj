@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product } from '@/types';
@@ -122,6 +122,21 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
       cancelled = true;
     };
   }, [user, orders, product.id, reviews]);
+
+  // 부모 리렌더마다 새 객체 리터럴 → InquiryFormModal 의 effect 재발화로 작성 중 문의가 소리 없이
+  // 증발하던 버그(2026-07-18 e2e 실측). effect 쪽 deps 를 원시값으로 바꾼 것만으로도 막히지만,
+  // 방어적으로 여기서도 참조를 안정화해 자식 리렌더 자체를 줄인다(defense in depth). early return
+  // (isMounted 가드) 보다 위에 둬야 훅 호출 순서가 렌더마다 일정하게 유지된다.
+  const inquiryProduct = useMemo(
+    () => ({
+      id: product.id,
+      name: product.name,
+      image: product.image,
+      brandName: product.brandName,
+      brandId: product.brandId,
+    }),
+    [product.id, product.name, product.image, product.brandName, product.brandId],
+  );
 
   if (!isMounted) return null;
 
@@ -382,13 +397,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         isOpen={inquiryModalOpen}
         onClose={() => setInquiryModalOpen(false)}
         onSubmit={submitInquiry}
-        product={{
-          id: product.id,
-          name: product.name,
-          image: product.image,
-          brandName: product.brandName,
-          brandId: product.brandId,
-        }}
+        product={inquiryProduct}
       />
     </>
   );

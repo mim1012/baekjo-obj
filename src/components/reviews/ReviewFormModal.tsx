@@ -50,7 +50,10 @@ export default function ReviewFormModal({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen, initialData]);
+    // 부모 리렌더마다 새 객체 리터럴 → effect 재발화로 작성 중 구매평이 소리 없이 증발하던 버그
+    // (InquiryFormModal 과 동일 클래스, 2026-07-18 e2e 실측 후 스윕으로 발견). deps는 참조가 아니라
+    // 원시값으로 — initialData 객체 전체가 아니라 그 안의 원시 필드만 의존성에 넣는다.
+  }, [isOpen, initialData?.rating, initialData?.title, initialData?.content]);
 
   if (!isOpen) return null;
 
