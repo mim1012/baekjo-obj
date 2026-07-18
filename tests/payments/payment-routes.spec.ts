@@ -20,19 +20,37 @@ if (supabaseEnvReady()) void sweepStaleFixtures().catch(() => {});
 
 type ApiResponseBody = { order?: { id?: string }; id?: string } & Record<string, unknown>;
 
+// #129가 주문 생성에 IP 키 레이트리밋(5건/60초)을 도입해, 이 파일처럼 한 러너 IP가 한 런에서
+// 주문을 6건+ 만드는 통합 스펙은 자기 트래픽만으로 429를 맞을 수 있다(CI 실측: 오버셀 스펙의
+// 패자가 409(재고 경합) 대신 429를 받아 실패 — PR #123 CI 2회 연속). Vercel 엣지가
+// x-forwarded-for를 덮어써 헤더로 키를 회전시킬 수도 없다. 429는 결함이 아니라 "창이 지나면
+// 다시"이므로 주문 생성에 한해 창 리셋을 기다려 1회 재시도한다. 그 대기만큼 테스트 타임아웃을
+// 늘린다. ⚠️ 429 자체를 단언하려는 스펙은 이 헬퍼를 쓰면 안 된다.
+const ORDER_RATE_LIMIT_RESET_MS = 61_000;
+
 async function callApi(path: string, body?: unknown) {
-  const res = await fetch(BASE + path, {
-    method: body === undefined ? 'GET' : 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-  });
-  let json: ApiResponseBody | null = null;
-  try {
-    json = (await res.json()) as ApiResponseBody;
-  } catch {
-    /* 본문 없음 */
+  const doFetch = async () => {
+    const res = await fetch(BASE + path, {
+      method: body === undefined ? 'GET' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+    let json: ApiResponseBody | null = null;
+    try {
+      json = (await res.json()) as ApiResponseBody;
+    } catch {
+      /* 본문 없음 */
+    }
+    return { status: res.status, json };
+  };
+
+  let out = await doFetch();
+  if (out.status === 429 && path === '/api/orders') {
+    test.info().setTimeout(test.info().timeout + ORDER_RATE_LIMIT_RESET_MS);
+    await new Promise((resolve) => setTimeout(resolve, ORDER_RATE_LIMIT_RESET_MS));
+    out = await doFetch();
   }
-  return { status: res.status, json };
+  return out;
 }
 
 // 2026-07-13: 이 파일은 원래 W1(승인중 상태기계) 도입 이전 스크래치패드를 이식한 것이라, 일부
