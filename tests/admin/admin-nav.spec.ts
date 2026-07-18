@@ -32,25 +32,26 @@ test.describe('메뉴 스냅샷', () => {
     '/admin/inquiries',
     '/admin/reviews',
     '/admin/insurance-content',
-    // etc (6)
+    // etc (7)
     '/admin/concerns',
     '/admin/partners',
     '/admin/kits',
     '/admin/partner-inquiries',
     '/admin/notices',
+    '/admin/order-policy',
     '/admin/settings',
   ];
 
-  test('전체 사이드바 href 목록이 20개이고 순서까지 일치한다', () => {
+  test('전체 사이드바 href 목록이 21개이고 순서까지 일치한다', () => {
     const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
-    expect(all).toHaveLength(20);
+    expect(all).toHaveLength(21);
     expect(all.map((i) => i.href)).toEqual(EXPECTED_HREFS);
   });
 
-  test('그룹별 개수 — main=7, cs=7, etc=6', () => {
+  test('그룹별 개수 — main=7, cs=7, etc=7', () => {
     expect(ADMIN_MAIN_NAV).toHaveLength(7);
     expect(ADMIN_CS_NAV).toHaveLength(7);
-    expect(ADMIN_ETC_NAV).toHaveLength(6);
+    expect(ADMIN_ETC_NAV).toHaveLength(7);
   });
 
   test('사이드바 3배열의 모든 항목에 icon이 존재한다', () => {
