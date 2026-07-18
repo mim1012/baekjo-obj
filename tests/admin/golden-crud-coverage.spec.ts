@@ -76,9 +76,10 @@ const EXCLUDED: Record<string, string> = {
     'B2B 제휴 문의 접수 — product inquiries(qna-inquiries 스펙 대상)와 다른 도메인, ' +
     '이번 웨이브 범위 밖(wave4 후보).',
   qna:
-    '공개 소비부가 없다 — getMergedInquiries(src/lib/adapters.ts)는 정적 시드(src/data/qna.ts)를 ' +
-    '읽고, 이 DB config(qna_config, /admin/qna 화면이 편집)는 어떤 공개 화면도 구독하지 않는다 ' +
-    '(2026-07-18 wave3 조사로 확인). 마이그레이션 결정 전까지 실구동 검증 대상 아님.',
+    '전시 문의 config — 공개 배선 연결됨(be/qna-public-wire, 2026-07-18): getMergedInquiries' +
+    '(src/lib/adapters.ts)가 이제 정적 시드(src/data/qna.ts) 대신 storage 콘센트(getQnaConfig, ' +
+    'qna_config DB)를 읽어 /admin/qna 편집이 상품상세 Q&A 탭에 실제로 반영된다. 배선은 됐지만 ' +
+    '실구동 스펙은 아직 없다 — wave4 후속.',
   reviews:
     '고아 엔드포인트로 보인다 — PATCH /api/admin/reviews/[id](구매평 노출 토글, setReviewStatus)를 ' +
     '호출하는 관리자 UI를 찾지 못했다(showcase-reviews와는 다른 도메인). 별도 확인 필요.',
