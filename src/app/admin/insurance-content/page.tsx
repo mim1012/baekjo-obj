@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminInsuranceContentConfig, saveInsuranceContentConfig } from '@/lib/storage';
-import { defaultInsuranceContentConfig, type ConsentDoc, type InsuranceFaq } from '@/lib/insuranceContent/config';
+import type { ConsentDoc, InsuranceFaq } from '@/lib/insuranceContent/config';
 
 const booleanOptions = [
   { value: 'true', label: '예' },
@@ -63,13 +63,15 @@ function summarize(text: string, max = 60): string {
 const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;
 
 export default function AdminInsuranceContentPage() {
-  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
-  // 불러온다. 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
+  // draft = 현재 편집 중인 동의 문서·FAQ 목록. 마운트 후 관리자 콘센트로 실제 config 를 불러온다.
+  // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
+  // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0).
+  // 관리자 getter(getAdminInsuranceContentConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
   // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(codex 리뷰 F5). loadError 면
   // 저장을 막는다(partners 패턴 미러링). 로드 완료 전(loaded=false)에도 저장·편집을 막는다 —
   // 로드 완료 전 저장이 default 로 DB 를 덮어쓰는 레이스 방지(codex 리뷰 F-HIGH, concerns 미러).
-  const [consents, setConsents] = useState<ConsentDoc[]>(defaultInsuranceContentConfig.consents);
-  const [faqs, setFaqs] = useState<InsuranceFaq[]>(defaultInsuranceContentConfig.faqs);
+  const [consents, setConsents] = useState<ConsentDoc[]>([]);
+  const [faqs, setFaqs] = useState<InsuranceFaq[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // persisted = 마지막으로 DB 와 일치한 동의 문서·FAQ. 두 섹션이 하나의 싱글턴 config 를 공유하므로

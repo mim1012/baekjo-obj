@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getAdminNoticesConfig, saveNoticesConfig } from '@/lib/storage';
-import { defaultNoticesConfig } from '@/lib/notices/config';
 import { formatDate } from '@/lib/format';
 import type { Notice } from '@/types';
 
@@ -68,12 +67,14 @@ function draftToNotice(draft: Record<string, string | number>, previous?: Notice
 }
 
 export default function AdminNoticesPage() {
-  // draft = 현재 편집 중인 공지 목록. 초기값은 기본 config, 마운트 후 관리자 콘센트로 실제 config 를
-  // 불러온다. 관리자 getter(getAdminNoticesConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
+  // draft = 현재 편집 중인 공지 목록. 마운트 후 관리자 콘센트로 실제 config 를 불러온다.
+  // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
+  // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0).
+  // 관리자 getter(getAdminNoticesConfig)는 실패·깨진 응답에 throw 한다 — 공개 폴백 콘센트를
   // 쓰면 장애 시 default 콘텐츠가 뜬 채 저장돼 커스텀 콘텐츠를 덮어쓸 위험이 있다(concerns 미러).
   // 로드 완료 전(loaded=false)·loadError 면 저장을 막는다 — 로드 완료 전 저장이 default 로 DB 를
   // 덮어쓰는 레이스 방지(codex 리뷰 F-HIGH).
-  const [items, setItems] = useState<Notice[]>(defaultNoticesConfig.items);
+  const [items, setItems] = useState<Notice[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
