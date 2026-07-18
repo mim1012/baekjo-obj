@@ -35,3 +35,8 @@ begin
   return v_count;
 end;
 $$;
+
+-- security definer 함수는 기본으로 PUBLIC에 execute가 열려 PostgREST /rpc로 anon 호출이 가능해진다 —
+-- 크론(service-role) 전용으로 잠근다(0021·0031과 동일한 잠금 쌍).
+revoke execute on function public.auto_confirm_paid_delivered_shipments(timestamptz, timestamptz) from public, anon;
+grant execute on function public.auto_confirm_paid_delivered_shipments(timestamptz, timestamptz) to service_role;
