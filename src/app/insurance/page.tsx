@@ -238,25 +238,25 @@ export default function InsurancePage() {
       {/* 1. 히어로 영역 */}
       <section className="pt-10">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
-          <div className="relative flex flex-col overflow-hidden rounded-[22px] bg-[#1A221E] px-8 py-12 md:h-[410px] md:flex-row md:items-center md:px-12 lg:px-14">
+          <div className="bg-noise relative flex flex-col overflow-hidden rounded-[22px] border border-[#E2DACD] bg-[#F1EDE5] px-8 py-12 shadow-[0_20px_50px_-35px_rgba(23,33,29,0.18)] md:h-[410px] md:flex-row md:items-center md:px-12 lg:px-14">
             {/* 좌측 콘텐츠 (55%) */}
             <div className="relative z-10 md:w-[55%]">
-              <p className="text-sm font-semibold text-[#F4F2EC]">보험 분석 서비스</p>
-              <h1 className="mt-4 text-[34px] font-bold leading-[1.2] tracking-[-0.035em] text-[#FBFAF7] sm:text-[42px] md:text-[48px]">
+              <p className="text-sm font-semibold text-[#A8742E]">보험 분석 서비스</p>
+              <h1 className="mt-4 text-[34px] font-bold leading-[1.2] tracking-[-0.035em] text-[#17211D] sm:text-[42px] md:text-[48px]">
                 우리 아이에게<br />
                 필요한 보장,<br />
                 함께 차근차근 살펴봐요.
               </h1>
-              <p className="mt-5 text-sm leading-[1.65] text-[#FBFAF7]/80 sm:text-[15px]">
+              <p className="mt-5 text-sm leading-[1.7] text-[#5F6761] sm:text-[15px]">
                 나이와 건강, 견종, 지금 가입 보험을 함께 살펴<br className="hidden sm:block" />
                 놓치기 쉬운 조건을 이해하기 쉽게 정리해 드려요.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full bg-[#FBFAF7] px-8 text-[15px] font-bold text-[#1A221E] transition-colors hover:bg-white">
+                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full bg-[#17211D] px-8 text-[15px] font-bold text-[#FBFAF7] transition-all duration-500 ease-out hover:bg-[#202521] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1EDE5]">
                   보험 분석 신청하기
                   <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                 </a>
-                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full border border-white/20 bg-transparent px-8 text-[15px] font-bold text-[#FBFAF7] transition-colors hover:bg-white/10">
+                <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full border border-[#D8C4A3] bg-[#FFFEFB] px-8 text-[15px] font-bold text-[#17211D] transition-all duration-500 ease-out hover:bg-[#F8F4EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1EDE5]">
                   분석이란 무엇인가요?
                 </a>
               </div>
@@ -264,23 +264,23 @@ export default function InsurancePage() {
 
             {/* 우측 패널 (45%) */}
             <div className="relative z-10 mt-10 md:mt-0 md:w-[45%] md:pl-8">
-              <div className="rounded-[20px] border border-white/10 bg-white/5 p-8 backdrop-blur-md">
-                <p className="text-[13px] font-semibold text-[#F4F2EC]/80">분석에서 확인하는 항목</p>
+              <div className="rounded-[20px] border border-[#E2DACD] bg-[#FFFEFB]/95 p-8 shadow-[0_18px_45px_-30px_rgba(23,33,29,0.25)] backdrop-blur-md">
+                <p className="text-[13px] font-semibold text-[#6F766F]">분석에서 확인하는 항목</p>
                 <ul className="mt-6 space-y-4">
                   {firstChecks.map((item, index) => (
-                    <li key={item} className="flex items-center border-b border-white/10 pb-4 last:border-0 last:pb-0">
-                      <span className="mr-4 flex size-8 items-center justify-center rounded-md bg-white/10 text-xs font-bold text-[#F4F2EC]">
+                    <li key={item} className="flex items-center border-b border-[#E7E0D5] pb-4 last:border-0 last:pb-0">
+                      <span className="mr-4 flex size-8 items-center justify-center rounded-md bg-[#F3EEE6] text-xs font-bold text-[#A8742E]">
                         0{index + 1}
                       </span>
-                      <span className="text-[15px] font-medium text-white">{item}</span>
+                      <span className="text-[15px] font-medium text-[#17211D]">{item}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             </div>
             {/* Background Decoration */}
-            <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-10 blur-3xl pointer-events-none">
-              <ShieldCheck className="size-96 text-white" />
+            <div className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 opacity-20 blur-3xl">
+              <ShieldCheck className="size-96 text-[#D8C4A3]" />
             </div>
           </div>
         </div>
@@ -289,9 +289,9 @@ export default function InsurancePage() {
       {/* 2. 보험 분석 원칙 3개 통합 패널 */}
       <section className="mt-8">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
-          <div className="flex flex-col overflow-hidden rounded-[22px] border border-[#EBE8E1] bg-white md:flex-row md:h-[140px]">
+          <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 pb-4 md:pb-0 md:rounded-[22px] md:border md:border-[#EBE8E1] md:bg-white md:h-[140px] md:overflow-hidden">
             {reviewPrinciples.map(({ icon: Icon, title, text }, idx) => (
-              <article key={title} className={`flex flex-1 flex-col justify-center p-6 lg:p-8 ${idx !== 0 ? 'border-t border-[#EBE8E1] md:border-l md:border-t-0' : ''}`}>
+              <article key={title} className={`flex flex-col justify-center p-6 lg:p-8 w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-center rounded-[22px] border border-[#EBE8E1] bg-white md:rounded-none md:border-0 md:flex-1 ${idx !== 0 ? 'md:border-l md:border-[#EBE8E1]' : ''}`}>
                 <div className="flex items-start gap-4">
                   <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E]">
                     <Icon className="size-6" strokeWidth={1.5} />
@@ -387,7 +387,7 @@ export default function InsurancePage() {
                 ) : (
                   <div className="flex h-[200px] flex-col items-center justify-center rounded-[16px] border border-[#EBE8E1] bg-[#FAF9F5] p-6">
                     <FileText className="size-10 text-[#A8742E] mb-4" strokeWidth={1.5} />
-                    <p className="text-[15px] font-bold text-[#1A1D1B] truncate max-w-xs">{file.name}</p>
+                    <p className="max-w-xs break-all text-[15px] font-bold leading-[1.5] text-[#1A1D1B]">{file.name}</p>
                     <p className="mt-1 text-[13px] text-[#5F6761]">{(file.size / (1024 * 1024)).toFixed(1)}MB</p>
                     <button type="button" onClick={clearFile} className="mt-5 flex items-center gap-1 text-[13px] font-semibold text-[#1A221E] hover:underline">
                       <X className="size-3" /> 삭제 후 다시 선택
@@ -495,9 +495,9 @@ export default function InsurancePage() {
             <p className="mt-2 text-[15px] text-[#5F6761]">신청부터 결과 확인까지, 차근차근 안내해 드립니다.</p>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 pb-4">
             {reviewSteps.map((step, index) => (
-              <div key={step.title} className="flex-1 rounded-[20px] bg-white p-8 border border-[#EBE8E1] flex flex-col items-center text-center relative group">
+              <div key={step.title} className="flex-1 w-[70vw] sm:w-[280px] md:w-auto shrink-0 snap-center rounded-[20px] bg-white p-8 border border-[#EBE8E1] flex flex-col items-center text-center relative group">
                 <span className="flex size-14 items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] font-editorial text-xl italic mb-6">
                   0{index + 1}
                 </span>
@@ -542,31 +542,36 @@ export default function InsurancePage() {
           {/* FAQ (70%) */}
           <div className="lg:w-[70%] rounded-[24px] bg-white border border-[#EBE8E1] p-8 md:p-10">
             <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">자주 묻는 질문</h2>
-            <div className="grid md:grid-cols-3 gap-4">
-              {content.faqs.map((faq) => (
-                <div
-                  key={faq.id}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={openFaqId === faq.id}
-                  onClick={() => setOpenFaqId((current) => (current === faq.id ? null : faq.id))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setOpenFaqId((current) => (current === faq.id ? null : faq.id));
-                    }
-                  }}
-                  className="rounded-xl bg-[#FAF9F5] p-5 cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1]"
-                >
-                   <div className="flex items-center justify-between">
-                     <p className="text-[14px] font-bold text-[#1A1D1B]">{faq.q}</p>
-                     <ChevronDown className={`size-4 text-[#5F6761] shrink-0 transition-transform ${openFaqId === faq.id ? 'rotate-180' : ''}`} />
-                   </div>
-                   {openFaqId === faq.id && (
-                     <p className="mt-3 text-[13px] leading-[1.65] text-[#5F6761]">{faq.a}</p>
-                   )}
-                </div>
-              ))}
+            <div className="flex flex-col gap-4">
+              {content.faqs.map((faq) => {
+                const isOpen = openFaqId === faq.id;
+                return (
+                  <div
+                    key={faq.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenFaqId((current) => (current === faq.id ? null : faq.id))}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        setOpenFaqId((current) => (current === faq.id ? null : faq.id));
+                      }
+                    }}
+                    className="rounded-xl bg-[#FAF9F5] cursor-pointer hover:bg-[#F4F2EC] transition-colors border border-transparent hover:border-[#EBE8E1] overflow-hidden"
+                  >
+                     <div className="flex items-center justify-between p-5">
+                       <p className="text-[14px] font-bold text-[#1A1D1B]">{faq.q}</p>
+                       <ChevronDown className={`size-4 text-[#5F6761] shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                     </div>
+                     {isOpen && (
+                       <div className="px-5 pb-5 pt-0">
+                         <p className="text-[14px] text-[#5F6761] leading-[1.65]">{faq.a}</p>
+                       </div>
+                     )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           

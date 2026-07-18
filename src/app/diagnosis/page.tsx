@@ -86,11 +86,11 @@ export default function DiagnosisPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#F4F2EC] flex flex-col items-center justify-center py-20 px-5 overflow-hidden">
+    <div className="min-h-dvh bg-[#F4F2EC] flex flex-col items-center justify-center py-4 md:py-20 px-4 md:px-5 overflow-hidden">
       <div className="max-w-xl w-full">
         {/* Progress bar */}
-        <div className="mb-10">
-          <div className="flex justify-between text-xs font-semibold text-[#8A918B] mb-3">
+        <div className="mb-4 md:mb-10">
+          <div className="flex justify-between text-[11px] md:text-xs font-semibold text-[#8A918B] mb-1.5 md:mb-3">
             <span>진행률</span>
             <span>{currentStep + 1} / {questions.length}</span>
           </div>
@@ -102,7 +102,7 @@ export default function DiagnosisPage() {
           </div>
         </div>
 
-        <div className="bg-white p-8 md:p-12 border border-[#D8D6CE] shadow-sm relative min-h-[400px] flex flex-col justify-between">
+        <div className="bg-white p-5 md:p-12 border border-[#D8D6CE] shadow-sm relative min-h-[280px] md:min-h-[400px] flex flex-col justify-between rounded-sm">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={currentStep}
@@ -117,11 +117,11 @@ export default function DiagnosisPage() {
               }}
               className="w-full flex-1"
             >
-              <h1 className="text-2xl md:text-3xl font-bold text-[#202521] mb-8 text-center text-balance leading-tight">
+              <h1 className="text-[18px] md:text-3xl font-bold text-[#202521] mb-5 md:mb-8 text-center text-balance leading-tight">
                 {question.title}
               </h1>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-4">
                 {question.options.map((option) => {
                   const isSelected = question.type === 'single' 
                     ? answers[question.id] === option.value
@@ -131,13 +131,13 @@ export default function DiagnosisPage() {
                     <button
                       key={option.id}
                       onClick={() => handleSelect(option.value)}
-                      className={`border p-6 md:p-8 text-center rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 ${
+                      className={`border p-3 md:p-8 text-center rounded-lg md:rounded-2xl transition-all duration-300 shadow-sm hover:shadow-md md:hover:-translate-y-1 min-h-[48px] md:min-h-[56px] flex items-center justify-center ${
                         isSelected
                           ? 'border-[#2F3B34] bg-[#2F3B34] text-white'
                           : 'border-[#D8D6CE] bg-[#FAF9F5] hover:border-[#8A918B] text-[#4F5751]'
                       }`}
                     >
-                      <span className="font-bold text-lg">{option.label}</span>
+                      <span className="font-bold text-[14px] md:text-lg text-balance leading-snug">{option.label}</span>
                     </button>
                   );
                 })}
@@ -145,18 +145,18 @@ export default function DiagnosisPage() {
             </motion.div>
           </AnimatePresence>
 
-          <div className="mt-10 pt-6 border-t border-[#D8D6CE] flex justify-between">
+          <div className="mt-6 md:mt-10 pt-4 md:pt-6 border-t border-[#D8D6CE] flex justify-between gap-2.5 md:gap-3">
             <button
               onClick={handlePrev}
               disabled={currentStep === 0}
-              className="px-6 py-3 text-sm font-semibold text-[#667368] disabled:opacity-30"
+              className="px-3 md:px-6 py-2.5 md:py-3 h-[44px] md:h-[52px] text-[13px] md:text-sm font-semibold text-[#667368] disabled:opacity-30 min-w-[70px] md:min-w-[80px]"
             >
               이전
             </button>
             <button
               onClick={handleNext}
               disabled={isNextDisabled}
-              className="bg-[#2F3B34] px-8 py-3 text-sm font-semibold text-white transition hover:bg-[#3D4A42] disabled:opacity-40 rounded-sm"
+              className="bg-[#2F3B34] flex-1 md:flex-none px-4 md:px-8 py-2.5 md:py-3 h-[44px] md:h-[52px] text-[14px] md:text-sm font-semibold text-white transition hover:bg-[#3D4A42] disabled:opacity-40 rounded-sm"
             >
               {currentStep === questions.length - 1 ? '결과 확인하기' : '다음'}
             </button>
