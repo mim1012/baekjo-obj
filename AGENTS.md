@@ -238,15 +238,16 @@ admin bypass(`current_user_can_bypass: always`)로 우회하는 습관만 남는
 > 드리프트를 화면 레이어에서 **시드 레이어로 이사시킬 뿐** 없애지 못한다 — 거긴 lint도 테스트도 CI도 없다.
 >
 > **알려진 예외 (2026-07-18 기준 — 늘리지 말 것):**
-> - `qna.ts` — `src/lib/adapters.ts`가 seed와 DB를 **의도적으로 병합**한다
->   (`source: 'seed' | 'user'` 태깅). 설계된 동작이라 예외. 단 seed 문의는 admin 편집 경로가 없어
->   수정이 저장되지 않는다 — 별도 결정 필요.
-> - `homeContent.ts`·`survey.ts` — config **기본값 전용**(저장값이 없을 때만 쓰는 fallback).
->   운영 데이터의 정본이 아니라서 예외.
+> - `homeContent.ts`·`survey.ts`·`qna.ts` — config **기본값 전용**(저장값이 없을 때만 쓰는
+>   fallback, `src/lib/*/config.ts` 만 import). 운영 데이터의 정본이 아니라서 예외.
 > - `company.ts` — 법정정보/정적 config. 관리자 운영 대상 아님.
 >
 > reviews 는 2026-07-18 `showcase_reviews_config` 싱글턴으로 DB 이관 완료(관리자 `/admin/reviews`
-> 에서 편집, 정적 파일 삭제) — 위 예외 목록에서 빠졌다.
+> 에서 편집, 정적 파일 삭제) — 위 예외 목록에서 빠졌다. qna 도 같은 날 `getMergedInquiries`
+> (`src/lib/adapters.ts`)가 정적 `seedQna` 대신 `qna_config`(DB, 관리자 `/admin/qna` 편집)를
+> 읽도록 배선을 고쳐, `qna.ts` 의 예외 사유가 "adapters 의 의도적 seed/DB 병합"에서
+> "config 기본값 전용"으로 좁혀졌다(커버리지 감사 발견 — 그 전까지 관리자 편집이 화면에
+> 반영되지 않았다).
 >
 > **새 도메인을 이 예외 목록에 추가하려면 admin 편집 경로를 먼저 만들 것.** 예외가 늘어나는 건
 > "관리자에 그 필드가 없다"는 신호지, Mock를 살려둘 근거가 아니다.
