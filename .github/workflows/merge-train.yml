@@ -1,0 +1,49 @@
+name: merge-train (자동 update-branch)
+
+# main에 push될 때마다, auto-merge가 걸린 열린 PR 중 BEHIND 상태(다른 PR이 먼저 머지돼
+# base보다 뒤처짐)인 PR을 자동으로 update-branch 한다. strict 브랜치 보호(§8-1) 아래에서는
+# 순차로 여러 PR이 머지될 때마다 나머지 auto-merge PR이 전부 BEHIND로 밀리는데,
+# 그동안은 사람이 매번 `gh pr update-branch`를 눌러야 했다(2026-07-18 실측: 머지 트레인을
+# 사람이 6번 밀었다). 이 워크플로가 그 트레드밀을 대신한다.
+#
+# ⚠️ 알려진 한계: 기본 GITHUB_TOKEN으로 만든 update-branch 커밋은 github-actions[bot] 저작이라
+# required status check(verify)를 재트리거하지 않는 것으로 알려져 있다(레포 관례상 봇 커밋은
+# CI 미기동 — pr-ci-pipeline-traps 메모리 참고). 즉 이 잡은 브랜치 최신화만 해주고, 그 PR이
+# 다시 초록불로 머지 가능해지려면 사람/에이전트가 한 번 더 재트리거해야 할 수 있다.
+# 레포에 PAT 시크릿이 없어(gh secret list 확인, 2026-07-19) 이 한계는 우회하지 않고 문서화만 한다.
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: merge-train
+  cancel-in-progress: false
+
+jobs:
+  update-behind-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: BEHIND 상태의 auto-merge PR을 update-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          prs=$(gh api "repos/$REPO/pulls?state=open&per_page=100" \
+            --jq '.[] | select(.auto_merge != null) | .number')
+
+          if [ -z "$prs" ]; then
+            echo "auto-merge 걸린 열린 PR 없음"
+            exit 0
+          fi
+
+          for pr in $prs; do
+            state=$(gh api "repos/$REPO/pulls/$pr" --jq '.mergeable_state')
+            echo "PR #$pr mergeable_state=$state"
+            if [ "$state" = "behind" ]; then
+              echo "PR #$pr → update-branch 시도"
+              gh api -X PUT "repos/$REPO/pulls/$pr/update-branch" \
+                || echo "PR #$pr update-branch 실패(충돌 등으로 추정) — 건너뜀"
+            fi
+          done
