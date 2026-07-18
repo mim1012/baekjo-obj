@@ -1,15 +1,16 @@
 import { ReviewViewItem, InquiryViewItem } from '@/types';
-import { reviews as seedReviews } from '@/data/reviews';
 import { qnaList as seedQna } from '@/data/qna';
-import { getProductReviewsByProduct, getProductInquiriesByProduct } from './storage';
+import { getProductReviewsByProduct, getProductInquiriesByProduct, getShowcaseReviews } from './storage';
 
 /**
- * 특정 상품의 통합 구매평 (시드 + 사용자 작성) 반환
+ * 특정 상품의 통합 구매평 (전시용 후기 + 사용자 작성) 반환
  */
 export async function getMergedReviews(productId: string): Promise<ReviewViewItem[]> {
-  // 1. 시드 데이터
-  const seed = seedReviews
-    .filter((r) => r.productId === productId)
+  // 1. 전시용 후기(showcase_reviews_config — DB 정본, 관리자 /admin/reviews 가 편집).
+  // ReviewViewItem.source 는 'seed' | 'user' 유니온을 그대로 쓴다 — 'seed' 는 이제 정적 파일이
+  // 아니라 DB config 기반 전시용 후기를 뜻한다(구매 기반 사용자 후기와 구분하는 태그로 재해석).
+  const showcase = (await getShowcaseReviews())
+    .filter((r) => r.productId === productId && r.isVisible !== false)
     .map((r): ReviewViewItem => ({
       id: r.id,
       source: 'seed',
@@ -42,7 +43,7 @@ export async function getMergedReviews(productId: string): Promise<ReviewViewIte
       editable: true,
     }));
 
-  return [...userReviews, ...seed].sort(
+  return [...userReviews, ...showcase].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }

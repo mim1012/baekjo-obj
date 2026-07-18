@@ -6,6 +6,7 @@ import {
   Order,
   PartnerInquiry,
   Product,
+  Review,
   Shipment,
   User,
 } from '@/types';
@@ -16,6 +17,7 @@ import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
+import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 
 function cloneFallback<T>(fallback: T): T {
@@ -1101,21 +1103,68 @@ export async function saveNoticesConfig(config: NoticesConfig): Promise<{ ok: bo
   }
 }
 
-/* ── 주문 정책(무통장입금 예약 TTL) ─────────────────────────────
+/* ── 전시용 후기(showcase reviews) ─────────────────────────────
+ * 공개 클라이언트 어댑터(adapters.ts)가 GET /api/showcase-reviews 로 읽고,
+ * 관리자 화면(/admin/reviews)은 GET/PUT /api/admin/showcase-reviews 로 통째로 읽고 저장한다.
+ * 공개 조회는 실패·빈응답을 defaultShowcaseReviewsConfig 로 접어 화면이 절대 빈 목록으로 깨지지
+ * 않게 한다. 서버 컴포넌트는 이 콘센트가 아니라 lib/reviews/repo 를 직접 읽는다(notices 미러).
+ */
+
+/** 공개 전시 후기 목록. GET /api/showcase-reviews. 실패·미저장 시 defaultShowcaseReviewsConfig.items 로 폴백. */
+export async function getShowcaseReviews(): Promise<Review[]> {
+  try {
+    const response = await fetch('/api/showcase-reviews');
+    if (!response.ok) return defaultShowcaseReviewsConfig.items;
+    const { items } = (await response.json()) as ShowcaseReviewsConfig;
+    if (!Array.isArray(items)) return defaultShowcaseReviewsConfig.items;
+    return items;
+  } catch {
+    return defaultShowcaseReviewsConfig.items;
+  }
+}
+
+/** 관리자 전시 후기 config. GET /api/admin/showcase-reviews. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (공개 콘센트는 default 폴백이라 장애 시 커스텀 콘텐츠를 default 로 덮어쓸 위험 — notices 미러). */
+export async function getAdminShowcaseReviewsConfig(): Promise<ShowcaseReviewsConfig> {
+  const response = await fetch('/api/admin/showcase-reviews');
+  if (!response.ok) throw new Error('showcase-reviews-config-load-failed');
+  const { items } = (await response.json()) as ShowcaseReviewsConfig;
+  // notices 와 달리 빈 배열(items.length === 0)은 정당한 상태라 여기서 거부하지 않는다.
+  if (!Array.isArray(items)) throw new Error('showcase-reviews-config-invalid-response');
+  return { items };
+}
+
+/** 전시 후기 config 저장(관리자). PUT /api/admin/showcase-reviews. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveShowcaseReviewsConfig(config: ShowcaseReviewsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/showcase-reviews', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 주문 정책(무통장입금 자동취소 on/off + 예약 TTL) ─────────────────────────────
  * 관리자 화면(/admin/order-policy)만 쓰는 관리자 전용 config — 공개 화면은 이 값을 읽지 않고,
  * 주문 생성 서버(POST /api/orders)가 repo(resolveBankTransferTtlMs)로 직접 읽는다.
  */
 
 /** 관리자 주문 정책 config. GET /api/admin/order-policy. 실패·깨진 응답은 throw 해서 저장을 막는다
- * (장애 시 기본 72h 가 실값처럼 로드돼 커스텀 설정을 덮어쓸 위험 — insurance-content 미러). */
+ * (장애 시 기본값이 실값처럼 로드돼 커스텀 설정을 덮어쓸 위험 — insurance-content 미러).
+ * enabled 는 `=== true` 일 때만 true(누락·비불리언 = false, 기본 비활성 — config normalize 와 동일 규칙). */
 export async function getAdminOrderPolicyConfig(): Promise<OrderPolicyConfig> {
   const response = await fetch('/api/admin/order-policy');
   if (!response.ok) throw new Error('order-policy-config-load-failed');
-  const { bankTransferTtlHours } = (await response.json()) as OrderPolicyConfig;
+  const { bankTransferAutoCancelEnabled, bankTransferTtlHours } =
+    (await response.json()) as OrderPolicyConfig;
   if (typeof bankTransferTtlHours !== 'number' || !Number.isFinite(bankTransferTtlHours)) {
     throw new Error('order-policy-config-invalid-response');
   }
-  return { bankTransferTtlHours };
+  return { bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true, bankTransferTtlHours };
 }
 
 /** 주문 정책 config 저장(관리자). PUT /api/admin/order-policy. 성공/실패를 boolean 으로 돌려 화면이 알린다. */

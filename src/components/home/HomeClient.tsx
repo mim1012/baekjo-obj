@@ -7,14 +7,13 @@ import {
   ArrowRight, ShieldCheck, Activity, Leaf, Monitor, Heart,
   Droplet, Sparkles, Bone, Scale, Grid, Dog, Cat, Utensils, Bath, HeartPulse, Stethoscope, Store, ChevronDown
 } from 'lucide-react';
-import { reviews } from '@/data/reviews';
 import { defaultHomeSettings, type HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
-import type { Brand, Notice, Product } from '@/types';
+import type { Brand, Notice, Product, Review } from '@/types';
 
 // 줄바꿈은 마크업이 아니라 구조(string[])로 다룬다(§ homeContent). 각 줄 사이에만 <br /> 를
 // 넣어 하드코딩 시절 DOM 과 동일하게 렌더한다. brClassName 은 반응형 줄바꿈(예: 'hidden sm:block').
@@ -53,11 +52,13 @@ export default function HomeClient({
   products,
   brands,
   notices,
+  reviews,
   settings = defaultHomeSettings,
 }: {
   products: Product[];
   brands: Brand[];
   notices: Notice[];
+  reviews: Review[];
   settings?: HomeSettings;
 }) {
   const [openAuditIndex, setOpenAuditIndex] = useState(0);

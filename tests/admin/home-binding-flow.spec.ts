@@ -25,8 +25,11 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     // 공지도 DB 정본(notices_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
     expect(pageSource).toContain("import { getNoticesConfigWithFallback } from '@/lib/notices/repo'");
     expect(pageSource).toContain('getNoticesConfigWithFallback()');
+    // 전시 후기도 DB 정본(showcase_reviews_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
+    expect(pageSource).toContain("import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo'");
+    expect(pageSource).toContain('getShowcaseReviewsConfigWithFallback()');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={noticesConfig.items} settings={settings ?? defaultHomeSettings} />');
+    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={noticesConfig.items} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />');
     expectNoMutableDataBypass(pageSource);
   });
 
@@ -45,7 +48,9 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     // notices 는 DB 정본으로 이관 — 정적 import 금지, 서버 wrapper 가 props 로 주입한다.
     expect(clientSource).not.toMatch(/from ['"]@\/data\/notices['"]/);
     expect(clientSource).toContain('notices.slice(0, 4)');
-    expect(clientSource).toContain("import { reviews } from '@/data/reviews'");
+    // 전시 후기도 DB 정본으로 이관 — 정적 import 금지, 서버 wrapper 가 props 로 주입한다.
+    expect(clientSource).not.toMatch(/from ['"]@\/data\/reviews['"]/);
+    expect(clientSource).toContain('reviews: Review[];');
     expectNoMutableDataBypass(clientSource);
   });
 

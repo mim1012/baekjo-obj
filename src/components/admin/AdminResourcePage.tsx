@@ -275,7 +275,7 @@ export default function AdminResourcePage({
                 {createOpen && (
                   <div className="absolute right-0 z-20 mt-2 w-[min(92vw,620px)] border border-[#D1D0C8] bg-white p-6 shadow-lg">
                     <h2 className="text-xl font-semibold text-[#202521]">{actionLabel}</h2>
-                    <p className="mt-2 text-xs text-[#7B827C]">입력 후 상단의 {saveLabel} 버튼을 눌러 DB에 반영하세요.</p>
+                    <p className="mt-2 text-xs text-[#7B827C]">{onSave == null ? '저장하면 바로 반영됩니다.' : `입력 후 상단의 ${saveLabel} 버튼을 눌러 DB에 반영하세요.`}</p>
                     <div className="mt-5 grid gap-4 sm:grid-cols-2">
                       {editableFields.map((field) => (
                         <label key={field.key} className="text-xs font-medium text-[#59615B]">
@@ -284,7 +284,7 @@ export default function AdminResourcePage({
                         </label>
                       ))}
                     </div>
-                    <button type="button" onClick={handleCreate} className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">목록에 추가</button>
+                    <button type="button" onClick={handleCreate} className="mt-6 min-h-11 bg-[#2F3B34] px-5 text-sm font-semibold text-white">{onSave == null ? '저장' : '목록에 추가'}</button>
                   </div>
                 )}
               </div>
@@ -447,7 +447,7 @@ export default function AdminResourcePage({
               </button>
             </div>
             <div className="p-6 overflow-y-auto">
-              <p className="mb-6 text-xs text-[#7B827C]">수정 후 상단의 {saveLabel} 버튼을 눌러 DB에 반영하세요.</p>
+              <p className="mb-6 text-xs text-[#7B827C]">{onSave == null ? '저장하면 바로 반영됩니다.' : `수정 후 상단의 ${saveLabel} 버튼을 눌러 DB에 반영하세요.`}</p>
               <div className="grid gap-5 sm:grid-cols-2">
                 {editableFields.map((field) => (
                   <label key={field.key} className="text-xs font-medium text-[#59615B]">
@@ -459,7 +459,7 @@ export default function AdminResourcePage({
             </div>
             <div className="border-t border-[#D1D0C8] bg-white p-5 flex justify-end gap-3 shrink-0">
               <button onClick={closeEdit} type="button" className="min-h-11 border border-[#D1D0C8] px-5 text-sm font-semibold text-[#59615B] hover:bg-[#F8F7F2]">취소</button>
-              <button onClick={handleUpdate} type="button" className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">목록에 반영</button>
+              <button onClick={handleUpdate} type="button" className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">{onSave == null ? '저장' : '목록에 반영'}</button>
             </div>
           </div>
         </div>

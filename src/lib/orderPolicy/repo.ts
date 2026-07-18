@@ -34,17 +34,24 @@ export async function saveOrderPolicyConfig(value: OrderPolicyConfig): Promise<v
   if (error) throw error;
 }
 
+/** config 를 TTL(ms | null)로 접는다 — null = 무통장 자동취소 미사용(expiresAt 미기록). */
+function toTtlMs(config: OrderPolicyConfig): number | null {
+  return config.bankTransferAutoCancelEnabled ? config.bankTransferTtlHours * HOUR_MS : null;
+}
+
 /**
- * 주문 생성(POST /api/orders)용 무통장입금 TTL(ms) 해석. 행이 없거나 조회가 어떤 이유로든
- * 실패해도 기본 72시간으로 폴백한다 — 정책 테이블 장애가 주문 생성 실패(매출 중단)로
+ * 주문 생성(POST /api/orders)용 무통장입금 TTL(ms) 해석.
+ * **null = 무통장 자동취소 미사용 → expiresAt 미기록(cron 스캔 제외).** 활성일 때만 ttlHours*ms.
+ * 행이 없거나 조회가 어떤 이유로든 실패해도 defaultOrderPolicyConfig 기준으로 폴백한다
+ * (기본이 비활성이므로 폴백 = null) — 정책 테이블 장애가 주문 생성 실패(매출 중단)로
  * 번지면 안 되기 때문이다. 실패는 로그로만 드러낸다.
  */
-export async function resolveBankTransferTtlMs(): Promise<number> {
+export async function resolveBankTransferTtlMs(): Promise<number | null> {
   try {
     const config = await getOrderPolicyConfig();
-    return (config ?? defaultOrderPolicyConfig).bankTransferTtlHours * HOUR_MS;
+    return toTtlMs(config ?? defaultOrderPolicyConfig);
   } catch (error) {
-    logServerError('[orderPolicy] TTL 조회 실패 — 기본 72h 폴백', error);
-    return defaultOrderPolicyConfig.bankTransferTtlHours * HOUR_MS;
+    logServerError('[orderPolicy] 주문 정책 조회 실패 — 기본값(자동취소 비활성) 폴백', error);
+    return toTtlMs(defaultOrderPolicyConfig);
   }
 }

@@ -9,7 +9,7 @@ import AuditAccordion from '@/components/common/AuditAccordion';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
-import { reviews } from '@/data/reviews';
+import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -35,8 +35,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const relatedConcerns = concerns.filter((concern) =>
     brand.relatedConcernSlugs.includes(concern.slug),
   );
-  const brandReviews = reviews.filter((review) =>
-    brandProducts.some((product) => product.id === review.productId),
+  const { items: showcaseReviews } = await getShowcaseReviewsConfigWithFallback();
+  const brandReviews = showcaseReviews.filter((review) =>
+    review.isVisible !== false && brandProducts.some((product) => product.id === review.productId),
   );
   const hasPublishedAudit = Boolean(brand.auditReport);
   

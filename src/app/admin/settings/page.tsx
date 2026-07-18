@@ -4,9 +4,9 @@ import { useEffect, useState } from 'react';
 import { Eye, Save, X } from 'lucide-react';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { HomeSettings } from '@/data/homeContent';
-import { getPublicProducts, getPublicBrands, getNoticesConfig } from '@/lib/storage';
+import { getPublicProducts, getPublicBrands, getNoticesConfig, getShowcaseReviews } from '@/lib/storage';
 import HomeClient from '@/components/home/HomeClient';
-import type { Brand, Notice, Product } from '@/types';
+import type { Brand, Notice, Product, Review } from '@/types';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
 
 // 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 아이콘·href·이미지 등 "구조"는
@@ -35,6 +35,7 @@ export default function SiteSettingsPage() {
   const [previewProducts, setPreviewProducts] = useState<Product[]>([]);
   const [previewBrands, setPreviewBrands] = useState<Brand[]>([]);
   const [previewNotices, setPreviewNotices] = useState<Notice[]>([]);
+  const [previewReviews, setPreviewReviews] = useState<Review[]>([]);
 
   // provider 가 GET /api/settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) draft 를 그 값에
   // 맞춘다. 단 관리자가 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
@@ -47,12 +48,16 @@ export default function SiteSettingsPage() {
   useEffect(() => {
     if (!isPreviewOpen) return;
     let cancelled = false;
-    Promise.all([getPublicProducts(), getPublicBrands(), getNoticesConfig()]).then(([products, brands, noticesConfig]) => {
-      if (cancelled) return;
-      setPreviewProducts(products);
-      setPreviewBrands(brands);
-      setPreviewNotices(noticesConfig.items);
-    });
+    Promise.all([getPublicProducts(), getPublicBrands(), getNoticesConfig(), getShowcaseReviews()]).then(
+      ([products, brands, noticesConfig, reviews]) => {
+        if (cancelled) return;
+        setPreviewProducts(products);
+        setPreviewBrands(brands);
+        setPreviewNotices(noticesConfig.items);
+        // 실제 홈(page.tsx)과 동일하게 숨김 후기를 걸러 미리보기 충실도를 맞춘다(opus 리뷰 LOW-1).
+        setPreviewReviews(reviews.filter((review) => review.isVisible !== false));
+      },
+    );
     return () => {
       cancelled = true;
     };
@@ -350,7 +355,7 @@ export default function SiteSettingsPage() {
 
             <div className="flex-1 overflow-y-auto">
               <div className="w-full relative pointer-events-none">
-                <HomeClient products={previewProducts} brands={previewBrands} notices={previewNotices} settings={draft} />
+                <HomeClient products={previewProducts} brands={previewBrands} notices={previewNotices} reviews={previewReviews} settings={draft} />
               </div>
             </div>
           </div>
