@@ -43,7 +43,16 @@ const COVERED: Record<string, CoveredFeature> = {
     spec: 'member-profile.spec.ts',
     description:
       '마이페이지 회원정보 수정(알려진 결함: 서버 미영속 — localStorage만 반영, 스펙이 명시 검증) ' +
-      '+ 배송추적 모달 렌더.',
+      '+ 배송추적 모달 렌더. 수정 PR fe/behavior-profile-save-wire 진행 중(2026-07-19 team-lead 라우팅) ' +
+      '— 머지되면 이 스펙은 "서버 미영속"이 아니라 "실제 영속"을 단언하도록 뒤집을 것.',
+  },
+  'admin-edit-propagation': {
+    spec: 'member-admin-edit-propagation.spec.ts',
+    description:
+      '관리자 수정이 회원 여정 "중간" 화면(장바구니·체크아웃)에 전파되는 방식 — 기존 웨이브들은 ' +
+      '공개 상세 페이지 반영만 봤다. 가격·이름 수정은 장바구니/체크아웃에 실시간 반영(스냅샷 아님)되고 ' +
+      '주문완료 이후엔 주문 시점 값이 고정됨을 확인. 노출 숨김은 장바구니/체크아웃에서 조용히 사라지되 ' +
+      '헤더 카트 배지 개수는 그대로인 불일치를 finding으로 명시(2026-07-19 team-lead 추가 지시).',
   },
   diagnosis: {
     spec: 'member-diagnosis.spec.ts',

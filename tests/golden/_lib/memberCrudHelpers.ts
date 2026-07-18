@@ -111,6 +111,24 @@ export async function cleanupThrowawayProducts(page: Page, namePrefix: string): 
 }
 
 /**
+ * 관리자 세션으로 상품 필드(name/price/isVisible 등)를 직접 PATCH한다. admin UI 폼 자체의
+ * 동작(REQUIRED_FIELDS·이미지 업로드 등)은 admin-crud-products.spec.ts가 이미 커버하므로,
+ * "관리자 수정 → 회원 여정 중간 화면(장바구니·체크아웃) 전파" 축을 검증하는 스펙에서는
+ * UI 폼을 다시 거치지 않고 API를 직접 호출해 관심사를 분리한다(admin UI 회귀와 이 전파 회귀가
+ * 뒤섞여 실패 원인을 흐리지 않게).
+ */
+export async function patchProductAsAdmin(
+  page: Page,
+  productId: string,
+  fields: Partial<{ name: string; price: number; isVisible: boolean }>,
+): Promise<void> {
+  const response = await page.request.patch(`/api/admin/products/${productId}`, { data: fields });
+  if (!response.ok()) {
+    throw new Error(`상품 필드 PATCH 실패: ${response.status()} ${await response.text()}`);
+  }
+}
+
+/**
  * 관리자 세션으로 주문을 배송완료까지 강제 전이시킨다. PATCH /api/admin/orders/[id]
  * (src/app/api/admin/orders/[id]/route.ts)를 직접 호출한다 — UI로 하려면 /admin/orders에서
  * 결제상태·배송상태를 각각 선택해야 하는데, 이 헬퍼는 review 스펙이 "배송완료" 게이트를
