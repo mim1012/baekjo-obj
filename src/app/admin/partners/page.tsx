@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import { getPartnersConfig, savePartnersConfig } from '@/lib/storage';
-import { defaultPartnersConfig } from '@/lib/partners/config';
 import type { Partner } from '@/types';
 
 const partnerTypeOptions: Array<{ value: Partner['type']; label: string }> = [
@@ -116,13 +115,15 @@ function typeLabel(type: Partner['type']): string {
 }
 
 export default function AdminPartnersPage() {
-  // draft = 현재 편집 중인 제휴처 목록. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다.
-  const [items, setItems] = useState<Partner[]>(defaultPartnersConfig.items);
+  // draft = 현재 편집 중인 제휴처 목록. 마운트 후 콘센트로 실제 config 를 불러온다.
+  // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
+  // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0).
+  const [items, setItems] = useState<Partner[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   // persisted = 마지막으로 DB 와 일치한 목록. 삭제는 이 기준으로 저장해 미저장 등록·수정
   // 드래프트가 삭제에 딸려 커밋되지 않게 한다(opus 리뷰 MEDIUM-1).
-  const persistedItemsRef = useRef<Partner[]>(defaultPartnersConfig.items);
+  const persistedItemsRef = useRef<Partner[]>([]);
   // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
   const busyRef = useRef(false);
 

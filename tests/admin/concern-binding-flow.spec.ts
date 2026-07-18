@@ -30,7 +30,7 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
 
     // persisted = 마지막으로 DB 와 일치한 목록 — 모든 CRUD 가 이 기준으로 저장해 다른 미저장
     // 편집이 함께 커밋되지 않게 한다(opus 리뷰 MEDIUM-1 확장).
-    expect(pageSource).toContain('const persistedItemsRef = useRef<Concern[]>(defaultConcernsConfig.items);');
+    expect(pageSource).toContain('const persistedItemsRef = useRef<Concern[]>([]);');
     expect(pageSource).toContain('persistedItemsRef.current = config.items;');
     // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
     expect(pageSource).toContain('const busyRef = useRef(false);');
