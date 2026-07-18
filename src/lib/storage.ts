@@ -241,6 +241,19 @@ export async function updatePartnerInquiryStatus(
   }
 }
 
+/**
+ * 제휴 문의 삭제(관리자). DELETE /api/admin/partner-inquiries/[id]. 실패 시 throw 해 호출부가
+ * 사용자에게 알리거나 재조회할 수 있게 한다(updatePartnerInquiryStatus와 동일 계약 — additive).
+ */
+export async function deletePartnerInquiry(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/partner-inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('partner-inquiry-delete-failed');
+  }
+}
+
 // 주문완료 화면 전용 스냅샷. 서버 재조회 없이 sessionStorage 에서만 읽는다
 // → 게스트 주문의 PII 가 /api/orders/[id] IDOR 로 새지 않게 한다(§보안 요건).
 const LAST_ORDER_KEY = 'baekjo_last_order';

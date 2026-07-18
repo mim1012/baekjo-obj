@@ -43,6 +43,13 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
     expect(storageSource).toContain('export async function getAdminPartnerInquiries(): Promise<PartnerInquiry[]>');
     expect(storageSource).toContain('/api/admin/partner-inquiries/${encodeURIComponent(id)}');
     expect(storageSource).toContain("throw new Error('partner-inquiry-update-failed');");
+    // 삭제 콘센트(wave-4 수정) — DELETE 메서드로 호출하고 실패는 throw(update와 동일 계약).
+    expect(storageSource).toContain('export async function deletePartnerInquiry(id: string): Promise<void>');
+    const deleteConduitBlock = storageSource.slice(
+      storageSource.indexOf('export async function deletePartnerInquiry(id: string)'),
+    );
+    expect(deleteConduitBlock).toContain("method: 'DELETE'");
+    expect(deleteConduitBlock).toContain("throw new Error('partner-inquiry-delete-failed');");
   });
 
   test('공개 POST 라우트는 런타임 검증을 하고 status/id/createdAt 을 서버가 결정한다', () => {
@@ -81,6 +88,14 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
     );
     expect(patchRoute).toContain("if (typeof b.memo !== 'string' || b.memo.length > MAX_MEMO) return null;");
     expect(patchRoute).toContain("return NextResponse.json({ error: 'not-found' }, { status: 404 });");
+
+    // DELETE 라우트(wave-4 수정) — requireAdmin 가드 + not-found 404 + repo 삭제 함수 호출.
+    expect(patchRoute).toContain('export async function DELETE(');
+    const deleteHandlerBlock = patchRoute.slice(patchRoute.indexOf('export async function DELETE('));
+    expect(deleteHandlerBlock).toContain('await requireAdmin();');
+    expect(deleteHandlerBlock).toContain('deletePartnerInquiryById(id)');
+    expect(deleteHandlerBlock).toContain("return NextResponse.json({ error: 'not-found' }, { status: 404 });");
+    expect(deleteHandlerBlock).toContain("return NextResponse.json({ ok: true }, { status: 200 });");
   });
 
   test('repo 는 partner_inquiries 테이블만 접근하고 snake↔camel 매핑을 담당한다', () => {
@@ -98,13 +113,22 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
     );
     expect(insertBlock).not.toContain('status');
     expect(insertBlock).not.toContain('created_at');
+
+    // 삭제 함수(wave-4 수정) — deleteBrand와 동일하게 .delete().eq('id', id) 후 존재 여부를 반환.
+    expect(repoSource).toContain('export async function deletePartnerInquiryById(id: string): Promise<boolean>');
+    const deleteRepoBlock = repoSource.slice(
+      repoSource.indexOf('export async function deletePartnerInquiryById'),
+    );
+    expect(deleteRepoBlock).toContain(".from('partner_inquiries')");
+    expect(deleteRepoBlock).toContain('.delete()');
+    expect(deleteRepoBlock).toContain(".eq('id', id)");
   });
 
   test('관리자 접수함 화면은 콘센트만 사용하고 신규 등록 버튼이 없다', () => {
     const pageSource = src('src', 'app', 'admin', 'partner-inquiries', 'page.tsx');
 
     expect(pageSource).toContain(
-      "import { getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';",
+      "import { deletePartnerInquiry, getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';",
     );
     expect(pageSource).toContain('getAdminPartnerInquiries()');
     // 즉시저장 전환(2026-07-18): 수정 모달 저장이 곧바로 PATCH 콘센트를 호출한다.
@@ -116,5 +140,11 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
     expect(pageSource).not.toContain('onSave=');
     expect(pageSource).not.toContain('fetch(');
     expectNoMutableProductBrandImport(pageSource);
+
+    // 삭제 실배선(wave-4 수정) — onDeleteRow가 실제 DELETE 콘센트를 호출해야 한다. onSave가
+    // 없는 이 페이지는 onDeleteRow 없이는 AdminResourcePage가 로컬 숨김(setDeletedIds)으로만
+    // 삭제를 처리해 새로고침하면 되살아난다(AdminResourcePage의 canDeleteRows 판정 참고).
+    expect(pageSource).toContain('onDeleteRow={handleDelete}');
+    expect(pageSource).toContain('await deletePartnerInquiry(String(id));');
   });
 });
