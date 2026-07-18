@@ -16,6 +16,7 @@ import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
+import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -1080,6 +1081,37 @@ export async function getAdminNoticesConfig(): Promise<NoticesConfig> {
 export async function saveNoticesConfig(config: NoticesConfig): Promise<{ ok: boolean }> {
   try {
     const response = await fetch('/api/admin/notices', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/* ── 주문 정책(무통장입금 예약 TTL) ─────────────────────────────
+ * 관리자 화면(/admin/order-policy)만 쓰는 관리자 전용 config — 공개 화면은 이 값을 읽지 않고,
+ * 주문 생성 서버(POST /api/orders)가 repo(resolveBankTransferTtlMs)로 직접 읽는다.
+ */
+
+/** 관리자 주문 정책 config. GET /api/admin/order-policy. 실패·깨진 응답은 throw 해서 저장을 막는다
+ * (장애 시 기본 72h 가 실값처럼 로드돼 커스텀 설정을 덮어쓸 위험 — insurance-content 미러). */
+export async function getAdminOrderPolicyConfig(): Promise<OrderPolicyConfig> {
+  const response = await fetch('/api/admin/order-policy');
+  if (!response.ok) throw new Error('order-policy-config-load-failed');
+  const { bankTransferTtlHours } = (await response.json()) as OrderPolicyConfig;
+  if (typeof bankTransferTtlHours !== 'number' || !Number.isFinite(bankTransferTtlHours)) {
+    throw new Error('order-policy-config-invalid-response');
+  }
+  return { bankTransferTtlHours };
+}
+
+/** 주문 정책 config 저장(관리자). PUT /api/admin/order-policy. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
+export async function saveOrderPolicyConfig(config: OrderPolicyConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/order-policy', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),

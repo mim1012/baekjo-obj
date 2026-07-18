@@ -20,6 +20,7 @@ import {
   Bell,
   Settings,
   FileText,
+  Timer,
 } from 'lucide-react';
 
 /** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
@@ -59,6 +60,7 @@ export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
   { name: '케어키트 관리', href: '/admin/kits', icon: Gift },
   { name: '제휴 문의 접수', href: '/admin/partner-inquiries', icon: Inbox },
   { name: '공지사항', href: '/admin/notices', icon: Bell },
+  { name: '주문 정책', href: '/admin/order-policy', icon: Timer },
   { name: '환경 설정', href: '/admin/settings', icon: Settings },
 ];
 
