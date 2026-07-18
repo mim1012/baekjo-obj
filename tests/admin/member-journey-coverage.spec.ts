@@ -41,7 +41,8 @@ const COVERED: Record<string, CoveredFeature> = {
       '🚨 2026-07-19 라이브 실행으로 재현·확정된 결함: 마이페이지에서 문의 "수정"은 저장 버튼이 ' +
       '영구 비활성화되어 절대 저장 불가(InquiryFormModal이 mypage 모드에서 productId를 못 받아 ' +
       'selectedProduct가 항상 undefined). 스펙이 이 결함을 우회하지 않고 그대로 단언·박제함 — ' +
-      'app 수정은 mim-lane 범위 밖이라 team-lead에게 별도 보고, 고쳐지면 assert 방향을 뒤집을 것.',
+      'app 수정은 mim-lane 범위 밖이라 team-lead에게 별도 보고 — fix/mypage-inquiry-edit-save 머지 후 ' +
+      'assert 방향을 뒤집을 것(FLIP AFTER fix/mypage-inquiry-edit-save MERGES).',
   },
   profile: {
     spec: 'member-profile.spec.ts',

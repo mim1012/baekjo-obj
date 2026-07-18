@@ -174,8 +174,9 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     //
     // 이 스펙은 버그를 우회하지 않고 있는 그대로 증명한다 — 저장 버튼이 채워도 계속 비활성화
     // 상태로 남는다는 것을 단언한다. 앱 코드 수정은 이 스펙(mim-lane, tests/** 범위)의 책임 밖이라
-    // team-lead에게 즉시 보고하고 여기서는 사실만 박제한다. 고쳐지면 이 assert는
-    // `toBeEnabled()`로 뒤집고 실제 저장·반영까지 검증하도록 되돌릴 것.
+    // team-lead에게 즉시 보고하고 여기서는 사실만 박제한다.
+    // 📌 FLIP AFTER fix/mypage-inquiry-edit-save MERGES — 그 브랜치가 머지되면 이 assert를
+    // `toBeEnabled()`로 뒤집고 실제 저장·반영까지 검증하도록 되돌릴 것(지금은 손대지 말 것).
     await inquiryCard.getByRole('button', { name: '수정' }).click();
     await page.getByRole('heading', { name: '상품문의 수정' }).waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('textarea').fill(`${inquiryContent}-수정시도`);
