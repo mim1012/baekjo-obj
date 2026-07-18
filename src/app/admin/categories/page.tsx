@@ -11,7 +11,7 @@ export default function CategoryManagerPage() {
   const { categorySettings, updateCategorySettings } = useCategorySettings();
 
   // 로컬 미러는 "타이핑 중" 상태만 담는다 — 이름 입력은 키 입력마다 PUT 하지 않고 blur 시 커밋.
-  // 추가·삭제·순서 변경은 즉시 커밋한다(2026-07-18 즉시저장 전환 — SaveBar 일괄저장 제거).
+  // 추가·삭제·순서 변경은 즉시 커밋한다(2026-07-18 즉시저장 전환 — 일괄저장 UI 제거).
   const [settings, setSettings] = useState<CategorySettings>(categorySettings);
   // provider 의 낙관적 갱신(성공/실패-롤백)과 로컬 미러를 맞추는 동기화. 타이핑 중(dirty)에는
   // 늦게 도착한 초기 GET 이 입력을 덮어쓰지 못하게 막는다.
