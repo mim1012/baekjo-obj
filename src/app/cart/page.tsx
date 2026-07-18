@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';
-import { getPublicProducts, getPublicBrands } from '@/lib/storage';
+import { getPublicProductsOrNull, getPublicBrands } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
@@ -25,14 +25,23 @@ export default function CartPage() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getPublicProducts(), getPublicBrands()]).then(([productList, brandList]) => {
+    Promise.all([getPublicProductsOrNull(), getPublicBrands()]).then(([productList, brandList]) => {
       if (cancelled) return;
-      // 자가치유(wave-6 발견 수정) — getPublicProducts는 이미 노출 상품만 반환하므로
-      // 이 목록이 곧 "유효한 카트 항목"의 기준이다. 숨겨지거나 삭제된 상품이 카트에 남아
-      // 있으면 여기서 localStorage 자체를 정리해 헤더 뱃지(getCartCount)와 이 화면이
-      // 다시 같은 개수를 보게 만든다 — 화면 필터(enrichedItems)만으로는 뱃지가 안 맞았다.
-      pruneCartToVisibleProducts(new Set(productList.map((product) => product.id)));
-      setProducts(productList);
+      // 자가치유(wave-6 발견 수정) — 노출 상품 목록이 곧 "유효한 카트 항목"의 기준이다.
+      // 숨겨지거나 삭제된 상품이 카트에 남아 있으면 여기서 localStorage 자체를 정리해
+      // 헤더 뱃지(getCartCount)와 이 화면이 다시 같은 개수를 보게 만든다 — 화면 필터
+      // (enrichedItems)만으로는 뱃지가 안 맞았다.
+      //
+      // ⚠️ CRITICAL(2026-07-19, PR #173 리뷰에서 발견) — productList가 null(=조회 실패:
+      // 네트워크 오류·!ok·파싱 실패)일 때 정리를 절대 돌리면 안 된다. getPublicProducts()의
+      // "실패는 빈 배열로 접는다" 계약을 그대로 썼더니 일시적 네트워크 블립이 "노출 상품
+      // 0건"으로 오인돼 고객 카트 전체가 영구 삭제됐다 — 그래서 실패와 진짜 0건을 구분하는
+      // getPublicProductsOrNull()로 바꿨다(null=실패). null이면 이번 방문에서는 자가치유를
+      // 건너뛸 뿐이고 localStorage는 그대로 남으며, 다음 정상 방문에서 다시 시도된다.
+      if (productList !== null) {
+        pruneCartToVisibleProducts(new Set(productList.map((product) => product.id)));
+      }
+      setProducts(productList ?? []);
       setBrands(brandList);
       setProductsLoading(false);
     });
