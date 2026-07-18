@@ -1366,6 +1366,36 @@ export async function updateUserStatus(
   }
 }
 
+/**
+ * 마이페이지 회원정보(이름/연락처/반려동물종·견종/주요고민) 저장. 서버가 진실이므로
+ * 200 응답을 받은 뒤에만 호출부가 setCurrentUser로 로컬 캐시를 갱신해야 한다(그 전엔 갱신 금지 —
+ * 예전엔 이 API 호출이 아예 없어 localStorage만 바꾸고 새로고침하면 되돌아가던 문제가 있었다).
+ */
+export async function updateMyProfile(input: {
+  name?: string;
+  phone?: string;
+  petType?: string;
+  breed?: string;
+  mainConcern?: string;
+}): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (response.ok) {
+      const { user } = (await response.json()) as { user: User };
+      return { user };
+    }
+    if (response.status === 400) return { error: 'invalid-input' };
+    if (response.status === 404) return { error: 'not-found' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
 /** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */
 export async function changePassword(
   currentPassword: string,
