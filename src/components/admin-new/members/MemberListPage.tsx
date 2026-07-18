@@ -58,12 +58,14 @@ export default function MemberListPage() {
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
+      // wave-4: 주문 검색과 동일한 클래스의 크래시 방지 — 타입은 required지만 레거시/기형
+      // 행에서는 undefined일 수 있어 전부 nullish 가드로 감싼다.
       result = result.filter(
         (m) =>
-          m.name.toLowerCase().includes(term) ||
-          m.email.toLowerCase().includes(term) ||
-          m.phone.includes(term) ||
-          (m.companyName && m.companyName.toLowerCase().includes(term))
+          (m.name ?? '').toLowerCase().includes(term) ||
+          (m.email ?? '').toLowerCase().includes(term) ||
+          (m.phone ?? '').includes(term) ||
+          (m.companyName ?? '').toLowerCase().includes(term)
       );
     }
 
