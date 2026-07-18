@@ -6,7 +6,7 @@ import { ArrowLeft, Check, ChevronDown, ChevronRight, MessageCircleQuestion, Hom
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { listProducts } from '@/lib/products/repo';
 import { listBrands } from '@/lib/brands/repo';
-import { reviews } from '@/data/reviews';
+import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import BrandLogo from '@/components/common/BrandLogo';
 import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
@@ -105,8 +105,9 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
   const recommendedBrands = allBrands.filter((brand) =>
     concern.recommendedBrandIds.includes(brand.id),
   );
-  const relatedReviews = reviews.filter((review) =>
-    concern.recommendedProductIds.includes(review.productId),
+  const { items: showcaseReviews } = await getShowcaseReviewsConfigWithFallback();
+  const relatedReviews = showcaseReviews.filter((review) =>
+    review.isVisible !== false && concern.recommendedProductIds.includes(review.productId),
   );
 
   const concernHeroImages: Record<string, string> = {

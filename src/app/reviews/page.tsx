@@ -1,4 +1,4 @@
-import { reviews } from '@/data/reviews';
+import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
 import { Image as ImageIcon, MessageCircle, Star } from 'lucide-react';
@@ -8,7 +8,10 @@ export const metadata = {
   description: '백조오브제를 경험한 반려가족들의 진솔한 후기를 만나보세요.',
 };
 
-// 후기 콘텐츠는 현재 정적 데이터가 canonical 이다. 상품 DB readback 없이 review metadata 로 필터링한다.
+// DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
+export const dynamic = 'force-dynamic';
+
+// 후기 콘텐츠는 showcase_reviews_config 가 정본이다. 상품 DB readback 없이 review metadata 로 필터링한다.
 const reviewConcernTagsByProductId: Record<string, string[]> = {
   p1: ['picky'],
   p2: ['picky'],
@@ -24,12 +27,16 @@ export default async function ReviewsPage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter = 'all' } = await searchParams;
+  const { items } = await getShowcaseReviewsConfigWithFallback();
+  const reviews = items.filter((review) => review.isVisible !== false);
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'photo') return review.isPhotoReview;
     if (filter === 'all') return true;
     return reviewConcernTagsByProductId[review.productId]?.includes(filter) ?? false;
   });
-  const avgRating = (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1);
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1)
+    : '0.0';
   const photoReviewsCount = reviews.filter(r => r.isPhotoReview).length;
 
   return (

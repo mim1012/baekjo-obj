@@ -1,6 +1,10 @@
-// product_reviews 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
+// product_reviews 테이블(구매평 CRUD) + showcase_reviews_config 싱글턴(전시용 후기) 접근 계층.
+// 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import type { ProductReview } from '@/types';
+import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
+import { isShowcaseReviewShape, normalizeShowcaseReview } from '@/lib/reviews/showcaseValidate';
+import { logServerError } from '@/lib/logServerError';
 
 interface ReviewRow {
   id: string;
@@ -161,4 +165,65 @@ export async function getReviewById(id: string): Promise<ProductReview | null> {
     .maybeSingle();
   if (error) throw error;
   return data ? rowToReview(data as ReviewRow) : null;
+}
+
+/* ── 전시용 후기(showcase reviews) ─────────────────────────────
+ * 구매 기반 product_reviews 와 별개인 큐레이션 콘텐츠. { items: Review[] } 를 한 행(id='default')에
+ * jsonb 로 통째로 저장/조회한다(notices/repo.ts 미러).
+ */
+
+const SHOWCASE_CONFIG_ROW_ID = 'default';
+
+/**
+ * value jsonb 가 저장 시점의 ShowcaseReviewsConfig 모양({ items: [...] })인지 검사한다.
+ * notices 와 달리 items 빈 배열을 허용한다 — 관리자가 실제 구매평이 쌓인 뒤 전시 후기를
+ * 전부 지우는 것도 정당한 상태이기 때문이다(notices 의 최소 1건 요구를 이 도메인엔 두지 않는다).
+ */
+function isShowcaseReviewsConfigShape(value: unknown): value is ShowcaseReviewsConfig {
+  if (typeof value !== 'object' || value === null) return false;
+  const items = (value as { items?: unknown }).items;
+  return Array.isArray(items) && items.every(isShowcaseReviewShape);
+}
+
+/**
+ * 저장된 전시 후기 config 를 반환한다. 행이 없거나 value 가 config 모양이 아니면
+ * null(→ 호출부가 defaultShowcaseReviewsConfig 로 폴백).
+ */
+export async function getShowcaseReviewsConfig(): Promise<ShowcaseReviewsConfig | null> {
+  const { data, error } = await getSupabase()
+    .from('showcase_reviews_config')
+    .select('value')
+    .eq('id', SHOWCASE_CONFIG_ROW_ID)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  if (!isShowcaseReviewsConfigShape(data.value)) {
+    logServerError(
+      '[reviews/repo] value 가 ShowcaseReviewsConfig 모양이 아님 — null(default 폴백) 처리',
+      'malformed showcase_reviews_config.value',
+    );
+    return null;
+  }
+  return { items: data.value.items.map(normalizeShowcaseReview) };
+}
+
+/**
+ * 공개 서버 페이지(/reviews·홈·브랜드/고민 상세)용 폴백 조회.
+ * 미저장·조회 실패를 defaultShowcaseReviewsConfig 로 접어 공개 화면이 절대 빈 목록으로 깨지지 않게 한다.
+ */
+export async function getShowcaseReviewsConfigWithFallback(): Promise<ShowcaseReviewsConfig> {
+  try {
+    return (await getShowcaseReviewsConfig()) ?? defaultShowcaseReviewsConfig;
+  } catch (error) {
+    logServerError('[reviews/repo] 조회 실패 — defaultShowcaseReviewsConfig 로 폴백', error);
+    return defaultShowcaseReviewsConfig;
+  }
+}
+
+/** 전시 후기 config 를 통째로 upsert(id='default') 한다. 없으면 생성, 있으면 덮어쓴다. */
+export async function saveShowcaseReviewsConfig(value: ShowcaseReviewsConfig): Promise<void> {
+  const { error } = await getSupabase()
+    .from('showcase_reviews_config')
+    .upsert({ id: SHOWCASE_CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });
+  if (error) throw error;
 }
