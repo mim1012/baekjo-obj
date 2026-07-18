@@ -74,10 +74,9 @@ export default function OrderListPage() {
       await updateOrderStatus(id, updates);
       await loadOrders();
     } catch (error) {
+      // 재조회하지 않는다 — getAllOrders()는 네트워크/HTTP 실패를 삼키고 []를 반환하므로,
+      // PATCH와 재조회가 함께 실패하면 롤백해 둔 목록이 빈 화면으로 덮인다. 롤백 + alert만 한다.
       setOrders((prev) => prev.map((order) => (order.id === id ? previousOrder : order)));
-      // 409 두 코드(전이 거부·CAS 경합)는 모두 서버 상태가 화면과 다르다는 뜻이라, 롤백 후에도
-      // 성공 경로와 동일하게 재조회해 실제 서버 상태로 맞춘다.
-      await loadOrders();
       alert(orderUpdateErrorMessage(error));
     } finally {
       setSavingOrderIds((prev) => {

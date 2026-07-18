@@ -14,6 +14,8 @@ test.describe('orderUpdateErrorMessage', () => {
   test('invalid-payment-transition 은 전이 거부 문구', () => {
     const msg = orderUpdateErrorMessage(new Error('invalid-payment-transition'));
     expect(msg).toContain('허용되지 않는 상태 변경');
+    // 시스템이 자동 재조회하지 않으므로, 사용자에게 직접 새로고침을 안내하는 문구여야 한다.
+    expect(msg).toContain('새로고침해 확인해주세요');
   });
 
   test('payment-status-conflict 는 동시 수정 충돌 문구', () => {

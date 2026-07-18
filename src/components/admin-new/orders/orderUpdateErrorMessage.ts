@@ -10,7 +10,7 @@ export function orderUpdateErrorMessage(error: unknown): string {
   const code = error instanceof Error ? error.message : '';
   switch (code) {
     case 'invalid-payment-transition':
-      return '허용되지 않는 상태 변경입니다. 이미 다른 관리자가 처리했을 수 있어 목록을 새로고침합니다.';
+      return '허용되지 않는 상태 변경입니다. 이미 다른 관리자가 처리했을 수 있으니 목록을 새로고침해 확인해주세요.';
     case 'payment-status-conflict':
       return '다른 관리자가 동시에 이 주문을 수정했습니다. 목록을 새로고침한 뒤 다시 확인해주세요.';
     default:
