@@ -234,6 +234,37 @@ export async function upsertSocialMember(input: UpsertSocialMemberInput): Promis
   return rowToRecord(data as MemberRow);
 }
 
+export interface UpdateMemberProfileInput {
+  name?: string;
+  phone?: string;
+  petType?: string;
+  breed?: string;
+  mainConcern?: string;
+}
+
+/** 본인 회원정보(이름/연락처/반려동물종·견종/주요고민) 수정. role·status·email 은 이 함수로 바꿀 수 없다 —
+ *  호출부(마이페이지 자기 정보 저장)가 화이트리스트 필드만 넘기도록 타입으로 강제한다. */
+export async function updateMemberProfile(
+  id: string,
+  patch: UpdateMemberProfileInput,
+): Promise<MemberRecord | null> {
+  const columns: Record<string, unknown> = {};
+  if (patch.name !== undefined) columns.name = patch.name;
+  if (patch.phone !== undefined) columns.phone = patch.phone;
+  if (patch.petType !== undefined) columns.pet_type = patch.petType || null;
+  if (patch.breed !== undefined) columns.breed = patch.breed || null;
+  if (patch.mainConcern !== undefined) columns.main_concern = patch.mainConcern || null;
+
+  const { data, error } = await getSupabase()
+    .from('members')
+    .update(columns)
+    .eq('id', id)
+    .select(SELECT_COLUMNS)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToRecord(data as MemberRow) : null;
+}
+
 export async function updateMemberPassword(id: string, passwordHash: string): Promise<void> {
   const { error } = await getSupabase()
     .from('members')

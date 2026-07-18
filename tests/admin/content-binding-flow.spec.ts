@@ -65,8 +65,14 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
     expect(resourcePage).toContain('readOnly?: boolean;');
     expect(resourcePage).toContain('readOnly = false,');
     expect(resourcePage).toContain('const canEditRows = !readOnly && !disableEdit && onUpdateRow != null;');
-    expect(resourcePage).toContain('const canDeleteRows = !readOnly && (onDeleteRow != null || onSave == null);');
+    // wave-4 수정(2026-07-19): onSave==null 폴백 제거 — onDeleteRow 없으면 버튼 자체가 없다.
+    // 이전 조건(`onDeleteRow != null || onSave == null`)은 batch save(onSave)를 안 쓰는 화면
+    // 전부에서 onDeleteRow 없이도 삭제 버튼을 보여줘 가짜(비영속) 삭제를 유발했다.
+    expect(resourcePage).toContain('const canDeleteRows = !readOnly && onDeleteRow != null;');
     expect(resourcePage).toContain('const hasRowActions = canEditRows || canDeleteRows || customActions != null;');
+    // 로컬 비영속 숨김(deletedIds) 폴백 경로가 되살아나지 않는지 고정.
+    expect(resourcePage).not.toContain('deletedIds');
+    expect(resourcePage).not.toContain('setDeletedIds');
     expect(resourcePage).toContain('(onSave || canCreateRows)');
     expect(resourcePage).toContain('{canCreateRows && (');
     expect(resourcePage).toContain('{hasRowActions && <th className="px-5 py-3 text-right font-semibold">관리</th>}');
