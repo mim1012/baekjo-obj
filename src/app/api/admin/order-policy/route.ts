@@ -13,6 +13,8 @@ import { logServerError } from '@/lib/logServerError';
  * 기본값으로 접어버리므로, 관리자 저장 경로에서는 명백히 깨진 페이로드(비객체·필드 누락·
  * 비수치)를 조용히 72h 로 둔갑시켜 저장하지 않도록 여기서 400 으로 먼저 거른다(§4).
  * 범위 밖 숫자는 거부 대신 normalize 클램프에 맡긴다(입력 UI 의 min/max 와 이중 방어).
+ * bankTransferAutoCancelEnabled 는 여기서 따로 검사하지 않는다 — normalize 가 `=== true` 일 때만
+ * true 로 접고 그 외 전부 false(기본 비활성)라, 깨진 값이 자동취소를 켜는 방향으로 샐 수 없다.
  */
 function isOrderPolicyShape(body: unknown): body is OrderPolicyConfig {
   if (!body || typeof body !== 'object') return false;

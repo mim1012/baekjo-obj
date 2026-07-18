@@ -1148,21 +1148,23 @@ export async function saveShowcaseReviewsConfig(config: ShowcaseReviewsConfig): 
   }
 }
 
-/* ── 주문 정책(무통장입금 예약 TTL) ─────────────────────────────
+/* ── 주문 정책(무통장입금 자동취소 on/off + 예약 TTL) ─────────────────────────────
  * 관리자 화면(/admin/order-policy)만 쓰는 관리자 전용 config — 공개 화면은 이 값을 읽지 않고,
  * 주문 생성 서버(POST /api/orders)가 repo(resolveBankTransferTtlMs)로 직접 읽는다.
  */
 
 /** 관리자 주문 정책 config. GET /api/admin/order-policy. 실패·깨진 응답은 throw 해서 저장을 막는다
- * (장애 시 기본 72h 가 실값처럼 로드돼 커스텀 설정을 덮어쓸 위험 — insurance-content 미러). */
+ * (장애 시 기본값이 실값처럼 로드돼 커스텀 설정을 덮어쓸 위험 — insurance-content 미러).
+ * enabled 는 `=== true` 일 때만 true(누락·비불리언 = false, 기본 비활성 — config normalize 와 동일 규칙). */
 export async function getAdminOrderPolicyConfig(): Promise<OrderPolicyConfig> {
   const response = await fetch('/api/admin/order-policy');
   if (!response.ok) throw new Error('order-policy-config-load-failed');
-  const { bankTransferTtlHours } = (await response.json()) as OrderPolicyConfig;
+  const { bankTransferAutoCancelEnabled, bankTransferTtlHours } =
+    (await response.json()) as OrderPolicyConfig;
   if (typeof bankTransferTtlHours !== 'number' || !Number.isFinite(bankTransferTtlHours)) {
     throw new Error('order-policy-config-invalid-response');
   }
-  return { bankTransferTtlHours };
+  return { bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true, bankTransferTtlHours };
 }
 
 /** 주문 정책 config 저장(관리자). PUT /api/admin/order-policy. 성공/실패를 boolean 으로 돌려 화면이 알린다. */

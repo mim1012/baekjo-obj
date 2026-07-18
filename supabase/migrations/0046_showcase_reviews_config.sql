@@ -1,4 +1,5 @@
--- 0045_showcase_reviews_config.sql — 전시용 후기(showcase reviews) 싱글턴 테이블
+-- 0046_showcase_reviews_config.sql — 전시용 후기(showcase reviews) 싱글턴 테이블
+-- (0045 는 main 의 disable_bank_transfer_autocancel 이 선점해 0046 으로 재번호 — §10-8 번호 충돌 방지)
 -- 접근 경로: 서버(secret key)만. 클라이언트 직접 접근 없음 → RLS on + 정책 없음.
 -- 전시용 후기는 구매 기반 사용자 구매평(product_reviews 테이블, ProductReview 타입)과 별개의
 -- 도메인이다 — 공개 후기 목록(/reviews)·홈 후기 레일·브랜드/고민 상세의 후기 섹션에 노출되는

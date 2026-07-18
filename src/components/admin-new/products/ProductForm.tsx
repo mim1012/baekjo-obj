@@ -778,7 +778,8 @@ function ArrayEditor({
   );
 }
 
-/** 옵션 행 편집기. 이름·가격·재고를 입력받는다. 이름이 빈 행은 저장 단계에서 버려진다. */
+/** 옵션 행 편집기. 이름·가격만 입력받는다(재고는 상품 단위 — 옵션별 재고는 시스템이 사용하지 않음).
+ *  이름이 빈 행은 저장 단계에서 버려진다. */
 function OptionEditor({
   rows,
   onChange,
@@ -790,7 +791,7 @@ function OptionEditor({
     onChange(rows.map((row, i) => (i === idx ? { ...row, ...patch } : row)));
   };
   const remove = (idx: number) => onChange(rows.filter((_, i) => i !== idx));
-  const add = () => onChange([...rows, { name: '', price: '', stock: '' }]);
+  const add = () => onChange([...rows, { name: '', price: '' }]);
 
   const lastEmpty = rows.length > 0 && rows[rows.length - 1].name.trim() === '';
 
@@ -818,17 +819,6 @@ function OptionEditor({
               onChange={(e) => update(idx, { price: e.target.value })}
               className={INPUT_CLASS}
               aria-label={`옵션 ${idx + 1} 가격`}
-            />
-          </div>
-          <div className="w-24">
-            <label className="block text-[12px] text-gray-500 mb-1">재고</label>
-            <input
-              type="number"
-              min="0"
-              value={row.stock}
-              onChange={(e) => update(idx, { stock: e.target.value })}
-              className={INPUT_CLASS}
-              aria-label={`옵션 ${idx + 1} 재고`}
             />
           </div>
           <button

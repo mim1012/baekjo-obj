@@ -189,16 +189,29 @@ test('normalizeOptions: name 이 빈 행은 버린다', () => {
   expect(normalizeOptions(rows)).toHaveLength(1);
 });
 
-test('normalizeOptions: price/stock 이 숫자가 아니거나 음수면 버린다', () => {
+test('normalizeOptions: price 가 숫자가 아니거나 음수면 버린다', () => {
   const rows: ProductOptionFormState[] = [
     { name: '유효', price: '32000', stock: '10' },
     { name: '가격이상', price: 'abc', stock: '10' },
     { name: '음수', price: '-1', stock: '10' },
-    { name: '소수재고', price: '1000', stock: '1.5' },
   ];
   const out = normalizeOptions(rows);
   expect(out).toHaveLength(1);
   expect(out[0].name).toBe('유효');
+});
+
+test('normalizeOptions: stock 은 행을 버리지 않는다 — 유효하면 보존, 없거나 이상하면 0', () => {
+  // 옵션 재고 입력 UI 제거(2026-07-18): 재고는 상품 단위 하나. 기존 저장값은 보존하되
+  // 신규 행(stock 없음)·깨진 값은 0 으로 저장한다. 재고 때문에 옵션명·가격이 증발하면 안 된다.
+  const rows: ProductOptionFormState[] = [
+    { name: '기존값보존', price: '32000', stock: '10' },
+    { name: '신규행', price: '1000' },
+    { name: '깨진값', price: '1000', stock: '1.5' },
+    { name: '음수재고', price: '1000', stock: '-3' },
+  ];
+  const out = normalizeOptions(rows);
+  expect(out).toHaveLength(4);
+  expect(out.map((o) => o.stock)).toEqual([10, 0, 0, 0]);
 });
 
 test('normalizeOptions: 기존 id 는 보존하고 없으면 안정적 id 를 부여한다', () => {
