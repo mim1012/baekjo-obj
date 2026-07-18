@@ -53,8 +53,8 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     const sliderSource = src('src', 'components', 'home', 'BrandShowcaseSlider.tsx');
 
     expect(sliderSource).toContain('brands: Brand[]');
-    expect(sliderSource).toContain('const [shuffledBrands, setShuffledBrands] = useState<Brand[]>(brands)');
-    expect(sliderSource).toContain('const selected = brands.slice(0, 8)');
+    // dad 모바일 개편(2026-07-18)으로 셔플/8개 제한이 제거되고 props 를 그대로 렌더한다.
+    expect(sliderSource).toContain('const displayList = brands;');
     expect(sliderSource).toContain('displayList.map');
     expectNoMutableDataBypass(sliderSource);
   });
