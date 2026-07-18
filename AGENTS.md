@@ -55,7 +55,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 - **성격**: 수주(외주) 프로젝트 — 클라이언트 납품물. 배포 게이트·납품 증빙(§8, §9) 적용.
 - **현재 단계**: Phase 1 진행 중. 프론트 UI+가짜(mock) 데이터는 구축됨, **진짜 백엔드·데이터는 미완성.**
-  진행 현황 SSOT: [`docs/baekjo-platform-completion/PROGRESS.md`](./docs/baekjo-platform-completion/PROGRESS.md).
+  진행 현황 SSOT: **`SESSION.md` + 세션 메모리**(`docs/baekjo-platform-completion/PROGRESS.md`는
+  진행 SSOT 역할을 종료하고 [`docs/archive/baekjo-platform-completion/PROGRESS.md`](./docs/archive/baekjo-platform-completion/PROGRESS.md)로 보관됨, 2026-07-18 docs 재구성).
 
 ## 2. 기술 스택 (추측 말고 이 목록 기준)
 | 영역 | 채택 | 비고 |

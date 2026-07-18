@@ -596,7 +596,7 @@ export interface AdminDashboardPendingApplication {
 
 /**
  * 브랜드별 대시보드 통계(가산 타입). 새 테이블 없이 brands·products·orders·inquiries 조인으로 계산한다.
- * 설계: docs/admin-dashboard-uiux-improvement.md §6-3.
+ * 설계: docs/archive/admin-dashboard-uiux-improvement.md §6-3.
  */
 export interface AdminDashboardBrandStat {
   brandId: string;

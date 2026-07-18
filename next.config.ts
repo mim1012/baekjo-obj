@@ -23,6 +23,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  images: {
+    // 관리자 업로드(브랜드 로고·상품 이미지)는 ImageUploader 가 Supabase Storage 공개 버킷에
+    // 저장하고 https://<project-ref>.supabase.co/storage/v1/object/public/... URL 을 돌려준다.
+    // next/image 는 remotePatterns 에 없는 호스트를 만나면 렌더가 아니라 즉시 throw 하므로,
+    // 이 패턴이 없으면 그 이미지를 쓰는 공개 상세 페이지(/brands/[id], /shop/[id])가 그 순간
+    // 통째로 크래시한다. 지금까지 안 걸린 건 시드 이미지가 전부 로컬 /public 경로였기 때문—
+    // 관리자가 처음 실사진을 업로드하는 순간 재현된다(2026-07-18 e2e 작업 중 발견).
+    // hostname 을 와일드카드로 둬 스테이징(aeooyivfijthfcrfrnyk)·prod(vgeqpbyyggxxaeowtbtj)
+    // 프로젝트 ref 변경에도 안전하게 하고, pathname 은 공개 스토리지 오브젝트 경로로만 좁힌다.
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;
