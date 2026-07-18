@@ -13,12 +13,15 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // 이 스펙은 **DB 백엔드가 실제로 있고 admin이 실제로 손댈 수 있는 ProductInquiry 쪽만** CRUD한다.
 // seedQna(정적)는 건드리지 않는다 — 애초에 admin 편집 경로가 없어 CRUD 대상이 될 수 없다.
 //
-// ⚠️ 관리자 삭제 버튼의 함정(코드 읽고 확인, 2026-07-18) — `src/app/admin/inquiries/page.tsx`는
-// `AdminResourcePage`에 `onDeleteRow`도 `onSave`도 넘기지 않는다. `AdminResourcePage.tsx:105`의
-// `canDeleteRows = onDeleteRow != null || onSave == null`가 true가 되어 행에 "삭제" 버튼이
-// **보이긴 하지만**, 클릭 시 `handleDelete`(같은 파일 145줄)가 `onDeleteRow` 없이 로컬
-// `deletedIds` Set에만 추가한다 — DB에는 전혀 반영되지 않는 **가짜(비영속) 삭제**다. 새로고침하면
-// 그대로 남아 있다. 그래서 이 스펙은 관리자 삭제 버튼을 절대 정리(cleanup) 경로로 쓰지 않는다.
+// ⚠️ 관리자 삭제 버튼 없음(설계 확정, wave-4 스윕 2026-07-19) — `src/app/admin/inquiries/page.tsx`는
+// `AdminResourcePage`에 `onDeleteRow`도 `onSave`도 넘기지 않는다. 2026-07-18엔 이 조합이
+// `canDeleteRows`를 참으로 만들어(구 조건 `onDeleteRow != null || onSave == null`) 삭제 버튼이
+// **보이는데 눌러도 로컬에서만 숨겨지는 가짜(비영속) 삭제**였다. wave-4 스윕에서 그 조건 자체를
+// `onDeleteRow != null`로 고쳐 이 클래스의 버그를 구조적으로 제거했다 — 그 결과 `/admin/inquiries`는
+// 이제 삭제 버튼이 **아예 렌더링되지 않는다**(의도된 상태). 상품 Q&A는 공개 답변 이력이 있는
+// 고객 문의라 관리자가 임의로 지우는 게 도메인상 맞지 않다고 판단해, "삭제 API를 새로 만들어
+// 배선"이 아니라 "버튼을 숨긴다"쪽을 택했다 — 그래서 이 스펙은 여전히 관리자 삭제 버튼을
+// 정리(cleanup) 경로로 쓰지 않는다.
 //
 // ✅ 실제 정리 경로 = 회원 본인 삭제(`DELETE /api/inquiries/[id]`, `deleteInquiryByOwner`,
 // `src/lib/inquiries/repo.ts:137`) — status 제약이 없어 관리자가 답변완료 처리한 뒤에도 작성자
