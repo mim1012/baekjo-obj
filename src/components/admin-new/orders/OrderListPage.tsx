@@ -16,6 +16,7 @@ import OrderMobileCard from './OrderMobileCard';
 import { deriveFunnelStage, stageCounts } from './orderFunnel';
 import { DEPOSIT_CONFIRM_UPDATE, type OrderStatusUpdate } from './DepositConfirmButton';
 import { orderUpdateErrorMessage, summarizeBulkFailures } from './orderUpdateErrorMessage';
+import { matchesOrderSearch } from './orderSearch';
 import type { Brand, Order } from '@/types';
 
 export default function OrderListPage() {
@@ -94,13 +95,7 @@ export default function OrderListPage() {
     );
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      result = result.filter(
-        (o) =>
-          o.id.toLowerCase().includes(term) ||
-          o.customerName.toLowerCase().includes(term) ||
-          o.phone.includes(term) ||
-          o.items.some((item) => item.productName.toLowerCase().includes(term))
-      );
+      result = result.filter((o) => matchesOrderSearch(o, term));
     }
     return result;
   }, [orders, searchTerm]);
