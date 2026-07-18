@@ -5,9 +5,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { getCart, updateCartQuantity, removeFromCart } from '@/lib/cart';
-import { getPublicProducts } from '@/lib/storage';
+import { getPublicProducts, getPublicBrands } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
-import { CartItem, Product } from '@/types';
+import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
 
@@ -16,14 +16,19 @@ export default function CartPage() {
   const [, refreshCart] = useState(0);
   // 카트 항목은 localStorage(클라이언트) 기준이라 어떤 상품이 필요한지 서버에서
   // 미리 알 수 없다 → 전체 카탈로그를 마운트 시 한 번 불러와 로컬에서 조인한다.
+  // 브랜드명도 같은 방식(마운트 시 1회 조회, OrdersSection.tsx 패턴 미러) — product.brandName은
+  // admin이 상세 detail에 직접 입력했을 때만 채워지는 선택 필드라 신뢰할 수 없고, product에는
+  // brandId(내부 코드, 예 'b2')만 항상 있어 화면에 원값을 그대로 노출하면 안 된다.
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    getPublicProducts().then((list) => {
+    Promise.all([getPublicProducts(), getPublicBrands()]).then(([productList, brandList]) => {
       if (cancelled) return;
-      setProducts(list);
+      setProducts(productList);
+      setBrands(brandList);
       setProductsLoading(false);
     });
     return () => {
@@ -52,14 +57,16 @@ export default function CartPage() {
     const basePrice = hasPrice ? (product?.salePrice || product?.price || 0) : 0;
     const optionPrice = option?.priceDiff ?? option?.price ?? 0;
     const price = basePrice + optionPrice;
-    
-    return { 
-      ...item, 
-      product, 
-      option, 
+    const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
+
+    return {
+      ...item,
+      product,
+      option,
       hasPrice,
-      price, 
-      totalPrice: hasPrice ? price * item.quantity : 0 
+      price,
+      totalPrice: hasPrice ? price * item.quantity : 0,
+      brandName,
     };
   }).filter(item => item.product);
 
@@ -109,7 +116,7 @@ export default function CartPage() {
                   <div className="flex-1 flex flex-col justify-between">
                     <div className="flex justify-between items-start">
                       <div className="min-w-0">
-                        <div className="text-[11px] md:text-xs font-medium text-gray-500 mb-1">{item.product?.brandId}</div>
+                        <div className="text-[11px] md:text-xs font-medium text-gray-500 mb-1">{item.brandName}</div>
                         <Link href={`/shop/${item.product?.id}`} className="break-keep text-[14px] font-bold leading-[1.5] text-[#202521] transition-colors hover:text-[#68776C] md:text-base">
                           {item.product?.name}
                         </Link>
