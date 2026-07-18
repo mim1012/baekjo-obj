@@ -9,7 +9,9 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
   test('관리자 고민 화면은 storage 콘센트와 CRUD 콜백을 모두 연결한다', () => {
     const pageSource = src('src', 'app', 'admin', 'concerns', 'page.tsx');
 
-    expect(pageSource).toContain("import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';");
+    // 추천 상품/브랜드 이름 기반 선택 드롭다운 도입으로 storage import 에 getAdminProducts/getAdminBrands 가
+    // 함께 들어온다 — config getter/setter 가 storage 콘센트에서 오는지만 의도 기준으로 확인한다.
+    expect(pageSource).toMatch(/import \{[^}]*\bgetAdminConcernsConfig\b[^}]*\bsaveConcernsConfig\b[^}]*\} from '@\/lib\/storage';/);
     expect(pageSource).toContain('getAdminConcernsConfig()');
     expect(pageSource).toContain('saveConcernsConfig({');
     // 등록·수정·삭제가 모두 즉시 저장으로 전환되며 header batch save(onSave)는 제거됐다
