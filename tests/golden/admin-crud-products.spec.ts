@@ -63,18 +63,26 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     page.on('dialog', (dialog) => {
       dialog.accept().catch(() => {});
     });
-    await page.goto('/admin/products');
-    await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(SEARCH_PREFIX);
 
-    for (let i = 0; i < 10; i += 1) {
+    // ⚠️ 이전 구현은 매 반복 `rows.first()`만 다시 골라 체크했다 — 체크는 행을 사라지게 하지
+    // 않으므로(bulk 삭제 전까지) 이 호출은 멱등이라 항상 같은 첫 행만 체크되고, 잔여 상품이
+    // 2건 이상이면 매 실행 1건만 지워지고 나머지는 계속 쌓였다(리뷰 LOW-B, 2026-07-18).
+    // 이제 한 번의 검색 결과에서 인덱스로 전부 순회해 체크한 뒤 일괄삭제하고, 그래도 남은
+    // 잔여물(부분 실패·새로 늘어난 잔여물 등)을 잡기 위해 재검색까지 몇 차례 반복한다.
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      await page.goto('/admin/products');
+      await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(SEARCH_PREFIX);
+
       const rows = page.locator('tr', { hasText: SEARCH_PREFIX });
       const count = await rows.count();
       if (count === 0) break;
-      await rows.first().locator('input[type="checkbox"]').check();
-    }
 
-    const deleteButton = page.getByRole('button', { name: '삭제' });
-    if ((await deleteButton.count()) > 0) {
+      for (let i = 0; i < count; i += 1) {
+        await rows.nth(i).locator('input[type="checkbox"]').check();
+      }
+
+      const deleteButton = page.getByRole('button', { name: '삭제' });
+      if ((await deleteButton.count()) === 0) break;
       await deleteButton.click();
       await page.waitForTimeout(800);
     }
