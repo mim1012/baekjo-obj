@@ -209,11 +209,17 @@ export default function AdminSurveyPage() {
 
       {/* 문항 수정 모달 */}
       {editingQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingQuestion(null)}>
+          <div
+            className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90dvh] overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="진단 문항 수정"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
               <h2 className="text-lg font-semibold">진단 문항 수정</h2>
-              <button onClick={() => setEditingQuestion(null)} className="p-1 hover:bg-white/20 rounded">
+              <button onClick={() => setEditingQuestion(null)} className="inline-flex min-h-11 items-center justify-center p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
             </div>
@@ -240,7 +246,7 @@ export default function AdminSurveyPage() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="block text-xs font-medium text-[#59615B]">선택지 관리</span>
-                  <button type="button" onClick={() => setEditingQuestion({...editingQuestion, options: [...(editingQuestion.options || []), { id: `o${Date.now()}`, label: '새 선택지', value: '값' }]})} className="text-xs border px-2 py-1 hover:bg-gray-50">+ 선택지 추가</button>
+                  <button type="button" onClick={() => setEditingQuestion({...editingQuestion, options: [...(editingQuestion.options || []), { id: `o${Date.now()}`, label: '새 선택지', value: '값' }]})} className="inline-flex min-h-11 items-center border px-3 text-xs hover:bg-gray-50">+ 선택지 추가</button>
                 </div>
                 <div className="space-y-2">
                   {editingQuestion.options?.map((opt, i) => (
@@ -255,7 +261,7 @@ export default function AdminSurveyPage() {
                         newOptions[i] = { ...opt, value: e.target.value };
                         setEditingQuestion({...editingQuestion, options: newOptions});
                       }} />
-                      <button onClick={() => setEditingQuestion({...editingQuestion, options: editingQuestion.options?.filter(o => o.id !== opt.id)})} className="text-red-500 hover:text-red-700 text-xs px-2">삭제</button>
+                      <button onClick={() => setEditingQuestion({...editingQuestion, options: editingQuestion.options?.filter(o => o.id !== opt.id)})} className="inline-flex min-h-11 items-center px-2 text-xs text-red-500 hover:text-red-700">삭제</button>
                     </div>
                   ))}
                 </div>
@@ -274,11 +280,17 @@ export default function AdminSurveyPage() {
 
       {/* 룰 수정 모달 */}
       {editingRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setEditingRule(null)}>
+          <div
+            className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90dvh] overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="매핑 룰 수정"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
               <h2 className="text-lg font-semibold">매핑 룰 수정</h2>
-              <button onClick={() => setEditingRule(null)} className="p-1 hover:bg-white/20 rounded">
+              <button onClick={() => setEditingRule(null)} className="inline-flex min-h-11 items-center justify-center p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
             </div>
@@ -343,11 +355,17 @@ export default function AdminSurveyPage() {
 
       {/* 문항 추가 모달 */}
       {isAddingQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsAddingQuestion(false)}>
+          <div
+            className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90dvh] overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="진단 문항 추가"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
               <h2 className="text-lg font-semibold">진단 문항 추가</h2>
-              <button onClick={() => setIsAddingQuestion(false)} className="p-1 hover:bg-white/20 rounded">
+              <button onClick={() => setIsAddingQuestion(false)} className="inline-flex min-h-11 items-center justify-center p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
             </div>
@@ -374,7 +392,7 @@ export default function AdminSurveyPage() {
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <span className="block text-xs font-medium text-[#59615B]">선택지 관리</span>
-                  <button type="button" onClick={() => setNewQuestion({...newQuestion, options: [...(newQuestion.options || []), { id: `o${Date.now()}`, label: '새 선택지', value: '값' }]})} className="text-xs border px-2 py-1 hover:bg-gray-50">+ 선택지 추가</button>
+                  <button type="button" onClick={() => setNewQuestion({...newQuestion, options: [...(newQuestion.options || []), { id: `o${Date.now()}`, label: '새 선택지', value: '값' }]})} className="inline-flex min-h-11 items-center border px-3 text-xs hover:bg-gray-50">+ 선택지 추가</button>
                 </div>
                 <div className="space-y-2">
                   {newQuestion.options?.map((opt, i) => (
@@ -389,7 +407,7 @@ export default function AdminSurveyPage() {
                         newOptions[i] = { ...opt, value: e.target.value };
                         setNewQuestion({...newQuestion, options: newOptions});
                       }} />
-                      <button onClick={() => setNewQuestion({...newQuestion, options: newQuestion.options?.filter(o => o.id !== opt.id)})} className="text-red-500 hover:text-red-700 text-xs px-2">삭제</button>
+                      <button onClick={() => setNewQuestion({...newQuestion, options: newQuestion.options?.filter(o => o.id !== opt.id)})} className="inline-flex min-h-11 items-center px-2 text-xs text-red-500 hover:text-red-700">삭제</button>
                     </div>
                   ))}
                   {(!newQuestion.options || newQuestion.options.length === 0) && <div className="text-xs text-gray-400">등록된 선택지가 없습니다.</div>}
@@ -415,11 +433,17 @@ export default function AdminSurveyPage() {
 
       {/* 룰 추가 모달 */}
       {isAddingRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setIsAddingRule(false)}>
+          <div
+            className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90dvh] overflow-hidden flex flex-col"
+            role="dialog"
+            aria-modal="true"
+            aria-label="매핑 룰 추가"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
               <h2 className="text-lg font-semibold">매핑 룰 추가</h2>
-              <button onClick={() => setIsAddingRule(false)} className="p-1 hover:bg-white/20 rounded">
+              <button onClick={() => setIsAddingRule(false)} className="inline-flex min-h-11 items-center justify-center p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
             </div>
