@@ -76,11 +76,12 @@ export default function QnaListPage() {
 
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
+      // wave-4: 주문 검색과 동일한 클래스의 크래시 방지 — nullish 가드로 감싼다.
       result = result.filter(
         (a) =>
-          a.writerName.toLowerCase().includes(term) ||
-          a.productName.toLowerCase().includes(term) ||
-          a.question.toLowerCase().includes(term)
+          (a.writerName ?? '').toLowerCase().includes(term) ||
+          (a.productName ?? '').toLowerCase().includes(term) ||
+          (a.question ?? '').toLowerCase().includes(term)
       );
     }
 

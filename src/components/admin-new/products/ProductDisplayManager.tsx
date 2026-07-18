@@ -40,7 +40,8 @@ export default function ProductDisplayManager({ initialProducts, brands }: Produ
     if (activeTab === 'visible') filtered = filtered.filter(p => p.isVisible);
 
     if (keyword) {
-      filtered = filtered.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()));
+      // wave-4: 주문 검색과 동일한 클래스의 크래시 방지 — nullish 가드로 감싼다.
+      filtered = filtered.filter(p => (p.name ?? '').toLowerCase().includes(keyword.toLowerCase()));
     }
 
     return filtered;
