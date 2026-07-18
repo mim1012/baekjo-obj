@@ -292,8 +292,8 @@ jobs:
       # 안전하고 저렴하다(브라우저 렌더 확인만, DB 쓰기 없음). 새 page.tsx 가 매핑 없이 추가되는 걸
       # route-coverage-audit.spec.ts(상시 tests/admin 레이어)가 잡고, 이 스텝은 실제로 그 페이지들을
       # 클릭해 HTTP 200·에러 오버레이 부재·앵커 렌더를 확인한다.
-      - name: 전 페이지 스모크 검수(읽기 전용, 매핑 무관 항상 실행)
-        run: npx playwright test tests/golden/all-pages-smoke.spec.ts --project=golden-smoke --reporter=line
+      - name: 전 페이지 스모크 검수(읽기 전용, 매핑 무관 항상 실행, 데스크톱+모바일 390x844)
+        run: npx playwright test tests/golden/all-pages-smoke.spec.ts --project=golden-smoke --project=golden-smoke-mobile --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
