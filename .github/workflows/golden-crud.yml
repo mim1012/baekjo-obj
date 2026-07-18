@@ -41,6 +41,18 @@ jobs:
        github.event.deployment_status.environment == 'Preview')
     runs-on: ubuntu-latest
     steps:
+      # 🚨 prod 도메인 dispatch 가드 — 쓰기(create/update/delete) 스펙이 실수로 production 을
+      # 겨냥하는 것을 어떤 테스트 스텝보다 먼저 차단한다. deployment_status 트리거는 항상
+      # Preview 환경만 통과(위 job if 조건)하므로 workflow_dispatch 의 사람이 입력한 base_url 만 검사.
+      - name: prod 도메인 dispatch 가드
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if echo "${{ inputs.base_url }}" | grep -qi 'baekjo-obj\.vercel\.app'; then
+            echo "::error::base_url 이 production(baekjo-obj.vercel.app)을 가리킵니다 — 쓰기 스펙을 prod 에 돌릴 수 없습니다. Preview/staging URL 을 입력하세요."
+            exit 1
+          fi
+          echo "base_url prod 아님 — 계속."
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.deployment.sha || github.sha }}
@@ -284,6 +296,30 @@ jobs:
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
+      # ── wave5 추가 블록(전 필드 왕복 스펙) — wave4 와의 병합 충돌을 줄이려 끝에 별도로 붙인다 ──
+      # products/brands 경로 매핑을 그대로 재사용한다(위 mapping 의 PRODUCTS/BRANDS 출력).
+      # 두 스펙은 tests/golden/admin-crud-*.spec.ts 라 GATE_SELF 정규식에도 이미 걸려, 이 워크플로/
+      # 헬퍼/스펙 자체가 바뀌면 products/brands 출력이 true 로 강제돼 함께 돈다.
+      - name: 관리자 CRUD — 상품 폼 전 필드 왕복
+        if: steps.changes.outputs.products == 'true'
+        run: npx playwright test tests/golden/admin-crud-product-fields.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 관리자 CRUD — 브랜드 폼 전 필드 왕복(상세 에디터)
+        if: steps.changes.outputs.brands == 'true'
+        run: npx playwright test tests/golden/admin-crud-brand-fields.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
       # ⚠️ 이 블록은 위의 변경-경로 매핑(steps.changes.outputs.*)과 무관하게 매 배포마다 항상 돈다 —
       # 다른 웨이브(w4/w5)가 위 도메인 매핑 블록에 항목을 추가·수정해도 이 블록과는 충돌하지 않도록
       # 파일 맨 끝(Upload failure artifacts 앞)에 별도 스텝으로 추가한다(2026-07-19, 좌표 조율).
@@ -300,7 +336,6 @@ jobs:
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
           E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Upload failure artifacts
         uses: actions/upload-artifact@v4
