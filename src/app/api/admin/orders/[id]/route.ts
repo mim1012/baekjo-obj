@@ -3,10 +3,18 @@ import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import {
   updateOrderStatus,
+  updatePaymentStatusGuarded,
   cancelReservationAndRestore,
+  getOrderById,
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
-import { logServerError } from '@/lib/logServerError';
+import {
+  applyOrderUpdates,
+  OrderNotFoundError,
+  PaymentTransitionError,
+  PaymentStatusConflictError,
+} from '@/lib/orders/applyOrderUpdates';
+import { logServerError, logServerWarn } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
   DELIVERY_STATUSES,
@@ -77,48 +85,21 @@ function validate(body: unknown): OrderStatusUpdate | null {
   return updates;
 }
 
-/**
- * 관리자 취소 요청이면 재고 복원을 취소 RPC(cancelReservationAndRestore)로 배선한다
- * (재고 유실 버그 수정 — 이전엔 관리자 취소가 상태만 바꾸고 복원 RPC를 전혀 호출하지 않았다).
- *
- * ⚠️ 이중 복원 금지가 최상위 불변식이다. cancelReservationAndRestore(0031 rpc)는
- * `WHERE payment_status in ('결제대기','입금대기')` 상태 조건 UPDATE라 호출 자체가 멱등하다
- * (매치되면 취소+복원을 한 트랜잭션으로 수행하고 true, 이미 취소·확정된 주문이면 0행 매치로
- * false) — 그래서 "상태를 먼저 바꾸고 나중에 복원"하는 2단계 방식은 절대 쓰지 않고, 이 RPC를
- * 상태 변경의 진실 소스로 그대로 재사용한다.
- * - RPC가 true(복원 수행)면 orderStatus='취소완료'/paymentStatus='결제취소'는 이미 RPC가
- *   세팅했으므로 updateOrderStatus에서 그 두 필드를 제외한 나머지(trackingNumber 등)만 반영한다.
- * - RPC가 false면(이미 결제완료로 확정된 주문을 취소하는 경우 등 — 환불은 별도 절차이므로
- *   의도적으로 복원하지 않는다. 또는 이미 취소된 주문에 대한 멱등 재호출) 기존과 동일하게
- *   updateOrderStatus로 요청된 모든 필드를 그대로 반영한다. 복원이 일어나지 않았음을 로그로
- *   남긴다.
- */
-async function applyOrderUpdates(id: string, updates: OrderStatusUpdate): Promise<void> {
-  const isCancelRequest =
-    updates.orderStatus === '취소완료' || updates.paymentStatus === '결제취소';
-
-  if (!isCancelRequest) {
-    await updateOrderStatus(id, updates);
-    return;
-  }
-
-  const restored = await cancelReservationAndRestore(id);
-  if (!restored) {
+// 관리자 주문 상태 변경 오케스트레이션은 src/lib/orders/applyOrderUpdates.ts(순수 로직, port 주입)로
+// 분리했다 — 라우트와 단위 테스트가 같은 결정·순서 로직을 태우게 하기 위함(codex 지적). 여기서는 실제
+// repo 함수를 port 로 주입한다.
+const orderUpdatePorts = {
+  cancelReservationAndRestore,
+  getOrderById,
+  updateOrderStatus,
+  updatePaymentStatusGuarded,
+  onCancelFallback: (id: string) =>
     logServerError(
       `[PATCH /api/admin/orders/[id]] 관리자 취소 요청이나 재고 복원 RPC 미매치(이미 결제완료로 ` +
         `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
       {},
-    );
-    await updateOrderStatus(id, updates);
-    return;
-  }
-
-  // RPC가 이미 orderStatus/paymentStatus를 세팅했으므로 나머지 필드만 반영한다.
-  const { orderStatus: _orderStatus, paymentStatus: _paymentStatus, ...rest } = updates;
-  if (Object.keys(rest).length > 0) {
-    await updateOrderStatus(id, rest);
-  }
-}
+    ),
+};
 
 /**
  * PATCH /api/admin/orders/[id] — 관리자 주문 상태 변경.
@@ -153,9 +134,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    await applyOrderUpdates(id, updates);
+    await applyOrderUpdates(id, updates, orderUpdatePorts);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
+    if (error instanceof OrderNotFoundError) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    // 아래 둘은 정상적인 거절(공격/경합)이라 error 레벨이 아니라 감사용 warn 으로 남긴다.
+    if (error instanceof PaymentTransitionError) {
+      logServerWarn(
+        `[PATCH /api/admin/orders/[id]] 결제상태 전이 거부 orderId=${id}`,
+        { message: `${error.fromStatus}->${error.toStatus}` },
+      );
+      return NextResponse.json({ error: 'invalid-payment-transition' }, { status: 409 });
+    }
+    if (error instanceof PaymentStatusConflictError) {
+      logServerWarn(`[PATCH /api/admin/orders/[id]] 결제상태 경합(CAS 0행) orderId=${id}`, {});
+      return NextResponse.json({ error: 'payment-status-conflict' }, { status: 409 });
+    }
     logServerError('[PATCH /api/admin/orders/[id]] 수정 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

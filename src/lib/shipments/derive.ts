@@ -1,7 +1,7 @@
 // 배송 파생·검증 순수 함수. Supabase를 import하지 않는다 — 값 계산만 하므로 브라우저·테스트에서
 // 그대로 구동된다. shipments/repo.ts(DB 접근)와 라우트(HTTP) 사이에 끼는 결정 레이어로,
 // 결제의 decide.ts(순수 결정 함수)와 같은 사상이다.
-import { DELIVERY_STATUSES, type DeliveryStatus, type OrderItem, type Shipment, type ShipmentDeliveryStatus } from '@/types';
+import { DELIVERY_STATUSES, PAID_PAYMENT_STATUS, type DeliveryStatus, type OrderItem, type Shipment, type ShipmentDeliveryStatus } from '@/types';
 import { isCarrierCode } from '@/lib/carriers';
 
 /** 배송 상태의 진행 서열. 파생(deriveOrderDeliveryStatus)·스탬프(resolveShipmentStamps)가
@@ -128,6 +128,38 @@ export function resolveShipmentStamps(
   if (r >= 3 && !current?.deliveredAt) stamps.deliveredAt = now;
   if (r >= 4 && !current?.confirmedAt) stamps.confirmedAt = now;
   return stamps;
+}
+
+/**
+ * 고객/관리자 구매확정 라우트의 사전 판정(순수). 결제·멱등 규칙을 한 곳에 모아 라우트가 결정만
+ * 소비하게 한다(decide.ts와 같은 사상). 세 갈래:
+ *   - 'idempotent-ok' : current가 이미 '구매확정' → 재확정은 비파괴(멱등)이므로 결제상태와 무관하게 통과.
+ *   - 'blocked-unpaid': 아직 미확정인데 부모 주문이 결제완료가 아님 → 미결제 구매확정 차단(409).
+ *   - 'proceed'       : 조건부 UPDATE(confirmShipmentIfDelivered, WHERE '배송완료')를 시도해도 되는 상태.
+ * ⚠️ 결제 검사는 사전 read 기반이다(주문의 결제상태는 shipments 테이블에 없어 단일 조건부 UPDATE로
+ * 원자 결합할 수 없다) — 확정 클릭과 환불의 경합 창은 좁고, claim 2 요구도 read 검사다. 멱등 판정을
+ * 결제 검사보다 앞에 둬서, 확정 후 환불된 주문의 재확정 클릭이 'blocked-unpaid'로 퇴행하지 않게 한다.
+ */
+export type ShipmentConfirmDecision = 'idempotent-ok' | 'blocked-unpaid' | 'proceed';
+
+export function decideShipmentConfirm(
+  orderPaymentStatus: string,
+  current: Shipment | undefined,
+): ShipmentConfirmDecision {
+  if (current?.deliveryStatus === '구매확정') return 'idempotent-ok';
+  if (orderPaymentStatus !== PAID_PAYMENT_STATUS) return 'blocked-unpaid';
+  return 'proceed';
+}
+
+/**
+ * 관리자 송장 PATCH가 이미 '구매확정'된(종결) 송장을 되돌리려는 시도인지 판정(순수, 빠른 409용).
+ * confirmed_at이 찍혔거나 delivery_status가 '구매확정'이면 종결 행이고, 관리자 PATCH는
+ * DELIVERY_STATUSES(구매확정 미포함)만 보내므로 그런 행에 대한 어떤 상태 변경도 후퇴다.
+ * ⚠️ 이 함수는 사전 차단일 뿐이며, 실제 경합 안전은 repo의 조건부 쓰기(confirmed_at IS NULL)가 보증한다
+ * (사전 read 이후 고객 확정이 끼어드는 TOCTOU를 pure 검사만으로는 막을 수 없다).
+ */
+export function isTerminalShipment(current: Shipment | undefined): boolean {
+  return current?.deliveryStatus === '구매확정' || Boolean(current?.confirmedAt);
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

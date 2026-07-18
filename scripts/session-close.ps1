@@ -1,9 +1,14 @@
-param(
+﻿param(
     [switch]$Apply,
     [string]$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 )
 
 $ErrorActionPreference = "Stop"
+
+# 한글 파손 방지: git 등 네이티브 출력은 UTF-8로 디코딩하고,
+# 파일은 항상 BOM 없는 UTF-8로 읽고 쓴다 (PS5.1 기본값은 cp949/BOM-UTF8).
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$script:Utf8NoBom = [System.Text.UTF8Encoding]::new($false)
 
 function Get-EnvLabel {
     param([string]$RepoRoot)
@@ -108,10 +113,10 @@ $commitBlock
 $draftDir = Join-Path $RepoRoot ".omx"
 New-Item -ItemType Directory -Force -Path $draftDir | Out-Null
 $draftPath = Join-Path $draftDir "session-close-draft.md"
-Set-Content -Path $draftPath -Value $entry -Encoding UTF8
+[System.IO.File]::WriteAllText($draftPath, $entry, $script:Utf8NoBom)
 
 if ($Apply) {
-    $original = Get-Content -Raw -Path $sessionPath
+    $original = [System.IO.File]::ReadAllText($sessionPath, [System.Text.Encoding]::UTF8)
     $marker = "## 현재 상태"
     $index = $original.IndexOf($marker, [System.StringComparison]::Ordinal)
     if ($index -lt 0) {
@@ -120,7 +125,7 @@ if ($Apply) {
     else {
         $updated = $original.Substring(0, $index) + $entry + $original.Substring($index)
     }
-    Set-Content -Path $sessionPath -Value $updated -Encoding UTF8
+    [System.IO.File]::WriteAllText($sessionPath, $updated, $script:Utf8NoBom)
     Write-Output "Applied session close draft to SESSION.md"
 }
 else {

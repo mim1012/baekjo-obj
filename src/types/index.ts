@@ -234,6 +234,12 @@ export interface Order {
 export interface OrderItem {
   productId: string;
   productName: string;
+  /**
+   * 선택한 상품 옵션의 id. 서버는 이 값으로 카탈로그 options를 조회해 단가(기본가 + priceDiff)와
+   * optionName을 파생한다 — 클라이언트가 보낸 optionName·가격은 신뢰하지 않는다. 옵션 없는 주문과
+   * 레거시 주문(이 필드 도입 전 items jsonb)엔 없으므로 optional이다.
+   */
+  optionId?: string;
   optionName?: string;
   quantity: number;
   price: number;

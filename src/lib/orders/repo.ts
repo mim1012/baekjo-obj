@@ -181,7 +181,9 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
-/** 관리자 주문 상태 변경. 허용 필드만 반영한다(라우트에서 화이트리스트 검증됨). */
+/** 관리자 주문 상태 변경 요청(라우트에서 화이트리스트 검증됨). paymentStatus 는 취소 감지·전이 판정에
+ *  쓰이지만 **updateOrderStatus 로는 절대 흐르지 않는다**(아래 OrderFieldsUpdate 로 배제) — 결제상태
+ *  쓰기는 오직 updatePaymentStatusGuarded(CAS)와 취소 RPC 로만 일어난다. */
 export type OrderStatusUpdate = Partial<
   Pick<
     Order,
@@ -189,21 +191,64 @@ export type OrderStatusUpdate = Partial<
   >
 >;
 
-export async function updateOrderStatus(id: string, updates: OrderStatusUpdate): Promise<void> {
+/** updateOrderStatus 가 받는 비결제 필드 집합. paymentStatus 를 타입 레벨에서 제외해, 조건 없는
+ *  payment_status 쓰기 경로가 이 함수에 **한 줄도** 남지 않게 강제한다(리플레이 우회 봉합, opus HIGH). */
+export type OrderFieldsUpdate = Omit<OrderStatusUpdate, 'paymentStatus'>;
+
+/** 비결제 필드(OrderFieldsUpdate)를 snake_case 컬럼 patch로 변환한다. updateOrderStatus 와
+ *  updatePaymentStatusGuarded(동반 필드 원자 반영)가 **같은** 정규화를 쓰도록 단일화한다.
+ *  빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
+ *  매번 falsy 검사를 해야 하고, `tracking_number IS NULL` 같은 운영 쿼리(미발송 주문 조회 등)가
+ *  조용히 어긋난다. */
+function buildOrderFieldsPatch(updates: OrderFieldsUpdate): Record<string, string | null> {
   const patch: Record<string, string | null> = {};
   if (updates.orderStatus !== undefined) patch.order_status = updates.orderStatus;
-  if (updates.paymentStatus !== undefined) patch.payment_status = updates.paymentStatus;
   if (updates.deliveryStatus !== undefined) patch.delivery_status = updates.deliveryStatus;
-  // 빈 문자열은 해제 신호라 NULL로 저장한다 — ''가 그대로 들어가면 buildTrackingUrl/isCarrierCode가
-  // 매번 falsy 검사를 해야 한다. trackingNumber/carrier가 같은 규칙을 따라야 `tracking_number IS NULL`
-  // 같은 운영 쿼리(미발송 주문 조회 등)가 조용히 어긋나지 않는다.
   if (updates.trackingNumber !== undefined) patch.tracking_number = updates.trackingNumber || null;
   if (updates.carrier !== undefined) patch.carrier = updates.carrier || null;
   if (updates.deliveryMemo !== undefined) patch.delivery_memo = updates.deliveryMemo ?? null;
+  return patch;
+}
+
+export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate): Promise<void> {
+  const patch = buildOrderFieldsPatch(updates);
   if (Object.keys(patch).length === 0) return;
 
   const { error } = await getSupabase().from('orders').update(patch).eq('id', id);
   if (error) throw error;
+}
+
+/**
+ * 관리자 수동 결제상태 전이(조건부 UPDATE = CAS). setOrderPaid/claimOrderForConfirmation와 같은
+ * 패턴으로 WHERE payment_status=<fromStatus> 를 걸어, 우리가 현재 상태를 읽은 시점과 UPDATE 시점
+ * 사이에 다른 요청이 상태를 바꿨으면 0행 매치로 무성 no-op 이 된다(경합 안전). 반환값 = 영향받은
+ * 행 수. 1 = 이번 호출이 전이시킴, 0 = 경합(호출부가 409로 분기).
+ *
+ * ⚠️ 어떤 전이가 허용되는지는 이 함수가 아니라 route.ts 가 paymentTransition.ts 화이트리스트로 먼저
+ * 검증한다 — 이 함수는 "검증된 전이를 경합 안전하게 기록"하는 역할만 한다(관심사 분리). '결제취소'로의
+ * 전이(취소)는 이 경로가 아니라 cancel_order_reservation_and_restore RPC(재고 복원 동반)로만 일어난다.
+ *
+ * ⚠️ extraFields(동반 비결제 필드)를 **같은 조건부 UPDATE 에 실어** 원자화한다(codex MEDIUM). 관리자
+ * 상세 폼(OrderStatusPanel)은 결제상태 전이와 orderStatus/tracking 등을 한 번에 제출하는데, 이를 CAS
+ * 한 방과 updateOrderStatus 한 방으로 나누면 2번째 실패 시 payment_status 만 커밋되는 부분 쓰기가
+ * 난다. 하나의 UPDATE(WHERE payment_status=<from>)로 묶어 전이와 나머지 필드가 함께 커밋되거나 함께
+ * 무산되게 한다.
+ */
+export async function updatePaymentStatusGuarded(
+  id: string,
+  fromStatus: string,
+  toStatus: string,
+  extraFields: OrderFieldsUpdate = {},
+): Promise<number> {
+  const patch = { payment_status: toStatus, ...buildOrderFieldsPatch(extraFields) };
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update(patch)
+    .eq('id', id)
+    .eq('payment_status', fromStatus)
+    .select('id');
+  if (error) throw error;
+  return data?.length ?? 0;
 }
 
 /**
@@ -331,11 +376,17 @@ const ORPHANED_CONFIRMING_ORDERS_CAP = 100;
  *  걸릴 때 항상 가장 오래 만료된 건부터 결정적으로 처리한다(정렬 없으면 DB가 임의 순서로 잘라
  *  같은 100건이 반복 누락될 수 있음). reclaim_dead=false로 좁혀 dead-letter 처리된 건은 cron이
  *  더 이상 반복 조회하지 않는다(U7). '승인중' 주문은 이 목록에서 항상 제외된다 — 그건 U6 담당. */
+// 만료 재고 회수 대상 결제상태 — 카드 선점('결제대기')과 무통장 선점('입금대기') 둘 다.
+// '입금대기'는 무통장입금 주문이 입금 확인 전까지 갖는 상태다(W2). 입금이 확인되면 '결제완료'로
+// 승격돼 이 집합에서 빠지므로 절대 만료 취소되지 않고, 취소 RPC(0031)도 이 두 상태만 UPDATE 해
+// 이중으로 '결제완료'를 보호한다. '승인중'은 여기 없다 — reconcile-confirming cron 전담(상태기계 배타).
+const RECLAIMABLE_PENDING_STATUSES = ['결제대기', '입금대기'];
+
 export async function listExpiredPendingOrders(): Promise<OrderRecord[]> {
   const { data, error } = await getSupabase()
     .from('orders')
     .select(SELECT_COLUMNS)
-    .eq('payment_status', '결제대기')
+    .in('payment_status', RECLAIMABLE_PENDING_STATUSES)
     .eq('reclaim_dead', false)
     .not('expires_at', 'is', null)
     .lt('expires_at', new Date().toISOString())
