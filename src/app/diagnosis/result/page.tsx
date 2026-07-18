@@ -17,6 +17,7 @@ export default function DiagnosisResultPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'brands' | 'products' | 'care'>('brands');
 
   useEffect(() => {
     const saved = localStorage.getItem('baekjo_survey_answers');
@@ -80,82 +81,118 @@ export default function DiagnosisResultPage() {
   return (
     <div className="bg-[#FAF9F5] min-h-dvh pb-24">
       {/* Result Hero */}
-      <section className="bg-[#2B352E] text-white py-20 text-center px-5">
+      <section className="bg-[#2B352E] text-white py-10 md:py-20 text-center px-5">
         <div className="max-w-3xl mx-auto">
-          <p className="text-[#8A918B] font-semibold tracking-widest text-sm mb-4 uppercase">Diagnosis Result</p>
-          <h1 className="text-3xl md:text-5xl font-editorial mb-6 text-balance leading-tight">
+          <p className="text-[#8A918B] font-semibold tracking-widest text-xs md:text-sm mb-3 md:mb-4 uppercase">Diagnosis Result</p>
+          <h1 className="text-[24px] md:text-5xl font-editorial mb-5 md:mb-6 text-balance leading-tight">
             우리 아이를 위한<br />백조오브제의 큐레이션입니다
           </h1>
-          <div className="bg-[#303A32] p-6 inline-block rounded-sm border border-[#4B574E]">
-            <p className="text-[#D8DCD9] text-lg font-medium flex items-center gap-2">
-              <CheckCircle2 className="size-5 text-[#8A918B]" /> {result.recommendation.direction}
+          <div className="bg-[#303A32] p-4 md:p-6 inline-block rounded-sm border border-[#4B574E]">
+            <p className="text-[#D8DCD9] text-[15px] md:text-lg font-medium flex items-center gap-2">
+              <CheckCircle2 className="size-4 md:size-5 text-[#8A918B]" /> {result.recommendation.direction}
             </p>
           </div>
         </div>
       </section>
 
-      <div className="site-container max-w-5xl mt-12 space-y-16">
+      <div className="site-container max-w-5xl mt-8 md:mt-12 overflow-hidden">
         
-        {/* Recommended Brands */}
-        {recommendedBrands.length > 0 && (
-          <section>
-            <div className="mb-8 border-b border-[#D8D6CE] pb-4">
-              <h2 className="text-2xl font-bold text-[#202521]">도움이 되는 검증 브랜드</h2>
-              <p className="text-[#6F756F] mt-2">아이의 상태와 고민에 가장 적합한 브랜드입니다.</p>
-            </div>
-            <div className="grid md:grid-cols-2 gap-6">
-              {recommendedBrands.map(brand => (
-                <BrandCard key={brand.id} brand={brand} />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Mobile Tabs */}
+        <div className="flex md:hidden border-b border-[#D8D6CE] mb-6">
+          {recommendedBrands.length > 0 && (
+            <button
+              onClick={() => setActiveTab('brands')}
+              className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'brands' ? 'border-[#202521] text-[#202521]' : 'border-transparent text-[#8A918B]'}`}
+            >
+              추천 브랜드
+            </button>
+          )}
+          {recommendedProducts.length > 0 && (
+            <button
+              onClick={() => setActiveTab('products')}
+              className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'products' ? 'border-[#202521] text-[#202521]' : 'border-transparent text-[#8A918B]'}`}
+            >
+              맞춤 상품
+            </button>
+          )}
+          {(result.recommendation.needInsuranceAnalysis || result.recommendation.recommendKit) && (
+            <button
+              onClick={() => setActiveTab('care')}
+              className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'care' ? 'border-[#202521] text-[#202521]' : 'border-transparent text-[#8A918B]'}`}
+            >
+              연계 케어
+            </button>
+          )}
+        </div>
 
-        {/* Recommended Products */}
-        {recommendedProducts.length > 0 && (
-          <section>
-            <div className="mb-8 border-b border-[#D8D6CE] pb-4">
-              <h2 className="text-2xl font-bold text-[#202521]">필요한 카테고리 상품</h2>
-              <p className="text-[#6F756F] mt-2">선정된 브랜드의 제품 중 가장 효과적인 라인업입니다.</p>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {recommendedProducts.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Insurance & Kit */}
-        <section className="grid md:grid-cols-2 gap-6">
-          {result.recommendation.needInsuranceAnalysis && (
-            <div className="bg-[#EAE8E1] p-8 rounded-sm border border-[#D8D6CE]">
-              <ShieldCheck className="size-8 text-[#5E6C62] mb-4" />
-              <h3 className="text-xl font-bold text-[#202521] mb-2">펫보험 보장 점검 필요</h3>
-              <p className="text-[#6F756F] text-sm leading-relaxed mb-6">
-                입력해주신 건강 상태를 볼 때, 향후 병원비 부담이 발생할 수 있습니다. 
-                현재 가입된 보험의 보장 범위가 충분한지 확인해보세요.
-              </p>
-              <Link href="/insurance" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F3B34] hover:underline">
-                무료 분석 알아보기 <ArrowRight className="size-4" />
-              </Link>
-            </div>
+        <div className="space-y-0 md:space-y-16">
+          {/* Recommended Brands */}
+          {recommendedBrands.length > 0 && (
+            <section className={`${activeTab === 'brands' ? 'block' : 'hidden'} md:block`}>
+              <div className="mb-4 md:mb-8 border-b border-[#D8D6CE] pb-3 md:pb-4">
+                <h2 className="text-[18px] md:text-2xl font-bold text-[#202521]">도움이 되는 검증 브랜드</h2>
+                <p className="text-[13px] md:text-base text-[#6F756F] mt-1.5 md:mt-2">아이의 상태와 고민에 가장 적합한 브랜드입니다.</p>
+              </div>
+              <div className="flex md:grid md:grid-cols-2 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
+                {recommendedBrands.map(brand => (
+                  <div key={brand.id} className="w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-start">
+                    <BrandCard brand={brand} />
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
 
-          {result.recommendation.recommendKit && (
-            <div className="bg-white p-8 rounded-sm border border-[#D8D6CE]">
-              <HeartHandshake className="size-8 text-[#5E6C62] mb-4" />
-              <h3 className="text-xl font-bold text-[#202521] mb-2">맞춤 케어 키트 안내</h3>
-              <p className="text-[#6F756F] text-sm leading-relaxed mb-6">
-                아이의 상태에 꼭 필요한 샘플과 가이드가 담긴 케어 키트가 준비되어 있습니다. 
-                가까운 제휴 병원이나 온라인을 통해 만나보세요.
-              </p>
-              <Link href="/landing/care-kit" className="inline-flex items-center gap-2 text-sm font-semibold text-[#2F3B34] hover:underline">
-                케어 키트 살펴보기 <ArrowRight className="size-4" />
-              </Link>
-            </div>
+          {/* Recommended Products */}
+          {recommendedProducts.length > 0 && (
+            <section className={`${activeTab === 'products' ? 'block' : 'hidden'} md:block mt-0 md:mt-16`}>
+              <div className="mb-4 md:mb-8 border-b border-[#D8D6CE] pb-3 md:pb-4">
+                <h2 className="text-[18px] md:text-2xl font-bold text-[#202521]">필요한 카테고리 상품</h2>
+                <p className="text-[13px] md:text-base text-[#6F756F] mt-1.5 md:mt-2">선정된 브랜드의 제품 중 가장 효과적인 라인업입니다.</p>
+              </div>
+              <div className="flex md:grid md:grid-cols-4 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
+                {recommendedProducts.map(product => (
+                  <div key={product.id} className="w-[72vw] sm:w-[240px] md:w-auto shrink-0 snap-start">
+                    <ProductCard product={product} />
+                  </div>
+                ))}
+              </div>
+            </section>
           )}
-        </section>
+
+          {/* Insurance & Kit */}
+          {(result.recommendation.needInsuranceAnalysis || result.recommendation.recommendKit) && (
+            <section className={`${activeTab === 'care' ? 'flex' : 'hidden'} md:flex md:grid md:grid-cols-2 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 mt-0 md:mt-16`}>
+              {result.recommendation.needInsuranceAnalysis && (
+                <div className="bg-[#EAE8E1] p-6 md:p-8 rounded-sm border border-[#D8D6CE] w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-start h-auto flex flex-col">
+                  <ShieldCheck className="size-8 text-[#5E6C62] mb-4" />
+                  <h3 className="text-[18px] md:text-xl font-bold text-[#202521] mb-2">펫보험 보장 점검 필요</h3>
+                  <p className="text-[#6F756F] text-[14px] md:text-sm leading-relaxed mb-6 flex-1">
+                    입력해주신 건강 상태를 볼 때, 향후 병원비 부담이 발생할 수 있습니다.
+                    현재 가입된 보험의 보장 범위가 충분한지 확인해보세요.
+                  </p>
+                  <Link href="/insurance" className="inline-flex items-center gap-2 text-[14px] md:text-sm font-semibold text-[#2F3B34] hover:underline mt-auto">
+                    무료 분석 알아보기 <ArrowRight className="size-4" />
+                  </Link>
+                </div>
+              )}
+
+              {result.recommendation.recommendKit && (
+                <div className="bg-white p-6 md:p-8 rounded-sm border border-[#D8D6CE] w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-start h-auto flex flex-col">
+                  <HeartHandshake className="size-8 text-[#5E6C62] mb-4" />
+                  <h3 className="text-[18px] md:text-xl font-bold text-[#202521] mb-2">맞춤 케어 키트 안내</h3>
+                  <p className="text-[#6F756F] text-[14px] md:text-sm leading-relaxed mb-6 flex-1">
+                    아이의 상태에 꼭 필요한 샘플과 가이드가 담긴 케어 키트가 준비되어 있습니다.
+                    가까운 제휴 병원이나 온라인을 통해 만나보세요.
+                  </p>
+                  <Link href="/landing/care-kit" className="inline-flex items-center gap-2 text-[14px] md:text-sm font-semibold text-[#2F3B34] hover:underline mt-auto">
+                    케어 키트 살펴보기 <ArrowRight className="size-4" />
+                  </Link>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
 
       </div>
     </div>
