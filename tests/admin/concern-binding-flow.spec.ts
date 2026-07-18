@@ -11,10 +11,11 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
 
     expect(pageSource).toContain("import { getAdminConcernsConfig, saveConcernsConfig } from '@/lib/storage';");
     expect(pageSource).toContain('getAdminConcernsConfig()');
-    expect(pageSource).toContain('saveConcernsConfig({ items })');
-    // 로드 완료 전·로드 실패 시 저장을 막는다 — default 로 DB 를 덮어쓰는 레이스 방지(codex F-HIGH).
-    expect(pageSource).toContain('!loaded || loadError ? Promise.resolve({ ok: false })');
-    expect(pageSource).toContain('onSave={handleSave}');
+    expect(pageSource).toContain('saveConcernsConfig({');
+    // 등록·수정·삭제가 모두 즉시 저장으로 전환되며 header batch save(onSave)는 제거됐다
+    // (2026-07-18 저장 유실 리포트 — 모달 "목록에 반영"이 새로고침에 사라지는 2단계 저장 함정 제거).
+    expect(pageSource).not.toContain('onSave=');
+    expect(pageSource).not.toContain('const handleSave');
     expect(pageSource).toContain('onCreateRow=');
     expect(pageSource).toContain('onUpdateRow=');
     expect(pageSource).toContain('onDeleteRow=');
@@ -22,6 +23,42 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).not.toContain('Date.now()');
     // slug 는 상세 라우트(/concerns/[slug]) 링크 키 — 편집 시 이전 slug 를 유지하고, 생성 시에만 발급한다.
     expect(pageSource).toContain('previous?.slug ?? createConcernSlug(');
+  });
+
+  test('등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(마지막 항목은 차단)', () => {
+    const pageSource = src('src', 'app', 'admin', 'concerns', 'page.tsx');
+
+    // persisted = 마지막으로 DB 와 일치한 목록 — 모든 CRUD 가 이 기준으로 저장해 다른 미저장
+    // 편집이 함께 커밋되지 않게 한다(opus 리뷰 MEDIUM-1 확장).
+    expect(pageSource).toContain('const persistedItemsRef = useRef<Concern[]>(defaultConcernsConfig.items);');
+    expect(pageSource).toContain('persistedItemsRef.current = config.items;');
+    // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
+    expect(pageSource).toContain('const busyRef = useRef(false);');
+
+    expect(pageSource).toContain('const handleCreate = async (draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('const newConcern = draftToConcern(draft, persistedItemsRef.current.map((concern) => concern.slug));');
+    expect(pageSource).toContain('const nextItems = [...persistedItemsRef.current, newConcern];');
+    expect(pageSource).toContain('등록 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('concern.slug === id ? draftToConcern(draft, existingSlugs, concern) : concern,');
+    expect(pageSource).toContain('수정 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleDelete = async (id: string | number) => {');
+    expect(pageSource).toContain('if (!loaded || loadError) return;');
+    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('busyRef.current = true;');
+    expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((concern) => concern.slug !== id);');
+    expect(pageSource).toContain('const { ok } = await saveConcernsConfig({ items: nextItems });');
+    // 관리자 PUT 라우트가 items.length < 1 을 거부하므로 마지막 항목은 저장 전에 막는다.
+    expect(pageSource).toContain('if (nextItems.length === 0) {');
+    expect(pageSource).toContain('마지막 항목은 삭제할 수 없습니다.');
+    // 저장 성공 시에만 draft 를 갱신한다.
+    expect(pageSource).toContain('persistedItemsRef.current = nextItems;');
+    expect(pageSource).toContain('setItems((prev) => prev.filter((concern) => concern.slug !== id));');
+    expect(pageSource).toContain('삭제 저장에 실패했습니다.');
+    // 등록·수정·삭제 모두 즉시 반영됨을 설명 문구에 명시한다.
+    expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다.');
   });
 
   test('storage 콘센트는 공개 GET 폴백과 관리자 PUT 경로를 제공한다', () => {

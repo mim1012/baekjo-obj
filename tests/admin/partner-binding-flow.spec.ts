@@ -27,7 +27,6 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     const repoSource = src('src', 'lib', 'partners', 'repo.ts');
     const resourcePage = src('src', 'components', 'admin', 'AdminResourcePage.tsx');
 
-    const saveHandler = sliceBetween(pageSource, 'const handleSave = () =>', 'return (');
     const getStorage = sliceBetween(storageSource, 'export async function getPartnersConfig(', 'export async function savePartnersConfig(');
     const saveStorage = sliceBetween(storageSource, 'export async function savePartnersConfig(', '/** 공개 Q&A config.');
 
@@ -35,13 +34,16 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(pageSource).toContain('getPartnersConfig()');
     expect(pageSource).toContain('.catch(() => {');
     expect(pageSource).toContain('setLoadError(true);');
-    expect(saveHandler).toContain('savePartnersConfig({ items })');
-    expect(saveHandler).toContain('loadError ? Promise.resolve({ ok: false })');
-    expect(pageSource).toContain('onDeleteRow={handleDelete}');
-    expect(pageSource).toContain('onSave={handleSave}');
+    // 등록·수정·삭제가 모두 즉시 저장으로 전환되며 header batch save(onSave)는 제거됐다
+    // (2026-07-18 저장 유실 리포트). AdminResourcePage 는 이 브랜치에서 무변경(다른 PR 의존).
+    expect(pageSource).not.toContain('onSave=');
+    expect(pageSource).not.toContain('const handleSave');
+    // 로드 완료 전에는 CRUD 콜백을 아예 안 넘겨 버튼을 숨긴다(opus 리뷰 MEDIUM-2, notices/concerns 미러).
+    expect(pageSource).toContain('const ready = loaded && !loadError;');
+    expect(pageSource).toContain('onDeleteRow={ready ? handleDelete : undefined}');
     expect(pageSource).toContain('actionLabel="제휴처 등록"');
-    expect(pageSource).toContain('onCreateRow={handleCreate}');
-    expect(pageSource).toContain('onUpdateRow={handleUpdate}');
+    expect(pageSource).toContain('onCreateRow={ready ? handleCreate : undefined}');
+    expect(pageSource).toContain('onUpdateRow={ready ? handleUpdate : undefined}');
     expect(pageSource).toContain("formFields={[");
     expect(pageSource).not.toContain('disableEdit');
     expect(resourcePage).toContain('onCreateRow?: (draft: ResourceRow) => void;');
@@ -87,13 +89,40 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(repoSource).toContain('upsert({ id: CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
 
+  test('제휴처 등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
+    const pageSource = src('src', 'app', 'admin', 'partners', 'page.tsx');
+
+    expect(pageSource).toContain('const [loaded, setLoaded] = useState(false);');
+    expect(pageSource).toContain('const persistedItemsRef = useRef<Partner[]>(defaultPartnersConfig.items);');
+    expect(pageSource).toContain('persistedItemsRef.current = config.items;');
+    // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
+    expect(pageSource).toContain('const busyRef = useRef(false);');
+
+    expect(pageSource).toContain('const handleCreate = async (draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('const nextItems = [...persistedItemsRef.current, draftToPartner(draft)];');
+    expect(pageSource).toContain('등록 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('partner.id === id ? draftToPartner(draft, partner) : partner,');
+    expect(pageSource).toContain('수정 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleDelete = async (id: string | number) => {');
+    expect(pageSource).toContain('if (!loaded || loadError) return;');
+    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((partner) => partner.id !== id);');
+    expect(pageSource).toContain('const { ok } = await savePartnersConfig({ items: nextItems });');
+    expect(pageSource).toContain('persistedItemsRef.current = nextItems;');
+    expect(pageSource).toContain('setItems((prev) => prev.filter((partner) => partner.id !== id));');
+    expect(pageSource).toContain('삭제 저장에 실패했습니다.');
+    expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다.');
+  });
+
   test('케어키트 관리자 저장은 storage 콘센트와 admin kits API/repo readback 경로를 사용한다', () => {
     const pageSource = src('src', 'app', 'admin', 'kits', 'page.tsx');
     const storageSource = src('src', 'lib', 'storage.ts');
     const routeSource = src('src', 'app', 'api', 'admin', 'kits', 'route.ts');
     const repoSource = src('src', 'lib', 'kits', 'repo.ts');
 
-    const saveHandler = sliceBetween(pageSource, 'const handleSave = () =>', 'return (');
     const getStorage = sliceBetween(storageSource, 'export async function getKitsConfig(', 'export async function saveKitsConfig(');
     const saveStorage = sliceBetween(storageSource, 'export async function saveKitsConfig(', '/** 관리자 제휴처 config.');
 
@@ -101,13 +130,13 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(pageSource).toContain('getKitsConfig()');
     expect(pageSource).toContain('.catch(() => {');
     expect(pageSource).toContain('setLoadError(true);');
-    expect(saveHandler).toContain('saveKitsConfig({ items })');
-    expect(saveHandler).toContain('loadError ? Promise.resolve({ ok: false })');
-    expect(pageSource).toContain('onDeleteRow={handleDelete}');
-    expect(pageSource).toContain('onSave={handleSave}');
+    expect(pageSource).not.toContain('onSave=');
+    expect(pageSource).not.toContain('const handleSave');
+    expect(pageSource).toContain('const ready = loaded && !loadError;');
+    expect(pageSource).toContain('onDeleteRow={ready ? handleDelete : undefined}');
     expect(pageSource).toContain('actionLabel="키트 등록"');
-    expect(pageSource).toContain('onCreateRow={handleCreate}');
-    expect(pageSource).toContain('onUpdateRow={handleUpdate}');
+    expect(pageSource).toContain('onCreateRow={ready ? handleCreate : undefined}');
+    expect(pageSource).toContain('onUpdateRow={ready ? handleUpdate : undefined}');
     expect(pageSource).toContain("formFields={[");
     expect(pageSource).not.toContain('disableEdit');
     expectNoMutableProductBrandImport(pageSource);
@@ -143,6 +172,33 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(repoSource).toContain(".select('value')");
     expect(repoSource).toContain('return data ? (data.value as KitsConfig) : null;');
     expect(repoSource).toContain('upsert({ id: CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });');
+  });
+
+  test('케어키트 등록·수정·삭제 모두 persisted 기준으로 즉시 저장한다(빈 배열 허용 — 마지막 항목 차단 없음)', () => {
+    const pageSource = src('src', 'app', 'admin', 'kits', 'page.tsx');
+
+    expect(pageSource).toContain('const [loaded, setLoaded] = useState(false);');
+    expect(pageSource).toContain('const persistedItemsRef = useRef<CareKit[]>(defaultKitsConfig.items);');
+    expect(pageSource).toContain('persistedItemsRef.current = config.items;');
+    expect(pageSource).toContain('const busyRef = useRef(false);');
+
+    expect(pageSource).toContain('const handleCreate = async (draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('const nextItems = [...persistedItemsRef.current, draftToCareKit(draft)];');
+    expect(pageSource).toContain('등록 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {');
+    expect(pageSource).toContain('persistedItemsRef.current.map((kit) => (kit.id === id ? draftToCareKit(draft, kit) : kit));');
+    expect(pageSource).toContain('수정 저장에 실패했습니다.');
+
+    expect(pageSource).toContain('const handleDelete = async (id: string | number) => {');
+    expect(pageSource).toContain('if (!loaded || loadError) return;');
+    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((kit) => kit.id !== id);');
+    expect(pageSource).toContain('const { ok } = await saveKitsConfig({ items: nextItems });');
+    expect(pageSource).toContain('persistedItemsRef.current = nextItems;');
+    expect(pageSource).toContain('setItems((prev) => prev.filter((kit) => kit.id !== id));');
+    expect(pageSource).toContain('삭제 저장에 실패했습니다.');
+    expect(pageSource).toContain('등록·수정·삭제가 모두 즉시 반영됩니다.');
   });
 
   test('공개 케어키트 랜딩은 mailto 대신 콘센트 경유 제휴 문의 폼을 제공한다', () => {
