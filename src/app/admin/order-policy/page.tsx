@@ -13,9 +13,13 @@ import {
 
 export default function AdminOrderPolicyPage() {
   // draft 는 문자열로 들고 저장 시에만 숫자화한다 — number input 을 비우는 중간 상태를 허용하기 위함.
-  // 로드 완료 전(loaded=false)·로드 실패(loadError) 시 저장을 막는다 — 로드 전 저장이 기본 72h 로
+  // 로드 완료 전(loaded=false)·로드 실패(loadError) 시 저장을 막는다 — 로드 전 저장이 기본값으로
   // DB 를 덮어쓰는 레이스 방지(insurance-content 관리자 화면과 동일 방어).
   const [draft, setDraft] = useState(String(defaultOrderPolicyConfig.bankTransferTtlHours));
+  // 자동취소 사용 여부 — 기본 비활성(2026-07-18 결정: 무통장 자동취소 미사용).
+  const [autoCancelEnabled, setAutoCancelEnabled] = useState(
+    defaultOrderPolicyConfig.bankTransferAutoCancelEnabled,
+  );
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -28,6 +32,7 @@ export default function AdminOrderPolicyPage() {
         if (cancelled) return;
         setLoadError(false);
         setDraft(String(config.bankTransferTtlHours));
+        setAutoCancelEnabled(config.bankTransferAutoCancelEnabled);
         setLoaded(true);
       })
       .catch(() => {
@@ -48,13 +53,22 @@ export default function AdminOrderPolicyPage() {
     }
     // 서버(PUT)도 normalize 하지만, 관리자가 입력한 값과 실제 저장값이 달라지는 것을
     // 화면에서 먼저 보여주기 위해 같은 normalize 를 거친 값으로 저장·표시한다.
-    const normalized = normalizeOrderPolicyConfig({ bankTransferTtlHours: parsed });
+    const normalized = normalizeOrderPolicyConfig({
+      bankTransferAutoCancelEnabled: autoCancelEnabled,
+      bankTransferTtlHours: parsed,
+    });
     setSaving(true);
     const { ok } = await saveOrderPolicyConfig(normalized);
     setSaving(false);
     if (ok) {
       setDraft(String(normalized.bankTransferTtlHours));
-      setFeedback({ ok: true, message: `저장되었습니다. 무통장입금 입금 기한: ${normalized.bankTransferTtlHours}시간` });
+      setAutoCancelEnabled(normalized.bankTransferAutoCancelEnabled);
+      setFeedback({
+        ok: true,
+        message: normalized.bankTransferAutoCancelEnabled
+          ? `저장되었습니다. 무통장입금 입금 기한: ${normalized.bankTransferTtlHours}시간`
+          : '자동취소 사용 안 함으로 저장되었습니다.',
+      });
     } else {
       setFeedback({ ok: false, message: '저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' });
     }
@@ -69,19 +83,48 @@ export default function AdminOrderPolicyPage() {
             ? '설정을 불러오지 못했습니다. 저장을 막았습니다. 새로고침 후 다시 시도해 주세요.'
             : !loaded
               ? '설정 로딩 중…'
-              : '무통장입금 주문의 입금 기한(재고 선점 유효시간)을 관리합니다.'
+              : '무통장입금 주문의 자동취소 사용 여부와 입금 기한(재고 선점 유효시간)을 관리합니다.'
         }
       />
 
       <div className="max-w-2xl border border-[#E7E0D5] bg-white p-6 md:p-8">
-        <h2 className="mb-2 text-lg font-semibold text-[#17211D]">무통장입금 입금 기한</h2>
+        <h2 className="mb-2 text-lg font-semibold text-[#17211D]">무통장입금 자동취소</h2>
         <p className="mb-6 break-keep text-sm leading-7 text-[#6F766F]">
-          무통장입금 주문은 생성 후 이 시간 안에 입금이 확인되지 않으면 자동으로 취소되고 재고가 복원됩니다.
-          변경은 저장 이후 <strong className="font-semibold text-[#17211D]">새로 생성되는 주문부터</strong> 적용되며,
-          이미 생성된 주문의 만료 시각은 생성 시점 값이 유지됩니다. 허용 범위는{' '}
-          {ORDER_POLICY_TTL_MIN_HOURS}~{ORDER_POLICY_TTL_MAX_HOURS}시간(30일)이고, 기본값은{' '}
-          {defaultOrderPolicyConfig.bankTransferTtlHours}시간입니다.
+          {autoCancelEnabled ? (
+            <>
+              무통장입금 주문은 생성 후 이 시간 안에 입금이 확인되지 않으면 자동으로 취소되고 재고가 복원됩니다.
+              변경은 저장 이후 <strong className="font-semibold text-[#17211D]">새로 생성되는 주문부터</strong> 적용되며,
+              이미 생성된 주문의 만료 시각은 생성 시점 값이 유지됩니다. 허용 범위는{' '}
+              {ORDER_POLICY_TTL_MIN_HOURS}~{ORDER_POLICY_TTL_MAX_HOURS}시간(30일)이고, 기본값은{' '}
+              {defaultOrderPolicyConfig.bankTransferTtlHours}시간입니다.
+            </>
+          ) : (
+            <>
+              <strong className="font-semibold text-[#17211D]">새로 생성되는 무통장 주문부터</strong>{' '}
+              자동취소되지 않으며, 입금 확인 전까지{' '}
+              <strong className="font-semibold text-[#17211D]">입금대기</strong>로 유지됩니다.
+              자동취소가 켜져 있던 동안 생성돼 이미 입금 기한이 부여된 주문은 그 기한이 지나면
+              여전히 자동취소됩니다(만료 시각은 생성 시점 고정). 자동취소를 사용하지 않는 동안
+              미입금 주문의 재고는 자동으로 회수되지 않으므로, 오래된 입금대기 주문은 주문 관리에서
+              직접 취소해 재고를 복원해 주세요. 자동취소를 켜면 저장 이후 새로 생성되는 무통장
+              주문부터 입금 기한이 적용됩니다.
+            </>
+          )}
         </p>
+
+        <label className="mb-6 flex w-fit cursor-pointer items-center gap-2.5 text-sm text-[#17211D]">
+          <input
+            type="checkbox"
+            checked={autoCancelEnabled}
+            disabled={!loaded || loadError}
+            onChange={(e) => {
+              setAutoCancelEnabled(e.target.checked);
+              setFeedback(null);
+            }}
+            className="h-4 w-4 accent-[#2F3B34] disabled:cursor-not-allowed"
+          />
+          자동취소 사용
+        </label>
 
         <div className="flex flex-wrap items-end gap-4">
           <div>
@@ -95,7 +138,7 @@ export default function AdminOrderPolicyPage() {
               max={ORDER_POLICY_TTL_MAX_HOURS}
               step={1}
               value={draft}
-              disabled={!loaded || loadError}
+              disabled={!loaded || loadError || !autoCancelEnabled}
               onChange={(e) => {
                 setDraft(e.target.value);
                 setFeedback(null);

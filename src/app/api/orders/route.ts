@@ -9,11 +9,7 @@ import {
 import { listProductsByIds } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
-import {
-  reservationExpiryIso,
-  BANK_TRANSFER_METHOD,
-  BANK_TRANSFER_RESERVATION_MS,
-} from '@/lib/orders/reservationExpiry';
+import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
 import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import type { OrderItem, Product } from '@/types';
@@ -74,7 +70,7 @@ function validateItemShape(raw: unknown): OrderItemShape | null {
 function validate(
   body: unknown,
   productMap: Map<string, Product>,
-  bankTransferTtlMs: number,
+  bankTransferTtlMs: number | null,
 ): InsertOrderInput | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
@@ -103,11 +99,11 @@ function validate(
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
   const isBankTransfer = b.paymentMethod === BANK_TRANSFER_METHOD;
   const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';
-  // 카드(10분)·무통장(관리자 설정값, 기본 72h) 모두 유한 선점 만료를 부여한다 — 예전엔 무통장만
-  // expiresAt 없이 생성돼 재고가 무기한 선점됐고, 익명 주문 루프로 재고를 고갈시킬 수 있었다(W2).
+  // 카드는 항상 10분 만료(결제 승인 재고 회수 안전망 — 불변). 무통장 자동취소는 기본 **미사용**
+  // (2026-07-18 결정) — 이때 reservationExpiryIso 가 null 을 돌려주고 expiresAt 을 아예 기록하지
+  // 않아 reclaim-stock cron 스캔에서 제외된다(입금 확인 전까지 입금대기 유지). 관리자가
+  // /admin/order-policy 에서 자동취소를 켠 경우에만 설정 TTL 로 만료를 부여한다.
   // 무통장 TTL 은 async 핸들러가 resolveBankTransferTtlMs 로 미리 해석해 주입한다(이 함수는 순수 유지).
-  // 만료된 '입금대기'는 reclaim-stock cron 이 취소·재고복원한다(입금 확인돼 '결제완료'가 된
-  // 주문은 스캔/RPC guard 가 제외 — reservationExpiry.ts 주석 참고).
   const expiresAt = reservationExpiryIso(b.paymentMethod, Date.now(), bankTransferTtlMs);
 
   return {
@@ -123,7 +119,7 @@ function validate(
     deliveryStatus: '배송준비',
     ...(typeof b.trackingNumber === 'string' ? { trackingNumber: b.trackingNumber } : {}),
     ...(typeof b.deliveryMemo === 'string' ? { deliveryMemo: b.deliveryMemo } : {}),
-    expiresAt,
+    ...(expiresAt ? { expiresAt } : {}),
   };
 }
 
@@ -171,15 +167,14 @@ export async function POST(request: NextRequest) {
   const productList = await listProductsByIds(productIds);
   const productMap = new Map(productList.map((product) => [product.id, product]));
 
-  // 무통장 TTL(관리자 설정값·기본 72h) — 조회 실패 시에도 repo 가 기본값으로 폴백하므로
-  // 정책 테이블 장애가 주문 생성 실패로 번지지 않는다. 카드 주문(대다수 트래픽)과 무관한
-  // 요청이 정책 테이블 조회를 유발하지 않도록 무통장 주장이 있을 때만 읽는다(공개 엔드포인트).
+  // 무통장 TTL(관리자 설정 — 자동취소 미사용이면 null=만료 없음, 기본 미사용) — 조회 실패 시에도
+  // repo 가 기본값(비활성=null)으로 폴백하므로 정책 테이블 장애가 주문 생성 실패로 번지지 않는다.
+  // 카드 주문(대다수 트래픽)과 무관한 요청이 정책 테이블 조회를 유발하지 않도록 무통장 주장이
+  // 있을 때만 읽는다(공개 엔드포인트). 카드 경로는 이 값을 무시한다(reservationExpiryIso).
   const claimsBankTransfer =
     body && typeof body === 'object' &&
     (body as Record<string, unknown>).paymentMethod === BANK_TRANSFER_METHOD;
-  const bankTransferTtlMs = claimsBankTransfer
-    ? await resolveBankTransferTtlMs()
-    : BANK_TRANSFER_RESERVATION_MS;
+  const bankTransferTtlMs = claimsBankTransfer ? await resolveBankTransferTtlMs() : null;
 
   const validated = validate(body, productMap, bankTransferTtlMs);
   if (!validated) {
