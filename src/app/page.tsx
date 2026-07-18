@@ -23,5 +23,10 @@ export default async function Home() {
     // 전시용 후기도 DB 가 정본(showcase_reviews_config) — 미저장·실패는 repo 가 default 로 접는다.
     getShowcaseReviewsConfigWithFallback(),
   ]);
-  return <HomeClient products={products} brands={brands} notices={noticesConfig.items} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />;
+  // 공지 config 는 append 순서로 저장된다 — 공개 화면은 최신순 정렬(2026-07-18 CRUD e2e 구축 중
+  // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그. HomeClient 가 notices.slice(0, 4)로 앞 4건만 취해
+  // append 순서 그대로면 항상 가장 오래된 4건만 보였다). date 는 YYYY-MM-DD 문자열이라 localeCompare
+  // 로 비교하고, JS sort 는 안정 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
+  const sortedNotices = [...noticesConfig.items].sort((a, b) => b.date.localeCompare(a.date));
+  return <HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />;
 }

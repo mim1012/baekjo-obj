@@ -14,7 +14,12 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function NoticesPage() {
-  const { items: notices } = await getNoticesConfigWithFallback();
+  const { items } = await getNoticesConfigWithFallback();
+  // 공지 config 는 append 순서로 저장된다 — 공개 화면은 최신순 정렬(2026-07-18 CRUD e2e 구축 중
+  // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그와 동일 원인. 목록 페이지도 방치하면 신규 공지가
+  // 맨 아래에 묻힌다). date 는 YYYY-MM-DD 문자열이라 localeCompare 로 비교하고, JS sort 는 안정
+  // 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
+  const notices = [...items].sort((a, b) => b.date.localeCompare(a.date));
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">

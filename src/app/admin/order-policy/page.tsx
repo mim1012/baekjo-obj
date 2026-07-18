@@ -13,9 +13,11 @@ import {
 
 export default function AdminOrderPolicyPage() {
   // draft 는 문자열로 들고 저장 시에만 숫자화한다 — number input 을 비우는 중간 상태를 허용하기 위함.
+  // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
+  // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0). input 은 !loaded 동안 disabled.
   // 로드 완료 전(loaded=false)·로드 실패(loadError) 시 저장을 막는다 — 로드 전 저장이 기본값으로
   // DB 를 덮어쓰는 레이스 방지(insurance-content 관리자 화면과 동일 방어).
-  const [draft, setDraft] = useState(String(defaultOrderPolicyConfig.bankTransferTtlHours));
+  const [draft, setDraft] = useState('');
   // 자동취소 사용 여부 — 기본 비활성(2026-07-18 결정: 무통장 자동취소 미사용).
   const [autoCancelEnabled, setAutoCancelEnabled] = useState(
     defaultOrderPolicyConfig.bankTransferAutoCancelEnabled,
