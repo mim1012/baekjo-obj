@@ -107,11 +107,13 @@ test.describe('제휴 문의 폼 → DB → 관리자 접수함 바인딩 경로
       "import { getAdminPartnerInquiries, updatePartnerInquiryStatus } from '@/lib/storage';",
     );
     expect(pageSource).toContain('getAdminPartnerInquiries()');
-    expect(pageSource).toContain('updatePartnerInquiryStatus(target.id, target.status');
+    // 즉시저장 전환(2026-07-18): 수정 모달 저장이 곧바로 PATCH 콘센트를 호출한다.
+    expect(pageSource).toContain('await updatePartnerInquiryStatus(String(id), status, memo);');
     expect(pageSource).not.toContain('onCreateRow=');
     expect(pageSource).not.toContain('actionLabel=');
     expect(pageSource).toContain('renderExpandedRow');
-    expect(pageSource).toContain('onSave={handleSave}');
+    // 일괄 저장 버튼(onSave) 재도입 방지 — 저장 경로는 즉시 PATCH 하나뿐이어야 한다.
+    expect(pageSource).not.toContain('onSave=');
     expect(pageSource).not.toContain('fetch(');
     expectNoMutableProductBrandImport(pageSource);
   });
