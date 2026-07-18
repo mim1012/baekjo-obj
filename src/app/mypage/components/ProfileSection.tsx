@@ -2,11 +2,17 @@
 
 import { useState } from 'react';
 import { User } from '@/types';
-import { setCurrentUser } from '@/lib/storage';
+import { setCurrentUser, updateMyProfile } from '@/lib/storage';
 
 interface ProfileSectionProps {
   user: User | null;
 }
+
+const ERROR_MESSAGES: Record<string, string> = {
+  'invalid-input': '입력하신 정보를 다시 확인해 주세요.',
+  'not-found': '회원 정보를 찾을 수 없습니다. 다시 로그인해 주세요.',
+  network: '잠시 후 다시 시도해 주세요.',
+};
 
 export default function ProfileSection({ user }: ProfileSectionProps) {
   const [formData, setFormData] = useState({
@@ -16,13 +22,25 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
     breed: user?.breed || '',
   });
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
 
   if (!user) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedUser = { ...user, ...formData };
-    setCurrentUser(updatedUser);
+    setError('');
+    setIsSaving(true);
+    const result = await updateMyProfile(formData);
+    setIsSaving(false);
+
+    if (result.error) {
+      setError(ERROR_MESSAGES[result.error] ?? ERROR_MESSAGES.network);
+      return;
+    }
+
+    // 서버(DB)가 진실이므로 200 응답을 받은 뒤에만 로컬 캐시를 갱신한다.
+    if (result.user) setCurrentUser(result.user);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -104,9 +122,14 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
           </div>
 
           <div className="mt-4 flex items-center justify-end gap-4 border-t border-[#EBE6DC] pt-6">
-            {isSaved && <span className="text-sm font-semibold text-[#B99562]">저장되었습니다.</span>}
-            <button type="submit" className="mp-btn-primary w-full sm:w-auto">
-              회원정보 저장
+            {error && (
+              <span role="alert" className="text-sm font-semibold text-red-600">
+                {error}
+              </span>
+            )}
+            {isSaved && <span role="status" className="text-sm font-semibold text-[#B99562]">저장되었습니다.</span>}
+            <button type="submit" disabled={isSaving} className="mp-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+              {isSaving ? '저장 중…' : '회원정보 저장'}
             </button>
           </div>
         </form>
