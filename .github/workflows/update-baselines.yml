@@ -21,7 +21,8 @@ concurrency:
 
 jobs:
   update:
-    # fork PR의 GITHUB_TOKEN은 read-only라 push 불가 — 같은 리포 브랜치에서만 실행
+    # fork PR의 GITHUB_TOKEN은 read-only라 push 불가 — 같은 리포 브랜치에서만 실행.
+    # checkout credential은 BOT_PAT를 써서 베이스라인 커밋 push가 후속 required CI를 트리거하게 한다.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.label.name == 'update-baselines' &&
@@ -34,6 +35,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'pull_request' && github.head_ref || github.ref_name }}
+          token: ${{ secrets.BOT_PAT }}
 
       - uses: actions/setup-node@v4
         with:
