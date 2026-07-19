@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { loginAsAdmin } from './adminCrudHelpers';
+import { loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
 
 // member-*.spec.ts(wave6 — 회원 여정 전수) 전용 헬퍼. 파일명이 *.spec.ts가 아니라
 // Playwright 테스트로 수집되지 않는다.
@@ -16,14 +16,7 @@ export const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 
 /** 로그인 폼 셀렉터는 loginAsAdmin(adminCrudHelpers.ts)과 동일 — 계정만 다르다. */
 export async function loginAsMember(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.locator('input[type="email"]').fill(MEMBER_EMAIL!);
-  await page.locator('input[type="password"]').fill(MEMBER_PASSWORD!);
-  await page
-    .getByRole('button', { name: /로그인/ })
-    .first()
-    .click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+  await loginWithCredentials(page, MEMBER_EMAIL!, MEMBER_PASSWORD!);
 }
 
 const PNG_1PX_BASE64 =
