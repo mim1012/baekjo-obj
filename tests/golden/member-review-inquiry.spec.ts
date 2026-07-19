@@ -22,6 +22,8 @@ import {
 // 이 스펙이 PATCH /api/admin/orders/[id]로 직접 배송완료까지 전이시킨다(관리자 UI로 하지 않는
 // 이유: 관리자 측 주문상태 변경 UI 자체는 wave4 admin-crud-orders 소관이라 여기서 중복 안 함).
 test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원 라이프사이클', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 상품 생성/상태전이 불가로 skip');
   test.skip(!MEMBER_EMAIL || !MEMBER_PASSWORD, 'E2E_MEMBER_* secret 미주입 — 회원 로그인 불가로 skip');

@@ -227,6 +227,32 @@ test.describe('image 블록 src 오리진 화이트리스트', () => {
     expect(result!.detailBlocks![0]).toEqual({ type: 'image', src: '/products/detail/a/01.webp' });
   });
 
+  test('서버 SUPABASE_URL만 있어도 Supabase storage 상세 이미지는 통과한다', () => {
+    const previousPublicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const previousServerUrl = process.env.SUPABASE_URL;
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    process.env.SUPABASE_URL = 'https://example-project.supabase.co';
+
+    try {
+      const src =
+        'https://example-project.supabase.co/storage/v1/object/public/catalog-assets/products/p1/detail/01.png';
+      const result = validateProductFields({ detailBlocks: [{ type: 'image', src }] }, false);
+      expect(result).not.toBeNull();
+      expect(result!.detailBlocks![0]).toEqual({ type: 'image', src });
+    } finally {
+      if (previousPublicUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      } else {
+        process.env.NEXT_PUBLIC_SUPABASE_URL = previousPublicUrl;
+      }
+      if (previousServerUrl === undefined) {
+        delete process.env.SUPABASE_URL;
+      } else {
+        process.env.SUPABASE_URL = previousServerUrl;
+      }
+    }
+  });
+
   test('alt 없는 image 블록은 통과하고 결과에 alt 키가 없다', () => {
     const result = validateProductFields(
       { detailBlocks: [{ type: 'image', src: '/a.webp' }] },

@@ -100,7 +100,7 @@ function isSitePath(src: string): boolean {
 
 /** 업로드 대상인 Supabase storage 오리진. 미설정이면 null → 상대경로만 허용(fail-closed). */
 function supabaseOrigin(): string | null {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   if (!raw) return null;
   try {
     return new URL(raw).origin;
