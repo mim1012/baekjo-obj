@@ -42,8 +42,13 @@ interface LiveCoverage {
  */
 const LIVE_COVERED: Record<string, LiveCoverage> = {
   brands: { spec: 'admin-crud-brands.spec.ts', pathNeedle: 'src/app/api/admin/brands/' },
+  'category-settings': {
+    spec: 'admin-crud-category-settings.spec.ts',
+    pathNeedle: 'src/app/api/admin/category-settings/',
+  },
   concerns: { spec: 'admin-crud-concerns.spec.ts', pathNeedle: 'src/app/api/admin/concerns/' },
   inquiries: { spec: 'admin-crud-qna-inquiries.spec.ts', pathNeedle: 'src/app/api/admin/inquiries/' },
+  insurance: { spec: 'admin-crud-insurance.spec.ts', pathNeedle: 'src/app/api/admin/insurance/' },
   'insurance-content': {
     spec: 'admin-crud-insurance-content.spec.ts',
     pathNeedle: 'src/app/api/admin/insurance-content/',
@@ -51,8 +56,15 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
   kits: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/kits/' },
   members: { spec: 'admin-crud-members.spec.ts', pathNeedle: 'src/app/api/admin/members/' },
   notices: { spec: 'admin-crud-notices.spec.ts', pathNeedle: 'src/app/api/admin/notices/' },
+  'order-policy': { spec: 'admin-crud-order-policy.spec.ts', pathNeedle: 'src/app/api/admin/order-policy/' },
+  orders: { spec: 'admin-crud-orders.spec.ts', pathNeedle: 'src/app/api/admin/orders/' },
+  'partner-inquiries': {
+    spec: 'admin-crud-partner-inquiries.spec.ts',
+    pathNeedle: 'src/app/api/admin/partner-inquiries/',
+  },
   partners: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/partners/' },
   products: { spec: 'admin-crud-products.spec.ts', pathNeedle: 'src/app/api/admin/products/' },
+  qna: { spec: 'admin-crud-qna-config.spec.ts', pathNeedle: 'src/app/api/admin/qna/' },
   settings: { spec: 'admin-crud-home-settings.spec.ts', pathNeedle: 'src/app/api/admin/settings/' },
   'showcase-reviews': {
     spec: 'admin-crud-showcase-reviews.spec.ts',
@@ -63,23 +75,7 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
 
 /** 실구동 스펙이 의도적으로 없는 도메인 — 사유를 반드시 적는다. */
 const EXCLUDED: Record<string, string> = {
-  'category-settings': '이번 웨이브 범위 밖 — /admin/categories 실구동 스펙 미작성(wave4 후보).',
   dashboard: '조회 전용 통계 집계 — GET만 존재, 쓰기 동작 없음.',
-  insurance:
-    '보험 신청(상담) 상태 관리 — 골든플로우 #3, 이번 웨이브 범위 밖(wave4 후보). ' +
-    'insurance-content(FAQ·동의문서)와는 다른 도메인이니 혼동 주의.',
-  'order-policy': '이번 웨이브 범위 밖 — 주문 정책(무통장 자동취소 등) 실구동 스펙 미작성(wave4 후보).',
-  orders:
-    '결제 상태기계 + 재고 RPC — 공유 스테이징에 안전하게 자동화할 설계가 아직 없어 ' +
-    '명시적으로 제외(wave3 지시사항, "안전 설계 전 제외").',
-  'partner-inquiries':
-    'B2B 제휴 문의 접수 — product inquiries(qna-inquiries 스펙 대상)와 다른 도메인, ' +
-    '이번 웨이브 범위 밖(wave4 후보).',
-  qna:
-    '전시 문의 config — 공개 배선 연결됨(be/qna-public-wire, 2026-07-18): getMergedInquiries' +
-    '(src/lib/adapters.ts)가 이제 정적 시드(src/data/qna.ts) 대신 storage 콘센트(getQnaConfig, ' +
-    'qna_config DB)를 읽어 /admin/qna 편집이 상품상세 Q&A 탭에 실제로 반영된다. 배선은 됐지만 ' +
-    '실구동 스펙은 아직 없다 — wave4 후속.',
   reviews:
     '고아 엔드포인트로 보인다 — PATCH /api/admin/reviews/[id](구매평 노출 토글, setReviewStatus)를 ' +
     '호출하는 관리자 UI를 찾지 못했다(showcase-reviews와는 다른 도메인). 별도 확인 필요.',

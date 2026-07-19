@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 // admin-crud-*.spec.ts 전용 헬퍼. 파일명이 *.spec.ts 가 아니라 Playwright 테스트로 수집되지 않는다.
 //
@@ -17,16 +17,40 @@ export function bypassHeaders(): Record<string, string> {
   return BYPASS_SECRET ? { 'x-vercel-protection-bypass': BYPASS_SECRET } : {};
 }
 
+export async function loginWithCredentials(page: Page, email: string, password: string): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    try {
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
+      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
+      if (!new URL(page.url()).pathname.startsWith('/login')) return;
+
+      const emailInput = page.locator('input[type="email"]').first();
+      const passwordInput = page.locator('input[type="password"]').first();
+      const loginButton = page.getByRole('button', { name: /로그인/ }).first();
+
+      await emailInput.waitFor({ state: 'visible', timeout: 10_000 });
+      await emailInput.fill(email, { timeout: 5_000 });
+      await passwordInput.fill(password, { timeout: 5_000 });
+      await expect(loginButton).toBeEnabled({ timeout: 10_000 });
+      await Promise.all([
+        page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 }),
+        loginButton.click({ timeout: 5_000 }),
+      ]);
+      return;
+    } catch (error) {
+      lastError = error;
+      await page.waitForTimeout(1_000);
+    }
+  }
+
+  throw lastError;
+}
+
 /** visual.spec.ts 의 관리자 로그인 시퀀스와 동일(§8-6 bypass 헤더는 test.use extraHTTPHeaders로 별도 주입). */
 export async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.locator('input[type="email"]').fill(ADMIN_EMAIL!);
-  await page.locator('input[type="password"]').fill(ADMIN_PASSWORD!);
-  await page
-    .getByRole('button', { name: /로그인/ })
-    .first()
-    .click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 }
 
 /**
