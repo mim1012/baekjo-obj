@@ -587,6 +587,38 @@ export async function getPublicProducts(filter?: {
 }
 
 /**
+ * getPublicProducts와 동일하게 조회하되, "실패"(네트워크 오류·!ok·파싱 실패)와 "정말로
+ * 노출 상품이 0건"을 구분해야 하는 호출부 전용이다 — null=실패, []=성공했지만 진짜 0건.
+ *
+ * 왜 별도 함수인가: getPublicProducts()의 "실패는 빈 배열로 접는다" 계약은 이미 5곳
+ * (admin/inquiries·admin/settings·checkout·diagnosis/result·mypage)이 그 계약을 전제로
+ * 쓰고 있어 손대면 그만큼 회귀 위험이 퍼진다. 반면 카트 자가치유(pruneCartToVisibleProducts,
+ * cart/page.tsx)는 "빈 배열"을 "노출 상품이 하나도 없다"로 해석해 카트 전체를 지워버리는데,
+ * 일시적 네트워크 오류로 받은 빈 배열까지 그렇게 해석하면 고객 카트가 영구 삭제되는
+ * CRITICAL 데이터 유실 사고가 된다(2026-07-19, PR #173 리뷰에서 발견). 실패와 진짜 0건을
+ * 구분해야만 하는 이 한 곳만 이 함수로 옮기고, 나머지 호출부는 기존 계약 그대로 둔다.
+ */
+export async function getPublicProductsOrNull(filter?: {
+  categorySlug?: string;
+  brandId?: string;
+  petType?: string;
+}): Promise<Product[] | null> {
+  try {
+    const params = new URLSearchParams();
+    if (filter?.categorySlug) params.set('categorySlug', filter.categorySlug);
+    if (filter?.brandId) params.set('brandId', filter.brandId);
+    if (filter?.petType) params.set('petType', filter.petType);
+    const query = params.toString();
+    const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
+    if (!response.ok) return null;
+    const { products } = (await response.json()) as { products: Product[] };
+    return products;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 내 과거 주문 이력에 등장한 상품(비노출 상품 포함). GET /api/orders/mine/products
  * (세션 필요). 관리자가 상품을 숨겨도 이미 구매한 회원의 마이페이지에서는 상품명·
  * 이미지가 계속 보여야 하므로 getPublicProducts 와 별도로 둔다. 실패·비로그인 시
