@@ -19,7 +19,7 @@ interface CoveredFeature {
 const COVERED: Record<string, CoveredFeature> = {
   wishlist: {
     spec: 'member-wishlist.spec.ts',
-    description: '찜하기(client-local, localStorage) — 토글·마이페이지 반영·새 컨텍스트 미동기화 확인.',
+    description: '찜하기(DB 동기화) — 토글·마이페이지 반영·새 컨텍스트 재로그인 유지·해제 확인.',
   },
   'order-journey': {
     spec: 'member-order-journey.spec.ts',

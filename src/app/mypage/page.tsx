@@ -100,7 +100,9 @@ function MypageContent() {
       historyProducts.forEach((product) => merged.set(product.id, product));
       setProducts(Array.from(merged.values()));
     });
-    setWishlist(getWishlist());
+    getWishlist({ force: true }).then((wishlistIds) => {
+      if (loadSeqRef.current === seq) setWishlist(wishlistIds);
+    });
 
     const reviewsSeq = ++reviewsSeqRef.current;
     getProductReviewsByUser(currentUser.id).then((reviews) => {
@@ -248,7 +250,15 @@ function MypageContent() {
       case 'orders':
         return <OrdersSection orders={orders} reviews={reviews} products={products} onWriteReview={handleWriteReview} />;
       case 'wishlist':
-        return <WishlistSection wishlistIds={wishlist} products={products} onWishlistChange={() => setWishlist(getWishlist())} />;
+        return (
+          <WishlistSection
+            wishlistIds={wishlist}
+            products={products}
+            onWishlistChange={() => {
+              getWishlist({ force: true }).then(setWishlist);
+            }}
+          />
+        );
       case 'reviews':
         return (
           <ReviewsSection
