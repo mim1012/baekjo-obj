@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice } from '@/lib/format';
-import { toggleWishlist } from '@/lib/storage';
+import { removeWishlist } from '@/lib/storage';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { Heart, ShoppingBag, X } from 'lucide-react';
@@ -46,8 +46,8 @@ export default function WishlistSection({ wishlistIds, products, onWishlistChang
     );
   }
 
-  const handleRemove = (productId: string) => {
-    toggleWishlist(productId);
+  const handleRemove = async (productId: string) => {
+    await removeWishlist(productId);
     onWishlistChange();
     // 데이터 변경으로 현재 페이지가 비게 되면 이전 페이지로 이동
     if (paginatedProducts.length === 1 && currentPage > 1) {
@@ -65,7 +65,7 @@ export default function WishlistSection({ wishlistIds, products, onWishlistChang
         {paginatedProducts.map((product) => (
           <div key={product.id} className="mypage-card flex h-full flex-col p-4 group relative">
             <button
-              onClick={() => handleRemove(product.id)}
+              onClick={() => void handleRemove(product.id)}
               className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-[#68716C] shadow-sm transition-colors hover:text-[#18231F]"
               aria-label="관심 상품 해제"
             >

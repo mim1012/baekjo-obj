@@ -40,26 +40,110 @@ function setJSON<T>(key: string, value: T): void {
 }
 
 const WISHLIST_KEY = 'baekjo_wishlist';
+let wishlistCache: string[] | null = null;
+let wishlistRequest: Promise<string[]> | null = null;
 
-export function getWishlist(): string[] {
+function getLocalWishlist(): string[] {
   return getJSON<string[]>(WISHLIST_KEY, []);
 }
 
-export function toggleWishlist(productId: string): boolean {
-  const list = getWishlist();
+function setLocalWishlist(value: string[]): void {
+  setJSON(WISHLIST_KEY, value);
+}
+
+function toggleLocalWishlist(productId: string): boolean {
+  const list = getLocalWishlist();
   const index = list.indexOf(productId);
   if (index >= 0) {
     list.splice(index, 1);
-    setJSON(WISHLIST_KEY, list);
+    setLocalWishlist(list);
     return false;
   }
   list.push(productId);
-  setJSON(WISHLIST_KEY, list);
+  setLocalWishlist(list);
   return true;
 }
 
+function setWishlistCache(productIds: string[]): string[] {
+  wishlistCache = productIds;
+  return productIds;
+}
+
+function clearWishlistCache(): void {
+  wishlistCache = null;
+  wishlistRequest = null;
+}
+
+export function getCachedWishlist(): string[] {
+  return wishlistCache ?? getLocalWishlist();
+}
+
+export async function getWishlist(options: { force?: boolean } = {}): Promise<string[]> {
+  if (!options.force && wishlistCache) return wishlistCache;
+  if (!options.force && wishlistRequest) return wishlistRequest;
+
+  wishlistRequest = fetch('/api/wishlist')
+    .then(async (response) => {
+      if (response.status === 401) return setWishlistCache(getLocalWishlist());
+      if (!response.ok) return setWishlistCache(wishlistCache ?? getLocalWishlist());
+      const { productIds } = (await response.json()) as { productIds: string[] };
+      return setWishlistCache(Array.isArray(productIds) ? productIds : []);
+    })
+    .catch(() => setWishlistCache(wishlistCache ?? getLocalWishlist()))
+    .finally(() => {
+      wishlistRequest = null;
+    });
+
+  return wishlistRequest;
+}
+
+export async function toggleWishlist(productId: string): Promise<boolean> {
+  const response = await fetch('/api/wishlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId }),
+  });
+
+  if (response.status === 401) {
+    const wishlisted = toggleLocalWishlist(productId);
+    setWishlistCache(getLocalWishlist());
+    emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
+    return wishlisted;
+  }
+  if (!response.ok) {
+    throw new Error('wishlist-toggle-failed');
+  }
+
+  const { wishlisted } = (await response.json()) as { wishlisted: boolean };
+  await getWishlist({ force: true });
+  emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
+  return wishlisted;
+}
+
+export async function removeWishlist(productId: string): Promise<boolean> {
+  const response = await fetch('/api/wishlist', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productId }),
+  });
+
+  if (response.status === 401) {
+    if (getLocalWishlist().includes(productId)) toggleLocalWishlist(productId);
+    setWishlistCache(getLocalWishlist());
+    emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
+    return false;
+  }
+  if (!response.ok) {
+    throw new Error('wishlist-remove-failed');
+  }
+
+  await getWishlist({ force: true });
+  emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
+  return false;
+}
+
 export function isWishlisted(productId: string): boolean {
-  return getWishlist().includes(productId);
+  return getCachedWishlist().includes(productId);
 }
 
 /* ── 보험 분석 신청 ─────────────────────────────────────────
@@ -1234,6 +1318,7 @@ export function getCurrentUser(): User | null {
 
 export function setCurrentUser(user: User | null): void {
   if (typeof window === 'undefined') return;
+  clearWishlistCache();
   if (user) {
     setJSON(USER_KEY, user);
   } else {
@@ -1564,6 +1649,7 @@ export function canManageBrand(user: User, brandId: string): boolean {
 /* ── localStorage 같은 탭 동기화 ─────────────── */
 
 export const STORAGE_EVENTS = {
+  WISHLIST_CHANGED: 'wishlist-changed',
   REVIEWS_CHANGED: 'product-reviews-changed',
   INQUIRIES_CHANGED: 'product-inquiries-changed',
 } as const;

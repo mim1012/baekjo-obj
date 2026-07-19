@@ -6,20 +6,9 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-// 골든플로우 회원 여정(wave6) — 찜하기(위시리스트).
-//
-// ⚠️ 도메인 사실 — 찜하기는 DB가 아니라 `localStorage['baekjo_wishlist']`다
-// (src/lib/storage.ts:42-63 getWishlist/toggleWishlist — fetch도 API 라우트도 없음).
-// 토글 표면은 3곳: ProductCard.tsx(홈·쇼핑 목록 카드), ProductDetailClient.tsx(상세),
-// mypage WishlistSection.tsx(전용 탭, 표시 전용 — 이 화면 자체엔 토글 버튼이 없고 해제(X)만 있다).
-//
-// 이게 버그가 아니라 설계임을 이 스펙이 직접 증명한다 — 같은 계정으로 로그인해도 **다른
-// 브라우저 컨텍스트(fresh storage)에서는 찜한 상품이 전혀 보이지 않는다.** 다른 기기·다른
-// 브라우저에서 찜 목록이 동기화되길 기대하면 안 된다는 뜻 — 이 스펙은 그 경계를 문서화한다.
-//
 // 🚨 E2E_ADMIN_CRUD=1 게이트를 그대로 재사용한다 — 로그인 세션을 만드는 쓰기 스펙이라
 // staging/preview 전용 스위치를 존중해야 하위 계정 데이터에 대한 실수 실행을 막는다.
-test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, client-local)', () => {
+test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, DB 동기화)', () => {
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!MEMBER_EMAIL || !MEMBER_PASSWORD, 'E2E_MEMBER_* secret 미주입 — 회원 로그인 불가로 skip');
 
@@ -27,7 +16,7 @@ test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, cli
 
   const PRODUCT_ID = 'p1';
 
-  test('shop 카드에서 찜 → 마이페이지 반영 → 상세에서 해제 → 새 컨텍스트엔 없음(계정 동기화 아님)', async ({
+  test('상세에서 찜 → 마이페이지 반영 → 새 컨텍스트 재로그인에도 유지 → 해제 후 DB 반영', async ({
     browser,
   }) => {
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
@@ -57,39 +46,35 @@ test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, cli
     await wishlistButton.click();
     await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`);
 
-    // 2) 마이페이지 전용 탭에 반영 확인.
     await page.goto('/mypage?tab=wishlist');
     await expect(page.getByRole('heading', { name: '관심 상품', exact: true })).toBeVisible({ timeout: 15_000 });
-    const wishlistCard = page.locator('.mypage-card');
+    const wishlistCard = page.locator('.mypage-card', { hasText: productDisplayName });
     await expect(wishlistCard.first()).toBeVisible({ timeout: 15_000 });
 
-    // 3) 새로고침 후에도 유지되는지(localStorage 영속) 확인.
     await page.reload();
-    await expect(page.locator('.mypage-card').first()).toBeVisible({ timeout: 15_000 });
-
-    // 4) 상세 페이지에서 해제 → 마이페이지에서 사라짐(같은 스코핑된 로케이터 재사용 — 페이지
-    // 재방문마다 요소가 새로 마운트되므로 새로 goto한 뒤 다시 잡아야 한다).
-    await page.goto(`/shop/${PRODUCT_ID}`);
-    const wishlistButtonAgain = page.getByRole('button', {
-      name: new RegExp(`^${escapeRegExp(productDisplayName)} (찜하기|찜 해제)$`),
-    });
-    await expect(wishlistButtonAgain).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`);
-    await wishlistButtonAgain.click();
-    await expect(wishlistButtonAgain).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`);
-
-    await page.goto('/mypage?tab=wishlist');
-    await expect(page.getByText('관심 상품이 없어요.')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.mypage-card', { hasText: productDisplayName }).first()).toBeVisible({ timeout: 15_000 });
 
     await page.close();
 
-    // 5) 설계 확인 — 같은 계정, 완전히 새 브라우저 컨텍스트(=localStorage 없음)로 로그인하면
-    // 찜 목록은 무조건 비어 있다(DB 동기화가 아니므로). 여기서 다시 찜해서 남기지 않는다 —
-    // 이 스펙은 해제까지 마쳤으므로 fresh context 도 이미 빈 상태와 같다.
     const freshContext = await browser.newContext({ extraHTTPHeaders: bypassHeaders() });
     const freshPage = await freshContext.newPage();
     await loginAsMember(freshPage);
     await freshPage.goto('/mypage?tab=wishlist');
-    await expect(freshPage.getByText('관심 상품이 없어요.')).toBeVisible({ timeout: 15_000 });
+    await expect(freshPage.locator('.mypage-card', { hasText: productDisplayName }).first()).toBeVisible({ timeout: 15_000 });
+
+    await freshPage.goto(`/shop/${PRODUCT_ID}`);
+    const syncedWishlistButton = freshPage.getByRole('button', {
+      name: new RegExp(`^${escapeRegExp(productDisplayName)} (찜하기|찜 해제)$`),
+    });
+    await expect(syncedWishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`, {
+      timeout: 15_000,
+    });
+    await syncedWishlistButton.click();
+    await expect(syncedWishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`);
+
+    await freshPage.goto('/mypage?tab=wishlist');
+    await expect(freshPage.locator('.mypage-card', { hasText: productDisplayName })).toHaveCount(0, { timeout: 15_000 });
+
     await freshContext.close();
   });
 });

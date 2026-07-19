@@ -451,7 +451,7 @@ jobs:
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       # ── wave6 추가 블록(회원 여정 실구동) — wave4/5 와의 병합 충돌을 줄이려 끝에 별도로 붙인다 ──
-      - name: 회원 여정 — 찜하기(client-local)
+      - name: 회원 여정 — 찜하기(DB 동기화)
         if: steps.changes.outputs.member_journey == 'true'
         run: npx playwright test tests/golden/member-wishlist.spec.ts --project=golden-crud --reporter=line
         env:
