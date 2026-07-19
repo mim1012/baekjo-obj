@@ -57,7 +57,7 @@ export async function getMergedInquiries(productId: string): Promise<InquiryView
   // #140 전시후기 전환과 동일 패턴, 커버리지 감사 발견 — 이전엔 관리자 편집이 화면에 반영되지 않았다).
   const { items: seedQna } = await getQnaConfig();
   const seed = seedQna
-    .filter((q) => q.productId === productId)
+    .filter((q) => q.productId === productId && q.isVisible !== false)
     .map((q): InquiryViewItem => ({
       id: q.id,
       source: 'seed',

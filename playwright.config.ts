@@ -28,7 +28,7 @@ export default defineConfig({
       testDir: './tests/golden',
       // admin-crud-*.spec.ts는 실제 DB에 쓰는 별도 project(golden-crud)에서만 돈다 — 여기서
       // 중복 실행하면 E2E_ADMIN_CRUD 게이트 없이도 매 CI 실행마다 두 번 쓰기를 시도하게 된다.
-      testIgnore: ['**/admin-crud-*.spec.ts'],
+      testIgnore: ['**/admin-crud-*.spec.ts', '**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
         navigationTimeout: 30_000,
@@ -44,7 +44,7 @@ export default defineConfig({
       // E2E_ADMIN_CRUD=1 이 없으면 스펙 내부 test.skip으로 전부 건너뛴다(.github/workflows/golden-crud.yml).
       name: 'golden-crud',
       testDir: './tests/golden',
-      testMatch: ['**/admin-crud-*.spec.ts'],
+      testMatch: ['**/admin-crud-*.spec.ts', '**/member-*.spec.ts'],
       use: {
         baseURL,
         navigationTimeout: 30_000,
@@ -53,6 +53,37 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'golden-smoke',
+      testDir: './tests/golden',
+      testMatch: ['**/all-pages-smoke.spec.ts'],
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+      },
+    },
+    {
+      name: 'golden-smoke-mobile',
+      testDir: './tests/golden',
+      testMatch: ['**/all-pages-smoke.spec.ts'],
+      use: {
+        baseURL,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+        viewport: { width: 390, height: 844 },
+        isMobile: true,
+        hasTouch: true,
       },
     },
     {
