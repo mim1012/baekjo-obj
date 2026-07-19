@@ -27,6 +27,15 @@ This version has breaking changes — APIs, conventions, and file structure may 
 4. **Codex는 마감 스크립트를 먼저 쓴다.** 이 프로젝트에서 `세션 마감`을 처리할 때는 먼저 `scripts/session-close.ps1 -Apply`를 실행해 git/env/server/commit 사실을 수집한 뒤, 생성된 `SESSION.md` 초안의 TODO를 실제 완료·검증·다음 액션으로 채운다.
 5. **main 보호와 충돌을 존중한다.** `SESSION.md`가 직접 갱신 가능한 브랜치에 있으면 수정하고, main 보호/충돌/권한 때문에 직접 반영할 수 없으면 갱신용 diff 또는 별도 브랜치/PR 경로를 남긴다. 기존 세션 기록은 삭제하지 말고 최신 상태를 위쪽에 누적한다.
 
+### 0-1-2. 토큰 절약 운영 모드 — 기본 ON
+이 프로젝트는 AGENTS.md와 E2E/CI 로그가 커서 토큰이 빨리 소모된다. 정확도를 해치지 않는 범위에서 아래를 기본값으로 삼는다.
+
+1. **대형 로그를 통째로 읽지 않는다.** `gh run watch`, 전체 `gh run view --log`, 제한 없는 `rg`, 긴 `git pull` 출력은 금지에 가깝게 취급한다. 먼저 `--json`/`--jq`/`Select-String`/`-m`/좁은 path로 필요한 줄만 본다.
+2. **반복 polling은 요약 조회만 쓴다.** CI는 `gh run view --json status,conclusion,jobs` 또는 특정 step jq로 확인하고, watch는 사용자가 실시간 로그를 요청한 경우에만 쓴다.
+3. **출력 예산을 명시한다.** 긴 명령은 `max_output_tokens`를 작게 잡고, 실패 원문이 필요할 때만 두 번째로 좁혀서 읽는다.
+4. **증거는 원문보다 ID·단계·결론으로 남긴다.** 최종 보고는 run id, commit, 통과/실패 단계명 중심으로 하고 로그 전문을 붙이지 않는다.
+5. **AGENTS.md 재읽기는 필요한 절만 한다.** 규칙 확인이 필요하면 관련 제목 주변만 읽고, 전체 덤프를 피한다.
+
 ### 0-2. Decision Flow — "이 작업, 어디로 가야 하나"
 작업을 시작하면 **규칙을 뒤지기 전에** 이 순서로 판단해 브랜치·라벨·담당을 정한다.
 
