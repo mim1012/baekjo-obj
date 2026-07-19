@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ExternalLink, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import { getBrandDisplayLogo } from '@/components/common/BrandLogo';
 import AuditAccordion from '@/components/common/AuditAccordion';
+import BrandAuditReport from '@/components/common/BrandAuditReport';
+import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
 import { getBrandById } from '@/lib/brands/repo';
 import { listProductsByBrand } from '@/lib/products/repo';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
@@ -155,6 +157,17 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                     <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 반려가족 중심 설계
                  </div>
                </div>
+
+               {brand.officialUrl && (
+                 <a
+                   href={brand.officialUrl}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="mt-5 inline-flex h-[36px] w-fit items-center justify-center gap-1.5 rounded-full border border-[#E2DACD] bg-[#FFFEFB] px-4 text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]"
+                 >
+                   공식몰 방문하기 <ExternalLink className="w-3.5 h-3.5" />
+                 </a>
+               )}
              </div>
 
              {/* Audit */}
@@ -206,6 +219,19 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
            </div>
         </div>
       </section>
+
+      {/* 3-1. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만. 없으면 위 아코디언의
+          "확인 중" 배지만 남기고 이 패널은 렌더하지 않는다 — 컴포넌트 내장 폴백과 중복 방지) */}
+      {hasPublishedAudit && (
+        <section className="mb-10 md:mb-12 [&_section]:mt-0">
+          <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+            <BrandAuditReport brand={brand} />
+          </div>
+        </section>
+      )}
+
+      {/* 3-2. 브랜드 배송 정책 (값 있을 때만 렌더) */}
+      <BrandShippingInfo brand={brand} />
 
       {/* 4. 대표 상품 */}
       <section className="mb-10 md:mb-12">
