@@ -6,11 +6,8 @@ name: merge-train (자동 update-branch)
 # 그동안은 사람이 매번 `gh pr update-branch`를 눌러야 했다(2026-07-18 실측: 머지 트레인을
 # 사람이 6번 밀었다). 이 워크플로가 그 트레드밀을 대신한다.
 #
-# ⚠️ 알려진 한계: 기본 GITHUB_TOKEN으로 만든 update-branch 커밋은 github-actions[bot] 저작이라
-# required status check(verify)를 재트리거하지 않는 것으로 알려져 있다(레포 관례상 봇 커밋은
-# CI 미기동 — pr-ci-pipeline-traps 메모리 참고). 즉 이 잡은 브랜치 최신화만 해주고, 그 PR이
-# 다시 초록불로 머지 가능해지려면 사람/에이전트가 한 번 더 재트리거해야 할 수 있다.
-# 레포에 PAT 시크릿이 없어(gh secret list 확인, 2026-07-19) 이 한계는 우회하지 않고 문서화만 한다.
+# BOT_PAT를 써서 update-branch 커밋이 required status check를 다시 트리거하게 한다.
+# 기본 GITHUB_TOKEN으로 만든 봇 커밋은 push/pull_request 워크플로를 재실행하지 않는다.
 
 on:
   push:
@@ -26,7 +23,7 @@ jobs:
     steps:
       - name: BEHIND 상태의 auto-merge PR을 update-branch
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
           REPO: ${{ github.repository }}
         run: |
           set -u
