@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 // admin-crud-*.spec.ts 전용 헬퍼. 파일명이 *.spec.ts 가 아니라 Playwright 테스트로 수집되지 않는다.
 //
@@ -17,16 +17,19 @@ export function bypassHeaders(): Record<string, string> {
   return BYPASS_SECRET ? { 'x-vercel-protection-bypass': BYPASS_SECRET } : {};
 }
 
+export async function loginWithCredentials(page: Page, email: string, password: string): Promise<void> {
+  await expect(async () => {
+    await page.goto('/login');
+    await page.locator('input[type="email"]').fill(email);
+    await page.locator('input[type="password"]').fill(password);
+    await page.getByRole('button', { name: /로그인/ }).first().click();
+    await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+  }).toPass({ timeout: 45_000 });
+}
+
 /** visual.spec.ts 의 관리자 로그인 시퀀스와 동일(§8-6 bypass 헤더는 test.use extraHTTPHeaders로 별도 주입). */
 export async function loginAsAdmin(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.locator('input[type="email"]').fill(ADMIN_EMAIL!);
-  await page.locator('input[type="password"]').fill(ADMIN_PASSWORD!);
-  await page
-    .getByRole('button', { name: /로그인/ })
-    .first()
-    .click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 }
 
 /**
