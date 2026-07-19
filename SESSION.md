@@ -1,6 +1,57 @@
 # SESSION — 백조오브제(baekjo-obj)
 
-## 세션 마감 (2026-07-17 저녁, 이미지 복구·홈 CMS 세션 — 이 블록이 최신)
+## 세션 마감 (2026-07-19, admin CMS 즉시저장·리뷰 DB화·4중 테스트게이트 세션 — 이 블록이 최신) → **Codex 인계**
+
+> 인계 목적: CI가 "멈춘" 게 아니라 **실제로 빨간불**이다. Codex가 아래 6개 PR을 순서대로 수동 머지(A안)한다.
+> main HEAD = `854fb3e` (#170까지 머지). 이 인계 브랜치 = `chore/session-close-0719`.
+
+### ⭐ CI 진단 (사용자 오해 정정 — "하루종일 멈춤" ≠ 사실)
+CI는 돌았고 **완료됐다**. 2건은 진짜 RED이고, BEHIND 4건은 봇 update-branch 한계로 재트리거가 안 돼 auto-merge가 못 태워질 뿐이다.
+- **봇 커밋 CI 미기동은 GitHub 설계상 한계** — merge-train.yml:9-13에 이미 문서화됨(PAT 시크릿 없어 우회 불가, 문서화만). "더 기다리면 풀리는" 문제가 아니다.
+- BEHIND·초록 PR을 머지하려면 **실제 커밋으로 재트리거**해야 한다: `git commit --allow-empty -m "chore(ci): 재트리거" && git push`(봇 커밋 말고 사람/에이전트 push라야 CI가 돈다).
+
+### 열린 PR 6개 상태 (전부 auto-merge SQUASH 장전됨, 실측 2026-07-19)
+| # | 브랜치 | 상태 | 막는 것 | 처리 |
+|---|--------|------|---------|------|
+| 177 | fix/mypage-inquiry-edit-save | BEHIND | **verify RED** | ①먼저 |
+| 173 | fix/cart-badge-hidden-item | BEHIND | **crud RED** | ②먼저 |
+| 166 | be/insurance-landing-form-wire | BEHIND | 초록·재트리거만 필요 | ③ |
+| 167 | fe/design-brand-audit-public | BEHIND | 초록·재트리거만 필요 | ③ |
+| 174 | be/e2e-admin-crud-wave4 | **DIRTY** | golden-crud.yml 충돌 | ④마지막 |
+| 164 | be/e2e-all-pages-smoke | **DIRTY** | golden-crud.yml 충돌 | ④마지막 |
+
+### 두 RED의 실제 원인 (제품 버그 아님/맞음 구분)
+- **#177 `verify` RED = 진짜 결정 이벤트.** `tests/products/form-modal-reset-deps.spec.ts:20` 가드 1건 실패:
+  "InquiryFormModal 은 initialData/product 전체가 아니라 원시 필드만 deps 에 넣는다". #177이 `InquiryFormModal`에
+  productId를 배선하며 이 회귀 가드를 건드렸다. **코드가 deps 계약을 깼는지 vs 의도된 변경이라 가드 스펙을 동반 갱신할지**를
+  판단해야 한다(§contract-project-gates: 테스트 수정은 결정 이벤트 — 기본은 코드 수정).
+- **#173 `crud` RED = 하네스 문제(제품 무관).** 로그 `Error: No tests found`. golden-crud의 경로필터/grep이
+  이 브랜치에서 스펙 0건 매칭 → exit 1. deployment_status 경로필터 출력과 실제 스펙 파일명 불일치로 추정.
+  제품 픽스(자가치유 프루닝, cart CRITICAL) 자체는 verify/visual 초록.
+
+### golden-crud.yml 충돌 해소 레시피 (#164·#174 — 반드시 양쪽 스텝 유지)
+두 PR 모두 **같은 파일에 도메인별 게이트 스텝을 추가**해서 충돌한다. **한쪽을 고르지 말 것 — 합집합이 정답.**
+- 각 스텝은 자기 `if: steps.changes.outputs.<domain> == 'true'` 경로필터로 **독립 게이트**돼 있어 둘을 다 넣어도 안전(서로 안 밟음).
+- 해소법: `git rebase origin/main` → golden-crud.yml 충돌 청크에서 **양쪽 추가 스텝을 순차로 이어붙이고**(끝에 append), yaml 문법 확인(`python -c "import yaml,sys; yaml.safe_load(open('.github/workflows/golden-crud.yml'))"`) → push.
+- #164는 smoke(62p×2뷰포트)+비로그인 차단 스텝, #174는 wave4(orders 안전전이·보험신청·B2B문의·카테고리·주문정책) 스텝. 겹치는 도메인 키 없음.
+
+### 머지 후 트립와이어 (순서 의존 — 잊으면 회귀)
+- **#177 머지 후**: `tests/golden/member-review-inquiry.spec.ts` test 2 assertion을 "버튼 비활성 유지" → "버튼 활성화+수정 저장됨"으로 뒤집기(#177이 버그를 고쳤으므로 가드도 정방향으로).
+- **#167 머지 후**: wave-5 `fieldSurfaceMatrix.ts`의 `assertNow:false` 필드 3종(auditReport·auditGrade·officialUrl)을 `assertNow:true`로 승격(브랜드 감사리포트가 이제 공개 렌더되므로).
+
+### 이번 세션 산출물 (전부 검증 lane 분리 — opus+codex 교차, 판정은 PR 코멘트로 게시)
+- admin CMS **즉시저장 전면화**(일괄저장 버튼 제거, 삭제 안 됨/수정 유실 = 2단계저장 트랩 근절) — 메모리 [[admin-cms-immediate-persist]].
+- showcase reviews **DB 이관 A안**(관리자 `/admin/reviews` CRUD, 정적 파일 삭제, `showcase_reviews_config` 싱글턴).
+- **4중 자가감사 테스트 게이트**: 소스계약(tests/admin) + 경로매핑 실구동(golden-crud.yml) + 전페이지 스모크(62p×2) + 커버리지 감사 스펙. e2e 구축 중 실제 shipped 버그 ~20건(CRITICAL 3: cart 전삭제·order-search 크래시·save↔delete 부활 레이스) 발견 — 전부 머지 전 리뷰 lane이 잡음.
+- 교훈 메모리: [[comms-intent-patterns]](증상1=클래스 전수스윕·부정대조 표준화) · [[baekjo-agent-team-ops]](오케스트레이터 활성워크트리 git 금지).
+
+### 미완/백로그 (사용자 결정 대기 — 임의 진행 금지)
+- 인계 PR(`chore/session-close-0719`) 머지 후 이 SESSION.md가 main에 반영됨.
+- 보험 B단계(실 증권 업로드 `/api/insurance/upload` + admin signed-URL 열람 — contract-change).
+- 유령 필드(Product.auditPoints/relatedConcernSlugs/tags/summary)·위시리스트 계정귀속·리뷰이미지 노출 일관성·Toss 카드결제 위젯 검증.
+- 잔여 워크트리 정리: session-close 포함 임시 워크트리들(브랜치 머지 후 `git worktree remove`).
+
+## 세션 마감 (2026-07-17 저녁, 이미지 복구·홈 CMS 세션)
 
 > ⚠️ 바로 아래 "자동 마감 초안" 블록은 스크립트가 cp949로 써서 한글이 깨져 있음. 사실관계는 이 블록이 정본.
 
