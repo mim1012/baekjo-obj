@@ -24,6 +24,9 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Dependency audit gate
+        run: node scripts/verify-dependency-audit.mjs
+
       - name: Typecheck (계약 위반 = drift 탐지)
         run: npx tsc --noEmit
 
