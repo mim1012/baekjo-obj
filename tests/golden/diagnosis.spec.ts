@@ -20,12 +20,12 @@ test.describe('골든플로우 #1 (LIVE): 진단 → 결과 라운드트립', ()
     // survey DB 기본 첫 문항 렌더 확인.
     await expect(page.getByRole('heading', { name: '아이의 종은 무엇인가요?' })).toBeVisible();
 
-    // 각 스텝에서 첫 옵션(고유하게 span.font-bold.text-lg 를 가진 버튼)을 선택 후 다음/결과 버튼 클릭.
     for (let step = 0; step < 20; step++) {
-      const optionButton = page
-        .locator('button', { has: page.locator('span.font-bold.text-lg') })
-        .first();
-      await optionButton.click();
+      const visibleAnswerButton = page.locator('button').filter({
+        hasText: /^(?!이전$|다음$|결과 확인하기$).+/,
+      }).first();
+      await expect(visibleAnswerButton).toBeVisible();
+      await visibleAnswerButton.click();
 
       const advance = page.getByRole('button', { name: /^(다음|결과 확인하기)$/ });
       const label = (await advance.textContent())?.trim();
