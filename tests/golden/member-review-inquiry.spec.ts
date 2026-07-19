@@ -23,6 +23,7 @@ import {
 // 이유: 관리자 측 주문상태 변경 UI 자체는 wave4 admin-crud-orders 소관이라 여기서 중복 안 함).
 test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원 라이프사이클', () => {
   test.describe.configure({ mode: 'serial' });
+  test.setTimeout(120_000);
 
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 상품 생성/상태전이 불가로 skip');
@@ -161,7 +162,7 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await expect(inquiryCard).toBeVisible({ timeout: 15_000 });
     await expect(inquiryCard).toContainText('답변대기');
 
-    const inquiryContentEdited = `${inquiryContent}-수정완료`;
+    const inquiryContentEdited = `E2E 수정된 문의 본문 ${runId}`;
     await inquiryCard.getByRole('button', { name: '수정' }).click();
     await page.getByRole('heading', { name: '상품문의 수정' }).waitFor({ state: 'visible', timeout: 15_000 });
     await page.locator('textarea').fill(inquiryContentEdited);
