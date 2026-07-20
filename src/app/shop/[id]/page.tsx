@@ -4,7 +4,6 @@ import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { getProductById, listProducts } from '@/lib/products/repo';
 import { getBrandById } from '@/lib/brands/repo';
-import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import AuditAccordion from '@/components/common/AuditAccordion';
@@ -44,6 +43,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     : [];
   const recommendedFor = product.recommendedFor?.length ? product.recommendedFor : defaultRecommendations;
   const cautions = product.caution?.length ? product.caution : defaultCautions;
+  const productAuditPoints = product.auditPoints?.filter((point) => point.trim().length > 0) ?? [];
+  const productConcernSlugs = product.relatedConcernSlugs?.filter((slug) => slug.trim().length > 0) ?? [];
+  const productTags = product.tags?.filter((tag) => tag.trim().length > 0) ?? [];
 
   return (
     <div className="page-canvas pb-16">
@@ -115,6 +117,16 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   }
                 />
               </div>
+              {(productConcernSlugs.length > 0 || productTags.length > 0) && (
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  {productConcernSlugs.length > 0 && (
+                    <ChipCard title="관련 고민" items={productConcernSlugs} />
+                  )}
+                  {productTags.length > 0 && (
+                    <ChipCard title="상품 태그" items={productTags} />
+                  )}
+                </div>
+              )}
 
               <div className="mt-4 md:mt-5 flex snap-x snap-mandatory overflow-x-auto pb-4 hide-scrollbar md:grid md:grid-cols-2 md:gap-5 md:overflow-visible md:pb-0">
                 <div className="w-[85vw] shrink-0 snap-center sm:w-[400px] md:w-auto pr-4 md:pr-0">
@@ -166,6 +178,19 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                       ))}
                     </div>
                   )}
+                  {productAuditPoints.length > 0 && (
+                    <div className="mt-8">
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FBFAF7]/45">Product check</p>
+                      <ul className="mt-4 space-y-3">
+                        {productAuditPoints.map((point) => (
+                          <li key={point} className="flex items-start gap-3 rounded-2xl bg-[#FBFAF7]/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
+                            <CheckCircle2 className="mt-1 size-4 shrink-0 text-[#D8C4A3]" />
+                            {point}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             </AuditAccordion>
@@ -202,6 +227,26 @@ function InfoCard({ title, description }: InfoCardProps) {
     <div className="premium-card p-6 sm:p-8">
       <h3 className="text-base font-bold text-[#17211D]">{title}</h3>
       <p className="mt-4 break-keep text-sm leading-7 text-[#6F766F]">{description}</p>
+    </div>
+  );
+}
+
+interface ChipCardProps {
+  title: string;
+  items: string[];
+}
+
+function ChipCard({ title, items }: ChipCardProps) {
+  return (
+    <div className="premium-card p-6 sm:p-8">
+      <h3 className="text-base font-bold text-[#17211D]">{title}</h3>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {items.map((item) => (
+          <span key={item} className="rounded-full border border-[#E7E0D5] bg-[#FAF8F3] px-3 py-1.5 text-xs font-semibold text-[#6F766F]">
+            {item}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

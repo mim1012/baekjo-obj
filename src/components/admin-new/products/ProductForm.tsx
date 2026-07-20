@@ -128,6 +128,9 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     returnNotice: '',
     sellerName: '',
     images: [],
+    auditPoints: [],
+    relatedConcernSlugs: [],
+    tags: [],
     recommendedFor: [],
     caution: [],
     ...initialData,
@@ -181,6 +184,9 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     image: formData.image,
     images: formData.images ?? [],
     options: optionRows,
+    auditPoints: formData.auditPoints ?? [],
+    relatedConcernSlugs: formData.relatedConcernSlugs ?? [],
+    tags: formData.tags ?? [],
     ingredients: formData.ingredients,
     howToUse: formData.howToUse,
     recommendedFor: formData.recommendedFor ?? [],
@@ -263,6 +269,9 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
   };
 
   const images = formData.images ?? [];
+  const auditPoints = formData.auditPoints ?? [];
+  const relatedConcernSlugs = formData.relatedConcernSlugs ?? [];
+  const tags = formData.tags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
   const caution = formData.caution ?? [];
 
@@ -507,6 +516,36 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
             description="상품 상세페이지의 정보 카드에 노출됩니다. 비워두면 기본 안내 문구가 대신 표시됩니다."
           >
             <div className="space-y-4">
+              <FormField label="상품 검증 포인트">
+                <ArrayEditor
+                  items={auditPoints}
+                  onChange={(next) => handleChange('auditPoints', next)}
+                  addLabel="검증 포인트 추가"
+                  itemLabel="검증 포인트"
+                  placeholder="예: 원료 출처와 제조 정보를 확인했어요"
+                  maxItems={50}
+                />
+              </FormField>
+              <FormField label="관련 고민 슬러그">
+                <ArrayEditor
+                  items={relatedConcernSlugs}
+                  onChange={(next) => handleChange('relatedConcernSlugs', next)}
+                  addLabel="관련 고민 추가"
+                  itemLabel="관련 고민"
+                  placeholder="예: skin, digestion"
+                  maxItems={50}
+                />
+              </FormField>
+              <FormField label="상품 태그">
+                <ArrayEditor
+                  items={tags}
+                  onChange={(next) => handleChange('tags', next)}
+                  addLabel="태그 추가"
+                  itemLabel="태그"
+                  placeholder="예: 저알러지, 시니어"
+                  maxItems={50}
+                />
+              </FormField>
               <FormField label="성분/원재료">
                 <textarea
                   value={formData.ingredients || ''}
