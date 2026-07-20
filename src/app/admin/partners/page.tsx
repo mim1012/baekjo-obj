@@ -9,7 +9,6 @@ const partnerTypeOptions: Array<{ value: Partner['type']; label: string }> = [
   { value: 'hospital', label: '동물병원' },
   { value: 'funeral', label: '장례식장' },
   { value: 'brand', label: '브랜드' },
-  { value: 'petshop', label: '펫샵' },
   { value: 'hotel', label: '호텔/리조트' },
   { value: 'etc', label: '기타' },
 ];

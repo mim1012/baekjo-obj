@@ -14,7 +14,6 @@ const PARTNER_TYPE_LABELS: Record<PartnerInquiry['partnerType'], string> = {
   hospital: '동물병원',
   funeral: '장례식장',
   brand: '브랜드',
-  petshop: '펫샵',
   hotel: '호텔',
   etc: '기타',
 };

@@ -545,7 +545,7 @@ export interface CareKit {
 export interface Partner {
   id: string;
   name: string;
-  type: 'hospital' | 'funeral' | 'brand' | 'petshop' | 'hotel' | 'etc';
+  type: 'hospital' | 'funeral' | 'brand' | 'hotel' | 'etc';
   contactPerson: string;
   phone: string;
   address: string;
