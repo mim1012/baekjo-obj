@@ -101,7 +101,7 @@ jobs:
           # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 전체 도메인을 실행해 회귀를 잡는다.
           # (opus 리뷰 HIGH: 이 매핑에 테스트 레이어 경로가 빠져 있으면 이 PR의 프리뷰 실행이
           # 항상 skip-green으로 떨어져 새 스펙이 CI에서 한 번도 실제로 돌지 않는다.)
-          GATE_SELF='^(tests/golden/(admin-crud|member)-.*\.spec\.ts|tests/golden/all-pages-smoke\.spec\.ts|tests/golden/_lib/|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
+          GATE_SELF='^(tests/golden/(admin-crud|member)-.*\.spec\.ts|tests/golden/all-pages-smoke\.spec\.ts|tests/golden/_lib/|tests/admin/full-surface-crud-coverage\.spec\.ts|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
 
           NOTICES=false
           REVIEWS=false

@@ -1,46 +1,35 @@
 import Image from 'next/image';
-import { Activity, FileText, Gift, ShieldCheck } from 'lucide-react';
+import { Activity, FileText, Gift, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { EditorialActionLink, EditorialIconBadge } from '@/components/common/EditorialControls';
 import { PageIntro, SectionHeading } from '@/components/common/EditorialHeading';
 import PartnerInquiryForm from '@/components/care-kit/PartnerInquiryForm';
+import { defaultKitsConfig } from '@/lib/kits/config';
+import { getKitsConfig } from '@/lib/kits/repo';
+import type { CareKit } from '@/types';
 
 export const metadata = {
   title: '케어 키트 | 백조오브제',
   description: '동물병원, 장례식장, 그리고 보호자를 위한 백조오브제의 특별한 케어 키트입니다.',
 };
 
-const careKits = [
-  {
-    icon: Activity,
-    number: '01',
-    title: '활력 케어 키트',
-    description: '일상에서 꼭 필요한 영양과 구강 관리 위주의 구성. 3일 체험용',
-    target: '기초 건강 관리가 필요한 아이',
-  },
-  {
-    icon: ShieldCheck,
-    number: '02',
-    title: '병원 케어 키트',
-    description: '진료 후 회복을 돕는 영양식과 처방 보조 제품군',
-    target: '내원 및 치료 후 회복기 아이',
-  },
-  {
-    icon: Gift,
-    number: '03',
-    title: '웰컴 키트',
-    description: '반려동물을 처음 맞이한 가족을 위한 필수 가이드와 입문 용품',
-    target: '입양 또는 첫 만남',
-  },
-  {
-    icon: FileText,
-    number: '04',
-    title: '위로 키트',
-    description: '이별의 순간을 돕는 작은 위로와 기억을 담은 굿즈',
-    target: '이별을 준비하거나 맞이한 가족',
-  },
-];
+export const dynamic = 'force-dynamic';
 
-export default function CareKitLandingPage() {
+const kitIcons = {
+  hospital: ShieldCheck,
+  vitality: Activity,
+  funeral: FileText,
+  welcome: Gift,
+  sample: Gift,
+} satisfies Record<CareKit['type'], LucideIcon>;
+
+async function listVisibleCareKits(): Promise<CareKit[]> {
+  const saved = await getKitsConfig();
+  return (saved ?? defaultKitsConfig).items.filter((kit) => kit.isVisible);
+}
+
+export default async function CareKitLandingPage() {
+  const careKits = await listVisibleCareKits();
+
   return (
     <div className="page-canvas">
       <section className="bg-noise border-b border-[#E7E0D5] bg-[#F7F4ED] py-12 md:py-14 lg:py-16">
@@ -93,21 +82,28 @@ export default function CareKitLandingPage() {
           />
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
-            {careKits.map((kit) => {
-              const Icon = kit.icon;
+            {careKits.map((kit, index) => {
+              const Icon = kitIcons[kit.type];
               return (
                 <article
-                  key={kit.number}
+                  key={kit.id}
                   className="group flex h-full flex-col rounded-[20px] border border-[#E7E0D5] bg-white p-5 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-[#D8C4A3] hover:shadow-[0_20px_40px_-15px_rgba(23,33,29,0.08)] md:p-6"
                 >
                   <div className="flex items-start justify-between">
                     <EditorialIconBadge icon={Icon} />
-                    <span className="font-editorial text-lg italic text-[#A8742E]">{kit.number}</span>
+                    <span className="font-editorial text-lg italic text-[#A8742E]">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
                   </div>
-                  <h2 className="mt-5 text-[18px] font-bold tracking-tight text-[#17211D]">{kit.title}</h2>
+                  <h2 className="mt-5 text-[18px] font-bold tracking-tight text-[#17211D]">{kit.name}</h2>
                   <p className="mt-3 break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">
-                    {kit.description}
+                    {kit.description || kit.purpose}
                   </p>
+                  {kit.items.length > 0 && (
+                    <p className="mt-3 break-keep text-[13px] leading-[1.7] text-[#59615B]">
+                      주요 구성품: {kit.items.join(', ')}
+                    </p>
+                  )}
                   <div className="mt-auto border-t border-[#E7E0D5] pt-4">
                     <p className="text-[11px] font-bold tracking-wide text-[#A8742E]">추천 대상</p>
                     <p className="mt-2 break-keep text-[14px] leading-[1.7] text-[#59615B] md:text-[13px]">

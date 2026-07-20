@@ -139,12 +139,12 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(detailPage).not.toContain('getBrandById(id, { includeHidden');
     expectPublicBrandSource(detailPage);
 
-    // 관리자 입력 필드(auditReport 하위값·배송 정책·공식몰 URL) 공개 렌더 — wave-6 gap 이식
     expect(detailPage).toContain("import BrandAuditReport from '@/components/common/BrandAuditReport'");
     expect(detailPage).toContain('<BrandAuditReport brand={brand} />');
     expect(detailPage).toContain("import BrandShippingInfo from '@/components/brands/BrandShippingInfo'");
     expect(detailPage).toContain('<BrandShippingInfo brand={brand} />');
-    expect(detailPage).toContain('{brand.officialUrl && (');
+    expect(detailPage, '공개 브랜드 상세에는 공식몰 방문 CTA를 렌더하지 않는다').not.toContain('공식몰 방문하기');
+    expect(detailPage, 'officialUrl 은 관리자 저장/재열람용이고 공개 상세에서 직접 읽지 않는다').not.toContain('brand.officialUrl');
 
     const shippingInfoSource = src('src', 'components', 'brands', 'BrandShippingInfo.tsx');
     expect(shippingInfoSource).toContain('const shipping = brand.shipping;');

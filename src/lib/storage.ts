@@ -1742,19 +1742,6 @@ export async function deleteProductReview(id: string, _userId: string): Promise<
   emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
 }
 
-/** 관리자 전용 — 노출 상태 변경. PATCH /api/admin/reviews/[id]. */
-export async function setProductReviewStatus(id: string, status: 'published' | 'hidden'): Promise<void> {
-  const response = await fetch(`/api/admin/reviews/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (!response.ok) {
-    throw new Error('review-status-update-failed');
-  }
-  emitStorageEvent(STORAGE_EVENTS.REVIEWS_CHANGED);
-}
-
 /* ── 사용자 작성 상품문의 CRUD ─────────────────────────────── */
 
 /** 특정 상품의 문의 전체(비밀글 포함 — content/answer 는 서버가 열람 권한에 따라 redaction).

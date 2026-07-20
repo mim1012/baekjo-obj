@@ -181,11 +181,11 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       },
       {
         field: 'officialUrl',
-        render: '없음(공개 렌더 PR 진행 중)',
+        render: '없음(공개 브랜드 상세 렌더 금지)',
         kind: 'link',
         assertNow: false,
-        note: 'admin-only-as-of-now — 현재 브랜드 상세에 officialUrl 공개 렌더 없음. 공개 렌더 PR ' +
-          '진행 중(fe/design-brand-audit-public) — 머지 후 승격. 관리자 왕복으로만 검증.',
+        note: 'admin-only — officialUrl 은 관리자 저장/재열람용 데이터다. 공개 브랜드 상세에는 ' +
+          '공식몰 방문 CTA를 렌더하지 않고, 관리자 왕복으로만 검증한다.',
       },
       {
         field: 'auditPoints',

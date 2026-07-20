@@ -39,7 +39,6 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/products',
   '/api/admin/products/[id]',
   '/api/admin/qna',
-  '/api/admin/reviews/[id]',
   '/api/admin/settings',
   '/api/admin/showcase-reviews',
   '/api/admin/survey',

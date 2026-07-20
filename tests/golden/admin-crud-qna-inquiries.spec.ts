@@ -130,7 +130,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     // 공개 상태로 유지하기 위함.
     const submitButton = memberPage.getByRole('button', { name: '등록하기' });
     await expect(submitButton).toBeEnabled({ timeout: 15_000 });
-    await submitButton.click();
+    const [createResponse] = await Promise.all([
+      memberPage.waitForResponse((res) => res.url().includes('/api/inquiries') && res.request().method() === 'POST'),
+      submitButton.click(),
+    ]);
+    expect(createResponse.status()).toBe(201);
 
     // 등록 완료 후 모달이 닫히고 문의 탭 카운트/목록에 반영됐는지로 성공을 확인.
     await memberPage.goto(`/shop/${PRODUCT_ID}`);

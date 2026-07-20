@@ -92,7 +92,17 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     const statusSelect = adminPage.locator('div.mb-6', { hasText: '계정 상태' }).locator('select');
     await expect(statusSelect).toBeEnabled({ timeout: 15_000 });
     await statusSelect.selectOption('active');
-    await adminPage.getByRole('button', { name: '저장하기' }).click();
+    const [patchRes] = await Promise.all([
+      adminPage.waitForResponse(
+        (res) =>
+          res.url().includes(`/api/admin/members/${encodeURIComponent(memberId)}`) &&
+          res.request().method() === 'PATCH',
+        { timeout: 30_000 },
+      ),
+      adminPage.getByRole('button', { name: '저장하기' }).click(),
+    ]);
+    expect(patchRes.ok()).toBe(true);
+    await expect(adminPage.getByRole('button', { name: '저장하기' })).toBeHidden({ timeout: 30_000 });
     await expect(adminPage.locator('body')).toContainText('활성 (승인완료)', { timeout: 15_000 });
 
     // 4) 새로고침 후에도 유지되는지 확인 + API 재조회로 이중 확인.

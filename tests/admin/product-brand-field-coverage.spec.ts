@@ -283,8 +283,6 @@ const BRAND_SURFACE_ASSERTED = new Set<string>([
   'relatedConcernSlugs',
   'auditPoints',
   'representativeProductIds',
-  // ⚠️ auditReport/auditGrade/officialUrl 은 matrix assertNow:false(공개 렌더 PR 진행 중
-  //    fe/design-brand-audit-public) — 아직 공개 검증 대상이 아니라 여기 없음. 머지 후 승격.
 ]);
 
 function symmetricDiff(a: Set<string>, b: Set<string>): { onlyA: string[]; onlyB: string[] } {
