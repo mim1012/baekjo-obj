@@ -37,7 +37,7 @@ const COVERED: Record<string, CoveredFeature> = {
     spec: 'member-review-inquiry.spec.ts',
     description:
       '마이페이지발 상품문의 작성(상품 선택형)→반영→삭제. ' +
-      'admin-crud-qna-inquiries.spec.ts(상품상세발 작성→관리자 답변→공개반영)와 상호보완 — 중복 아님. ' +
+      'qna-admin-answer-path(상품상세발 작성→관리자 답변→공개반영)와 상호보완 — 중복 아님. ' +
       '🚨 2026-07-19 라이브 실행으로 재현·확정된 결함: 마이페이지에서 문의 "수정"은 저장 버튼이 ' +
       '영구 비활성화되어 절대 저장 불가(InquiryFormModal이 mypage 모드에서 productId를 못 받아 ' +
       'selectedProduct가 항상 undefined). 스펙이 이 결함을 우회하지 않고 그대로 단언·박제함 — ' +
@@ -51,6 +51,10 @@ const COVERED: Record<string, CoveredFeature> = {
       '2026-07-18 머지)로 실배선 완료 — 이 스펙은 이제 서버(members 테이블) 실제 영속을 단언한다 ' +
       '(예전엔 localStorage만 반영되는 결함이 있어 "미영속"을 확인했었음, 2026-07-19 뒤집음).',
   },
+  'password-change': {
+    spec: 'member-password-change.spec.ts',
+    description: '임시 이메일 회원 생성→마이페이지 비밀번호 변경→기존 비번 실패·새 비번 성공 실구동.',
+  },
   'admin-edit-propagation': {
     spec: 'member-admin-edit-propagation.spec.ts',
     description:
@@ -63,18 +67,22 @@ const COVERED: Record<string, CoveredFeature> = {
     spec: 'member-diagnosis.spec.ts',
     description: '1분 맞춤 진단 전 여정(응답→결과/폴백 렌더). 읽기 전용·결정적.',
   },
+  'qna-admin-answer-path': {
+    spec: 'admin-crud-qna-inquiries.spec.ts',
+    description: '상품상세발 회원 문의 작성→관리자 답변→공개 상품 Q&A 반영→회원 삭제 정리 실구동.',
+  },
+  'social-login-app-contract': {
+    spec: 'member-social-login-contract.spec.ts',
+    description: 'Kakao/Naver provider 등록, Auth.js 세션 매핑, /auth/complete 브릿지, 소셜계정 비번변경 차단 소스 가드.',
+  },
 };
 
 /** 의도적으로 실구동 스펙을 만들지 않은 회원 기능 — 사유를 반드시 적는다. */
 const EXCLUDED: Record<string, string> = {
-  'password-change': '고정 E2E 계정 크리덴셜이 바뀌면 전체 wave6 스위트의 로그인이 깨짐(팀 지시사항).',
   'card-payment-approval':
-    '토스 결제위젯 내부(iframe, PG사 호스티드 UI)의 실제 카드 승인은 헤드리스로 자동화 대상이 아님 ' +
-    '— member-card-payment-boundary.spec.ts가 위젯 마운트 직전까지만 검증하고 경계를 문서화함.',
-  'social-login': '카카오·네이버 등 외부 IdP 로그인 — 실제 OAuth 동의 화면이 필요해 자동화 불가.',
-  'qna-admin-answer-path':
-    '상품상세에서 작성된 문의에 대한 관리자 답변→공개반영 경로는 admin-crud-qna-inquiries.spec.ts ' +
-    '(wave3/§7)가 이미 커버 — member-review-inquiry.spec.ts에서 중복 구현하지 않음.',
+    '토스 결제위젯 내부(iframe, PG사 호스티드 UI)의 실제 카드 승인은 헤드리스로 자동화 대상이 아님. ' +
+    'member-card-payment-boundary.spec.ts가 위젯 마운트 직전까지 검증하고, payments 스펙이 서버 승인/상태기 계약을 검증함.',
+  'social-login': '카카오·네이버 외부 IdP OAuth 동의 화면은 자동화 불가. 앱 내부 provider/route 계약은 social-login-app-contract가 검증.',
 };
 
 test.describe('wave6 회원 여정 커버리지 감사', () => {

@@ -5,7 +5,7 @@ import { getPartnersConfig, savePartnersConfig } from '@/lib/partners/repo';
 import type { Partner } from '@/types';
 import { logServerError } from '@/lib/logServerError';
 
-const PARTNER_TYPES: Partner['type'][] = ['hospital', 'funeral', 'brand', 'petshop', 'hotel', 'etc'];
+const PARTNER_TYPES: Partner['type'][] = ['hospital', 'funeral', 'brand', 'hotel', 'etc'];
 const PARTNER_STATUSES: Partner['status'][] = ['문의', '상담중', '제안서 발송', '계약 검토', '계약 완료', '납품 준비', '운영중', '보류', '종료'];
 
 function isString(value: unknown): value is string {

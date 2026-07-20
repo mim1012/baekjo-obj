@@ -109,6 +109,9 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       { field: 'description', render: 'src/app/shop/[id]/page.tsx:58', kind: 'text', note: '#story body-copy.' },
       { field: 'image', render: 'src/components/shop/ProductDetailClient.tsx:122', kind: 'image' },
       { field: 'images', render: 'src/components/shop/ProductDetailClient.tsx:130-144', kind: 'image', note: '썸네일 rail(>1장일 때).' },
+      { field: 'auditPoints', render: 'src/app/shop/[id]/page.tsx:181-190', kind: 'text', note: '#standard Product check 목록.' },
+      { field: 'relatedConcernSlugs', render: 'src/app/shop/[id]/page.tsx:120-124', kind: 'text', note: '#details 관련 고민 칩.' },
+      { field: 'tags', render: 'src/app/shop/[id]/page.tsx:125-127', kind: 'text', note: '#details 상품 태그 칩.' },
       { field: 'ingredients', render: 'src/app/shop/[id]/page.tsx:106-109', kind: 'text', note: '#details "성분·소재".' },
       { field: 'howToUse', render: 'src/app/shop/[id]/page.tsx:110-116', kind: 'text', note: '#details "급여·사용 방법".' },
       { field: 'recommendedFor', render: 'src/app/shop/[id]/page.tsx:121', kind: 'text', note: '"함께 확인하면 좋아요"(빈값 시 기본 폴백).' },
@@ -181,11 +184,11 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       },
       {
         field: 'officialUrl',
-        render: '없음(공개 렌더 PR 진행 중)',
+        render: '없음(공개 브랜드 상세 렌더 금지)',
         kind: 'link',
         assertNow: false,
-        note: 'admin-only-as-of-now — 현재 브랜드 상세에 officialUrl 공개 렌더 없음. 공개 렌더 PR ' +
-          '진행 중(fe/design-brand-audit-public) — 머지 후 승격. 관리자 왕복으로만 검증.',
+        note: 'admin-only — officialUrl 은 관리자 저장/재열람용 데이터다. 공개 브랜드 상세에는 ' +
+          '공식몰 방문 CTA를 렌더하지 않고, 관리자 왕복으로만 검증한다.',
       },
       {
         field: 'auditPoints',

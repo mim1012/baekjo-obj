@@ -142,21 +142,6 @@ export async function deleteReviewByOwner(id: string, memberId: string): Promise
   return (data?.length ?? 0) > 0;
 }
 
-/** 관리자 전용 — 노출 상태 변경. 대상 없으면 null. */
-export async function setReviewStatus(
-  id: string,
-  status: 'published' | 'hidden',
-): Promise<ProductReview | null> {
-  const { data, error } = await getSupabase()
-    .from('product_reviews')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select(SELECT_COLUMNS)
-    .maybeSingle();
-  if (error) throw error;
-  return data ? rowToReview(data as ReviewRow) : null;
-}
-
 export async function getReviewById(id: string): Promise<ProductReview | null> {
   const { data, error } = await getSupabase()
     .from('product_reviews')

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, ArrowRight, Check, ExternalLink, Leaf, Heart, MessageSquare } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import { getBrandDisplayLogo } from '@/components/common/BrandLogo';
@@ -158,16 +158,6 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                  </div>
                </div>
 
-               {brand.officialUrl && (
-                 <a
-                   href={brand.officialUrl}
-                   target="_blank"
-                   rel="noopener noreferrer"
-                   className="mt-5 inline-flex h-[36px] w-fit items-center justify-center gap-1.5 rounded-full border border-[#E2DACD] bg-[#FFFEFB] px-4 text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]"
-                 >
-                   공식몰 방문하기 <ExternalLink className="w-3.5 h-3.5" />
-                 </a>
-               )}
              </div>
 
              {/* Audit */}

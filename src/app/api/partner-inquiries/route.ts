@@ -13,7 +13,6 @@ const PARTNER_TYPES: PartnerInquiry['partnerType'][] = [
   'hospital',
   'funeral',
   'brand',
-  'petshop',
   'hotel',
   'etc',
 ];

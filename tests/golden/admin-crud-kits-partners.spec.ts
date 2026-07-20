@@ -10,14 +10,6 @@ import {
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/kits, /admin/partners (관리자 전용 — 공개 소비자 없음).
 //
-// kits·partners는 notices/concerns/reviews와 달리 검증할 공개 화면이 없다 —
-// src/app/landing/care-kit/page.tsx의 케어 키트 목록은 관리자 콘텐츠와 무관한 하드코딩
-// 상수(`const careKits = [...]`, DB를 전혀 읽지 않음)라 "업그레이드해서 공개 화면 확인"이
-// 불가능하다(확인 완료, 2026-07-18). 대신 이 도메인이 실제로 검증해야 할 것은 §2026-07-18
-// 사고의 정확한 재현이다: 관리자 화면이 "저장됐다"고 보여주는 게 실제 DB 영속인지, 아니면
-// 새로고침하면 사라지는 draft-only 상태인지. 그래서 등록→**새로고침**→여전히 있음→수정→
-// **새로고침**→수정 반영→삭제→**새로고침**→사라짐을 각 단계마다 실제로 리로드해서 확인한다.
-//
 // kits와 partners는 서로 다른 페이지·DB 행(싱글턴 config 테이블의 별도 row)이라 이 파일 안의
 // 두 테스트가 병렬로 돌아도 서로 간섭하지 않는다 — "싱글턴 설정은 자기 자신과 병렬 금지"
 // 원칙은 같은 도메인을 두 번 동시에 건드리는 경우를 막는 것이고, 이 파일은 도메인당 테스트가
@@ -94,8 +86,15 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 케어 키트', 
     const rowAfterReload = page.locator('tr', { hasText: name });
     await expect(rowAfterReload).toBeVisible({ timeout: 15_000 });
     await expect(rowAfterReload).toContainText(target);
+    await page.goto('/landing/care-kit');
+    const publicBody = page.locator('body');
+    await expect(page.getByRole('heading', { name, exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(publicBody).toContainText(target);
+    await expect(publicBody).toContainText(purpose);
+    await expect(publicBody).toContainText(itemA);
 
     // 3) 수정
+    await page.goto('/admin/kits');
     await page.getByPlaceholder(KITS_SEARCH_PLACEHOLDER).fill(name);
     await expect(page.getByRole('button', { name: '수정' })).toHaveCount(1);
     await page.getByRole('button', { name: '수정' }).click();
@@ -110,8 +109,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 케어 키트', 
     const editedRow = page.locator('tr', { hasText: editedName });
     await expect(editedRow).toBeVisible({ timeout: 15_000 });
     await expect(editedRow).toContainText('7개');
+    await page.goto('/landing/care-kit');
+    await expect(page.getByRole('heading', { name: editedName, exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name, exact: true })).toHaveCount(0);
 
     // 5) 삭제
+    await page.goto('/admin/kits');
+    await page.getByPlaceholder(KITS_SEARCH_PLACEHOLDER).fill(editedName);
     await expect(page.getByRole('button', { name: '삭제' })).toHaveCount(1);
     await page.getByRole('button', { name: '삭제' }).click();
     await expect(page.locator('table')).not.toContainText(editedName, { timeout: 15_000 });
@@ -120,6 +124,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 케어 키트', 
     await page.reload();
     await page.getByPlaceholder(KITS_SEARCH_PLACEHOLDER).fill(editedName);
     await expect(page.getByRole('button', { name: '수정' })).toHaveCount(0);
+    await page.goto('/landing/care-kit');
+    await expect(page.getByRole('heading', { name: editedName, exact: true })).toHaveCount(0);
   });
 });
 
