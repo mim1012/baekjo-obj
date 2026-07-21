@@ -92,8 +92,8 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     route: '/checkout',
     kind: 'static',
     auth: 'redirect',
-    expectedRedirect: '/cart',
-    note: '장바구니가 비어 있으면 /cart 로 되돌림(cold visit은 항상 빈 장바구니)',
+    expectedRedirect: '/login',
+    note: '비회원 주문 차단 — 비로그인 cold visit은 /login?redirect=/checkout 으로 이동',
   },
 
   // ── 공개 동적 페이지(공개 API 로 표본 id 해석) ─────────────────────
