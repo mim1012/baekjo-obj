@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { getProductById } from '@/lib/products/repo';
 import { insertInquiry, type InsertInquiryInput } from '@/lib/inquiries/repo';
 import { logServerError } from '@/lib/logServerError';
@@ -41,9 +41,9 @@ function validate(body: unknown): ValidatedBody | null {
  * productId로 조회한 실제 브랜드로 덮어쓴다(§4 — 잘못된 브랜드 배정 시 파트너 답변 인가가 깨진다).
  */
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: unknown;
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       isSecret: validated.isSecret,
     };
 
-    const inquiry = await insertInquiry(session.user.memberId, input);
+    const inquiry = await insertInquiry(activeMember.memberId, input);
     return NextResponse.json({ inquiry }, { status: 201 });
   } catch (error) {
     logServerError('[POST /api/inquiries] 작성 실패', error);

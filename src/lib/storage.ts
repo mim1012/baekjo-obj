@@ -1465,7 +1465,10 @@ export async function updateUserStatus(
   id: string,
   status: 'active' | 'inactive' | 'pending' | 'rejected',
   rejectReason?: string,
-): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'forbidden' | 'network' }> {
+): Promise<{
+  user?: User;
+  error?: 'invalid-input' | 'not-found' | 'forbidden' | 'conflict' | 'network';
+}> {
   try {
     const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, {
       method: 'PATCH',
@@ -1478,7 +1481,27 @@ export async function updateUserStatus(
     }
     if (response.status === 400) return { error: 'invalid-input' };
     if (response.status === 404) return { error: 'not-found' };
+    if (response.status === 409) return { error: 'conflict' };
     if (response.status === 401 || response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/**
+ * 로그인한 본인 회원 탈퇴(소프트 탈퇴). 성공 시 PII가 서버에서 익명화되고 status가
+ * 'withdrawn'으로 바뀐다 — 호출부는 성공 후 즉시 signOut() 처리해야 한다(§10-7 로그인 게이트가
+ * withdrawn을 차단하므로 재로그인은 불가하지만, 클라이언트 세션은 명시적으로 끊어야 한다).
+ */
+export async function withdrawAccount(): Promise<{ ok?: boolean; error?: 'unauthorized' | 'not-found' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/me', { method: 'DELETE' });
+    if (response.ok) {
+      return { ok: true };
+    }
+    if (response.status === 401 || response.status === 403) return { error: 'unauthorized' };
+    if (response.status === 404) return { error: 'not-found' };
     return { error: 'network' };
   } catch {
     return { error: 'network' };
@@ -1668,7 +1691,7 @@ function emitStorageEvent(eventName: string): void {
  * 실패는 orders/products 콘센트와 동일하게 빈 배열/undefined 로 접고, 쓰기 실패는 throw 한다.
  */
 
-import type { ProductReview, ProductInquiry } from '@/types';
+import type { AdminProductReview, ProductReview, ProductInquiry } from '@/types';
 
 /** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
 export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
@@ -1892,4 +1915,46 @@ export async function deleteTemporaryAdminImage(path: string): Promise<{ deleted
     throw new Error(data.error || 'delete-failed');
   }
   return data as { deleted: boolean; reason: string };
+}
+
+/* ── 관리자 구매평 moderation ─────────────────────────────────
+ * product_reviews(실제 구매평) 대상 — 전시 후기(showcaseReviews)와는 별개 도메인이다.
+ * GET/PATCH/DELETE /api/admin/reviews[/[id]]. 별점 재집계는 DB 트리거(0070)가 자동 처리하므로
+ * 여기서 products.rating을 따로 갱신하지 않는다.
+ */
+
+/** 관리자 구매평 목록(published+hidden 전체, 상품명 포함). GET /api/admin/reviews. 실패 시 throw. */
+export async function getAdminProductReviews(): Promise<AdminProductReview[]> {
+  const response = await fetch('/api/admin/reviews');
+  if (!response.ok) throw new Error('admin-reviews-load-failed');
+  const { reviews } = (await response.json()) as { reviews: AdminProductReview[] };
+  if (!Array.isArray(reviews)) throw new Error('admin-reviews-invalid-response');
+  return reviews;
+}
+
+/** 관리자 구매평 노출/숨김 전환. PATCH /api/admin/reviews/[id]. 성공/실패를 boolean으로 돌려 화면이 알린다. */
+export async function setAdminReviewStatus(
+  id: string,
+  status: 'published' | 'hidden',
+): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch(`/api/admin/reviews/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 관리자 구매평 삭제(악성/부적절). DELETE /api/admin/reviews/[id]. 성공/실패를 boolean으로 돌려 화면이 알린다. */
+export async function deleteAdminReview(id: string): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
 }

@@ -50,8 +50,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   callbacks: {
     ...authConfig.callbacks,
+    /**
+     * 소셜(카카오/네이버) 로그인 게이트 — credentials authorize()의 status==='active' 화이트리스트와
+     * 동일 기준을 여기서도 적용한다(§10-7 보안장치 3종 중 하나, §CRITICAL-1 — opus 리뷰).
+     * 이전에는 이 체크가 없어서 jwt 콜백이 정지·탈퇴 회원에게도 memberId를 세팅해 유효 세션을
+     * 재발급했다 — signIn에서 false를 반환하면 next-auth가 세션 생성 자체를 중단한다(jwt 콜백은
+     * 아예 호출되지 않음). user.email/name/image는 provider.profile()이 이미 정규화한 표준 필드.
+     */
+    async signIn({ user, account }) {
+      if (account?.provider === 'kakao' || account?.provider === 'naver') {
+        const member = await upsertSocialMember({
+          provider: account.provider,
+          providerId: account.providerAccountId,
+          email: typeof user.email === 'string' ? user.email : null,
+          name: typeof user.name === 'string' ? user.name : null,
+          profileImage: typeof user.image === 'string' ? user.image : null,
+        });
+        if (member.status !== 'active') return false;
+      }
+      return true;
+    },
     async jwt({ token, account, user }) {
       if (account?.provider === 'kakao' || account?.provider === 'naver') {
+        // signIn 콜백이 이미 upsert+active 검증을 통과시켰다 — 여기서 다시 upsert해도 멱등이라
+        // 안전하지만(같은 값 재기록), 이미 active로 확인된 행이므로 name/image 갱신 로직도 다시 탄다.
         const member = await upsertSocialMember({
           provider: account.provider,
           providerId: account.providerAccountId,

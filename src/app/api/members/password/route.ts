@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { findMemberByEmail, findMemberById, updateMemberPassword } from '@/lib/members/repo';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
+import { updateMemberPassword } from '@/lib/members/repo';
 import { hashPassword, verifyPassword } from '@/lib/members/password';
 import { logServerError } from '@/lib/logServerError';
 
@@ -11,9 +11,9 @@ interface ChangePasswordBody {
 
 /** PATCH /api/members/password — 로그인한 본인의 비밀번호 변경. */
 export async function PATCH(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'no-session' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: ChangePasswordBody;
@@ -29,16 +29,7 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const memberId = session.user.memberId;
-    const member = memberId
-      ? await findMemberById(memberId)
-      : session.user.email
-        ? await findMemberByEmail(session.user.email)
-        : null;
-
-    if (!member) {
-      return NextResponse.json({ error: 'not-found' }, { status: 404 });
-    }
+    const member = activeMember.member;
 
     if (!member.passwordHash) {
       return NextResponse.json({ error: 'social-account' }, { status: 400 });

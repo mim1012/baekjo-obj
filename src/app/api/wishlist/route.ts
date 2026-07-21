@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import {
   listWishlistProductIds,
   removeWishlistProduct,
@@ -33,9 +34,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: WishlistBody;
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const wishlisted = await toggleWishlistProduct(session.user.memberId, productId);
+    const wishlisted = await toggleWishlistProduct(activeMember.memberId, productId);
     return NextResponse.json({ wishlisted }, { status: 200 });
   } catch (error) {
     logServerError('[POST /api/wishlist] 토글 실패', error);
@@ -60,9 +61,9 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: WishlistBody;
@@ -78,7 +79,7 @@ export async function DELETE(request: Request) {
   }
 
   try {
-    const wishlisted = await removeWishlistProduct(session.user.memberId, productId);
+    const wishlisted = await removeWishlistProduct(activeMember.memberId, productId);
     return NextResponse.json({ wishlisted }, { status: 200 });
   } catch (error) {
     logServerError('[DELETE /api/wishlist] 제거 실패', error);

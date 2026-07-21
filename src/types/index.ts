@@ -356,7 +356,7 @@ export interface User {
   breed?: string;
   mainConcern?: string;
   role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
-  status?: 'active' | 'inactive' | 'pending' | 'rejected';
+  status?: 'active' | 'inactive' | 'pending' | 'rejected' | 'withdrawn';
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
@@ -409,6 +409,11 @@ export interface ProductReview {
   status: 'published' | 'hidden';
   createdAt: string;
   updatedAt: string;
+}
+
+/** 관리자 moderation 목록 전용 — 상품명을 곁들인 조회 결과(가산). 저장 계약이 아니라 응답 전용 뷰. */
+export interface AdminProductReview extends ProductReview {
+  productName: string;
 }
 
 /* ── 사용자 작성 상품문의 ─────────────────────── */
