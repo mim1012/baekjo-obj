@@ -106,6 +106,9 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 <span className="text-sm text-[#68716C]">주문번호 {order.id}</span>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.orderStatus)}`}>
+                  {order.orderStatus}
+                </span>
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.paymentStatus)}`}>
                   {order.paymentStatus}
                 </span>
