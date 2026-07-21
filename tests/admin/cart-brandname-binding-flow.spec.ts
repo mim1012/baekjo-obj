@@ -22,7 +22,9 @@ test.describe('장바구니 브랜드명 표시', () => {
     // getPublicProducts → getPublicProductsOrNull 전환(2026-07-19, CRITICAL 수정 PR #173) —
     // 조회 실패(null)와 진짜 노출상품 0건([])을 구분해 자가치유 프루닝이 실패 시 카트를
     // 지워버리지 않게 한다. 브랜드명 해석 로직 자체는 무변경.
-    expect(pageSource).toContain("import { getPublicProductsOrNull, getPublicBrands } from '@/lib/storage'");
+    const storageImport = pageSource.match(/import \{([^}]+)\} from '@\/lib\/storage';/);
+    expect(storageImport?.[1]).toContain('getPublicProductsOrNull');
+    expect(storageImport?.[1]).toContain('getPublicBrands');
     expect(pageSource).toContain('const [brands, setBrands] = useState<Brand[]>([]);');
     // 상품 목록과 브랜드 목록을 같은 마운트 이펙트에서 함께 가져온다 — 행마다 개별 fetch 금지.
     expect(pageSource).toContain('Promise.all([getPublicProductsOrNull(), getPublicBrands()])');
