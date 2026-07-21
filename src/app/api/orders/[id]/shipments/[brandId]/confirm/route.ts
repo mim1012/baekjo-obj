@@ -28,13 +28,18 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     }
 
     const memberId = session?.user?.memberId;
-    const isOwner = Boolean(memberId) && order.memberId === memberId;
+    const requester = memberId ? await findMemberById(memberId) : null;
 
-    let isAdmin = false;
-    if (!isOwner && session?.user?.role === 'admin' && session.user.memberId) {
-      const requester = await findMemberById(session.user.memberId);
-      isAdmin = requester !== null && requester.role === 'admin' && requester.status !== 'inactive';
-    }
+    // 소유자 경로도 requireActiveMember 와 동일 기준(status==='active')을 적용한다 — 정지·탈퇴된
+    // 본인 세션이 구매확정 같은 쓰기 작업을 하지 못하게 막는다(§세션 실효).
+    const isOwner = order.memberId === memberId && requester !== null && requester.status === 'active';
+
+    const isAdmin =
+      !isOwner &&
+      session?.user?.role === 'admin' &&
+      requester !== null &&
+      requester.role === 'admin' &&
+      requester.status !== 'inactive';
 
     if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });

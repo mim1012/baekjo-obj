@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { signOut } from 'next-auth/react';
 import { User } from '@/types';
-import { setCurrentUser, updateMyProfile } from '@/lib/storage';
+import { setCurrentUser, updateMyProfile, withdrawAccount } from '@/lib/storage';
 
 interface ProfileSectionProps {
   user: User | null;
@@ -14,7 +16,14 @@ const ERROR_MESSAGES: Record<string, string> = {
   network: '잠시 후 다시 시도해 주세요.',
 };
 
+const WITHDRAW_ERROR_MESSAGES: Record<string, string> = {
+  unauthorized: '로그인이 만료되었습니다. 다시 로그인해 주세요.',
+  'not-found': '회원 정보를 찾을 수 없습니다.',
+  network: '잠시 후 다시 시도해 주세요.',
+};
+
 export default function ProfileSection({ user }: ProfileSectionProps) {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: user?.name || '',
     phone: user?.phone || '',
@@ -25,7 +34,26 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [withdrawError, setWithdrawError] = useState('');
+
   if (!user) return null;
+
+  const handleWithdraw = async () => {
+    setWithdrawError('');
+    setIsWithdrawing(true);
+    const result = await withdrawAccount();
+    if (result.error) {
+      setIsWithdrawing(false);
+      setWithdrawError(WITHDRAW_ERROR_MESSAGES[result.error] ?? WITHDRAW_ERROR_MESSAGES.network);
+      return;
+    }
+    // 서버 탈퇴 처리(status='withdrawn')가 끝난 뒤에만 클라이언트 세션을 끊는다 —
+    // 순서를 바꾸면 탈퇴가 실패했는데 로그아웃만 되는 상태가 생길 수 있다.
+    await signOut({ callbackUrl: '/' });
+    router.push('/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -134,6 +162,62 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
           </div>
         </form>
       </div>
+
+      <div className="mt-6 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setIsWithdrawModalOpen(true)}
+          className="text-sm text-[#68716C] underline decoration-[#DED8CC] underline-offset-4 hover:text-[#18231F]"
+        >
+          회원 탈퇴
+        </button>
+      </div>
+
+      {isWithdrawModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !isWithdrawing && setIsWithdrawModalOpen(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="withdraw-modal-title"
+            className="relative w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+          >
+            <h2 id="withdraw-modal-title" className="text-lg font-bold text-[#18231F]">
+              회원 탈퇴
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-[#68716C]">
+              탈퇴하시면 즉시 로그아웃되며 재로그인이 불가능합니다. 이름·연락처·이메일 등 개인정보는
+              삭제·익명 처리되고, 주문 이력은 관계 법령에 따라 보존됩니다. 계속하시겠어요?
+            </p>
+            {withdrawError && (
+              <p role="alert" className="mt-3 text-sm font-semibold text-[#8A5A3B]">
+                {withdrawError}
+              </p>
+            )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsWithdrawModalOpen(false)}
+                disabled={isWithdrawing}
+                className="rounded-lg border border-[#DED8CC] px-4 py-2.5 text-sm font-semibold text-[#18231F] transition-colors hover:bg-[#F8F6F0] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleWithdraw}
+                disabled={isWithdrawing}
+                className="rounded-lg bg-[#14211C] px-4 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {isWithdrawing ? '처리 중…' : '탈퇴하기'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
