@@ -359,7 +359,7 @@ export interface User {
   breed?: string;
   mainConcern?: string;
   role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
-  status?: 'active' | 'inactive' | 'pending' | 'rejected';
+  status?: 'active' | 'inactive' | 'pending' | 'rejected' | 'withdrawn';
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;

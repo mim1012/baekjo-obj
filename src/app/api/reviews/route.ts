@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { buildReviewTargetKey } from '@/lib/storage';
 import { getOrderById } from '@/lib/orders/repo';
 import { listShipmentsByOrder } from '@/lib/shipments/repo';
@@ -59,10 +59,11 @@ function validate(body: unknown): ValidatedBody | null {
  * 중복 작성을 unique 제약으로 막는다.
  */
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
+  const memberId = activeMember.memberId;
 
   let body: unknown;
   try {
@@ -78,7 +79,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const order = await getOrderById(validated.orderId);
-    if (!order || order.memberId !== session.user.memberId) {
+    if (!order || order.memberId !== memberId) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
@@ -117,7 +118,7 @@ export async function POST(request: NextRequest) {
       content: validated.content,
     };
 
-    const review = await insertReview(session.user.memberId, input);
+    const review = await insertReview(memberId, input);
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
     if (error instanceof DuplicateReviewError) {

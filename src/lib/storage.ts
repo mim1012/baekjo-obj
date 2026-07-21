@@ -1475,7 +1475,10 @@ export async function updateUserStatus(
   id: string,
   status: 'active' | 'inactive' | 'pending' | 'rejected',
   rejectReason?: string,
-): Promise<{ user?: User; error?: 'invalid-input' | 'not-found' | 'forbidden' | 'network' }> {
+): Promise<{
+  user?: User;
+  error?: 'invalid-input' | 'not-found' | 'forbidden' | 'conflict' | 'network';
+}> {
   try {
     const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, {
       method: 'PATCH',
@@ -1488,7 +1491,27 @@ export async function updateUserStatus(
     }
     if (response.status === 400) return { error: 'invalid-input' };
     if (response.status === 404) return { error: 'not-found' };
+    if (response.status === 409) return { error: 'conflict' };
     if (response.status === 401 || response.status === 403) return { error: 'forbidden' };
+    return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/**
+ * 로그인한 본인 회원 탈퇴(소프트 탈퇴). 성공 시 PII가 서버에서 익명화되고 status가
+ * 'withdrawn'으로 바뀐다 — 호출부는 성공 후 즉시 signOut() 처리해야 한다(§10-7 로그인 게이트가
+ * withdrawn을 차단하므로 재로그인은 불가하지만, 클라이언트 세션은 명시적으로 끊어야 한다).
+ */
+export async function withdrawAccount(): Promise<{ ok?: boolean; error?: 'unauthorized' | 'not-found' | 'network' }> {
+  try {
+    const response = await fetch('/api/members/me', { method: 'DELETE' });
+    if (response.ok) {
+      return { ok: true };
+    }
+    if (response.status === 401 || response.status === 403) return { error: 'unauthorized' };
+    if (response.status === 404) return { error: 'not-found' };
     return { error: 'network' };
   } catch {
     return { error: 'network' };
