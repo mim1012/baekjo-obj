@@ -33,4 +33,14 @@ test.describe('골든플로우 #3 (LIVE): 보험 분석 신청 폼', () => {
     // 제출 버튼 존재 확인 — 클릭하지 않는다.
     await expect(page.getByRole('button', { name: /무료 분석 신청하기/ })).toBeVisible();
   });
+
+  // U14/U15 — 증권 업로드 실구현 회귀 방지. 실제 업로드(POST /api/insurance/upload)는
+  // 여기서 실행하지 않는다(실 스토리지에 파일이 남는 것을 방지) — 파일 입력이 폼에
+  // 실제로 존재하는지만 확인한다.
+  test('증권 파일 첨부 입력이 폼에 존재한다(선택, 업로드는 실행하지 않음)', async ({ page }) => {
+    await page.goto('/insurance/apply');
+    const fileInput = page.locator('input[type="file"]');
+    await expect(fileInput).toBeVisible();
+    await expect(fileInput).toHaveAttribute('accept', /pdf/);
+  });
 });

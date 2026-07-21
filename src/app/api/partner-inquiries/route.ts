@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { createPartnerInquiry, type InsertPartnerInquiryInput } from '@/lib/partnerInquiries/repo';
 import type { PartnerInquiry } from '@/types';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAdminNewSubmission } from '@/lib/email/notifyAdmin';
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
 const MAX_NAME = 100;
@@ -64,6 +65,14 @@ export async function POST(request: NextRequest) {
       partnerType: body.partnerType,
       message: body.message,
     });
+
+    // 접수 성공은 이미 확정됐다 — 알림은 응답 후 after()로 보내 접수 자체를 지연시키지 않는다
+    // (POST /api/insurance와 동일 관용구).
+    after(() => notifyAdminNewSubmission({
+      kind: 'B2B 케어키트 제휴 문의',
+      summary: `업체: ${inquiry.companyName} (담당: ${inquiry.contactPerson}, ${inquiry.phone})\n유형: ${inquiry.partnerType}`,
+    }));
+
     return NextResponse.json({ inquiry }, { status: 201 });
   } catch (error) {
     logServerError('[POST /api/partner-inquiries] 문의 생성 실패', error);

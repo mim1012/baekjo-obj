@@ -199,6 +199,9 @@ export interface InsuranceApplication {
   gender?: string;
   concerns?: string;
   ownerName?: string;
+  /** 업로드된 보험 증권 파일 경로(비공개 버킷 insurance-docs 내부 path, publicUrl 아님).
+   * POST /api/insurance/upload 가 반환한 값을 그대로 넘긴다. 관리자만 signed URL로 열람한다. */
+  insuranceCertPath?: string;
 }
 
 export type InsuranceStatus =

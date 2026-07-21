@@ -11,6 +11,19 @@ const coverageOptions = [
   '가성비 중심',
 ];
 
+const MAX_CERT_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_CERT_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+/** 증권 파일을 POST /api/insurance/upload에 올리고 비공개 버킷 경로만 돌려받는다(선택 첨부). */
+async function uploadInsuranceCert(file: File): Promise<string> {
+  const body = new FormData();
+  body.append('file', file);
+  const response = await fetch('/api/insurance/upload', { method: 'POST', body });
+  if (!response.ok) throw new Error('insurance-cert-upload-failed');
+  const { path } = (await response.json()) as { path: string };
+  return path;
+}
+
 function InsuranceApplyForm() {
   const router = useRouter();
   // /insurance(랜딩)에서 보험사·상품명·궁금한 점을 남기고 넘어온 경우 쿼리로 프리필한다
@@ -52,6 +65,24 @@ function InsuranceApplyForm() {
   };
 
   const [submitting, setSubmitting] = useState(false);
+  const [certFile, setCertFile] = useState<File | null>(null);
+  const [certError, setCertError] = useState('');
+
+  const handleCertFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const nextFile = event.target.files?.[0];
+    event.target.value = '';
+    setCertError('');
+    if (!nextFile) return;
+    if (!ALLOWED_CERT_TYPES.includes(nextFile.type)) {
+      setCertError('PDF, JPG, PNG, WEBP 파일만 선택할 수 있어요.');
+      return;
+    }
+    if (nextFile.size > MAX_CERT_FILE_SIZE) {
+      setCertError('파일 크기는 10MB 이하로 선택해 주세요.');
+      return;
+    }
+    setCertFile(nextFile);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -60,6 +91,10 @@ function InsuranceApplyForm() {
     // id/createdAt/status/member_id 는 서버(POST /api/insurance)가 정한다 — 콘센트만 거친다(§4).
     setSubmitting(true);
     try {
+      // 증권 파일은 선택사항 — 첨부했으면 먼저 비공개 버킷에 올리고 받은 path만 신청 페이로드에
+      // 함께 보낸다(파일 자체는 신청 API로 보내지 않는다).
+      const insuranceCertPath = certFile ? await uploadInsuranceCert(certFile) : undefined;
+
       await saveInsuranceApplication({
         name: formData.name,
         phone: formData.phone,
@@ -80,6 +115,7 @@ function InsuranceApplyForm() {
         neutered: formData.neutered === 'yes',
         gender: formData.gender,
         ownerName: formData.name,
+        ...(insuranceCertPath ? { insuranceCertPath } : {}),
       });
     } catch {
       setSubmitting(false);
@@ -199,6 +235,17 @@ function InsuranceApplyForm() {
                 <Field label="문의내용">
                   <textarea name="message" value={formData.message} onChange={handleChange} rows={5} className={fieldClass} placeholder="현재 고민과 확인하고 싶은 내용을 적어주세요." />
                 </Field>
+              </div>
+
+              <div className="mt-7">
+                <Field label="보험 증권 첨부 (선택)">
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={handleCertFileChange} className={fieldClass} />
+                </Field>
+                {certFile && !certError && (
+                  <p className="mt-2 text-xs text-[#5F6761]">{certFile.name} ({(certFile.size / (1024 * 1024)).toFixed(1)}MB) 선택됨</p>
+                )}
+                {certError && <p className="mt-2 text-xs text-red-500">{certError}</p>}
+                <p className="mt-2 text-xs text-[#8A9187]">PDF, JPG, PNG, WEBP | 최대 10MB. 첨부한 파일은 분석 목적 외에 사용하지 않으며 관리자만 열람할 수 있습니다.</p>
               </div>
             </section>
 
