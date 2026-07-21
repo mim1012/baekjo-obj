@@ -24,7 +24,7 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
     rows.push({
       icon: Truck,
       title: '배송비',
-      description: shipping.shippingFee === 0 ? '무료배송' : formatPrice(shipping.shippingFee),
+      description: shipping.shippingFeeLabel ?? (shipping.shippingFee === 0 ? '무료배송' : formatPrice(shipping.shippingFee)),
     });
   }
   if (shipping.freeShippingThreshold !== undefined) {
@@ -34,8 +34,14 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
       description: `${formatPrice(shipping.freeShippingThreshold)} 이상 구매 시`,
     });
   }
+  if (shipping.extraFeeNotice) {
+    rows.push({ icon: Truck, title: '지역 추가배송비', description: shipping.extraFeeNotice });
+  }
   if (shipping.dispatchEstimate) {
     rows.push({ icon: Clock, title: '출고 예정', description: shipping.dispatchEstimate });
+  }
+  if (shipping.carrierLabel) {
+    rows.push({ icon: Truck, title: '배송 운영', description: shipping.carrierLabel });
   }
   if (shipping.defaultCarrier) {
     rows.push({ icon: Truck, title: '기본 택배사', description: CARRIER_LABELS[shipping.defaultCarrier] });
@@ -48,6 +54,12 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
   }
   if (shipping.returnAddress) {
     rows.push({ icon: MapPin, title: '반품/교환 주소', description: shipping.returnAddress });
+  }
+  if (shipping.returnPolicy) {
+    rows.push({ icon: RotateCcw, title: '교환/반품 정책', description: shipping.returnPolicy });
+  }
+  if (shipping.returnExclusions) {
+    rows.push({ icon: RotateCcw, title: '교환/반품 제한', description: shipping.returnExclusions });
   }
   if (shipping.asNotice) {
     rows.push({ icon: Phone, title: 'A/S 안내', description: shipping.asNotice });

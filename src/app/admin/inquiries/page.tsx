@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { getCurrentUser, getAdminInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
+import { getSessionUser, getAdminInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
@@ -32,8 +32,8 @@ export default function AdminInquiriesPage() {
   // 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
   const loadSeqRef = useRef(0);
 
-  const loadData = () => {
-    const currentUser = getCurrentUser();
+  const loadData = async () => {
+    const currentUser = await getSessionUser();
     if (!currentUser || !['admin', 'partner'].includes(currentUser.role)) {
       router.replace('/');
       return;

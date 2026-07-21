@@ -89,13 +89,18 @@ export interface Brand {
   shipping?: BrandShippingPolicy;
 }
 export interface BrandShippingPolicy {
+  carrierLabel?: string;
   defaultCarrier?: import('@/lib/carriers').CarrierCode;
   shippingFee?: number;
+  shippingFeeLabel?: string;
   freeShippingThreshold?: number;
+  extraFeeNotice?: string;
   dispatchEstimate?: string;
   returnAddress?: string;
   returnShippingFee?: number;
   exchangeShippingFee?: number;
+  returnPolicy?: string;
+  returnExclusions?: string;
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;
@@ -285,13 +290,8 @@ export type ConfirmedOrderSummary = Pick<
 
 export const ORDER_STATUSES = [
   '주문접수',
-  '결제완료',
-  '배송준비',
-  '배송중',
-  '배송완료',
   '취소요청',
   '취소완료',
-  '환불완료',
 ] as const;
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];

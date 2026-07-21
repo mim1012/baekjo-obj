@@ -66,6 +66,18 @@ test.describe('주문 목록 상태 UX (퍼널 개편)', () => {
     // 다업체·레거시는 상세 링크로 폴백.
     expect(popover).toContain('/admin/orders/${order.id}');
     expect(popover).toContain('상세에서 발송하기');
+    expect(popover).toContain('fixed inset-x-4 bottom-4');
+    expect(popover).not.toContain('sm:absolute');
+  });
+
+  test('입금확인 확인창은 운영자용 문구를 쓰고 내부 구현 용어를 노출하지 않는다', () => {
+    const depositButton = src('src', 'components', 'admin-new', 'orders', 'DepositConfirmButton.tsx');
+    const listPage = src('src', 'components', 'admin-new', 'orders', 'OrderListPage.tsx');
+
+    expect(depositButton).toContain('미입금 자동취소와 재고 되돌림 대상에서 제외됩니다');
+    expect(listPage).toContain('미입금 자동취소와 재고 되돌림 대상에서 제외됩니다');
+    expect(depositButton).not.toContain('RPC');
+    expect(listPage).not.toContain('RPC');
   });
 
   test('상세 화면의 3축 편집은 그대로 유지된다(세밀 편집 정본)', () => {

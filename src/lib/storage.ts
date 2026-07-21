@@ -39,29 +39,13 @@ function setJSON<T>(key: string, value: T): void {
   localStorage.setItem(key, JSON.stringify(value));
 }
 
-const WISHLIST_KEY = 'baekjo_wishlist';
 let wishlistCache: string[] | null = null;
 let wishlistRequest: Promise<string[]> | null = null;
 
-function getLocalWishlist(): string[] {
-  return getJSON<string[]>(WISHLIST_KEY, []);
-}
-
-function setLocalWishlist(value: string[]): void {
-  setJSON(WISHLIST_KEY, value);
-}
-
-function toggleLocalWishlist(productId: string): boolean {
-  const list = getLocalWishlist();
-  const index = list.indexOf(productId);
-  if (index >= 0) {
-    list.splice(index, 1);
-    setLocalWishlist(list);
-    return false;
+function clearLegacyWishlistStorage(): void {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('baekjo_wishlist');
   }
-  list.push(productId);
-  setLocalWishlist(list);
-  return true;
 }
 
 function setWishlistCache(productIds: string[]): string[] {
@@ -75,7 +59,7 @@ function clearWishlistCache(): void {
 }
 
 export function getCachedWishlist(): string[] {
-  return wishlistCache ?? getLocalWishlist();
+  return wishlistCache ?? [];
 }
 
 export async function getWishlist(options: { force?: boolean } = {}): Promise<string[]> {
@@ -84,12 +68,15 @@ export async function getWishlist(options: { force?: boolean } = {}): Promise<st
 
   wishlistRequest = fetch('/api/wishlist')
     .then(async (response) => {
-      if (response.status === 401) return setWishlistCache(getLocalWishlist());
-      if (!response.ok) return setWishlistCache(wishlistCache ?? getLocalWishlist());
+      if (response.status === 401) {
+        clearLegacyWishlistStorage();
+        return setWishlistCache([]);
+      }
+      if (!response.ok) return setWishlistCache(wishlistCache ?? []);
       const { productIds } = (await response.json()) as { productIds: string[] };
       return setWishlistCache(Array.isArray(productIds) ? productIds : []);
     })
-    .catch(() => setWishlistCache(wishlistCache ?? getLocalWishlist()))
+    .catch(() => setWishlistCache(wishlistCache ?? []))
     .finally(() => {
       wishlistRequest = null;
     });
@@ -105,10 +92,8 @@ export async function toggleWishlist(productId: string): Promise<boolean> {
   });
 
   if (response.status === 401) {
-    const wishlisted = toggleLocalWishlist(productId);
-    setWishlistCache(getLocalWishlist());
-    emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
-    return wishlisted;
+    clearLegacyWishlistStorage();
+    throw new Error('login-required');
   }
   if (!response.ok) {
     throw new Error('wishlist-toggle-failed');
@@ -128,10 +113,8 @@ export async function removeWishlist(productId: string): Promise<boolean> {
   });
 
   if (response.status === 401) {
-    if (getLocalWishlist().includes(productId)) toggleLocalWishlist(productId);
-    setWishlistCache(getLocalWishlist());
-    emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
-    return false;
+    clearLegacyWishlistStorage();
+    throw new Error('login-required');
   }
   if (!response.ok) {
     throw new Error('wishlist-remove-failed');
@@ -339,7 +322,7 @@ export async function deletePartnerInquiry(id: string): Promise<void> {
 }
 
 // 주문완료 화면 전용 스냅샷. 서버 재조회 없이 sessionStorage 에서만 읽는다
-// → 게스트 주문의 PII 가 /api/orders/[id] IDOR 로 새지 않게 한다(§보안 요건).
+// → 주문 수령자 PII 가 /api/orders/[id] IDOR 로 새지 않게 한다(§보안 요건).
 const LAST_ORDER_KEY = 'baekjo_last_order';
 
 /**
@@ -355,7 +338,7 @@ export type CreateOrderInput = Pick<
 >;
 
 /**
- * 주문 생성. POST /api/orders(공개 — 게스트 결제 허용). 서버가 id·createdAt·member_id 및
+ * 주문 생성. POST /api/orders(회원 전용). 서버가 id·createdAt·member_id 및
  * totalPrice/deliveryFee/orderStatus/paymentStatus/deliveryStatus 를 정하므로 클라이언트는
  * body 로 그것들을 신뢰시키지 않는다(mass-assignment 차단). 반환된 Order 를 sessionStorage 에
  * 저장해 주문완료 화면이 서버 재조회 없이 쓰게 한다.
@@ -368,6 +351,9 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     body: JSON.stringify(input),
   });
   if (response.status !== 201) {
+    if (response.status === 401) {
+      throw new Error('login-required');
+    }
     if (response.status === 409) {
       throw new Error('out-of-stock');
     }
@@ -1323,6 +1309,22 @@ export function setCurrentUser(user: User | null): void {
     setJSON(USER_KEY, user);
   } else {
     localStorage.removeItem(USER_KEY);
+  }
+}
+
+export async function getSessionUser(): Promise<User | null> {
+  try {
+    const response = await fetch('/api/members/me');
+    if (response.status === 401) {
+      setCurrentUser(null);
+      return null;
+    }
+    if (!response.ok) return null;
+    const { user } = (await response.json()) as { user: User };
+    setCurrentUser(user);
+    return user;
+  } catch {
+    return null;
   }
 }
 

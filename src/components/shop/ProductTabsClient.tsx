@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import Link from 'next/link';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ReviewViewItem, InquiryViewItem, User, Order, Product } from '@/types';
+import { ReviewViewItem, InquiryViewItem, User, Order, Product, Shipment } from '@/types';
 import { getMergedReviews, getMergedInquiries } from '@/lib/adapters';
-import { getCurrentUser, getMyOrders, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
+import { getSessionUser, getMyOrders, getOrderShipments, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
+import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { Lock, MessageCircle, Star } from 'lucide-react';
-import { formatDate, formatPrice, ratingStars } from '@/lib/format';
+import { formatDate, ratingStars } from '@/lib/format';
 import EmptyState from '@/components/common/EmptyState';
 import ReviewFormModal from '@/components/reviews/ReviewFormModal';
 import InquiryFormModal from '@/components/inquiries/InquiryFormModal';
@@ -18,7 +18,6 @@ interface ProductTabsClientProps {
   children: React.ReactNode;
 }
 
-/** 배송완료 후 아직 구매평을 쓰지 않은 주문상품 — 후기 작성 모달에 넘길 최소 컨텍스트. */
 interface WritableItem {
   orderId: string;
   /** OrderItem 고유 id 도입 시 채움 — 지금은 reviewTargetKey 로 유일성을 보장하므로 optional. */
@@ -33,6 +32,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   const [inquiries, setInquiries] = useState<InquiryViewItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [shipmentsByOrder, setShipmentsByOrder] = useState<Record<string, Shipment[]>>({});
   const [isMounted, setIsMounted] = useState(false);
 
   // Pagination states
@@ -52,22 +52,33 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   // 늦게 응답한 요청이 최신 상태를 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
   const loadSeqRef = useRef(0);
 
-  const loadData = () => {
+  const loadData = useCallback(() => {
     const seq = ++loadSeqRef.current;
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
-    if (currentUser) {
-      getMyOrders().then((orders) => {
-        if (loadSeqRef.current === seq) setOrders(orders);
+    getSessionUser().then((currentUser) => {
+      if (loadSeqRef.current !== seq) return;
+      setUser(currentUser);
+      if (!currentUser) {
+        setOrders([]);
+        setShipmentsByOrder({});
+        return;
+      }
+      getMyOrders().then(async (orders) => {
+        const shipmentPairs = await Promise.all(
+          orders.map(async (order) => [order.id, await getOrderShipments(order.id)] as const),
+        );
+        if (loadSeqRef.current === seq) {
+          setOrders(orders);
+          setShipmentsByOrder(Object.fromEntries(shipmentPairs));
+        }
       });
-    }
+    });
     getMergedReviews(product.id).then((reviews) => {
       if (loadSeqRef.current === seq) setReviews(reviews);
     });
     getMergedInquiries(product.id).then((inquiries) => {
       if (loadSeqRef.current === seq) setInquiries(inquiries);
     });
-  };
+  }, [product.id]);
 
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
@@ -84,7 +95,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
       window.removeEventListener(STORAGE_EVENTS.REVIEWS_CHANGED, handleStorageChange);
       window.removeEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleStorageChange);
     };
-  }, [product.id]);
+  }, [loadData]);
 
   // reviews 는 아래 본문에서 직접 읽지 않지만(항상 getProductReviewsByUser 로 최신값을
   // 다시 조회), 리뷰 작성/삭제 시 이 effect 를 재실행시키는 신호로 deps 에 명시한다.
@@ -104,16 +115,17 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
       if (cancelled) return;
       const writable: WritableItem[] = [];
       orders.forEach(order => {
-        if (order.orderStatus === '배송완료') {
-          order.items.forEach(item => {
-            if (item.productId === product.id) {
-              const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
-              if (!rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)) {
-                writable.push({ orderId: order.id, optionName: item.optionName });
-              }
+        order.items.forEach(item => {
+          if (item.productId === product.id) {
+            const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
+            if (
+              canReviewOrderItem(order, item, shipmentsByOrder[order.id] ?? []) &&
+              !rawReviews.some(r => r.reviewTargetKey === reviewTargetKey)
+            ) {
+              writable.push({ orderId: order.id, optionName: item.optionName });
             }
-          });
-        }
+          }
+        });
       });
       setWritableItems(writable);
     });
@@ -121,7 +133,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     return () => {
       cancelled = true;
     };
-  }, [user, orders, product.id, reviews]);
+  }, [user, orders, shipmentsByOrder, product.id, reviews]);
 
   // 부모 리렌더마다 새 객체 리터럴 → InquiryFormModal 의 effect 재발화로 작성 중 문의가 소리 없이
   // 증발하던 버그(2026-07-18 e2e 실측). effect 쪽 deps 를 원시값으로 바꾼 것만으로도 막히지만,

@@ -13,6 +13,7 @@ import ErrorState from '@/components/admin-new/common/ErrorState';
 import FormSection from '@/components/admin-new/common/FormSection';
 import MemberRoleStatusPanel from './MemberRoleStatusPanel';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
+import MemberSignupDataSummary from './MemberSignupDataSummary';
 
 interface MemberDetailPageProps {
   id: string;
@@ -154,9 +155,7 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
                     <FileText className="w-4 h-4" /> 제출된 서류 및 추가 정보
                   </h4>
                   <div className="bg-gray-50 rounded-md p-4 text-[13px]">
-                    <pre className="whitespace-pre-wrap text-gray-700 font-sans">
-                      {JSON.stringify(member.signupData, null, 2)}
-                    </pre>
+                    <MemberSignupDataSummary data={member.signupData} />
                   </div>
                 </div>
               )}

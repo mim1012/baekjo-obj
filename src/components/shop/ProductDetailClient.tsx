@@ -7,7 +7,7 @@ import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react
 import { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
-import { getCurrentUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
+import { getSessionUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
@@ -25,6 +25,7 @@ export default function ProductDetailClient({ product }: Props) {
   const [activeImage, setActiveImage] = useState(0);
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
+  const [isAdminViewer, setIsAdminViewer] = useState(false);
 
   useEffect(() => {
     if (!mounted) return;
@@ -42,12 +43,27 @@ export default function ProductDetailClient({ product }: Props) {
     };
   }, [mounted, product.id]);
 
+  useEffect(() => {
+    if (!mounted) return;
+    let active = true;
+    getSessionUser().then((user) => {
+      if (active) setIsAdminViewer(user?.role === 'admin');
+    });
+    return () => {
+      active = false;
+    };
+  }, [mounted]);
+
   const handleWishlist = async () => {
     if (wishlistBusy) return;
     setWishlistBusy(true);
     try {
       const next = await toggleWishlist(product.id);
       setWishlisted(next);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'login-required') {
+        router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
+      }
     } finally {
       setWishlistBusy(false);
     }
@@ -82,8 +98,6 @@ export default function ProductDetailClient({ product }: Props) {
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
-  const currentUser = mounted ? getCurrentUser() : null;
-  const isAdminViewer = currentUser?.role === 'admin';
   const unavailableTitle = isAdminViewer
     ? '판매가 미입력'
     : product.isMembersOnlyPrice

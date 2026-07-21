@@ -26,18 +26,21 @@ function resolvePolicy(shipping: BrandShippingPolicy | undefined) {
   const fee = shipping?.shippingFee;
   const threshold = shipping?.freeShippingThreshold;
   const shippingFeeLabel =
-    fee === undefined
+    shipping?.shippingFeeLabel ??
+    (fee === undefined
       ? DEFAULT_COMMERCE_POLICY.shippingLabel
       : fee === 0
         ? '무료배송'
         : threshold === undefined
           ? `${formatPrice(fee)}`
-          : `${formatPrice(fee)} (${formatPrice(threshold)} 이상 구매 시 무료배송)`;
+          : `${formatPrice(fee)} (${formatPrice(threshold)} 이상 구매 시 무료배송)`);
 
   return {
     shippingFeeLabel,
     dispatchEstimate: shipping?.dispatchEstimate ?? DEFAULT_COMMERCE_POLICY.deliveryEstimate,
-    returnPolicy: shipping?.asNotice ?? DEFAULT_COMMERCE_POLICY.returnNotice,
+    extraFeeNotice: shipping?.extraFeeNotice,
+    returnPolicy: shipping?.returnPolicy ?? shipping?.asNotice ?? DEFAULT_COMMERCE_POLICY.returnNotice,
+    returnExclusions: shipping?.returnExclusions,
     supportContact: shipping?.supportContact,
     supportHours: shipping?.supportHours,
   };
@@ -90,8 +93,7 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
 
   const carrier = shipment?.carrier ?? (brandId ? undefined : order.carrier);
   const trackingNumber = shipment?.trackingNumber ?? (brandId ? undefined : order.trackingNumber);
-  // 타임라인 상태: 브랜드 번들은 송장 상태, 레거시는 주문 상태(배송준비/배송중/배송완료만 rank에 걸리고 나머지는 배송전).
-  const deliveryStatus = shipment?.deliveryStatus ?? (brandId ? undefined : order.orderStatus);
+  const deliveryStatus = shipment?.deliveryStatus ?? (brandId ? undefined : order.deliveryStatus);
 
   const fill = timelineFill(deliveryStatus);
   const carrierLabel = carrier && isCarrierCode(carrier) ? CARRIER_LABELS[carrier] : null;
@@ -259,6 +261,12 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                   <dt className="w-16 shrink-0 text-[#68716C]">배송비</dt>
                   <dd className="text-[#18231F]">{policy.shippingFeeLabel}</dd>
                 </div>
+                {policy.extraFeeNotice && (
+                  <div className="flex gap-3">
+                    <dt className="w-16 shrink-0 text-[#68716C]">추가비</dt>
+                    <dd className="text-[#18231F]">{policy.extraFeeNotice}</dd>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <dt className="w-16 shrink-0 text-[#68716C]">출고</dt>
                   <dd className="text-[#18231F]">{policy.dispatchEstimate}</dd>
@@ -267,6 +275,12 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                   <dt className="w-16 shrink-0 text-[#68716C]">교환/반품</dt>
                   <dd className="text-[#18231F]">{policy.returnPolicy}</dd>
                 </div>
+                {policy.returnExclusions && (
+                  <div className="flex gap-3">
+                    <dt className="w-16 shrink-0 text-[#68716C]">제한</dt>
+                    <dd className="text-[#18231F]">{policy.returnExclusions}</dd>
+                  </div>
+                )}
                 {policy.supportContact && (
                   <div className="flex gap-3">
                     <dt className="w-16 shrink-0 text-[#68716C]">문의</dt>

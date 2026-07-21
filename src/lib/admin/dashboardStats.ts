@@ -22,9 +22,9 @@ import {
  * 금액 집계에서 제외하는 주문 상태(**결제가 확정된 주문 중에서** 다시 빼는 것).
  * 근거: src/types/index.ts `ORDER_STATUSES` — 취소가 "완료된" 상태만 제외한다.
  * '취소요청'은 제외하지 않는다: 돈은 이미 들어왔고(결제완료) 환불 전이라 매출에 남는 게 맞다.
- * 환불이 끝나면 orderStatus가 '환불완료'로 바뀌며 이 목록에 걸려 빠진다.
+ * 환불은 paymentStatus='환불완료'로 빠진다.
  */
-const EXCLUDED_ORDER_STATUSES: readonly OrderStatus[] = ['취소완료', '환불완료'];
+const EXCLUDED_ORDER_STATUSES: readonly OrderStatus[] = ['취소완료'];
 
 /** 미답변 문의 상태값. 근거: src/types/index.ts `ProductInquiry.status: 'waiting' | 'answered'`. */
 const INQUIRY_WAITING: ProductInquiry['status'] = 'waiting';

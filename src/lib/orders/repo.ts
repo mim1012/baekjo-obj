@@ -271,7 +271,6 @@ export async function setOrderPaid(
       payment_status: '결제완료',
       payment_key: payment.paymentKey,
       paid_at: payment.paidAt,
-      order_status: '결제완료',
     })
     .eq('id', id)
     .eq('payment_status', '승인중')

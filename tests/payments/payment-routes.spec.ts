@@ -1,14 +1,30 @@
 import { test, expect } from '@playwright/test';
 import { q, stockOf, orderRow, supabaseEnvReady, fixtureId, sweepStaleFixtures } from './helpers';
+import { bypassHeaders } from '../golden/_lib/adminCrudHelpers';
+import { MEMBER_EMAIL, MEMBER_PASSWORD, loginAsMember } from '../golden/_lib/memberCrudHelpers';
 
 // 결제 라우트 통합 스펙 — 실제 프리뷰 배포(staging DB 연결) 대상 API 테스트. 브라우저 불필요.
 // 승격 출처: wave1-preview-integration-test.mjs (PR#23 프리뷰에서 22 PASS 확인됨).
 // PAYMENTS_PREVIEW_URL 미설정 시 skip — 토스 결제 라우트가 배포된 프리뷰가 있을 때만 의미있는 스펙이라
 // 골든플로우처럼 상시 URL을 고정하지 않는다(그 프리뷰는 이미 소멸됨 — 회귀 시 재설정 필요).
 const BASE = process.env.PAYMENTS_PREVIEW_URL ?? '';
+let orderAuthCookieHeader = '';
 
 test.skip(!supabaseEnvReady(), 'SUPABASE_URL/SUPABASE_ACCESS_TOKEN 미설정 — staging DB 스펙 skip');
 test.skip(!BASE, 'PAYMENTS_PREVIEW_URL 미설정 — 결제 라우트가 배포된 프리뷰 URL이 없어 skip');
+test.skip(!MEMBER_EMAIL || !MEMBER_PASSWORD, 'E2E_MEMBER_* secret 미주입 — 회원 전용 주문 생성 불가로 skip');
+test.use({ baseURL: BASE, extraHTTPHeaders: bypassHeaders() });
+
+test.beforeAll(async ({ browser }) => {
+  const page = await browser.newPage({ baseURL: BASE, extraHTTPHeaders: bypassHeaders() });
+  try {
+    await loginAsMember(page);
+    const cookies = await page.context().cookies();
+    orderAuthCookieHeader = cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+  } finally {
+    await page.close();
+  }
+});
 
 // 모든 픽스처 id/customer_name/paymentKey는 fixtureId()로 실행 스코프 고유값을 쓴다(helpers.ts
 // 참고) — 고정 ID를 공유 staging DB에 쓰면 로컬↔CI 또는 여러 PR의 CI가 겹칠 때 서로의 재고를
@@ -32,7 +48,11 @@ async function callApi(path: string, body?: unknown) {
   const doFetch = async () => {
     const res = await fetch(BASE + path, {
       method: body === undefined ? 'GET' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...bypassHeaders(),
+        ...(path === '/api/orders' && orderAuthCookieHeader ? { Cookie: orderAuthCookieHeader } : {}),
+      },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
     let json: ApiResponseBody | null = null;
@@ -101,6 +121,7 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
     const row = await orderRow(orderId);
     expect(row.expires_at).toBeTruthy();
     expect(row.payment_status).toBe('결제대기');
+    expect(row.delivery_status).toBe('배송전');
     expect(await stockOf(P)).toBe(3);
   });
 

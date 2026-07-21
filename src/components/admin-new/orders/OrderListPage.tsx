@@ -153,7 +153,7 @@ export default function OrderListPage() {
     const confirmed = window.confirm(
       `선택한 ${selectedIds.length}건의 입금을 확인 처리하시겠습니까?\n\n` +
         `· 각 주문의 결제상태가 '결제완료'로 변경됩니다(주문상태는 그대로).\n\n` +
-        `⚠️ 확인 후에는 미결제 취소로 재고가 자동 복원되지 않습니다. 실제 입금을 확인한 뒤 진행하세요.`
+        `확인 후 선택 주문은 미입금 자동취소와 재고 되돌림 대상에서 제외됩니다. 실제 입금 내역을 확인한 뒤 진행해 주세요.`
     );
     if (!confirmed) return;
 
@@ -218,7 +218,9 @@ export default function OrderListPage() {
   const paymentCompletedCount = orders.filter((o) => o.paymentStatus === '결제완료').length;
   const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
-  const canceledCount = orders.filter((o) => o.orderStatus === '취소완료' || o.orderStatus === '환불완료').length;
+  const canceledCount = orders.filter(
+    (o) => o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
+  ).length;
 
   return (
     <div className="space-y-6">

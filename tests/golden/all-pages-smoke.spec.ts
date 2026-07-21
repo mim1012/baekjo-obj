@@ -206,7 +206,10 @@ const ADMIN_DYNAMIC_ANCHORS: Record<string, (page: Page, sample: ResolvedSample)
   '/admin/brands/[id]': (page, sample) => textVisible(page, `${sample.label ?? ''} · 상세 편집`),
   '/admin/insurance/[id]': (page) => textVisible(page, '펫보험 상담 상세'),
   '/admin/members/[id]': (page, sample) => textVisible(page, `회원 상세: ${sample.label ?? ''}`),
-  '/admin/orders/[id]': (page, sample) => textVisible(page, `주문 상세: ${sample.id}`),
+  '/admin/orders/[id]': async (page, sample) => {
+    await h1Visible(page, '주문 상세');
+    await textVisible(page, sample.id);
+  },
   '/admin/products/[id]': (page) => textVisible(page, '상품 수정'),
   '/admin/products/[id]/editor': (page, sample) => textVisible(page, `${sample.label ?? ''} 상세페이지 편집`),
 };
