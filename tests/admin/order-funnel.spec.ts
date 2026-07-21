@@ -22,7 +22,7 @@ function makeOrder(overrides: Partial<Order>): Order {
     totalPrice: 10000,
     deliveryFee: 3000,
     paymentMethod: '카드',
-    orderStatus: '결제완료',
+    orderStatus: '주문접수',
     paymentStatus: '결제완료',
     deliveryStatus: '배송전',
     createdAt: '2026-07-17T00:00:00.000Z',
@@ -32,7 +32,7 @@ function makeOrder(overrides: Partial<Order>): Order {
 
 test.describe('deriveFunnelStage 우선순위', () => {
   test('취소·반품 주문상태는 결제·배송과 무관하게 최우선으로 취소반품', () => {
-    for (const orderStatus of ['취소요청', '취소완료', '환불완료'] as const) {
+    for (const orderStatus of ['취소요청', '취소완료'] as const) {
       const order = makeOrder({ orderStatus, paymentStatus: '결제완료', deliveryStatus: '배송중' });
       expect(deriveFunnelStage(order)).toBe('취소반품');
     }

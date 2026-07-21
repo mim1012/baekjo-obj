@@ -136,9 +136,29 @@ export async function patchProductAsAdmin(
  */
 export async function forceOrderDelivered(page: Page, orderId: string): Promise<void> {
   const response = await page.request.patch(`/api/admin/orders/${orderId}`, {
-    data: { orderStatus: '배송완료', paymentStatus: '결제완료', deliveryStatus: '배송완료' },
+    data: { paymentStatus: '결제완료', deliveryStatus: '배송완료' },
   });
   if (!response.ok()) {
     throw new Error(`주문 배송완료 전이 실패: ${response.status()} ${await response.text()}`);
+  }
+}
+
+export async function forceOrderPurchaseConfirmed(
+  page: Page,
+  orderId: string,
+  brandId = 'b1',
+): Promise<void> {
+  await forceOrderDelivered(page, orderId);
+
+  const shipmentResponse = await page.request.patch(`/api/admin/orders/${orderId}/shipments/${brandId}`, {
+    data: { deliveryStatus: '배송완료' },
+  });
+  if (!shipmentResponse.ok()) {
+    throw new Error(`주문 배송 송장 전이 실패: ${shipmentResponse.status()} ${await shipmentResponse.text()}`);
+  }
+
+  const confirmResponse = await page.request.post(`/api/orders/${orderId}/shipments/${brandId}/confirm`);
+  if (!confirmResponse.ok()) {
+    throw new Error(`주문 구매확정 전이 실패: ${confirmResponse.status()} ${await confirmResponse.text()}`);
   }
 }

@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, ProductReview, Product, Brand } from '@/types';
+import { Order, ProductReview, Product, Brand, Shipment } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey, getPublicBrands } from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
+import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
@@ -14,6 +15,7 @@ import { PackageSearch, Truck } from 'lucide-react';
 
 interface OrdersSectionProps {
   orders: Order[];
+  shipmentsByOrder: Record<string, Shipment[]>;
   reviews: ProductReview[];
   products: Product[];
   onWriteReview: (product: Product, orderId: string, orderItemId?: string, optionName?: string) => void;
@@ -21,7 +23,7 @@ interface OrdersSectionProps {
 
 const ITEMS_PER_PAGE = 20;
 
-export default function OrdersSection({ orders, reviews, products, onWriteReview }: OrdersSectionProps) {
+export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -60,6 +62,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
 
   const getStatusStyle = (status: string) => {
     switch (status) {
+      case '구매확정':
+        return 'bg-[#2F3B34] text-white';
       case '주문접수':
       case '결제완료':
         return 'bg-[#F2EEE5] text-[#68716C]';
@@ -71,6 +75,14 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
       default:
         return 'bg-gray-100 text-gray-600';
     }
+  };
+
+  const getOrderDeliveryLabel = (order: Order) => {
+    const shipments = shipmentsByOrder[order.id] ?? [];
+    if (shipments.some((shipment) => shipment.deliveryStatus === '구매확정' || shipment.confirmedAt)) {
+      return '구매확정';
+    }
+    return order.deliveryStatus || '배송전';
   };
 
   return (
@@ -93,9 +105,17 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                 </span>
                 <span className="text-sm text-[#68716C]">주문번호 {order.id}</span>
               </div>
-              <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
-                상세보기
-              </Link>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.paymentStatus)}`}>
+                  {order.paymentStatus}
+                </span>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(getOrderDeliveryLabel(order))}`}>
+                  {getOrderDeliveryLabel(order)}
+                </span>
+                <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
+                  상세보기
+                </Link>
+              </div>
             </div>
 
             <div className="flex flex-col divide-y divide-[#EBE6DC]">
@@ -104,7 +124,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                 const canOpenProduct = Boolean(product && product.isVisible !== false);
                 const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
                 const hasReview = reviews.some((r) => r.reviewTargetKey === reviewTargetKey);
-                const canWriteReview = Boolean(product) && order.orderStatus === '배송완료' && !hasReview;
+                const isPurchaseConfirmed = canReviewOrderItem(order, item, shipmentsByOrder[order.id] ?? []);
+                const canWriteReview = Boolean(product) && isPurchaseConfirmed && !hasReview;
 
                 return (
                   <div key={`${order.id}-${idx}`} className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
@@ -148,8 +169,8 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                       </div>
                     </div>
                     <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.orderStatus)}`}>
-                        {order.orderStatus}
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(isPurchaseConfirmed ? '구매확정' : order.deliveryStatus)}`}>
+                        {isPurchaseConfirmed ? '구매확정' : order.deliveryStatus}
                       </span>
                       {canWriteReview ? (
                         <button
@@ -158,7 +179,7 @@ export default function OrdersSection({ orders, reviews, products, onWriteReview
                         >
                           구매평 작성
                         </button>
-                      ) : order.orderStatus === '배송완료' && hasReview ? (
+                      ) : isPurchaseConfirmed && hasReview ? (
                         <span className="text-xs font-semibold text-[#B99562]">작성 완료</span>
                       ) : null}
                     </div>

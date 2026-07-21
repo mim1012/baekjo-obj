@@ -116,7 +116,7 @@ function validate(
     paymentMethod: b.paymentMethod,
     orderStatus: '주문접수',
     paymentStatus,
-    deliveryStatus: '배송준비',
+    deliveryStatus: '배송전',
     ...(typeof b.trackingNumber === 'string' ? { trackingNumber: b.trackingNumber } : {}),
     ...(typeof b.deliveryMemo === 'string' ? { deliveryMemo: b.deliveryMemo } : {}),
     ...(expiresAt ? { expiresAt } : {}),

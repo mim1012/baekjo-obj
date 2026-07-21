@@ -6,7 +6,7 @@ import {
   loginAsMember,
   createThrowawayProduct,
   cleanupThrowawayProducts,
-  forceOrderDelivered,
+  forceOrderPurchaseConfirmed,
 } from './_lib/memberCrudHelpers';
 
 // 골든플로우 회원 여정(wave6) — 구매평·상품문의의 "회원 라이프사이클"(작성→반영→수정→삭제).
@@ -17,10 +17,6 @@ import {
 // (b) 상품문의는 관리자 답변 없이(= status='waiting'인 동안만 가능한) **회원 본인 수정**까지
 // 커버해 admin-crud-qna-inquiries가 다루지 않는 사각지대(수정)를 메운다.
 //
-// 🚨 구매평 작성 게이트 — mypage/page.tsx의 writableReviews는 order.orderStatus === '배송완료'
-// 인 주문항목만 노출한다(ReviewsSection.tsx:37). 무통장 주문은 생성 직후 '주문접수'이므로
-// 이 스펙이 PATCH /api/admin/orders/[id]로 직접 배송완료까지 전이시킨다(관리자 UI로 하지 않는
-// 이유: 관리자 측 주문상태 변경 UI 자체는 wave4 admin-crud-orders 소관이라 여기서 중복 안 함).
 test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원 라이프사이클', () => {
   test.describe.configure({ mode: 'serial' });
   test.setTimeout(120_000);
@@ -74,7 +70,7 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await memberPage.close();
 
     // 관리자 API로 배송완료까지 강제 전이(§파일 상단 코멘트 — 관리자 UI 자체는 다른 wave 소관).
-    await forceOrderDelivered(page, deliveredOrderId);
+    await forceOrderPurchaseConfirmed(page, deliveredOrderId);
 
     await page.close();
   });

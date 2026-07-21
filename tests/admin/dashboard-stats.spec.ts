@@ -73,7 +73,7 @@ function order(
     totalPrice: items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     deliveryFee: 0,
     paymentMethod: 'card',
-    orderStatus: '결제완료',
+    orderStatus: '주문접수',
     paymentStatus: PAID_PAYMENT_STATUS,
     deliveryStatus: '준비',
     createdAt: '2026-07-10T00:00:00.000Z',
@@ -231,7 +231,7 @@ test('결제완료 + 취소완료/환불완료는 매출에서 빠진다', () =>
   expect(amountOf([cancelled])).toBe(0);
 
   const refunded = order('og', [{ productId: 'p1', price: 7_000, quantity: 1 }], {
-    orderStatus: '환불완료',
+    orderStatus: '주문접수',
     paymentStatus: PAID_PAYMENT_STATUS,
   });
   expect(amountOf([refunded])).toBe(0);

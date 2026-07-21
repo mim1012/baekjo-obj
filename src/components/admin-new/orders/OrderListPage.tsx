@@ -218,7 +218,9 @@ export default function OrderListPage() {
   const paymentCompletedCount = orders.filter((o) => o.paymentStatus === '결제완료').length;
   const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
-  const canceledCount = orders.filter((o) => o.orderStatus === '취소완료' || o.orderStatus === '환불완료').length;
+  const canceledCount = orders.filter(
+    (o) => o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
+  ).length;
 
   return (
     <div className="space-y-6">

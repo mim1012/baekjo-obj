@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry } from '@/types';
+import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry, Shipment } from '@/types';
 import {
   getSessionUser,
   getMyOrders,
+  getOrderShipments,
   getMyInsuranceApplications,
   getWishlist,
   getPublicProducts,
@@ -21,6 +22,7 @@ import {
   buildReviewTargetKey,
   STORAGE_EVENTS,
 } from '@/lib/storage';
+import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 
 import MypageSidebar from './components/MypageSidebar';
 import MypageMobileNav from './components/MypageMobileNav';
@@ -50,6 +52,7 @@ function MypageContent() {
 
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [shipmentsByOrder, setShipmentsByOrder] = useState<Record<string, Shipment[]>>({});
   const [insuranceApps, setInsuranceApps] = useState<InsuranceApplication[]>([]);
   const [wishlist, setWishlist] = useState<string[]>([]);
   const [reviews, setReviews] = useState<ProductReview[]>([]);
@@ -88,8 +91,14 @@ function MypageContent() {
 
     const seq = ++loadSeqRef.current;
     // getMyOrders/getMyInsuranceApplications 는 세션 기준으로 이미 내 것만 반환한다.
-    getMyOrders().then((orders) => {
-      if (loadSeqRef.current === seq) setOrders(orders);
+    getMyOrders().then(async (orders) => {
+      const shipmentPairs = await Promise.all(
+        orders.map(async (order) => [order.id, await getOrderShipments(order.id)] as const),
+      );
+      if (loadSeqRef.current === seq) {
+        setOrders(orders);
+        setShipmentsByOrder(Object.fromEntries(shipmentPairs));
+      }
     });
     getMyInsuranceApplications().then((apps) => {
       if (loadSeqRef.current === seq) setInsuranceApps(apps);
@@ -166,13 +175,13 @@ function MypageContent() {
 
   // Overview Stats
   const stats = {
-    processingOrders: orders.filter(o => !['배송완료', '취소완료', '환불완료'].includes(o.orderStatus)).length,
-    shippingOrders: orders.filter(o => o.orderStatus === '배송중').length,
+    processingOrders: orders.filter(o => o.orderStatus !== '취소완료' && o.deliveryStatus !== '배송완료').length,
+    shippingOrders: orders.filter(o => o.deliveryStatus === '배송중').length,
     wishlistCount: wishlist.length,
     writableReviews: orders
-      .filter(o => o.orderStatus === '배송완료')
-      .flatMap(o => o.items.map(item => ({ orderId: o.id, item })))
-      .filter(data => !reviews.some(r => r.reviewTargetKey === buildReviewTargetKey(data.orderId, data.item.productId, data.item.optionName)))
+      .flatMap(o => o.items.map(item => ({ order: o, item })))
+      .filter(data => canReviewOrderItem(data.order, data.item, shipmentsByOrder[data.order.id] ?? []))
+      .filter(data => !reviews.some(r => r.reviewTargetKey === buildReviewTargetKey(data.order.id, data.item.productId, data.item.optionName)))
       .length,
     waitingInquiries: inquiries.filter(i => i.status === 'waiting').length,
     insuranceCount: insuranceApps.filter(a => !['완료', '분석완료'].includes(a.status)).length,
@@ -251,7 +260,15 @@ function MypageContent() {
   const renderContent = () => {
     switch (tab) {
       case 'orders':
-        return <OrdersSection orders={orders} reviews={reviews} products={products} onWriteReview={handleWriteReview} />;
+        return (
+          <OrdersSection
+            orders={orders}
+            shipmentsByOrder={shipmentsByOrder}
+            reviews={reviews}
+            products={products}
+            onWriteReview={handleWriteReview}
+          />
+        );
       case 'wishlist':
         return (
           <WishlistSection
@@ -266,6 +283,7 @@ function MypageContent() {
         return (
           <ReviewsSection
             orders={orders}
+            shipmentsByOrder={shipmentsByOrder}
             reviews={reviews}
             products={products}
             onWriteReview={handleWriteReview}

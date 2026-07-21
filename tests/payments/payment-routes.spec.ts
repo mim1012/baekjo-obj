@@ -121,6 +121,7 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
     const row = await orderRow(orderId);
     expect(row.expires_at).toBeTruthy();
     expect(row.payment_status).toBe('결제대기');
+    expect(row.delivery_status).toBe('배송전');
     expect(await stockOf(P)).toBe(3);
   });
 

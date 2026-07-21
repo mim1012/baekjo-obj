@@ -93,8 +93,7 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
 
   const carrier = shipment?.carrier ?? (brandId ? undefined : order.carrier);
   const trackingNumber = shipment?.trackingNumber ?? (brandId ? undefined : order.trackingNumber);
-  // 타임라인 상태: 브랜드 번들은 송장 상태, 레거시는 주문 상태(배송준비/배송중/배송완료만 rank에 걸리고 나머지는 배송전).
-  const deliveryStatus = shipment?.deliveryStatus ?? (brandId ? undefined : order.orderStatus);
+  const deliveryStatus = shipment?.deliveryStatus ?? (brandId ? undefined : order.deliveryStatus);
 
   const fill = timelineFill(deliveryStatus);
   const carrierLabel = carrier && isCarrierCode(carrier) ? CARRIER_LABELS[carrier] : null;

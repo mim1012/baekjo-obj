@@ -30,7 +30,7 @@ type ShipmentRow = {
   deliveryStatus: string;
 };
 
-type CreatedOrder = Pick<AdminOrder, 'id' | 'paymentStatus' | 'items'>;
+type CreatedOrder = Pick<AdminOrder, 'id' | 'paymentStatus' | 'deliveryStatus' | 'items'>;
 
 export type AuthSession = {
   user?: {
@@ -127,10 +127,10 @@ export async function confirmBankTransfer(page: Page, orderId: string): Promise<
 
 export async function completeOrderStatus(page: Page, orderId: string): Promise<void> {
   const response = await page.request.patch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
-    data: { orderStatus: '배송완료' },
+    data: { deliveryStatus: '배송완료' },
   });
   expect(response.ok(), `배송완료 PATCH 실패: ${response.status()} ${await response.text()}`).toBe(true);
-  await expectOrderField(page, orderId, 'orderStatus', '배송완료');
+  await expectOrderField(page, orderId, 'deliveryStatus', '배송완료');
 }
 
 export async function updateBrandShipment(page: Page, orderId: string, scenario: BrandScenario): Promise<void> {

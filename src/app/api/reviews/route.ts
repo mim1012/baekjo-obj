@@ -2,8 +2,10 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { buildReviewTargetKey } from '@/lib/storage';
 import { getOrderById } from '@/lib/orders/repo';
+import { listShipmentsByOrder } from '@/lib/shipments/repo';
 import { getProductById } from '@/lib/products/repo';
 import { insertReview, DuplicateReviewError, type InsertReviewInput } from '@/lib/reviews/repo';
+import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { logServerError } from '@/lib/logServerError';
 
 const MAX_ORDER_ID = 100;
@@ -80,25 +82,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    // 배송완료 전에는 후기 작성 불가(클라이언트 writableItems 가드와 동일 정책 — 서버에서 재확인).
-    if (order.orderStatus !== '배송완료') {
-      return NextResponse.json({ error: 'order-not-delivered' }, { status: 403 });
-    }
-
     // 주문에 실제로 담긴 상품(+옵션)에만 후기를 붙일 수 있다(§보안 — 실구매 검증 우회 차단).
     // orderItemId 는 아직 OrderItem 고유 id 가 없어 productId+optionName 조합으로만 대조한다.
     // 옵션 없음은 undefined/null 어느 쪽으로 저장돼 있어도 같은 값으로 취급한다(jsonb 왕복 시
     // undefined 가 null 로 굳어질 수 있어 엄격한 === 비교는 옵션 있는 주문상품을 false negative로 튕긴다).
-    const matchesOrderItem = order.items.some(
+    const matchingOrderItem = order.items.find(
       (item) => item.productId === validated.productId && (item.optionName ?? null) === (validated.optionName ?? null),
     );
-    if (!matchesOrderItem) {
+    if (!matchingOrderItem) {
       return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
     }
 
     const product = await getProductById(validated.productId, { includeHidden: true });
     if (!product) {
       return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+
+    const reviewableItem = { brandId: matchingOrderItem.brandId ?? product.brandId };
+    const shipments = await listShipmentsByOrder(order.id);
+    if (!canReviewOrderItem(order, reviewableItem, shipments)) {
+      return NextResponse.json({ error: 'order-not-confirmed' }, { status: 403 });
     }
 
     const reviewTargetKey = buildReviewTargetKey(validated.orderId, validated.productId, validated.optionName);

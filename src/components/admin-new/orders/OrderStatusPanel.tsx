@@ -11,7 +11,7 @@ import SaveBar from '@/components/admin-new/common/SaveBar';
 
 interface OrderStatusPanelProps {
   order: Order;
-  onUpdate: () => void;
+  onUpdate: () => void | Promise<void>;
 }
 
 export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelProps) {
@@ -41,7 +41,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
     try {
       setIsSaving(true);
       await updateOrderStatus(order.id, formData);
-      onUpdate(); // refresh data
+      await onUpdate();
     } catch (error) {
       alert(orderUpdateErrorMessage(error));
     } finally {
@@ -55,8 +55,12 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
         title="상태 변경 및 관리"
         description="값을 변경하면 화면 하단에 저장바가 나타납니다. 저장하기를 눌러야 실제 DB에 반영됩니다."
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <FormField label="주문 상태">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <FormField
+            label="주문 상태"
+            description="접수와 취소 처리만 관리합니다."
+            className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
+          >
             <select
               value={formData.orderStatus}
               onChange={(e) => handleChange('orderStatus', e.target.value)}
@@ -70,7 +74,11 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
             </select>
           </FormField>
 
-          <FormField label="결제 상태">
+          <FormField
+            label="결제 상태"
+            description="입금확인 또는 PG 승인 결과가 반영됩니다."
+            className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
+          >
             <select
               value={formData.paymentStatus}
               onChange={(e) => handleChange('paymentStatus', e.target.value)}
@@ -84,7 +92,11 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
             </select>
           </FormField>
 
-          <FormField label="배송 상태">
+          <FormField
+            label="배송 상태"
+            description="배송 준비부터 배송완료까지만 관리합니다."
+            className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
+          >
             <select
               value={formData.deliveryStatus}
               onChange={(e) => handleChange('deliveryStatus', e.target.value)}

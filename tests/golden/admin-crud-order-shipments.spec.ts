@@ -97,6 +97,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드별 송
     const createdOrder = await createBankTransferOrder(memberPage, recipientName, runId, scenarios);
     const orderId = createdOrder.id;
     expect(createdOrder.paymentStatus).toBe('입금대기');
+    expect(createdOrder.deliveryStatus).toBe('배송전');
     expect(new Set(createdOrder.items.map((item) => item.brandId))).toEqual(new Set(scenarios.map((item) => item.brandId)));
 
     await confirmBankTransfer(adminPage, orderId);

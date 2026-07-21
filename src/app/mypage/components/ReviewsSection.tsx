@@ -3,15 +3,17 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, ProductReview, Product } from '@/types';
-import { formatPrice, formatDate, ratingStars } from '@/lib/format';
+import { Order, ProductReview, Product, Shipment } from '@/types';
+import { formatDate, ratingStars } from '@/lib/format';
 import { buildReviewTargetKey } from '@/lib/storage';
+import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { Star, Edit2, Trash2 } from 'lucide-react';
 
 interface ReviewsSectionProps {
   orders: Order[];
+  shipmentsByOrder: Record<string, Shipment[]>;
   reviews: ProductReview[];
   products: Product[];
   onWriteReview: (product: Product, orderId: string, orderItemId?: string, optionName?: string) => void;
@@ -23,6 +25,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function ReviewsSection({
   orders,
+  shipmentsByOrder,
   reviews,
   products,
   onWriteReview,
@@ -34,7 +37,6 @@ export default function ReviewsSection({
 
   // 작성 가능한 주문상품 추출
   const writableItems = orders
-    .filter((o) => o.orderStatus === '배송완료')
     .flatMap((order) =>
       order.items.map((item) => {
         const reviewTargetKey = buildReviewTargetKey(order.id, item.productId, item.optionName);
@@ -46,6 +48,7 @@ export default function ReviewsSection({
         };
       })
     )
+    .filter((data) => canReviewOrderItem(data.order, data.item, shipmentsByOrder[data.order.id] ?? []))
     .filter((data) => !data.hasReview)
     .sort((a, b) => new Date(b.order.createdAt).getTime() - new Date(a.order.createdAt).getTime());
 

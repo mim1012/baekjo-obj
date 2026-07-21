@@ -72,7 +72,7 @@ export async function stockOf(productId: string): Promise<number> {
   return rows[0].stock as number;
 }
 
-export async function orderRow(orderId: string): Promise<{ order_status: string; payment_status: string; expires_at: string | null; payment_key?: string | null }> {
-  const rows = await q(`select order_status, payment_status, expires_at, payment_key from public.orders where id='${orderId}';`);
-  return rows[0] as { order_status: string; payment_status: string; expires_at: string | null; payment_key?: string | null };
+export async function orderRow(orderId: string): Promise<{ order_status: string; payment_status: string; delivery_status: string; expires_at: string | null; payment_key?: string | null }> {
+  const rows = await q(`select order_status, payment_status, delivery_status, expires_at, payment_key from public.orders where id='${orderId}';`);
+  return rows[0] as { order_status: string; payment_status: string; delivery_status: string; expires_at: string | null; payment_key?: string | null };
 }
