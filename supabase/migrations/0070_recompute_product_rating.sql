@@ -54,3 +54,16 @@ drop trigger if exists product_reviews_recompute_rating on public.product_review
 create trigger product_reviews_recompute_rating
 after insert or update or delete on public.product_reviews
 for each row execute function public.trigger_recompute_product_rating();
+
+-- 백필(codex 리뷰 지적, 2026-07-22): 트리거는 "이후" 쓰기에만 반응한다. 이 마이그레이션 적용
+--   시점에 이미 published 리뷰가 쌓여 있는 상품은 다음 리뷰 write(등록/수정/삭제)가 일어나기
+--   전까지 rating/review_count가 0037이 남긴 0 그대로 멈춰 있다 — 트리거 생성만으로는 기존
+--   데이터가 소급 반영되지 않는다. 그래서 현재 존재하는 모든 product_id를 순회해 즉시 재계산한다.
+--   멱등: recompute_product_rating 자체가 매번 전체 재집계라 재실행해도 결과가 같다.
+do $$
+declare r record;
+begin
+  for r in select distinct product_id from public.product_reviews loop
+    perform public.recompute_product_rating(r.product_id);
+  end loop;
+end $$;

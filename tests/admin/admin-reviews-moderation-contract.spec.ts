@@ -73,4 +73,17 @@ test.describe('admin 구매평 moderation 라우트 계약', () => {
     expect(source).toContain('round(avg(rating)::numeric, 1)');
     expect(source).toContain('after insert or update or delete on public.product_reviews');
   });
+
+  // codex 리뷰(2026-07-22): 트리거만 생성하면 마이그레이션 적용 시점에 이미 쌓인 published 리뷰가
+  // 있는 상품은 다음 write가 일어나기 전까지 rating/review_count가 0037이 남긴 0 그대로다.
+  // 트리거 생성 뒤 기존 product_id 전체를 순회해 즉시 재계산하는 백필 블록이 반드시 있어야 한다.
+  test('DB 트리거 마이그레이션(0070) — 기존 product_reviews를 즉시 재계산하는 백필 블록이 있다', () => {
+    const source = read('supabase/migrations/0070_recompute_product_rating.sql');
+    const triggerIdx = source.indexOf('create trigger product_reviews_recompute_rating');
+    expect(triggerIdx).toBeGreaterThan(-1);
+    const afterTrigger = source.slice(triggerIdx);
+    expect(afterTrigger).toContain('do $$');
+    expect(afterTrigger).toContain('select distinct product_id from public.product_reviews');
+    expect(afterTrigger).toContain('perform public.recompute_product_rating(r.product_id)');
+  });
 });
