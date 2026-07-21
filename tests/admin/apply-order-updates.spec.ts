@@ -16,12 +16,15 @@ interface FakeOrder {
   paymentStatus: string;
   orderStatus: string;
   trackingNumber?: string;
+  paymentKey?: string | null;
 }
 
-// 0031 RPC / CAS 시맨틱을 흉내내는 인메모리 fake. restores 로 재고 복원 횟수를 센다(이중 복원 감지).
+// 0031/0050 RPC / CAS 시맨틱을 흉내내는 인메모리 fake. restores 로 재고 복원 횟수를 센다(이중 복원 감지).
+// tossCancels 로 Toss 취소 호출 횟수를 세어 "카드=호출/무통장=미호출"과 순서를 검증한다.
 function makeFake(initial: FakeOrder) {
   const state: FakeOrder = { ...initial };
   let restores = 0;
+  let tossCancels = 0;
   const calls: string[] = [];
 
   const applyFields = (fields: OrderFieldsUpdate) => {
@@ -56,9 +59,27 @@ function makeFake(initial: FakeOrder) {
       if (extra) applyFields(extra);
       return 1;
     },
+    getOrderPaymentInfo: async () => {
+      calls.push('getOrderPaymentInfo');
+      return { paymentStatus: state.paymentStatus, paymentKey: state.paymentKey ?? null };
+    },
+    cancelTossPayment: async () => {
+      calls.push('cancelTossPayment');
+      tossCancels += 1;
+    },
+    refundOrderAndRestore: async () => {
+      calls.push('refundRPC');
+      // 0050: WHERE payment_status='결제완료' 일 때만 환불 전이+복원, 아니면 false(경합/이미처리).
+      if (state.paymentStatus === '결제완료') {
+        state.paymentStatus = '환불완료';
+        restores += 1;
+        return true;
+      }
+      return false;
+    },
   };
 
-  return { state, ports, calls, restoreCount: () => restores };
+  return { state, ports, calls, restoreCount: () => restores, tossCancelCount: () => tossCancels };
 }
 
 test.describe('applyOrderUpdates — 취소 fallback 리플레이 봉합(오케스트레이션)', () => {
@@ -145,5 +166,72 @@ test.describe('applyOrderUpdates — 비취소 결제상태 전이', () => {
     await expect(
       applyOrderUpdates('o8', { paymentStatus: '결제완료' }, missingPorts),
     ).rejects.toThrow(OrderNotFoundError);
+  });
+});
+
+// 카드 환불 실연동(§8-6 자기개선 루프) — 수정 전에는 관리자 '환불완료' 전이가 Toss 취소 API를
+// 호출하지 않고 재고도 복원하지 않은 채 라벨만 바꿨다(§ "돈 먼저, 라벨 나중" 위반). 아래 (b)는 그
+// 실패조건("라벨만 바뀌고 재고는 그대로")을 명시적으로 재현해 회귀를 막는다.
+test.describe('applyOrderUpdates — 환불(Toss 취소 + 재고 복원)', () => {
+  test('(a) 카드 결제완료 주문 환불 — Toss 취소 → RPC 순서로 호출되고 재고가 복원된다', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_1' });
+    await applyOrderUpdates('r1', { paymentStatus: '환불완료' }, fake.ports);
+
+    expect(fake.state.paymentStatus).toBe('환불완료');
+    expect(fake.tossCancelCount()).toBe(1);
+    expect(fake.restoreCount()).toBe(1);
+    // 순서 보장: Toss 취소가 RPC(재고 복원)보다 먼저 호출돼야 한다 — 뒤바뀌면 "재고만 복원되고
+    // 카드값은 그대로"인 반대 방향 사고가 재현된다.
+    expect(fake.calls.indexOf('cancelTossPayment')).toBeLessThan(fake.calls.indexOf('refundRPC'));
+  });
+
+  test('(b) Toss 취소 실패 시 RPC를 호출하지 않고 상태·재고가 그대로다(수정 전 실패조건의 반대 재현)', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_2' });
+    const failingPorts: OrderUpdatePorts = {
+      ...fake.ports,
+      cancelTossPayment: async () => {
+        throw new Error('toss-cancel-failed');
+      },
+    };
+
+    await expect(
+      applyOrderUpdates('r2', { paymentStatus: '환불완료' }, failingPorts),
+    ).rejects.toThrow('toss-cancel-failed');
+
+    // ★ pre-seed 검증: 수정 전 버그는 여기서 payment_status가 '환불완료'로 바뀌고 재고도
+    // 복원되지 않는 상태였다(카드값 미환불 + 라벨만 환불완료). 수정 후에는 상태가 전혀 안 바뀐다.
+    expect(fake.state.paymentStatus).toBe('결제완료');
+    expect(fake.calls).not.toContain('refundRPC');
+    expect(fake.restoreCount()).toBe(0);
+  });
+
+  test('(c) 결제완료가 아닌 주문의 환불 요청은 PaymentTransitionError(409)로 거절된다', async () => {
+    const fake = makeFake({ paymentStatus: '입금대기', orderStatus: '주문접수' });
+    await expect(
+      applyOrderUpdates('r3', { paymentStatus: '환불완료' }, fake.ports),
+    ).rejects.toThrow(PaymentTransitionError);
+    expect(fake.calls).not.toContain('cancelTossPayment');
+    expect(fake.calls).not.toContain('refundRPC');
+  });
+
+  test('(d) 무통장(paymentKey 없음) 주문 환불은 Toss 호출 없이 RPC만 태운다', async () => {
+    const fake = makeFake({
+      paymentStatus: '결제완료',
+      orderStatus: '주문접수',
+      paymentKey: null,
+    });
+    await applyOrderUpdates('r4', { paymentStatus: '환불완료' }, fake.ports);
+
+    expect(fake.state.paymentStatus).toBe('환불완료');
+    expect(fake.tossCancelCount()).toBe(0); // ★ Toss 호출 없음 — 청구된 적 없는 결제라서
+    expect(fake.restoreCount()).toBe(1);
+  });
+
+  test('환불 RPC 0행(경합)은 PaymentStatusConflictError', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_5' });
+    const racingPorts: OrderUpdatePorts = { ...fake.ports, refundOrderAndRestore: async () => false };
+    await expect(
+      applyOrderUpdates('r5', { paymentStatus: '환불완료' }, racingPorts),
+    ).rejects.toThrow(PaymentStatusConflictError);
   });
 });
