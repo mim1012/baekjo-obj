@@ -92,6 +92,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     const statusSelect = adminPage.locator('div.mb-6', { hasText: '계정 상태' }).locator('select');
     await expect(statusSelect).toBeEnabled({ timeout: 15_000 });
     await statusSelect.selectOption('active');
+    // PR #196: 상태 변경 저장 전 오조작 방지 window.confirm이 뜬다 — 수락해야 PATCH가 나간다.
+    adminPage.once('dialog', (dialog) => void dialog.accept());
     const [patchRes] = await Promise.all([
       adminPage.waitForResponse(
         (res) =>
