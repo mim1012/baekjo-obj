@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
-import { updateInsuranceApplication, type InsurancePatch } from '@/lib/insurance/repo';
+import {
+  updateInsuranceApplication,
+  deleteInsuranceApplicationById,
+  type InsurancePatch,
+} from '@/lib/insurance/repo';
 import { logServerError } from '@/lib/logServerError';
 
 // status는 InsuranceStatus 유니온 전체가 아니라 admin 화면 select가 실제 쓰는 값만 허용한다.
@@ -72,6 +76,39 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ application }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/admin/insurance/[id]] 수정 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/admin/insurance/[id] — 관리자 보험 신청 삭제(PII 파기).
+ * PATCH와 동일한 가드 블록(proxy 1차 가드 + 라우트 내부 DB 재검증). 증권 파일이 있으면
+ * deleteInsuranceApplicationById가 비공개 버킷에서도 함께 지운다(파기 완결, repo.ts 참고).
+ */
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const { id } = await context.params;
+
+  const session = await auth();
+  if (!session?.user || session.user.role !== 'admin') {
+    return NextResponse.json(
+      { error: session?.user ? 'forbidden' : 'unauthorized' },
+      { status: session?.user ? 403 : 401 },
+    );
+  }
+
+  try {
+    const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
+    if (!requester || requester.role !== 'admin' || requester.status === 'inactive') {
+      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
+    }
+
+    const deleted = await deleteInsuranceApplicationById(id);
+    if (!deleted) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error) {
+    logServerError('[DELETE /api/admin/insurance/[id]] 삭제 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
