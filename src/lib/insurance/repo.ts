@@ -202,29 +202,42 @@ export async function getInsuranceCertPath(id: string): Promise<string | null> {
 }
 
 /**
- * 관리자 신청 삭제(PII 파기). deletePartnerInquiryById와 동일 패턴(select로 삭제된 행 반환받아
- * 존재 여부 판정). 증권 파일이 있으면 비공개 버킷에서도 함께 지운다 — 행만 지우고 파일을 남기면
- * PII 파기가 미완결이라 목적을 놓친다. 스토리지 삭제는 베스트에포트(행 삭제는 이미 끝났으므로
- * 실패해도 throw 하지 않고 로그만 남긴다 — 되돌릴 수 없는 단계에서 예외로 응답을 실패시키지 않음).
+ * 관리자 신청 삭제(PII 파기). 스토리지 정리를 행 삭제보다 **먼저** 실행한다 — 행을 먼저 지우면
+ * 스토리지 삭제가 실패했을 때 증권 파일의 유일한 포인터(insuranceCertPath)가 이미 사라진 뒤라
+ * 고아 파일이 영구히 남는데도 API는 success를 반환해 아무도 그 사실을 모르게 된다. 순서를
+ * 바꾸면 스토리지 실패 시 행이 남아 있어 재시도할 수 있다(opus 리뷰 MEDIUM-2).
+ * 파일이 이미 없으면(not found) 이미 지워진 것으로 간주하고 멱등하게 진행한다.
  */
 export async function deleteInsuranceApplicationById(id: string): Promise<boolean> {
+  const { data: existing, error: selectError } = await getSupabase()
+    .from('insurance_applications')
+    .select('id, detail')
+    .eq('id', id)
+    .maybeSingle();
+  if (selectError) throw selectError;
+  if (!existing) return false;
+
+  const certPath = optString(asDetail((existing as { detail: unknown }).detail).insuranceCertPath);
+  if (certPath) {
+    const { error: storageError } = await getSupabase().storage.from(CERT_BUCKET).remove([certPath]);
+    if (storageError) {
+      const alreadyGone = /not.?found/i.test(storageError.message ?? '');
+      if (!alreadyGone) {
+        // 행을 지우지 않고 중단 — 재시도하면 스토리지 삭제부터 다시 시도할 수 있다(고아 파일 방지).
+        logServerError(
+          '[deleteInsuranceApplicationById] 증권 파일 삭제 실패 — 행 삭제를 중단한다(재시도 가능)',
+          storageError,
+        );
+        throw storageError;
+      }
+    }
+  }
+
   const { data, error } = await getSupabase()
     .from('insurance_applications')
     .delete()
     .eq('id', id)
-    .select(SELECT_COLUMNS);
+    .select('id');
   if (error) throw error;
-
-  const rows = data as InsuranceRow[] | null;
-  if (!rows || rows.length === 0) return false;
-
-  const certPath = optString(asDetail(rows[0].detail).insuranceCertPath);
-  if (certPath) {
-    const { error: storageError } = await getSupabase().storage.from(CERT_BUCKET).remove([certPath]);
-    if (storageError) {
-      logServerError('[deleteInsuranceApplicationById] 증권 파일 삭제 실패(행은 삭제됨)', storageError);
-    }
-  }
-
-  return true;
+  return Array.isArray(data) && data.length > 0;
 }
