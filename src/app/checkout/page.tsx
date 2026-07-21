@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { createOrder, cancelReservation, getPublicProducts } from '@/lib/storage';
+import { createOrder, cancelReservation, getPublicProducts, getSessionUser } from '@/lib/storage';
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
@@ -64,6 +64,8 @@ function CheckoutForm() {
   // 전체 카탈로그를 한 번 불러온다.
   const [products, setProducts] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [canOrder, setCanOrder] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +78,25 @@ function CheckoutForm() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    getSessionUser().then((user) => {
+      if (cancelled) return;
+      if (!user) {
+        setCanOrder(false);
+        setSessionChecked(true);
+        router.replace('/login?redirect=/checkout');
+        return;
+      }
+      setCanOrder(true);
+      setSessionChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted, router]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -91,13 +112,13 @@ function CheckoutForm() {
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
 
-  const ready = mounted && !productsLoading;
+  const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
   const isCardPayment = formData.paymentMethod === '카드결제';
 
   useEffect(() => {
-    if (ready) {
+    if (ready && canOrder) {
       if (cartItems.length === 0) {
         router.replace('/cart');
       } else if (hasUnpricedItems) {
@@ -105,7 +126,7 @@ function CheckoutForm() {
         router.replace('/cart');
       }
     }
-  }, [cartItems.length, hasUnpricedItems, ready, router]);
+  }, [canOrder, cartItems.length, hasUnpricedItems, ready, router]);
 
   // 결제창에서 실패/취소로 돌아온 경우: 직전에 만들어둔 PENDING 주문의 재고 선점을 해제한다.
   // 토스가 failUrl에 붙여주는 orderId 쿼리를 우선 신뢰하고, 없을 때만 세션 키를 폴백으로 쓴다
@@ -139,7 +160,7 @@ function CheckoutForm() {
 
   // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
   useEffect(() => {
-    if (!isCardPayment || !ready || cartItems.length === 0 || hasUnpricedItems) return;
+    if (!isCardPayment || !ready || !canOrder || cartItems.length === 0 || hasUnpricedItems) return;
     if (!TOSS_CLIENT_KEY) return;
 
     let cancelled = false;
@@ -173,11 +194,11 @@ function CheckoutForm() {
     };
     // widgetAmount 는 카트 확정 후에만 바뀌므로 위젯 재마운트 트리거로 쓰지 않는다(중복 렌더 방지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCardPayment, ready, cartItems.length, hasUnpricedItems]);
+  }, [isCardPayment, ready, canOrder, cartItems.length, hasUnpricedItems]);
 
   if (!ready) return null;
 
-  if (cartItems.length === 0 || hasUnpricedItems) {
+  if (!canOrder || cartItems.length === 0 || hasUnpricedItems) {
     return null;
   }
 
@@ -222,7 +243,9 @@ function CheckoutForm() {
       authoritativePrice = order.totalPrice + order.deliveryFee;
     } catch (error) {
       setSubmitting(false);
-      if (error instanceof Error && error.message === 'out-of-stock') {
+      if (error instanceof Error && error.message === 'login-required') {
+        router.replace('/login?redirect=/checkout');
+      } else if (error instanceof Error && error.message === 'out-of-stock') {
         alert('일부 상품의 재고가 부족합니다. 장바구니를 확인해주세요.');
       } else {
         alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');

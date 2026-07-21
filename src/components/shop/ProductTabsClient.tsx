@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product } from '@/types';
 import { getMergedReviews, getMergedInquiries } from '@/lib/adapters';
-import { getCurrentUser, getMyOrders, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
+import { getSessionUser, getMyOrders, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
 import { Lock, MessageCircle, Star } from 'lucide-react';
 import { formatDate, formatPrice, ratingStars } from '@/lib/format';
 import EmptyState from '@/components/common/EmptyState';
@@ -54,13 +54,17 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
 
   const loadData = () => {
     const seq = ++loadSeqRef.current;
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
-    if (currentUser) {
+    getSessionUser().then((currentUser) => {
+      if (loadSeqRef.current !== seq) return;
+      setUser(currentUser);
+      if (!currentUser) {
+        setOrders([]);
+        return;
+      }
       getMyOrders().then((orders) => {
         if (loadSeqRef.current === seq) setOrders(orders);
       });
-    }
+    });
     getMergedReviews(product.id).then((reviews) => {
       if (loadSeqRef.current === seq) setReviews(reviews);
     });

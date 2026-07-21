@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry } from '@/types';
 import {
-  getCurrentUser,
+  getSessionUser,
   getMyOrders,
   getMyInsuranceApplications,
   getWishlist,
@@ -74,13 +74,16 @@ function MypageContent() {
   const loadSeqRef = useRef(0);
   const reviewsSeqRef = useRef(0);
   const inquiriesSeqRef = useRef(0);
+  const sessionUserIdRef = useRef('');
 
-  const loadData = () => {
-    const currentUser = getCurrentUser();
+  const loadData = useCallback(async () => {
+    const currentUser = await getSessionUser();
     if (!currentUser) {
-      router.replace('/login');
+      const redirect = typeof window === 'undefined' ? '/mypage' : `${window.location.pathname}${window.location.search}`;
+      router.replace(`/login?redirect=${encodeURIComponent(redirect)}`);
       return;
     }
+    sessionUserIdRef.current = currentUser.id;
     setUser(currentUser);
 
     const seq = ++loadSeqRef.current;
@@ -112,24 +115,24 @@ function MypageContent() {
     getProductInquiriesByUser(currentUser.id).then((inquiries) => {
       if (inquiriesSeqRef.current === inquiriesSeq) setInquiries(inquiries);
     });
-  };
+  }, [router]);
 
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
     // DB 전환 PR에서 마운트 판정 로직 자체를 재작업할 예정.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
-    loadData();
+    void loadData();
 
     const handleReviewsChanged = () => {
       const seq = ++reviewsSeqRef.current;
-      getProductReviewsByUser(getCurrentUser()?.id || '').then((reviews) => {
+      getProductReviewsByUser(sessionUserIdRef.current).then((reviews) => {
         if (reviewsSeqRef.current === seq) setReviews(reviews);
       });
     };
     const handleInquiriesChanged = () => {
       const seq = ++inquiriesSeqRef.current;
-      getProductInquiriesByUser(getCurrentUser()?.id || '').then((inquiries) => {
+      getProductInquiriesByUser(sessionUserIdRef.current).then((inquiries) => {
         if (inquiriesSeqRef.current === seq) setInquiries(inquiries);
       });
     };
@@ -157,7 +160,7 @@ function MypageContent() {
       window.removeEventListener(STORAGE_EVENTS.REVIEWS_CHANGED, handleReviewsChanged);
       window.removeEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleInquiriesChanged);
     };
-  }, [router]);
+  }, [router, loadData]);
 
   if (!isMounted || !user) return null;
 

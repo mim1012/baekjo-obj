@@ -26,11 +26,17 @@ function proxy(req: NextAuthRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  if (pathname.startsWith('/mypage') && !req.auth) {
+    const loginUrl = new URL('/login', req.nextUrl.origin);
+    loginUrl.searchParams.set('redirect', `${pathname}${req.nextUrl.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
   return NextResponse.next();
 }
 
 export default auth(proxy);
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*'],
 };

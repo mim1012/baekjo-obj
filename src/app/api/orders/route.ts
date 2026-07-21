@@ -14,7 +14,7 @@ import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import type { OrderItem, Product } from '@/types';
 
-// 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
+// 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
 const MAX_ITEMS = 100;
 const MAX_QUANTITY = 999;
 const MAX_NAME = 100;
@@ -138,8 +138,8 @@ function extractProductIds(body: unknown): string[] {
 }
 
 /**
- * POST /api/orders — 주문 생성(공개, 게스트 결제 허용).
- * 세션이 있으면 member_id를 서버가 부여하고, 없으면 게스트(null). id/createdAt/member_id 및
+ * POST /api/orders — 주문 생성(회원 전용).
+ * 세션의 member_id를 서버가 부여한다. id/createdAt/member_id 및
  * 결제·주문·배송 상태와 금액(totalPrice/deliveryFee)은 본문을 신뢰하지 않고 서버가 정한다(mass-assignment·결제 위조 차단).
  * 생성→차감 순서. 차감 실패 시 방금 만든 주문을 삭제(보상)해 유령 주문을 남기지 않는다.
  */
@@ -151,8 +151,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  // 공개(게스트) 엔드포인트라 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 익명 루프가
-  // 재고 차감을 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
+  const session = await auth();
+  if (!session?.user?.memberId) {
+    return NextResponse.json({ error: 'login-required' }, { status: 401 });
+  }
+
+  // 주문 생성 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 자동화 루프가 재고 차감을
+  // 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
   // phone 은 폴백 키로만 쓰므로 여기선 형식 검증 없이 문자열 여부만 본다(정식 검증은 validate).
   const phoneForKey =
     body && typeof body === 'object' && typeof (body as Record<string, unknown>).phone === 'string'
@@ -182,9 +187,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const session = await auth();
-    const memberId = session?.user?.memberId ?? null;
-    const order = await insertOrder(validated, memberId);
+    const order = await insertOrder(validated, session.user.memberId);
 
     try {
       await decrementStockForOrder(
@@ -202,7 +205,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'server-error' }, { status: 500 });
     }
 
-    // order는 방금 만든 본인/게스트 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
+    // order는 방금 만든 본인 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
     // 클라이언트는 Order 필드만 사용하고 나머지는 무시한다.
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {

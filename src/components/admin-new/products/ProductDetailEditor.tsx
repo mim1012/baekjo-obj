@@ -2,10 +2,10 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, GripVertical, Image as ImageIcon, Type, Trash2, LayoutTemplate } from 'lucide-react';
+import { ArrowLeft, GripVertical, Image as ImageIcon, Images, Type, Trash2, LayoutTemplate } from 'lucide-react';
 import { Reorder, useDragControls, type PanInfo } from 'framer-motion';
 import type { Product, ProductDetailBlock } from '@/types';
-import { updateProduct } from '@/lib/storage';
+import { updateProduct, uploadAdminImage } from '@/lib/storage';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SaveBar from '@/components/admin-new/common/SaveBar';
@@ -25,6 +25,11 @@ interface KeyedBlock {
   block: ProductDetailBlock;
 }
 
+interface LabeledBlock {
+  item: KeyedBlock;
+  label: string;
+}
+
 const createKeyedBlock = (block: ProductDetailBlock): KeyedBlock => ({
   key:
     typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
@@ -41,6 +46,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
   const router = useRouter();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const autoScrollFrameRef = useRef<number | null>(null);
+  const bulkFileInputRef = useRef<HTMLInputElement>(null);
 
   // 기본적으로 빈 배열이 아니면 복사해서 사용, 없으면 빈 배열
   const [keyedBlocks, setKeyedBlocks] = useState<KeyedBlock[]>(() =>
@@ -49,9 +55,32 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
       : []
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingBulk, setIsUploadingBulk] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const blocks = keyedBlocks.map((kb) => kb.block);
+  const labeledBlocks = keyedBlocks.reduce<LabeledBlock[]>((acc, item) => {
+    const counts = acc.reduce(
+      (current, labeled) => ({
+        text: current.text + (labeled.item.block.type === 'text' ? 1 : 0),
+        image: current.image + (labeled.item.block.type === 'image' ? 1 : 0),
+      }),
+      { text: 0, image: 0 },
+    );
+    const label =
+      item.block.type === 'text'
+        ? `텍스트 ${counts.text + 1}`
+        : item.block.type === 'image'
+          ? `이미지 ${counts.image + 1}`
+          : `블록 ${acc.length + 1}`;
+    return [...acc, { item, label }];
+  }, []);
+
+  const insertBlockAfter = (index: number, block: ProductDetailBlock) => {
+    const next = [...keyedBlocks];
+    next.splice(index + 1, 0, createKeyedBlock(block));
+    setKeyedBlocks(next);
+  };
 
   const handleAddText = () => {
     setKeyedBlocks([...keyedBlocks, createKeyedBlock({ type: 'text', content: '' })]);
@@ -59,6 +88,35 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
 
   const handleAddImage = () => {
     setKeyedBlocks([...keyedBlocks, createKeyedBlock({ type: 'image', src: '' })]);
+  };
+
+  const handleBulkImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setIsUploadingBulk(true);
+    setError(null);
+    try {
+      for (const file of files) {
+        const result = await uploadAdminImage({
+          file,
+          domain: 'product',
+          usage: 'detail',
+          entityId: product.id,
+        });
+        const uploadedBlock = createKeyedBlock({
+          type: 'image',
+          src: result.publicUrl,
+          alt: file.name.replace(/\.[^.]+$/, ''),
+        });
+        setKeyedBlocks((current) => [...current, uploadedBlock]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.');
+    } finally {
+      setIsUploadingBulk(false);
+      if (bulkFileInputRef.current) bulkFileInputRef.current.value = '';
+    }
   };
 
   const handleUpdateBlock = (key: string, updated: ProductDetailBlock) => {
@@ -197,17 +255,35 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
           <div className="p-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
             <h3 className="font-semibold text-[#17201B]">콘텐츠 블록</h3>
             <div className="flex gap-2">
+              <input
+                ref={bulkFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                multiple
+                className="hidden"
+                onChange={(event) => void handleBulkImageUpload(event)}
+              />
               <button
                 onClick={handleAddText}
+                type="button"
                 className="px-3 py-1.5 bg-white border border-gray-300 rounded text-[12px] font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
               >
                 <Type size={14} /> 텍스트 추가
               </button>
               <button
                 onClick={handleAddImage}
+                type="button"
                 className="px-3 py-1.5 bg-white border border-gray-300 rounded text-[12px] font-medium text-gray-700 hover:bg-gray-50 flex items-center gap-1.5"
               >
                 <ImageIcon size={14} /> 이미지 추가
+              </button>
+              <button
+                type="button"
+                onClick={() => bulkFileInputRef.current?.click()}
+                disabled={isUploadingBulk}
+                className="px-3 py-1.5 bg-[#17201B] border border-[#17201B] rounded text-[12px] font-medium text-white hover:bg-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-60 flex items-center gap-1.5"
+              >
+                <Images size={14} /> {isUploadingBulk ? '업로드 중' : '여러 이미지'}
               </button>
             </div>
           </div>
@@ -227,10 +303,11 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                 onReorder={setKeyedBlocks}
                 className="space-y-4"
               >
-                {keyedBlocks.map((item, index) => (
+                {labeledBlocks.map(({ item, label }, index) => (
                   <DetailBlockRow
                     key={item.key}
                     item={item}
+                    label={label}
                     index={index}
                     isFirst={index === 0}
                     isLast={index === keyedBlocks.length - 1}
@@ -239,6 +316,8 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
                     onRemove={handleRemoveBlock}
                     onMoveUp={handleMoveUp}
                     onMoveDown={handleMoveDown}
+                    onInsertTextAfter={() => insertBlockAfter(index, { type: 'text', content: '' })}
+                    onInsertImageAfter={() => insertBlockAfter(index, { type: 'image', src: '' })}
                     onDrag={handleItemDrag}
                     onDragEnd={handleItemDragEnd}
                   />
@@ -308,6 +387,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
 
 interface DetailBlockRowProps {
   item: KeyedBlock;
+  label: string;
   index: number;
   isFirst: boolean;
   isLast: boolean;
@@ -316,6 +396,8 @@ interface DetailBlockRowProps {
   onRemove: (key: string) => void;
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
+  onInsertTextAfter: () => void;
+  onInsertImageAfter: () => void;
   onDrag: (event: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) => void;
   onDragEnd: () => void;
 }
@@ -323,6 +405,7 @@ interface DetailBlockRowProps {
 /** 블록 한 줄 — framer-motion Reorder.Item. GripVertical을 실제 드래그 핸들로 쓴다(useDragControls). */
 function DetailBlockRow({
   item,
+  label,
   index,
   isFirst,
   isLast,
@@ -331,6 +414,8 @@ function DetailBlockRow({
   onRemove,
   onMoveUp,
   onMoveDown,
+  onInsertTextAfter,
+  onInsertImageAfter,
   onDrag,
   onDragEnd,
 }: DetailBlockRowProps) {
@@ -360,7 +445,7 @@ function DetailBlockRow({
       <div className="flex-1 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-[12px] font-bold text-gray-500 uppercase tracking-wider">
-            {block.type === 'text' ? 'Text Block' : 'Image Block'}
+            {label}
           </span>
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <button onClick={() => onMoveUp(index)} disabled={isFirst} className="p-1 hover:bg-gray-200 rounded disabled:opacity-30 text-gray-500">
@@ -406,7 +491,35 @@ function DetailBlockRow({
             지원하지 않는 블록 타입입니다. 이 블록이 있으면 저장할 수 없습니다(데이터 손실 방지). 개발자에게 문의하세요.
           </div>
         )}
+        <InsertBlockControls onInsertText={onInsertTextAfter} onInsertImage={onInsertImageAfter} />
       </div>
     </Reorder.Item>
+  );
+}
+
+function InsertBlockControls({
+  onInsertText,
+  onInsertImage,
+}: {
+  onInsertText: () => void;
+  onInsertImage: () => void;
+}) {
+  return (
+    <div className="-mt-1 flex items-center justify-center gap-2">
+      <button
+        type="button"
+        onClick={onInsertText}
+        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-medium text-gray-500 hover:border-[#17201B] hover:text-[#17201B]"
+      >
+        여기에 텍스트 추가
+      </button>
+      <button
+        type="button"
+        onClick={onInsertImage}
+        className="rounded-full border border-gray-200 bg-white px-3 py-1 text-[11px] font-medium text-gray-500 hover:border-[#17201B] hover:text-[#17201B]"
+      >
+        여기에 이미지 추가
+      </button>
+    </div>
   );
 }

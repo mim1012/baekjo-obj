@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { addToCart } from '@/lib/cart';
@@ -38,6 +39,7 @@ export default function ProductCard({
   density = 'default',
   mobileLayout = 'vertical',
 }: ProductCardProps) {
+  const router = useRouter();
   const mounted = useMounted();
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
@@ -73,6 +75,10 @@ export default function ProductCard({
     try {
       const next = await toggleWishlist(product.id);
       setWishlisted(next);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'login-required') {
+        router.push(`/login?redirect=${encodeURIComponent(detailHref)}`);
+      }
     } finally {
       setWishlistBusy(false);
     }

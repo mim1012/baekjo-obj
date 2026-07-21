@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { ArrowRight, Edit2, Plus, Trash2 } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import { SectionHeading } from '@/components/common/EditorialHeading';
-import { getCurrentUser, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
+import { getSessionUser, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
 import { Product, Brand, User } from '@/types';
 
 interface BrandProductsClientProps {
@@ -25,10 +25,7 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
-    // getCurrentUser 는 client-only(localStorage) 라 SSR 시엔 null — mount 후에만 채워야
-    // hydration mismatch 가 없다(dad 동작 보존, DB 전환 PR에서 재작업 예정).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setUser(getCurrentUser());
+    getSessionUser().then(setUser);
   }, []);
 
   const hasAdminRights = user?.role === 'admin' || (user?.role === 'partner' && user.managedBrandIds?.includes(brand.id));

@@ -5,8 +5,17 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import BrandMark from '@/components/common/BrandMark';
 import { getCurrentUser, login, isLoggedIn } from '@/lib/storage';
+import type { User } from '@/types';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import { useMounted } from '@/lib/useMounted';
+
+function resolveLoginRedirect(role: User['role'], redirectTo: string | null): string {
+  if (role === 'admin') return '/admin';
+  if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') && !redirectTo.startsWith('/admin')) {
+    return redirectTo;
+  }
+  return '/';
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -22,7 +31,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     if (isLoggedIn() && !params.get('error')) {
       const currentUser = getCurrentUser();
-      router.replace(currentUser?.role === 'admin' ? '/admin' : '/mypage');
+      router.replace(resolveLoginRedirect(currentUser?.role ?? 'user', params.get('redirect')));
     }
   }, [router]);
 
@@ -56,7 +65,9 @@ export default function LoginPage() {
       if (remember) localStorage.setItem('baekjo_remember_email', email);
       else localStorage.removeItem('baekjo_remember_email');
     }
-    router.push(result.user.role === 'admin' ? '/admin' : '/');
+    const params = new URLSearchParams(window.location.search);
+    const redirectTo = params.get('redirect');
+    router.push(resolveLoginRedirect(result.user.role, redirectTo));
   };
 
   return (

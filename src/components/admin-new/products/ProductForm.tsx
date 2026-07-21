@@ -668,7 +668,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
           {/* 추가 이미지 갤러리 */}
           <SectionCard
             title="추가 이미지 갤러리"
-            description="대표 이미지 외에 상세페이지 갤러리에 함께 노출됩니다."
+            description="상세 상단 갤러리용 이미지입니다. 이미지와 텍스트를 섞은 본문은 상세페이지 편집에서 구성합니다."
           >
             <GalleryEditor
               images={images}
@@ -676,6 +676,15 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
               entityId={isEdit ? initialData.id : undefined}
               draftId={!isEdit ? draftId : undefined}
             />
+            {isEdit && (
+              <button
+                type="button"
+                onClick={() => router.push(`/admin/products/${initialData.id}/editor`)}
+                className="mt-4 flex h-11 w-full items-center justify-center rounded border border-[#17201B] bg-white text-[13px] font-semibold text-[#17201B] transition-colors hover:bg-[#F4F2EC]"
+              >
+                상세페이지 본문 편집하기
+              </button>
+            )}
           </SectionCard>
 
           {/* 관리 작업 */}

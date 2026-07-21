@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';
-import { getPublicProductsOrNull, getPublicBrands } from '@/lib/storage';
+import { getPublicProductsOrNull, getPublicBrands, isLoggedIn } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
@@ -90,6 +90,7 @@ export default function CartPage() {
   const totalProductsPrice = pricedItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
   const finalPrice = totalProductsPrice + deliveryFee;
+  const checkoutHref = isLoggedIn() ? '/checkout' : '/login?redirect=/checkout';
 
   return (
     <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
@@ -214,7 +215,7 @@ export default function CartPage() {
                   </button>
                 ) : (
                   <Link 
-                    href="/checkout"
+                    href={checkoutHref}
                     className="flex w-full items-center justify-center rounded-sm bg-[#2F3B34] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white transition hover:bg-[#2F3B34]/90"
                   >
                     주문하기 ({cartItems.length}개)
