@@ -3,6 +3,7 @@ import { auth } from '@/lib/auth';
 import { insertInsuranceApplication, type InsertInsuranceInput } from '@/lib/insurance/repo';
 import { logServerError } from '@/lib/logServerError';
 import { notifyAdminNewSubmission } from '@/lib/email/notifyAdmin';
+import { CERT_PATH_PATTERN } from '@/lib/insurance/certPath';
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
 const MAX_NAME = 100;
@@ -10,11 +11,6 @@ const MAX_PHONE = 40;
 const MAX_SHORT = 200;
 const MAX_TEXT = 2000;
 const MAX_COVERAGE = 20;
-
-// POST /api/insurance/upload이 반환하는 path 모양(certs/<uuid>.<ext>)만 허용한다 — 임의 문자열을
-// 그대로 저장하면 이후 관리자 signed URL 발급(U16)·PII 삭제(U11)에서 다른 경로를 참조하게 될 수
-// 있어 형식을 여기서 좁혀 막는다.
-const CERT_PATH_PATTERN = /^certs\/[a-zA-Z0-9-]+\.(pdf|jpg|png|webp)$/;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;

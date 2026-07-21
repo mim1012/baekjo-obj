@@ -23,6 +23,7 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/insurance',
   '/api/admin/insurance-content',
   '/api/admin/insurance/[id]',
+  '/api/admin/insurance/[id]/cert',
   '/api/admin/kits',
   '/api/admin/members',
   '/api/admin/members/[id]',
