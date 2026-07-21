@@ -89,13 +89,18 @@ export interface Brand {
   shipping?: BrandShippingPolicy;
 }
 export interface BrandShippingPolicy {
+  carrierLabel?: string;
   defaultCarrier?: import('@/lib/carriers').CarrierCode;
   shippingFee?: number;
+  shippingFeeLabel?: string;
   freeShippingThreshold?: number;
+  extraFeeNotice?: string;
   dispatchEstimate?: string;
   returnAddress?: string;
   returnShippingFee?: number;
   exchangeShippingFee?: number;
+  returnPolicy?: string;
+  returnExclusions?: string;
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;

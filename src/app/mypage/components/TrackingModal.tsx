@@ -26,18 +26,21 @@ function resolvePolicy(shipping: BrandShippingPolicy | undefined) {
   const fee = shipping?.shippingFee;
   const threshold = shipping?.freeShippingThreshold;
   const shippingFeeLabel =
-    fee === undefined
+    shipping?.shippingFeeLabel ??
+    (fee === undefined
       ? DEFAULT_COMMERCE_POLICY.shippingLabel
       : fee === 0
         ? '무료배송'
         : threshold === undefined
           ? `${formatPrice(fee)}`
-          : `${formatPrice(fee)} (${formatPrice(threshold)} 이상 구매 시 무료배송)`;
+          : `${formatPrice(fee)} (${formatPrice(threshold)} 이상 구매 시 무료배송)`);
 
   return {
     shippingFeeLabel,
     dispatchEstimate: shipping?.dispatchEstimate ?? DEFAULT_COMMERCE_POLICY.deliveryEstimate,
-    returnPolicy: shipping?.asNotice ?? DEFAULT_COMMERCE_POLICY.returnNotice,
+    extraFeeNotice: shipping?.extraFeeNotice,
+    returnPolicy: shipping?.returnPolicy ?? shipping?.asNotice ?? DEFAULT_COMMERCE_POLICY.returnNotice,
+    returnExclusions: shipping?.returnExclusions,
     supportContact: shipping?.supportContact,
     supportHours: shipping?.supportHours,
   };
@@ -259,6 +262,12 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                   <dt className="w-16 shrink-0 text-[#68716C]">배송비</dt>
                   <dd className="text-[#18231F]">{policy.shippingFeeLabel}</dd>
                 </div>
+                {policy.extraFeeNotice && (
+                  <div className="flex gap-3">
+                    <dt className="w-16 shrink-0 text-[#68716C]">추가비</dt>
+                    <dd className="text-[#18231F]">{policy.extraFeeNotice}</dd>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <dt className="w-16 shrink-0 text-[#68716C]">출고</dt>
                   <dd className="text-[#18231F]">{policy.dispatchEstimate}</dd>
@@ -267,6 +276,12 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                   <dt className="w-16 shrink-0 text-[#68716C]">교환/반품</dt>
                   <dd className="text-[#18231F]">{policy.returnPolicy}</dd>
                 </div>
+                {policy.returnExclusions && (
+                  <div className="flex gap-3">
+                    <dt className="w-16 shrink-0 text-[#68716C]">제한</dt>
+                    <dd className="text-[#18231F]">{policy.returnExclusions}</dd>
+                  </div>
+                )}
                 {policy.supportContact && (
                   <div className="flex gap-3">
                     <dt className="w-16 shrink-0 text-[#68716C]">문의</dt>

@@ -125,8 +125,13 @@ export function buildBrandShippingPayload(form: BrandShippingPolicy): BrandShipp
   shipping.freeShippingThreshold = cleanOptionalMoney(form.freeShippingThreshold);
   shipping.returnShippingFee = cleanOptionalMoney(form.returnShippingFee);
   shipping.exchangeShippingFee = cleanOptionalMoney(form.exchangeShippingFee);
+  shipping.carrierLabel = cleanOptionalText(form.carrierLabel);
+  shipping.shippingFeeLabel = cleanOptionalText(form.shippingFeeLabel);
+  shipping.extraFeeNotice = cleanOptionalText(form.extraFeeNotice);
   shipping.dispatchEstimate = cleanOptionalText(form.dispatchEstimate);
   shipping.returnAddress = cleanOptionalText(form.returnAddress);
+  shipping.returnPolicy = cleanOptionalText(form.returnPolicy);
+  shipping.returnExclusions = cleanOptionalText(form.returnExclusions);
   shipping.asNotice = cleanOptionalText(form.asNotice);
   shipping.supportContact = cleanOptionalText(form.supportContact);
   shipping.supportHours = cleanOptionalText(form.supportHours);

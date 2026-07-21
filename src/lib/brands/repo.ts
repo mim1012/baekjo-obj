@@ -34,8 +34,13 @@ function detailAuditReport(raw: unknown): BrandAuditReport | undefined {
 }
 
 const SHIPPING_TEXT_FIELDS = [
+  'carrierLabel',
+  'shippingFeeLabel',
+  'extraFeeNotice',
   'dispatchEstimate',
   'returnAddress',
+  'returnPolicy',
+  'returnExclusions',
   'asNotice',
   'supportContact',
   'supportHours',

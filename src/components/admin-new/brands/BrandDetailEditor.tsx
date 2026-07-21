@@ -386,6 +386,17 @@ export default function BrandDetailEditor({
               </select>
             </FormField>
 
+            <FormField label="표시용 배송사" htmlFor="ship-carrier-label">
+              <input
+                id="ship-carrier-label"
+                type="text"
+                value={shipping.carrierLabel ?? ''}
+                onChange={(e) => setShippingField('carrierLabel', e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 파스토/로지플렉스"
+              />
+            </FormField>
+
             <FormField label="출고 예정" htmlFor="ship-dispatch">
               <input
                 id="ship-dispatch"
@@ -410,6 +421,17 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
+            <FormField label="배송비 표시 문구" htmlFor="ship-fee-label">
+              <input
+                id="ship-fee-label"
+                type="text"
+                value={shipping.shippingFeeLabel ?? ''}
+                onChange={(e) => setShippingField('shippingFeeLabel', e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 무료배송 (상품가 포함)"
+              />
+            </FormField>
+
             <FormField label="무료배송 기준" htmlFor="ship-free-threshold">
               <input
                 id="ship-free-threshold"
@@ -422,6 +444,17 @@ export default function BrandDetailEditor({
                 }
                 className={INPUT_CLASS}
                 placeholder="예: 50000"
+              />
+            </FormField>
+
+            <FormField label="지역 추가배송비 안내" htmlFor="ship-extra-fee">
+              <input
+                id="ship-extra-fee"
+                type="text"
+                value={shipping.extraFeeNotice ?? ''}
+                onChange={(e) => setShippingField('extraFeeNotice', e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 제주 +4,000원 / 도서산간 +5,000원"
               />
             </FormField>
 
@@ -464,6 +497,26 @@ export default function BrandDetailEditor({
                 onChange={(e) => setShippingField('returnAddress', e.target.value)}
                 className={`${INPUT_CLASS} h-20 resize-none`}
                 placeholder="반품·교환 수령 주소"
+              />
+            </FormField>
+
+            <FormField label="교환/반품 정책" htmlFor="ship-return-policy">
+              <textarea
+                id="ship-return-policy"
+                value={shipping.returnPolicy ?? ''}
+                onChange={(e) => setShippingField('returnPolicy', e.target.value)}
+                className={`${INPUT_CLASS} h-28 resize-none`}
+                placeholder="상품 수령 후 교환·반품 신청 기준과 배송비 부담 안내"
+              />
+            </FormField>
+
+            <FormField label="교환/반품 제한" htmlFor="ship-return-exclusions">
+              <textarea
+                id="ship-return-exclusions"
+                value={shipping.returnExclusions ?? ''}
+                onChange={(e) => setShippingField('returnExclusions', e.target.value)}
+                className={`${INPUT_CLASS} h-28 resize-none`}
+                placeholder="반품 요청 기간 경과, 사용 흔적, 포장 훼손 등 제한 사유"
               />
             </FormField>
 
