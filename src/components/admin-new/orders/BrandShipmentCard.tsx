@@ -11,6 +11,7 @@ interface BrandShipmentCardProps {
   orderId: string;
   brandName: string;
   bundle: BrandBundle;
+  defaultCarrier?: string;
   /** 저장 성공 시 상위가 송장/주문을 재조회하도록 알린다. */
   onSaved: () => void | Promise<void>;
 }
@@ -35,10 +36,11 @@ export default function BrandShipmentCard({
   orderId,
   brandName,
   bundle,
+  defaultCarrier = '',
   onSaved,
 }: BrandShipmentCardProps) {
   // 서버 현재값(props 파생) — 저장 후 상위 재조회로 props 가 갱신되면 isDirty 가 자연히 false 가 된다.
-  const serverCarrier = bundle.shipment?.carrier ?? '';
+  const serverCarrier = bundle.shipment?.carrier ?? defaultCarrier;
   const serverTracking = bundle.shipment?.trackingNumber ?? '';
   const serverStatus = bundle.shipment?.deliveryStatus ?? '배송전';
 

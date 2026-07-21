@@ -78,10 +78,13 @@ test.describe('업체별 배송 카드 배선(§4 콘센트)', () => {
 
     expect(panel).toContain("import { getAdminOrderShipments, getAdminBrands } from '@/lib/storage'");
     expect(panel).toContain('groupItemsByBrand(order.items, shipments)');
+    expect(panel).toContain('defaultCarrier={brandMap[bundle.brandId]?.shipping?.defaultCarrier}');
     expect(panel).not.toContain('fetch(');
     expect(panel).not.toContain('localStorage');
 
     expect(card).toContain("import { updateOrderShipment } from '@/lib/storage'");
+    expect(card).toContain('defaultCarrier =');
+    expect(card).toContain('bundle.shipment?.carrier ?? defaultCarrier');
     expect(card).toContain('DELIVERY_STATUSES.map');
     expect(card).toContain('CARRIER_CODES.map');
     expect(card).not.toContain('fetch(');

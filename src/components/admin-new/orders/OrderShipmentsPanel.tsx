@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Truck } from 'lucide-react';
 import { getAdminOrderShipments, getAdminBrands } from '@/lib/storage';
-import type { Order, Shipment } from '@/types';
+import type { Brand, Order, Shipment } from '@/types';
 import FormSection from '@/components/admin-new/common/FormSection';
 import { groupItemsByBrand } from './groupItemsByBrand';
 import BrandShipmentCard from './BrandShipmentCard';
@@ -22,7 +22,7 @@ interface OrderShipmentsPanelProps {
  */
 export default function OrderShipmentsPanel({ order, onUpdate }: OrderShipmentsPanelProps) {
   const [shipments, setShipments] = useState<Shipment[]>([]);
-  const [brandNames, setBrandNames] = useState<Record<string, string>>({});
+  const [brandMap, setBrandMap] = useState<Record<string, Brand>>({});
   const [loading, setLoading] = useState(true);
 
   // 저장 성공 시 송장을 재조회해 카드를 갱신하고, 주문 단위 파생 상태도 다시 읽는다.
@@ -41,7 +41,7 @@ export default function OrderShipmentsPanel({ order, onUpdate }: OrderShipmentsP
       ]);
       if (!active) return;
       setShipments(rows);
-      setBrandNames(Object.fromEntries(brands.map((b) => [b.id, b.name])));
+      setBrandMap(Object.fromEntries(brands.map((b) => [b.id, b])));
       setLoading(false);
     })();
     return () => {
@@ -74,8 +74,9 @@ export default function OrderShipmentsPanel({ order, onUpdate }: OrderShipmentsP
             <BrandShipmentCard
               key={bundle.brandId}
               orderId={order.id}
-              brandName={brandNames[bundle.brandId] || bundle.brandId}
+              brandName={brandMap[bundle.brandId]?.name || bundle.brandId}
               bundle={bundle}
+              defaultCarrier={brandMap[bundle.brandId]?.shipping?.defaultCarrier}
               onSaved={refresh}
             />
           ))}
