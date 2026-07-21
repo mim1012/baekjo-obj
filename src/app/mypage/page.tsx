@@ -91,14 +91,14 @@ function MypageContent() {
 
     const seq = ++loadSeqRef.current;
     // getMyOrders/getMyInsuranceApplications 는 세션 기준으로 이미 내 것만 반환한다.
-    getMyOrders().then(async (orders) => {
-      const shipmentPairs = await Promise.all(
+    getMyOrders().then((orders) => {
+      if (loadSeqRef.current === seq) setOrders(orders);
+
+      Promise.all(
         orders.map(async (order) => [order.id, await getOrderShipments(order.id)] as const),
-      );
-      if (loadSeqRef.current === seq) {
-        setOrders(orders);
-        setShipmentsByOrder(Object.fromEntries(shipmentPairs));
-      }
+      ).then((shipmentPairs) => {
+        if (loadSeqRef.current === seq) setShipmentsByOrder(Object.fromEntries(shipmentPairs));
+      });
     });
     getMyInsuranceApplications().then((apps) => {
       if (loadSeqRef.current === seq) setInsuranceApps(apps);

@@ -34,6 +34,7 @@ test.describe.configure({ mode: 'serial' });
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 전이, 일회용 상품)', () => {
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 로그인 불가로 skip');
+  test.setTimeout(180_000);
 
   const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL;
   const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;

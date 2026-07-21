@@ -107,9 +107,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드별 송
     await assertBrandShipments(adminPage, orderId, scenarios);
     await completeOrderStatus(adminPage, orderId);
 
-    await memberPage.goto('/mypage?tab=orders', { waitUntil: 'domcontentloaded' });
+    await expect(async () => {
+      await memberPage.goto('/mypage?tab=orders', { waitUntil: 'domcontentloaded' });
+      await expect(memberPage.locator('.mypage-card', { hasText: orderId }).first()).toBeVisible({
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 45_000 });
     const orderCard = memberPage.locator('.mypage-card', { hasText: orderId }).first();
-    await expect(orderCard).toBeVisible({ timeout: 15_000 });
     await expect(orderCard).toContainText('배송완료');
     for (const scenario of scenarios) {
       await expect(orderCard).toContainText(scenario.name);

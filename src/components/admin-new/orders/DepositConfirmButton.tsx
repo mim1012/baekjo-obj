@@ -34,7 +34,7 @@ export default function DepositConfirmButton({
     const confirmed = window.confirm(
       `${order.id} 주문의 입금을 확인 처리하시겠습니까?\n\n` +
         `· 결제상태가 '결제완료'로 변경됩니다(주문상태는 그대로이니 필요하면 따로 변경하세요).\n\n` +
-        `⚠️ 확인 후에는 미결제 취소로 재고가 자동 복원되지 않습니다(결제완료 주문은 복원 RPC 대상이 아님). 실제 입금을 확인한 뒤 진행하세요.`
+        `확인 후에는 이 주문이 미입금 자동취소와 재고 되돌림 대상에서 제외됩니다. 실제 입금 내역을 확인한 뒤 진행해 주세요.`
     );
     if (!confirmed) return;
     onStatusChange(order.id, DEPOSIT_CONFIRM_UPDATE);

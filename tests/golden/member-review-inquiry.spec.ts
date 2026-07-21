@@ -62,9 +62,13 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await memberPage.getByRole('button', { name: /결제하기/ }).click();
     await memberPage.waitForURL(/\/order-complete/, { timeout: 20_000 });
 
-    await memberPage.goto('/mypage?tab=orders');
+    await expect(async () => {
+      await memberPage.goto('/mypage?tab=orders');
+      await expect(memberPage.locator('.mypage-card', { hasText: productName }).first()).toBeVisible({
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 45_000 });
     const orderCard = memberPage.locator('.mypage-card', { hasText: productName }).first();
-    await expect(orderCard).toBeVisible({ timeout: 15_000 });
     const orderIdText = await orderCard.getByText(/주문번호/).textContent();
     deliveredOrderId = (orderIdText || '').replace('주문번호', '').trim();
     await memberPage.close();

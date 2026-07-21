@@ -78,14 +78,13 @@ export default function ShipActionPopover({ order, brandMap, onShipped }: ShipAc
 
       {open && (
         <>
-          {/* 바깥 클릭으로 닫기 — 모바일은 반투명 시트 백드롭, sm 이상은 투명 캐처 */}
           <div
-            className="fixed inset-0 z-40 bg-black/30 sm:z-10 sm:bg-transparent"
+            className="fixed inset-0 z-40 bg-black/30 sm:bg-transparent"
             onClick={() => setOpen(false)}
             aria-hidden
           />
           <div
-            className="fixed inset-x-4 bottom-4 z-50 w-auto max-h-[80dvh] overflow-y-auto rounded-md border border-gray-200 bg-white p-4 shadow-lg text-left sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:z-20 sm:mt-2 sm:w-72"
+            className="fixed inset-x-4 bottom-4 z-50 w-auto max-h-[80dvh] overflow-y-auto rounded-md border border-gray-200 bg-white p-4 shadow-lg text-left sm:inset-x-auto sm:bottom-auto sm:right-8 sm:top-24 sm:w-80"
             role="dialog"
             aria-modal="true"
             aria-label="발송 처리"
