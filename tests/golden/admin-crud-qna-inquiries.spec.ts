@@ -57,8 +57,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
   const title = `${SEARCH_PREFIX}${runId}`;
   const content = `E2E 테스트 문의 본문 ${runId}`;
   const answer = `E2E-답변-${runId}`;
-  const PRODUCT_ID = 'p1';
   const INQUIRIES_SEARCH_PLACEHOLDER = '문의 내역 검색...';
+
+  async function resolveInquiryProductId(page: Page): Promise<string> {
+    const response = await page.request.get('/api/products');
+    expect(response.status()).toBe(200);
+    const payload = (await response.json()) as { products?: Array<{ id?: string; isVisible?: boolean }> };
+    const product = payload.products?.find((item) => item.id && item.isVisible !== false);
+    expect(product?.id).toBeTruthy();
+    return product!.id!;
+  }
 
   /** 로그인 폼 셀렉터는 loginAsAdmin(adminCrudHelpers.ts)과 동일 — 계정만 다르다. */
   async function loginAsMember(page: Page): Promise<void> {
@@ -115,7 +123,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
 
     // 1) 회원으로 로그인 → 상품 상세 "문의하기" 모달로 문의 작성.
     await loginAsMember(memberPage);
-    await memberPage.goto(`/shop/${PRODUCT_ID}`);
+    const productId = await resolveInquiryProductId(memberPage);
+    await memberPage.goto(`/shop/${productId}`);
     await memberPage.getByRole('button', { name: '문의하기' }).click();
     // ⚠️ 모달이 뜨자마자 fill()하면 값이 조용히 안 먹는 레이스가 실측됐다(스크린샷으로 빈 입력칸
     // 확인) — 모달 제목이 뜬 뒤, fill 직후 실제 값이 반영됐는지 확인하고서 다음으로 넘어간다.
@@ -137,7 +146,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     expect(createResponse.status()).toBe(201);
 
     // 등록 완료 후 모달이 닫히고 문의 탭 카운트/목록에 반영됐는지로 성공을 확인.
-    await memberPage.goto(`/shop/${PRODUCT_ID}`);
+    await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.locator('#qna')).toContainText(title, { timeout: 15_000 });
     await expect(memberPage.locator('#qna')).toContainText('답변대기');
 
@@ -172,7 +181,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     await adminPage.close();
 
     // 3) 공개 상품 상세 문의 탭(getMergedInquiries 병합 뷰) — 질문·답변 텍스트가 필드 단위로 반영되는지 확인.
-    await memberPage.goto(`/shop/${PRODUCT_ID}`);
+    await memberPage.goto(`/shop/${productId}`);
     const qnaSection = memberPage.locator('#qna');
     await expect(qnaSection).toContainText(title, { timeout: 15_000 });
     await expect(qnaSection).toContainText(content);
@@ -190,7 +199,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     await memberPage.reload();
     await expect(memberPage.locator('.mypage-card', { hasText: title })).toHaveCount(0);
 
-    await memberPage.goto(`/shop/${PRODUCT_ID}`);
+    await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.locator('#qna')).not.toContainText(title);
 
     await memberPage.close();
