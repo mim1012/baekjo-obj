@@ -1691,7 +1691,7 @@ function emitStorageEvent(eventName: string): void {
  * 실패는 orders/products 콘센트와 동일하게 빈 배열/undefined 로 접고, 쓰기 실패는 throw 한다.
  */
 
-import type { ProductReview, ProductInquiry } from '@/types';
+import type { AdminProductReview, ProductReview, ProductInquiry } from '@/types';
 
 /** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
 export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
@@ -1915,4 +1915,46 @@ export async function deleteTemporaryAdminImage(path: string): Promise<{ deleted
     throw new Error(data.error || 'delete-failed');
   }
   return data as { deleted: boolean; reason: string };
+}
+
+/* ── 관리자 구매평 moderation ─────────────────────────────────
+ * product_reviews(실제 구매평) 대상 — 전시 후기(showcaseReviews)와는 별개 도메인이다.
+ * GET/PATCH/DELETE /api/admin/reviews[/[id]]. 별점 재집계는 DB 트리거(0070)가 자동 처리하므로
+ * 여기서 products.rating을 따로 갱신하지 않는다.
+ */
+
+/** 관리자 구매평 목록(published+hidden 전체, 상품명 포함). GET /api/admin/reviews. 실패 시 throw. */
+export async function getAdminProductReviews(): Promise<AdminProductReview[]> {
+  const response = await fetch('/api/admin/reviews');
+  if (!response.ok) throw new Error('admin-reviews-load-failed');
+  const { reviews } = (await response.json()) as { reviews: AdminProductReview[] };
+  if (!Array.isArray(reviews)) throw new Error('admin-reviews-invalid-response');
+  return reviews;
+}
+
+/** 관리자 구매평 노출/숨김 전환. PATCH /api/admin/reviews/[id]. 성공/실패를 boolean으로 돌려 화면이 알린다. */
+export async function setAdminReviewStatus(
+  id: string,
+  status: 'published' | 'hidden',
+): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch(`/api/admin/reviews/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/** 관리자 구매평 삭제(악성/부적절). DELETE /api/admin/reviews/[id]. 성공/실패를 boolean으로 돌려 화면이 알린다. */
+export async function deleteAdminReview(id: string): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
 }
