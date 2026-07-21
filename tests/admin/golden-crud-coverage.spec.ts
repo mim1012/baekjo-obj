@@ -79,6 +79,12 @@ const EXCLUDED: Record<string, string> = {
   upload:
     '업로드 유틸리티(ImageUploader가 쓰는 공용 엔드포인트) — 그 자체가 CRUD 리소스가 아니며, ' +
     'brands/products 실구동 스펙의 이미지 업로드 스텝에서 이미 간접적으로 실행된다.',
+  reviews:
+    '구매평(product_reviews) moderation 전용 — showcase-reviews(전시 후기, 관리자가 직접 CRUD 생성)와 ' +
+    '달리 관리자가 새 행을 만들지 않고 회원이 실제 구매 후 작성한 리뷰의 노출/숨김·삭제만 다룬다. ' +
+    '실구동으로 등록 단계를 재현하려면 체크아웃(주문 생성→배송완료→구매확정) 전체를 먼저 선행해야 해 ' +
+    '이 PR 범위 밖 — 대신 tests/admin/admin-reviews-moderation-contract.spec.ts가 가드·화이트리스트· ' +
+    '집계 트리거(0070)를 소스-계약으로 검증한다.',
 };
 
 test.describe('골든플로우 #7 커버리지 감사 — 새 admin 도메인 누락 방지', () => {
