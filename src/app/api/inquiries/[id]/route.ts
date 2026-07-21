@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { updateInquiryByOwner, deleteInquiryByOwner, type InquiryPatch } from '@/lib/inquiries/repo';
 import { logServerError } from '@/lib/logServerError';
 
@@ -38,9 +38,9 @@ function validate(body: unknown): InquiryPatch | null {
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: unknown;
@@ -56,7 +56,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   }
 
   try {
-    const inquiry = await updateInquiryByOwner(id, session.user.memberId, patch);
+    const inquiry = await updateInquiryByOwner(id, activeMember.memberId, patch);
     if (!inquiry) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
@@ -71,13 +71,13 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
 export async function DELETE(_request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
 
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   try {
-    const deleted = await deleteInquiryByOwner(id, session.user.memberId);
+    const deleted = await deleteInquiryByOwner(id, activeMember.memberId);
     if (!deleted) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }

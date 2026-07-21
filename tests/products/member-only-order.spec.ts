@@ -11,13 +11,19 @@ function source(...segments: string[]): string {
 test.describe('member-only order contract', () => {
   test('POST /api/orders rejects unauthenticated requests before inserting an order', () => {
     const route = source('src', 'app', 'api', 'orders', 'route.ts');
-    const authCheckIndex = route.indexOf("return NextResponse.json({ error: 'login-required' }, { status: 401 })");
+    // be/member-suspend-withdraw: 세션 존재만 보던 인증 체크가 requireActiveMember()로 바뀌어
+    // status==='active'까지 DB 재검증한다(정지·탈퇴 회원의 주문 생성 차단 — U6 세션 실효).
+    // 401 자체는 이 헬퍼 안(requireActiveMember.ts)에서 여전히 unauthenticated 요청에 내려간다.
+    const authCheckIndex = route.indexOf('const activeMember = await requireActiveMember();');
     const insertIndex = route.indexOf('await insertOrder(');
 
     expect(authCheckIndex).toBeGreaterThanOrEqual(0);
     expect(insertIndex).toBeGreaterThan(authCheckIndex);
     expect(route).not.toContain('const memberId = session?.user?.memberId ?? null');
     expect(route).not.toContain('게스트 결제 허용');
+
+    const helper = source('src', 'lib', 'members', 'requireActiveMember.ts');
+    expect(helper).toContain("status: 401");
   });
 
   test('checkout/cart/login route unauthenticated users through login and back to checkout', () => {

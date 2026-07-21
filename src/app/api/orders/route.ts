@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import {
   insertOrder,
   deleteOrderById,
@@ -151,10 +151,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  const session = await auth();
-  if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'login-required' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
+  const memberId = activeMember.memberId;
 
   // 주문 생성 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 자동화 루프가 재고 차감을
   // 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
@@ -187,7 +188,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const order = await insertOrder(validated, session.user.memberId);
+    const order = await insertOrder(validated, memberId);
 
     try {
       await decrementStockForOrder(
