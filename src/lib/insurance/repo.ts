@@ -1,6 +1,10 @@
 // insurance_applications 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
+import { logServerError } from '@/lib/logServerError';
 import type { InsuranceApplication } from '@/types';
+
+// 증권 업로드 비공개 버킷(0060 마이그레이션) — 삭제(PII 파기)·열람(signed URL) 양쪽에서 참조.
+const CERT_BUCKET = 'insurance-docs';
 
 /**
  * 신청 생성 입력. id/createdAt/member_id 는 서버가 정하므로 여기서 받지 않는다(mass-assignment 차단).
@@ -87,6 +91,7 @@ function rowToApplication(row: InsuranceRow): InsuranceApplication {
     gender: optString(detail.gender),
     concerns: optString(detail.concerns),
     ownerName: optString(detail.ownerName),
+    insuranceCertPath: optString(detail.insuranceCertPath),
   };
 }
 
@@ -109,6 +114,7 @@ function toDetail(input: InsertInsuranceInput): Record<string, unknown> {
     ['gender', input.gender],
     ['concerns', input.concerns],
     ['ownerName', input.ownerName],
+    ['insuranceCertPath', input.insuranceCertPath],
   ];
   for (const [key, value] of optionalEntries) {
     if (value !== undefined) detail[key] = value;
@@ -181,4 +187,44 @@ export async function updateInsuranceApplication(
     .maybeSingle();
   if (error) throw error;
   return data ? rowToApplication(data as InsuranceRow) : null;
+}
+
+/** 관리자 증권 열람용 — id로 저장된 insuranceCertPath만 조회한다. 없으면 null. */
+export async function getInsuranceCertPath(id: string): Promise<string | null> {
+  const { data, error } = await getSupabase()
+    .from('insurance_applications')
+    .select('detail')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return optString(asDetail((data as { detail: unknown }).detail).insuranceCertPath) ?? null;
+}
+
+/**
+ * 관리자 신청 삭제(PII 파기). deletePartnerInquiryById와 동일 패턴(select로 삭제된 행 반환받아
+ * 존재 여부 판정). 증권 파일이 있으면 비공개 버킷에서도 함께 지운다 — 행만 지우고 파일을 남기면
+ * PII 파기가 미완결이라 목적을 놓친다. 스토리지 삭제는 베스트에포트(행 삭제는 이미 끝났으므로
+ * 실패해도 throw 하지 않고 로그만 남긴다 — 되돌릴 수 없는 단계에서 예외로 응답을 실패시키지 않음).
+ */
+export async function deleteInsuranceApplicationById(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('insurance_applications')
+    .delete()
+    .eq('id', id)
+    .select(SELECT_COLUMNS);
+  if (error) throw error;
+
+  const rows = data as InsuranceRow[] | null;
+  if (!rows || rows.length === 0) return false;
+
+  const certPath = optString(asDetail(rows[0].detail).insuranceCertPath);
+  if (certPath) {
+    const { error: storageError } = await getSupabase().storage.from(CERT_BUCKET).remove([certPath]);
+    if (storageError) {
+      logServerError('[deleteInsuranceApplicationById] 증권 파일 삭제 실패(행은 삭제됨)', storageError);
+    }
+  }
+
+  return true;
 }

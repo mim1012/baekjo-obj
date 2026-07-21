@@ -328,8 +328,8 @@ export default function InsurancePage() {
               <div className="mt-12 flex items-start gap-3 rounded-xl bg-[#F4F2EC] p-4">
                 <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#1A221E]" strokeWidth={1.5} />
                 <p className="text-[13px] leading-[1.65] text-[#5F6761]">
-                  업로드된 파일은 안전하게 보호되며<br />
-                  분석 목적 외에 사용하지 않습니다.
+                  이 화면에서 고른 파일은 미리보기용이며 저장되지 않습니다.<br />
+                  실제 첨부는 다음 단계(신청서)에서 안전하게 업로드돼요.
                 </p>
               </div>
             </div>

@@ -10,6 +10,11 @@ const MAX_SHORT = 200;
 const MAX_TEXT = 2000;
 const MAX_COVERAGE = 20;
 
+// POST /api/insurance/upload이 반환하는 path 모양(certs/<uuid>.<ext>)만 허용한다 — 임의 문자열을
+// 그대로 저장하면 이후 관리자 signed URL 발급(U16)·PII 삭제(U11)에서 다른 경로를 참조하게 될 수
+// 있어 형식을 여기서 좁혀 막는다.
+const CERT_PATH_PATTERN = /^certs\/[a-zA-Z0-9-]+\.(pdf|jpg|png|webp)$/;
+
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
 }
@@ -48,6 +53,12 @@ function validate(body: unknown): InsertInsuranceInput | null {
   );
   if (coverageNeeds.length !== b.coverageNeeds.length) return null;
   if (b.message !== undefined && !isStr(b.message, 0, MAX_TEXT)) return null;
+  if (
+    b.insuranceCertPath !== undefined &&
+    (typeof b.insuranceCertPath !== 'string' || !CERT_PATH_PATTERN.test(b.insuranceCertPath))
+  ) {
+    return null;
+  }
 
   return {
     name: b.name,
@@ -80,6 +91,7 @@ function validate(body: unknown): InsertInsuranceInput | null {
     ...(optStr(b.gender, MAX_SHORT) !== undefined ? { gender: optStr(b.gender, MAX_SHORT) } : {}),
     ...(optStr(b.concerns, MAX_TEXT) !== undefined ? { concerns: optStr(b.concerns, MAX_TEXT) } : {}),
     ...(optStr(b.ownerName, MAX_NAME) !== undefined ? { ownerName: optStr(b.ownerName, MAX_NAME) } : {}),
+    ...(typeof b.insuranceCertPath === 'string' ? { insuranceCertPath: b.insuranceCertPath } : {}),
   };
 }
 
