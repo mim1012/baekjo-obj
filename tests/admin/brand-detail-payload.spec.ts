@@ -8,6 +8,7 @@ import {
   emptyAuditReportForm,
   emptyAuditReportFields,
   canClearAuditReport,
+  validateBrandDetailFormState,
   BRAND_DETAIL_FIELDS,
   type AuditReportFormState,
   type BrandDetailFormState,
@@ -288,4 +289,52 @@ test('불리언 기본값 — isVisible 은 false 아니면 노출, isRecommende
   expect(bare.isVisible).toBe(true);
   expect(bare.isRecommended).toBe(false);
   expect(bare.isNew).toBe(false);
+});
+
+test('상세 폼 검증은 필수 기본 필드와 displayOrder 상한을 필드별 에러로 반환한다', () => {
+  const errors = validateBrandDetailFormState(
+    form({ name: ' ', logo: '', description: '', philosophy: '', displayOrder: 100_001 }),
+    true,
+  );
+
+  expect(errors.name).toContain('브랜드명');
+  expect(errors.logo).toContain('브랜드 로고');
+  expect(errors.description).toContain('한 줄 소개');
+  expect(errors.philosophy).toContain('브랜드 철학');
+  expect(errors.displayOrder).toContain('100,000 이하');
+});
+
+test('상세 폼 검증은 배송정책 긴 문구와 음수 금액을 필드별 에러로 반환한다', () => {
+  const errors = validateBrandDetailFormState(
+    form({
+      shipping: {
+        shippingFee: -1,
+        carrierLabel: 'x'.repeat(501),
+        returnPolicy: 'x'.repeat(501),
+      },
+    }),
+    true,
+  );
+
+  expect(errors['shipping.shippingFee']).toContain('0원 이상의 숫자');
+  expect(errors['shipping.carrierLabel']).toContain('500자 이하');
+  expect(errors['shipping.returnPolicy']).toContain('500자 이하');
+});
+
+test('상세 폼 검증은 부분 감사보고서를 섹션 에러와 필드별 에러로 반환한다', () => {
+  const errors = validateBrandDetailFormState(form({ auditReport: fullReport({ summary: '' }) }), true);
+
+  expect(errors.auditReport).toContain('감사 보고서');
+  expect(errors['auditReport.summary']).toContain('이 항목을 채워주세요');
+});
+
+test('상세 폼 검증은 출처 URL 개수와 항목 길이를 저장 전에 막는다', () => {
+  const tooMany = validateBrandDetailFormState(
+    form({ sourceUrls: Array.from({ length: 21 }, (_, i) => `https://example.com/${i}`) }),
+    true,
+  );
+  const tooLong = validateBrandDetailFormState(form({ sourceUrls: ['x'.repeat(501)] }), true);
+
+  expect(tooMany.sourceUrls).toContain('최대 20개');
+  expect(tooLong.sourceUrls).toContain('500자 이하');
 });

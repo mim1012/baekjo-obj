@@ -53,7 +53,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
     <>
       <FormSection
         title="상태 변경 및 관리"
-        description="주문의 진행 상태 및 배송 정보를 업데이트합니다."
+        description="값을 변경하면 화면 하단에 저장바가 나타납니다. 저장하기를 눌러야 실제 DB에 반영됩니다."
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <FormField label="주문 상태">
@@ -138,6 +138,8 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
       <SaveBar
         isDirty={isDirty}
         isSaving={isSaving}
+        message="주문 상태 변경사항이 있습니다. 하단의 저장하기를 눌러 DB에 반영하세요."
+        saveLabel="상태 저장하기"
         onSave={handleSave}
         onCancel={() => {
           setFormData({

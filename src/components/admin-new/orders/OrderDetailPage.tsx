@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, MapPin, Package, CreditCard } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Package, CreditCard, Copy, Check } from 'lucide-react';
 import { getOrderById } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatDate, formatPrice } from '@/lib/format';
@@ -24,6 +24,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const loadOrder = useCallback(async () => {
     try {
@@ -49,6 +50,13 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
     setLoading(true);
     loadOrder();
   }, [loadOrder]);
+
+  const handleCopyOrderId = useCallback(async () => {
+    if (!order) return;
+    await navigator.clipboard.writeText(order.id);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  }, [order]);
 
   if (!mounted) return null;
 
@@ -77,10 +85,31 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <PageHeader 
-          title={`주문 상세: ${order.id}`}
+          title="주문 상세"
           description={`주문일: ${formatDate(order.createdAt)}`}
         />
       </div>
+
+      <section className="rounded-md border border-[#D8D4C8] bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <span className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-500">
+              주문번호
+            </span>
+            <code className="mt-1 block break-all rounded bg-[#F4F2EC] px-3 py-2 font-mono text-[18px] font-semibold text-[#17201B] sm:text-[20px]">
+              {order.id}
+            </code>
+          </div>
+          <button
+            type="button"
+            onClick={handleCopyOrderId}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#17201B] hover:bg-gray-50"
+          >
+            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? '복사됨' : '주문번호 복사'}
+          </button>
+        </div>
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">

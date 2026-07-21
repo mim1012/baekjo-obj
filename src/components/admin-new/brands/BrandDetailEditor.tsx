@@ -7,24 +7,16 @@ import type { Brand, BrandShippingPolicy } from '@/types';
 import { updateBrand, type UpdateBrandInput } from '@/lib/storage';
 import {
   buildBrandDetailPayload,
-  validateDisplayOrder,
-  validateAuditReportForm,
+  validateBrandDetailFormState,
   emptyAuditReportForm,
   emptyAuditReportFields,
   auditReportFillState,
-  canClearAuditReport,
+  type BrandDetailFieldErrors,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
 import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
 
-/** sourceUrls 서버 상한(validate.ts MAX_SOURCE_URLS)과 동일. 초과 입력을 클라에서 막는다. */
 const MAX_SOURCE_URLS = 20;
-const SHIPPING_MONEY_FIELDS = [
-  'shippingFee',
-  'freeShippingThreshold',
-  'returnShippingFee',
-  'exchangeShippingFee',
-] as const;
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -67,13 +59,6 @@ function optionalNumberInput(value: string): number | undefined {
   return value === '' ? undefined : Number(value);
 }
 
-function hasInvalidShippingMoney(shipping: BrandShippingPolicy): boolean {
-  return SHIPPING_MONEY_FIELDS.some((field) => {
-    const value = shipping[field];
-    return value !== undefined && (!Number.isFinite(value) || value < 0);
-  });
-}
-
 export default function BrandDetailEditor({
   initialBrand,
   brandProducts,
@@ -109,6 +94,7 @@ export default function BrandDetailEditor({
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<BrandDetailFieldErrors>({});
   const errorRef = useRef<HTMLDivElement | null>(null);
 
   // 저장 실패 시 에러 배너로 스크롤·포커스 — 대형 폼(pb-24)에서 맨 위 배너가 뷰포트 밖이라
@@ -127,7 +113,8 @@ export default function BrandDetailEditor({
       ? new Set<keyof AuditReportFormState>(emptyAuditReportFields(auditReport))
       : new Set<keyof AuditReportFormState>();
   const fieldError = (key: keyof AuditReportFormState): string | undefined =>
-    emptyReportFields.has(key) ? '이 항목을 채워주세요(전부 채우거나 전부 비우기).' : undefined;
+    fieldErrors[`auditReport.${key}`] ??
+    (emptyReportFields.has(key) ? '이 항목을 채워주세요(전부 채우거나 전부 비우기).' : undefined);
 
   const setReportField = (field: keyof AuditReportFormState, value: string) => {
     setAuditReport((prev) => ({ ...prev, [field]: value }));
@@ -146,30 +133,31 @@ export default function BrandDetailEditor({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim()) return setError('브랜드명을 입력해주세요.');
-    if (!description.trim()) return setError('브랜드 소개를 입력해주세요.');
+    const nextFieldErrors = validateBrandDetailFormState(
+      {
+        name,
+        logo,
+        description,
+        philosophy,
+        auditGrade,
+        officialUrl,
+        isRecommended,
+        isVisible,
+        isNew,
+        displayOrder,
+        auditReport,
+        representativeProductIds,
+        relatedConcernSlugs,
+        auditPoints,
+        sourceUrls,
+        shipping,
+      },
+      !!initialBrand.auditReport,
+    );
+    setFieldErrors(nextFieldErrors);
 
-    const orderError = validateDisplayOrder(displayOrder);
-    if (orderError) return setError(orderError);
-
-    if (hasInvalidShippingMoney(shipping)) {
-      return setError('배송비·교환/반품비·무료배송 기준은 0원 이상의 숫자로 입력해주세요.');
-    }
-
-    // auditReport 는 "전부 채우거나 전부 비우거나"만 유효(서버 validate 가 8필드 전부 요구).
-    // 부분 입력이면 여기서 사람 말로 막아 서버 400 을 예방한다.
-    const reportError = validateAuditReportForm(auditReport);
-    if (reportError) return setError(reportError);
-
-    // 계약 한계(§4): 이미 있는 보고서를 이 화면에서 비워도 서버가 실제로 지우지 못한다
-    // (validate 가 auditReport:null 을 거부 + undefined 는 JSON 에서 드롭돼 기존 값 보존).
-    // 안내문의 "전부 비우면 플레이스홀더" 약속이 거짓이 되므로 그 시도만 차단한다.
-    // 완전 해법(validate 가 null 수용)은 별도 contract PR.
-    if (!canClearAuditReport(!!initialBrand.auditReport, auditReportFillState(auditReport))) {
-      return setError(
-        '기존 감사 보고서는 이 화면에서 비울 수 없습니다(지우기 기능 준비 중). 내용을 수정하거나 그대로 두세요.',
-      );
-    }
+    const firstError = Object.values(nextFieldErrors)[0];
+    if (firstError) return setError(firstError);
 
     setIsSaving(true);
     setError(null);
@@ -243,7 +231,7 @@ export default function BrandDetailEditor({
           <h2 className="text-[15px] font-semibold text-[#17201B] mb-4">기본 정보</h2>
           <div className="grid grid-cols-3 gap-6">
             <div className="col-span-1">
-              <FormField label="브랜드 로고">
+              <FormField label="브랜드 로고" error={fieldErrors.logo}>
                 <ImageUploader
                   value={logo || ''}
                   onChange={(url) => setLogo(url)}
@@ -257,7 +245,7 @@ export default function BrandDetailEditor({
             </div>
 
             <div className="col-span-2 space-y-4">
-              <FormField label="브랜드명" required htmlFor="bd-name">
+              <FormField label="브랜드명" required htmlFor="bd-name" error={fieldErrors.name}>
                 <input
                   id="bd-name"
                   type="text"
@@ -283,7 +271,7 @@ export default function BrandDetailEditor({
                   </select>
                 </FormField>
 
-                <FormField label="공식몰 URL" htmlFor="bd-official">
+                <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
                   <input
                     id="bd-official"
                     type="url"
@@ -298,7 +286,7 @@ export default function BrandDetailEditor({
           </div>
 
           <div className="mt-4 space-y-4">
-            <FormField label="한 줄 소개" required htmlFor="bd-desc">
+            <FormField label="한 줄 소개" required htmlFor="bd-desc" error={fieldErrors.description}>
               <textarea
                 id="bd-desc"
                 value={description}
@@ -308,7 +296,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="브랜드 철학 및 스토리" htmlFor="bd-philosophy">
+            <FormField label="브랜드 철학 및 스토리" htmlFor="bd-philosophy" error={fieldErrors.philosophy}>
               <textarea
                 id="bd-philosophy"
                 value={philosophy}
@@ -339,7 +327,7 @@ export default function BrandDetailEditor({
               />
             </div>
 
-            <FormField label="진열 순서" htmlFor="bd-order">
+            <FormField label="진열 순서" htmlFor="bd-order" error={fieldErrors.displayOrder}>
               <input
                 id="bd-order"
                 type="number"
@@ -386,7 +374,7 @@ export default function BrandDetailEditor({
               </select>
             </FormField>
 
-            <FormField label="표시용 배송사" htmlFor="ship-carrier-label">
+            <FormField label="표시용 배송사" htmlFor="ship-carrier-label" error={fieldErrors['shipping.carrierLabel']}>
               <input
                 id="ship-carrier-label"
                 type="text"
@@ -397,7 +385,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="출고 예정" htmlFor="ship-dispatch">
+            <FormField label="출고 예정" htmlFor="ship-dispatch" error={fieldErrors['shipping.dispatchEstimate']}>
               <input
                 id="ship-dispatch"
                 type="text"
@@ -408,7 +396,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="배송비" htmlFor="ship-fee">
+            <FormField label="배송비" htmlFor="ship-fee" error={fieldErrors['shipping.shippingFee']}>
               <input
                 id="ship-fee"
                 type="number"
@@ -421,7 +409,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="배송비 표시 문구" htmlFor="ship-fee-label">
+            <FormField label="배송비 표시 문구" htmlFor="ship-fee-label" error={fieldErrors['shipping.shippingFeeLabel']}>
               <input
                 id="ship-fee-label"
                 type="text"
@@ -432,7 +420,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="무료배송 기준" htmlFor="ship-free-threshold">
+            <FormField label="무료배송 기준" htmlFor="ship-free-threshold" error={fieldErrors['shipping.freeShippingThreshold']}>
               <input
                 id="ship-free-threshold"
                 type="number"
@@ -447,7 +435,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="지역 추가배송비 안내" htmlFor="ship-extra-fee">
+            <FormField label="지역 추가배송비 안내" htmlFor="ship-extra-fee" error={fieldErrors['shipping.extraFeeNotice']}>
               <input
                 id="ship-extra-fee"
                 type="text"
@@ -458,7 +446,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="반품 배송비" htmlFor="ship-return-fee">
+            <FormField label="반품 배송비" htmlFor="ship-return-fee" error={fieldErrors['shipping.returnShippingFee']}>
               <input
                 id="ship-return-fee"
                 type="number"
@@ -473,7 +461,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="교환 배송비" htmlFor="ship-exchange-fee">
+            <FormField label="교환 배송비" htmlFor="ship-exchange-fee" error={fieldErrors['shipping.exchangeShippingFee']}>
               <input
                 id="ship-exchange-fee"
                 type="number"
@@ -490,7 +478,7 @@ export default function BrandDetailEditor({
           </div>
 
           <div className="mt-4 space-y-4">
-            <FormField label="반품/교환 주소" htmlFor="ship-return-address">
+            <FormField label="반품/교환 주소" htmlFor="ship-return-address" error={fieldErrors['shipping.returnAddress']}>
               <textarea
                 id="ship-return-address"
                 value={shipping.returnAddress ?? ''}
@@ -500,7 +488,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="교환/반품 정책" htmlFor="ship-return-policy">
+            <FormField label="교환/반품 정책" htmlFor="ship-return-policy" error={fieldErrors['shipping.returnPolicy']}>
               <textarea
                 id="ship-return-policy"
                 value={shipping.returnPolicy ?? ''}
@@ -510,7 +498,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="교환/반품 제한" htmlFor="ship-return-exclusions">
+            <FormField label="교환/반품 제한" htmlFor="ship-return-exclusions" error={fieldErrors['shipping.returnExclusions']}>
               <textarea
                 id="ship-return-exclusions"
                 value={shipping.returnExclusions ?? ''}
@@ -520,7 +508,7 @@ export default function BrandDetailEditor({
               />
             </FormField>
 
-            <FormField label="A/S 안내" htmlFor="ship-as-notice">
+            <FormField label="A/S 안내" htmlFor="ship-as-notice" error={fieldErrors['shipping.asNotice']}>
               <textarea
                 id="ship-as-notice"
                 value={shipping.asNotice ?? ''}
@@ -531,7 +519,7 @@ export default function BrandDetailEditor({
             </FormField>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField label="고객지원 연락처" htmlFor="ship-support-contact">
+              <FormField label="고객지원 연락처" htmlFor="ship-support-contact" error={fieldErrors['shipping.supportContact']}>
                 <input
                   id="ship-support-contact"
                   type="text"
@@ -542,7 +530,7 @@ export default function BrandDetailEditor({
                 />
               </FormField>
 
-              <FormField label="고객지원 시간" htmlFor="ship-support-hours">
+              <FormField label="고객지원 시간" htmlFor="ship-support-hours" error={fieldErrors['shipping.supportHours']}>
                 <input
                   id="ship-support-hours"
                   type="text"
@@ -570,6 +558,9 @@ export default function BrandDetailEditor({
               <>전부 비우면 공개 상세에 &lsquo;확인 중&rsquo; 플레이스홀더가 표시됩니다.</>
             )}
           </p>
+          {fieldErrors.auditReport && (
+            <p className="mb-4 text-[13px] font-medium text-[#A65348]">{fieldErrors.auditReport}</p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="보고서 번호" htmlFor="ar-reportNo" error={fieldError('reportNo')}>
               <input id="ar-reportNo" type="text" value={auditReport.reportNo}
@@ -608,6 +599,7 @@ export default function BrandDetailEditor({
                 placeholder="예: 성분 분석 → 현장 실사 → 최종 승인"
                 addLabel="단계 추가"
                 itemLabel="검증 과정 단계"
+                error={fieldErrors['auditReport.process']}
               />
             </FormField>
           </div>
@@ -666,6 +658,7 @@ export default function BrandDetailEditor({
               placeholder="예: 무방부제 원료 사용"
               addLabel="포인트 추가"
               itemLabel="검증 포인트"
+              error={fieldErrors.auditPoints}
             />
           </div>
           <div>
@@ -678,6 +671,7 @@ export default function BrandDetailEditor({
               addLabel="출처 추가"
               itemLabel="근거 출처"
               maxItems={MAX_SOURCE_URLS}
+              error={fieldErrors.sourceUrls}
             />
           </div>
         </section>
@@ -767,6 +761,7 @@ function ArrayEditor({
   addLabel,
   itemLabel,
   maxItems,
+  error,
 }: {
   items: string[];
   onChange: (next: string[]) => void;
@@ -776,6 +771,7 @@ function ArrayEditor({
   itemLabel?: string;
   /** 클라 상한(서버와 동일값). 도달 시 추가 버튼 disabled. */
   maxItems?: number;
+  error?: string;
 }) {
   const update = (idx: number, value: string) => {
     onChange(items.map((item, i) => (i === idx ? value : item)));
@@ -825,6 +821,7 @@ function ArrayEditor({
       {atMax && (
         <p className="text-[12px] text-gray-400">최대 {maxItems}개까지 추가할 수 있습니다.</p>
       )}
+      {error && <p className="text-[13px] font-medium text-[#A65348]">{error}</p>}
     </div>
   );
 }

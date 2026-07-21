@@ -3,6 +3,16 @@
 // 브라우저 없이 payload 형태를 직접 검증할 수 있게 한다.
 import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
 
+const MAX_BRAND_NAME = 200;
+const MAX_BRAND_SHORT_TEXT = 100;
+const MAX_BRAND_TEXT = 300;
+const MAX_BRAND_LONG_TEXT = 5000;
+const MAX_BRAND_URL = 500;
+const MAX_BRAND_ARRAY_ITEMS = 50;
+const MAX_BRAND_SOURCE_URLS = 20;
+const MAX_BRAND_DISPLAY_ORDER = 100_000;
+const MAX_BRAND_SHIPPING_TEXT = 500;
+
 /**
  * BrandForm 화이트리스트 — 이 폼이 편집 UI를 가진 필드만 나열한다.
  * 폼은 자기가 편집하는 필드만 patch한다. `...formData`로 로드 시점 스냅샷을 통째로
@@ -54,6 +64,9 @@ export function validateDisplayOrder(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null;
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     return '진열 순서는 0 이상의 정수로 입력해주세요.';
+  }
+  if (value > MAX_BRAND_DISPLAY_ORDER) {
+    return '진열 순서는 100,000 이하로 입력해주세요.';
   }
   return null;
 }
@@ -232,6 +245,195 @@ export interface BrandDetailFormState {
   auditPoints: string[];
   sourceUrls: string[];
   shipping?: BrandShippingPolicy;
+}
+
+export type BrandDetailFieldErrors = Partial<
+  Record<
+    | 'name'
+    | 'logo'
+    | 'description'
+    | 'philosophy'
+    | 'officialUrl'
+    | 'displayOrder'
+    | 'auditReport'
+    | 'auditPoints'
+    | 'sourceUrls'
+    | 'representativeProductIds'
+    | 'relatedConcernSlugs'
+    | `auditReport.${keyof AuditReportFormState}`
+    | `shipping.${keyof BrandShippingPolicy}`,
+    string
+  >
+>;
+
+function setTextError(
+  errors: BrandDetailFieldErrors,
+  key: keyof BrandDetailFieldErrors,
+  label: string,
+  value: string | undefined,
+  options: { required?: boolean; max: number },
+) {
+  const length = value?.trim().length ?? 0;
+  if (options.required && length === 0) {
+    errors[key] = `${label}을 입력해주세요.`;
+    return;
+  }
+  if ((value?.length ?? 0) > options.max) {
+    errors[key] = `${label}은 ${options.max.toLocaleString('ko-KR')}자 이하로 입력해주세요.`;
+  }
+}
+
+function setStringListError(
+  errors: BrandDetailFieldErrors,
+  key: keyof BrandDetailFieldErrors,
+  label: string,
+  items: string[],
+  maxItems: number,
+  maxLength: number,
+) {
+  if (items.length > maxItems) {
+    errors[key] = `${label}은 최대 ${maxItems}개까지 입력할 수 있습니다.`;
+    return;
+  }
+  if (items.some((item) => item.length > maxLength)) {
+    errors[key] = `${label}은 항목당 ${maxLength.toLocaleString('ko-KR')}자 이하로 입력해주세요.`;
+  }
+}
+
+function setMoneyError(
+  errors: BrandDetailFieldErrors,
+  key: `shipping.${keyof BrandShippingPolicy}`,
+  label: string,
+  value: number | undefined,
+) {
+  if (value !== undefined && (!Number.isFinite(value) || value < 0)) {
+    errors[key] = `${label}은 0원 이상의 숫자로 입력해주세요.`;
+  }
+}
+
+export function validateBrandDetailFormState(
+  form: BrandDetailFormState,
+  hadAuditReport: boolean,
+): BrandDetailFieldErrors {
+  const errors: BrandDetailFieldErrors = {};
+
+  setTextError(errors, 'name', '브랜드명', form.name, { required: true, max: MAX_BRAND_NAME });
+  setTextError(errors, 'logo', '브랜드 로고', form.logo, { required: true, max: MAX_BRAND_URL });
+  setTextError(errors, 'description', '한 줄 소개', form.description, {
+    required: true,
+    max: MAX_BRAND_LONG_TEXT,
+  });
+  setTextError(errors, 'philosophy', '브랜드 철학 및 스토리', form.philosophy, {
+    required: true,
+    max: MAX_BRAND_LONG_TEXT,
+  });
+  setTextError(errors, 'officialUrl', '공식몰 URL', form.officialUrl, { max: MAX_BRAND_URL });
+
+  const orderError = validateDisplayOrder(form.displayOrder);
+  if (orderError) errors.displayOrder = orderError;
+
+  setStringListError(
+    errors,
+    'representativeProductIds',
+    '대표상품',
+    form.representativeProductIds,
+    MAX_BRAND_ARRAY_ITEMS,
+    MAX_BRAND_SHORT_TEXT,
+  );
+  setStringListError(
+    errors,
+    'relatedConcernSlugs',
+    '연관 고민',
+    form.relatedConcernSlugs,
+    MAX_BRAND_ARRAY_ITEMS,
+    MAX_BRAND_SHORT_TEXT,
+  );
+  setStringListError(errors, 'auditPoints', '검증 포인트', form.auditPoints, MAX_BRAND_ARRAY_ITEMS, MAX_BRAND_TEXT);
+  setStringListError(errors, 'sourceUrls', '근거 출처 URL', form.sourceUrls, MAX_BRAND_SOURCE_URLS, MAX_BRAND_URL);
+
+  const reportError = validateAuditReportForm(form.auditReport);
+  if (reportError) errors.auditReport = reportError;
+  if (!canClearAuditReport(hadAuditReport, auditReportFillState(form.auditReport))) {
+    errors.auditReport =
+      '기존 감사 보고서는 이 화면에서 비울 수 없습니다(지우기 기능 준비 중). 내용을 수정하거나 그대로 두세요.';
+  }
+  if (auditReportFillState(form.auditReport) === 'partial') {
+    for (const key of emptyAuditReportFields(form.auditReport)) {
+      errors[`auditReport.${key}`] = '이 항목을 채워주세요(전부 채우거나 전부 비우기).';
+    }
+  }
+  if (auditReportFillState(form.auditReport) === 'complete') {
+    setTextError(errors, 'auditReport.reportNo', '보고서 번호', form.auditReport.reportNo, {
+      required: true,
+      max: MAX_BRAND_SHORT_TEXT,
+    });
+    setTextError(errors, 'auditReport.auditedAt', '감사 일자', form.auditReport.auditedAt, {
+      required: true,
+      max: MAX_BRAND_SHORT_TEXT,
+    });
+    setTextError(errors, 'auditReport.status', '상태', form.auditReport.status, {
+      required: true,
+      max: MAX_BRAND_SHORT_TEXT,
+    });
+    setTextError(errors, 'auditReport.headline', '헤드라인', form.auditReport.headline, {
+      required: true,
+      max: MAX_BRAND_TEXT,
+    });
+    setTextError(errors, 'auditReport.summaryTitle', '요약 제목', form.auditReport.summaryTitle, {
+      required: true,
+      max: MAX_BRAND_TEXT,
+    });
+    setTextError(errors, 'auditReport.summary', '요약 본문', form.auditReport.summary, {
+      required: true,
+      max: MAX_BRAND_LONG_TEXT,
+    });
+    setTextError(errors, 'auditReport.selectionReason', '선정 이유', form.auditReport.selectionReason, {
+      required: true,
+      max: MAX_BRAND_LONG_TEXT,
+    });
+    setStringListError(
+      errors,
+      'auditReport.process',
+      '검증 과정',
+      form.auditReport.process,
+      30,
+      MAX_BRAND_TEXT,
+    );
+  }
+
+  const shipping = form.shipping ?? {};
+  setMoneyError(errors, 'shipping.shippingFee', '배송비', shipping.shippingFee);
+  setMoneyError(errors, 'shipping.freeShippingThreshold', '무료배송 기준', shipping.freeShippingThreshold);
+  setMoneyError(errors, 'shipping.returnShippingFee', '반품 배송비', shipping.returnShippingFee);
+  setMoneyError(errors, 'shipping.exchangeShippingFee', '교환 배송비', shipping.exchangeShippingFee);
+  setTextError(errors, 'shipping.carrierLabel', '표시용 배송사', shipping.carrierLabel, { max: MAX_BRAND_SHIPPING_TEXT });
+  setTextError(errors, 'shipping.shippingFeeLabel', '배송비 표시 문구', shipping.shippingFeeLabel, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.extraFeeNotice', '지역 추가배송비 안내', shipping.extraFeeNotice, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.dispatchEstimate', '출고 예정', shipping.dispatchEstimate, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.returnAddress', '반품/교환 주소', shipping.returnAddress, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.returnPolicy', '교환/반품 정책', shipping.returnPolicy, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.returnExclusions', '교환/반품 제한', shipping.returnExclusions, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.asNotice', 'A/S 안내', shipping.asNotice, { max: MAX_BRAND_SHIPPING_TEXT });
+  setTextError(errors, 'shipping.supportContact', '고객지원 연락처', shipping.supportContact, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.supportHours', '고객지원 시간', shipping.supportHours, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+
+  return errors;
 }
 
 /** 상세 에디터가 명시적으로 담는 전 필드 화이트리스트(문서·테스트용). */
