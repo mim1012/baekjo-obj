@@ -1,7 +1,8 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse, after, type NextRequest } from 'next/server';
 import { auth } from '@/lib/auth';
 import { insertInsuranceApplication, type InsertInsuranceInput } from '@/lib/insurance/repo';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAdminNewSubmission } from '@/lib/email/notifyAdmin';
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
 const MAX_NAME = 100;
@@ -117,6 +118,14 @@ export async function POST(request: NextRequest) {
     const session = await auth();
     const memberId = session?.user?.memberId ?? null;
     const application = await insertInsuranceApplication(validated, memberId);
+
+    // 접수 성공은 이미 확정됐다 — 알림은 응답 후 after()로 보내 접수 자체를 지연시키지 않는다
+    // (password-reset/request 라우트와 동일 이유: Vercel 서버리스가 응답 후 함수를 얼릴 수 있음).
+    after(() => notifyAdminNewSubmission({
+      kind: '보험 분석 신청',
+      summary: `신청자: ${application.name} (${application.phone})\n반려동물: ${application.petName} / ${application.petType}`,
+    }));
+
     return NextResponse.json({ application }, { status: 201 });
   } catch (error) {
     logServerError('[POST /api/insurance] 신청 생성 실패', error);
