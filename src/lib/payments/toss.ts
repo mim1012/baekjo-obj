@@ -8,6 +8,7 @@
 const TOSS_CONFIRM_URL = 'https://api.tosspayments.com/v1/payments/confirm';
 const TOSS_PAYMENT_QUERY_URL = 'https://api.tosspayments.com/v1/payments';
 const TOSS_PAYMENT_QUERY_BY_ORDER_URL = 'https://api.tosspayments.com/v1/payments/orders';
+const TOSS_CANCEL_URL = 'https://api.tosspayments.com/v1/payments';
 // 응답이 없는 요청이 무한정 매달려 cron/confirm 라우트를 막지 않도록 상한을 둔다.
 // 타임아웃은 fetch가 AbortError를 던지므로 아래 catch에서 network-error와 동일하게 "불명"(httpStatus null)로 흡수된다.
 const TOSS_FETCH_TIMEOUT_MS = 10_000;
@@ -197,6 +198,61 @@ export async function queryTossPaymentByOrderId(
   }
 
   if (!isValidTossConfirmResult(data)) {
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return data;
+}
+
+/** 취소(cancel) 2xx 응답은 confirm/query와 같은 필드 모양이되, status가 반드시
+ *  'CANCELED'|'PARTIAL_CANCELED' 중 하나여야 "실제로 취소됐다"고 신뢰할 수 있다 — 다른 status가
+ *  섞인 2xx를 취소 성공으로 오판하면 refundOrderAndRestore(재고 복원 RPC)가 잘못 뒤따라 돈다. */
+function isValidTossCancelResult(data: unknown): data is TossConfirmResult {
+  if (!isValidTossConfirmResult(data)) return false;
+  return data.status === 'CANCELED' || data.status === 'PARTIAL_CANCELED';
+}
+
+/**
+ * POST /v1/payments/{paymentKey}/cancel — 관리자 환불(U4)이 DB 상태를 '환불완료'로 쓰기 **전에**
+ * 반드시 먼저 호출한다("돈 먼저, 라벨 나중" 원칙). Basic 인증·타임아웃·네트워크/스키마 오류 처리는
+ * confirmTossPayment와 동일 패턴 — 실패 시 TossConfirmError를 던져 호출부가 상태·재고를 그대로 두고
+ * 에러를 전파하게 한다(응답을 못 받은 경우 httpStatus=null, 토스가 명시 거절한 4xx는 그 status 그대로).
+ */
+export async function cancelTossPayment(
+  paymentKey: string,
+  cancelReason: string,
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_CANCEL_URL}/${encodeURIComponent(paymentKey)}/cancel`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ cancelReason }),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !data) {
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-cancel-failed', code, response.status);
+  }
+
+  if (!isValidTossCancelResult(data)) {
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
