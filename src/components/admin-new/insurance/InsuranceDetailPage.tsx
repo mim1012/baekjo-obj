@@ -23,6 +23,23 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
   const [application, setApplication] = useState<InsuranceApplication | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [certLoading, setCertLoading] = useState(false);
+  const [certError, setCertError] = useState('');
+
+  const handleViewCert = useCallback(async () => {
+    setCertLoading(true);
+    setCertError('');
+    try {
+      const response = await fetch(`/api/admin/insurance/${id}/cert`);
+      if (!response.ok) throw new Error('cert-fetch-failed');
+      const { url } = (await response.json()) as { url: string };
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch {
+      setCertError('증권을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } finally {
+      setCertLoading(false);
+    }
+  }, [id]);
 
   const loadApplication = useCallback(async () => {
     try {
@@ -206,6 +223,20 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
                   <span className="text-xs text-gray-600">제3자 제공 동의</span>
                 </div>
               </div>
+
+              {application.insuranceCertPath && (
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleViewCert}
+                    disabled={certLoading}
+                    className="inline-flex items-center gap-2 rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    {certLoading ? '증권 불러오는 중…' : '증권 보기'}
+                  </button>
+                  {certError && <p className="mt-2 text-xs text-red-500">{certError}</p>}
+                </div>
+              )}
             </div>
           </FormSection>
         </div>
