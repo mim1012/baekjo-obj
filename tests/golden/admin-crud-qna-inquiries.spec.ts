@@ -124,8 +124,17 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     // 1) 회원으로 로그인 → 상품 상세 "문의하기" 모달로 문의 작성.
     await loginAsMember(memberPage);
     const productId = await resolveInquiryProductId(memberPage);
+    const sessionResponse = memberPage.waitForResponse(
+      (res) => res.url().includes('/api/members/me') && res.status() === 200,
+      { timeout: 15_000 },
+    ).catch(() => null);
     await memberPage.goto(`/shop/${productId}`);
-    await memberPage.getByRole('button', { name: '문의하기' }).click();
+    await sessionResponse;
+    await memberPage.waitForTimeout(500);
+    await expect(memberPage.getByRole('button', { name: '로그아웃' })).toBeVisible({ timeout: 15_000 });
+    const writeInquiryButton = memberPage.getByRole('button', { name: '문의하기' });
+    await expect(writeInquiryButton).toBeVisible({ timeout: 15_000 });
+    await writeInquiryButton.click();
     // ⚠️ 모달이 뜨자마자 fill()하면 값이 조용히 안 먹는 레이스가 실측됐다(스크린샷으로 빈 입력칸
     // 확인) — 모달 제목이 뜬 뒤, fill 직후 실제 값이 반영됐는지 확인하고서 다음으로 넘어간다.
     await memberPage.getByRole('heading', { name: '상품문의 작성' }).waitFor({ state: 'visible', timeout: 15_000 });
