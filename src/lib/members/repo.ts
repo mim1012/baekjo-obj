@@ -1,5 +1,6 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
+import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
 import type { User } from '@/types';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
@@ -25,7 +26,7 @@ interface MemberRow {
   breed: string | null;
   main_concern: string | null;
   role: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
-  status: 'active' | 'inactive' | 'pending' | 'rejected';
+  status: 'active' | 'inactive' | 'pending' | 'rejected' | 'withdrawn';
   profile_image: string | null;
   email_verified: boolean;
   created_at: string;
@@ -339,7 +340,7 @@ export async function updateMemberStatus(
   id: string,
   status: 'active' | 'inactive' | 'pending' | 'rejected',
   rejectReason: string | undefined,
-  expectedCurrentStatus: 'active' | 'inactive' | 'pending' | 'rejected',
+  expectedCurrentStatus: 'active' | 'inactive' | 'pending' | 'rejected' | 'withdrawn',
 ): Promise<MemberRecord | null> {
   const { data, error } = await getSupabase()
     .from('members')
@@ -350,4 +351,21 @@ export async function updateMemberStatus(
     .maybeSingle();
   if (error) throw error;
   return data ? rowToRecord(data as MemberRow) : null;
+}
+
+/**
+ * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터).
+ * 주문 이력은 삭제하지 않는다 — 전자상거래법 등 거래기록 보존 의무 때문에 소프트 탈퇴로만 처리한다.
+ * 이미 탈퇴한 회원(status가 이미 'withdrawn')을 다시 호출해도 멱등하게 true를 반환한다.
+ * 이메일은 unique 제약이 있으므로 회원 id를 박아 재사용 불가능한 고정 문자열로 치환한다.
+ */
+export async function withdrawMember(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .update(buildWithdrawalPatch(id))
+    .eq('id', id)
+    .select('id')
+    .maybeSingle();
+  if (error) throw error;
+  return data !== null;
 }
