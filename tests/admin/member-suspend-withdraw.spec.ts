@@ -82,7 +82,51 @@ test.describe('탈퇴 시 PII 익명화 패치 (buildWithdrawalPatch)', () => {
 
   test('주문 이력(orders) 관련 필드는 패치에 포함하지 않는다(소프트 탈퇴 — 거래기록 보존)', () => {
     const patch = buildWithdrawalPatch('member-1');
-    expect(Object.keys(patch)).toEqual(['status', 'name', 'phone', 'email', 'profile_image', 'signup_data']);
+    expect(Object.keys(patch)).toEqual([
+      'status',
+      'name',
+      'phone',
+      'email',
+      'profile_image',
+      'signup_data',
+      'password_hash',
+      'provider_id',
+      'company_name',
+      'business_number',
+    ]);
+  });
+
+  // §HIGH-2(opus 리뷰) — 탈퇴 후에도 남아있던 PII 잔존 필드 4종.
+  test('password_hash를 null화한다(가입 안 된 소셜 계정과 동일 상태)', () => {
+    expect(buildWithdrawalPatch('member-1').password_hash).toBeNull();
+  });
+
+  test('provider_id를 null화한다(§CRITICAL-1 — 카카오/네이버 재로그인이 이 행을 다시 못 찾게 함)', () => {
+    expect(buildWithdrawalPatch('member-1').provider_id).toBeNull();
+    // provider 컬럼 자체는 patch에 없어야 한다 — members.provider는 NOT NULL 제약이라 null화 불가.
+    expect('provider' in buildWithdrawalPatch('member-1')).toBe(false);
+  });
+
+  test('b2b 전용 컬럼(company_name·business_number)을 null화한다(signup_data={}만으로는 안 지워짐)', () => {
+    const patch = buildWithdrawalPatch('member-1');
+    expect(patch.company_name).toBeNull();
+    expect(patch.business_number).toBeNull();
+  });
+});
+
+test.describe('탈퇴 시 member_tokens 정리 (소스 계약)', () => {
+  const repoSource = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'src', 'lib', 'members', 'repo.ts'),
+    'utf8',
+  );
+
+  test('withdrawMember가 member_tokens 테이블에서 해당 회원 행을 삭제한다(0002_email_tokens.sql)', () => {
+    const fnStart = repoSource.indexOf('export async function withdrawMember(');
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    const fn = repoSource.slice(fnStart, repoSource.indexOf('\n}', fnStart));
+    expect(fn).toContain("from('member_tokens')");
+    expect(fn).toContain('.delete()');
+    expect(fn).toContain(".eq('member_id', id)");
   });
 });
 
@@ -104,6 +148,53 @@ test.describe('withdrawn 회원 로그인 거부 (소스 계약)', () => {
 
   test('소셜 로그인은 여전히 role을 항상 user로 고정한다(§10-7 보안장치 — 손대지 않음 확인)', () => {
     expect(authSource).toContain("token.role = 'user'");
+  });
+});
+
+test.describe('소셜(카카오/네이버) 재로그인 거부 (§CRITICAL-1 — opus 리뷰)', () => {
+  const authSource = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'src', 'lib', 'auth.ts'),
+    'utf8',
+  );
+
+  test('signIn 콜백이 소셜 provider 분기를 갖고 upsertSocialMember 결과의 status를 검사한다', () => {
+    const fnStart = authSource.indexOf('async signIn(');
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    const fnEnd = authSource.indexOf('async jwt(');
+    expect(fnEnd).toBeGreaterThan(fnStart);
+    const fn = authSource.slice(fnStart, fnEnd);
+
+    expect(fn).toContain("account?.provider === 'kakao' || account?.provider === 'naver'");
+    expect(fn).toContain('await upsertSocialMember(');
+    expect(fn).toContain("if (member.status !== 'active') return false;");
+  });
+
+  test('signIn 체크가 jwt 콜백보다 먼저 나온다(세션이 발급되기 전에 거부해야 한다)', () => {
+    const signInIndex = authSource.indexOf('async signIn(');
+    const jwtIndex = authSource.indexOf('async jwt(');
+    expect(signInIndex).toBeGreaterThanOrEqual(0);
+    expect(jwtIndex).toBeGreaterThan(signInIndex);
+  });
+});
+
+test.describe('upsertSocialMember 익명화 되돌리기 차단 (소스 계약)', () => {
+  const repoSource = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'src', 'lib', 'members', 'repo.ts'),
+    'utf8',
+  );
+
+  test('기존 provider_id로 찾은 회원의 status가 active가 아니면 name/profile_image를 갱신하지 않는다', () => {
+    const fnStart = repoSource.indexOf('export async function upsertSocialMember(');
+    expect(fnStart).toBeGreaterThanOrEqual(0);
+    const fnEnd = repoSource.indexOf('\nexport interface UpdateMemberProfileInput', fnStart);
+    const fn = repoSource.slice(fnStart, fnEnd > 0 ? fnEnd : undefined);
+
+    const guardIndex = fn.indexOf("existingByProvider.status !== 'active'");
+    const updateIndex = fn.indexOf(".update({ name: nextName, profile_image: nextImage })");
+    expect(guardIndex).toBeGreaterThanOrEqual(0);
+    expect(updateIndex).toBeGreaterThan(guardIndex);
+    // 가드 분기가 이름/이미지 갱신 UPDATE보다 먼저 return 해야 되돌리기가 막힌다.
+    expect(fn.slice(guardIndex, updateIndex)).toContain('return existingByProvider;');
   });
 });
 

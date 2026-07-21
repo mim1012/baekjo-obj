@@ -173,10 +173,20 @@ export interface UpsertSocialMemberInput {
  * ① (provider, provider_id)로 기존 회원 조회 → 있으면 이름/프로필사진만 최신화.
  * ② 없고 이메일이 있으면 이메일로 기존 회원 조회 → 있으면 그대로 반환(계정 연동은 범위 밖 — provider/비밀번호 덮어쓰지 않음).
  * ③ 둘 다 없으면 신규 생성(role은 항상 'user').
+ *
+ * ⚠️ status !== 'active'(정지·탈퇴·대기·반려)인 기존 행은 이름/프로필사진을 절대 갱신하지 않고
+ * 그대로 반환한다. 탈퇴 시 익명화한 이름('(탈퇴회원)')·프로필사진(null)을 카카오/네이버가 넘기는
+ * 실명·사진으로 되돌리는 경로를 막는다(§CRITICAL-1 — opus 리뷰. withdrawMember가 provider_id를
+ * null화하므로 사실 findMemberByProvider가 이 행을 다시 찾지도 못하지만, 방어적으로 이중 차단).
+ * 이 함수를 호출하는 auth.ts의 signIn 콜백이 반환된 status를 보고 로그인 자체를 거부한다.
  */
 export async function upsertSocialMember(input: UpsertSocialMemberInput): Promise<MemberRecord> {
   const existingByProvider = await findMemberByProvider(input.provider, input.providerId);
   if (existingByProvider) {
+    if (existingByProvider.status !== 'active') {
+      return existingByProvider;
+    }
+
     const nextName = input.name ?? existingByProvider.name;
     const nextImage = input.profileImage ?? existingByProvider.profileImage ?? null;
     const changed =
@@ -354,10 +364,15 @@ export async function updateMemberStatus(
 }
 
 /**
- * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터).
+ * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터·
+ * 비밀번호 해시·소셜 provider_id·b2b 컬럼 — buildWithdrawalPatch 참고).
  * 주문 이력은 삭제하지 않는다 — 전자상거래법 등 거래기록 보존 의무 때문에 소프트 탈퇴로만 처리한다.
  * 이미 탈퇴한 회원(status가 이미 'withdrawn')을 다시 호출해도 멱등하게 true를 반환한다.
  * 이메일은 unique 제약이 있으므로 회원 id를 박아 재사용 불가능한 고정 문자열로 치환한다.
+ *
+ * member_tokens(0002_email_tokens.sql — 이메일 인증/비밀번호 재설정 토큰)의 잔존 행도 함께
+ * 지운다. 탈퇴 후에는 로그인 자체가 불가하니 악용 경로는 아니지만, PII 잔존을 남기지 않는다
+ * (§HIGH-2 — opus 리뷰).
  */
 export async function withdrawMember(id: string): Promise<boolean> {
   const { data, error } = await getSupabase()
@@ -367,5 +382,9 @@ export async function withdrawMember(id: string): Promise<boolean> {
     .select('id')
     .maybeSingle();
   if (error) throw error;
+
+  const { error: tokensError } = await getSupabase().from('member_tokens').delete().eq('member_id', id);
+  if (tokensError) throw tokensError;
+
   return data !== null;
 }
