@@ -1,10 +1,11 @@
 // product_reviews 테이블(구매평 CRUD) + showcase_reviews_config 싱글턴(전시용 후기) 접근 계층.
 // 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import type { ProductReview } from '@/types';
+import type { AdminProductReview, ProductReview } from '@/types';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { isShowcaseReviewShape, normalizeShowcaseReview } from '@/lib/reviews/showcaseValidate';
 import { logServerError } from '@/lib/logServerError';
+import { listProductsByIds } from '@/lib/products/repo';
 
 interface ReviewRow {
   id: string;
@@ -150,6 +151,59 @@ export async function getReviewById(id: string): Promise<ProductReview | null> {
     .maybeSingle();
   if (error) throw error;
   return data ? rowToReview(data as ReviewRow) : null;
+}
+
+/**
+ * 관리자 moderation 목록 — published+hidden 전체를 상품명과 함께 반환한다(§10-6: product_reviews는
+ * products.id를 text FK로 참조하므로 PostgREST embed 대신 두 쿼리로 직접 join한다).
+ * 존재하지 않는 product_id(삭제된 상품 참조 등)는 productName을 '(알 수 없는 상품)'으로 채운다 —
+ * listProductsByIds가 없는 id를 조용히 빼먹으므로 화면이 빈 값으로 깨지지 않게 방어한다.
+ */
+export async function listAllProductReviews(): Promise<AdminProductReview[]> {
+  const { data, error } = await getSupabase()
+    .from('product_reviews')
+    .select(SELECT_COLUMNS)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  const rows = data as ReviewRow[];
+
+  const productIds = Array.from(new Set(rows.map((row) => row.product_id)));
+  const products = productIds.length > 0 ? await listProductsByIds(productIds, { includeHidden: true }) : [];
+  const nameById = new Map(products.map((product) => [product.id, product.name]));
+
+  return rows.map((row) => ({
+    ...rowToReview(row),
+    productName: nameById.get(row.product_id) ?? '(알 수 없는 상품)',
+  }));
+}
+
+/**
+ * 관리자 moderation — 노출/숨김 전환. 별점 재집계는 U19 트리거(product_reviews_recompute_rating)가
+ * status 변경 시 자동 처리하므로 여기서 products.rating을 따로 건드리지 않는다.
+ * 반환값 = 실제로 상태가 바뀐 행이 있었는지(대상 없음이면 false).
+ */
+export async function setProductReviewStatus(
+  id: string,
+  status: 'published' | 'hidden',
+): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('product_reviews')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** 관리자 moderation — 악성/부적절 구매평 삭제. 소유자 확인 없이 admin 권한만으로 삭제한다. */
+export async function adminDeleteProductReview(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('product_reviews')
+    .delete()
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
 }
 
 /* ── 전시용 후기(showcase reviews) ─────────────────────────────

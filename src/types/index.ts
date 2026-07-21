@@ -414,6 +414,11 @@ export interface ProductReview {
   updatedAt: string;
 }
 
+/** 관리자 moderation 목록 전용 — 상품명을 곁들인 조회 결과(가산). 저장 계약이 아니라 응답 전용 뷰. */
+export interface AdminProductReview extends ProductReview {
+  productName: string;
+}
+
 /* ── 사용자 작성 상품문의 ─────────────────────── */
 export interface ProductInquiry {
   id: string;
