@@ -316,6 +316,41 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
   return data === true;
 }
 
+/**
+ * 관리자 환불(U4) 오케스트레이션이 "지금 환불해도 되는가(결제완료인가)"와 "Toss를 부를지(카드=
+ * paymentKey 있음, 무통장=null)"를 판단하기 위한 최소 조회. getOrderById(전체 컬럼)보다 가벼우며,
+ * 시그니처가 별개라 기존 getOrderById 호출부에는 영향이 없다(§4 가산 원칙).
+ */
+export async function getOrderPaymentInfo(
+  id: string,
+): Promise<{ paymentStatus: string; paymentKey: string | null } | null> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .select('payment_status, payment_key')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as { payment_status: string; payment_key: string | null };
+  return { paymentStatus: row.payment_status, paymentKey: row.payment_key ?? null };
+}
+
+/**
+ * 결제완료 주문의 환불 전이 + 재고 복원(0050 rpc, "돈 먼저, 라벨 나중" 원칙). Toss 카드 취소
+ * (cancelTossPayment)가 먼저 성공해야만(또는 무통장이라 애초에 Toss 호출이 없어야만) 이 함수가
+ * 호출된다 — applyOrderUpdates.ts의 환불 오케스트레이션이 순서를 보장한다. WHERE payment_status=
+ * '결제완료'이므로 이미 환불됐거나 다른 상태인 주문은 이 함수가 절대 건드리지 못한다(경합 안전).
+ * 반환 true = 이번 호출이 환불·복원을 수행함, false = 이미 처리됐거나 결제완료가 아니라 no-op
+ * (호출부가 409로 분기).
+ */
+export async function refundOrderAndRestore(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc('refund_paid_order_and_restore', {
+    p_order_id: id,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
+}
+
 /** claimOrderForConfirmation이 payment_key unique 제약(0022) 충돌을 만났을 때 던지는 전용
  *  에러 — 호출부가 일반 500이 아니라 409(같은 paymentKey가 다른 주문에 이미 묶임)로 구분
  *  응답할 수 있게 한다. */
