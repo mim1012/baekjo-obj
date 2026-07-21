@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, User as UserIcon, Shield, HeartPulse, CheckCircle2 } from 'lucide-react';
-import { getInsuranceApplications } from '@/lib/storage';
+import { getInsuranceApplications, deleteInsuranceApplication } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatDate } from '@/lib/format';
 import type { InsuranceApplication } from '@/types';
@@ -25,6 +25,19 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
   const [error, setError] = useState<Error | null>(null);
   const [certLoading, setCertLoading] = useState(false);
   const [certError, setCertError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = useCallback(async () => {
+    if (!window.confirm('이 신청을 삭제하시겠습니까? 첨부된 증권을 포함해 복구할 수 없습니다.')) return;
+    setDeleting(true);
+    try {
+      await deleteInsuranceApplication(id);
+      router.push('/admin/insurance');
+    } catch {
+      setDeleting(false);
+      alert('삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+  }, [id, router]);
 
   const handleViewCert = useCallback(async () => {
     setCertLoading(true);
@@ -92,10 +105,18 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <PageHeader 
+        <PageHeader
           title="펫보험 상담 상세"
           description={`신청일: ${formatDate(application.createdAt)}`}
         />
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="ml-auto rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+        >
+          {deleting ? '삭제 중…' : '신청 삭제'}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

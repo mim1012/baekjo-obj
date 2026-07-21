@@ -240,6 +240,16 @@ export async function updateInsuranceContacted(id: string, contacted: boolean): 
   }
 }
 
+/** 신청 삭제(관리자, PII 파기). DELETE /api/admin/insurance/[id]. 실패 시 throw. */
+export async function deleteInsuranceApplication(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/insurance/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) {
+    throw new Error('insurance-delete-failed');
+  }
+}
+
 /* ── B2B 제휴 문의(케어키트 랜딩 → 관리자 접수함) ─────────────────────────
  * 생성은 POST /api/partner-inquiries(공개·게스트 허용), 관리자 목록은 GET /api/admin/partner-inquiries,
  * 상태 변경은 PATCH /api/admin/partner-inquiries/[id]. 컴포넌트는 fetch 를 직접 하지 않고
