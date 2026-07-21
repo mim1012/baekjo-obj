@@ -232,7 +232,7 @@ test('결제완료 + 취소완료/환불완료는 매출에서 빠진다', () =>
 
   const refunded = order('og', [{ productId: 'p1', price: 7_000, quantity: 1 }], {
     orderStatus: '주문접수',
-    paymentStatus: PAID_PAYMENT_STATUS,
+    paymentStatus: '환불완료',
   });
   expect(amountOf([refunded])).toBe(0);
 });
