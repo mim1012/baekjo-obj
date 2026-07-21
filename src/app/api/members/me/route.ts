@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import {
   findMemberByEmail,
   findMemberById,
   toUser,
   updateMemberProfile,
+  withdrawMember,
   type UpdateMemberProfileInput,
 } from '@/lib/members/repo';
 import { logServerError } from '@/lib/logServerError';
@@ -79,9 +81,9 @@ function validateProfilePatch(body: UpdateProfileBody): UpdateMemberProfileInput
 /** PATCH /api/members/me — 로그인한 본인의 회원정보(이름/연락처/반려동물종·견종/주요고민) 저장.
  *  session 에서 조회한 본인 member.id 로만 업데이트해 self-only 를 보장한다(경로에 id 를 받지 않음). */
 export async function PATCH(request: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: 'no-session' }, { status: 401 });
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
   }
 
   let body: UpdateProfileBody;
@@ -97,27 +99,39 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const memberId = session.user.memberId;
-    const member = memberId
-      ? await findMemberById(memberId)
-      : session.user.email
-        ? await findMemberByEmail(session.user.email)
-        : null;
-
-    if (!member) {
-      return NextResponse.json({ error: 'not-found' }, { status: 404 });
-    }
-
-    const updated = await updateMemberProfile(member.id, patch);
+    const updated = await updateMemberProfile(activeMember.memberId, patch);
     if (!updated) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
 
     // GET과 동일한 이유로 role은 세션 기준을 덮어쓴다(위 GET 핸들러 주석 참조).
-    const user = { ...toUser(updated), role: session.user.role ?? 'user' };
+    const user = { ...toUser(updated), role: activeMember.member.role };
     return NextResponse.json({ user }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/members/me] 회원정보 저장 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
+
+/**
+ * DELETE /api/members/me — 로그인한 본인 회원 탈퇴(소프트 탈퇴). status='withdrawn' +
+ * PII 익명화(members/repo.ts withdrawMember 참고). 주문 이력은 전자상거래법 보존 의무 때문에
+ * 삭제하지 않는다. 탈퇴 이후에는 auth.ts 의 status==='active' 로그인 게이트가 재로그인을 막는다.
+ */
+export async function DELETE() {
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) {
+    return activeMember.response;
+  }
+
+  try {
+    const ok = await withdrawMember(activeMember.memberId);
+    if (!ok) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (error) {
+    logServerError('[DELETE /api/members/me] 탈퇴 처리 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
