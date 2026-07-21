@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
+import PurchaseReviewsPanel from '@/components/admin-new/reviews/PurchaseReviewsPanel';
 import { getAdminShowcaseReviewsConfig, saveShowcaseReviewsConfig } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import type { Review } from '@/types';
+
+type ReviewsTab = 'showcase' | 'purchase';
 
 const PET_TYPE_VALUES = ['dog', 'cat'] as const;
 
@@ -89,7 +92,8 @@ function draftToReview(draft: Record<string, string | number>, previous?: Review
   };
 }
 
-export default function AdminReviewsPage() {
+/** 전시 후기(showcase_reviews_config) 편집 화면 — 큐레이션 콘텐츠, 구매 기반 아님. 기존 로직 그대로. */
+function ShowcaseReviewsTab() {
   // items = 현재 편집 중인 전시 후기 목록. 마운트 후 관리자 콘센트로 실제 config 를 불러온다.
   // 초기값은 빈 값 — fallback 시드를 데이터처럼 렌더하면 로딩 동안 mock이 깜빡이는 오인을 만든다
   // (2026-07-18 prod 실측). 시드는 서버 폴백 전용(§4 원칙 0).
@@ -276,5 +280,48 @@ export default function AdminReviewsPage() {
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
     />
+  );
+}
+
+const REVIEWS_TABS: { key: ReviewsTab; label: string }[] = [
+  { key: 'showcase', label: '전시 후기' },
+  { key: 'purchase', label: '구매평 관리' },
+];
+
+/**
+ * /admin/reviews — 탭 2개를 묶는 진입점.
+ * - 전시 후기: 큐레이션 콘텐츠(showcase_reviews_config), 구매와 무관한 마케팅용 후기.
+ * - 구매평 관리: 실제 회원 구매평(product_reviews) moderation — 신설(U21). 서로 다른 테이블/개념이라
+ *   섞지 않고 탭으로만 분리한다(§요구사항: 기존 전시후기 화면을 부수지 않는다).
+ */
+export default function AdminReviewsPage() {
+  const [tab, setTab] = useState<ReviewsTab>('showcase');
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 border-b border-gray-200" role="tablist" aria-label="후기 관리 탭">
+        {REVIEWS_TABS.map((item) => {
+          const isActive = item.key === tab;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setTab(item.key)}
+              className={`px-4 py-2.5 text-[14px] font-medium border-b-2 -mb-px transition-colors ${
+                isActive
+                  ? 'border-[#2F3B34] text-[#17201B]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === 'showcase' ? <ShowcaseReviewsTab /> : <PurchaseReviewsPanel />}
+    </div>
   );
 }
