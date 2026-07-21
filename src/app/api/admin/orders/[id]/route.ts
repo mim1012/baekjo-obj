@@ -6,6 +6,8 @@ import {
   updatePaymentStatusGuarded,
   cancelReservationAndRestore,
   getOrderById,
+  getOrderPaymentInfo,
+  refundOrderAndRestore,
   type OrderStatusUpdate,
 } from '@/lib/orders/repo';
 import {
@@ -14,6 +16,7 @@ import {
   PaymentTransitionError,
   PaymentStatusConflictError,
 } from '@/lib/orders/applyOrderUpdates';
+import { cancelTossPayment, TossConfirmError } from '@/lib/payments/toss';
 import { logServerError, logServerWarn } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
@@ -99,6 +102,11 @@ const orderUpdatePorts = {
         `확정됐거나 이미 취소된 주문일 수 있음 — 환불은 별도 절차) orderId=${id}`,
       {},
     ),
+  getOrderPaymentInfo,
+  cancelTossPayment: async (paymentKey: string, cancelReason: string) => {
+    await cancelTossPayment(paymentKey, cancelReason);
+  },
+  refundOrderAndRestore,
 };
 
 /**
@@ -151,6 +159,18 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (error instanceof PaymentStatusConflictError) {
       logServerWarn(`[PATCH /api/admin/orders/[id]] 결제상태 경합(CAS 0행) orderId=${id}`, {});
       return NextResponse.json({ error: 'payment-status-conflict' }, { status: 409 });
+    }
+    // 관리자 환불(카드) 중 Toss 취소가 실패한 경우 — applyOrderUpdates가 DB 상태·재고를
+    // 전혀 건드리지 않은 채(§ "돈 먼저, 라벨 나중") 이 예외를 그대로 전파했다. 토스가 명시
+    // 거절한 4xx(httpStatus 있고 500 미만)는 재시도해도 같은 결과라 409(요청 자체 거부),
+    // 네트워크/타임아웃(httpStatus null)·토스 5xx는 재시도 여지가 있는 "결과 불명"이라 502.
+    if (error instanceof TossConfirmError) {
+      logServerError(
+        `[PATCH /api/admin/orders/[id]] 관리자 환불 중 Toss 취소 실패 orderId=${id} httpStatus=${error.httpStatus} tossCode=${error.tossCode}`,
+        error,
+      );
+      const status = error.httpStatus !== null && error.httpStatus < 500 ? 409 : 502;
+      return NextResponse.json({ error: 'toss-cancel-failed' }, { status });
     }
     logServerError('[PATCH /api/admin/orders/[id]] 수정 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
