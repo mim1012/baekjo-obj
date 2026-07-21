@@ -31,6 +31,10 @@ export interface TossConfirmResult {
   orderId: string;
   totalAmount: number;
   status: string;
+  /** 취소 후 남은 미취소 금액(원). 토스 confirm/query/cancel 응답에 공통으로 존재하는 필드다.
+   *  응답에 없거나 숫자가 아니면 null로 흡수한다 — confirm/query의 기존 판단(DONE·금액일치)은
+   *  이 필드에 의존하지 않고, 오직 isFullyCanceledToss(환불 재조정, §8-6 codex)만 이 값을 쓴다. */
+  balanceAmount: number | null;
 }
 
 /**
@@ -38,9 +42,11 @@ export interface TossConfirmResult {
  * orderId·paymentKey·totalAmount·status를 그대로 신뢰하므로(claim 여부·재고 복원 여부를 이 값들로
  * 결정한다), 필드가 기대 타입이 아닌 응답을 그냥 캐스팅해서 넘기면 그 판단 전체가 흔들린다
  * (Codex 재검증 HIGH — "queryTossPayment가 임의 JSON을 캐스팅만 한다"). 응답을 unknown으로 받아
- * 이 함수를 반드시 통과해야만 TossConfirmResult로 좁혀진다.
+ * 이 함수를 반드시 통과해야만 TossConfirmResult(balanceAmount 제외)로 좁혀진다 — balanceAmount는
+ * 선택적 메타데이터라 이 필수 필드 검증에는 참여하지 않고, 각 호출부가 readBalanceAmount로 별도
+ * 흡수해 반환 객체에 합성한다(타입과 실제 파싱이 어긋나지 않게).
  */
-function isValidTossConfirmResult(data: unknown): data is TossConfirmResult {
+function isValidTossConfirmResult(data: unknown): data is Omit<TossConfirmResult, 'balanceAmount'> {
   if (!data || typeof data !== 'object') return false;
   const d = data as Record<string, unknown>;
   return (
@@ -53,6 +59,38 @@ function isValidTossConfirmResult(data: unknown): data is TossConfirmResult {
     typeof d.status === 'string' &&
     d.status.length > 0
   );
+}
+
+/** balanceAmount를 안전하게 흡수한다 — 없거나 숫자가 아니면 null(미확정). */
+function readBalanceAmount(data: unknown): number | null {
+  if (!data || typeof data !== 'object') return null;
+  const d = data as Record<string, unknown>;
+  return typeof d.balanceAmount === 'number' && Number.isFinite(d.balanceAmount) ? d.balanceAmount : null;
+}
+
+/**
+ * "이 결제가 실제로 전액 취소됐는가"의 공유 판정 기준(§8-6 codex LOW-1·HIGH). status==='CANCELED'면
+ * 무조건 전액취소. status==='PARTIAL_CANCELED'는 그 자체로는 부분환불일 수 있으므로, 이번 취소가
+ * 잔액을 실제로 0으로 만들었을 때(balanceAmount===0)만 전액취소로 인정한다 — 부분환불인데 재고가
+ * 전량 복원되는 구멍을 막는다. balanceAmount를 모르면(null) 안전하게 미확정(false)으로 본다.
+ * cancelTossPayment의 자체 성공 판정과, 환불 재조정(applyOrderUpdates)의 재조회 판정이 공유한다.
+ */
+export function isFullyCanceledToss(result: { status: string; balanceAmount: number | null }): boolean {
+  if (result.status === 'CANCELED') return true;
+  // PARTIAL_CANCELED만 balanceAmount===0으로 "사실상 전액" 예외를 허용한다 — 그 외 status(예:
+  // 'DONE', 진행 중인 정상 결제)는 balanceAmount가 우연히 0이어도 취소로 보지 않는다.
+  if (result.status === 'PARTIAL_CANCELED') return result.balanceAmount === 0;
+  return false;
+}
+
+/**
+ * Toss 에러의 httpStatus를 "토스가 명시 거절한 4xx(재시도해도 결과 불변)"과 "네트워크/타임아웃/5xx
+ * (결과 불명, 재시도 여지 있음)"으로 분류한다(§8-6 codex MEDIUM). null(응답 자체를 못 받음)과 5xx는
+ * 재시도 여지가 있으므로 클라이언트 거절로 보지 않는다. webhook(기존 인라인 로직과 동일 기준)·
+ * 관리자 환불 라우트가 이 판정으로 409(거절) vs 502(불명)를 나눈다.
+ */
+export function isTossClientRejection(httpStatus: number | null): boolean {
+  return httpStatus !== null && httpStatus < 500;
 }
 
 /** 실패 응답(비-2xx)에서 에러 코드/메시지만 느슨하게 읽는다 — 사람이 읽는 로그용이라 형식이
@@ -111,7 +149,7 @@ export async function confirmTossPayment(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return data;
+  return { ...data, balanceAmount: readBalanceAmount(data) };
 }
 
 /**
@@ -156,7 +194,7 @@ export async function queryTossPayment(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return data;
+  return { ...data, balanceAmount: readBalanceAmount(data) };
 }
 
 /**
@@ -201,15 +239,17 @@ export async function queryTossPaymentByOrderId(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return data;
+  return { ...data, balanceAmount: readBalanceAmount(data) };
 }
 
-/** 취소(cancel) 2xx 응답은 confirm/query와 같은 필드 모양이되, status가 반드시
- *  'CANCELED'|'PARTIAL_CANCELED' 중 하나여야 "실제로 취소됐다"고 신뢰할 수 있다 — 다른 status가
- *  섞인 2xx를 취소 성공으로 오판하면 refundOrderAndRestore(재고 복원 RPC)가 잘못 뒤따라 돈다. */
-function isValidTossCancelResult(data: unknown): data is TossConfirmResult {
+/** 취소(cancel) 2xx 응답은 confirm/query와 같은 필드 모양이되, isFullyCanceledToss 기준(전액취소)을
+ *  통과해야 "실제로(전액) 취소됐다"고 신뢰할 수 있다 — status만 보고 PARTIAL_CANCELED를 그대로
+ *  성공 취급하면 부분환불인데 refundOrderAndRestore(재고 복원 RPC)가 전량 복원하는 구멍이 생긴다
+ *  (§8-6 codex LOW-1). cancelTossPayment는 항상 전액취소를 요청하므로, PARTIAL_CANCELED가 왔다면
+ *  balanceAmount===0(잔액 없음)일 때만 "이번 요청이 실제로 전액을 취소시켰다"고 인정한다. */
+function isValidTossCancelResult(data: unknown): data is Omit<TossConfirmResult, 'balanceAmount'> {
   if (!isValidTossConfirmResult(data)) return false;
-  return data.status === 'CANCELED' || data.status === 'PARTIAL_CANCELED';
+  return isFullyCanceledToss({ status: data.status, balanceAmount: readBalanceAmount(data) });
 }
 
 /**
@@ -256,5 +296,5 @@ export async function cancelTossPayment(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return data;
+  return { ...data, balanceAmount: readBalanceAmount(data) };
 }

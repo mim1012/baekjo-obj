@@ -4,9 +4,11 @@ import {
   OrderNotFoundError,
   PaymentTransitionError,
   PaymentStatusConflictError,
+  ConflictingOrderUpdateRequestError,
   type OrderUpdatePorts,
 } from '@/lib/orders/applyOrderUpdates';
 import type { OrderFieldsUpdate } from '@/lib/orders/repo';
+import { TossConfirmError } from '@/lib/payments/toss';
 
 // applyOrderUpdates 오케스트레이션 회귀 — RPC/CAS 를 격리 검증하는 db.spec 과 달리, 실제 라우트가
 // 태우는 결정·순서 로직을 fake ports 로 그대로 구동한다(codex 지적: 회귀 테스트는 applyOrderUpdates
@@ -66,6 +68,12 @@ function makeFake(initial: FakeOrder) {
     cancelTossPayment: async () => {
       calls.push('cancelTossPayment');
       tossCancels += 1;
+    },
+    // 기본값: 재조정을 호출할 일이 없는(취소가 성공하는) 대다수 테스트를 위해 null(불명) 고정.
+    // 재조정 시나리오를 검증하는 테스트는 이 port 를 override 한다.
+    queryTossCancelStatus: async () => {
+      calls.push('queryTossCancelStatus');
+      return null;
     },
     refundOrderAndRestore: async () => {
       calls.push('refundRPC');
@@ -233,5 +241,107 @@ test.describe('applyOrderUpdates — 환불(Toss 취소 + 재고 복원)', () =>
     await expect(
       applyOrderUpdates('r5', { paymentStatus: '환불완료' }, racingPorts),
     ).rejects.toThrow(PaymentStatusConflictError);
+  });
+
+  test('취소+환불 동시 요청({취소완료, 환불완료})은 ConflictingOrderUpdateRequestError(400)로 즉시 거절된다(codex LOW-2)', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_6' });
+    await expect(
+      applyOrderUpdates('r6', { orderStatus: '취소완료', paymentStatus: '환불완료' }, fake.ports),
+    ).rejects.toThrow(ConflictingOrderUpdateRequestError);
+    // ★ pre-seed 검증: 수정 전 버그는 취소 브랜치로 빠져 환불 요청이 조용히 무시됐다(카드값 미환불).
+    // 수정 후에는 어떤 포트도 호출되지 않고 상태가 전혀 안 바뀐다.
+    expect(fake.calls).toEqual([]);
+    expect(fake.state.paymentStatus).toBe('결제완료');
+  });
+});
+
+// 크래시 윈도우 재조정(§8-6 codex HIGH) — cancelTossPayment 성공 직후, refundOrderAndRestore 호출
+// 전에 프로세스가 죽으면 DB는 '결제완료'로 남고 재고는 미복원인 채 재시도가 온다. 이때 Toss에 다시
+// 취소를 요청하면 이미 CANCELED라 4xx로 거절돼, 그대로 에러를 전파하면 영구 409 데드락이 된다.
+test.describe('applyOrderUpdates — 환불 크래시 윈도우 재조정', () => {
+  test('Toss 4xx 거절 + 재조회 결과 이미 전액취소(CANCELED) → 에러 대신 RPC로 정합을 복구한다(멱등 재시도)', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_7' });
+    const retryPorts: OrderUpdatePorts = {
+      ...fake.ports,
+      cancelTossPayment: async () => {
+        fake.calls.push('cancelTossPayment');
+        throw new TossConfirmError('ALREADY_CANCELED_PAYMENT', 'ALREADY_CANCELED_PAYMENT', 400);
+      },
+      queryTossCancelStatus: async () => {
+        fake.calls.push('queryTossCancelStatus');
+        return { status: 'CANCELED', balanceAmount: 0 };
+      },
+    };
+
+    await applyOrderUpdates('r7', { paymentStatus: '환불완료' }, retryPorts);
+
+    expect(fake.state.paymentStatus).toBe('환불완료');
+    expect(fake.restoreCount()).toBe(1);
+    expect(fake.calls).toContain('queryTossCancelStatus');
+    expect(fake.calls).toContain('refundRPC');
+    // 재조정 조회가 취소 시도 이후, RPC 이전에 일어나야 한다.
+    expect(fake.calls.indexOf('cancelTossPayment')).toBeLessThan(fake.calls.indexOf('queryTossCancelStatus'));
+    expect(fake.calls.indexOf('queryTossCancelStatus')).toBeLessThan(fake.calls.indexOf('refundRPC'));
+  });
+
+  test('Toss 4xx 거절 + 재조회 결과 취소 아님(DONE 등) → 재조정 포기하고 원래 에러를 전파, RPC 미호출', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_8' });
+    const failPorts: OrderUpdatePorts = {
+      ...fake.ports,
+      cancelTossPayment: async () => {
+        throw new TossConfirmError('REJECT_CARD_PAYMENT', 'REJECT_CARD_PAYMENT', 400);
+      },
+      queryTossCancelStatus: async () => ({ status: 'DONE', balanceAmount: 10000 }),
+    };
+
+    await expect(
+      applyOrderUpdates('r8', { paymentStatus: '환불완료' }, failPorts),
+    ).rejects.toThrow(TossConfirmError);
+    expect(fake.state.paymentStatus).toBe('결제완료'); // 상태 불변
+    expect(fake.calls).not.toContain('refundRPC');
+  });
+
+  test('Toss 네트워크/타임아웃(httpStatus null) 실패는 재조정을 시도하지 않고 즉시 전파한다', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_9' });
+    let queryCalled = false;
+    const networkFailPorts: OrderUpdatePorts = {
+      ...fake.ports,
+      cancelTossPayment: async () => {
+        throw new TossConfirmError('toss-network-error', null, null);
+      },
+      queryTossCancelStatus: async () => {
+        queryCalled = true;
+        return { status: 'CANCELED', balanceAmount: 0 };
+      },
+    };
+
+    await expect(
+      applyOrderUpdates('r9', { paymentStatus: '환불완료' }, networkFailPorts),
+    ).rejects.toThrow(TossConfirmError);
+    // ★ 네트워크/타임아웃(결과 불명)은 "돈 먼저" 원칙상 재조회조차 시도하지 않는다 —
+    // 5xx/불명일 때 재조회는 스펙상 4xx 전용이다.
+    expect(queryCalled).toBe(false);
+    expect(fake.state.paymentStatus).toBe('결제완료');
+    expect(fake.calls).not.toContain('refundRPC');
+  });
+
+  test('Toss 4xx 거절 + 재조회 자체가 실패(catch)하면 재조정을 포기하고 원래 에러를 전파한다', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: 'pk_10' });
+    const cancelError = new TossConfirmError('ALREADY_CANCELED_PAYMENT', 'ALREADY_CANCELED_PAYMENT', 400);
+    const queryFailsPorts: OrderUpdatePorts = {
+      ...fake.ports,
+      cancelTossPayment: async () => {
+        throw cancelError;
+      },
+      queryTossCancelStatus: async () => {
+        throw new Error('query-also-failed');
+      },
+    };
+
+    await expect(
+      applyOrderUpdates('r10', { paymentStatus: '환불완료' }, queryFailsPorts),
+    ).rejects.toThrow(cancelError.message);
+    expect(fake.state.paymentStatus).toBe('결제완료');
+    expect(fake.calls).not.toContain('refundRPC');
   });
 });

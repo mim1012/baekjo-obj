@@ -15,8 +15,9 @@ import {
   OrderNotFoundError,
   PaymentTransitionError,
   PaymentStatusConflictError,
+  ConflictingOrderUpdateRequestError,
 } from '@/lib/orders/applyOrderUpdates';
-import { cancelTossPayment, TossConfirmError } from '@/lib/payments/toss';
+import { cancelTossPayment, queryTossPayment, TossConfirmError, isTossClientRejection } from '@/lib/payments/toss';
 import { logServerError, logServerWarn } from '@/lib/logServerError';
 import { isCarrierCode } from '@/lib/carriers';
 import {
@@ -106,6 +107,16 @@ const orderUpdatePorts = {
   cancelTossPayment: async (paymentKey: string, cancelReason: string) => {
     await cancelTossPayment(paymentKey, cancelReason);
   },
+  // 크래시 윈도우 재조정(§8-6 codex HIGH) 전용 조회 — applyOrderUpdates가 cancelTossPayment의
+  // 4xx 거절 이후에만 호출한다. 조회 자체가 실패하면 null(재조정 포기, 원래 에러 전파).
+  queryTossCancelStatus: async (paymentKey: string) => {
+    try {
+      const result = await queryTossPayment(paymentKey);
+      return { status: result.status, balanceAmount: result.balanceAmount };
+    } catch {
+      return null;
+    }
+  },
   refundOrderAndRestore,
 };
 
@@ -148,6 +159,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (error instanceof OrderNotFoundError) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
+    // 취소+환불 동시 요청(§8-6 codex LOW-2) — 의미가 충돌하는 입력이므로 400(잘못된 요청)으로
+    // 즉시 거절한다. 상태 변경은 전혀 일어나지 않은 시점(applyOrderUpdates 최상단)에서 던져진다.
+    if (error instanceof ConflictingOrderUpdateRequestError) {
+      logServerWarn(`[PATCH /api/admin/orders/[id]] 취소+환불 동시 요청 거부 orderId=${id}`, {});
+      return NextResponse.json({ error: 'conflicting-cancel-refund-request' }, { status: 400 });
+    }
     // 아래 둘은 정상적인 거절(공격/경합)이라 error 레벨이 아니라 감사용 warn 으로 남긴다.
     if (error instanceof PaymentTransitionError) {
       logServerWarn(
@@ -169,7 +186,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         `[PATCH /api/admin/orders/[id]] 관리자 환불 중 Toss 취소 실패 orderId=${id} httpStatus=${error.httpStatus} tossCode=${error.tossCode}`,
         error,
       );
-      const status = error.httpStatus !== null && error.httpStatus < 500 ? 409 : 502;
+      const status = isTossClientRejection(error.httpStatus) ? 409 : 502;
       return NextResponse.json({ error: 'toss-cancel-failed' }, { status });
     }
     logServerError('[PATCH /api/admin/orders/[id]] 수정 실패', error);
