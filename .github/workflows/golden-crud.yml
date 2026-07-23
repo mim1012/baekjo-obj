@@ -374,6 +374,20 @@ jobs:
           E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
+      # 파일 단위 배선 감사(golden-crud-coverage)가 잡아낸 기존 누락 — #121 배송 묶음의 스펙이
+      # 여기 등록 없이 커밋돼 CI에서 한 번도 자동 실행되지 않고 있었다(2026-07-23 발견).
+      - name: 관리자 CRUD — 브랜드별 송장/배송조회(주문·배송 묶음)
+        if: steps.changes.outputs.orders == 'true'
+        run: npx playwright test tests/golden/admin-crud-order-shipments.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
       - name: 관리자 CRUD — 카테고리(상품/라이프스타일)
         if: steps.changes.outputs.category_settings == 'true'
         run: npx playwright test tests/golden/admin-crud-category-settings.spec.ts --project=golden-crud --reporter=line
