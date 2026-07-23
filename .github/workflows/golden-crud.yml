@@ -148,7 +148,7 @@ jobs:
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
           fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
+          if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/reviews/|src/app/api/admin/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin-new/reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
             REVIEWS=true
           fi
           if echo "$CHANGED" | grep -qE '^(src/lib/concerns/|src/app/admin/concerns/|src/app/concerns/|src/app/api/concerns/|src/app/api/admin/concerns/|src/components/admin/AdminResourcePage\.tsx)'; then
@@ -574,6 +574,20 @@ jobs:
         run: npx playwright test tests/golden/member-diagnosis.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # 구매평 moderation 실구동(2026-07-23, 커버리지 G1 해소) — 회원 체크아웃→구매확정→구매평
+      # 작성 선행 후 관리자 숨김/재노출/삭제 + 0070 별점 집계를 공개 API 재조회로 검증한다.
+      - name: 관리자 CRUD — 구매평 검수(숨김·재노출·삭제, 별점 집계)
+        if: steps.changes.outputs.reviews == 'true'
+        run: npx playwright test tests/golden/admin-crud-reviews-moderation.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       # ── wave7 추가 블록(2026-07-23 커버리지 전수조사 §4-2) — testMatch에는 걸리지만 실행 스텝이

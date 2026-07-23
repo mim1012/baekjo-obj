@@ -149,7 +149,7 @@
 | 상품 폼 페이로드·검증·분할 | products/form-payload · validate · split-product-input · form-modal-reset-deps · detail-editor-ux · admin-product-edit-visibility · product-points · product-policy-fallback · no-html-sink · next-image-supabase-host | 🟡 ×10 |
 | 상품 바인딩·일괄 처리 | admin/product-binding-flow · product-bulk-actions · product-brand-field-coverage | 🟡 |
 | 주문 관리(검색·목록·전이·에러) | golden/admin-crud-orders / admin/order-search · order-funnel · order-list-status-controls · order-update-error-message · apply-order-updates | 🟢 / 🟡 |
-| 리뷰 검수(moderation) | admin/admin-reviews-moderation-contract.spec.ts | 🟡 (실구동 스펙 없음 — §5) |
+| 리뷰 검수(moderation) | golden/admin-crud-reviews-moderation.spec.ts / admin/admin-reviews-moderation-contract.spec.ts | 🟢 (2026-07-23 G1 해소) / 🟡 |
 | 카테고리 설정 | golden/admin-crud-category-settings / admin/category-binding-flow | 🟢 / 🟡 |
 | 업로드 정책 | admin/admin-upload-policy.spec.ts | 🟡 |
 | 삭제 게이팅·동적 라우트·id 규약 | admin/admin-resource-page-delete-gating · dynamic-route-params · id-list-value | 🟡 |
@@ -185,7 +185,7 @@ admin·auth·brands·care-kit·diagnosis·home·insurance·mypage·product-detai
 
 | # | 기능 | 현재 상태 | 비고 |
 |---|---|---|---|
-| G1 | **리뷰 검수 실구동** (`/admin/reviews` moderation → 공개/숨김 → 별점 재계산 0070 트리거) | 소스-계약(admin-reviews-moderation-contract)만 | admin-crud-* 실구동 스펙 부재 — coverage 감사가 도메인 매핑에 없음 |
+| G1 | ~~리뷰 검수 실구동~~ | ✅ **2026-07-23 해소** — `golden/admin-crud-reviews-moderation.spec.ts` 신설(체크아웃→구매확정→작성 선행 포함, 숨김→0070 집계 제외→재노출→삭제를 공개 API 재조회로 검증), coverage 감사 LIVE_COVERED 승격 + yml 배선 | |
 | G2 | **이메일 실수신 루프** — 가입 인증 메일·비밀번호 재설정 메일·관리자 접수 알림(notifyAdmin) 실발송/수신 | 라우트 계약만 | nodemailer 실발송은 E2E 불가 영역 — 스테이징 수동 점검 대상 |
 | G3 | **소셜 로그인 실 OAuth** (카카오/네이버 동의창 왕복) | contract 스펙만(그마저 CI 미배선 §4-2) | 외부 IdP라 자동화 불가 — 납품 전 수동 1회 |
 | G4 | **토스 카드 실승인/실환불** | 위젯 경계 스펙 + DB 상태기계 + 취소 헬퍼 단위까지 | 라이브 키 미등록(카드 런칭 불가 상태) — 키 등록 후 테스트 결제 1회 필수 |
@@ -203,4 +203,4 @@ admin·auth·brands·care-kit·diagnosis·home·insurance·mypage·product-detai
 1. **자동으로 이미 커버**: §2에서 🟢·🟡 항목은 CI가 지킨다 — 점검은 "최근 run이 green인지"만 확인.
 2. **로컬/수동 게이트 전용으로 남은 것**: chromium behavioral 11개(§4-3) — §8-6 삼중 검증에서 실행.
 3. **손으로 봐야 하는 것**: §5 G1~G12 — staging에서 수동 점검하고 결과를 use-cases.md 체크박스에 기록.
-4. **남은 구조 개선 후보**: G1 리뷰 moderation 실구동 스펙 신설(admin-crud-reviews-moderation) — coverage 감사 도메인 등록 포함. (§4-1·§4-2는 2026-07-23 수리 완료)
+4. **남은 구조 개선 후보**: 없음 — §4-1·§4-2 배선, G1 실구동 스펙 전부 2026-07-23 수리 완료. 남은 것은 §5 G2~G12 수동 점검뿐.
