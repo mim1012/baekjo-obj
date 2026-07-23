@@ -64,6 +64,7 @@ cookies.txt
 
 # 에이전트 세션 로컬 상태·검증 산출물 (레포 루트 오염 방지 — 증빙은 docs/evidence/ 또는 스크래치패드에)
 .claude/
+.mcp.json
 .gjc/
 .ralplan-tmp/
 RESEARCH/
