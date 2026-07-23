@@ -406,8 +406,10 @@ jobs:
           E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
-      # 게스트 제출이라 회원 시크릿 불필요. 스토리지 직접 검증(SUPABASE_SECRET_KEY)은 CI에
-      # 주입하지 않으므로 스펙이 조건부로 건너뛴다(행 소멸+cert 404가 파기 검증 담당).
+      # 게스트 제출이라 회원 시크릿 불필요. STAGING_SUPABASE_* 시크릿이 등록돼 있으면 스펙이
+      # 파기 후 스토리지 잔존까지 직접 확인하고, 없으면 그 블록만 조건부 skip한다(행 소멸+cert
+      # 404가 파기 검증 담당 — opus 리뷰 M1: cert 404는 행 삭제의 결과라 스토리지의 무성
+      # no-op 회귀는 시크릿 없이는 CI가 못 잡는다. 등록 시 완전 검증).
       - name: 관리자 CRUD — 보험 증권 업로드(업로드→signed URL 열람→PII 파기)
         if: steps.changes.outputs.insurance == 'true'
         run: npx playwright test tests/golden/admin-crud-insurance-cert.spec.ts --project=golden-crud --reporter=line
@@ -416,6 +418,8 @@ jobs:
           E2E_ADMIN_CRUD: '1'
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: 관리자 CRUD — QnA(qna_config 공개 배선 실증)
