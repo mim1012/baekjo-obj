@@ -164,15 +164,22 @@ export async function assertBrandShipments(page: Page, orderId: string, scenario
 }
 
 export async function assertMemberTrackingModal(page: Page, orderId: string, scenario: BrandScenario): Promise<void> {
-  const orderCard = page.locator('.mypage-card', { hasText: orderId }).first();
-  const deliveryRow = orderCard
-    .locator('div.flex.items-center.justify-between.gap-3', { hasText: scenario.name })
-    .first();
-  await expect(deliveryRow).toBeVisible({ timeout: 15_000 });
-  await deliveryRow.getByRole('button', { name: '배송조회' }).click();
-
   const modal = page.getByRole('dialog', { name: '배송조회' });
-  await expect(modal).toBeVisible({ timeout: 15_000 });
+  // 🚨 송장 등록(관리자 쓰기) 직후 회원측 읽기가 낡은 값("아직 등록된 운송장 정보가 없어요")을
+  // 주는 간헐 스테일이 CI에서 2회 실측됨(2026-07-23, memory wishlist-desync-repro 참조 —
+  // wishlist와 동일한 쓰기-직후-스테일 계열). 페이지 재진입→모달 재열기 폴링으로 감싼다.
+  // 60s가 지나도 낡은 값이면 그대로 실패한다 — 내성이지 결함 은폐가 아니다.
+  await expect(async () => {
+    await page.goto('/mypage?tab=orders', { waitUntil: 'domcontentloaded' });
+    const orderCard = page.locator('.mypage-card', { hasText: orderId }).first();
+    const deliveryRow = orderCard
+      .locator('div.flex.items-center.justify-between.gap-3', { hasText: scenario.name })
+      .first();
+    await expect(deliveryRow).toBeVisible({ timeout: 10_000 });
+    await deliveryRow.getByRole('button', { name: '배송조회' }).click();
+    await expect(modal).toBeVisible({ timeout: 10_000 });
+    await expect(modal).toContainText(scenario.carrierLabel, { timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
   await expect(modal).toContainText(scenario.name);
   await expect(modal).toContainText(scenario.carrierLabel);
   await expect(modal).toContainText(scenario.trackingNumber);

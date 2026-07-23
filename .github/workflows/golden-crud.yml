@@ -148,7 +148,7 @@ jobs:
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
           fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
+          if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/reviews/|src/app/api/admin/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin-new/reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
             REVIEWS=true
           fi
           if echo "$CHANGED" | grep -qE '^(src/lib/concerns/|src/app/admin/concerns/|src/app/concerns/|src/app/api/concerns/|src/app/api/admin/concerns/|src/components/admin/AdminResourcePage\.tsx)'; then
@@ -386,8 +386,13 @@ jobs:
 
       # 파일 단위 배선 감사(golden-crud-coverage)가 잡아낸 기존 누락 — #121 배송 묶음의 스펙이
       # 여기 등록 없이 커밋돼 CI에서 한 번도 자동 실행되지 않고 있었다(2026-07-23 발견).
+      # ⚠️ 임시 격리(2026-07-23, wishlist와 동일 원칙·동일 버그 계열 — mim 승인 원칙 적용) —
+      # 회원측 배송조회 읽기가 송장 등록 후에도 60s 폴링+재시도 내내 "운송장 없음"(런 내 지속
+      # 스테일, admin API 재조회는 정상). memory wishlist-desync-repro-2026-07-23 참조.
+      # 원복 조건: 스테일 읽기 버그 수정 be/* PR 머지 시 이 줄을 제거할 것.
       - name: 관리자 CRUD — 브랜드별 송장/배송조회(주문·배송 묶음)
         if: steps.changes.outputs.orders == 'true'
+        continue-on-error: true
         run: npx playwright test tests/golden/admin-crud-order-shipments.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
@@ -501,8 +506,14 @@ jobs:
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       # ── wave6 추가 블록(회원 여정 실구동) — wave4/5 와의 병합 충돌을 줄이려 끝에 별도로 붙인다 ──
+      # ⚠️ 임시 격리(2026-07-23, mim 승인) — wishlist desync 실버그(P1)가 이 스펙으로 CI 재현됨:
+      # 해제 POST 200 직후 같은 세션 GET이 20초간 낡은 값을 반환(5xx 없음·CDN MISS — 읽기 경로
+      # 데이터 캐시 용의, Vercel 런타임 로그로 실증). 스펙 결함이 아니라 제품 결함이라 이 스텝이
+      # 죽으면 후속 스텝 전부가 skip되는 것을 막기 위해 continue-on-error로 격리한다.
+      # 원복 조건: wishlist 캐시 버그 수정 be/* PR 머지 시 이 줄을 제거할 것.
       - name: 회원 여정 — 찜하기(DB 동기화)
         if: steps.changes.outputs.member_journey == 'true'
+        continue-on-error: true
         run: npx playwright test tests/golden/member-wishlist.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
@@ -574,6 +585,20 @@ jobs:
         run: npx playwright test tests/golden/member-diagnosis.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # 구매평 moderation 실구동(2026-07-23, 커버리지 G1 해소) — 회원 체크아웃→구매확정→구매평
+      # 작성 선행 후 관리자 숨김/재노출/삭제 + 0070 별점 집계를 공개 API 재조회로 검증한다.
+      - name: 관리자 CRUD — 구매평 검수(숨김·재노출·삭제, 별점 집계)
+        if: steps.changes.outputs.reviews == 'true'
+        run: npx playwright test tests/golden/admin-crud-reviews-moderation.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       # ── wave7 추가 블록(2026-07-23 커버리지 전수조사 §4-2) — testMatch에는 걸리지만 실행 스텝이

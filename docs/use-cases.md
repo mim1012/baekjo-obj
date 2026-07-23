@@ -127,7 +127,7 @@
 | 11-5 | 주문 관리 | 관리자 | 목록 검색·상태 변경(전이 가드)·상세·배송 등록 | admin/order-search.spec.ts, order-status-axis.spec.ts, order-funnel.spec.ts | ☐ |
 | 11-6 | 주문 정책 | 관리자 | `/admin/order-policy` 무통장 기한 등 정책 저장 | golden/admin-crud-order-policy.spec.ts | ☐ |
 | 11-7 | 회원 관리 | 관리자 | 목록·상세·상태 전이(정지 매트릭스)·서류 열람 | golden/member-admin-edit-propagation.spec.ts | ☐ |
-| 11-8 | 리뷰 검수 | 관리자 | `/admin/reviews` moderation → 공개/숨김, 별점 재계산 | admin/admin-reviews-moderation-contract.spec.ts (⛔ 실구동 스펙 없음 — coverage G1) | ☐ |
+| 11-8 | 리뷰 검수 | 관리자 | `/admin/reviews` moderation → 공개/숨김, 별점 재계산 | golden/admin-crud-reviews-moderation.spec.ts, admin/admin-reviews-moderation-contract.spec.ts | ☐ |
 | 11-9 | 콘텐츠 관리 | 관리자 | 공지·concerns·카테고리·설정·insurance-content·showcase-reviews 각 CRUD 즉시저장 | golden/admin-crud-*.spec.ts 일괄 | ☐ |
 | 11-10 | 파일 업로드 | 관리자 | `/api/admin/upload` 이미지 업로드 정책(확장자·크기) | admin/admin-upload-policy.spec.ts | ☐ |
 | 11-11 | CRUD 커버리지 감사 | 시스템 | 신규 admin 도메인의 골든 스펙 부재를 CI가 적발 | admin/golden-crud-coverage.spec.ts, full-surface-crud-coverage.spec.ts | ☐ |
@@ -136,7 +136,7 @@
 
 ## 점검 운영 방법
 
-1. **환경**: staging(`aeooyivfijthfcrfrnyk`)에서 점검. 계정은 memory `baekjo-agent-team-ops` 참조(테스트 계정 2종). ⚠️ staging은 마이그레이션 0050~0070 미적용 드리프트 있음(SESSION.md 2026-07-23) — 환불·탈퇴·증권 관련 점검은 토큰 재발급 후 staging 정식 적용 뒤에.
+1. **환경**: staging(`aeooyivfijthfcrfrnyk`)에서 점검. 계정은 memory `baekjo-agent-team-ops` 참조(테스트 계정 2종). staging 마이그레이션 드리프트(0050~0070)는 2026-07-23 정식 러너로 적용 완료 — `_migrations` 최신 0070.
 2. **자동 커버 항목**: 검증 스펙이 있는 항목은 `npx playwright test <스펙> --project=<chromium|admin>`으로 재확인 가능. 전체는 CI `golden-crud.yml`이 상시 실행.
 3. **수동 점검 우선순위**: `golden-spec-coverage.md` §5의 G1~G12(스펙 자체가 없는 기능) + 알려진 제약 박스의 미완 기능. (§4 CI 미배선은 2026-07-23 배선 수리 완료)
 4. **결과 기록**: 점검 완료 시 이 파일 체크박스 갱신 + 발견 이슈는 SESSION.md 다음 액션에 등재.
