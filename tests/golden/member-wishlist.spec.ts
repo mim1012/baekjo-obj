@@ -52,19 +52,30 @@ test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, DB 
         await page.request.delete('/api/wishlist', { data: { productId: PRODUCT_ID } });
       }
     }
-    await page.reload();
+    // reload 후 초기 wishlist sync(/api/wishlist GET)가 끝난 뒤에 클릭한다 — sync 전 클릭은
+    // 하이드레이션 재렌더에 삼켜질 수 있고, aria '찜하기'는 기본 상태라 sync 미완료를
+    // 구분하지 못한다(2026-07-24 스윕 재현: 클릭 후 aria가 5s 내 안 뒤집힘).
+    await Promise.all([
+      page
+        .waitForResponse((res) => res.url().includes('/api/wishlist'), { timeout: 20_000 })
+        .catch(() => {}),
+      page.reload(),
+    ]);
     await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`, {
       timeout: 15_000,
     });
     await wishlistButton.click();
-    await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`);
-    // 독립 경로 검증 — UI 상태가 아니라 서버 재조회로 실제 저장을 확인한다(§8-6 자기개선 루프 2단계).
+    // 독립 경로 검증을 1차 판정으로 — 서버 재조회로 실제 저장을 확인한 뒤(§8-6 자기개선 루프
+    // 2단계), aria는 여유 타임아웃으로 후행 확인한다(해제 단계와 대칭).
     await expect(async () => {
       const res = await page.request.get('/api/wishlist');
       expect(res.ok()).toBe(true);
       const { productIds } = (await res.json()) as { productIds: string[] };
       expect(productIds).toContain(PRODUCT_ID);
-    }).toPass({ timeout: 15_000 });
+    }).toPass({ timeout: 20_000 });
+    await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`, {
+      timeout: 15_000,
+    });
 
     await page.goto('/mypage?tab=wishlist');
     await expect(page.getByRole('heading', { name: '관심 상품', exact: true })).toBeVisible({ timeout: 15_000 });
