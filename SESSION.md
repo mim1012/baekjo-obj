@@ -1,6 +1,39 @@
 # SESSION — 백조오브제(baekjo-obj)
 
-## 세션 마감 (2026-07-22 오전 — 운영가능성 감사 + P0 7건 전량 머지, 이 블록이 최신)
+## 세션 마감 (2026-07-23 오전 — 보안패치 2건 + 증권 업로드 골든 스펙 박제, 이 블록이 최신)
+
+**현재 상태 (전부 실측):**
+- 브랜치: `main`, HEAD `f4147a9` (= `origin/main`, #203 머지 커밋). 열린 PR: **0건**. 워킹트리 클린.
+- 이번 세션 머지 5건:
+  - #200 `chore/sharp-0350-audit-fix` — sharp 0.35.0 override (GHSA-f88m-g3jw-g9cj, libvips CVE 4종)
+  - #199 — 2026-07-22 세션 마감 기록 (#200 머지 후 update-branch로 통과)
+  - #201 — `.gitignore`에 `.mcp.json` 추가
+  - #202 `chore/next-16211-security` — next 16.2.10→16.2.11 (2026-07-23 공개 GHSA 9종: **proxy bypass high** 포함 — src/proxy.ts 가드 직결이라 예외 대신 업그레이드)
+  - #203 `test/insurance-cert-upload-golden` — **증권 업로드 실구동 골든 스펙** (§8-6 삼중 검증 통과, 증빙 코멘트 게시)
+- 잔재 파일 2개 삭제 완료(`tests/golden/_tmp_insurance_preview.spec.ts`, `D:Project_wikilog.md`)
+
+**#203 상세 (다음 세션 필독):**
+- 신설 `tests/golden/admin-crud-insurance-cert.spec.ts`: 게스트 증권 첨부 제출→업로드 201+`certs/<uuid>.png` 검증→게스트 열람 401→관리자 signed URL 200+PNG 매직바이트→DELETE 파기 3경로(행·cert 404·스토리지 직접) 검증. 파기 검증이 곧 테스트 데이터 정리.
+- `golden-crud.yml`에 실행 스텝 등록(codex CRITICAL: yml이 파일 경로 명시 실행이라 등록 없인 죽은 코드) + `tests/admin/golden-crud-coverage.spec.ts`에 **파일단위 배선 전수 감사** 신설 → 이 감사가 기존 미배선 `admin-crud-order-shipments.spec.ts`(#121 배송 묶음, CI에서 한 번도 안 돌던 것)를 적발해 함께 배선.
+- 실측 함정 2건(스펙 주석에 박제): ① Supabase signed URL은 CDN 캐시라 파기 후에도 열림, 쿼리 cache-buster로도 우회 불가 → 파기 판정은 스토리지 직접 list로만 ② `npx playwright ... | tail && git commit` 파이프는 종료코드가 tail 것 — 검증은 exit code 직접 체크.
+
+**⚠️ staging DB 드리프트 발견 (중요):**
+- staging(`aeooyivfijthfcrfrnyk`) `_migrations` 최신 = **0049**. 0050·0054·0060·0070은 **prod(CI migrate 잡)에만** 적용됨 — 2026-07-22 블록의 "적용 완료"는 prod 기준. staging 선적용 러너는 `SUPABASE_ACCESS_TOKEN`(sbp_) 만료(401)로 막힘.
+- `insurance-docs` 비공개 버킷은 이번 세션에 storage API로 staging에 수동 생성(0060과 동일 내용, 멱등 — 토큰 재발급 후 러너가 0050~0070 정식 적용하면 no-op).
+
+**미완/다음 액션 (P1):**
+- opus 리뷰 LOW: cert 엔드포인트 403 분기(non-admin 로그인) 무커버 / `admin-crud-insurance.spec.ts` self-cleanup(DELETE 생겼으니 '완료' 상태 잔존 대신 삭제) / purge prefix 병렬 겹침(이론적)
+- 기존 P1 백로그 유지: orderStatus/deliveryStatus 역전이 가드, 스윗트래커 배선, wishlist desync, 고아 업로드 GC 등
+
+**사용자 결정/조치 필요 (갱신):**
+1. `SUPABASE_ACCESS_TOKEN`(sbp_) 재발급 — staging 마이그레이션 0050~0070 적용이 이것에 막혀 있음(위 드리프트 참조)
+2. GitHub 시크릿 `BOT_PAT` 재발급 — update-baselines push 403
+3. `ADMIN_NOTIFY_EMAIL` 실서버 환경변수 등록
+4. Toss 라이브 키(카드결제 오픈 시)
+5. stash 2건 drop 여부
+6. (선택) GitHub 시크릿 `STAGING_SUPABASE_URL`/`STAGING_SUPABASE_SECRET_KEY` 등록 — 등록 즉시 CI가 증권 스토리지 파기까지 완전 검증(golden-crud.yml에 배선 완료, 미등록 시 해당 블록만 skip)
+
+## 세션 마감 (2026-07-22 오전 — 운영가능성 감사 + P0 7건 전량 머지)
 
 **현재 상태 (전부 실측):**
 - 브랜치: `main`, HEAD `90e9921` (= `origin/main`, #197 머지 커밋)
