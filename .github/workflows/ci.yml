@@ -42,6 +42,11 @@ jobs:
       - name: 어드민 내비 SSOT 회귀 스펙 (순수 데이터/함수 — DB/브라우저 불필요)
         run: npx playwright test --project=admin --reporter=line
 
+      # 2026-07-23 커버리지 전수조사에서 발견: shipments/tracking 프로젝트는 정의만 있고
+      # 어느 워크플로도 실행하지 않아 회귀가 로컬에서만 잡히고 있었다(docs/testing/golden-spec-coverage.md §4-1).
+      - name: 택배 추적 어댑터 스펙 (순수 함수 — DB/브라우저 불필요)
+        run: npx playwright test --project=tracking --reporter=line
+
   # 마이그레이션 자동 적용 — 빌드가 통과한 실제 push(머지)에서만 실행한다.
   # PR 에는 돌지 않아(머지 전 DB 를 건드리지 않음), 깨진 코드가 DB 스키마를 바꾸지 못한다.
   # 러너(scripts/apply-migrations.mjs)는 public._migrations 로 적용 이력을 추적해 미적용만 돌리고,
@@ -94,6 +99,15 @@ jobs:
 
       - name: 결제 상태기계 DB 스펙 (staging)
         run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      # 배송(shipments) 스펙 — 순수 4개 + staging DB 2개(confirm-guard.db, auto-confirm-payment-gate.db).
+      # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
+      # (2026-07-23 커버리지 전수조사 전까지 CI 미배선이었음 — golden-spec-coverage.md §4-1)
+      - name: 배송 파생·구매확정 가드 스펙 (순수 + staging DB)
+        run: npx playwright test --project=shipments --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

@@ -114,8 +114,17 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     const verified = (await verifyRes.json()) as { users: Array<{ id: string; status: string }> };
     expect(verified.users.find((u) => u.id === memberId)?.status).toBe('active');
 
-    // 5) 승인 후에는 UI가 더 이상 변경 수단을 제공하지 않는다(select disabled) — 단방향 게이트 확인.
-    await expect(adminPage.locator('div.mb-6', { hasText: '계정 상태' }).locator('select')).toBeDisabled();
+    // 5) 승인 후의 전이 계약(#196 정지 전이 매트릭스, statusTransitions.ts): active는 select가
+    //    열려 있되 전이 대상은 inactive(정지)뿐이다 — pending/rejected로의 역전이는 제공하지 않는다.
+    //    (2026-07-23 개정: 종전 "단방향 게이트(select disabled)" 단언은 #196 이전 계약이었다.
+    //    members_signup 도메인 스펙이 평소 CI에서 안 돌다 커버리지 전수 스윕에서 드리프트로 적발 —
+    //    화면이 아니라 스펙이 낡은 케이스로 판정, 매트릭스 그대로를 더 강하게 단언한다.)
+    const postApproveSelect = adminPage.locator('div.mb-6', { hasText: '계정 상태' }).locator('select');
+    await expect(postApproveSelect).toBeEnabled();
+    const optionValues = await postApproveSelect
+      .locator('option')
+      .evaluateAll((els) => els.map((el) => (el as HTMLOptionElement).value).sort());
+    expect(optionValues).toEqual(['active', 'inactive']);
 
     await adminPage.close();
   });

@@ -76,7 +76,7 @@ jobs:
             for d in notices reviews concerns home_settings insurance_content kits_partners \
                      products brands members qna_inquiries survey member_journey \
                      category_settings insurance order_policy orders partner_inquiries \
-                     qna_config members_signup; do
+                     qna_config members_signup auth; do
               echo "$d=true" >> "$GITHUB_OUTPUT"
             done
             echo "전체 스윕(workflow_dispatch all=true) — 매핑 무시"
@@ -122,6 +122,7 @@ jobs:
           PARTNER_INQUIRIES=false
           QNA_CONFIG=false
           MEMBERS_SIGNUP=false
+          AUTH=false
           if echo "$CHANGED" | grep -qE "$GATE_SELF"; then
             NOTICES=true
             REVIEWS=true
@@ -142,6 +143,7 @@ jobs:
             PARTNER_INQUIRIES=true
             QNA_CONFIG=true
             MEMBERS_SIGNUP=true
+            AUTH=true
           fi
           if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
             NOTICES=true
@@ -201,8 +203,15 @@ jobs:
           fi
           # 회원 여정(wave6) — 찜하기/카트/체크아웃/마이페이지/진단 등 회원 전용 화면. 이 도메인은
           # 기존 admin-crud-* 어느 것과도 겹치지 않는 소비자측 경로라 별도 게이트로 뗀다.
-          if echo "$CHANGED" | grep -qE '^(src/app/cart/|src/app/checkout/|src/app/order-complete/|src/app/mypage/|src/components/reviews/|src/components/inquiries/|src/components/common/ProductCard\.tsx|src/components/shop/ProductDetailClient\.tsx|src/lib/storage\.ts|src/lib/cart\.ts|src/app/api/orders/|src/app/api/admin/orders/)'; then
+          # src/app/api/members/ 포함(2026-07-23) — 비밀번호 변경·프로필 수정 라우트가 어느 매핑에도 없었다.
+          if echo "$CHANGED" | grep -qE '^(src/app/cart/|src/app/checkout/|src/app/order-complete/|src/app/mypage/|src/components/reviews/|src/components/inquiries/|src/components/common/ProductCard\.tsx|src/components/shop/ProductDetailClient\.tsx|src/lib/storage\.ts|src/lib/cart\.ts|src/app/api/orders/|src/app/api/admin/orders/|src/app/api/members/)'; then
             MEMBER_JOURNEY=true
+          fi
+          # 인증(auth, 2026-07-23 신설) — 소셜 로그인 계약·세션 가드 경로. 커버리지 전수조사에서
+          # src/lib/auth*·/login·proxy가 어느 도메인 매핑에도 없어 member-social-login-contract가
+          # 영원히 안 도는 상태였다(docs/testing/golden-spec-coverage.md §4-2).
+          if echo "$CHANGED" | grep -qE '^(src/lib/auth|src/app/login/|src/app/signup/|src/app/auth/|src/app/api/auth/|src/proxy\.ts)'; then
+            AUTH=true
           fi
 
           echo "notices=$NOTICES" >> "$GITHUB_OUTPUT"
@@ -224,6 +233,7 @@ jobs:
           echo "partner_inquiries=$PARTNER_INQUIRIES" >> "$GITHUB_OUTPUT"
           echo "qna_config=$QNA_CONFIG" >> "$GITHUB_OUTPUT"
           echo "members_signup=$MEMBERS_SIGNUP" >> "$GITHUB_OUTPUT"
+          echo "auth=$AUTH" >> "$GITHUB_OUTPUT"
 
           if [ "$NOTICES" = "false" ] && [ "$REVIEWS" = "false" ] && [ "$CONCERNS" = "false" ] && \
              [ "$HOME_SETTINGS" = "false" ] && [ "$INSURANCE_CONTENT" = "false" ] && [ "$KITS_PARTNERS" = "false" ] && \
@@ -231,7 +241,7 @@ jobs:
              [ "$QNA_INQUIRIES" = "false" ] && [ "$SURVEY" = "false" ] && [ "$MEMBER_JOURNEY" = "false" ] && \
              [ "$CATEGORY_SETTINGS" = "false" ] && [ "$INSURANCE" = "false" ] && [ "$ORDER_POLICY" = "false" ] && \
              [ "$ORDERS" = "false" ] && [ "$PARTNER_INQUIRIES" = "false" ] && [ "$QNA_CONFIG" = "false" ] && \
-             [ "$MEMBERS_SIGNUP" = "false" ]; then
+             [ "$MEMBERS_SIGNUP" = "false" ] && [ "$AUTH" = "false" ]; then
             echo "변경 경로에 해당 골든플로우 없음 — skip"
           fi
 
@@ -562,6 +572,40 @@ jobs:
       - name: 회원 여정 — 1분 맞춤 진단(읽기 전용, 결정적)
         if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.survey == 'true'
         run: npx playwright test tests/golden/member-diagnosis.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      # ── wave7 추가 블록(2026-07-23 커버리지 전수조사 §4-2) — testMatch에는 걸리지만 실행 스텝이
+      # 없어 CI에서 한 번도 돌지 않던 member 스펙 3개를 배선한다. 파일단위 배선 감사
+      # (tests/admin/golden-crud-coverage.spec.ts)도 같은 PR에서 member-*까지 확장됨.
+      - name: 회원 여정 — 마이페이지 상품문의 수정 저장(회귀)
+        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.qna_inquiries == 'true'
+        run: npx playwright test tests/golden/member-inquiry-edit-save.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 회원 여정 — 비밀번호 변경
+        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.auth == 'true'
+        run: npx playwright test tests/golden/member-password-change.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: 회원 여정 — 소셜 로그인 앱 내부 계약(읽기 전용)
+        if: steps.changes.outputs.auth == 'true' || steps.changes.outputs.members_signup == 'true'
+        run: npx playwright test tests/golden/member-social-login-contract.spec.ts --project=golden-crud --reporter=line
         env:
           E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
