@@ -38,13 +38,33 @@ test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, DB 
     });
     await expect(wishlistButton).toBeVisible({ timeout: 15_000 });
 
-    // 상태를 모르고 시작할 수 있으므로(이전 실행 잔여) 우선 "찜하기" 상태로 정규화한다.
-    if ((await wishlistButton.getAttribute('aria-label'))?.includes('해제')) {
-      await wishlistButton.click();
-      await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`);
+    // 상태를 모르고 시작할 수 있으므로(이전 실행 잔여) DB 진실 기준으로 "찜 없음"으로 정규화한다.
+    // 🚨 aria-label 기반 정규화는 레이스였다(2026-07-23 CI 스윕 2회 연속 재현): 버튼의 wishlisted
+    // 상태는 getWishlist() fetch 완료 후에야 동기화되는데, 그 전에 읽으면 잔여 찜이 있어도
+    // '찜하기'로 보여 정규화를 건너뛰고 — 이어지는 클릭이 실제로는 '해제'로 동작한다. 그 위에
+    // 뒤늦게 도착한 초기 sync(삭제 전 데이터)가 transient '찜 해제'를 그려 aria 단언까지
+    // 통과시키므로, DB만 비고 마이페이지가 EmptyState로 떨어졌다(실측: 실패 아티팩트 +
+    // member_wishlist 직접 조회 0행). 정규화·검증 모두 API(서버 진실)로 한다.
+    const preState = await page.request.get('/api/wishlist');
+    if (preState.ok()) {
+      const { productIds } = (await preState.json()) as { productIds: string[] };
+      if (productIds.includes(PRODUCT_ID)) {
+        await page.request.delete('/api/wishlist', { data: { productId: PRODUCT_ID } });
+      }
     }
+    await page.reload();
+    await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`, {
+      timeout: 15_000,
+    });
     await wishlistButton.click();
     await expect(wishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`);
+    // 독립 경로 검증 — UI 상태가 아니라 서버 재조회로 실제 저장을 확인한다(§8-6 자기개선 루프 2단계).
+    await expect(async () => {
+      const res = await page.request.get('/api/wishlist');
+      expect(res.ok()).toBe(true);
+      const { productIds } = (await res.json()) as { productIds: string[] };
+      expect(productIds).toContain(PRODUCT_ID);
+    }).toPass({ timeout: 15_000 });
 
     await page.goto('/mypage?tab=wishlist');
     await expect(page.getByRole('heading', { name: '관심 상품', exact: true })).toBeVisible({ timeout: 15_000 });

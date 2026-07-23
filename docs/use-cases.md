@@ -136,7 +136,7 @@
 
 ## 점검 운영 방법
 
-1. **환경**: staging(`aeooyivfijthfcrfrnyk`)에서 점검. 계정은 memory `baekjo-agent-team-ops` 참조(테스트 계정 2종). ⚠️ staging은 마이그레이션 0050~0070 미적용 드리프트 있음(SESSION.md 2026-07-23) — 환불·탈퇴·증권 관련 점검은 토큰 재발급 후 staging 정식 적용 뒤에.
+1. **환경**: staging(`aeooyivfijthfcrfrnyk`)에서 점검. 계정은 memory `baekjo-agent-team-ops` 참조(테스트 계정 2종). staging 마이그레이션 드리프트(0050~0070)는 2026-07-23 정식 러너로 적용 완료 — `_migrations` 최신 0070.
 2. **자동 커버 항목**: 검증 스펙이 있는 항목은 `npx playwright test <스펙> --project=<chromium|admin>`으로 재확인 가능. 전체는 CI `golden-crud.yml`이 상시 실행.
 3. **수동 점검 우선순위**: `golden-spec-coverage.md` §5의 G1~G12(스펙 자체가 없는 기능) + 알려진 제약 박스의 미완 기능. (§4 CI 미배선은 2026-07-23 배선 수리 완료)
 4. **결과 기록**: 점검 완료 시 이 파일 체크박스 갱신 + 발견 이슈는 SESSION.md 다음 액션에 등재.
