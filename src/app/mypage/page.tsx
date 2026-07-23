@@ -6,7 +6,7 @@ import { User, Order, InsuranceApplication, Product, ProductReview, ProductInqui
 import {
   getSessionUser,
   getMyOrders,
-  getOrderShipments,
+  getMyOrderShipments,
   getMyInsuranceApplications,
   getWishlist,
   getPublicProducts,
@@ -93,12 +93,11 @@ function MypageContent() {
     // getMyOrders/getMyInsuranceApplications 는 세션 기준으로 이미 내 것만 반환한다.
     getMyOrders().then((orders) => {
       if (loadSeqRef.current === seq) setOrders(orders);
-
-      Promise.all(
-        orders.map(async (order) => [order.id, await getOrderShipments(order.id)] as const),
-      ).then((shipmentPairs) => {
-        if (loadSeqRef.current === seq) setShipmentsByOrder(Object.fromEntries(shipmentPairs));
-      });
+    });
+    // 주문마다 개별 GET을 쏘던 N+1(주문 261건 계정에서 요청 폭풍→개별 fetch 실패가
+    // "운송장 없음" 오표시로 이어짐, 2026-07-24)을 배치 콘센트 1회 호출로 교체.
+    getMyOrderShipments().then((byOrder) => {
+      if (loadSeqRef.current === seq) setShipmentsByOrder(byOrder);
     });
     getMyInsuranceApplications().then((apps) => {
       if (loadSeqRef.current === seq) setInsuranceApps(apps);

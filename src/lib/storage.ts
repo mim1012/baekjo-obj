@@ -490,6 +490,24 @@ export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
 }
 
 /**
+ * 본인 전체 주문의 업체별 배송 정보를 한 번에(배치) 읽는다. GET /api/orders/mine/shipments.
+ * (2026-07-24 가산 — 마이페이지가 주문마다 getOrderShipments 를 개별 호출하던 N+1 폭풍의
+ * 대체 콘센트. 주문 수와 무관하게 요청 1회.)
+ */
+export async function getMyOrderShipments(): Promise<Record<string, Shipment[]>> {
+  try {
+    const response = await fetch('/api/orders/mine/shipments');
+    if (!response.ok) return {};
+    const { shipmentsByOrder } = (await response.json()) as {
+      shipmentsByOrder: Record<string, Shipment[]>;
+    };
+    return shipmentsByOrder;
+  } catch {
+    return {};
+  }
+}
+
+/**
  * 고객 구매확정. POST /api/orders/[id]/shipments/[brandId]/confirm. P6 배송 모달의 확정 버튼이
  * 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌리거나 사용자에게 알릴 수
  * 있게 한다 — 409(아직 배송완료 아님)는 'not-deliverable', 그 외는 'confirm-failed'로 구분한다.

@@ -45,6 +45,28 @@ export async function listShipmentsByOrder(orderId: string): Promise<Shipment[]>
   return (data as ShipmentRow[]).map(rowToRecord);
 }
 
+/**
+ * 여러 주문의 업체별 배송 정보를 청크된 in() 쿼리로 한 번에 읽는다 — 마이페이지 배치 조회 전용.
+ * (2026-07-24 desync 재조사 결론: 마이페이지가 주문마다 GET /api/orders/[id]/shipments 를
+ * 개별 발사하는 N+1 구조라, 주문 261건 계정(e2e)에서 요청 폭풍→개별 fetch 실패/지연이
+ * "운송장 없음" 오표시로 이어졌다. 실사용자도 주문 수에 비례해 요청이 늘던 실 성능 버그.)
+ * PostgREST 1000행 캡 회피 겸 URL 길이 안전을 위해 청크당 100개 주문씩 나눠 조회한다.
+ */
+export async function listShipmentsByOrderIds(orderIds: string[]): Promise<Shipment[]> {
+  if (orderIds.length === 0) return [];
+  const CHUNK = 100;
+  const all: Shipment[] = [];
+  for (let i = 0; i < orderIds.length; i += CHUNK) {
+    const { data, error } = await getSupabase()
+      .from('shipments')
+      .select(SELECT_COLUMNS)
+      .in('order_id', orderIds.slice(i, i + CHUNK));
+    if (error) throw error;
+    all.push(...(data as ShipmentRow[]).map(rowToRecord));
+  }
+  return all;
+}
+
 /** upsertShipment가 받는 갱신분. undefined인 필드는 기존 값을 건드리지 않는다(부분 갱신). */
 export type ShipmentPatch = Partial<{
   carrier: string;
