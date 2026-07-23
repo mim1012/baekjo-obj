@@ -14,12 +14,11 @@ const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 // 확인). 반드시 /insurance/recommend → "Link"를 거쳐 /insurance/apply로 진입해 실제 신청 폼을
 // 채운다.
 //
-// ⚠️ 파일 업로드 없음 — /insurance/apply는 순수 텍스트/셀렉트/버튼 필드뿐이다("증권 업로드"는
-// /insurance 랜딩에만 있고 이 신청 폼과 무관).
-//
-// 🚨 삭제/정리 수단이 없다 — insurance_applications에 DELETE API가 없고 회원 마이페이지도
-// 읽기 전용이다(실측 확인). 이 스펙이 만드는 신청 건은 staging에 영구히 남는다 — 상태를 '완료'로
-// 남겨 처리 완료 신호를 주는 것 외에 진짜 정리는 불가능하다(팀리드 보고 대상, 알려진 제약).
+// ℹ️ 아래 두 제약은 #197(be/insurance-cert-pii-notify)로 해소됐다 (2026-07-23 현행화):
+// - /insurance/apply에 증권 파일 첨부(선택)가 생겼다 — 업로드~signed URL 열람~PII 파기의
+//   실구동은 admin-crud-insurance-cert.spec.ts가 담당한다. 이 스펙은 파일 없이 제출한다.
+// - DELETE /api/admin/insurance/[id]가 생겨(스토리지 선삭제 포함) 정리가 가능해졌다.
+//   이 스펙의 마지막 '완료' 상태 남기기는 상담 여정의 종결 검증으로 유지한다.
 //
 // 🚨 쓰기(write) 스펙 — E2E_ADMIN_CRUD=1 로 명시적으로 켜지 않으면 전체 skip. 절대 production을
 // 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
