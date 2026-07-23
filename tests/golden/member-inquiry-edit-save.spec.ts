@@ -77,9 +77,25 @@ test.describe('회귀: 마이페이지 상품문의 수정 저장 가능 여부(
 
     // 1) 문의 작성(답변 전 상태로 남겨야 이후 수정이 서버에 반영된다).
     await loginAsMember(page);
-    await page.goto(`/shop/${PRODUCT_ID}`);
-    await page.getByRole('button', { name: '문의하기' }).click();
-    await page.getByRole('heading', { name: '상품문의 작성' }).waitFor({ state: 'visible', timeout: 15_000 });
+    // 🚨 하이드레이션 레이스(2026-07-23 CI 첫 실구동에서 적발): ProductTabsClient의 user는
+    // getSessionUser()의 /api/members/me fetch가 끝나야 채워진다(useState(null) 시작). 그 전에
+    // 문의하기를 클릭하면 user===null 분기가 alert(위 dialog 핸들러가 조용히 수락함)→/login
+    // 리다이렉트로 빠져 '상품문의 작성' 모달이 영영 안 뜬다. 세션 fetch 완료를 기다린 뒤
+    // 클릭하고, 그래도 리다이렉트에 밀렸으면 상품 페이지 재진입 후 재시도한다.
+    const gotoProductWithSession = async () => {
+      await Promise.all([
+        page
+          .waitForResponse((res) => res.url().includes('/api/members/me'), { timeout: 20_000 })
+          .catch(() => {}),
+        page.goto(`/shop/${PRODUCT_ID}`),
+      ]);
+    };
+    await gotoProductWithSession();
+    await expect(async () => {
+      if (!page.url().includes(`/shop/${PRODUCT_ID}`)) await gotoProductWithSession();
+      await page.getByRole('button', { name: '문의하기' }).click();
+      await page.getByRole('heading', { name: '상품문의 작성' }).waitFor({ state: 'visible', timeout: 5_000 });
+    }).toPass({ timeout: 45_000 });
     const titleInput = page.getByPlaceholder('문의 제목을 입력해주세요');
     await titleInput.fill(title);
     await expect(titleInput).toHaveValue(title);
