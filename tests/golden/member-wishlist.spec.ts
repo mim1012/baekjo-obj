@@ -89,8 +89,20 @@ test.describe('골든플로우: 회원 여정 — 찜하기(위시리스트, DB 
     await expect(syncedWishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜 해제`, {
       timeout: 15_000,
     });
+    // 해제 실패 시 UI가 alert를 띄우므로(핸들러 없으면 Playwright가 dismiss) 명시 수락한다.
+    freshPage.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await syncedWishlistButton.click();
-    await expect(syncedWishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`);
+    // 🚨 2026-07-23 스윕 재현: 프리뷰에서 해제 POST 왕복이 기본 5s 단언보다 느려 aria가 제때
+    // 안 뒤집혔다. 등록과 대칭으로 서버 재조회를 1차 판정으로 삼고(15s poll), aria는 그 뒤 확인.
+    await expect(async () => {
+      const res = await freshPage.request.get('/api/wishlist');
+      expect(res.ok()).toBe(true);
+      const { productIds } = (await res.json()) as { productIds: string[] };
+      expect(productIds).not.toContain(PRODUCT_ID);
+    }).toPass({ timeout: 20_000 });
+    await expect(syncedWishlistButton).toHaveAttribute('aria-label', `${productDisplayName} 찜하기`, {
+      timeout: 15_000,
+    });
 
     await freshPage.goto('/mypage?tab=wishlist');
     await expect(freshPage.locator('.mypage-card', { hasText: productDisplayName })).toHaveCount(0, { timeout: 15_000 });
