@@ -406,6 +406,18 @@ jobs:
           E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
+      # 게스트 제출이라 회원 시크릿 불필요. 스토리지 직접 검증(SUPABASE_SECRET_KEY)은 CI에
+      # 주입하지 않으므로 스펙이 조건부로 건너뛴다(행 소멸+cert 404가 파기 검증 담당).
+      - name: 관리자 CRUD — 보험 증권 업로드(업로드→signed URL 열람→PII 파기)
+        if: steps.changes.outputs.insurance == 'true'
+        run: npx playwright test tests/golden/admin-crud-insurance-cert.spec.ts --project=golden-crud --reporter=line
+        env:
+          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
+          E2E_ADMIN_CRUD: '1'
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
       - name: 관리자 CRUD — QnA(qna_config 공개 배선 실증)
         if: steps.changes.outputs.qna_config == 'true'
         run: npx playwright test tests/golden/admin-crud-qna-config.spec.ts --project=golden-crud --reporter=line
