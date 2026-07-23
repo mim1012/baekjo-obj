@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      // 🚨 API 응답은 어떤 캐시에도 저장 금지 (2026-07-23 desync 실버그의 엣지/브라우저측 대책).
+      // 기본값이 `public, max-age=0, must-revalidate` + Vary 없음이라(실측), 세션 의존 응답
+      // (/api/wishlist·/api/orders/*)이 URL 단위로 공유 캐시에 저장될 수 있는 상태였다 —
+      // 쓰기 직후 회원측 읽기가 낡은 값을 주는 재현(CI 스윕 3회)과 부합. 공개 콘텐츠 GET도
+      // 어차피 max-age=0이라 no-store로 바꿔도 성능 손실이 없다. 캐시가 필요해지는 라우트는
+      // 해당 라우트에서 명시적으로 Cache-Control을 설정해 이 기본값을 덮을 것.
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       // 화면 라벨은 "셀렉션"인데 실제 경로는 /shop 이다 — Header(:105,:117,:237)·Footer(:7)·
