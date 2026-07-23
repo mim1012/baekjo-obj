@@ -35,6 +35,14 @@ const allowedAdvisories = new Map([
     'https://github.com/advisories/GHSA-qx2v-qp2m-jg93',
     'PostCSS is nested under Next.js; application source does not parse or stringify user-controlled CSS.',
   ],
+  [
+    // 2026-07-24 신규 공개 — arbitrary file read during CSS parsing. next 16.2.11(최신)이 아직
+    // 패치판 postcss를 동봉하지 않아 업그레이드 경로 부재. qx2v와 동일 도달성 논거: postcss는
+    // Next 빌드 체인 내부에서만 실행되고 사용자 제어 CSS를 파싱하지 않는다. next 패치 릴리즈
+    // 시 업그레이드로 전환할 것(만료일 exceptionExpiresOn이 재검토를 강제).
+    'https://github.com/advisories/GHSA-6g55-p6wh-862q',
+    'PostCSS is nested under Next.js (no patched Next release yet); build-time only, no user-controlled CSS is parsed.',
+  ],
 ]);
 
 function runAudit() {
