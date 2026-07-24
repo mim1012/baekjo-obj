@@ -20,13 +20,16 @@ export default function Footer() {
             <Link href="/mypage?tab=inquiries" className="transition-colors duration-500 hover:text-[#FBFAF7]">1:1 문의</Link>
             <Link href="/terms" className="transition-colors duration-500 hover:text-[#FBFAF7]">이용약관</Link>
             <Link href="/privacy" className="font-semibold text-[#FBFAF7]/85 transition-colors duration-500 hover:text-[#FBFAF7]">개인정보처리방침</Link>
+            {/* 배송·교환·환불 링크와 '사업자정보확인' 문구는 전자상거래 법정 표기 —
+                토스 심사 스펙(legal-readiness)이 강제한다. 간결화해도 이 둘은 유지. */}
+            <Link href="/refund-policy" className="transition-colors duration-500 hover:text-[#FBFAF7]">배송·교환·환불 안내</Link>
             <a
               href={COMPANY.businessLookupUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="transition-colors duration-500 hover:text-[#FBFAF7]"
             >
-              사업자정보
+              사업자정보확인
             </a>
           </nav>
         </div>
