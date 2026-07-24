@@ -38,11 +38,11 @@ export default async function ExpertsPage({
                  <p className="font-editorial text-[12px] tracking-widest text-[#A8742E] font-semibold uppercase mb-4">
                     Expert&apos;s View
                  </p>
-                 <h1 className="text-[38px] md:text-[46px] font-bold text-[#1A1D1B] leading-[1.25] tracking-[-0.035em] break-keep mb-5">
+                 <h1 className="text-[32px] md:text-[38px] lg:text-[46px] font-bold text-[#1A1D1B] leading-[1.25] tracking-[-0.035em] break-keep mb-5 min-w-0">
                     전문가 관점으로 살펴보는<br />
                     상품 선택 기준
                  </h1>
-                 <p className="text-[14px] md:text-[15px] text-[#5F6761] leading-[1.65] break-keep">
+                 <p className="text-[14px] md:text-[15px] text-[#5F6761] leading-[1.65] break-keep min-w-0">
                     백조오브제가 수의·영양·행동 전문가의 관점을 바탕으로<br />
                     우리 아이에게 맞는 상품 선택 기준을 정리했습니다.
                  </p>

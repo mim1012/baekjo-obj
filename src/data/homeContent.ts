@@ -89,6 +89,7 @@ export const defaultHomeSettings: HomeSettings = {
       { name: '전체 상품' },
       { name: '강아지' },
       { name: '고양이' },
+      { name: '소동물' },
       { name: '사료·간식' },
       { name: '위생·배변' },
       { name: '건강관리' },
