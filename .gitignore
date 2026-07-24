@@ -77,6 +77,10 @@ AGENTS.md.resolved
 /__*.mjs
 /tests/golden/__*.spec.ts
 
-# 에이전트 설정 문서는 로컬 전용(공개 레포에 올리지 않음 — 2026-07-24 결정)
+# 에이전트 설정·내부 운영 문서는 로컬 전용(공개 레포에 올리지 않음 — 2026-07-24 결정)
 AGENTS.md
 CLAUDE.md
+SESSION.md
+SESSION.template.md
+docs/archive/
+.agents/
