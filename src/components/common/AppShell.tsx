@@ -33,11 +33,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const isHome = pathname === '/';
+
   return (
     <>
       <Header />
       <main className="public-main min-w-0 flex-1 overflow-x-clip pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
-      <Footer />
+      <Footer variant={isHome ? 'home' : 'default'} />
       <MobileBottomNav />
     </>
   );

@@ -11,11 +11,11 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: {
-    default: "백조오브제 | 반려생활의 아름다운 기준",
-    template: "%s | 백조오브제",
+    default: "백조?�브??| 반려?�활???�름?�운 기�?",
+    template: "%s | 백조?�브??,
   },
   description:
-    "반려동물과 함께하는 시간을 더 오래, 더 아름답게. 검증된 브랜드와 전문가의 기준을 한곳에서 만나보세요.",
+    "반려?�물�??�께?�는 ?�간?????�래, ???�름?�게. 검증된 브랜?��? ?�문가??기�????�곳?�서 만나보세??",
 };
 
 import { SiteSettingsProvider } from "@/components/providers/SiteSettingsProvider";
@@ -31,7 +31,7 @@ export default function RootLayout({
       <head>
         <meta name="google" content="notranslate" />
       </head>
-      <body className="flex min-h-full flex-col bg-[#FBFAF7] font-sans text-[#17211D]">
+      <body className="flex min-h-full flex-col bg-white font-sans text-[#17211D]">
         <SiteSettingsProvider>
           <CategorySettingsProvider>
             <AppShell>{children}</AppShell>
