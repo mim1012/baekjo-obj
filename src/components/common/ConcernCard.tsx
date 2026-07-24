@@ -37,12 +37,14 @@ export default function MainConcernCard({ concern, index = "01" }: Props) {
         <div className="flex size-[38px] md:size-[42px] items-center justify-center rounded-xl bg-[#F8F6F0] transition-colors group-hover:bg-[#F2EEE5]">
           {icon}
         </div>
-        <span className="text-[11px] md:text-[12px] font-bold tracking-widest text-[#B68B4E]">{index}</span>
+        {/* 번호는 고민명보다 뒤로 물러나도록 작고 연하게(클라이언트 요청 2026-07-24) */}
+        <span className="text-[10px] md:text-[11px] font-semibold tracking-widest text-[#CBB68F]">{index}</span>
       </div>
-      
+
       <div className="flex flex-col mt-4">
         <h3 className="text-[17px] md:text-[19px] font-bold tracking-tight text-[#17231E] mb-1.5 md:mb-2">{concern.title}</h3>
-        <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px]">
+        {/* 설명은 2줄 고정(line-clamp) — 카드 높이·줄 수를 동일하게 정렬 */}
+        <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px] line-clamp-2 min-h-[41.6px] md:min-h-[44.8px]">
           {concern.shortDescription}
         </p>
       </div>
@@ -78,7 +80,7 @@ export function SubConcernCard({ concern }: Props) {
           <h3 className="mb-1 break-keep text-[16px] font-bold tracking-tight text-[#17231E] md:text-[17px]">
             {concern.title}
           </h3>
-          <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px]">
+          <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px] line-clamp-2">
             {concern.shortDescription}
           </p>
         </div>

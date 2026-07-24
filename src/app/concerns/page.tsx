@@ -54,12 +54,13 @@ export default async function ConcernsPage() {
               가장 마음에 걸리는 건강 고민부터 골라보세요.<br className="hidden sm:block" />
               함께 살피고, 신호와 생활 관리 기준을 정리했어요.
             </p>
+            {/* 클라이언트 요청(2026-07-24) — 'NN CARE' 인덱스는 작게 표기 */}
             <div className="mt-8 md:mt-10">
-              <span className="text-[12px] md:text-[13px] font-bold tracking-[0.1em] text-[#17231E]">
+              <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.1em] text-[#72766F]">
                 INDEX
               </span>
-              <div className="mt-1">
-                <span className="text-[14px] md:text-[15px] font-bold tracking-widest text-[#B68B4E]">
+              <div className="mt-0.5">
+                <span className="text-[12px] md:text-[13px] font-semibold tracking-widest text-[#B68B4E]">
                   {String(concerns.length).padStart(2, '0')} CARE
                 </span>
               </div>
@@ -90,25 +91,7 @@ export default async function ConcernsPage() {
           </div>
         </section>
 
-        {/* 4. 추가 케어 카드 4개 */}
-        <section className="mb-[48px] md:mb-[60px]">
-          <div className="mb-4 md:mb-5">
-            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E] tracking-tight">추가로 살펴볼 생활 케어</h2>
-            <p className="mt-1 text-[13px] md:text-[14px] text-[#72766F]">일상에서 함께 확인하면 좋은 관리 주제입니다.</p>
-          </div>
-          <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
-            {subConcerns.map((concern, index) => (
-              <div key={concern.slug} className="w-[85vw] sm:w-[320px] md:w-auto shrink-0 snap-start">
-                <SubConcernCard
-                  concern={concern}
-                  index={String(index + 9).padStart(2, '0')}
-                />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* 5. 핵심 정보 요약 바 */}
+        {/* 4. 핵심 정보 요약 바 */}
         <section className="mb-[56px] md:mb-[72px]">
           <div className="flex flex-col md:flex-row w-full bg-white rounded-[20px] border border-[#E4DDD1] overflow-hidden">
             <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
@@ -218,6 +201,27 @@ export default async function ConcernsPage() {
             </div>
           </div>
         </section>
+
+        {/* 7. 추가로 살펴볼 생활 케어 — 클라이언트 요청(2026-07-24)으로 페이지 하단 안내 영역으로 이동.
+            9번째 이후 고민이 없으면(빈 배열) 제목만 남지 않도록 섹션 자체를 숨긴다. */}
+        {subConcerns.length > 0 && (
+        <section className="mb-[48px] md:mb-[60px]">
+          <div className="mb-4 md:mb-5">
+            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E] tracking-tight">추가로 살펴볼 생활 케어</h2>
+            <p className="mt-1 text-[13px] md:text-[14px] text-[#72766F]">일상에서 함께 확인하면 좋은 관리 주제입니다.</p>
+          </div>
+          <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
+            {subConcerns.map((concern, index) => (
+              <div key={concern.slug} className="w-[85vw] sm:w-[320px] md:w-auto shrink-0 snap-start">
+                <SubConcernCard
+                  concern={concern}
+                  index={String(index + 9).padStart(2, '0')}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+        )}
 
         {/* 8. FAQ */}
         <section>
