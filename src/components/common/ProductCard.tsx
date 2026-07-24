@@ -13,7 +13,7 @@ import type { Product } from '@/types';
 
 interface ProductCardProps {
   product: Product;
-  variant?: 'default' | 'shop';
+  variant?: 'default' | 'shop' | 'home' | 'brand-detail-horizontal';
   density?: 'default' | 'compact';
   mobileLayout?: 'vertical' | 'horizontal';
 }
@@ -48,6 +48,8 @@ export default function ProductCard({
   const hasPrice = product.price !== null && product.price !== undefined;
   const isSellable = hasPrice && product.stock > 0;
   const isShopCard = variant === 'shop';
+  const isHomeCard = variant === 'home';
+  const isBrandDetailHorizontal = variant === 'brand-detail-horizontal';
   const isCompact = density === 'compact';
   const isMobileHorizontal = mobileLayout === 'horizontal';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
@@ -98,18 +100,22 @@ export default function ProductCard({
   const availabilityLabel = !hasPrice ? '판매 준비 중' : product.stock <= 0 ? '잠시 품절' : null;
 
   return (
-    <article className="group relative flex h-full min-w-0 flex-col overflow-hidden rounded-[18px] border border-[#E3DCCF] bg-[#FFFEFB] transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 hover:border-[#CFC3B1] hover:shadow-[0_8px_24px_rgba(23,37,31,0.05)]">
+    <article className={`group relative flex h-full min-w-0 flex-col overflow-hidden transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 ${isHomeCard ? 'rounded-[16px] border border-[#E7E2D9] bg-white hover:border-[#173C32] shadow-none' : 'rounded-[18px] border border-[#E3DCCF] bg-[#FFFEFB] hover:border-[#CFC3B1] hover:shadow-[0_8px_24px_rgba(23,37,31,0.05)]'}`}>
       <Link href={detailHref} className="absolute inset-0 z-0" aria-label={`${product.name} 상세 보기`} />
 
-      <div className={isMobileHorizontal
-        ? "pointer-events-none relative z-10 grid flex-1 grid-cols-[116px_minmax(0,1fr)] grid-rows-[40px_1fr_auto] md:flex md:flex-col"
-        : "pointer-events-none relative z-10 flex flex-1 flex-col"
+      <div className={isBrandDetailHorizontal
+        ? "pointer-events-none relative z-10 flex flex-1 flex-col md:grid md:grid-cols-[minmax(180px,42%)_minmax(0,58%)] md:min-h-[230px]"
+        : isMobileHorizontal
+          ? "pointer-events-none relative z-10 grid flex-1 grid-cols-[116px_minmax(0,1fr)] grid-rows-[40px_1fr_auto] md:flex md:flex-col"
+          : "pointer-events-none relative z-10 flex flex-1 flex-col"
       }>
-        <div className={isMobileHorizontal
-          ? "col-span-2 row-start-1 flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
-          : isCompact
-            ? "flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
-            : "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
+        <div className={isBrandDetailHorizontal
+          ? "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:col-span-2 md:row-start-1 md:hidden"
+          : isMobileHorizontal
+            ? "col-span-2 row-start-1 flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
+            : isCompact
+              ? "flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
+              : "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
         }>
           {product.isBest && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
@@ -128,9 +134,11 @@ export default function ProductCard({
           )}
         </div>
 
-        <div className={isMobileHorizontal
-          ? "relative col-start-1 row-span-2 row-start-2 min-h-[220px] w-full overflow-hidden bg-[#F2EEE6] md:aspect-[4/3] md:min-h-0"
-          : `relative w-full overflow-hidden bg-[#F2EEE6] ${isCompact ? 'aspect-[4/3]' : 'aspect-square'}`
+        <div className={isBrandDetailHorizontal
+          ? "relative w-full overflow-hidden bg-[#F2EEE6] aspect-square md:aspect-auto md:h-full md:col-start-1 md:row-span-2"
+          : isMobileHorizontal
+            ? "relative col-start-1 row-span-2 row-start-2 min-h-[220px] w-full overflow-hidden bg-[#F2EEE6] md:aspect-[4/3] md:min-h-0"
+            : `relative w-full overflow-hidden ${isHomeCard ? 'bg-[#F5F3EE] aspect-square' : `bg-[#F2EEE6] ${isCompact ? 'aspect-[4/3]' : 'aspect-square'}`}`
         }>
           {product.image ? (
             <Image
@@ -155,21 +163,23 @@ export default function ProductCard({
           )}
         </div>
 
-        <div className={isMobileHorizontal
-          ? "col-start-2 row-start-2 flex min-w-0 flex-col p-3 md:p-4"
-          : `flex flex-1 flex-col ${isCompact ? 'p-4' : 'p-4 md:p-6'}`
+        <div className={isBrandDetailHorizontal
+          ? "flex flex-1 flex-col p-4 md:col-start-2 md:row-start-1 md:p-[24px]"
+          : isMobileHorizontal
+            ? "col-start-2 row-start-2 flex min-w-0 flex-col p-3 md:p-4"
+            : `flex flex-1 flex-col ${isHomeCard ? 'p-[18px]' : isCompact ? 'p-4' : 'p-4 md:p-6'}`
         }>
-          <p className="break-keep text-[11px] leading-[1.5] text-[#858078] md:text-[12px]">{brandName}</p>
-          <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
+          <p className={`break-keep leading-[1.5] text-[#858078] ${isHomeCard ? 'text-[12px]' : 'text-[11px] md:text-[12px]'}`}>{brandName}</p>
+          <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isHomeCard ? 'line-clamp-2 mt-[6px] text-[15px] lg:text-[16px]' : isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
             {product.name}
           </h3>
 
-          <div className={`mt-auto ${isCompact ? 'pt-3' : 'pt-3 md:pt-[18px]'}`}>
-            <div className="flex flex-wrap items-baseline gap-x-1.5 md:gap-x-2 gap-y-1">
+          <div className={`mt-auto ${isHomeCard ? 'pt-[10px]' : isCompact ? 'pt-3' : 'pt-3 md:pt-[18px]'}`}>
+            <div className={`flex flex-wrap items-baseline gap-y-1 ${isHomeCard ? 'gap-x-[8px]' : 'gap-x-1.5 md:gap-x-2'}`}>
               {hasPrice ? (
                 <>
-                  {discount > 0 && <span className={`font-bold text-[#A8742E] ${isCompact ? 'text-[13px]' : 'text-[13px] md:text-sm'}`}>{discount}%</span>}
-                  <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>
+                  {discount > 0 && <span className={`font-bold text-[#A8742E] ${isHomeCard ? 'text-[13px]' : isCompact ? 'text-[13px]' : 'text-[13px] md:text-sm'}`}>{discount}%</span>}
+                  <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isHomeCard ? 'text-[17px] lg:text-[18px]' : isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>
                     {formatPrice(product.salePrice || product.price!)}
                   </p>
                   {discount > 0 && (
@@ -177,11 +187,11 @@ export default function ProductCard({
                   )}
                 </>
               ) : (
-                <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>가격 협의</p>
+                <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isHomeCard ? 'text-[17px] lg:text-[18px]' : isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>가격 협의</p>
               )}
             </div>
 
-            <div className={`flex items-center text-[#6F766F] ${isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
+            <div className={`flex items-center text-[#6F766F] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
               <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
               <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
               <span className="mx-1.5">·</span>
@@ -189,9 +199,9 @@ export default function ProductCard({
             </div>
 
             {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
-              <div className={`mt-3 flex flex-wrap gap-1.5 ${isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
-                {product.concernTags.map((tag) => (
-                  <span key={tag} className="flex items-center justify-center rounded-full bg-[#FAF8F3] px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px] text-[#6F766F]">
+              <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
+                {product.concernTags.slice(0, isHomeCard ? 2 : product.concernTags.length).map((tag) => (
+                  <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#6F766F] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
                     {concernLabels[tag] ?? tag}
                   </span>
                 ))}
@@ -200,9 +210,11 @@ export default function ProductCard({
           </div>
         </div>
 
-        <div className={isMobileHorizontal
-          ? "pointer-events-auto col-start-2 row-start-3 px-3 pb-3 md:px-4 md:pb-4"
-          : `pointer-events-auto ${isCompact ? 'px-4 pb-4' : 'px-4 pb-4 md:px-6 md:pb-6'}`
+        <div className={isBrandDetailHorizontal
+          ? "pointer-events-auto px-4 pb-4 md:col-start-2 md:row-start-2 md:mt-auto md:px-[24px] md:pb-[24px] md:pt-0"
+          : isMobileHorizontal
+            ? "pointer-events-auto col-start-2 row-start-3 px-3 pb-3 md:px-4 md:pb-4"
+            : `pointer-events-auto ${isHomeCard ? 'px-[18px] pb-[18px]' : isCompact ? 'px-4 pb-4' : 'px-4 pb-4 md:px-6 md:pb-6'}`
         }>
           {cartMessage && (
             <div role="status" className="mb-2 rounded-xl bg-[#17211D] px-3 py-2 text-center text-xs font-semibold text-[#FBFAF7]">
@@ -217,7 +229,7 @@ export default function ProductCard({
                 handleCart();
               }}
               disabled={!isSellable}
-              className={`flex min-w-0 flex-1 items-center justify-center gap-1 rounded-xl border border-[#E7E0D5] bg-white px-1.5 font-semibold text-[#17211D] transition-colors duration-300 hover:bg-[#F3EEE6] disabled:cursor-not-allowed disabled:opacity-50 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}
+              className={`flex min-w-0 flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
             >
               <ShoppingBag className="size-3.5 shrink-0 sm:size-4" />
               <span className="whitespace-nowrap">{isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}</span>
@@ -230,7 +242,7 @@ export default function ProductCard({
                 void handleWishlist();
               }}
               disabled={wishlistBusy}
-              className={`flex shrink-0 items-center justify-center rounded-xl border border-[#E7E0D5] bg-white text-[#17211D] transition-colors duration-300 hover:bg-[#F3EEE6] ${isCompact ? 'size-10' : 'size-[42px] sm:size-[44px]'}`}
+              className={`flex shrink-0 items-center justify-center bg-white transition-colors duration-300 ${isHomeCard ? 'rounded-[10px] h-[40px] w-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] ${isCompact ? 'size-10' : 'size-[42px] sm:size-[44px]'}`}`}
             >
               <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
             </button>

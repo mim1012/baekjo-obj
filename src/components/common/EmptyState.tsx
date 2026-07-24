@@ -15,13 +15,13 @@ export default function EmptyState({
   icon = <Feather className="size-8 text-[#667368]" />,
   title,
   description,
-  actionLabel = '추천 상품 둘러보기',
+  actionLabel = '추천 ?�품 ?�러보기',
   actionHref = '/shop',
   compact = false,
 }: EmptyStateProps) {
   if (compact) {
     return (
-      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-[#E7E0D5] bg-[#FBFAF7] px-6 py-8 sm:py-10 text-center min-h-[150px]">
+      <div className="flex w-full flex-col items-center justify-center rounded-2xl border border-[#E7E0D5] bg-white px-6 py-8 sm:py-10 text-center min-h-[150px]">
         <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-[#F3EEE6] text-[#A8742E]">
           {icon}
         </div>

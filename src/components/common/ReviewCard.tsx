@@ -1,6 +1,7 @@
 'use client';
 
 import { Review } from '@/types';
+import Image from 'next/image';
 import { Image as ImageIcon, Star } from 'lucide-react';
 import { formatDate, ratingStars } from '@/lib/format';
 import ExpandableText from '@/components/common/ExpandableText';
@@ -8,13 +9,16 @@ import ExpandableText from '@/components/common/ExpandableText';
 interface Props {
   review: Review;
   productName?: string;
+  variant?: 'default' | 'home';
+  className?: string;
 }
 
-export default function ReviewCard({ review, productName }: Props) {
+export default function ReviewCard({ review, productName, variant = 'default', className }: Props) {
   const stars = ratingStars(review.rating);
+  const isHome = variant === 'home';
 
   return (
-    <article className="group flex h-full flex-col gap-4 rounded-xl border border-[#E7E0D5] bg-white p-5 transition-colors duration-500 ease-out hover:border-[#D8C4A3] md:p-6">
+    <article className={`group flex h-full min-w-0 flex-col overflow-hidden text-left transition-colors duration-500 ease-out ${isHome ? 'p-[20px] bg-transparent' : 'h-full p-5 md:p-6 rounded-xl border border-[#E7E0D5] hover:border-[#D8C4A3] bg-white'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex gap-0.5" aria-label={`${review.rating}점`} role="img">
@@ -58,7 +62,7 @@ export default function ReviewCard({ review, productName }: Props) {
 
       {review.isPhotoReview && review.image && (
         <div className="relative overflow-hidden rounded-lg border border-[#E7E0D5] bg-[#FAF8F3]">
-          <img src={review.image} alt={`${review.breed} 반려동물 후기 사진`} className="h-[96px] md:h-[112px] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]" />
+          <Image src={review.image} alt={`${review.breed} 반려동물 후기 사진`} fill sizes="(max-width: 768px) 100vw, 300px" className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]" />
           <div className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-white/70 bg-white/90 px-2 py-1 text-[#8A6230]">
             <ImageIcon className="size-3" aria-hidden="true" />
             <span className="font-editorial text-[10px] font-bold tracking-wider">PHOTO</span>
