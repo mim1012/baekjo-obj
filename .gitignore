@@ -76,3 +76,7 @@ AGENTS.md.resolved
 /gate3-*.png
 /__*.mjs
 /tests/golden/__*.spec.ts
+
+# 로컬 에이전트 설정 문서(요청으로 ignore — 단 AGENTS.md는 저장소에 이미 추적 중이라
+# git rm --cached 없이는 변경이 계속 감지된다. SSOT라 untrack 은 하지 않음)
+AGENTS.md
