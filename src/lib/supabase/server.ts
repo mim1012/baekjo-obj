@@ -21,6 +21,15 @@ export function getSupabase(): SupabaseClient {
 
   cachedClient = createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    // 🚨 no-store 필수 (2026-07-23 desync 실버그의 서버측 근본 대책 — memory
+    // wishlist-desync-repro-2026-07-23). Next 16은 "Request-time API(cookies 등) 이전에
+    // 도달 가능한 fetch를 기본 캐시"한다(docs/01-app/02-guides/caching-without-cache-components.md:111).
+    // supabase-js의 REST 호출은 전역 fetch를 쓰므로 코드 경로에 따라 DB 읽기가 데이터 캐시에
+    // 고정될 수 있다 — 실측: 찜 해제/송장 등록 직후 회원측 GET이 배포 수명 동안 낡은 값 반환.
+    // 모든 DB 호출을 이 한 지점에서 no-store로 강제해 어떤 라우트/호출 순서에서도 재발을 막는다.
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, cache: 'no-store' }),
+    },
   });
   return cachedClient;
 }
