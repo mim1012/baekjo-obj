@@ -2,11 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/reclaim-stock",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/cron/reconcile-confirming",
-      "schedule": "*/5 * * * *"
+      "schedule": "0 19 * * *"
     },
     {
       "path": "/api/cron/auto-confirm-shipments",
