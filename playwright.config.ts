@@ -11,7 +11,7 @@ import { defineConfig, devices } from '@playwright/test';
 // 다른 프로젝트에도 공유되는 일반 강건성 수정이라 항상 켜둔다.
 const fromEnv = process.env.E2E_BASE_URL || process.env.BASE_URL;
 const baseURL =
-  fromEnv || 'https://baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app';
+  fromEnv || 'https://baekjo-obj-git-chore-vercel-hobb-bf35d1-dksk0359-7464s-projects.vercel.app';
 
 const isLocal = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
 
