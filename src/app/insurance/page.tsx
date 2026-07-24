@@ -299,7 +299,7 @@ export default function InsurancePage() {
             {/* 좌측 준비 안내 (32%) */}
             <div className="lg:w-[32%] lg:pt-2">
               <p className="text-[13px] font-bold text-[#A8742E]">증권을 준비해 주세요</p>
-              <h2 className="mt-3 text-[32px] font-bold leading-[1.2] tracking-[-0.035em] text-[#1A1D1B] lg:text-[38px]">
+              <h2 className="mt-3 text-[28px] md:text-[32px] font-bold leading-[1.2] tracking-[-0.035em] text-[#1A1D1B] lg:text-[38px] break-keep min-w-0">
                 증권을 보며<br />
                 궁금한 점부터<br />
                 정리해 보세요.
