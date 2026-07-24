@@ -173,23 +173,30 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                     {hasPublishedAudit ? '아래 항목을 중심으로 꼼꼼히 확인하고 통과했습니다.' : '아래 항목을 중심으로 꼼꼼히 확인하고 있습니다.'}
                   </p>
 
-                  <div className="mb-6 grid grid-cols-1 gap-x-4 gap-y-2.5 sm:grid-cols-2">
+                  <div className="mb-6 flex flex-col gap-2.5">
                     {brand.auditPoints?.length > 0 ? (
                       brand.auditPoints.map((point, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-[13px] md:text-[14px] text-[#17251F]">
+                        <div key={idx} className="flex items-start gap-3 rounded-lg bg-[#F8F6F0] px-4 py-3 text-[13px] md:text-[14px] text-[#17251F]">
                           <Check className="w-4 h-4 mt-0.5 text-[#B58A4C] shrink-0" />
-                          <span className="break-keep">{point}</span>
+                          <span className="break-keep leading-snug">{point}</span>
                         </div>
                       ))
                     ) : (
-                      <>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 공식 운영 주체 정보</div>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 제품 기능 및 안전성</div>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 성분 및 원료 안정성</div>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 품질 및 사용성 검토</div>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 제조 및 품질 관리</div>
-                        <div className="flex items-center gap-2 text-[13px] md:text-[14px] text-[#17251F]"><Check className="w-4 h-4 text-[#B58A4C] shrink-0" /> 보호자 가치 및 경험</div>
-                      </>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {[
+                          '공식 운영 주체 정보',
+                          '제품 기능 및 안전성',
+                          '성분 및 원료 안정성',
+                          '품질 및 사용성 검토',
+                          '제조 및 품질 관리',
+                          '보호자 가치 및 경험',
+                        ].map((fallbackPoint, idx) => (
+                          <div key={idx} className="flex items-center gap-3 rounded-lg bg-[#F8F6F0] px-4 py-3 text-[13px] md:text-[14px] text-[#17251F]">
+                            <Check className="w-4 h-4 text-[#B58A4C] shrink-0" />
+                            <span className="break-keep">{fallbackPoint}</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
 

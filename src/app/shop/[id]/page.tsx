@@ -154,7 +154,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                       : '아직 모든 확인이 끝나지 않았어요. 판매를 시작하기 전에 필요한 자료와 상품 정보를 더 살펴볼게요.'}
                   </p>
                   {brand && (
-                    <Link href={`/brands/${brand.id}`} className="btn-secondary mt-7 border-[#FBFAF7]/25 text-[#FBFAF7] hover:border-[#FBFAF7]/50 hover:bg-[#FBFAF7]/10">
+                    <Link href={`/brands/${brand.id}`} className="btn-secondary mt-7 border-[#FBFAF7]/25 text-[#FBFAF7] hover:border-[#FBFAF7]/50 hover:bg-white/10">
                       브랜드 이야기 더 보기
                       <ArrowRight className="size-4" />
                     </Link>
@@ -163,7 +163,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                 <div className="lg:border-l lg:border-[#FBFAF7]/10 lg:pl-10">
                   <ul className="space-y-3">
                     {(brand?.auditPoints ?? ['브랜드 운영 자료 확인 중', '상품 정보와 판매 조건 확인 중']).map((point) => (
-                      <li key={point} className="flex items-start gap-3 rounded-2xl bg-[#FBFAF7]/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
+                      <li key={point} className="flex items-start gap-3 rounded-2xl bg-white/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
                         <ShieldCheck className="mt-1 size-4 shrink-0 text-[#D8C4A3]" />
                         {point}
                       </li>
@@ -183,7 +183,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FBFAF7]/45">Product check</p>
                       <ul className="mt-4 space-y-3">
                         {productAuditPoints.map((point) => (
-                          <li key={point} className="flex items-start gap-3 rounded-2xl bg-[#FBFAF7]/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
+                          <li key={point} className="flex items-start gap-3 rounded-2xl bg-white/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">
                             <CheckCircle2 className="mt-1 size-4 shrink-0 text-[#D8C4A3]" />
                             {point}
                           </li>

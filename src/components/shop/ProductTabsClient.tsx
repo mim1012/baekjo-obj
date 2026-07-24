@@ -20,7 +20,7 @@ interface ProductTabsClientProps {
 
 interface WritableItem {
   orderId: string;
-  /** OrderItem 고유 id 도입 시 채움 — 지금은 reviewTargetKey 로 유일성을 보장하므로 optional. */
+  /** OrderItem 고유 id ?�입 ??채�? ??지금�? reviewTargetKey �??�일?�을 보장?��?�?optional. */
   orderItemId?: string;
   optionName?: string;
 }
@@ -47,9 +47,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   // Writable review targets
   const [writableItems, setWritableItems] = useState<WritableItem[]>([]);
 
-  // loadData 는 mount·product.id 변경·STORAGE_EVENTS 리스너에서 각각 독립적으로 재호출된다
-  // (단일 useEffect cleanup으로는 못 잡는 범위) — 마지막 호출 번호만 신뢰해 먼저 시작했지만
-  // 늦게 응답한 요청이 최신 상태를 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
+  // loadData ??mount·product.id 변경·STORAGE_EVENTS 리스?�에??각각 ?�립?�으�??�호출된??  // (?�일 useEffect cleanup?�로??�??�는 범위) ??마�?�??�출 번호�??�뢰??먼�? ?�작?��?�?  // ??�� ?�답???�청??최신 ?�태�???��?��? ?�게 ?�다(last-response-wins ?�이??방�?).
   const loadSeqRef = useRef(0);
 
   const loadData = useCallback(() => {
@@ -81,8 +79,8 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   }, [product.id]);
 
   useEffect(() => {
-    // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
-    // DB 전환 PR에서 마운트 판정 로직 자체를 재작업할 예정.
+    // mount 감�? + ?�라?�언???�용 ?�토리�? 로딩(SSR-hydration 불일�?방�?) ??dad ?�작 보존,
+    // DB ?�환 PR?�서 마운???�정 로직 ?�체�??�작?�할 ?�정.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     loadData();
@@ -97,14 +95,14 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     };
   }, [loadData]);
 
-  // reviews 는 아래 본문에서 직접 읽지 않지만(항상 getProductReviewsByUser 로 최신값을
-  // 다시 조회), 리뷰 작성/삭제 시 이 effect 를 재실행시키는 신호로 deps 에 명시한다.
-  // orders 갱신에만 의존하면 리뷰만 바뀌고 orders 가 그대로일 때 writableItems 가
-  // stale 해지는 문제가 있었다(codex 지적).
+  // reviews ???�래 본문?�서 직접 ?��? ?��?�???�� getProductReviewsByUser �?최신값을
+  // ?�시 조회), 리뷰 ?�성/??�� ????effect �??�실?�시?�는 ?�호�?deps ??명시?�다.
+  // orders 갱신?�만 ?�존?�면 리뷰�?바뀌고 orders 가 그�?로일 ??writableItems 가
+  // stale ?��???문제가 ?�었??codex 지??.
   useEffect(() => {
     if (!user || !orders.length) {
-      // user/orders 가 아직 없을 때 이전 값이 남지 않도록 초기화(dad 동작 보존,
-      // DB 전환 PR에서 재작업 예정).
+      // user/orders 가 ?�직 ?�을 ???�전 값이 ?��? ?�도�?초기??dad ?�작 보존,
+      // DB ?�환 PR?�서 ?�작???�정).
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setWritableItems([]);
       return;
@@ -135,10 +133,10 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
     };
   }, [user, orders, shipmentsByOrder, product.id, reviews]);
 
-  // 부모 리렌더마다 새 객체 리터럴 → InquiryFormModal 의 effect 재발화로 작성 중 문의가 소리 없이
-  // 증발하던 버그(2026-07-18 e2e 실측). effect 쪽 deps 를 원시값으로 바꾼 것만으로도 막히지만,
-  // 방어적으로 여기서도 참조를 안정화해 자식 리렌더 자체를 줄인다(defense in depth). early return
-  // (isMounted 가드) 보다 위에 둬야 훅 호출 순서가 렌더마다 일정하게 유지된다.
+  // 부�?리렌?�마????객체 리터????InquiryFormModal ??effect ?�발?�로 ?�성 �?문의가 ?�리 ?�이
+  // 증발?�던 버그(2026-07-18 e2e ?�측). effect �?deps �??�시값으�?바꾼 것만?�로??막히지�?
+  // 방어?�으�??�기?�도 참조�??�정?�해 ?�식 리렌???�체�?줄인??defense in depth). early return
+  // (isMounted 가?? 보다 ?�에 ?�야 ???�출 ?�서가 ?�더마다 ?�정?�게 ?��??�다.
   const inquiryProduct = useMemo(
     () => ({
       id: product.id,
@@ -153,21 +151,21 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
   if (!isMounted) return null;
 
   const tabs = [
-    ['상품 이야기', 'story'],
-    ['성분·사용법', 'details'],
-    ['살펴본 기준', 'standard'],
-    [`후기 ${reviews.length}`, 'reviews'],
+    ['?�품 ?�야�?, 'story'],
+    ['?�분·?�용�?, 'details'],
+    ['?�펴�?기�?', 'standard'],
+    [`?�기 ${reviews.length}`, 'reviews'],
     [`문의 ${inquiries.length}`, 'qna'],
   ];
 
   const handleWriteReviewClick = () => {
     if (!user) {
-      alert('로그인 후 이용 가능합니다.');
+      alert('로그?????�용 가?�합?�다.');
       router.push('/login');
       return;
     }
     if (writableItems.length === 0) {
-      alert('이 상품을 구매하고 배송 완료된 내역이 없거나, 이미 모든 후기를 작성하셨습니다.');
+      alert('???�품??구매?�고 배송 ?�료???�역???�거?? ?��? 모든 ?�기�??�성?�셨?�니??');
       return;
     }
     setReviewModalOpen(true);
@@ -175,7 +173,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
 
   const handleWriteInquiryClick = () => {
     if (!user) {
-      alert('로그인 후 이용 가능합니다.');
+      alert('로그?????�용 가?�합?�다.');
       router.push('/login');
       return;
     }
@@ -192,16 +190,16 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         ...data,
         userId: user.id,
         orderId: target.orderId,
-        // orderItemId: OrderItem 고유 id 도입 시 채움 — reviewTargetKey 로 유일성 보장.
+        // orderItemId: OrderItem 고유 id ?�입 ??채�? ??reviewTargetKey �??�일??보장.
         reviewTargetKey: buildReviewTargetKey(target.orderId, product.id, target.optionName),
         productId: product.id,
         brandId: product.brandId,
         optionName: target.optionName,
       });
-      alert('구매평이 등록되었습니다.');
+      alert('구매?�이 ?�록?�었?�니??');
       setReviewModalOpen(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '구매평 등록에 실패했습니다.');
+      alert(e instanceof Error ? e.message : '구매???�록???�패?�습?�다.');
     }
   };
 
@@ -214,10 +212,10 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         productId: product.id,
         brandId: product.brandId,
       });
-      alert('상품문의가 등록되었습니다.');
+      alert('?�품문의가 ?�록?�었?�니??');
       setInquiryModalOpen(false);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '상품문의 등록에 실패했습니다.');
+      alert(e instanceof Error ? e.message : '?�품문의 ?�록???�패?�습?�다.');
     }
   };
 
@@ -226,8 +224,8 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
 
   return (
     <>
-      <div className="sticky top-16 z-20 mt-12 border-b border-[#E7E0D5] bg-[#FBFAF7]/95 backdrop-blur-xl lg:top-[72px]">
-        <nav aria-label="상품 상세 메뉴" className="hide-scrollbar -mb-px flex gap-6 overflow-x-auto">
+      <div className="sticky top-16 z-20 mt-12 border-b border-[#E7E0D5] bg-white/95 backdrop-blur-xl lg:top-[72px]">
+        <nav aria-label="?�품 ?�세 메뉴" className="hide-scrollbar -mb-px flex gap-6 overflow-x-auto">
           {tabs.map(([label, target]) => (
             <a
               key={target}
@@ -248,15 +246,14 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         <section id="reviews" className="scroll-mt-36">
           <div className="mb-6 flex items-end justify-between border-b border-[#E7E0D5] pb-4">
             <div>
-              <p className="page-eyebrow">반려가족 이야기</p>
-              <h2 className="mt-2 text-xl font-bold text-[#17211D]">이 상품을 써본 이야기</h2>
+              <p className="page-eyebrow">반려가�??�야�?/p>
+              <h2 className="mt-2 text-xl font-bold text-[#17211D]">???�품???�본 ?�야�?/h2>
             </div>
             <button
               onClick={handleWriteReviewClick}
               className="text-sm font-semibold text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]"
             >
-              후기 남기기
-            </button>
+              ?�기 ?�기�?            </button>
           </div>
           
           {reviews.length > 0 ? (
@@ -283,11 +280,11 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium text-[#8A918B]">
                       {review.breed && <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">{review.breed}</span>}
                       {review.age && <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">{review.age}</span>}
-                      {review.usePeriod && <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">{review.usePeriod} 사용</span>}
+                      {review.usePeriod && <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">{review.usePeriod} ?�용</span>}
                     </div>
                   ) : (
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium text-[#8A918B]">
-                      <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">구매자</span>
+                      <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">구매??/span>
                       <span className="rounded bg-[#F3EEE6] px-1.5 py-0.5">{formatDate(review.createdAt)}</span>
                     </div>
                   )}
@@ -303,9 +300,9 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
             </div>
           ) : (
             <EmptyState
-              title="이 상품의 이야기는 아직 없어요."
-              description="먼저 사용해 본 경험이 쌓이면 이곳에 차곡차곡 소개할게요."
-              actionLabel="다른 셀렉션 보기"
+              title="???�품???�야기는 ?�직 ?�어??"
+              description="먼�? ?�용??�?경험???�이�??�곳??차곡차곡 ?�개?�게??"
+              actionLabel="?�른 ?�?�션 보기"
               actionHref="/shop"
             />
           )}
@@ -326,15 +323,15 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         <section id="qna" className="scroll-mt-36">
           <div className="mb-6 flex items-end justify-between border-b border-[#E7E0D5] pb-4">
             <div>
-              <p className="page-eyebrow">상품 문의</p>
-              <h2 className="mt-2 text-xl font-bold text-[#17211D]">궁금한 점을 남겨주세요.</h2>
+              <p className="page-eyebrow">?�품 문의</p>
+              <h2 className="mt-2 text-xl font-bold text-[#17211D]">궁금???�을 ?�겨주세??</h2>
             </div>
             <button
               onClick={handleWriteInquiryClick}
               className="btn-secondary min-h-10 px-4 py-2 text-xs"
             >
               <MessageCircle className="size-4" />
-              문의하기
+              문의?�기
             </button>
           </div>
           
@@ -346,7 +343,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
                       qna.status === 'answered' ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#6F766F]'
                     }`}>
-                      {qna.status === 'answered' ? '답변완료' : '답변대기'}
+                      {qna.status === 'answered' ? '?��??�료' : '?��??��?}
                     </span>
                     <h3 className="flex items-center gap-1.5 break-keep text-sm font-semibold text-[#17211D]">
                       {qna.isSecret && <Lock className="size-3 text-[#6F766F]" />}
@@ -362,7 +359,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                   {qna.answer && (!qna.isSecret || (user && (user.id === qna.userId || user.role === 'admin' || (user.role === 'partner' && user.managedBrandIds?.includes(qna.brandId || ''))))) && (
                     <div className="mt-4 rounded-2xl bg-[#FAF8F3] p-4 text-sm leading-6">
                       <div className="flex items-center gap-2 mb-2">
-                        <span className="font-bold text-[#17211D]">백조오브제</span>
+                        <span className="font-bold text-[#17211D]">백조?�브??/span>
                         <span className="text-xs text-[#8A918B]">{formatDate(qna.answeredAt || qna.createdAt)}</span>
                       </div>
                       <p className="text-[#6F766F] whitespace-pre-wrap">{qna.answer}</p>
@@ -370,16 +367,16 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                   )}
                   
                   {qna.isSecret && !(user && (user.id === qna.userId || user.role === 'admin' || (user.role === 'partner' && user.managedBrandIds?.includes(qna.brandId || '')))) && (
-                    <p className="mt-3 text-sm italic text-[#8A918B] pl-1">비밀글입니다.</p>
+                    <p className="mt-3 text-sm italic text-[#8A918B] pl-1">비�?글?�니??</p>
                   )}
                 </article>
               ))}
             </div>
           ) : (
             <EmptyState
-              title="아직 등록된 문의가 없어요."
-              description="상품에 대해 궁금한 점이 있다면 편하게 남겨주세요."
-              actionLabel="로그인하고 문의하기"
+              title="?�직 ?�록??문의가 ?�어??"
+              description="?�품???�??궁금???�이 ?�다�??�하�??�겨주세??"
+              actionLabel="로그?�하�?문의?�기"
               actionHref="/login"
             />
           )}

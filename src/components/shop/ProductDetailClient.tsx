@@ -69,23 +69,21 @@ export default function ProductDetailClient({ product }: Props) {
     }
   };
 
-  // 상품 전환 시 로컬 state 재동기화(이전 상품의 인덱스·수량 잔존 방지)
-  // — effect 내 동기 setState 는 lint(cascading render) 에러라 렌더 단계 리셋 패턴 사용.
+  // ?�품 ?�환 ??로컬 state ?�동기화(?�전 ?�품???�덱?�·수???�존 방�?)
+  // ??effect ???�기 setState ??lint(cascading render) ?�러???�더 ?�계 리셋 ?�턴 ?�용.
   const [prevProductId, setPrevProductId] = useState(product.id);
   if (prevProductId !== product.id) {
     setPrevProductId(product.id);
     setActiveImage(0);
     setQuantity(1);
-    // 파생 검증(validOption)만으론 다른 상품이 같은 옵션 id 를 쓸 때 이전 선택이 유효 매치로
-    // 넘어오므로, 상품 전환 시점 리셋을 병행한다.
+    // ?�생 검�?validOption)만으�??�른 ?�품??같�? ?�션 id �??????�전 ?�택???�효 매치�?    // ?�어?��?�? ?�품 ?�환 ?�점 리셋??병행?�다.
     setSelectedOption(product.options?.[0]?.id || '');
   }
-  // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
+  // brandName ?� repo 가 조인???�려준??콘센????src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
 
 
-  // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
-  const validOption = product.options?.find(o => o.id === selectedOption) ?? product.options?.[0];
+  // ?�션?� ?�태�?믿�? ?�고 �??�더 검�????�재 ?�품???�는 ?�션 ID??�??�션?�로 ?��?  const validOption = product.options?.find(o => o.id === selectedOption) ?? product.options?.[0];
   const effectiveOptionId = validOption?.id ?? '';
 
   const hasPrice = product.price !== null && product.price !== undefined;
@@ -93,33 +91,32 @@ export default function ProductDetailClient({ product }: Props) {
   const optionPrice = validOption?.priceDiff ?? validOption?.price ?? 0;
 
   const finalPrice = basePrice + optionPrice;
-  // 표시·계산·핸들러 전달 수량 일원화 — stock 변동과 무관하게 항상 1 이상으로 클램프
-  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, product.stock)));
+  // ?�시·계산·?�들???�달 ?�량 ?�원????stock 변?�과 무�??�게 ??�� 1 ?�상?�로 ?�램??  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, product.stock)));
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
   const unavailableTitle = isAdminViewer
-    ? '판매가 미입력'
+    ? '?�매가 미입??
     : product.isMembersOnlyPrice
-      ? '회원 전용가 등록 대기'
-      : '판매가 등록 대기';
+      ? '?�원 ?�용가 ?�록 ?��?
+      : '?�매가 ?�록 ?��?;
   const unavailableDescription = isAdminViewer
-    ? '관리자 상품 편집에서 판매가와 재고를 입력하면 장바구니와 바로구매가 활성화됩니다.'
-    : '판매가가 확정되면 장바구니와 바로구매를 이용할 수 있습니다.';
-  const adminEditLabel = hasPrice ? '관리자 상품 정보 수정' : '관리자에서 판매가 입력';
-  // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
+    ? '관리자 ?�품 ?�집?�서 ?�매가?� ?�고�??�력?�면 ?�바구니?� 바로구매가 ?�성?�됩?�다.'
+    : '?�매가가 ?�정?�면 ?�바구니?� 바로구매�??�용?????�습?�다.';
+  const adminEditLabel = hasPrice ? '관리자 ?�품 ?�보 ?�정' : '관리자?�서 ?�매가 ?�력';
+  // 방어???�덱???�램????gallery 축소(?�품 ?�환 직후 ?�더) ??undefined src 방�?
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
   const pointsRateLabel = getProductPointsRateLabel(product);
 
   const handleAddToCart = () => {
     if (!hasPrice) {
-      alert('가격을 먼저 확인해주세요.');
+      alert('가격을 먼�? ?�인?�주?�요.');
       router.push('/login');
       return;
     }
     if (product.stock <= 0) {
-      alert('일시 품절된 상품입니다.');
+      alert('?�시 ?�절???�품?�니??');
       return;
     }
     addToCart({
@@ -127,17 +124,17 @@ export default function ProductDetailClient({ product }: Props) {
       optionId: effectiveOptionId || undefined,
       quantity: displayQty,
     });
-    alert('장바구니에 담겼습니다.');
+    alert('?�바구니???�겼?�니??');
   };
 
   const handleBuyNow = () => {
     if (!hasPrice) {
-      alert('가격을 먼저 확인해주세요.');
+      alert('가격을 먼�? ?�인?�주?�요.');
       router.push('/login');
       return;
     }
     if (product.stock <= 0) {
-      alert('일시 품절된 상품입니다.');
+      alert('?�시 ?�절???�품?�니??');
       return;
     }
     addToCart({
@@ -170,7 +167,7 @@ export default function ProductDetailClient({ product }: Props) {
                     key={src + i}
                     type="button"
                     onClick={() => setActiveImage(i)}
-                    aria-label={`${product.name} 이미지 ${i + 1}`}
+                    aria-label={`${product.name} ?��?지 ${i + 1}`}
                     className={`relative aspect-square w-20 shrink-0 overflow-hidden rounded-[12px] bg-[#F3EEE6] border shadow-sm transition-colors ${
                       i === safeIndex ? 'border-[#17211D]' : 'border-[rgba(15,23,42,0.08)] hover:border-[#17211D]'
                     }`}
@@ -183,7 +180,7 @@ export default function ProductDetailClient({ product }: Props) {
           </>
         ) : (
           <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-6 md:p-12 shadow-sm overflow-hidden relative group">
-            <div className="flex h-full w-[80%] md:w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
+            <div className="flex h-full w-[80%] md:w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-white text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
               <span className="font-editorial text-5xl md:text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
               <span className="mt-4 md:mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
               <span className="mt-2 text-[10px] text-[#6F766F]">{product.name}</span>
@@ -200,7 +197,7 @@ export default function ProductDetailClient({ product }: Props) {
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
           <Star className="size-4 fill-[#17211D]" />
           <span className="font-semibold tabular-nums">{product.rating}</span>
-          <span className="text-[#8A918B] ml-1">구매평 {product.reviewCount}개</span>
+          <span className="text-[#8A918B] ml-1">구매??{product.reviewCount}�?/span>
         </div>
 
         <div className="mt-8 border-b border-[rgba(15,23,42,0.06)] pb-8">
@@ -228,17 +225,17 @@ export default function ProductDetailClient({ product }: Props) {
 
         <div className="mt-8 space-y-4 text-sm">
           <div className="flex">
-            <span className="w-24 text-[#6F766F] font-medium">배송비</span>
+            <span className="w-24 text-[#6F766F] font-medium">배송�?/span>
             <span className="text-[#6F766F]">
               {product.shippingFee !== undefined
-                ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
+                ? `${formatPrice(product.shippingFee)} (50,000???�상 무료배송)`
                 : DEFAULT_COMMERCE_POLICY.shippingLabel}
             </span>
           </div>
           {pointsRateLabel && (
             <div className="flex">
-              <span className="w-24 text-[#6F766F] font-medium">적립금</span>
-              <span className="text-[#6F766F]">상품금액 기준 {pointsRateLabel} 적립 설정</span>
+              <span className="w-24 text-[#6F766F] font-medium">?�립�?/span>
+              <span className="text-[#6F766F]">?�품금액 기�? {pointsRateLabel} ?�립 ?�정</span>
             </div>
           )}
         </div>
@@ -246,7 +243,7 @@ export default function ProductDetailClient({ product }: Props) {
         {/* Options */}
         {product.options && product.options.length > 0 && (
           <div className="mt-10">
-            <label className="block text-sm font-semibold text-[#17211D] mb-3">옵션 선택</label>
+            <label className="block text-sm font-semibold text-[#17211D] mb-3">?�션 ?�택</label>
             <div className="relative">
               <select 
                 value={effectiveOptionId}
@@ -269,12 +266,12 @@ export default function ProductDetailClient({ product }: Props) {
         )}
 
         {/* Quantity */}
-        <div className="mt-8 flex items-center justify-between rounded-[16px] bg-[#FBFAF7] border border-[rgba(15,23,42,0.06)] p-5">
-          <span className="text-sm font-semibold text-[#17211D]">수량</span>
+        <div className="mt-8 flex items-center justify-between rounded-[16px] bg-white border border-[rgba(15,23,42,0.06)] p-5">
+          <span className="text-sm font-semibold text-[#17211D]">?�량</span>
           <div className="flex items-center rounded-lg border border-[rgba(15,23,42,0.12)] bg-white shadow-sm overflow-hidden">
             <button 
               type="button"
-              aria-label="수량 줄이기"
+              aria-label="?�량 줄이�?
               onClick={() => setQuantity(Math.max(1, displayQty - 1))}
               disabled={!isSellable}
               className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
@@ -286,7 +283,7 @@ export default function ProductDetailClient({ product }: Props) {
             </span>
             <button 
               type="button"
-              aria-label="수량 늘리기"
+              aria-label="?�량 ?�리�?
               onClick={() => setQuantity(Math.min(product.stock, displayQty + 1))}
               disabled={!isSellable}
               className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
@@ -299,7 +296,7 @@ export default function ProductDetailClient({ product }: Props) {
         {/* Total */}
         {hasPrice && (
           <div className="mt-8 flex items-end justify-between pt-6 border-t border-[rgba(15,23,42,0.06)]">
-            <span className="text-base font-semibold text-[#6F766F]">총 상품금액</span>
+            <span className="text-base font-semibold text-[#6F766F]">�??�품금액</span>
             <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(totalPrice)}</span>
           </div>
         )}
@@ -308,7 +305,7 @@ export default function ProductDetailClient({ product }: Props) {
         <div className="mt-6 md:mt-8 flex gap-2 md:gap-3">
           <button
             type="button"
-            aria-label={wishlisted ? `${product.name} 찜 해제` : `${product.name} 찜하기`}
+            aria-label={wishlisted ? `${product.name} �??�제` : `${product.name} 찜하�?}
             onClick={() => void handleWishlist()}
             disabled={wishlistBusy}
             className={`flex h-[54px] w-[54px] md:h-[60px] md:w-[60px] shrink-0 items-center justify-center rounded-[16px] border shadow-sm transition-all ${wishlisted ? 'border-[#9E3939]/45 bg-[#9E3939]/10 text-[#9E3939]' : 'border-[rgba(15,23,42,0.12)] bg-white text-[#8A918B] hover:border-[#17211D] hover:text-[#17211D]'}`}
@@ -323,7 +320,7 @@ export default function ProductDetailClient({ product }: Props) {
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '장바구니' : '품절'}
+                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '?�바구니' : '?�절'}
               </button>
               <button
                 type="button"
@@ -331,7 +328,7 @@ export default function ProductDetailClient({ product }: Props) {
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-[14px] md:text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '바로구매' : '품절'}
+                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '바로구매' : '?�절'}
               </button>
             </>
           ) : (
@@ -342,7 +339,7 @@ export default function ProductDetailClient({ product }: Props) {
                 aria-disabled="true"
                 className="flex h-[54px] md:h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#6F766F] opacity-70 shadow-sm"
               >
-                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> 장바구니 준비중
+                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> ?�바구니 준비중
               </button>
               <button
                 type="button"
