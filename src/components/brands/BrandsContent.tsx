@@ -82,8 +82,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
     setPagination({ filter, visibleCount: visibleCount + PAGE_SIZE });
   };
 
-  const totalProducts = brands.reduce((acc, b) => acc + (b.representativeProductIds?.length || 0), 0);
-  const categoryCount = new Set(brands.flatMap((b) => b.relatedConcernSlugs || [])).size;
 
   return (
     <main className="brand-page bg-[#FFFEFB] pb-16 md:pb-24">
@@ -100,28 +98,10 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
               백조오브제는 브랜드 철학과 제품 가치를 살피고 우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
             </p>
 
-            {/* Stats */}
-            <div className="mt-8 lg:mt-10 flex items-center gap-6 md:gap-8">
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{brands.length}곳</span>
-                </div>
-                <span className="text-[12px] font-medium text-[#6F756F]">검증 브랜드 수</span>
-              </div>
-              <div className="w-px h-8 lg:h-10 bg-[#D8C9B4]" />
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{totalProducts > 0 ? totalProducts : 18}개</span>
-                </div>
-                <span className="text-[12px] font-medium text-[#6F756F]">등록 상품 수</span>
-              </div>
-              <div className="w-px h-8 lg:h-10 bg-[#D8C9B4]" />
-              <div className="flex flex-col">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{categoryCount > 0 ? categoryCount : 7}개</span>
-                </div>
-                <span className="text-[12px] font-medium text-[#6F756F]">케어 카테고리</span>
-              </div>
+            {/* Stats — 검증 브랜드 수만 간결하게 (등록 상품 수·케어 카테고리는 클라이언트 요청으로 제거) */}
+            <div className="mt-6 lg:mt-7 flex items-baseline gap-2">
+              <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{brands.length}곳</span>
+              <span className="text-[12px] font-medium text-[#6F756F]">검증 브랜드 수</span>
             </div>
           </div>
 

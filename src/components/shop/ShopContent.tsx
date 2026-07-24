@@ -198,6 +198,9 @@ function ShopInner({ products, brands, concerns }: Props) {
 
   const shouldFocusSearch = searchParams.get('focus') === 'search';
 
+  // 고민·연령·평점 중 하나라도 적용돼 있으면 상세 필터를 펼친 상태로 렌더한다.
+  const hasDetailFilter = Boolean(params.concern || params.ageGroup || params.rating);
+
   const renderFilterPanel = (onNavigate?: () => void) => (
     <div className="shop-filter-sidebar pb-8">
       <FilterGroup title="반려동물" defaultOpen>
@@ -220,28 +223,11 @@ function ShopInner({ products, brands, concerns }: Props) {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="고민">
-        <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>전체</FilterLink>
-        {concerns.map((concern) => (
-          <FilterLink onClick={onNavigate} key={concern.slug} href={makeHref('concern', concern.slug)} active={params.concern === concern.slug}>
-            {concern.title}
-          </FilterLink>
-        ))}
-      </FilterGroup>
-
       <FilterGroup title="브랜드">
         <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>전체</FilterLink>
         {brands.map((brand) => (
           <FilterLink onClick={onNavigate} key={brand.id} href={makeHref('brandId', brand.id)} active={params.brandId === brand.id}>
             {brand.name}
-          </FilterLink>
-        ))}
-      </FilterGroup>
-
-      <FilterGroup title="연령">
-        {ageOptions.map((option) => (
-          <FilterLink onClick={onNavigate} key={option.id} href={makeHref('ageGroup', option.id)} active={(params.ageGroup || 'all') === option.id}>
-            {option.label}
           </FilterLink>
         ))}
       </FilterGroup>
@@ -254,11 +240,37 @@ function ShopInner({ products, brands, concerns }: Props) {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="평점">
-        <FilterLink onClick={onNavigate} href={makeHref('rating', 'all')} active={!params.rating}>전체 평점</FilterLink>
-        <FilterLink onClick={onNavigate} href={makeHref('rating', '4')} active={params.rating === '4'}>4.0 이상</FilterLink>
-        <FilterLink onClick={onNavigate} href={makeHref('rating', '4.5')} active={params.rating === '4.5'}>4.5 이상</FilterLink>
-      </FilterGroup>
+      {/* 상세 필터 — 클라이언트 요청(2026-07-24)으로 고민·연령·평점은 기본 노출에서 분리.
+          해당 필터가 이미 적용된 상태라면 접힌 채 숨지 않도록 펼쳐서 보여준다. */}
+      <details open={hasDetailFilter} className="group border-b border-[#E7E0D5] py-4">
+        <summary className="cursor-pointer list-none py-1 text-[13px] font-semibold tracking-wide text-[#6F766F] transition-colors hover:text-[#A8742E]">
+          상세 필터 +
+        </summary>
+        <div className="mt-1">
+          <FilterGroup title="고민">
+            <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>전체</FilterLink>
+            {concerns.map((concern) => (
+              <FilterLink onClick={onNavigate} key={concern.slug} href={makeHref('concern', concern.slug)} active={params.concern === concern.slug}>
+                {concern.title}
+              </FilterLink>
+            ))}
+          </FilterGroup>
+
+          <FilterGroup title="연령">
+            {ageOptions.map((option) => (
+              <FilterLink onClick={onNavigate} key={option.id} href={makeHref('ageGroup', option.id)} active={(params.ageGroup || 'all') === option.id}>
+                {option.label}
+              </FilterLink>
+            ))}
+          </FilterGroup>
+
+          <FilterGroup title="평점">
+            <FilterLink onClick={onNavigate} href={makeHref('rating', 'all')} active={!params.rating}>전체 평점</FilterLink>
+            <FilterLink onClick={onNavigate} href={makeHref('rating', '4')} active={params.rating === '4'}>4.0 이상</FilterLink>
+            <FilterLink onClick={onNavigate} href={makeHref('rating', '4.5')} active={params.rating === '4.5'}>4.5 이상</FilterLink>
+          </FilterGroup>
+        </div>
+      </details>
 
       <Link href="/shop" scroll={false} onClick={onNavigate} className="mt-6 inline-flex text-sm font-semibold text-[#6F766F] underline underline-offset-4 transition-colors duration-500 hover:text-[#17211D]">
         선택한 조건 모두 지우기
