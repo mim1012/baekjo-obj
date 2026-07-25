@@ -50,6 +50,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     'E2E_MEMBER_* secret 미주입(member-e2e@test.baekjo) — 회원 로그인 불가로 skip',
   );
 
+  // 기본 60s는 콜드 프리뷰(전 도메인 스윕 중 첫 접근)에서 회원 로그인→상품 상세→모달 여정을
+  // 다 담지 못한다 — 2026-07-25 실측: run 30060441626 첫 실행 fail·재실행 pass, run 30137712171
+  // 재발 fail(3회 중 2회). reviews-moderation 스펙(:29-30)과 동일 처방.
+  test.setTimeout(150_000);
+
   test.use({
     extraHTTPHeaders: bypassHeaders(),
   });
@@ -110,12 +115,15 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
   }
 
   test.beforeAll(async ({ browser }) => {
+    // describe 레벨 test.setTimeout은 훅에는 적용되지 않는다 — reviews-moderation(:57) 실측 선례.
+    test.setTimeout(120_000);
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await cleanupMemberInquiries(page);
     await page.close();
   });
 
   test.afterAll(async ({ browser }) => {
+    test.setTimeout(120_000);
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await cleanupMemberInquiries(page);
     await page.close();
