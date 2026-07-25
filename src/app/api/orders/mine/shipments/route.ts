@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { listOrdersByMember } from '@/lib/orders/repo';
+import { listRecentOrdersByMember } from '@/lib/orders/repo';
 import { listShipmentsByOrders } from '@/lib/shipments/repo';
 import { logServerError } from '@/lib/logServerError';
 
@@ -18,7 +18,7 @@ export async function GET() {
   }
 
   try {
-    const orders = await listOrdersByMember(memberId);
+    const orders = await listRecentOrdersByMember(memberId);
     const shipments = await listShipmentsByOrders(orders.map((order) => order.id));
     return NextResponse.json({ shipments }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {

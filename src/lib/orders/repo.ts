@@ -168,6 +168,23 @@ export async function listOrdersByMember(memberId: string): Promise<OrderRecord[
   return (data as OrderRow[]).map(rowToRecord);
 }
 
+export const MEMBER_ORDERS_LIST_CAP = 100;
+
+export async function listRecentOrdersByMember(
+  memberId: string,
+  limit: number = MEMBER_ORDERS_LIST_CAP,
+): Promise<OrderRecord[]> {
+  const safeLimit = Math.max(1, Math.min(Math.floor(limit), MEMBER_ORDERS_LIST_CAP));
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .select(SELECT_COLUMNS)
+    .eq('member_id', memberId)
+    .order('created_at', { ascending: false })
+    .limit(safeLimit);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
 /** 관리자 전량 조회 상한. 집계 호출부가 "상한에 닿았다 = 모집단이 잘렸다"를 감지할 수 있게 export한다. */
 export const ORDERS_LIST_CAP = 1000;
 

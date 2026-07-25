@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { listOrdersByMember } from '@/lib/orders/repo';
+import { listRecentOrdersByMember } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
@@ -19,8 +19,7 @@ export async function GET() {
   }
 
   try {
-    // 전부 본인 주문이므로 member_id 동봉이 타인 PII 노출이 아니다(클라이언트는 Order 필드만 사용).
-    const orders = await listOrdersByMember(memberId);
+    const orders = await listRecentOrdersByMember(memberId);
     return NextResponse.json({ orders }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError('[GET /api/orders/mine] 조회 실패', error);
