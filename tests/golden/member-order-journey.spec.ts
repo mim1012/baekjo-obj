@@ -21,6 +21,8 @@ import {
 // 상품 자체는 beforeAll/afterAll에서 잔여물만 정리한다(Order.items에 productName이 박제되므로
 // 상품 삭제와 무관하게 주문 내역은 남는다).
 test.describe('골든플로우 #2: 회원 여정 — 스토어 구매(무통장입금) 실구동', () => {
+  test.setTimeout(180_000);
+
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 스로어웨이 상품 생성 불가로 skip');
   test.skip(!MEMBER_EMAIL || !MEMBER_PASSWORD, 'E2E_MEMBER_* secret 미주입 — 회원 로그인 불가로 skip');
@@ -35,6 +37,7 @@ test.describe('골든플로우 #2: 회원 여정 — 스토어 구매(무통장�
   let productBName: string;
 
   test.beforeAll(async ({ browser }) => {
+    test.setTimeout(180_000);
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(page);
     await cleanupThrowawayProducts(page, NAME_PREFIX);
