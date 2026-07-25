@@ -82,7 +82,7 @@ function SnsButton({
     kakao: 'border-transparent bg-[#FEE500] text-[#000000] shadow-[0_8px_18px_rgba(254,229,0,0.12)] hover:bg-[#F7D900]',
   };
   const className = `flex size-9 items-center justify-center rounded-full transition-all duration-500 ${
-    disabled ? `${tones[tone]} cursor-not-allowed opacity-45 grayscale` : tones[tone]
+    disabled ? `${tones[tone]} cursor-not-allowed` : tones[tone]
   }`;
 
   if (disabled) {
