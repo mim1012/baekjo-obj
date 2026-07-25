@@ -3,7 +3,7 @@ import { COMPANY } from '@/data/company';
 import BrandMark from './BrandMark';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
-const KAKAO_TALK_URL = '';
+const KAKAO_TALK_URL = 'https://pf.kakao.com/_KYWxon';
 
 const footerLinks = [
   { label: '1:1 문의', href: '/mypage?tab=inquiries' },
