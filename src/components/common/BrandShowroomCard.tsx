@@ -25,7 +25,8 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
               MD&apos;s Pick
             </span>
             <span className="text-[12px] font-medium text-[#64748B]">
-              깐깐??기�????�과???�뢰?????�는 브랜??            </span>
+              깐깐한 기준을 통과한 신뢰할 수 있는 브랜드
+            </span>
           </div>
           
           <h3 className="text-3xl lg:text-4xl font-editorial text-[#17211D] tracking-tight mb-4">
@@ -64,7 +65,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
             href={`/brands/${brand.id}`}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-8 py-3.5 text-sm font-semibold text-[#17211D] transition-all hover:bg-[#17211D] hover:text-white group w-full sm:w-auto"
           >
-            브랜???�룸 ?�러보기
+            브랜드 쇼룸 둘러보기
             <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </div>
