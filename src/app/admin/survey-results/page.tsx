@@ -18,8 +18,8 @@ interface SurveyResult {
 }
 
 const mockResults: SurveyResult[] = [
-  { id: 'sr1', user: '?�원 A', petType: '강아지', age: '?�니??, concern: '관??�?, date: '2024-05-10T10:00:00Z', resultDirection: '?�개�?관�?, customerMessage: '관???�양?��? ?�께 꾸�????�책??권장?�니??' },
-  { id: 'sr2', user: '?�원 B', petType: '고양??, age: '?�덜??, concern: '구강/치아', date: '2024-05-09T14:30:00Z', resultDirection: '치석 ?�방 루틴' },
+  { id: 'sr1', user: '회원 A', petType: '강아지', age: '시니어', concern: '관절/뼈', date: '2024-05-10T10:00:00Z', resultDirection: '슬개골 관리', customerMessage: '관절 영양제와 함께 꾸준한 산책을 권장합니다.' },
+  { id: 'sr2', user: '회원 B', petType: '고양이', age: '어덜트', concern: '구강/치아', date: '2024-05-09T14:30:00Z', resultDirection: '치석 예방 루틴' },
 ];
 
 export default function AdminSurveyResultsPage() {
@@ -46,7 +46,7 @@ export default function AdminSurveyResultsPage() {
   }, []);
 
   const handleDelete = (id: string) => {
-    if (window.confirm('?�말�???��?�시겠습?�까?')) {
+    if (window.confirm('정말로 삭제하시겠습니까?')) {
       setResults(results.filter(r => r.id !== id));
     }
   };
@@ -54,9 +54,9 @@ export default function AdminSurveyResultsPage() {
   return (
     <div className="space-y-8">
       <AdminPageHeader
-        title="진단 참여 ?�역"
-        description="?�원�?맞춤 진단 결과�??�인?�고 고객?�게 ?�달??관�?코멘?��? ?�성?�니??"
-        actions={<button type="button" onClick={() => { setNewResult({}); setIsAddingResult(true); }} className="min-h-11 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]">결과 ?�기 ?�록</button>}
+        title="진단 참여 내역"
+        description="회원별 맞춤 진단 결과를 확인하고 고객에게 전달할 관리 코멘트를 작성합니다."
+        actions={<button type="button" onClick={() => { setNewResult({}); setIsAddingResult(true); }} className="min-h-11 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521]">결과 수기 등록</button>}
       />
 
       <div className="overflow-hidden border border-[#E7E0D5] bg-white">
@@ -64,25 +64,25 @@ export default function AdminSurveyResultsPage() {
           <table className="w-full min-w-[800px] text-left text-sm whitespace-nowrap">
             <thead className="bg-[#FAF8F3] text-[#6F766F]">
               <tr>
-                <th className="px-6 py-3 font-medium">참여?�시</th>
-                <th className="px-6 py-3 font-medium">참여??/th>
-                <th className="px-6 py-3 font-medium">?�물/?�령</th>
-                <th className="px-6 py-3 font-medium">주요 고�?</th>
-                <th className="px-6 py-3 font-medium">?�출 결과(방향)</th>
-                <th className="px-6 py-3 font-medium text-right">관�?/th>
+                <th className="px-6 py-3 font-medium">참여일시</th>
+                <th className="px-6 py-3 font-medium">참여자</th>
+                <th className="px-6 py-3 font-medium">동물/연령</th>
+                <th className="px-6 py-3 font-medium">주요 고민</th>
+                <th className="px-6 py-3 font-medium">도출 결과(방향)</th>
+                <th className="px-6 py-3 font-medium text-right">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E7E0D5]">
               {paginatedResults.map(r => (
-                <tr key={r.id} className="transition-colors hover:bg-white">
+                <tr key={r.id} className="transition-colors hover:bg-[#FBFAF7]">
                   <td className="px-6 py-4 text-[#6F766F]">{formatDate(r.date)}</td>
                   <td className="px-6 py-4 font-semibold text-[#17211D]">{r.user}</td>
                   <td className="px-6 py-4 text-[#59615B]">{r.petType} / {r.age}</td>
                   <td className="px-6 py-4 text-[#17211D]">{r.concern}</td>
                   <td className="px-6 py-4 text-[#59615B]">{r.resultDirection}</td>
                   <td className="px-6 py-4 text-right whitespace-nowrap">
-                    <button onClick={() => setEditingResult(r)} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">?�세/?�정</button>
-                    <button onClick={() => handleDelete(r.id)} className="px-2 py-1.5 text-xs font-semibold text-[#9E3939] hover:bg-[#F7ECEA]">??��</button>
+                    <button onClick={() => setEditingResult(r)} className="text-[#2F3B34] hover:underline font-medium text-xs px-2 py-1.5 rounded-md mr-2">상세/수정</button>
+                    <button onClick={() => handleDelete(r.id)} className="px-2 py-1.5 text-xs font-semibold text-[#9E3939] hover:bg-[#F7ECEA]">삭제</button>
                   </td>
                 </tr>
               ))}
@@ -92,7 +92,7 @@ export default function AdminSurveyResultsPage() {
 
         {results.length === 0 && (
           <div className="py-10 text-center text-gray-500">
-            진단 참여 ?�역???�습?�다.
+            진단 참여 내역이 없습니다.
           </div>
         )}
         
@@ -105,12 +105,12 @@ export default function AdminSurveyResultsPage() {
         />
       </div>
 
-      {/* ?�정 모달 */}
+      {/* 수정 모달 */}
       {editingResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
-              <h2 className="text-lg font-semibold">진단 ?�역 ?�세 / 결과 ?�성</h2>
+              <h2 className="text-lg font-semibold">진단 내역 상세 / 결과 작성</h2>
               <button onClick={() => setEditingResult(null)} className="p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
@@ -118,24 +118,24 @@ export default function AdminSurveyResultsPage() {
             <div className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
-                  참여??
+                  참여자
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-gray-50" value={editingResult.user} disabled />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  참여?�시
+                  참여일시
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-gray-50" value={formatDate(editingResult.date)} disabled />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  반려?�물 종류 / ?�령
+                  반려동물 종류 / 연령
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-gray-50" value={`${editingResult.petType} / ${editingResult.age}`} disabled />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  주요 고�?
+                  주요 고민
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-gray-50" value={editingResult.concern} disabled />
                 </label>
               </div>
               <label className="block text-xs font-medium text-[#59615B] pt-2">
-                ?�출 결과 (방향??
+                도출 결과 (방향성)
                 <input 
                   className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white focus:border-[#2F3B34]" 
                   value={editingResult.resultDirection} 
@@ -143,10 +143,10 @@ export default function AdminSurveyResultsPage() {
                 />
               </label>
               <label className="block text-xs font-medium text-[#59615B] pt-2">
-                고객 ?�송??결과 코멘??(?�택)
+                고객 전송용 결과 코멘트 (선택)
                 <textarea 
                   className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white focus:border-[#2F3B34] min-h-[100px]" 
-                  placeholder="고객?�게 ?�길 맞춤??진단 결과???�드백을 ?�어주세??"
+                  placeholder="고객에게 남길 맞춤형 진단 결과나 피드백을 적어주세요."
                   value={editingResult.customerMessage || ''} 
                   onChange={(e) => setEditingResult({...editingResult, customerMessage: e.target.value})} 
                 />
@@ -157,18 +157,18 @@ export default function AdminSurveyResultsPage() {
               <button onClick={() => {
                 setResults(results.map(r => r.id === editingResult.id ? editingResult : r));
                 setEditingResult(null);
-              }} className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">결과 ?�??/button>
+              }} className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">결과 저장</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ?�록 모달 */}
+      {/* 등록 모달 */}
       {isAddingResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl bg-[#F8F7F2] shadow-xl relative max-h-[90vh] overflow-hidden flex flex-col">
             <div className="bg-[#2F3B34] text-white flex justify-between items-center p-5 shrink-0">
-              <h2 className="text-lg font-semibold">진단 ?�역 ?�기 ?�록</h2>
+              <h2 className="text-lg font-semibold">진단 내역 수기 등록</h2>
               <button onClick={() => setIsAddingResult(false)} className="p-1 hover:bg-white/20 rounded">
                 <X className="size-5" />
               </button>
@@ -176,28 +176,28 @@ export default function AdminSurveyResultsPage() {
             <div className="p-6 overflow-y-auto space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <label className="block text-xs font-medium text-[#59615B]">
-                  참여??
+                  참여자
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" value={newResult.user || ''} onChange={(e) => setNewResult({...newResult, user: e.target.value})} />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  반려?�물 종류 (?? 강아지)
+                  반려동물 종류 (예: 강아지)
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" value={newResult.petType || ''} onChange={(e) => setNewResult({...newResult, petType: e.target.value})} />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  ?�령?� (?? ?�니??
+                  연령대 (예: 시니어)
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" value={newResult.age || ''} onChange={(e) => setNewResult({...newResult, age: e.target.value})} />
                 </label>
                 <label className="block text-xs font-medium text-[#59615B]">
-                  주요 고�?
+                  주요 고민
                   <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" value={newResult.concern || ''} onChange={(e) => setNewResult({...newResult, concern: e.target.value})} />
                 </label>
               </div>
               <label className="block text-xs font-medium text-[#59615B] pt-2">
-                ?�출 결과 (방향??
+                도출 결과 (방향성)
                 <input className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white" value={newResult.resultDirection || ''} onChange={(e) => setNewResult({...newResult, resultDirection: e.target.value})} />
               </label>
               <label className="block text-xs font-medium text-[#59615B] pt-2">
-                고객 ?�송??결과 코멘??(?�택)
+                고객 전송용 결과 코멘트 (선택)
                 <textarea className="mt-2 w-full border border-[#D1D0C8] px-3 py-2.5 text-sm bg-white min-h-[100px]" value={newResult.customerMessage || ''} onChange={(e) => setNewResult({...newResult, customerMessage: e.target.value})} />
               </label>
             </div>
@@ -206,7 +206,7 @@ export default function AdminSurveyResultsPage() {
               <button onClick={() => {
                 const resultToAdd: SurveyResult = {
                   id: `sr${Date.now()}`,
-                  user: newResult.user || '?�명',
+                  user: newResult.user || '익명',
                   petType: newResult.petType || '-',
                   age: newResult.age || '-',
                   concern: newResult.concern || '-',
@@ -216,7 +216,7 @@ export default function AdminSurveyResultsPage() {
                 };
                 setResults([resultToAdd, ...results]);
                 setIsAddingResult(false);
-              }} className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">?�록</button>
+              }} className="min-h-11 bg-[#2F3B34] px-8 text-sm font-semibold text-white hover:bg-[#1f2823]">등록</button>
             </div>
           </div>
         </div>

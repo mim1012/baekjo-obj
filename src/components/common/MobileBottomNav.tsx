@@ -5,9 +5,9 @@ import { usePathname } from 'next/navigation';
 import { HeartPulse, Home, ShoppingBag, ShieldCheck, User } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { label: '??, href: '/', icon: Home },
-  { label: '케??, href: '/concerns', icon: HeartPulse },
-  { label: '?�핑', href: '/shop', icon: ShoppingBag },
+  { label: '홈', href: '/', icon: Home },
+  { label: '케어', href: '/concerns', icon: HeartPulse },
+  { label: '쇼핑', href: '/shop', icon: ShoppingBag },
   { label: '보험', href: '/insurance', icon: ShieldCheck },
   { label: '마이', href: '/mypage', icon: User },
 ];
@@ -32,8 +32,8 @@ export default function MobileBottomNav() {
   }
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E0D5] bg-white/95 pb-safe backdrop-blur-xl md:hidden">
-      <nav aria-label="?�단 메뉴" className="flex h-16 items-center justify-around px-1">
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E0D5] bg-[#FBFAF7]/95 pb-safe backdrop-blur-xl md:hidden">
+      <nav aria-label="하단 메뉴" className="flex h-16 items-center justify-around px-1">
         {NAV_ITEMS.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
