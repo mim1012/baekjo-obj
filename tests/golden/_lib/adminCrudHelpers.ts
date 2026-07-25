@@ -23,16 +23,12 @@ export async function loginWithCredentials(page: Page, email: string, password: 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
       await page.context().clearCookies();
-      await page.addInitScript(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      });
+
+      await page.goto('/login', { waitUntil: 'domcontentloaded' });
       await page.evaluate(() => {
         localStorage.clear();
         sessionStorage.clear();
       }).catch(() => {});
-
-      await page.goto('/login', { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
 
       const emailInput = page.locator('input[type="email"]').first();
