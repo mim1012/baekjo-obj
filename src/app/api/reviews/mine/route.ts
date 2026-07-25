@@ -3,18 +3,20 @@ import { auth } from '@/lib/auth';
 import { listReviewsByMember } from '@/lib/reviews/repo';
 import { logServerError } from '@/lib/logServerError';
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
 /** GET /api/reviews/mine — 본인 구매평 전체(hidden 포함, 세션 필요). */
 export async function GET() {
   const session = await auth();
   if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   try {
     const reviews = await listReviewsByMember(session.user.memberId);
-    return NextResponse.json({ reviews }, { status: 200 });
+    return NextResponse.json({ reviews }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError('[GET /api/reviews/mine] 조회 실패', error);
-    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    return NextResponse.json({ error: 'server-error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

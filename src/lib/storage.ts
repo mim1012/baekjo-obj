@@ -1706,7 +1706,7 @@ import type { AdminProductReview, ProductReview, ProductInquiry } from '@/types'
 /** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
 export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
   try {
-    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`);
+    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`, { cache: 'no-store' });
     if (!response.ok) return [];
     const { reviews } = (await response.json()) as { reviews: ProductReview[] };
     return reviews;
@@ -1718,7 +1718,7 @@ export async function getProductReviewsByProduct(productId: string): Promise<Pro
 /** 본인 구매평 전체(hidden 포함). GET /api/reviews/mine(세션 필요). 실패 시 빈 배열. */
 export async function getProductReviewsByUser(userId: string): Promise<ProductReview[]> {
   try {
-    const response = await fetch('/api/reviews/mine');
+    const response = await fetch('/api/reviews/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { reviews } = (await response.json()) as { reviews: ProductReview[] };
     return reviews.filter((r) => r.userId === userId);

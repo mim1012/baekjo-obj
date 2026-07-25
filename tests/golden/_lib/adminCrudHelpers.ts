@@ -22,9 +22,18 @@ export async function loginWithCredentials(page: Page, email: string, password: 
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     try {
+      await page.context().clearCookies();
+      await page.addInitScript(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      });
+      await page.evaluate(() => {
+        localStorage.clear();
+        sessionStorage.clear();
+      }).catch(() => {});
+
       await page.goto('/login', { waitUntil: 'domcontentloaded' });
       await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
-      if (!new URL(page.url()).pathname.startsWith('/login')) return;
 
       const emailInput = page.locator('input[type="email"]').first();
       const passwordInput = page.locator('input[type="password"]').first();
@@ -38,6 +47,16 @@ export async function loginWithCredentials(page: Page, email: string, password: 
         page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 }),
         loginButton.click({ timeout: 5_000 }),
       ]);
+      const sessionResponse = await page.request.get('/api/members/me', {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+      if (!sessionResponse.ok()) {
+        throw new Error(`로그인 세션 확인 실패: ${sessionResponse.status()} ${await sessionResponse.text()}`);
+      }
+      const { user } = (await sessionResponse.json()) as { user?: { email?: string } };
+      if (user?.email !== email) {
+        throw new Error(`로그인 계정 불일치: expected=${email} actual=${user?.email ?? 'unknown'}`);
+      }
       return;
     } catch (error) {
       lastError = error;
