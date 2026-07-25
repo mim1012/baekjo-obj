@@ -134,6 +134,8 @@ test.describe('시각 회귀 — 골든플로우', () => {
           // 컬럼 폭을 바꿔 thead 헤더 위치까지 밀린다 → table 전체를 마스크.
           // 상품 수 카운트("총 N개")·카테고리 개수 배지도 동시 세션 테스트/재시드로 상시 변동 → 마스크.
           mask: [
+            page.getByRole('combobox'),
+            page.getByPlaceholder('상품명 또는 상품코드 검색...'),
             page.locator('table'),
             page.locator('p', { hasText: '개의 상품' }),
             page.locator('span.float-right'),
