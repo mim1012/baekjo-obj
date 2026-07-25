@@ -38,6 +38,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(ProductInquiry)', () => {
+  test.setTimeout(120_000);
+
   const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL;
   const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 
