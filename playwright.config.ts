@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import fs from 'node:fs';
 
 // 골든플로우(배포 게이트) E2E. 기본 타깃은 LIVE Vercel preview(공개).
 // 로컬 실행: E2E_BASE_URL=http://localhost:3000 로 오버라이드하면 dev 서버를 자동 기동한다.
@@ -14,6 +15,15 @@ const baseURL =
   fromEnv || 'https://baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app';
 
 const isLocal = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
+const windowsChromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+const localChromiumExecutablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+  (!process.env.CI && process.platform === 'win32' && fs.existsSync(windowsChromePath)
+    ? windowsChromePath
+    : undefined);
+const localBrowserUse = localChromiumExecutablePath
+  ? { launchOptions: { executablePath: localChromiumExecutablePath } }
+  : {};
 
 export default defineConfig({
   fullyParallel: true,
@@ -37,6 +47,7 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+        ...localBrowserUse,
       },
     },
     {
@@ -53,6 +64,7 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+        ...localBrowserUse,
       },
     },
     {
@@ -67,6 +79,7 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+        ...localBrowserUse,
       },
     },
     {
@@ -81,6 +94,7 @@ export default defineConfig({
         screenshot: 'only-on-failure',
         video: 'off',
         ...devices['Desktop Chrome'],
+        ...localBrowserUse,
         viewport: { width: 390, height: 844 },
         isMobile: true,
         hasTouch: true,
