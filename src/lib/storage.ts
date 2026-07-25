@@ -489,6 +489,17 @@ export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
   }
 }
 
+export async function getMyOrderShipments(): Promise<Shipment[]> {
+  try {
+    const response = await fetch('/api/orders/mine/shipments', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
 /**
  * 고객 구매확정. POST /api/orders/[id]/shipments/[brandId]/confirm. P6 배송 모달의 확정 버튼이
  * 쓰는 유일한 경로(§4 콘센트). 실패 시 throw 해 호출부가 낙관적 갱신을 되돌리거나 사용자에게 알릴 수

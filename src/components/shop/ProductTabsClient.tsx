@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product, Shipment } from '@/types';
 import { getMergedReviews, getMergedInquiries } from '@/lib/adapters';
-import { getSessionUser, getMyOrders, getOrderShipments, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
+import { getSessionUser, getMyOrders, getMyOrderShipments, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { Lock, MessageCircle, Star } from 'lucide-react';
 import { formatDate, ratingStars } from '@/lib/format';
@@ -62,13 +62,15 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
         setShipmentsByOrder({});
         return;
       }
-      getMyOrders().then(async (orders) => {
-        const shipmentPairs = await Promise.all(
-          orders.map(async (order) => [order.id, await getOrderShipments(order.id)] as const),
-        );
+      Promise.all([getMyOrders(), getMyOrderShipments()]).then(([orders, shipments]) => {
         if (loadSeqRef.current === seq) {
           setOrders(orders);
-          setShipmentsByOrder(Object.fromEntries(shipmentPairs));
+          setShipmentsByOrder(
+            shipments.reduce<Record<string, Shipment[]>>((acc, shipment) => {
+              (acc[shipment.orderId] ??= []).push(shipment);
+              return acc;
+            }, {}),
+          );
         }
       });
     });

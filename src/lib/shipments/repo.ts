@@ -45,6 +45,17 @@ export async function listShipmentsByOrder(orderId: string): Promise<Shipment[]>
   return (data as ShipmentRow[]).map(rowToRecord);
 }
 
+export async function listShipmentsByOrders(orderIds: string[]): Promise<Shipment[]> {
+  if (orderIds.length === 0) return [];
+
+  const { data, error } = await getSupabase()
+    .from('shipments')
+    .select(SELECT_COLUMNS)
+    .in('order_id', Array.from(new Set(orderIds)));
+  if (error) throw error;
+  return (data as ShipmentRow[]).map(rowToRecord);
+}
+
 /** upsertShipment가 받는 갱신분. undefined인 필드는 기존 값을 건드리지 않는다(부분 갱신). */
 export type ShipmentPatch = Partial<{
   carrier: string;
