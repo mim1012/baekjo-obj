@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, ShieldCheck, Activity, Leaf, Monitor, Heart,
-  Droplet, Sparkles, Bone, Scale, Grid, Dog, Cat, Utensils, Bath, HeartPulse, Stethoscope, Store
+  Droplet, Sparkles, Bone, Scale, Grid, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse, Stethoscope, Store
 } from 'lucide-react';
 import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
@@ -56,6 +56,7 @@ export default function HomeClient({
     { icon: Grid, href: '/shop' },
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
+    { icon: Rabbit, href: '/shop?petType=small' },
     { icon: Utensils, href: '/shop?category=dining-and-nourish' },
     { icon: Bath, href: '/shop?category=fragrance-and-hygiene' },
     { icon: HeartPulse, href: '/shop?category=wellness-and-care' },
@@ -64,10 +65,10 @@ export default function HomeClient({
   ];
 
   const curationCards = [
-    { icon: Droplet, href: '/concerns/tear', img: '/images/hero-curation-visual.png' },
-    { icon: Sparkles, href: '/concerns/skin', img: '/images/hero-bg.jpg' },
-    { icon: Bone, href: '/concerns/joint', img: '/images/hero-curation-visual-natural.png' },
-    { icon: Scale, href: '/concerns/obesity', img: '/images/care_guide_hero.png' },
+    { icon: Droplet, href: '/concerns/tear', img: '/images/curation_tear.png' },
+    { icon: Sparkles, href: '/concerns/skin', img: '/images/curation_skin.png' },
+    { icon: Bone, href: '/concerns/joint', img: '/images/curation_joint.png' },
+    { icon: Scale, href: '/concerns/obesity', img: '/images/curation_weight.png' },
   ];
 
   const auditCriteriaIcons = [Activity, Leaf, Monitor, Heart];
@@ -214,31 +215,30 @@ export default function HomeClient({
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
           {curationCards.map((card, i) => {
-            const Icon = card.icon;
             const title = curation.cards[i]?.title ?? '';
             const desc = curation.cards[i]?.desc ?? '';
             return (
               <Link
                 key={card.href}
                 href={card.href}
-                className="group flex min-w-0 flex-col overflow-hidden rounded-[18px] border border-[#E4DDD1] bg-white md:relative md:block md:h-[200px] md:rounded-[20px] md:border-0 md:bg-[#17211D]"
+                className="group relative flex h-[210px] min-w-0 flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#173C32] lg:h-[228px]"
               >
-                <div className="relative aspect-square w-full overflow-hidden bg-[#F2EEE6] md:absolute md:inset-0 md:aspect-auto md:h-full">
-                  <img
+                <div className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-black">
+                  <Image
                     src={card.img}
                     alt={title}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 md:opacity-80"
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 hidden bg-gradient-to-t from-[#17211D]/90 via-[#17211D]/20 to-transparent md:block"></div>
                 </div>
-                <div className="flex flex-1 flex-col p-4 md:absolute md:bottom-0 md:left-0 md:w-full md:p-5">
-                  <span className="mb-2 text-[11px] font-medium tracking-[0.08em] text-[#9A8973] md:hidden">고민별 케어</span>
+                <div className="absolute inset-0 z-10 bg-black/[0.08]" />
+                <div className="absolute inset-x-0 bottom-0 z-10 h-[62%] bg-gradient-to-t from-black/60 via-black/25 to-transparent" />
+                <div className="relative z-20 flex h-full flex-col justify-end p-[18px] break-keep">
                   <div className="mb-1 flex items-center gap-2">
-                    <Icon className="size-[18px] shrink-0 text-[#17211D] md:text-white" strokeWidth={2} />
-                    <span className="text-[16px] font-bold text-[#17211D] md:text-[18px] md:text-white">{title}</span>
+                    <span className="text-[18px] font-bold text-white lg:text-[19px]">{title}</span>
                   </div>
-                  <span className="text-[13px] font-normal leading-[1.55] text-[#6E6A63] md:text-white/80">{desc}</span>
-                  <span className="mt-4 text-[12px] font-semibold text-[#9A6A2F] md:hidden">살펴보기 →</span>
+                  <span className="line-clamp-2 text-[12px] font-medium leading-[1.55] text-[#F5F1E9] lg:text-[13px]">{desc}</span>
                 </div>
               </Link>
             );
