@@ -40,10 +40,10 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
 
             <div className="flex items-center gap-3" aria-label="SNS">
               <span className="text-xs font-semibold tracking-[0.12em] text-[#FBFAF7]/45">SNS</span>
-              <SnsButton href={INSTAGRAM_URL} label="인스타그램">
+              <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
                 <InstagramIcon />
               </SnsButton>
-              <SnsButton href={KAKAO_TALK_URL} label="카카오톡" disabled={!KAKAO_TALK_URL}>
+              <SnsButton href={KAKAO_TALK_URL} label="카카오톡" tone="kakao" disabled={!KAKAO_TALK_URL}>
                 <KakaoIcon />
               </SnsButton>
             </div>
@@ -67,18 +67,22 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
 function SnsButton({
   href,
   label,
+  tone,
   disabled = false,
   children,
 }: {
   href: string;
   label: string;
+  tone: 'instagram' | 'kakao';
   disabled?: boolean;
   children: React.ReactNode;
 }) {
-  const className = `flex size-9 items-center justify-center rounded-full border border-[#FBFAF7]/15 transition-colors duration-500 ${
-    disabled
-      ? 'cursor-not-allowed text-[#FBFAF7]/25'
-      : 'text-[#FBFAF7]/70 hover:border-[#FBFAF7]/35 hover:bg-[#FBFAF7]/10 hover:text-[#FBFAF7]'
+  const tones = {
+    instagram: 'border-transparent bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fdf497_5%,#fd5949_45%,#d6249f_60%,#285AEB_90%)] text-white shadow-[0_8px_18px_rgba(214,36,159,0.18)] hover:brightness-110',
+    kakao: 'border-transparent bg-[#FEE500] text-[#000000] shadow-[0_8px_18px_rgba(254,229,0,0.12)] hover:bg-[#F7D900]',
+  };
+  const className = `flex size-9 items-center justify-center rounded-full transition-all duration-500 ${
+    disabled ? `${tones[tone]} cursor-not-allowed opacity-45 grayscale` : tones[tone]
   }`;
 
   if (disabled) {
