@@ -1795,7 +1795,7 @@ export async function getProductInquiriesByProduct(productId: string): Promise<P
 /** 본인 문의 전체. GET /api/inquiries/mine(세션 필요). 실패 시 빈 배열. */
 export async function getProductInquiriesByUser(userId: string): Promise<ProductInquiry[]> {
   try {
-    const response = await fetch('/api/inquiries/mine');
+    const response = await fetch('/api/inquiries/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
     return inquiries.filter((i) => i.userId === userId);
@@ -1853,7 +1853,7 @@ export async function updateProductInquiry(
 
 /** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
 export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
-  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store' });
   if (!response.ok) {
     throw new Error('inquiry-delete-failed');
   }

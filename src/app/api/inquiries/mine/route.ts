@@ -12,7 +12,13 @@ export async function GET() {
 
   try {
     const inquiries = await listInquiriesByMember(session.user.memberId);
-    return NextResponse.json({ inquiries }, { status: 200 });
+    return NextResponse.json(
+      { inquiries },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store' },
+      },
+    );
   } catch (error) {
     logServerError('[GET /api/inquiries/mine] 조회 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });

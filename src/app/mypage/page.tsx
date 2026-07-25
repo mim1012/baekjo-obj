@@ -252,6 +252,7 @@ function MypageContent() {
     if (!confirm('상품문의를 삭제하시겠습니까?')) return;
     try {
       await deleteProductInquiry(id, user.id);
+      setInquiries((current) => current.filter((inquiry) => inquiry.id !== id));
     } catch (e) {
       alert(e instanceof Error ? e.message : '상품문의 삭제에 실패했습니다.');
     }
