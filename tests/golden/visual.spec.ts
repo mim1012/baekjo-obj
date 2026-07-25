@@ -48,8 +48,17 @@ const PUBLIC_PAGES: Array<{
   // 페이지별 옵션(기본은 fullPage:true, mask 없음). /shop만 아래에서 오버라이드한다.
   fullPage?: boolean;
   mask?: (page: Page) => import('@playwright/test').Locator[];
+  waitForReady?: (page: Page) => Promise<void>;
 }> = [
-  { flow: '#1 진단', path: '/diagnosis', slug: 'diagnosis' },
+  {
+    flow: '#1 진단',
+    path: '/diagnosis',
+    slug: 'diagnosis',
+    waitForReady: async (page) => {
+      await page.getByText('진단 문항을 불러오는 중...').waitFor({ state: 'hidden', timeout: 15_000 });
+      await page.locator('h1').first().waitFor({ state: 'visible', timeout: 15_000 });
+    },
+  },
   {
     flow: '#2 구매',
     path: '/shop',
@@ -100,6 +109,7 @@ test.describe('시각 회귀 — 골든플로우', () => {
         test(`${p.flow} ${p.path}`, async ({ page }) => {
           await page.goto(p.path);
           await settlePage(page);
+          await p.waitForReady?.(page);
           await expect(page).toHaveScreenshot(`${p.slug}-${vp.name}.png`, {
             fullPage: p.fullPage ?? true,
             maxDiffPixelRatio: 0.01,
