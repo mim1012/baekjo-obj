@@ -8,6 +8,8 @@ import {
 } from '@/lib/wishlist/repo';
 import { logServerError } from '@/lib/logServerError';
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
 interface WishlistBody {
   productId?: unknown;
 }
@@ -21,15 +23,15 @@ function parseProductId(body: WishlistBody): string | null {
 export async function GET() {
   const session = await auth();
   if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   try {
     const productIds = await listWishlistProductIds(session.user.memberId);
-    return NextResponse.json({ productIds }, { status: 200 });
+    return NextResponse.json({ productIds }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError('[GET /api/wishlist] 조회 실패', error);
-    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    return NextResponse.json({ error: 'server-error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
 

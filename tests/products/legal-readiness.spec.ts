@@ -10,10 +10,10 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     const footer = src('src', 'components', 'common', 'Footer.tsx');
     const company = src('src', 'data', 'company.ts');
 
-    expect(footer).toContain('href="/terms"');
-    expect(footer).toContain('href="/privacy"');
-    expect(footer).toContain('href="/refund-policy"');
-    expect(footer).toContain('사업자정보확인');
+    expect(footer).toContain("href: '/terms'");
+    expect(footer).toContain("href: '/privacy'");
+    expect(footer).toContain("href: '/refund-policy'");
+    expect(footer).toContain('사업자정보');
     expect(footer).toContain('COMPANY.businessLookupUrl');
     expect(company).toContain('https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658');
   });

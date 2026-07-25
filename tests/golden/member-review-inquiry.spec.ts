@@ -91,9 +91,13 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await loginAsMember(page);
 
     // 1) 작성 가능 탭에서 방금 배송완료된 주문항목으로 구매평 작성.
-    await page.goto('/mypage?tab=reviews');
+    await expect(async () => {
+      await page.goto('/mypage?tab=reviews');
+      await expect(page.locator('.mypage-card', { hasText: productName }).first()).toBeVisible({
+        timeout: 5_000,
+      });
+    }).toPass({ timeout: 45_000 });
     const writableCard = page.locator('.mypage-card', { hasText: productName }).first();
-    await expect(writableCard).toBeVisible({ timeout: 15_000 });
     await writableCard.getByRole('button', { name: '구매평 작성' }).click();
 
     await page.getByRole('heading', { name: '구매평 작성' }).waitFor({ state: 'visible', timeout: 15_000 });

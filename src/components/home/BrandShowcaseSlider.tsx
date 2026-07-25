@@ -11,9 +11,10 @@ interface Props {
 }
 
 export default function BrandShowcaseSlider({ brands }: Props) {
+  const displayList = brands;
   const railRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(brands.length > 1);
+  const [canScrollRight, setCanScrollRight] = useState(displayList.length > 1);
 
   const updateRailState = useCallback(() => {
     const rail = railRef.current;
@@ -27,7 +28,7 @@ export default function BrandShowcaseSlider({ brands }: Props) {
     updateRailState();
     window.addEventListener('resize', updateRailState);
     return () => window.removeEventListener('resize', updateRailState);
-  }, [brands.length, updateRailState]);
+  }, [displayList.length, updateRailState]);
 
   const scrollBrands = (direction: 'left' | 'right') => {
     const rail = railRef.current;
@@ -40,7 +41,7 @@ export default function BrandShowcaseSlider({ brands }: Props) {
     });
   };
 
-  if (brands.length === 0) return null;
+  if (displayList.length === 0) return null;
 
   return (
     <div role="region" aria-label="백조오브제 셀렉티드 브랜드">
@@ -79,7 +80,7 @@ export default function BrandShowcaseSlider({ brands }: Props) {
             onScroll={updateRailState}
             className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
-            {brands.map((brand) => (
+            {displayList.map((brand) => (
               <Link
                 key={brand.id}
                 href={`/brands/${brand.id}`}

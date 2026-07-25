@@ -9,6 +9,7 @@ const footerLinks = [
   { label: '1:1 문의', href: '/mypage?tab=inquiries' },
   { label: '이용약관', href: '/terms' },
   { label: '개인정보처리방침', href: '/privacy' },
+  { label: '배송·교환·환불', href: '/refund-policy' },
 ];
 
 export default function Footer({ variant = 'default' }: { variant?: 'default' | 'home' }) {

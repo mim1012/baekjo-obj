@@ -66,7 +66,7 @@ export async function getWishlist(options: { force?: boolean } = {}): Promise<st
   if (!options.force && wishlistCache) return wishlistCache;
   if (!options.force && wishlistRequest) return wishlistRequest;
 
-  wishlistRequest = fetch('/api/wishlist')
+  wishlistRequest = fetch('/api/wishlist', { cache: 'no-store' })
     .then(async (response) => {
       if (response.status === 401) {
         clearLegacyWishlistStorage();
@@ -382,7 +382,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
  */
 export async function getMyOrders(): Promise<Order[]> {
   try {
-    const response = await fetch('/api/orders/mine');
+    const response = await fetch('/api/orders/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { orders } = (await response.json()) as { orders: Order[] };
     return orders;
@@ -480,7 +480,7 @@ export async function updateOrderStatus(
  */
 export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
   try {
-    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`);
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`, { cache: 'no-store' });
     if (!response.ok) return [];
     const { shipments } = (await response.json()) as { shipments: Shipment[] };
     return shipments;
@@ -706,7 +706,7 @@ export async function getPublicProductsOrNull(filter?: {
  */
 export async function getMyHistoryProducts(): Promise<Product[]> {
   try {
-    const response = await fetch('/api/orders/mine/products');
+    const response = await fetch('/api/orders/mine/products', { cache: 'no-store' });
     if (!response.ok) return [];
     const { products } = (await response.json()) as { products: Product[] };
     return products;

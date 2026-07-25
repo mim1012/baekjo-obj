@@ -4,6 +4,8 @@ import { listOrdersByMember } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
 /**
  * GET /api/orders/mine/products — 본인 과거 주문에 등장한 상품(비노출 포함).
  * 관리자가 상품을 숨겨도 이미 구매한 회원의 마이페이지(주문내역·구매평)에서는
@@ -14,21 +16,21 @@ import { logServerError } from '@/lib/logServerError';
 export async function GET() {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'no-session' }, { status: 401 });
+    return NextResponse.json({ error: 'no-session' }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   const memberId = session.user.memberId;
   if (!memberId) {
-    return NextResponse.json({ products: [] }, { status: 200 });
+    return NextResponse.json({ products: [] }, { status: 200, headers: NO_STORE_HEADERS });
   }
 
   try {
     const orders = await listOrdersByMember(memberId);
     const productIds = Array.from(new Set(orders.flatMap((order) => order.items.map((item) => item.productId))));
     const products = await listProductsByIds(productIds, { includeHidden: true });
-    return NextResponse.json({ products }, { status: 200 });
+    return NextResponse.json({ products }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError('[GET /api/orders/mine/products] 조회 실패', error);
-    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    return NextResponse.json({ error: 'server-error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }
