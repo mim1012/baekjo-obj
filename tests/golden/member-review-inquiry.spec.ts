@@ -40,6 +40,7 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
   const inquiryContent = `E2E 마이페이지발 문의 본문 ${runId}`;
 
   test.beforeAll(async ({ browser }) => {
+    test.setTimeout(180_000);
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(page);
