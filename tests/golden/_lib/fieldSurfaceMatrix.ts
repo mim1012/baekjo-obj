@@ -206,9 +206,8 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
     ],
   },
 
-  // ── 이하 표면은 이 웨이브 범위 밖(상품·브랜드 아님) — 계약을 문서화만 한다.
-  //    향후 웨이브가 라이브 검증을 붙일 때 이 정의를 소비한다. 완전성 게이트의 "미검증 실패"
-  //    대상에서 제외(assertedThisWave:false).
+  // ── 이하 표면은 상품·브랜드 전 필드 웨이브 바깥에서 시작했지만, 데이터 바인딩 회귀가 실제로
+  //    발견된 표면(cart-item, review-card)은 별도 admin 소스-계약 테스트로 승격했다.
 
   // ── 홈 소식 위젯 ──────────────────────────────────────────────────────
   {
@@ -274,28 +273,26 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
     ],
   },
 
-  // ── 장바구니 아이템 (team-lead flagged — 실 버그 표면) ────────────────────
-  // 🐛 KNOWN BUG(보고 대상, 이 브랜치에서 고치지 않음 — mim-lane 경계): 카트 행이 brandName 이
-  //    아니라 raw brandId 를 렌더한다(cart/page.tsx:112). 다른 모든 표면은 brandName ?? brandId
-  //    (ProductCard:45, ProductDetailClient:46). CartItem 은 {productId, optionId?, quantity}만
-  //    저장(types:165-169)하고 나머지는 마운트 시 라이브 카탈로그 조인으로 파생 →
-  //    삭제된 상품은 행이 조용히 사라지고(:64), 옵션 미스매치 시 가격이 0 으로 빠질 수 있다(:53).
+  // ── 장바구니 아이템 ───────────────────────────────────────────────────
+  // CartItem 은 {productId, optionId?, quantity}만 저장(types:165-169)하고 나머지는 마운트 시
+  // 라이브 카탈로그/브랜드 조인으로 파생한다. product.brandName(선택 필드) → brands 테이블 name →
+  // brandId 최후 폴백 순서로 내부 코드 노출을 피한다.
   {
     id: 'cart-item',
     label: '장바구니 아이템',
     domain: 'cart',
     route: '/cart',
-    assertedThisWave: false,
+    assertedThisWave: true,
     fields: [
-      { field: 'image', render: 'src/app/cart/page.tsx:95-107', kind: 'image', note: '없으면 "이미지 준비 중"(:105).' },
+      { field: 'image', render: 'src/app/cart/page.tsx:117-129', kind: 'image', note: '없으면 "이미지 준비 중"(:126-128).' },
       {
-        field: 'brandId',
-        render: 'src/app/cart/page.tsx:112',
+        field: 'brandName',
+        render: 'src/app/cart/page.tsx:134',
         kind: 'text',
-        note: '🐛 raw brandId 렌더(다른 표면은 brandName). 버그 — 별도 mim-lane PR 대상.',
+        note: 'product.brandName || brands.find(id).name || brandId 최후 폴백.',
       },
-      { field: 'name', render: 'src/app/cart/page.tsx:113-115', kind: 'text' },
-      { field: 'optionName', render: 'src/app/cart/page.tsx:116-118', kind: 'text', note: '"옵션: {name}"(옵션 조인 성공 시만).' },
+      { field: 'name', render: 'src/app/cart/page.tsx:135-137', kind: 'text' },
+      { field: 'optionName', render: 'src/app/cart/page.tsx:138-140', kind: 'text', note: '"옵션: {name}"(옵션 조인 성공 시만).' },
       { field: 'quantity', render: 'src/app/cart/page.tsx:134-136', kind: 'text' },
       { field: 'lineTotal', render: 'src/app/cart/page.tsx:144-146', kind: 'text', note: '가격 없으면 "가격 확인 필요"(:145).' },
     ],
@@ -323,18 +320,17 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
     label: '리뷰 카드(상세 후기 탭)',
     domain: 'review',
     route: '/shop/[id]#reviews',
-    assertedThisWave: false,
+    assertedThisWave: true,
     fields: [
-      { field: 'rating', render: 'src/components/shop/ProductTabsClient.tsx:256-263', kind: 'derived' },
-      { field: 'isBest', render: 'src/components/shop/ProductTabsClient.tsx:265-267', kind: 'badge', note: 'true→"BEST".' },
-      { field: 'title', render: 'src/components/shop/ProductTabsClient.tsx:284', kind: 'text' },
-      { field: 'content', render: 'src/components/shop/ProductTabsClient.tsx:285-287', kind: 'text' },
+      { field: 'rating', render: 'src/components/shop/ProductTabsClient.tsx:270-278', kind: 'derived' },
+      { field: 'isBest', render: 'src/components/shop/ProductTabsClient.tsx:280-282', kind: 'badge', note: 'true→"BEST".' },
+      { field: 'title', render: 'src/components/shop/ProductTabsClient.tsx:299', kind: 'text' },
+      { field: 'content', render: 'src/components/shop/ProductTabsClient.tsx:300-302', kind: 'text' },
       {
         field: 'image',
-        render: '없음(fetched-but-hidden)',
+        render: 'src/components/shop/ProductTabsClient.tsx:305-313',
         kind: 'image',
-        note: '⚠️ ReviewViewItem.image/isPhotoReview(types:448-449) 는 페치되지만 이 카드는 안 그린다 — ' +
-          '홈 ReviewCard(#home-reviews)와 divergent contract. 보고 대상.',
+        note: 'isPhotoReview && image 둘 다일 때 상세 후기 탭 카드에 렌더.',
       },
     ],
   },

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { ReviewViewItem, InquiryViewItem, User, Order, Product, Shipment } from '@/types';
 import { getMergedReviews, getMergedInquiries } from '@/lib/adapters';
 import { getSessionUser, getMyOrders, getMyOrderShipments, getProductReviewsByUser, STORAGE_EVENTS, addProductReview, addProductInquiry, buildReviewTargetKey } from '@/lib/storage';
@@ -300,6 +301,18 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                       {review.content}
                     </p>
                   </div>
+
+                  {review.isPhotoReview && review.image && (
+                    <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#E7E0D5] bg-[#FAF8F3]">
+                      <Image
+                        src={review.image}
+                        alt={review.title ? `${review.title} 후기 사진` : '상품 후기 사진'}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
