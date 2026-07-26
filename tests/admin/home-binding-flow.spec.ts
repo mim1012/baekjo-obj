@@ -32,7 +32,8 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     // 서버 wrapper 에서 최신순으로 정렬한 뒤 넘긴다(2026-07-18: 신규 공지가 홈에 안 뜨던 버그 수정).
     expect(pageSource).toContain('const sortedNotices = [...noticesConfig.items].sort((a, b) => b.date.localeCompare(a.date));');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('<HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />');
+    expect(pageSource).toContain('const { solutions, ...visibleHomeSettings } = settings ?? defaultHomeSettings;');
+    expect(pageSource).toContain('settings={visibleHomeSettings}');
     expectNoMutableDataBypass(pageSource);
   });
 
@@ -41,11 +42,11 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
 
     // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
     expect(clientSource).toContain('export default function HomeClient({');
-    expect(clientSource).toContain('settings = defaultHomeSettings,');
+    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'solutions'>;");
     expect(clientSource).toContain('products: Product[];');
     expect(clientSource).toContain('brands: Brand[];');
     expect(clientSource).toContain('notices: Notice[];');
-    expect(clientSource).toContain('settings?: HomeSettings;');
+    expect(clientSource).toContain('settings: HomeClientSettings;');
     expect(clientSource).toContain('products.filter((product) => product.isBest || product.isRecommended)');
     expect(clientSource).toContain('brands.filter(b => b.isVisible !== false)');
     // notices 는 DB 정본으로 이관 — 정적 import 금지, 서버 wrapper 가 props 로 주입한다.

@@ -11,9 +11,9 @@ test.describe('마이페이지 주문 렌더링', () => {
 
     const ordersLoadBlock = page.match(/getMyOrders\(\)\.then\(\(orders\) => \{[\s\S]*?\n    \}\);/);
     expect(ordersLoadBlock?.[0]).toContain('setOrders(orders)');
-    expect(ordersLoadBlock?.[0]).toContain('Promise.all(');
+    expect(ordersLoadBlock?.[0]).toContain('getMyOrderShipments()');
     expect(ordersLoadBlock?.[0].indexOf('setOrders(orders)')).toBeLessThan(
-      ordersLoadBlock?.[0].indexOf('Promise.all(') ?? -1,
+      ordersLoadBlock?.[0].indexOf('getMyOrderShipments()') ?? -1,
     );
   });
 });

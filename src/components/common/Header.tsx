@@ -19,9 +19,9 @@ import { useMounted } from '@/lib/useMounted';
 import BrandMark from './BrandMark';
 
 const MAIN_LINKS = [
-  { label: '케어 가이드', href: '/concerns' },
   { label: '브랜드', href: '/brands' },
-  { label: '보험 분석', href: '/insurance' },
+  { label: '케어', href: '/concerns' },
+  { label: '펫보험', href: '/insurance' },
   { label: 'B2B', href: '/b2b' },
 ];
 
@@ -30,9 +30,9 @@ const DESKTOP_NAV_TEXT_CLASS =
 
 const STORY_LINKS = [
   { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
-  { label: '전문가의 기준', description: '건강과 생활을 살피는 기준', href: '/experts' },
-  { label: '반려가족 이야기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
-  { label: '백조 소식', description: '새로운 서비스와 안내', href: '/notices' },
+  { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts' },
+  { label: '보호자 후기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
+  { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
 ];
 
 const SHOP_LINKS = {
@@ -93,10 +93,6 @@ export default function Header() {
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">
-          {MAIN_LINKS.slice(0, 2).map((link) => (
-            <NavLink key={link.href} {...link} active={isActive(link.href)} />
-          ))}
-
           <div className="group relative flex h-full items-center">
             <Link
               href="/shop"
@@ -125,21 +121,21 @@ export default function Header() {
             </div>
           </div>
 
-          {MAIN_LINKS.slice(2).map((link) => (
+          {MAIN_LINKS.slice(0, 3).map((link) => (
             <NavLink key={link.href} {...link} active={isActive(link.href)} />
           ))}
 
           <div className="group relative flex h-full items-center">
             <button
               type="button"
-              aria-label="백조 이야기 메뉴"
+              aria-label="백조 오브제 메뉴"
               className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
                 storyActive
                   ? 'border-[#A8742E]'
                   : 'border-transparent'
               }`}
             >
-              백조 이야기
+              백조 오브제
               <ChevronDown className="size-3.5 transition-transform duration-500 group-hover:rotate-180 group-focus-within:rotate-180" />
             </button>
             <div className="absolute right-0 top-full z-40 hidden w-80 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white p-3 shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
@@ -155,6 +151,8 @@ export default function Header() {
               ))}
             </div>
           </div>
+
+          <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
         </nav>
 
         <div className="flex items-center gap-1">
@@ -236,10 +234,6 @@ export default function Header() {
           className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
         >
           <div className="mx-auto flex max-w-lg flex-col">
-            {MAIN_LINKS.slice(0, 2).map((link) => (
-              <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
-            ))}
-
             <MobileAccordion
               title="셀렉션"
               open={mobilePanel === 'shop'}
@@ -258,12 +252,12 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS.slice(2).map((link) => (
+            {MAIN_LINKS.slice(0, 3).map((link) => (
               <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
             ))}
 
             <MobileAccordion
-              title="백조 이야기"
+              title="백조 오브제"
               open={mobilePanel === 'story'}
               active={storyActive}
               onToggle={() => setMobilePanel((panel) => (panel === 'story' ? null : 'story'))}
@@ -277,6 +271,8 @@ export default function Header() {
                 ))}
               </div>
             </MobileAccordion>
+
+            <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">
               <Link href={currentUser ? '/mypage' : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">

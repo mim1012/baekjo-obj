@@ -66,7 +66,7 @@ export async function getWishlist(options: { force?: boolean } = {}): Promise<st
   if (!options.force && wishlistCache) return wishlistCache;
   if (!options.force && wishlistRequest) return wishlistRequest;
 
-  wishlistRequest = fetch('/api/wishlist')
+  wishlistRequest = fetch('/api/wishlist', { cache: 'no-store' })
     .then(async (response) => {
       if (response.status === 401) {
         clearLegacyWishlistStorage();
@@ -382,7 +382,7 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
  */
 export async function getMyOrders(): Promise<Order[]> {
   try {
-    const response = await fetch('/api/orders/mine');
+    const response = await fetch('/api/orders/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { orders } = (await response.json()) as { orders: Order[] };
     return orders;
@@ -480,7 +480,18 @@ export async function updateOrderStatus(
  */
 export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
   try {
-    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`);
+    const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/shipments`, { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { shipments } = (await response.json()) as { shipments: Shipment[] };
+    return shipments;
+  } catch {
+    return [];
+  }
+}
+
+export async function getMyOrderShipments(): Promise<Shipment[]> {
+  try {
+    const response = await fetch('/api/orders/mine/shipments', { cache: 'no-store' });
     if (!response.ok) return [];
     const { shipments } = (await response.json()) as { shipments: Shipment[] };
     return shipments;
@@ -706,7 +717,7 @@ export async function getPublicProductsOrNull(filter?: {
  */
 export async function getMyHistoryProducts(): Promise<Product[]> {
   try {
-    const response = await fetch('/api/orders/mine/products');
+    const response = await fetch('/api/orders/mine/products', { cache: 'no-store' });
     if (!response.ok) return [];
     const { products } = (await response.json()) as { products: Product[] };
     return products;
@@ -1706,7 +1717,7 @@ import type { AdminProductReview, ProductReview, ProductInquiry } from '@/types'
 /** 특정 상품의 노출(published) 구매평. GET /api/products/[id]/reviews(공개). 실패 시 빈 배열. */
 export async function getProductReviewsByProduct(productId: string): Promise<ProductReview[]> {
   try {
-    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`);
+    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/reviews`, { cache: 'no-store' });
     if (!response.ok) return [];
     const { reviews } = (await response.json()) as { reviews: ProductReview[] };
     return reviews;
@@ -1718,7 +1729,7 @@ export async function getProductReviewsByProduct(productId: string): Promise<Pro
 /** 본인 구매평 전체(hidden 포함). GET /api/reviews/mine(세션 필요). 실패 시 빈 배열. */
 export async function getProductReviewsByUser(userId: string): Promise<ProductReview[]> {
   try {
-    const response = await fetch('/api/reviews/mine');
+    const response = await fetch('/api/reviews/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { reviews } = (await response.json()) as { reviews: ProductReview[] };
     return reviews.filter((r) => r.userId === userId);
@@ -1795,7 +1806,7 @@ export async function getProductInquiriesByProduct(productId: string): Promise<P
 /** 본인 문의 전체. GET /api/inquiries/mine(세션 필요). 실패 시 빈 배열. */
 export async function getProductInquiriesByUser(userId: string): Promise<ProductInquiry[]> {
   try {
-    const response = await fetch('/api/inquiries/mine');
+    const response = await fetch('/api/inquiries/mine', { cache: 'no-store' });
     if (!response.ok) return [];
     const { inquiries } = (await response.json()) as { inquiries: ProductInquiry[] };
     return inquiries.filter((i) => i.userId === userId);
@@ -1853,7 +1864,7 @@ export async function updateProductInquiry(
 
 /** 본인 문의 삭제. DELETE /api/inquiries/[id]. */
 export async function deleteProductInquiry(id: string, _userId: string): Promise<void> {
-  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store' });
   if (!response.ok) {
     throw new Error('inquiry-delete-failed');
   }

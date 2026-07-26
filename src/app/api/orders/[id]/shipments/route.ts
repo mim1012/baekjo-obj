@@ -5,6 +5,8 @@ import { getOrderById } from '@/lib/orders/repo';
 import { listShipmentsByOrder } from '@/lib/shipments/repo';
 import { logServerError } from '@/lib/logServerError';
 
+const NO_STORE_HEADERS = { 'Cache-Control': 'no-store' };
+
 // order.id는 uuid 컬럼이라 형식이 잘못된 id를 그대로 조회하면 Supabase가 500을 던진다 — 형식만 먼저
 // 걸러 존재하지 않는 주문과 동일하게 404로 접는다(존재 은폐 + 500 누출 방지).
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,14 +21,14 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   if (!UUID_RE.test(id)) {
-    return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    return NextResponse.json({ error: 'not-found' }, { status: 404, headers: NO_STORE_HEADERS });
   }
 
   try {
     const session = await auth();
     const order = await getOrderById(id);
     if (!order) {
-      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+      return NextResponse.json({ error: 'not-found' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const memberId = session?.user?.memberId;
@@ -39,13 +41,13 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     }
 
     if (!isOwner && !isAdmin) {
-      return NextResponse.json({ error: 'not-found' }, { status: 404 });
+      return NextResponse.json({ error: 'not-found' }, { status: 404, headers: NO_STORE_HEADERS });
     }
 
     const shipments = await listShipmentsByOrder(id);
-    return NextResponse.json({ shipments }, { status: 200 });
+    return NextResponse.json({ shipments }, { status: 200, headers: NO_STORE_HEADERS });
   } catch (error) {
     logServerError('[GET /api/orders/[id]/shipments] 조회 실패', error);
-    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    return NextResponse.json({ error: 'server-error' }, { status: 500, headers: NO_STORE_HEADERS });
   }
 }

@@ -21,7 +21,7 @@ const actionVariants: Record<EditorialActionVariant, string> = {
   secondary:
     'border border-[#E7E0D5] bg-transparent text-[#17211D] hover:border-[#D8C4A3] hover:bg-[#F3EEE6] focus-visible:ring-offset-[#FBFAF7]',
   inverse:
-    'bg-[#FBFAF7] text-[#17211D] hover:bg-[#F3EEE6] focus-visible:ring-offset-[#202521]',
+    'bg-white text-[#17211D] hover:bg-[#F3EEE6] focus-visible:ring-offset-[#202521]',
   'inverse-outline':
     'border border-[#FBFAF7]/30 bg-transparent text-[#FBFAF7] hover:border-[#FBFAF7]/60 hover:bg-white/10 focus-visible:ring-offset-[#202521]',
 };

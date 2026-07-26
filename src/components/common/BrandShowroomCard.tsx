@@ -11,7 +11,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
   return (
     <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 rounded-[24px] bg-white border border-[rgba(15,23,42,0.06)] p-6 lg:p-10 transition-all hover:shadow-[0_12px_40px_rgba(15,23,42,0.04)] group">
       {/* 1. Brand Visual Placeholder */}
-      <div className="w-full lg:w-5/12 aspect-[4/3] lg:aspect-auto lg:h-full bg-[#FBFAF7] rounded-[16px] flex items-center justify-center border border-[rgba(15,23,42,0.04)] overflow-hidden relative">
+      <div className="w-full lg:w-5/12 aspect-[4/3] lg:aspect-auto lg:h-full bg-white rounded-[16px] flex items-center justify-center border border-[rgba(15,23,42,0.04)] overflow-hidden relative">
         <span className="font-editorial text-7xl italic text-slate-200 transition-transform duration-700 group-hover:scale-110">
           {brand.name.slice(0, 1)}
         </span>
@@ -43,7 +43,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
           <div className="border-t border-[rgba(15,23,42,0.06)] pt-6 mb-8 grid grid-cols-2 gap-4 lg:gap-6">
             {products.map(product => (
               <Link href={`/shop/${product.id}`} key={product.id} className="flex gap-4 group/product">
-                <div className="shrink-0 w-20 h-20 bg-[#FBFAF7] rounded-[10px] border border-[rgba(15,23,42,0.04)] flex flex-col items-center justify-center transition-colors group-hover/product:border-[rgba(15,23,42,0.12)]">
+                <div className="shrink-0 w-20 h-20 bg-white rounded-[10px] border border-[rgba(15,23,42,0.04)] flex flex-col items-center justify-center transition-colors group-hover/product:border-[rgba(15,23,42,0.12)]">
                   <span className="font-editorial text-2xl italic text-slate-300">{product.category.slice(0, 1)}</span>
                 </div>
                 <div className="flex flex-col justify-center min-w-0">

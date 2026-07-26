@@ -38,6 +38,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(ProductInquiry)', () => {
+  test.setTimeout(120_000);
+
   const MEMBER_EMAIL = process.env.E2E_MEMBER_EMAIL;
   const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 
@@ -96,7 +98,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     for (let i = 0; i < 10; i += 1) {
       const staleCard = page.locator('.mypage-card', { hasText: SEARCH_PREFIX }).first();
       if ((await staleCard.count()) === 0) break;
-      await staleCard.getByRole('button', { name: '삭제' }).click();
+      await Promise.all([
+        page.waitForResponse(
+          (res) => res.url().includes('/api/inquiries/') && res.request().method() === 'DELETE',
+          { timeout: 30_000 },
+        ).catch(() => null),
+        staleCard.getByRole('button', { name: '삭제' }).click(),
+      ]);
       await page.waitForTimeout(600);
     }
   }
@@ -149,7 +157,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     const submitButton = memberPage.getByRole('button', { name: '등록하기' });
     await expect(submitButton).toBeEnabled({ timeout: 15_000 });
     const [createResponse] = await Promise.all([
-      memberPage.waitForResponse((res) => res.url().includes('/api/inquiries') && res.request().method() === 'POST'),
+      memberPage.waitForResponse(
+        (res) => res.url().includes('/api/inquiries') && res.request().method() === 'POST',
+        { timeout: 30_000 },
+      ),
       submitButton.click(),
     ]);
     expect(createResponse.status()).toBe(201);
@@ -201,7 +212,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품문의(Pro
     await memberPage.goto('/mypage?tab=inquiries');
     const myInquiryCard = memberPage.locator('.mypage-card', { hasText: title });
     await expect(myInquiryCard).toBeVisible({ timeout: 15_000 });
-    await myInquiryCard.getByRole('button', { name: '삭제' }).click();
+    const [deleteResponse] = await Promise.all([
+      memberPage.waitForResponse(
+        (res) => res.url().includes('/api/inquiries/') && res.request().method() === 'DELETE',
+        { timeout: 30_000 },
+      ),
+      myInquiryCard.getByRole('button', { name: '삭제' }).click(),
+    ]);
+    expect(deleteResponse.status()).toBe(200);
     await expect(memberPage.locator('.mypage-card', { hasText: title })).toHaveCount(0, { timeout: 15_000 });
 
     // 5) 새로고침 후에도 사라졌는지 확인(진짜 DB 삭제인지 검증) + 공개 화면에서도 사라졌는지 확인.

@@ -75,7 +75,14 @@ export async function createThrowawayProduct(
     await page.waitForURL(/\/admin\/products\/[^/]+$/, { timeout: 15_000 });
     const id = new URL(page.url()).pathname.split('/').filter(Boolean).pop();
     if (!id) throw new Error(`스로어웨이 상품 id를 URL에서 얻지 못함: ${name}`);
-    // 상세 편집 페이지에 머물러 있으면 다음 호출(cleanup 등)이 목록 검색을 못 하므로 되돌아간다.
+
+    await patchProductAsAdmin(page, id, { isVisible: true });
+    await expect(async () => {
+      const response = await page.goto(`/shop/${id}`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      expect(response?.status(), `${name} 공개 상세 응답`).toBe(200);
+      await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 5_000 });
+    }).toPass({ timeout: 30_000 });
+
     await page.goto('/admin/products');
 
     return { id, name };

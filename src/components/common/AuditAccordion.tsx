@@ -44,7 +44,7 @@ export default function AuditAccordion({
       ? 'mb-2 text-[10px] font-bold uppercase tracking-wide text-[#6F756F]'
       : 'mb-3 text-[11px] font-bold uppercase tracking-wide text-[#6F756F]';
   const iconContainerClass = isDark
-    ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#FBFAF7]/10 text-[#FBFAF7]'
+    ? 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-[#FBFAF7]'
     : 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#F8F6F0] text-[#17251F]';
   const contentClass = isDark
     ? `px-6 pb-8 sm:px-10 md:block md:p-10 ${isExpanded ? 'block' : 'hidden'}`

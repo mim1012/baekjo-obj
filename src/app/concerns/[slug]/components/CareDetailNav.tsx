@@ -47,7 +47,7 @@ export default function CareDetailNav({ sections }: CareDetailNavProps) {
   return (
     <nav
       aria-label="고민별 케어 상세 메뉴"
-      className="care-detail-nav sticky top-[64px] z-20 border-y border-[#DED8CC] bg-[#FBFAF7]/95 backdrop-blur-xl lg:top-[72px]"
+      className="care-detail-nav sticky top-[64px] z-20 border-y border-[#DED8CC] bg-white/95 backdrop-blur-xl lg:top-[72px]"
     >
       <div className="care-detail-container hide-scrollbar flex h-full items-center gap-6 overflow-x-auto sm:gap-8">
         {sections.map((section) => {

@@ -28,5 +28,7 @@ export default async function Home() {
   // append 순서 그대로면 항상 가장 오래된 4건만 보였다). date 는 YYYY-MM-DD 문자열이라 localeCompare
   // 로 비교하고, JS sort 는 안정 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
   const sortedNotices = [...noticesConfig.items].sort((a, b) => b.date.localeCompare(a.date));
-  return <HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={settings ?? defaultHomeSettings} />;
+  const { solutions, ...visibleHomeSettings } = settings ?? defaultHomeSettings;
+  void solutions;
+  return <HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={visibleHomeSettings} />;
 }
