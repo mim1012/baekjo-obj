@@ -36,13 +36,13 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
 
   test.use({ extraHTTPHeaders: bypassHeaders() });
 
-  const NAME_PREFIX = 'E2E-수정전파-';
+  const RUN_PREFIX = `E2E-수정전파-${process.env.GITHUB_RUN_ID ?? Date.now()}-`;
   const INITIAL_PRICE = 10_000;
 
   test.afterAll(async ({ browser }) => {
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(page);
-    await cleanupThrowawayProducts(page, NAME_PREFIX);
+    await cleanupThrowawayProducts(page, RUN_PREFIX);
     await page.close();
   });
 
@@ -52,10 +52,11 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     const adminPage = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     adminPage.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(adminPage);
-    await cleanupThrowawayProducts(adminPage, `${NAME_PREFIX}가격-`);
+    const pricePrefix = `${RUN_PREFIX}가격-`;
+    await cleanupThrowawayProducts(adminPage, pricePrefix);
     const { id: productId, name: originalName } = await createThrowawayProduct(
       adminPage,
-      `${NAME_PREFIX}가격-`,
+      pricePrefix,
       INITIAL_PRICE,
     );
 
@@ -124,10 +125,11 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     const adminPage = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     adminPage.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(adminPage);
-    await cleanupThrowawayProducts(adminPage, `${NAME_PREFIX}숨김-`);
+    const hiddenPrefix = `${RUN_PREFIX}숨김-`;
+    await cleanupThrowawayProducts(adminPage, hiddenPrefix);
     const { id: productId, name: productName } = await createThrowawayProduct(
       adminPage,
-      `${NAME_PREFIX}숨김-`,
+      hiddenPrefix,
       INITIAL_PRICE,
     );
 
