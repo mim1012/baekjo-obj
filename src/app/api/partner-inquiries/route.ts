@@ -3,6 +3,11 @@ import { createPartnerInquiry, type InsertPartnerInquiryInput } from '@/lib/part
 import type { PartnerInquiry } from '@/types';
 import { logServerError } from '@/lib/logServerError';
 import { notifyAdminNewSubmission } from '@/lib/email/notifyAdmin';
+import { createRateLimiter, clientIpKey, tooManyRequests } from '@/lib/rateLimit';
+
+// 게스트 제출 허용 폼이라 상한이 필수 — 봇 루프가 DB를 오염시키고 접수 알림 메일을 폭주시키는 걸 막는다.
+// 정상 사용자는 제휴 문의를 분당 여러 번 넣지 않으므로 분당 5건이면 넉넉하다.
+const rateLimiter = createRateLimiter(60_000, 5);
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
 const MAX_NAME = 100;
@@ -45,6 +50,10 @@ function isPartnerInquiryInput(body: unknown): body is InsertPartnerInquiryInput
  * id/createdAt/status('접수')는 서버(DB default)가 정한다. 생성 성공 시 201.
  */
 export async function POST(request: NextRequest) {
+  if (!rateLimiter.check(clientIpKey(request))) {
+    return tooManyRequests();
+  }
+
   let body: unknown;
   try {
     body = await request.json();

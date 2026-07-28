@@ -6,6 +6,11 @@ import { sendMail } from '@/lib/email/mailer';
 import { verificationEmail } from '@/lib/email/templates';
 import { getBaseUrl } from '@/lib/email/base-url';
 import { logServerError } from '@/lib/logServerError';
+import { createRateLimiter, clientIpKey, tooManyRequests } from '@/lib/rateLimit';
+
+// 가입은 bcrypt 해시 + 인증메일 발송을 유발한다 — IP당 시간당 5건이면 정상 사용자의 회원가입은
+// 막지 않으면서, 대량 가짜 계정 생성과 그로 인한 SMTP 발송 쿼터 소진을 저지할 수 있다.
+const rateLimiter = createRateLimiter(3_600_000, 5);
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -60,6 +65,10 @@ function validate(body: SignupBody): ValidatedSignup | null {
 
 /** POST /api/members — 이메일/비밀번호 회원가입. */
 export async function POST(request: NextRequest) {
+  if (!rateLimiter.check(clientIpKey(request))) {
+    return tooManyRequests();
+  }
+
   let body: SignupBody;
   try {
     body = await request.json();

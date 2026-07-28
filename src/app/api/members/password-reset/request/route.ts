@@ -10,8 +10,14 @@ import { sendMail } from '@/lib/email/mailer';
 import { passwordResetEmail } from '@/lib/email/templates';
 import { getBaseUrl } from '@/lib/email/base-url';
 import { logServerError } from '@/lib/logServerError';
+import { createRateLimiter, clientIpKey } from '@/lib/rateLimit';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 회원 단위 DB 스로틀(countRecentTokens)만으로는 "가입 안 된 이메일"로 무한 요청해 매번
+// findMemberByEmail 조회를 유발하는 경로를 막지 못한다 — 이건 그걸 IP 단위로 보완한다.
+// IP당 시간당 5건이면 정상적인 재설정 요청(비밀번호를 잊고 여러 번 시도)은 막지 않는다.
+const rateLimiter = createRateLimiter(3_600_000, 5);
 
 interface PasswordResetRequestBody {
   email?: unknown;
@@ -38,6 +44,13 @@ export async function POST(request: NextRequest) {
   const { email } = body;
   if (typeof email !== 'string' || !EMAIL_PATTERN.test(email)) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  // 한도 초과라도 429를 주면 "이 IP가 스로틀됨"이 노출되는 건 문제 아니지만, 그보다 더 중요한
+  // 건 이 라우트 전체의 설계 축인 이메일 열거 방지다 — 응답 형태가 요청마다 달라지면 안 되므로
+  // 여기서도 기존과 동일하게 200 { ok: true }를 반환하고, after() 등록만 건너뛰어 발송을 생략한다.
+  if (!rateLimiter.check(clientIpKey(request))) {
+    return NextResponse.json({ ok: true }, { status: 200 });
   }
 
   const baseUrl = getBaseUrl(request);

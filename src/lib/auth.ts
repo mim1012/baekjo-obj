@@ -3,6 +3,12 @@ import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from '@/lib/auth.config';
 import { findMemberByEmail, upsertSocialMember } from '@/lib/members/repo';
 import { verifyPassword } from '@/lib/members/password';
+import { createRateLimiter } from '@/lib/rateLimit';
+
+// 로그인 브루트포스 댐핑 — 계정(이메일) 단위로 10분에 10회. 공격자가 IP를 돌려도 표적 계정
+// 자체는 보호된다. ⚠️ 인메모리라 서버리스 다중 인스턴스에선 인스턴스별 카운터라 실효 한도가
+// 인스턴스 수만큼 배가된다 — 정밀·영구 제한은 Vercel Firewall 몫이고 이건 댐핑일 뿐이다.
+const loginRateLimiter = createRateLimiter(600_000, 10);
 
 // 타이밍 오라클 방지용 더미 해시 — 실제 회원 비밀번호와 무관한 상수 bcrypt 해시.
 // 이메일이 없거나(가입 안 됨) 소셜 전용 계정이라 비밀번호 해시가 없어도 verifyPassword를
@@ -28,6 +34,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = typeof credentials?.email === 'string' ? credentials.email : '';
         const password = typeof credentials?.password === 'string' ? credentials.password : '';
         if (!email || !password) return null;
+
+        // 스로틀에 걸리면 bcrypt(verifyPassword)를 건너뛰어 응답이 빨라진다 — "이 계정이
+        // 스로틀 중"이라는 신호가 새는 건 맞지만, 그건 이미 10회 실패시킨 공격자만 얻을 수 있는
+        // 정보라 열거(enumeration) 가치가 없다(위 DUMMY_PASSWORD_HASH가 막는 건 "이 이메일이
+        // 가입돼 있는가"이고, 이건 그와 무관한 별개 채널이다).
+        if (!loginRateLimiter.check(`login:${email.toLowerCase()}`)) return null;
 
         const member = await findMemberByEmail(email);
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
