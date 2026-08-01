@@ -1,16 +1,12 @@
 name: release-qa (실사용자 플로우)
 
 on:
-  pull_request:
-    branches: [main, "integrate/**"]
-  push:
-    branches: [main, "integrate/**"]
   deployment_status:
   workflow_dispatch:
     inputs:
       base_url:
-        description: '점검할 URL. 비우면 로컬 dev 서버를 띄워 검사'
-        required: false
+        description: '점검할 Preview/Staging URL'
+        required: true
         type: string
 
 concurrency:
@@ -45,37 +41,15 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "deployment_status" ]; then
             echo "url=${{ github.event.deployment_status.environment_url }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ inputs.base_url }}" ]; then
-            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
           else
-            echo "url=http://localhost:3000" >> "$GITHUB_OUTPUT"
+            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Start local dev server
-        if: steps.target.outputs.url == 'http://localhost:3000'
-        run: |
-          npm run dev > /tmp/release-qa-next.log 2>&1 &
-          for i in {1..90}; do
-            if curl -fsS http://localhost:3000 >/dev/null; then
-              echo "ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          cat /tmp/release-qa-next.log
-          exit 1
-        env:
-          APP_BASE_URL: http://localhost:3000
-          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || secrets.SUPABASE_URL_STAGING || secrets.SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY || secrets.SUPABASE_SECRET_KEY_STAGING || secrets.SUPABASE_SECRET_KEY }}
 
       - name: Release QA browser gate
         run: npm run qa:release
         env:
           E2E_BASE_URL: ${{ steps.target.outputs.url }}
           APP_BASE_URL: ${{ steps.target.outputs.url }}
-          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL || secrets.SUPABASE_URL_STAGING || secrets.SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY || secrets.SUPABASE_SECRET_KEY_STAGING || secrets.SUPABASE_SECRET_KEY }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Upload QA evidence
