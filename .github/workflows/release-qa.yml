@@ -64,11 +64,18 @@ jobs:
           done
           cat /tmp/release-qa-next.log
           exit 1
+        env:
+          APP_BASE_URL: http://localhost:3000
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING || secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY_STAGING || secrets.SUPABASE_SECRET_KEY }}
 
       - name: Release QA browser gate
         run: npm run qa:release
         env:
           E2E_BASE_URL: ${{ steps.target.outputs.url }}
+          APP_BASE_URL: ${{ steps.target.outputs.url }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING || secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY_STAGING || secrets.SUPABASE_SECRET_KEY }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
 
       - name: Upload QA evidence
