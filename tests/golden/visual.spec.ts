@@ -149,6 +149,10 @@ test.describe('시각 회귀 — 골든플로우', () => {
             page.locator('table'),
             page.locator('p', { hasText: '개의 상품' }),
             page.locator('span.float-right'),
+            page.locator('iframe'),
+            page.locator('[data-vercel-toolbar]'),
+            page.locator('div.fixed.bottom-0.left-0.right-0.z-40'),
+            page.locator('div.fixed.rounded-full'),
           ],
         });
       });
