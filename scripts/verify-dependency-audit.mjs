@@ -43,6 +43,14 @@ const allowedAdvisories = new Map([
     'https://github.com/advisories/GHSA-6g55-p6wh-862q',
     'PostCSS is nested under Next.js (no patched Next release yet); build-time only, no user-controlled CSS is parsed.',
   ],
+  [
+    // 2026-07-24 신규 공개(high 7.5) — sourceMappingURL 경로 순회로 임의 .map 파일 노출,
+    // postcss <= 8.5.17. 위 6g55와 동일 상황·동일 도달성 논거: postcss는 Next 빌드 체인
+    // 내부(빌드 타임)에서만 실행되고 사용자 제어 CSS/소스맵을 파싱하지 않는다. next가
+    // 패치판(8.5.18+) postcss를 동봉하면 업그레이드로 전환(만료일 exceptionExpiresOn이 강제).
+    'https://github.com/advisories/GHSA-r28c-9q8g-f849',
+    'PostCSS sourceMappingURL path traversal; nested under Next.js, build-time only, no user-controlled CSS or source maps are parsed.',
+  ],
 ]);
 
 function runAudit() {

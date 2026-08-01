@@ -53,6 +53,28 @@ jobs:
           fi
           echo "base_url prod 아님 — 계속."
 
+      # 🚨 skip-green 차단 가드 (2026-07-24, grok·codex 교차 리뷰 공통 CRITICAL) — E2E 계정
+      # 시크릿이 비어 있으면 스펙들이 test.skip으로 조용히 빠져 "실행 안 됨"이 초록으로 보인다.
+      # crud 잡이 required check로 승격된 이상(같은 날 적용) 거짓 초록은 곧 거짓 머지 허가다.
+      # 필수 4종(관리자·회원 계정)만 검사한다 — VERCEL_AUTOMATION_BYPASS(프리뷰 보호 꺼짐 시
+      # 불필요)·STAGING_SUPABASE_*(문서화된 선택 검증)는 의도된 선택 시크릿이라 제외.
+      - name: 필수 E2E 시크릿 존재 가드 (부재 = fail, skip-green 차단)
+        env:
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+        run: |
+          missing=""
+          for v in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_MEMBER_EMAIL E2E_MEMBER_PASSWORD; do
+            [ -z "${!v}" ] && missing="$missing $v"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::필수 E2E 시크릿 미등록:$missing — 스펙이 조용히 skip돼 거짓 초록(skip-green)이 됩니다. GitHub secrets에 등록 후 재실행하세요."
+            exit 1
+          fi
+          echo "필수 E2E 시크릿 4종 존재 — 계속."
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.deployment.sha || github.sha }}
