@@ -5,8 +5,6 @@ import { isSocialLoginEnabled, loginWithProvider } from '@/lib/socialAuth';
 
 type SocialProvider = 'kakao' | 'naver';
 
-// 카카오/네이버 공식 로그인 버튼 (검수 요건: 지정 배경색 + 심볼 — 간편 로그인 영역에 한해
-// 브랜드 컬러 예외. 카카오 #FEE500, 네이버 #03C75A는 각 사 디자인 가이드 지정값)
 const DEFAULT_LABELS: Record<SocialProvider, string> = {
   kakao: '카카오 로그인',
   naver: '네이버 로그인',
@@ -72,7 +70,7 @@ export default function SocialLoginButtons({
           type="button"
           onClick={() => handleClick('naver')}
           disabled={pending !== null}
-          className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#03C75A] text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex min-h-11 w-full items-center justify-center gap-2 bg-[#007A33] text-sm font-semibold text-white transition-opacity duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <NaverSymbol />
           {pending === 'naver' ? '네이버로 이동 중…' : labels.naver}

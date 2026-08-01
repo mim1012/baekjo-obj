@@ -235,7 +235,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
             <a
               key={target}
               href={`#${target}`}
-              className="shrink-0 border-b-2 border-transparent py-4 text-sm font-semibold text-[#6F766F] transition-colors duration-500 hover:border-[#17211D] hover:text-[#17211D] focus:border-[#17211D] focus:text-[#17211D]"
+              className="shrink-0 border-b-2 border-transparent py-4 text-sm font-semibold text-[#59615B] transition-colors duration-500 hover:border-[#17211D] hover:text-[#17211D] focus:border-[#17211D] focus:text-[#17211D]"
             >
               {label}
             </a>
@@ -256,7 +256,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
             </div>
             <button
               onClick={handleWriteReviewClick}
-              className="text-sm font-semibold text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]"
+              className="text-sm font-semibold text-[#59615B] transition-colors duration-500 hover:text-[#17211D]"
             >
               후기 남기기
             </button>
@@ -359,19 +359,19 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                 <article key={qna.id} className="border-b border-[#E7E0D5] py-5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${
-                      qna.status === 'answered' ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#6F766F]'
+                      qna.status === 'answered' ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B]'
                     }`}>
                       {qna.status === 'answered' ? '답변완료' : '답변대기'}
                     </span>
                     <h3 className="flex items-center gap-1.5 break-keep text-sm font-semibold text-[#17211D]">
-                      {qna.isSecret && <Lock className="size-3 text-[#6F766F]" />}
+                      {qna.isSecret && <Lock className="size-3 text-[#59615B]" />}
                       {qna.title || qna.question}
                     </h3>
                     <time className="ml-auto text-xs tabular-nums text-[#8A918B]">{formatDate(qna.createdAt)}</time>
                   </div>
                   
                   {(!qna.isSecret || (user && (user.id === qna.userId || user.role === 'admin' || (user.role === 'partner' && user.managedBrandIds?.includes(qna.brandId || ''))))) && (
-                    <p className="mt-3 text-sm leading-6 text-[#6F766F] pl-1">{qna.content}</p>
+                    <p className="mt-3 text-sm leading-6 text-[#59615B] pl-1">{qna.content}</p>
                   )}
 
                   {qna.answer && (!qna.isSecret || (user && (user.id === qna.userId || user.role === 'admin' || (user.role === 'partner' && user.managedBrandIds?.includes(qna.brandId || ''))))) && (
@@ -380,7 +380,7 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
                         <span className="font-bold text-[#17211D]">백조오브제</span>
                         <span className="text-xs text-[#8A918B]">{formatDate(qna.answeredAt || qna.createdAt)}</span>
                       </div>
-                      <p className="text-[#6F766F] whitespace-pre-wrap">{qna.answer}</p>
+                      <p className="text-[#59615B] whitespace-pre-wrap">{qna.answer}</p>
                     </div>
                   )}
                   

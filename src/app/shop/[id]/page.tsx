@@ -180,7 +180,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                   )}
                   {productAuditPoints.length > 0 && (
                     <div className="mt-8">
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FBFAF7]/45">Product check</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#FBFAF7]/70">Product check</p>
                       <ul className="mt-4 space-y-3">
                         {productAuditPoints.map((point) => (
                           <li key={point} className="flex items-start gap-3 rounded-2xl bg-white/5 px-4 py-3 text-sm leading-6 text-[#FBFAF7]/75">

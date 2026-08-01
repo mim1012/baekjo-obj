@@ -81,7 +81,7 @@ export default function LoginPage() {
               <br />
               오래 기억하도록.
             </p>
-            <p className="mt-5 text-sm leading-7 text-[#D2D7D2]">
+            <p className="mt-5 text-sm leading-7 text-[#F4F6F2]">
               나의 관심 상품과 주문,
               <br />
               맞춤 케어 기록을 이어서 확인하세요.
@@ -94,7 +94,7 @@ export default function LoginPage() {
             <BrandMark />
           </div>
           <h1 className="mt-10 text-3xl font-normal text-[#202521] md:mt-0">다시 만나 반가워요.</h1>
-          <p className="mt-2 text-sm text-[#747B75]">백조오브제 계정으로 로그인해 주세요.</p>
+          <p className="mt-2 text-sm text-[#59615B]">백조오브제 계정으로 로그인해 주세요.</p>
 
           <form onSubmit={handleLogin} className="mt-9 space-y-4">
             {(error || socialError) && (
@@ -139,7 +139,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#777E78]">
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#59615B]">
             <Link href="/signup" className="hover:text-[#2F3B34]">회원가입</Link>
             <span className="h-3 w-px bg-[#D3D2CA]" />
             <Link href="#" className="hover:text-[#2F3B34]">아이디 찾기</Link>
@@ -148,7 +148,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">
-            <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 로그인</p>
+            <p className="mb-3 text-center text-[11px] text-[#59615B]">간편 로그인</p>
             <SocialLoginButtons />
           </div>
         </div>

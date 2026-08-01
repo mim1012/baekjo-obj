@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -26,6 +27,17 @@ const routes = [
   '/not-a-real-page-release-qa',
 ];
 
+const accessibilityRoutes = ['/', '/shop', '/login', '/signup', '/forgot-password'];
+const clientSecretPatterns = [
+  'SUPABASE_SECRET_KEY',
+  'SMTP_GMAIL_APP_PASSWORD',
+  'TOSS_SECRET_KEY',
+  'SUPABASE_ACCESS_TOKEN',
+  'sb_secret_',
+  'test_gsk_',
+  'live_gsk_',
+];
+
 const findings = [];
 const observations = [];
 const extraHTTPHeaders = process.env.VERCEL_AUTOMATION_BYPASS
@@ -45,6 +57,16 @@ function isToolingNoise(text) {
     /favicon|React DevTools|Failed to load resource.*(404|401)/i.test(text) ||
     (/hydrated but some attributes/i.test(text) && /caret-color:\\"transparent\\"|caret-color:"transparent"/i.test(text))
   );
+}
+
+function severityFromAxeImpact(impact) {
+  if (impact === 'critical' || impact === 'serious') return 'high';
+  if (impact === 'moderate') return 'medium';
+  return 'low';
+}
+
+function safeDetails(value, limit = 900) {
+  return String(value).replace(/\s+/g, ' ').trim().slice(0, limit);
 }
 
 async function snapshot(page, name) {
@@ -81,7 +103,7 @@ async function collectPage(browser, viewport, route) {
   try {
     const response = await page.goto(route, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     status = response?.status() ?? null;
-    await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => {});
+    await page.waitForLoadState('networkidle', { timeout: 4_000 }).catch(() => {});
     title = await page.title().catch(() => '');
     bodyText = await page.locator('body').innerText({ timeout: 5_000 }).catch(() => '');
     await snapshot(page, `${viewport.name}-${slug(route)}`);
@@ -228,6 +250,178 @@ async function testNetworkFailure(browser) {
   await context.close();
 }
 
+async function testAccessibility(browser) {
+  const context = await browser.newContext({
+    baseURL,
+    extraHTTPHeaders,
+    viewport: { width: 1440, height: 1000 },
+  });
+  const page = await context.newPage();
+
+  for (const route of accessibilityRoutes) {
+    await page.goto(route, { waitUntil: 'domcontentloaded' });
+    await page.waitForLoadState('networkidle', { timeout: 4_000 }).catch(() => {});
+    const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+    const violations = results.violations.filter((violation) => violation.impact !== 'minor');
+    observations.push({
+      viewport: 'desktop',
+      route: `accessibility:${route}`,
+      violations: violations.map((violation) => ({
+        id: violation.id,
+        impact: violation.impact,
+        nodes: violation.nodes.length,
+      })),
+    });
+
+    for (const violation of violations) {
+      const severity = severityFromAxeImpact(violation.impact);
+      const sampleNodes = violation.nodes
+        .slice(0, 3)
+        .map((node) => `${node.target.join(', ')} :: ${safeDetails(node.failureSummary ?? node.html, 220)}`)
+        .join(' || ');
+      addFinding(
+        severity,
+        'accessibility',
+        `${route} 접근성 위반: ${violation.id}`,
+        `${violation.help} (${violation.impact}, nodes=${violation.nodes.length}) ${sampleNodes}`,
+      );
+    }
+  }
+
+  await context.close();
+}
+
+async function runStep(name, fn) {
+  console.error(`[release-qa] ${name}`);
+  await fn();
+}
+
+async function testAuthApiFailures(browser) {
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text());
+  });
+  page.on('pageerror', (err) => errors.push(err.message));
+
+  await page.route('**/api/members', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'release-qa-forced-failure' }),
+    });
+  });
+  await page.goto('/signup');
+  await page.getByLabel(/이름/).fill('릴리즈QA');
+  await page.getByLabel(/연락처/).fill('010-0000-0000');
+  await page.locator('input[type="email"]').first().fill(`release-qa-${Date.now()}@example.com`);
+  await page.locator('input[type="password"]').first().fill('release-qa-password');
+  await page.locator('input[type="password"]').nth(1).fill('release-qa-password');
+  await page.getByRole('checkbox').first().check();
+  await page.getByRole('checkbox').nth(1).check();
+  await page.getByRole('button', { name: /회원가입/ }).last().click();
+  await page.waitForTimeout(800);
+  await snapshot(page, 'auth-failure-signup-api-500');
+  const signupText = await page.locator('body').innerText();
+  if (!/잠시 후|다시 시도|오류|문제/i.test(signupText)) {
+    addFinding('high', 'auth-api-failure', '회원가입 API 실패 안내가 보이지 않음', signupText.slice(0, 400));
+  }
+
+  await page.unroute('**/api/members');
+  await page.route('**/api/members/password-reset/request', async (route) => {
+    await route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'release-qa-forced-failure' }),
+    });
+  });
+  await page.goto('/forgot-password');
+  await page.locator('input[type="email"]').fill('release-qa@example.com');
+  await page.getByRole('button', { name: /재설정|보내기/ }).click();
+  await page.waitForTimeout(800);
+  await snapshot(page, 'auth-failure-forgot-password-api-500');
+  const forgotText = await page.locator('body').innerText();
+  if (!/잠시 후|다시 시도|오류|문제/i.test(forgotText)) {
+    addFinding('high', 'auth-api-failure', '비밀번호 재설정 API 실패 안내가 보이지 않음', forgotText.slice(0, 400));
+  }
+
+  const blockingErrors = errors.filter((text) => !isToolingNoise(text));
+  const unexpectedErrors = blockingErrors.filter((text) => !/Failed to load resource: the server responded with a status of 500/i.test(text));
+  if (unexpectedErrors.length > 0) {
+    addFinding('high', 'console', '인증 실패 플로우 중 console/page error', unexpectedErrors.join(' || '));
+  }
+  await context.close();
+}
+
+async function testSlowAuthNetwork(browser) {
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.route('**/api/members/password-reset/request', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ok: true }),
+    });
+  });
+  await page.goto('/forgot-password');
+  await page.locator('input[type="email"]').fill('slow-release-qa@example.com');
+  const button = page.getByRole('button', { name: /재설정|보내기/ });
+  await button.click();
+  await page.waitForTimeout(250);
+  const pendingText = await page.locator('body').innerText();
+  const disabledDuringRequest = await page.getByRole('button', { name: /전송 중|재설정|보내기/ }).isDisabled().catch(() => false);
+  await snapshot(page, 'slow-network-forgot-password-pending');
+  if (!disabledDuringRequest || !/전송 중/i.test(pendingText)) {
+    addFinding('medium', 'slow-network', '느린 비밀번호 재설정 요청 중 중복 클릭 방어가 약함', `disabled=${disabledDuringRequest}, text=${pendingText.slice(0, 300)}`);
+  }
+  await page.getByRole('status').waitFor({ timeout: 5_000 }).catch(() => {});
+  const doneText = await page.locator('body').innerText();
+  if (!/재설정 링크|메일함/i.test(doneText)) {
+    addFinding('medium', 'slow-network', '느린 비밀번호 재설정 성공 후 완료 상태가 보이지 않음', doneText.slice(0, 300));
+  }
+  await context.close();
+}
+
+async function testClientSecretExposure(browser) {
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2_000);
+  const html = await page.content();
+  const exposedInHtml = clientSecretPatterns.filter((pattern) => html.includes(pattern));
+  if (exposedInHtml.length > 0) {
+    addFinding('critical', 'security', 'HTML에 서버 비밀키 이름/값이 노출됨', exposedInHtml.join(', '));
+  }
+
+  const exposedScripts = await page.evaluate(async (patterns) => {
+    const urls = [...new Set([...document.scripts].map((script) => script.src).filter((src) => src.includes('/_next/static/')))];
+    const hitsByUrl = [];
+    for (const url of urls.slice(0, 20)) {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 5_000);
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) continue;
+        const body = await response.text();
+        const hits = patterns.filter((pattern) => body.includes(pattern));
+        if (hits.length > 0) hitsByUrl.push(`${url}: ${hits.join(', ')}`);
+      } catch {
+        continue;
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    }
+    return hitsByUrl;
+  }, clientSecretPatterns);
+  if (exposedScripts.length > 0) {
+    addFinding('critical', 'security', '클라이언트 번들에 서버 비밀키 이름/값이 노출됨', exposedScripts.slice(0, 10).join(' || '));
+  }
+  observations.push({ viewport: 'desktop', route: 'client-secret-exposure', scriptsChecked: exposedScripts.length });
+  await context.close();
+}
+
 async function testLinks(browser) {
   const context = await browser.newContext({ baseURL, extraHTTPHeaders, viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
@@ -260,14 +454,20 @@ async function main() {
     executablePath,
     args: ['--disable-extensions', '--disable-component-extensions-with-background-pages'],
   });
-  for (const viewport of viewports) {
-    for (const route of routes) {
-      await collectPage(browser, viewport, route);
+  await runStep('responsive route sweep', async () => {
+    for (const viewport of viewports) {
+      for (const route of routes) {
+        await collectPage(browser, viewport, route);
+      }
     }
-  }
-  await testInteractions(browser);
-  await testNetworkFailure(browser);
-  await testLinks(browser);
+  });
+  await runStep('interactive negative paths', () => testInteractions(browser));
+  await runStep('network failure states', () => testNetworkFailure(browser));
+  await runStep('axe accessibility scan', () => testAccessibility(browser));
+  await runStep('auth API failure states', () => testAuthApiFailures(browser));
+  await runStep('slow auth network state', () => testSlowAuthNetwork(browser));
+  await runStep('client secret exposure scan', () => testClientSecretExposure(browser));
+  await runStep('internal link scan', () => testLinks(browser));
   await browser.close();
 
   const severityOrder = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -297,7 +497,12 @@ async function main() {
     ...observations.map((o) => `- ${o.viewport} ${o.route}: status=${o.status ?? 'n/a'}, duration=${o.durationMs ?? 'n/a'}ms, consoleErrors=${o.consoleErrors?.length ?? o.errors?.length ?? 0}, pageErrors=${o.pageErrors?.length ?? 0}`),
   ].join('\n');
   fs.writeFileSync(path.join(outDir, `qa-report-${slug(baseURL)}-${today}.md`), md, 'utf8');
-  console.log(JSON.stringify({ outDir, findings: findings.length, critical: findings.filter((f) => f.severity === 'critical').length, high: findings.filter((f) => f.severity === 'high').length }, null, 2));
+  const critical = findings.filter((f) => f.severity === 'critical').length;
+  const high = findings.filter((f) => f.severity === 'high').length;
+  console.log(JSON.stringify({ outDir, findings: findings.length, critical, high }, null, 2));
+  if (critical > 0 || high > 0) {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {

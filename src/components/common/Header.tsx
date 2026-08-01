@@ -26,7 +26,7 @@ const MAIN_LINKS = [
 ];
 
 const DESKTOP_NAV_TEXT_CLASS =
-  'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]';
+  'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
 const STORY_LINKS = [
   { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
@@ -146,7 +146,7 @@ export default function Header() {
                   className="block rounded-2xl px-4 py-3 transition-colors duration-500 hover:bg-[#FAF8F3]"
                 >
                   <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#6F766F]">{link.description}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#59615B]">{link.description}</span>
                 </Link>
               ))}
             </div>
@@ -159,7 +159,7 @@ export default function Header() {
           <Link
             href="/shop?focus=search"
             aria-label="상품 검색"
-            className="hidden rounded-full p-2.5 text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+            className="hidden rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
           >
             <Search className="size-5" />
           </Link>
@@ -169,7 +169,7 @@ export default function Header() {
                 <Link
                   href="/admin"
                   aria-label="관리자"
-                  className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+                  className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
                 >
                   관리자
                 </Link>
@@ -181,7 +181,7 @@ export default function Header() {
                   window.location.reload();
                 }}
                 aria-label="로그아웃"
-                className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+                className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
               >
                 로그아웃
               </button>
@@ -190,7 +190,7 @@ export default function Header() {
             <Link
               href="/login"
               aria-label="로그인"
-              className="hidden rounded-full p-2.5 text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+              className="hidden rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
             >
               <LogIn className="size-5" />
             </Link>
@@ -198,14 +198,14 @@ export default function Header() {
           <Link
             href="/mypage"
             aria-label="마이페이지"
-            className="hidden rounded-full p-2.5 text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
+            className="hidden rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
           >
             <User className="size-5" />
           </Link>
           <Link
             href="/cart"
             aria-label={`장바구니, 상품 ${cartCount}개`}
-            className="relative rounded-full p-2.5 text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D]"
+            className="relative rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D]"
           >
             <ShoppingBag className="size-5" />
             {cartCount > 0 && (
@@ -220,7 +220,7 @@ export default function Header() {
             aria-expanded={menuOpen}
             aria-controls="mobile-menu"
             onClick={() => setMenuOpen((open) => !open)}
-            className="rounded-full p-2.5 text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] lg:hidden"
+            className="rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] lg:hidden"
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -245,7 +245,7 @@ export default function Header() {
               </Link>
               <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
                 {SHOP_LINKS.categories.map((link) => (
-                  <Link key={link.href} href={link.href} onClick={closeMenu} className="text-sm text-[#6F766F]">
+                  <Link key={link.href} href={link.href} onClick={closeMenu} className="text-sm text-[#59615B]">
                     {link.label}
                   </Link>
                 ))}
@@ -266,7 +266,7 @@ export default function Header() {
                 {STORY_LINKS.map((link) => (
                   <Link key={link.href} href={link.href} onClick={closeMenu} className="block">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                    <span className="mt-0.5 block text-xs text-[#6F766F]">{link.description}</span>
+                    <span className="mt-0.5 block text-xs text-[#59615B]">{link.description}</span>
                   </Link>
                 ))}
               </div>
@@ -328,7 +328,7 @@ function DropdownColumn({ title, links }: DropdownColumnProps) {
       <ul className="space-y-3">
         {links.map((link) => (
           <li key={link.href}>
-            <Link href={link.href} className="text-sm text-[#6F766F] transition-colors duration-500 hover:text-[#17211D]">
+            <Link href={link.href} className="text-sm text-[#59615B] transition-colors duration-500 hover:text-[#17211D]">
               {link.label}
             </Link>
           </li>
@@ -352,7 +352,7 @@ function MobileLink({ label, href, active, onClick }: MobileLinkProps) {
       onClick={onClick}
       aria-current={active ? 'page' : undefined}
       className={`rounded-2xl px-4 py-3.5 text-base font-semibold transition-colors duration-500 ${
-        active ? 'bg-[#F3EEE6] text-[#17211D]' : 'text-[#6F766F] hover:bg-[#FAF8F3] hover:text-[#17211D]'
+        active ? 'bg-[#F3EEE6] text-[#17211D]' : 'text-[#59615B] hover:bg-[#FAF8F3] hover:text-[#17211D]'
       }`}
     >
       {label}
@@ -376,7 +376,7 @@ function MobileAccordion({ title, open, active, onToggle, children }: MobileAcco
         onClick={onToggle}
         aria-expanded={open}
         className={`flex w-full items-center justify-between rounded-2xl px-4 py-3.5 text-left text-base font-semibold transition-colors duration-500 ${
-          active || open ? 'bg-[#F3EEE6] text-[#17211D]' : 'text-[#6F766F] hover:bg-[#FAF8F3]'
+          active || open ? 'bg-[#F3EEE6] text-[#17211D]' : 'text-[#59615B] hover:bg-[#FAF8F3]'
         }`}
       >
         {title}

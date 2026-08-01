@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-7 shadow-sm sm:p-10">
         <BrandMark />
         <h1 className="mt-8 text-2xl font-normal text-[#202521]">비밀번호를 잊으셨나요?</h1>
-        <p className="mt-2 text-sm text-[#747B75]">
+        <p className="mt-2 text-sm text-[#59615B]">
           가입하신 이메일 주소를 입력해 주시면 재설정 링크를 보내드릴게요.
         </p>
 
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           </form>
         )}
 
-        <div className="mt-8 border-t border-[#DEDCD5] pt-6 text-center text-xs text-[#777E78]">
+        <div className="mt-8 border-t border-[#DEDCD5] pt-6 text-center text-xs text-[#59615B]">
           <Link href="/login" className="hover:text-[#2F3B34]">로그인으로 돌아가기</Link>
         </div>
       </div>

@@ -36,11 +36,11 @@ export default function ReviewCard({ review, productName, variant = 'default', c
               />
             ))}
           </div>
-          <p className="mt-2 text-[12px] md:text-[13px] text-[#6F766F] break-keep">
+          <p className="mt-2 text-[12px] md:text-[13px] text-[#59615B] break-keep">
             {review.breed} · {review.age} · {review.usePeriod}
           </p>
         </div>
-        <time className="shrink-0 font-editorial text-[11px] md:text-[12px] font-medium tracking-wider text-[#8A7A64]">
+        <time className="shrink-0 font-editorial text-[11px] md:text-[12px] font-medium tracking-wider text-[#59615B]">
           {formatDate(review.createdAt)}
         </time>
       </div>
