@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';
-import { getCategorySettings } from '@/lib/categorySettings/repo';
+import { getCachedCategorySettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -11,7 +11,7 @@ import { logServerError } from '@/lib/logServerError';
 export async function GET() {
   let settings: CategorySettings = defaultCategorySettings;
   try {
-    const saved = await getCategorySettings();
+    const saved = await getCachedCategorySettings();
     if (saved) settings = saved;
   } catch (error) {
     logServerError('[GET /api/category-settings] 조회 실패 — defaultCategorySettings 로 폴백', error);

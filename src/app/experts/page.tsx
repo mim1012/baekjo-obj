@@ -1,7 +1,7 @@
 import { Stethoscope, Utensils, Activity, Search, ShieldCheck, ListChecks, FileText, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { listProducts } from '@/lib/products/repo';
+import { listCachedPublicProducts } from '@/lib/public-read-cache';
 import ProductCard from '@/components/common/ProductCard';
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default async function ExpertsPage({
   searchParams: Promise<{ filter?: string }>;
 }) {
   const { filter = 'all' } = await searchParams;
-  const products = await listProducts();
+  const products = await listCachedPublicProducts();
   
   const filteredProducts = products.filter(p => {
     if (!p.isRecommended) return false;

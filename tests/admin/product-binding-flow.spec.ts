@@ -92,20 +92,28 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(splitSource).toContain('merged.pointsRate = undefined;');
   });
 
-  test('공개 상품 목록/상세는 정적 products 데이터가 아니라 repo 를 읽는다', () => {
+  test('공개 상품 목록/상세는 정적 products 데이터가 아니라 공개 repo 캐시를 읽는다', () => {
     const shopPage = src('src', 'app', 'shop', 'page.tsx');
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
+    const publicCache = src('src', 'lib', 'public-read-cache.ts');
 
-    expect(shopPage).toContain("import { listProducts } from '@/lib/products/repo'");
+    expect(shopPage).toContain("import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache'");
     // concerns DB화(2026-07-17)로 고민 필터 옵션도 서버에서 함께 읽어 내려준다.
     expect(shopPage).toContain('const [products, brands, concernsConfig] = await Promise.all([');
-    expect(shopPage).toContain('listProducts(),');
-    expect(shopPage).toContain('listBrands(),');
+    expect(shopPage).toContain('listCachedPublicProducts(),');
+    expect(shopPage).toContain('listCachedPublicBrands(),');
     expect(shopPage).not.toContain('@/data/products');
 
-    expect(detailPage).toContain("import { getProductById, listProducts } from '@/lib/products/repo'");
-    expect(detailPage).toContain('const product = await getProductById(id);');
+    expect(detailPage).toContain('getCachedPublicProductById,');
+    expect(detailPage).toContain('listCachedPublicProducts,');
+    expect(detailPage).toContain('const product = await getCachedPublicProductById(id);');
     expect(detailPage).not.toContain('@/data/products');
+
+    expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
+    expect(publicCache).toContain("type PublicProductListFilter = Omit<ProductListFilter, 'visibleOnly'>;");
+    expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
+    expect(publicCache).toContain('async (id: string) => getProductById(id)');
+    expect(publicCache).not.toContain('visibleOnly: false');
   });
 
   test('ProductForm 의 toFormState 는 pointsEnabled·pointsRate 를 화이트리스트에서 누락하지 않는다', () => {

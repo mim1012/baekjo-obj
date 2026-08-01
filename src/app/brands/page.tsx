@@ -1,4 +1,4 @@
-import { listBrands } from '@/lib/brands/repo';
+import { listCachedPublicBrands } from '@/lib/public-read-cache';
 import BrandsContent from '@/components/brands/BrandsContent';
 
 // 필터 탭(useSearchParams)은 클라이언트 컴포넌트로 유지하고, 브랜드 목록은 서버에서
@@ -7,6 +7,6 @@ import BrandsContent from '@/components/brands/BrandsContent';
 export const dynamic = 'force-dynamic';
 
 export default async function BrandsPage() {
-  const brands = await listBrands();
+  const brands = await listCachedPublicBrands();
   return <BrandsContent brands={brands} />;
 }

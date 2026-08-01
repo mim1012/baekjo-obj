@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { defaultHomeSettings, type HomeSettings } from '@/data/homeContent';
-import { getSiteSettings } from '@/lib/settings/repo';
+import { getCachedSiteSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -11,7 +11,7 @@ import { logServerError } from '@/lib/logServerError';
 export async function GET() {
   let settings: HomeSettings = defaultHomeSettings;
   try {
-    const saved = await getSiteSettings();
+    const saved = await getCachedSiteSettings();
     if (saved) settings = saved;
   } catch (error) {
     logServerError('[GET /api/settings] 조회 실패 — defaultHomeSettings 로 폴백', error);

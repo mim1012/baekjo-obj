@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireBrandScoped } from '@/lib/admin/requireBrandScoped';
 import { insertProduct, listProducts } from '@/lib/products/repo';
 import { validateProductFields, toInsertInput } from '@/lib/products/validate';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 function isForeignKeyViolation(error: { code?: string }): boolean {
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const product = await insertProduct(input);
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     revalidatePath('/shop');
     revalidatePath(`/brands/${input.brandId}`);
     return NextResponse.json({ product }, { status: 201 });
