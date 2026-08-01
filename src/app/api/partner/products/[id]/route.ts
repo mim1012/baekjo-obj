@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireBrandScoped } from '@/lib/admin/requireBrandScoped';
 import { getProductById, updateProductScoped, deleteProductScoped } from '@/lib/products/repo';
 import { validateProductFields, toPatchInput } from '@/lib/products/validate';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 function isForeignKeyViolation(error: { code?: string }): boolean {
@@ -55,6 +56,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (result.status === 'invalid') {
       return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
     }
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     revalidatePath('/shop');
     revalidatePath(`/shop/${id}`);
     revalidatePath(`/brands/${existing.brandId}`);
@@ -92,6 +94,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
     if (result.status === 'conflict') {
       return NextResponse.json({ error: 'conflict' }, { status: 409 });
     }
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     revalidatePath('/shop');
     revalidatePath(`/shop/${id}`);
     revalidatePath(`/brands/${existing.brandId}`);

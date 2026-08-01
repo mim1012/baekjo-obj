@@ -14,14 +14,19 @@ function expectNoMutableDataBypass(source: string): void {
 
 
 test.describe('홈 공개 화면 데이터 바인딩', () => {
-  test('홈 서버 wrapper 는 현재 공개 Home 을 canonical 로 유지하며 products/brands repo 를 읽는다', () => {
+  test('홈 서버 wrapper 는 현재 공개 Home 을 canonical 로 유지하며 products/brands 공개 repo 캐시를 읽는다', () => {
     const pageSource = src('src', 'app', 'page.tsx');
+    const publicCache = src('src', 'lib', 'public-read-cache.ts');
 
-    expect(pageSource).toContain("import { listProducts } from '@/lib/products/repo'");
-    expect(pageSource).toContain("import { listBrands } from '@/lib/brands/repo'");
+    expect(pageSource).toContain('listCachedPublicBrands,');
+    expect(pageSource).toContain('listCachedPublicProducts,');
     expect(pageSource).toContain("export const dynamic = 'force-dynamic'");
-    expect(pageSource).toContain('listProducts({ visibleOnly: true })');
-    expect(pageSource).toContain('listBrands(true)');
+    expect(pageSource).toContain('listCachedPublicProducts()');
+    expect(pageSource).toContain('listCachedPublicBrands()');
+    expect(publicCache).toContain("import { getBrandById, listBrands } from '@/lib/brands/repo'");
+    expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
+    expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
+    expect(publicCache).toContain('async () => listBrands(true)');
     // 공지도 DB 정본(notices_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
     expect(pageSource).toContain("import { getNoticesConfigWithFallback } from '@/lib/notices/repo'");
     expect(pageSource).toContain('getNoticesConfigWithFallback()');

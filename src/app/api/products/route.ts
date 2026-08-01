@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { listProducts } from '@/lib/products/repo';
+import { listCachedPublicProducts } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const petType = searchParams.get('petType') ?? undefined;
 
   try {
-    const products = await listProducts({ categorySlug, brandId, petType, visibleOnly: true });
+    const products = await listCachedPublicProducts({ categorySlug, brandId, petType });
     return NextResponse.json({ products }, { status: 200 });
   } catch (error) {
     logServerError('[GET /api/products] 조회 실패', error);

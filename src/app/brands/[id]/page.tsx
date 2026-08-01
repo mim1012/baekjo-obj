@@ -8,8 +8,10 @@ import { getBrandDisplayLogo } from '@/components/common/BrandLogo';
 import AuditAccordion from '@/components/common/AuditAccordion';
 import BrandAuditReport from '@/components/common/BrandAuditReport';
 import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
-import { getBrandById } from '@/lib/brands/repo';
-import { listProductsByBrand } from '@/lib/products/repo';
+import {
+  getCachedPublicBrandById,
+  listCachedPublicProducts,
+} from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 
@@ -18,14 +20,14 @@ export const dynamic = 'force-dynamic';
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const brand = await getBrandById(id);
+  const brand = await getCachedPublicBrandById(id);
 
   if (!brand) {
     notFound();
   }
 
   const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
-  const brandProducts = await listProductsByBrand(brand.id);
+  const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
   const representativeProducts = brandProducts.filter((product) =>
     brand.representativeProductIds.includes(product.id),
   );

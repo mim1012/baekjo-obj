@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import { saveSiteSettings } from '@/lib/settings/repo';
 import { normalizeHomeSettings } from '@/data/homeContent';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -62,6 +64,8 @@ export async function PUT(request: NextRequest) {
     }
 
     await saveSiteSettings(normalizeHomeSettings(body));
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.siteSettings, EXPIRE_PUBLIC_READ_CACHE);
+    revalidatePath('/');
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     logServerError('[PUT /api/admin/settings] 저장 실패', error);

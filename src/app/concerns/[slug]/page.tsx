@@ -4,8 +4,7 @@ import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Check, ChevronDown, ChevronRight, MessageCircleQuestion, Home, PlusSquare, Search } from 'lucide-react';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
-import { listProducts } from '@/lib/products/repo';
-import { listBrands } from '@/lib/brands/repo';
+import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import BrandLogo from '@/components/common/BrandLogo';
 import EmptyState from '@/components/common/EmptyState';
@@ -98,7 +97,10 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
     description: concern.shortDescription,
   };
 
-  const [allProducts, allBrands] = await Promise.all([listProducts(), listBrands()]);
+  const [allProducts, allBrands] = await Promise.all([
+    listCachedPublicProducts(),
+    listCachedPublicBrands(),
+  ]);
   const recommendedProducts = allProducts.filter((product) =>
     concern.recommendedProductIds.includes(product.id),
   );

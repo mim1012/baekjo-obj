@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { insertBrand, listAllBrandsForAdmin } from '@/lib/brands/repo';
 import { validateBrandFields, toInsertInput } from '@/lib/brands/validate';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const brand = await insertBrand(input);
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.brands, EXPIRE_PUBLIC_READ_CACHE);
     revalidatePath('/brands');
     return NextResponse.json({ brand }, { status: 201 });
   } catch (error) {

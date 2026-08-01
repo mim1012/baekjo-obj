@@ -105,16 +105,22 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
   test('카테고리 API 는 공개 readback 과 관리자 저장을 repo 계층으로 위임한다', () => {
     const publicRoute = src('src', 'app', 'api', 'category-settings', 'route.ts');
     const adminRoute = src('src', 'app', 'api', 'admin', 'category-settings', 'route.ts');
+    const publicCache = src('src', 'lib', 'public-read-cache.ts');
     const putFunction = adminRoute.slice(adminRoute.indexOf('export async function PUT('));
 
     expect(publicRoute).toContain("import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';");
-    expect(publicRoute).toContain("import { getCategorySettings } from '@/lib/categorySettings/repo';");
+    expect(publicRoute).toContain("import { getCachedCategorySettings } from '@/lib/public-read-cache';");
     expect(publicRoute).toContain('let settings: CategorySettings = defaultCategorySettings;');
-    expect(publicRoute).toContain('const saved = await getCategorySettings();');
+    expect(publicRoute).toContain('const saved = await getCachedCategorySettings();');
     expect(publicRoute).toContain('if (saved) settings = saved;');
     expect(publicRoute).toContain('return NextResponse.json({ settings }, { status: 200 });');
+    expect(publicCache).toContain("import { getCategorySettings } from '@/lib/categorySettings/repo';");
+    expect(publicCache).toContain('async () => getCategorySettings()');
 
     expect(adminRoute).toContain("import { saveCategorySettings } from '@/lib/categorySettings/repo';");
+    expect(adminRoute).toContain(
+      "import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';",
+    );
     expect(adminRoute).toContain("import type { CategorySettings } from '@/lib/categorySettings/config';");
     expect(adminRoute).toContain('Array.isArray(b.productCategories)');
     expect(adminRoute).toContain('Array.isArray(b.lifestyleCategories)');
@@ -122,6 +128,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(putFunction).toContain('const session = await auth();');
     expect(putFunction).toContain('const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;');
     expect(putFunction).toContain('await saveCategorySettings(body);');
+    expect(putFunction).toContain('revalidateTag(PUBLIC_READ_CACHE_TAGS.categorySettings, EXPIRE_PUBLIC_READ_CACHE);');
     expect(putFunction).toContain('return NextResponse.json({ ok: true }, { status: 200 });');
   });
 

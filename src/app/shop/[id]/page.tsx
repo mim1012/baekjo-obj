@@ -2,8 +2,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { getProductById, listProducts } from '@/lib/products/repo';
-import { getBrandById } from '@/lib/brands/repo';
+import {
+  getCachedPublicBrandById,
+  getCachedPublicProductById,
+  listCachedPublicProducts,
+} from '@/lib/public-read-cache';
 import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import AuditAccordion from '@/components/common/AuditAccordion';
@@ -25,12 +28,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const product = await getProductById(id);
+  const product = await getCachedPublicProductById(id);
   if (!product) notFound();
 
   const [brand, allProducts] = await Promise.all([
-    getBrandById(product.brandId),
-    listProducts(),
+    getCachedPublicBrandById(product.brandId),
+    listCachedPublicProducts(),
   ]);
   const relatedProducts = allProducts
     .filter((candidate) => candidate.id !== product.id && (

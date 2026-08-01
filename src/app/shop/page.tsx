@@ -1,5 +1,4 @@
-import { listProducts } from '@/lib/products/repo';
-import { listBrands } from '@/lib/brands/repo';
+import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import ShopContent from '@/components/shop/ShopContent';
 
@@ -10,8 +9,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ShopPage() {
   const [products, brands, concernsConfig] = await Promise.all([
-    listProducts(),
-    listBrands(),
+    listCachedPublicProducts(),
+    listCachedPublicBrands(),
     getConcernsConfigWithFallback(),
   ]);
   return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} />;

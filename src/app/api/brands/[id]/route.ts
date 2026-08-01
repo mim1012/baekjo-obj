@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getBrandById } from '@/lib/brands/repo';
+import { getCachedPublicBrandById } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
 
   try {
-    const brand = await getBrandById(id);
+    const brand = await getCachedPublicBrandById(id);
     if (!brand) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }

@@ -119,25 +119,29 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(updateFunction).toContain('return rowToBrand(data as BrandRow);');
   });
 
-  test('공개 브랜드 목록/상세는 정적 brands 데이터가 아니라 repo 결과를 props 로 렌더한다', () => {
+  test('공개 브랜드 목록/상세는 정적 brands 데이터가 아니라 공개 repo 캐시 결과를 props 로 렌더한다', () => {
     const brandsPage = src('src', 'app', 'brands', 'page.tsx');
     const detailPage = src('src', 'app', 'brands', '[id]', 'page.tsx');
+    const publicCache = src('src', 'lib', 'public-read-cache.ts');
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productsClient = src('src', 'components', 'brands', 'BrandProductsClient.tsx');
 
-    expect(brandsPage).toContain("import { listBrands } from '@/lib/brands/repo'");
+    expect(brandsPage).toContain("import { listCachedPublicBrands } from '@/lib/public-read-cache'");
     expect(brandsPage).toContain("export const dynamic = 'force-dynamic'");
-    expect(brandsPage).toContain('const brands = await listBrands();');
+    expect(brandsPage).toContain('const brands = await listCachedPublicBrands();');
     expect(brandsPage).toContain('<BrandsContent brands={brands} />');
     expectPublicBrandSource(brandsPage);
 
-    expect(detailPage).toContain("import { getBrandById } from '@/lib/brands/repo'");
-    expect(detailPage).toContain("import { listProductsByBrand } from '@/lib/products/repo'");
-    expect(detailPage).toContain('const brand = await getBrandById(id);');
-    expect(detailPage).toContain('const brandProducts = await listProductsByBrand(brand.id);');
+    expect(detailPage).toContain('getCachedPublicBrandById,');
+    expect(detailPage).toContain('listCachedPublicProducts,');
+    expect(detailPage).toContain('const brand = await getCachedPublicBrandById(id);');
+    expect(detailPage).toContain('const brandProducts = await listCachedPublicProducts({ brandId: brand.id });');
     expect(detailPage).not.toMatch(/getBrandById\(\s*id\s*,/);
     expect(detailPage).not.toContain('getBrandById(id, { includeHidden');
     expectPublicBrandSource(detailPage);
+    expect(publicCache).toContain("import { getBrandById, listBrands } from '@/lib/brands/repo'");
+    expect(publicCache).toContain('async () => listBrands(true)');
+    expect(publicCache).toContain('async (id: string) => getBrandById(id)');
 
     expect(detailPage).toContain("import BrandAuditReport from '@/components/common/BrandAuditReport'");
     expect(detailPage).toContain('<BrandAuditReport brand={brand} />');
