@@ -7,6 +7,12 @@ import { getProductById } from '@/lib/products/repo';
 import { insertReview, DuplicateReviewError, type InsertReviewInput } from '@/lib/reviews/repo';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { logServerError } from '@/lib/logServerError';
+import { createRateLimiter, tooManyRequests } from '@/lib/rateLimit';
+
+// 세션 게이트(requireActiveMember)가 있어도 구매평은 공개 상품 페이지에 그대로 노출되므로,
+// 계정 하나만 확보한 스패머가 무한 루프를 돌리며 도배하는 걸 막아야 한다. 분당 5건이면
+// 정상적으로 여러 상품을 구매한 사용자가 순차 작성하는 흐름은 막지 않는다.
+const rateLimiter = createRateLimiter(60_000, 5);
 
 const MAX_ORDER_ID = 100;
 const MAX_OPTION_NAME = 200;
@@ -64,6 +70,10 @@ export async function POST(request: NextRequest) {
     return activeMember.response;
   }
   const memberId = activeMember.memberId;
+
+  if (!rateLimiter.check(`member:${memberId}`)) {
+    return tooManyRequests();
+  }
 
   let body: unknown;
   try {

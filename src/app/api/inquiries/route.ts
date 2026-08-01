@@ -3,6 +3,11 @@ import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { getProductById } from '@/lib/products/repo';
 import { insertInquiry, type InsertInquiryInput } from '@/lib/inquiries/repo';
 import { logServerError } from '@/lib/logServerError';
+import { createRateLimiter, tooManyRequests } from '@/lib/rateLimit';
+
+// 상품문의도 구매평과 마찬가지로 공개 상품 페이지에 노출되는 대상이라, 세션 게이트만으로는
+// 계정 하나로 도배하는 스패머를 막지 못한다. 분당 5건으로 정상 사용 흐름은 건드리지 않는다.
+const rateLimiter = createRateLimiter(60_000, 5);
 
 const MAX_PRODUCT_ID = 100;
 const MAX_TITLE = 200;
@@ -44,6 +49,10 @@ export async function POST(request: NextRequest) {
   const activeMember = await requireActiveMember();
   if (!activeMember.ok) {
     return activeMember.response;
+  }
+
+  if (!rateLimiter.check(`member:${activeMember.memberId}`)) {
+    return tooManyRequests();
   }
 
   let body: unknown;
