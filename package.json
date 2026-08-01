@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "qa:release": "node scripts/qa-release-check.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
