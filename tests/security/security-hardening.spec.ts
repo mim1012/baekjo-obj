@@ -66,4 +66,14 @@ test.describe('보안 경계 회귀 계약', () => {
     expect(checkAuthRateLimit('login', key, start + 15 * 60_000)).toBe(true);
     resetAuthRateLimit('login', key);
   });
+
+  test('구매평 변경은 공개 상품 집계 캐시를 무효화한다', () => {
+    const adminReview = read('src', 'app', 'api', 'admin', 'reviews', '[id]', 'route.ts');
+    const memberReviews = read('src', 'app', 'api', 'reviews', 'route.ts');
+    const memberReview = read('src', 'app', 'api', 'reviews', '[id]', 'route.ts');
+
+    for (const source of [adminReview, memberReviews, memberReview]) {
+      expect(source).toContain('revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE)');
+    }
+  });
 });

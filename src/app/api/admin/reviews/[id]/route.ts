@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { setProductReviewStatus, adminDeleteProductReview } from '@/lib/reviews/repo';
 import { logServerError } from '@/lib/logServerError';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 
 const VALID_STATUSES = ['published', 'hidden'] as const;
 
@@ -35,6 +37,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     if (!updated) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/admin/reviews/[id]] 상태 변경 실패', error);
@@ -54,6 +57,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
     if (!deleted) {
       return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     logServerError('[DELETE /api/admin/reviews/[id]] 삭제 실패', error);
