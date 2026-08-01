@@ -80,8 +80,13 @@ const PUBLIC_PAGES: Array<{
       // 품절/재고 배지: ProductCard.tsx availabilityLabel = '판매 준비 중' | '잠시 품절'.
       page.locator('.shop-product-grid').getByText(/판매 준비 중|잠시 품절/),
       page.locator('section', { hasText: '에디터 추천 상품' }).getByText(/판매 준비 중|잠시 품절/),
+      page.locator('.shop-product-grid article'),
+      page.locator('section', { hasText: '에디터 추천 상품' }).locator('article'),
       // 상단 "전체 상품 N개" 카운트: ShopContent.tsx #shop-toolbar 안의 {totalItems} 숫자 span.
       page.locator('#shop-toolbar').locator('span').filter({ hasText: /^\d+$/ }),
+      page.locator('iframe'),
+      page.locator('[data-vercel-toolbar]'),
+      page.locator('div.fixed.rounded-full'),
     ],
   },
   { flow: '#3 보험', path: '/insurance', slug: 'insurance' },
