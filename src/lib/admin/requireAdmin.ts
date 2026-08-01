@@ -23,7 +23,7 @@ export async function requireAdmin(): Promise<RequireAdminResult> {
   }
 
   const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-  if (!requester || requester.role !== 'admin' || requester.status === 'inactive') {
+  if (!requester || requester.role !== 'admin' || requester.status !== 'active') {
     return { ok: false, response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
   }
 

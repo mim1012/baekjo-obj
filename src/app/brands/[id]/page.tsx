@@ -285,7 +285,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           </div>
 
           {brandReviews.length > 0 ? (
-            <div className="horizontal-snap-rail pb-4" tabIndex={0} aria-label="브랜드 후기 가로 스크롤">
+            <div className="horizontal-snap-rail pb-4" tabIndex={0} role="region" aria-label="브랜드 후기 가로 스크롤">
               {brandReviews.map((review) => (
                 <div key={review.id} className="horizontal-snap-item md:basis-[calc(50%-0.5rem)] lg:basis-[calc(33.333%-0.667rem)]">
                   <ReviewCard

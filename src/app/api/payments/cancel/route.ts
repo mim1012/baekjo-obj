@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getOrderById } from '@/lib/orders/repo';
 import { cancelPendingOrderIfUnpaid } from '@/lib/payments/cancelPending';
 import { logServerError } from '@/lib/logServerError';
+import { requireActiveMember } from '@/lib/members/requireActiveMember';
 
 const MAX_ORDER_ID = 100;
 
@@ -38,7 +39,7 @@ function validate(body: unknown): string | null {
 
 /**
  * POST /api/payments/cancel — 결제창 취소(failUrl)·이탈 시 재고 선점 즉시 복원.
- * 게스트 호출이라 세션 불요.
+ * 주문 생성이 회원 전용이므로 주문 소유자의 활성 세션만 호출할 수 있다.
  *
  * ★R4 최종 라운드(Codex 최종 재검증 CRITICAL-2) — 예전엔 토스 확인 없이 곧장
  * cancelReservationAndRestore를 불렀다: 사용자가 결제를 완료한 직후 stale failUrl 핸들러가
@@ -64,6 +65,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
+  const activeMember = await requireActiveMember();
+  if (!activeMember.ok) return activeMember.response;
+
   if (!checkRateLimit(orderId)) {
     // 같은 orderId로 60초 내 한도 초과 — 조용히 진행중으로 안내한다(취소 성공을 거짓 주장하지
     // 않도록 200이 아니라 202로 응답 — 클라이언트는 이미 "취소 처리 중" 문구를 이 코드로 처리).
@@ -77,6 +81,9 @@ export async function POST(request: NextRequest) {
       // 주문 없음 — 취소할 것도 없다. failUrl 핸들러가 이미 삭제된/무관한 주문으로 재호출해도
       // 조용히 성공 취급한다(기존 cancelReservationAndRestore의 no-op=성공 흡수와 동일 관례).
       return NextResponse.json({ ok: true }, { status: 200 });
+    }
+    if (order.memberId !== activeMember.memberId) {
+      return NextResponse.json({ error: 'not-found' }, { status: 404 });
     }
 
     const outcome = await cancelPendingOrderIfUnpaid(order, 'cancel-route');

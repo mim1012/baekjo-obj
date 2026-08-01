@@ -17,7 +17,7 @@ export async function requireBrandScoped(brandId: string): Promise<RequireBrandS
   }
 
   const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-  if (!requester || requester.status === 'inactive') {
+  if (!requester || requester.status !== 'active') {
     return { ok: false, response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
   }
 

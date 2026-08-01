@@ -291,7 +291,7 @@ export default function HomeClient({
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
-            <div className="horizontal-snap-rail pb-4" tabIndex={0} aria-label="보호자 후기 가로 스크롤">
+            <div className="horizontal-snap-rail pb-4" tabIndex={0} role="region" aria-label="보호자 후기 가로 스크롤">
               {reviews.map((review) => (
                 <div key={review.id} className="horizontal-snap-item sm:basis-[calc(50%-0.625rem)]">
                   <ReviewCard
