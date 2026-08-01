@@ -37,6 +37,7 @@ const clientSecretPatterns = [
   'test_gsk_',
   'live_gsk_',
 ];
+const cartStorageKey = 'baekjo_cart';
 
 const findings = [];
 const observations = [];
@@ -247,6 +248,143 @@ async function testNetworkFailure(browser) {
   } else if (!/오류|실패|다시|상품|준비|없/i.test(text)) {
     addFinding('medium', 'network-failure', '상품 API 실패 상태 안내가 약함', text.slice(0, 300));
   }
+  await context.close();
+}
+
+async function testCartAndCheckoutResilience(browser) {
+  const malformedContext = await browser.newContext({
+    baseURL,
+    extraHTTPHeaders,
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  await malformedContext.addInitScript(
+    ({ key }) => {
+      localStorage.setItem(key, '{release-qa-bad-json');
+    },
+    { key: cartStorageKey },
+  );
+  const malformedPage = await malformedContext.newPage();
+  const malformedErrors = [];
+  malformedPage.on('console', (msg) => {
+    if (msg.type() === 'error') malformedErrors.push(msg.text());
+  });
+  malformedPage.on('pageerror', (err) => malformedErrors.push(err.message));
+  await malformedPage.goto('/cart', { waitUntil: 'domcontentloaded' });
+  await malformedPage.waitForTimeout(1200);
+  await snapshot(malformedPage, 'cart-malformed-localstorage');
+  const malformedText = await malformedPage.locator('body').innerText().catch(() => '');
+  const malformedStorage = await malformedPage.evaluate((key) => localStorage.getItem(key), cartStorageKey).catch(() => null);
+  if (/Application error|client-side exception/i.test(malformedText)) {
+    addFinding('critical', 'cart-resilience', '손상된 장바구니 저장소가 카트 화면을 깨뜨림', malformedText.slice(0, 500));
+  }
+  if (malformedStorage === '{release-qa-bad-json') {
+    addFinding('high', 'cart-resilience', '손상된 장바구니 저장소가 자가 복구되지 않음', `localStorage.${cartStorageKey}=${malformedStorage}`);
+  }
+  const malformedBlockingErrors = malformedErrors.filter((text) => !isToolingNoise(text));
+  if (malformedBlockingErrors.length > 0) {
+    addFinding('high', 'cart-resilience', '손상된 장바구니 저장소 처리 중 console/page error', malformedBlockingErrors.join(' || '));
+  }
+  await malformedContext.close();
+
+  const checkoutContext = await browser.newContext({
+    baseURL,
+    extraHTTPHeaders,
+    viewport: { width: 768, height: 1024 },
+  });
+  await checkoutContext.addInitScript(
+    ({ key }) => {
+      localStorage.setItem(key, '{release-qa-bad-json');
+    },
+    { key: cartStorageKey },
+  );
+  const checkoutPage = await checkoutContext.newPage();
+  const checkoutErrors = [];
+  checkoutPage.on('console', (msg) => {
+    if (msg.type() === 'error') checkoutErrors.push(msg.text());
+  });
+  checkoutPage.on('pageerror', (err) => checkoutErrors.push(err.message));
+  await checkoutPage.goto('/checkout', { waitUntil: 'domcontentloaded' });
+  await checkoutPage.waitForTimeout(1500);
+  await snapshot(checkoutPage, 'checkout-malformed-localstorage-guest');
+  const checkoutText = await checkoutPage.locator('body').innerText().catch(() => '');
+  if (/Application error|client-side exception/i.test(checkoutText)) {
+    addFinding('critical', 'checkout-resilience', '손상된 장바구니 저장소가 체크아웃 화면을 깨뜨림', checkoutText.slice(0, 500));
+  }
+  const checkoutBlockingErrors = checkoutErrors.filter((text) => !isToolingNoise(text));
+  if (checkoutBlockingErrors.length > 0) {
+    addFinding('high', 'checkout-resilience', '손상된 장바구니 체크아웃 처리 중 console/page error', checkoutBlockingErrors.join(' || '));
+  }
+  await checkoutContext.close();
+
+  const failureContext = await browser.newContext({
+    baseURL,
+    extraHTTPHeaders,
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  await failureContext.addInitScript(
+    ({ key }) => {
+      localStorage.setItem(key, JSON.stringify([{ productId: 'release-qa-product', quantity: 2 }]));
+    },
+    { key: cartStorageKey },
+  );
+  const failurePage = await failureContext.newPage();
+  await failurePage.route('**/api/products**', (route) => route.abort('failed'));
+  await failurePage.goto('/cart', { waitUntil: 'domcontentloaded' });
+  await failurePage.waitForTimeout(1500);
+  await snapshot(failurePage, 'cart-products-api-failure-preserves-storage');
+  const storageAfterFailure = await failurePage.evaluate((key) => localStorage.getItem(key), cartStorageKey).catch(() => null);
+  if (!storageAfterFailure || !storageAfterFailure.includes('release-qa-product')) {
+    addFinding('critical', 'network-failure', '상품 API 실패 시 기존 장바구니가 사라짐', `storage=${storageAfterFailure}`);
+  }
+  await failureContext.close();
+}
+
+async function testOrderAndPaymentApiFailures(browser) {
+  const context = await browser.newContext({ baseURL, extraHTTPHeaders, viewport: { width: 1440, height: 1000 } });
+  const page = await context.newPage();
+  const orderResponse = await page.request.post('/api/orders', {
+    failOnStatusCode: false,
+    data: {
+      items: [{ productId: 'release-qa-product', quantity: 1 }],
+      customer: { name: '릴리즈QA', phone: '010-0000-0000', address: '서울시 테스트구' },
+      paymentMethod: 'bank',
+      pricing: { productsTotal: 1, deliveryFee: 0, total: 1 },
+    },
+  });
+  if (![401, 403].includes(orderResponse.status())) {
+    addFinding('high', 'order-api-failure', '비로그인 주문 생성이 권한 오류로 막히지 않음', `HTTP ${orderResponse.status()}: ${safeDetails(await orderResponse.text())}`);
+  }
+
+  const confirmResponse = await page.request.post('/api/payments/confirm', {
+    failOnStatusCode: false,
+    data: { paymentKey: '', orderId: '', amount: 'not-a-number' },
+  });
+  if (confirmResponse.status() >= 500) {
+    addFinding('critical', 'payment-api-failure', '결제 승인 API가 잘못된 입력에서 서버 오류를 냄', `HTTP ${confirmResponse.status()}: ${safeDetails(await confirmResponse.text())}`);
+  } else if (confirmResponse.status() !== 400) {
+    addFinding('medium', 'payment-api-failure', '결제 승인 API 잘못된 입력 응답이 불명확함', `HTTP ${confirmResponse.status()}: ${safeDetails(await confirmResponse.text())}`);
+  }
+
+  const returnResponse = await page.request.get('/api/payments/return?paymentKey=&orderId=&amount=bad', {
+    failOnStatusCode: false,
+    maxRedirects: 0,
+  });
+  const location = returnResponse.headers().location ?? '';
+  if (returnResponse.status() >= 500 || !location.includes('/order-complete') || !location.includes('status=invalid')) {
+    addFinding('high', 'payment-return', '결제 복귀 URL이 잘못된 입력을 안전하게 완료 화면으로 보내지 않음', `HTTP ${returnResponse.status()}, location=${location}`);
+  }
+  observations.push({
+    viewport: 'api',
+    route: 'order-payment-failure-apis',
+    orderStatus: orderResponse.status(),
+    confirmStatus: confirmResponse.status(),
+    returnStatus: returnResponse.status(),
+    returnLocation: location,
+  });
   await context.close();
 }
 
@@ -463,6 +601,8 @@ async function main() {
   });
   await runStep('interactive negative paths', () => testInteractions(browser));
   await runStep('network failure states', () => testNetworkFailure(browser));
+  await runStep('cart and checkout resilience', () => testCartAndCheckoutResilience(browser));
+  await runStep('order and payment API failures', () => testOrderAndPaymentApiFailures(browser));
   await runStep('axe accessibility scan', () => testAccessibility(browser));
   await runStep('auth API failure states', () => testAuthApiFailures(browser));
   await runStep('slow auth network state', () => testSlowAuthNetwork(browser));
