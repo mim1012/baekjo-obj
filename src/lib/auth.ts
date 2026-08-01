@@ -3,6 +3,7 @@ import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from '@/lib/auth.config';
 import { findMemberByEmail, upsertSocialMember } from '@/lib/members/repo';
 import { verifyPassword } from '@/lib/members/password';
+import { checkAuthRateLimit, resetAuthRateLimit } from '@/lib/security/authRateLimit';
 
 // 타이밍 오라클 방지용 더미 해시 — 실제 회원 비밀번호와 무관한 상수 bcrypt 해시.
 // 이메일이 없거나(가입 안 됨) 소셜 전용 계정이라 비밀번호 해시가 없어도 verifyPassword를
@@ -29,12 +30,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = typeof credentials?.password === 'string' ? credentials.password : '';
         if (!email || !password) return null;
 
-        const member = await findMemberByEmail(email);
+        const normalizedEmail = email.trim().toLowerCase();
+        if (!checkAuthRateLimit('login', normalizedEmail)) return null;
+
+        const member = await findMemberByEmail(normalizedEmail);
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
         // bcrypt는 이미 위에서 실행됐으므로 이 분기는 타이밍 오라클과 무관하다.
         // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)는 차단.
         if (member.status !== 'active') return null;
+
+        resetAuthRateLimit('login', normalizedEmail);
 
         // 반환값을 변수에 먼저 담아 반환한다 — 리턴문에서 바로 리터럴을 넘기면
         // next-auth의 User 타입(id/name/email/image)에 없는 role 필드가 excess-property로 막힌다.

@@ -51,7 +51,9 @@ async function callApi(path: string, body?: unknown) {
       headers: {
         'Content-Type': 'application/json',
         ...bypassHeaders(),
-        ...(path === '/api/orders' && orderAuthCookieHeader ? { Cookie: orderAuthCookieHeader } : {}),
+        ...((path === '/api/orders' || path === '/api/payments/cancel') && orderAuthCookieHeader
+          ? { Cookie: orderAuthCookieHeader }
+          : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });

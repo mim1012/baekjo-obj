@@ -6,6 +6,7 @@ import { sendMail } from '@/lib/email/mailer';
 import { verificationEmail } from '@/lib/email/templates';
 import { getBaseUrl } from '@/lib/email/base-url';
 import { logServerError } from '@/lib/logServerError';
+import { checkAuthRateLimit, requestRateLimitKey } from '@/lib/security/authRateLimit';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -72,7 +73,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
+  if (!checkAuthRateLimit('signup', requestRateLimitKey(request))) {
+    return NextResponse.json({ error: 'too-many-requests' }, { status: 429 });
+  }
+
   try {
+    const baseUrl = getBaseUrl(request);
     const passwordHash = await hashPassword(validated.password);
     const member = await insertEmailMember({
       name: validated.name,
@@ -88,7 +94,6 @@ export async function POST(request: NextRequest) {
     // after()를 쓰는 이유: Vercel 서버리스는 응답 후 함수를 얼려 순수 fire-and-forget이
     // 완료 전에 중단될 수 있다(프로덕션 카나리에서 재설정 메일이 실제로 누락됨을 확인). after()는
     // 응답 후 작업을 런타임이 보장 실행한다.
-    const baseUrl = getBaseUrl(request);
     after(async () => {
       try {
         const rawToken = await createMemberToken(member.id, 'verify');

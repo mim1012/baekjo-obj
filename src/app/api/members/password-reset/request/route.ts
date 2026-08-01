@@ -10,6 +10,7 @@ import { sendMail } from '@/lib/email/mailer';
 import { passwordResetEmail } from '@/lib/email/templates';
 import { getBaseUrl } from '@/lib/email/base-url';
 import { logServerError } from '@/lib/logServerError';
+import { checkAuthRateLimit, requestRateLimitKey } from '@/lib/security/authRateLimit';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,6 +39,10 @@ export async function POST(request: NextRequest) {
   const { email } = body;
   if (typeof email !== 'string' || !EMAIL_PATTERN.test(email)) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  if (!checkAuthRateLimit('password-reset', requestRateLimitKey(request))) {
+    return NextResponse.json({ error: 'too-many-requests' }, { status: 429 });
   }
 
   const baseUrl = getBaseUrl(request);

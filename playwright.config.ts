@@ -119,6 +119,11 @@ export default defineConfig({
       use: {},
     },
     {
+      name: 'security',
+      testDir: './tests/security',
+      use: {},
+    },
+    {
       // 스마트택배 조회 클라이언트 스펙 — 순수 함수 + fetch stub, 브라우저·DB·실 네트워크 불필요.
       name: 'tracking',
       testDir: './tests/tracking',

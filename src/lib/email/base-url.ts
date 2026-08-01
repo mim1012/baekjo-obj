@@ -7,7 +7,10 @@ import 'server-only';
 import type { NextRequest } from 'next/server';
 
 export function getBaseUrl(request: NextRequest): string {
-  const configured = process.env.APP_BASE_URL;
+  const configured = process.env.APP_BASE_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '');
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('APP_BASE_URL must be set in production');
+  }
   return request.nextUrl.origin;
 }

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { revalidateTag } from 'next/cache';
 import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { buildReviewTargetKey } from '@/lib/storage';
 import { getOrderById } from '@/lib/orders/repo';
@@ -7,6 +8,7 @@ import { getProductById } from '@/lib/products/repo';
 import { insertReview, DuplicateReviewError, type InsertReviewInput } from '@/lib/reviews/repo';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { logServerError } from '@/lib/logServerError';
+import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 
 const MAX_ORDER_ID = 100;
 const MAX_OPTION_NAME = 200;
@@ -119,6 +121,7 @@ export async function POST(request: NextRequest) {
     };
 
     const review = await insertReview(memberId, input);
+    revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE);
     return NextResponse.json({ review }, { status: 201 });
   } catch (error) {
     if (error instanceof DuplicateReviewError) {
