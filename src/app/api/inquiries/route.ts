@@ -3,6 +3,9 @@ import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { getProductById } from '@/lib/products/repo';
 import { insertInquiry, type InsertInquiryInput } from '@/lib/inquiries/repo';
 import { logServerError } from '@/lib/logServerError';
+import { createPublicRateLimiter, tooManyRequests } from '@/lib/security/publicRateLimit';
+
+const rateLimiter = createPublicRateLimiter(60_000, 5);
 
 const MAX_PRODUCT_ID = 100;
 const MAX_TITLE = 200;
@@ -44,6 +47,10 @@ export async function POST(request: NextRequest) {
   const activeMember = await requireActiveMember();
   if (!activeMember.ok) {
     return activeMember.response;
+  }
+
+  if (!rateLimiter.check(`member:${activeMember.memberId}`)) {
+    return tooManyRequests();
   }
 
   let body: unknown;

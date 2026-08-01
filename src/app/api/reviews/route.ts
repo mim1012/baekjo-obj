@@ -9,6 +9,9 @@ import { insertReview, DuplicateReviewError, type InsertReviewInput } from '@/li
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { logServerError } from '@/lib/logServerError';
 import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
+import { createPublicRateLimiter, tooManyRequests } from '@/lib/security/publicRateLimit';
+
+const rateLimiter = createPublicRateLimiter(60_000, 5);
 
 const MAX_ORDER_ID = 100;
 const MAX_OPTION_NAME = 200;
@@ -66,6 +69,10 @@ export async function POST(request: NextRequest) {
     return activeMember.response;
   }
   const memberId = activeMember.memberId;
+
+  if (!rateLimiter.check(`member:${memberId}`)) {
+    return tooManyRequests();
+  }
 
   let body: unknown;
   try {

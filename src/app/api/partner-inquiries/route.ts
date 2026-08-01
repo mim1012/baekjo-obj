@@ -3,6 +3,13 @@ import { createPartnerInquiry, type InsertPartnerInquiryInput } from '@/lib/part
 import type { PartnerInquiry } from '@/types';
 import { logServerError } from '@/lib/logServerError';
 import { notifyAdminNewSubmission } from '@/lib/email/notifyAdmin';
+import {
+  createPublicRateLimiter,
+  requestClientIpKey,
+  tooManyRequests,
+} from '@/lib/security/publicRateLimit';
+
+const rateLimiter = createPublicRateLimiter(60_000, 5);
 
 // 거대 페이로드 방어(공개·게스트 허용 엔드포인트라 상한이 필수 — App Router 는 기본 본문 크기 제한이 없다).
 const MAX_NAME = 100;
@@ -45,6 +52,10 @@ function isPartnerInquiryInput(body: unknown): body is InsertPartnerInquiryInput
  * id/createdAt/status('접수')는 서버(DB default)가 정한다. 생성 성공 시 201.
  */
 export async function POST(request: NextRequest) {
+  if (!rateLimiter.check(requestClientIpKey(request))) {
+    return tooManyRequests();
+  }
+
   let body: unknown;
   try {
     body = await request.json();
