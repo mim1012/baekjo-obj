@@ -33,7 +33,7 @@ export default function ResetPasswordPage() {
       <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
         <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-7 text-center shadow-sm sm:p-10">
           <BrandMark />
-          <p className="mt-8 text-sm text-[#747B75]">링크가 올바르지 않아요.</p>
+          <p className="mt-8 text-sm text-[#59615B]">링크가 올바르지 않아요.</p>
           <Link
             href="/forgot-password"
             className="mt-6 inline-block bg-[#2F3B34] px-5 py-3 text-sm font-semibold text-white hover:bg-[#3C4941]"
@@ -92,7 +92,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-7 shadow-sm sm:p-10">
         <BrandMark />
         <h1 className="mt-8 text-2xl font-normal text-[#202521]">새 비밀번호 설정</h1>
-        <p className="mt-2 text-sm text-[#747B75]">새로 사용할 비밀번호를 입력해 주세요.</p>
+        <p className="mt-2 text-sm text-[#59615B]">새로 사용할 비밀번호를 입력해 주세요.</p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           {error && (

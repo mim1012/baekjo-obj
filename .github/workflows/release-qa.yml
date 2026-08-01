@@ -1,0 +1,61 @@
+name: release-qa (실사용자 플로우)
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: '점검할 Preview/Staging URL'
+        required: true
+        type: string
+
+concurrency:
+  group: release-qa-${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  release-qa:
+    if: >-
+      github.event_name != 'deployment_status' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment_status.environment == 'Preview')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve target URL
+        id: target
+        run: |
+          if [ "${{ github.event_name }}" = "deployment_status" ]; then
+            echo "url=${{ github.event.deployment_status.environment_url }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Release QA browser gate
+        run: npm run qa:release
+        env:
+          E2E_BASE_URL: ${{ steps.target.outputs.url }}
+          APP_BASE_URL: ${{ steps.target.outputs.url }}
+          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
+
+      - name: Upload QA evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-qa-report
+          path: .gstack/qa-reports/
+          retention-days: 14

@@ -128,7 +128,7 @@ export default function ProductCard({
             </span>
           )}
           {availabilityLabel && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[9px] font-bold leading-none text-[#6F766F] md:px-2.5 md:text-[11px]">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[9px] font-bold leading-none text-[#59615B] md:px-2.5 md:text-[11px]">
               {availabilityLabel}
             </span>
           )}
@@ -169,7 +169,7 @@ export default function ProductCard({
             ? "col-start-2 row-start-2 flex min-w-0 flex-col p-3 md:p-4"
             : `flex flex-1 flex-col ${isHomeCard ? 'p-[18px]' : isCompact ? 'p-4' : 'p-4 md:p-6'}`
         }>
-          <p className={`break-keep leading-[1.5] text-[#858078] ${isHomeCard ? 'text-[12px]' : 'text-[11px] md:text-[12px]'}`}>{brandName}</p>
+          <p className={`break-keep leading-[1.5] text-[#59615B] ${isHomeCard ? 'text-[12px]' : 'text-[11px] md:text-[12px]'}`}>{brandName}</p>
           <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isHomeCard ? 'line-clamp-2 mt-[6px] text-[15px] lg:text-[16px]' : isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
             {product.name}
           </h3>
@@ -178,12 +178,12 @@ export default function ProductCard({
             <div className={`flex flex-wrap items-baseline gap-y-1 ${isHomeCard ? 'gap-x-[8px]' : 'gap-x-1.5 md:gap-x-2'}`}>
               {hasPrice ? (
                 <>
-                  {discount > 0 && <span className={`font-bold text-[#A8742E] ${isHomeCard ? 'text-[13px]' : isCompact ? 'text-[13px]' : 'text-[13px] md:text-sm'}`}>{discount}%</span>}
+                  {discount > 0 && <span className={`font-bold text-[#7A4E1D] ${isHomeCard ? 'text-[13px]' : isCompact ? 'text-[13px]' : 'text-[13px] md:text-sm'}`}>{discount}%</span>}
                   <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isHomeCard ? 'text-[17px] lg:text-[18px]' : isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>
                     {formatPrice(product.salePrice || product.price!)}
                   </p>
                   {discount > 0 && (
-                    <span className={`text-xs tabular-nums text-[#8A918B] line-through ${isCompact ? 'basis-auto' : 'basis-full md:basis-auto'}`}>{formatPrice(product.price!)}</span>
+                    <span className={`text-xs tabular-nums text-[#59615B] line-through ${isCompact ? 'basis-auto' : 'basis-full md:basis-auto'}`}>{formatPrice(product.price!)}</span>
                   )}
                 </>
               ) : (
@@ -191,7 +191,7 @@ export default function ProductCard({
               )}
             </div>
 
-            <div className={`flex items-center text-[#6F766F] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
+            <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
               <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
               <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
               <span className="mx-1.5">·</span>
@@ -201,7 +201,7 @@ export default function ProductCard({
             {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
                 {product.concernTags.slice(0, isHomeCard ? 2 : product.concernTags.length).map((tag) => (
-                  <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#6F766F] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
+                  <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#59615B] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
                     {concernLabels[tag] ?? tag}
                   </span>
                 ))}

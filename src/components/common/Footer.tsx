@@ -40,7 +40,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
             </nav>
 
             <div className="flex items-center gap-3" aria-label="SNS">
-              <span className="text-xs font-semibold tracking-[0.12em] text-[#FBFAF7]/45">SNS</span>
+              <span className="text-xs font-semibold tracking-[0.12em] text-[#FBFAF7]/70">SNS</span>
               <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
                 <InstagramIcon />
               </SnsButton>
@@ -54,11 +54,11 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
         <div className="mt-10 flex flex-col gap-3 border-t border-[#FBFAF7]/10 pt-6 text-xs md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-[13px] font-semibold tracking-[0.12em] text-[#FBFAF7]">BAEKJO OBJET</p>
-            <p className="mt-3 max-w-2xl leading-6 text-[#FBFAF7]/45">
+            <p className="mt-3 max-w-2xl leading-6 text-[#FBFAF7]/70">
               {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
             </p>
           </div>
-          <p className="shrink-0 text-[#FBFAF7]/45">@BAEKJO OBJET</p>
+          <p className="shrink-0 text-[#FBFAF7]/70">@BAEKJO OBJET</p>
         </div>
       </div>
     </footer>

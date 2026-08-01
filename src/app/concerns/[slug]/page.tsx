@@ -256,7 +256,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           </div>
 
           {recommendedBrands.length > 0 ? (
-            <div className="horizontal-snap-rail pb-4">
+            <div className="horizontal-snap-rail pb-4" tabIndex={0} aria-label="추천 브랜드 가로 스크롤">
               {recommendedBrands.map((brand) => {
                 const relatedProductsCount = allProducts.filter(p => p.brandId === brand.id).length;
                 return (
@@ -370,7 +370,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           </div>
 
           {relatedReviews.length > 0 ? (
-            <div className="horizontal-snap-rail pb-4">
+            <div className="horizontal-snap-rail pb-4" tabIndex={0} aria-label="관련 후기 가로 스크롤">
               {relatedReviews.map((review) => {
                 const product = allProducts.find((item) => item.id === review.productId);
                 return (

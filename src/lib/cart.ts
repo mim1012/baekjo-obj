@@ -2,10 +2,48 @@ import { CartItem, Product } from '@/types';
 
 const CART_KEY = 'baekjo_cart';
 
+function isCartItem(value: unknown): value is CartItem {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Record<string, unknown>;
+  const quantity = item.quantity;
+  return (
+    typeof item.productId === 'string' &&
+    item.productId.length > 0 &&
+    typeof quantity === 'number' &&
+    Number.isInteger(quantity) &&
+    quantity > 0 &&
+    (item.optionId === undefined || typeof item.optionId === 'string')
+  );
+}
+
 export function getCart(): CartItem[] {
   if (typeof window === 'undefined') return [];
   const raw = localStorage.getItem(CART_KEY);
-  return raw ? JSON.parse(raw) : [];
+  if (!raw) return [];
+
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      localStorage.removeItem(CART_KEY);
+      return [];
+    }
+
+    const items = parsed.filter(isCartItem);
+    if (items.length !== parsed.length) {
+      if (items.length > 0) {
+        localStorage.setItem(CART_KEY, JSON.stringify(items));
+      } else {
+        localStorage.removeItem(CART_KEY);
+      }
+      window.dispatchEvent(new Event('cart-updated'));
+    }
+
+    return items;
+  } catch {
+    localStorage.removeItem(CART_KEY);
+    window.dispatchEvent(new Event('cart-updated'));
+    return [];
+  }
 }
 
 export const getCartItems = getCart;

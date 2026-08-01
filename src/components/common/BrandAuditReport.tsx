@@ -99,7 +99,7 @@ export default function BrandAuditReport({ brand }: { brand: Brand }) {
               key={label}
               className={`px-5 py-5 ${index > 0 ? 'border-t border-[#FBFAF7]/10 sm:border-l sm:border-t-0' : ''}`}
             >
-              <dt className="text-xs font-medium text-[#FBFAF7]/45">{label}</dt>
+              <dt className="text-xs font-medium text-[#FBFAF7]/70">{label}</dt>
               <dd className="mt-2 break-keep text-sm font-semibold text-[#FBFAF7]/90">{value}</dd>
             </div>
           ))}

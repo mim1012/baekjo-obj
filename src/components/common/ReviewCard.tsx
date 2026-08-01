@@ -18,7 +18,7 @@ export default function ReviewCard({ review, productName, variant = 'default', c
   const isHome = variant === 'home';
 
   return (
-    <article className={`group flex h-full min-w-0 flex-col overflow-hidden text-left transition-colors duration-500 ease-out ${isHome ? 'p-[20px] bg-transparent' : 'h-full p-5 md:p-6 rounded-xl border border-[#E7E0D5] hover:border-[#D8C4A3] bg-white'}`}>
+    <article className={`group flex h-full min-w-0 flex-col overflow-hidden text-left transition-colors duration-500 ease-out ${isHome ? 'p-[20px] bg-transparent' : 'h-full p-5 md:p-6 rounded-xl border border-[#E7E0D5] hover:border-[#D8C4A3] bg-white'} ${className ?? ''}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex gap-0.5" aria-label={`${review.rating}점`} role="img">
@@ -36,11 +36,11 @@ export default function ReviewCard({ review, productName, variant = 'default', c
               />
             ))}
           </div>
-          <p className="mt-2 text-[12px] md:text-[13px] text-[#6F766F] break-keep">
+          <p className="mt-2 text-[12px] md:text-[13px] text-[#59615B] break-keep">
             {review.breed} · {review.age} · {review.usePeriod}
           </p>
         </div>
-        <time className="shrink-0 font-editorial text-[11px] md:text-[12px] font-medium tracking-wider text-[#8A7A64]">
+        <time className="shrink-0 font-editorial text-[11px] md:text-[12px] font-medium tracking-wider text-[#59615B]">
           {formatDate(review.createdAt)}
         </time>
       </div>
@@ -61,7 +61,7 @@ export default function ReviewCard({ review, productName, variant = 'default', c
       </div>
 
       {review.isPhotoReview && review.image && (
-        <div className="relative overflow-hidden rounded-lg border border-[#E7E0D5] bg-[#FAF8F3]">
+        <div className="relative mt-4 aspect-[4/3] min-h-[180px] overflow-hidden rounded-lg border border-[#E7E0D5] bg-[#FAF8F3]">
           <Image src={review.image} alt={`${review.breed} 반려동물 후기 사진`} fill sizes="(max-width: 768px) 100vw, 300px" className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.02]" />
           <div className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-md border border-white/70 bg-white/90 px-2 py-1 text-[#8A6230]">
             <ImageIcon className="size-3" aria-hidden="true" />

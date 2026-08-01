@@ -79,11 +79,11 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 pt-6 md:pt-10 pb-8 md:pb-14 lg:pt-14 lg:pb-16">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:h-[500px] gap-8 md:gap-10 lg:gap-14">
           <div className="flex w-full flex-col items-start lg:w-[47%]">
-            <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
+            <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
             <h1 className="text-[30px] md:text-[34px] lg:text-[44px] font-bold leading-[1.2] lg:leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
               {renderLines(hero.titleLines)}
             </h1>
-            <p className="mt-4 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[14px] md:text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
+            <p className="mt-4 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[14px] md:text-[15px] lg:text-[16px] leading-[1.7] text-[#59615B] break-keep">
               {renderLines(hero.descriptionLines, 'hidden sm:block')}
             </p>
             <div className="mt-6 md:mt-7 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -116,7 +116,7 @@ export default function HomeClient({
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
-              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#B99562]">{audit.badge}</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">{audit.badge}</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
               </h2>
@@ -182,7 +182,7 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="flex items-end justify-between mb-6 md:mb-8">
           <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{bestProductsCopy.title}</h2>
-          <Link href="/shop" className="hidden sm:flex items-center text-[14px] font-semibold text-[#68716C] hover:text-[#B99562] transition-colors">
+          <Link href="/shop" className="hidden sm:flex items-center text-[14px] font-semibold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
             {bestProductsCopy.linkLabel} <ArrowRight className="ml-1 size-4" />
           </Link>
         </div>
@@ -202,13 +202,13 @@ export default function HomeClient({
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 md:mb-8 gap-4">
           <div>
             <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{curation.title}</h2>
-            <p className="mt-2 text-[14px] md:text-[15px] text-[#68716C]">{curation.description}</p>
+            <p className="mt-2 text-[14px] md:text-[15px] text-[#59615B]">{curation.description}</p>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/diagnosis" className="text-[13px] md:text-[14px] font-bold text-[#B99562] hover:text-[#A8742E] transition-colors">
+            <Link href="/diagnosis" className="text-[13px] md:text-[14px] font-bold text-[#7A4E1D] hover:text-[#17211D] transition-colors">
               {curation.diagnosisLinkLabel}
             </Link>
-            <Link href="/concerns" className="flex items-center text-[13px] md:text-[14px] font-semibold text-[#68716C] hover:text-[#18231F] transition-colors">
+            <Link href="/concerns" className="flex items-center text-[13px] md:text-[14px] font-semibold text-[#59615B] hover:text-[#18231F] transition-colors">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1 size-4" />
             </Link>
           </div>
@@ -257,7 +257,7 @@ export default function HomeClient({
             <div className="flex flex-col items-start text-white max-w-[400px]">
               <div className="flex items-center gap-2 mb-2 md:mb-3">
                 <ShieldCheck className="size-5 text-[#B99562]" strokeWidth={2} />
-                <span className="text-[13px] md:text-[14px] font-semibold text-[#B99562]">{insuranceBanner.eyebrow}</span>
+                <span className="text-[13px] md:text-[14px] font-semibold text-[#D8C4A3]">{insuranceBanner.eyebrow}</span>
               </div>
               <h2 className="text-[22px] md:text-[28px] font-bold leading-[1.3] tracking-tight">
                 {insuranceBanner.title}
@@ -287,11 +287,11 @@ export default function HomeClient({
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
-              <Link href="/reviews" className="flex items-center text-[13px] font-bold text-[#68716C] hover:text-[#B99562] transition-colors">
+              <Link href="/reviews" className="flex items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
-            <div className="horizontal-snap-rail pb-4">
+            <div className="horizontal-snap-rail pb-4" tabIndex={0} aria-label="보호자 후기 가로 스크롤">
               {reviews.map((review) => (
                 <div key={review.id} className="horizontal-snap-item sm:basis-[calc(50%-0.625rem)]">
                   <ReviewCard
@@ -305,7 +305,7 @@ export default function HomeClient({
           <div className="w-full lg:w-[42%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
-              <Link href="/notices" className="flex items-center text-[13px] font-bold text-[#68716C] hover:text-[#B99562] transition-colors">
+              <Link href="/notices" className="flex items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
                 {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
@@ -316,7 +316,7 @@ export default function HomeClient({
                     <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
                       {notice.title}
                     </p>
-                    <time className="shrink-0 font-editorial text-[13px] italic text-[#68716C]">
+                    <time className="shrink-0 font-editorial text-[13px] italic text-[#59615B]">
                       {formatDate(notice.date)}
                     </time>
                   </div>

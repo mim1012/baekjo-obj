@@ -6,6 +6,7 @@ interface BrandMarkProps {
 export default function BrandMark({ inverse = false, compact = false }: BrandMarkProps) {
   const ink = inverse ? "#FBFAF7" : "#17211D";
   const muted = inverse ? "#FBFAF7" : "#6F766F";
+  const tagline = inverse ? "#F4F6F2" : "#59615B";
 
   return (
     <span className="inline-flex items-center gap-3">
@@ -28,7 +29,7 @@ export default function BrandMark({ inverse = false, compact = false }: BrandMar
       {!compact && (
         <span className="flex flex-col">
           <span className="font-editorial text-xl italic leading-none text-current">Baekjo Objet</span>
-          <span className="mt-1 text-[9px] font-medium uppercase text-current opacity-60">
+          <span className="mt-1 text-[9px] font-medium uppercase" style={{ color: tagline }}>
             Pet life curation
           </span>
         </span>

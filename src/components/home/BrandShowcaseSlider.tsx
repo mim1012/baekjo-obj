@@ -50,7 +50,7 @@ export default function BrandShowcaseSlider({ brands }: Props) {
           <h2 className="break-keep text-[24px] font-bold leading-[1.35] tracking-tight text-[#17211D] md:text-[28px]">
             브랜드의 기준까지 고른 셀렉션
           </h2>
-          <p className="mt-2 break-keep text-[14px] leading-[1.6] text-[#72766F]">
+          <p className="mt-2 break-keep text-[14px] leading-[1.6] text-[#59615B]">
             검증을 통과한 브랜드만 소개합니다.
           </p>
         </div>

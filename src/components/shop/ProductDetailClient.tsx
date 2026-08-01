@@ -186,7 +186,7 @@ export default function ProductDetailClient({ product }: Props) {
             <div className="flex h-full w-[80%] md:w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
               <span className="font-editorial text-5xl md:text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
               <span className="mt-4 md:mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
-              <span className="mt-2 text-[10px] text-[#6F766F]">{product.name}</span>
+              <span className="mt-2 text-[10px] text-[#59615B]">{product.name}</span>
             </div>
           </div>
         )}
@@ -194,7 +194,7 @@ export default function ProductDetailClient({ product }: Props) {
 
       {/* Product Info */}
       <div className="w-full lg:w-1/2 flex flex-col pt-2">
-        <div className="mb-3 text-sm font-semibold tracking-wide text-[#6F766F] uppercase">{brandName}</div>
+        <div className="mb-3 text-sm font-semibold tracking-wide text-[#59615B] uppercase">{brandName}</div>
         <h1 className="text-3xl font-bold text-[#17211D] tracking-tight text-balance leading-tight">{product.name}</h1>
 
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
@@ -222,14 +222,14 @@ export default function ProductDetailClient({ product }: Props) {
             )}
           </div>
           {!hasPrice && (
-            <p className="mt-3 break-keep text-sm leading-6 text-[#6F766F]">{unavailableDescription}</p>
+            <p className="mt-3 break-keep text-sm leading-6 text-[#59615B]">{unavailableDescription}</p>
           )}
         </div>
 
         <div className="mt-8 space-y-4 text-sm">
           <div className="flex">
-            <span className="w-24 text-[#6F766F] font-medium">배송비</span>
-            <span className="text-[#6F766F]">
+            <span className="w-24 text-[#59615B] font-medium">배송비</span>
+            <span className="text-[#59615B]">
               {product.shippingFee !== undefined
                 ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
                 : DEFAULT_COMMERCE_POLICY.shippingLabel}
@@ -237,8 +237,8 @@ export default function ProductDetailClient({ product }: Props) {
           </div>
           {pointsRateLabel && (
             <div className="flex">
-              <span className="w-24 text-[#6F766F] font-medium">적립금</span>
-              <span className="text-[#6F766F]">상품금액 기준 {pointsRateLabel} 적립 설정</span>
+              <span className="w-24 text-[#59615B] font-medium">적립금</span>
+              <span className="text-[#59615B]">상품금액 기준 {pointsRateLabel} 적립 설정</span>
             </div>
           )}
         </div>
@@ -259,7 +259,7 @@ export default function ProductDetailClient({ product }: Props) {
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#6F766F]">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-[#59615B]">
                 <svg className="h-4 w-4 fill-current" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                   <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
                 </svg>
@@ -299,7 +299,7 @@ export default function ProductDetailClient({ product }: Props) {
         {/* Total */}
         {hasPrice && (
           <div className="mt-8 flex items-end justify-between pt-6 border-t border-[rgba(15,23,42,0.06)]">
-            <span className="text-base font-semibold text-[#6F766F]">총 상품금액</span>
+            <span className="text-base font-semibold text-[#59615B]">총 상품금액</span>
             <span className="text-3xl font-bold text-[#17211D] tracking-tight">{formatPrice(totalPrice)}</span>
           </div>
         )}
@@ -340,7 +340,7 @@ export default function ProductDetailClient({ product }: Props) {
                 type="button"
                 disabled
                 aria-disabled="true"
-                className="flex h-[54px] md:h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#6F766F] opacity-70 shadow-sm"
+                className="flex h-[54px] md:h-[60px] flex-1 cursor-not-allowed items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#59615B] opacity-70 shadow-sm"
               >
                 <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> 장바구니 준비중
               </button>

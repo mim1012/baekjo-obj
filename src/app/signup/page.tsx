@@ -163,7 +163,7 @@ export default function SignupPage() {
       <div className="mx-auto max-w-2xl border border-[#D1D0C8] bg-[#FAF9F5] p-7 sm:p-12">
         <p className="font-editorial text-lg italic text-[#667368]">Join Baekjo Objet</p>
         <h1 className="mt-3 text-4xl font-normal text-[#202521]">회원가입</h1>
-        <p className="mt-3 text-sm text-[#747B75]">
+        <p className="mt-3 text-sm text-[#59615B]">
           {signupTab === 'user'
             ? '반려생활 정보를 등록하면 더 가까운 기준을 제안할 수 있습니다.'
             : '함께할 파트너 정보를 등록해주세요. 관리자 승인 후 이용 가능합니다.'}
@@ -183,7 +183,7 @@ export default function SignupPage() {
               className={`flex-1 py-3 text-sm font-semibold transition-colors ${
                 signupTab === type.id
                   ? 'border-b-2 border-[#2F3B34] text-[#2F3B34]'
-                  : 'text-[#8B928C] hover:text-[#59615B]'
+                  : 'text-[#59615B] hover:text-[#2F3B34]'
               }`}
             >
               {type.label}
@@ -234,7 +234,7 @@ export default function SignupPage() {
               </Field>
 
               <div className="space-y-4 border-t border-[#D8D6CE] pt-6">
-                <div className="rounded-sm border border-[#D8D6CE] bg-white/55 p-4 text-xs leading-6 text-[#6F766F]">
+                <div className="rounded-sm border border-[#D8D6CE] bg-white/55 p-4 text-xs leading-6 text-[#59615B]">
                   회원 식별, 가입/로그인, 맞춤 큐레이션 제공을 위해 이름, 이메일, 비밀번호, 연락처,
                   반려동물 정보와 주요 고민을 수집·이용합니다. 회원정보는 회원 탈퇴 시까지 보관하며,
                   법령상 보존이 필요한 기록은 정해진 기간 동안 분리 보관됩니다.
@@ -267,14 +267,14 @@ export default function SignupPage() {
             </form>
 
             <div className="mt-8 border-t border-[#DEDCD5] pt-6">
-              <p className="mb-3 text-center text-[11px] text-[#8D938E]">간편 가입</p>
+              <p className="mb-3 text-center text-[11px] text-[#59615B]">간편 가입</p>
               {/* 소셜은 첫 로그인 때 자동 가입되므로 로그인과 같은 흐름을 사용한다. */}
               <SocialLoginButtons labels={SIGNUP_SOCIAL_LABELS} />
             </div>
           </>
         )}
 
-        <p className="mt-6 text-center text-xs text-[#7B827C]">
+        <p className="mt-6 text-center text-xs text-[#59615B]">
           이미 계정이 있나요? <Link href="/login" className="font-semibold text-[#2F3B34]">로그인</Link>
         </p>
       </div>

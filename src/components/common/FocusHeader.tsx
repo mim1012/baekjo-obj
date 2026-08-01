@@ -11,7 +11,7 @@ export default function FocusHeader() {
         </Link>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-[#6F766F] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D]"
+          className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D]"
         >
           <ArrowLeft className="size-3.5" aria-hidden="true" />
           홈으로
