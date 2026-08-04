@@ -65,10 +65,10 @@ export default function HomeClient({
   ];
 
   const curationCards = [
-    { icon: Droplet, href: '/concerns/tear', img: '/images/curation_tear.png', title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
-    { icon: Sparkles, href: '/concerns/skin', img: '/images/curation_skin.png', title: '피부', desc: '피부를 자주 긁을 때' },
-    { icon: Bone, href: '/concerns/joint', img: '/images/curation_joint.png', title: '관절', desc: '걸음걸이가 달라졌을 때' },
-    { icon: Scale, href: '/concerns/obesity', img: '/images/curation_weight.png', title: '체중', desc: '체중 관리가 필요할 때' },
+    { icon: Droplet, href: '/concerns/tear', img: '/images/curation_tear.png' },
+    { icon: Sparkles, href: '/concerns/skin', img: '/images/curation_skin.png' },
+    { icon: Bone, href: '/concerns/joint', img: '/images/curation_joint.png' },
+    { icon: Scale, href: '/concerns/obesity', img: '/images/curation_weight.png' },
   ];
 
   const auditCriteriaIcons = [Activity, Leaf, Monitor, Heart];
@@ -116,7 +116,7 @@ export default function HomeClient({
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
-              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">{audit.badge}</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
               </h2>
@@ -217,8 +217,8 @@ export default function HomeClient({
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
           {curationCards.map((card, i) => {
-            const title = card.title;
-            const desc = card.desc;
+            const title = curation.cards[i]?.title ?? '';
+            const desc = curation.cards[i]?.desc ?? '';
             return (
               <Link
                 key={card.href}
@@ -265,7 +265,7 @@ export default function HomeClient({
                 {insuranceBanner.title}
               </h2>
               <p className="mt-2 text-[13px] md:text-[15px] leading-[1.6] text-white/80 break-keep">
-                같은 품종이라도,<br />나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.
+                {insuranceBanner.description}
               </p>
             </div>
 
@@ -289,10 +289,10 @@ export default function HomeClient({
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">보호자 후기</h2>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
               </div>
               <Link href="/reviews" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
-                후기 전체 보기 <ArrowRight className="ml-1 size-3" />
+                {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="horizontal-snap-rail pb-4" tabIndex={0} role="region" aria-label="보호자 후기 가로 스크롤">
@@ -309,10 +309,10 @@ export default function HomeClient({
           <div className="w-full lg:w-[42%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">소식</h2>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
               </div>
               <Link href="/notices" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
-                소식 전체 보기 <ArrowRight className="ml-1 size-3" />
+                {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="flex flex-col">

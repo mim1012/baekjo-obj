@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
+import { getCustomBrandDetails } from '@/lib/brandOverrides';
 
 type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
@@ -32,37 +33,8 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
     };
     const defaultCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
 
-    let finalName = brand.name;
-    let finalDescription = brand.description;
-    let finalCategory = defaultCategory;
-
-    // Custom overrides based on name match
-    if (brand.name.includes('노블독') || brand.name.includes('노볼독')) {
-      finalName = '노볼독 (NobleDog)';
-      finalDescription = '꾸준한 구강 관리를 고민하는 브랜드';
-    } else if (brand.name.includes('알로밍')) {
-      finalName = '알로밍 (ALLOMING)';
-      finalDescription = '교감의 시간을 제품으로 설계하는 브랜드';
-      finalCategory = '그루밍 · 케어';
-    } else if (brand.name.includes('오미프로')) {
-      finalName = '오미프로 (OMIPRO)';
-      finalDescription = '몸속의 작은 변화까지 고민하는 영양 브랜드';
-    } else if (brand.name.includes('페네핏')) {
-      finalName = '페네핏 (PENEFIT)';
-      finalDescription = '더 많은 아이들이 함께할 수 있는 식탁을 고민하는 브랜드';
-    } else if (brand.name.includes('써니사이드업') || brand.name.includes('써니 사이드업') || brand.name.includes('써니 사이어드')) {
-      finalName = '써니사이드업';
-      finalDescription = '연구의 시작부터 생명을 먼저 생각하는 브랜드';
-    } else if (brand.name.includes('차콜스토리') || brand.name.includes('챠콜스토리')) {
-      finalName = '차콜스토리 (Charcoal Story)';
-      finalDescription = '숯의 가치를 반려동물에게 전하는 브랜드';
-    } else if (brand.name.includes('RE:펫') || brand.name.includes('리펫')) {
-      finalName = 'RE:펫';
-      finalDescription = '펫로스를 가장 가까이에서 경험한 작가가 만드는 브랜드';
-    } else if (brand.name.includes('메종슈슈')) {
-      finalName = '메종슈슈 (Maison Chouchou)';
-      finalDescription = '입히는 대상이 아닌, 함께 살아가는 존재로 대하는 브랜드';
-    }
+    const { finalName, finalDescription, finalCategory: overrideCategory } = getCustomBrandDetails(brand);
+    const finalCategory = overrideCategory ?? defaultCategory;
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">

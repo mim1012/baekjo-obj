@@ -107,9 +107,9 @@ export const defaultHomeSettings: HomeSettings = {
     diagnosisLinkLabel: '1분 맞춤 진단 시작',
     allConcernsLinkLabel: '모든 고민 살펴보기',
     cards: [
-      { title: '눈물', desc: '눈물 자국이 걱정될 때' },
-      { title: '피부', desc: '자주 긁거나 피부가 예민할 때' },
-      { title: '관절', desc: '걷거나 움직임이 불편해 보일 때' },
+      { title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
+      { title: '피부', desc: '피부를 자주 긁을 때' },
+      { title: '관절', desc: '걸음걸이가 달라졌을 때' },
       { title: '체중', desc: '체중 관리가 필요할 때' },
     ],
   },
@@ -136,14 +136,14 @@ export const defaultHomeSettings: HomeSettings = {
   insuranceBanner: {
     eyebrow: '펫보험 보장 확인',
     title: '보험도 우리 아이 기준으로.',
-    description: '보험 상품을 우리 아이의 조건에 맞게 비교해 보세요. 가장 적합한 펫보험을 찾아보세요.',
+    description: '같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.',
     buttonLabel: '보험 분석 알아보기',
   },
   trustBoard: {
-    reviewsTitle: '반려가족 후기',
-    reviewsLinkLabel: '더 보기',
-    noticesTitle: '백조 소식',
-    noticesLinkLabel: '더 보기',
+    reviewsTitle: '보호자 후기',
+    reviewsLinkLabel: '후기 전체 보기',
+    noticesTitle: '소식',
+    noticesLinkLabel: '소식 전체 보기',
   },
 };
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
+import { getCustomBrandDetails } from '@/lib/brandOverrides';
 
 interface Props {
   brands: Brand[];
@@ -12,16 +13,6 @@ interface Props {
 
 export default function BrandShowcaseSlider({ brands }: Props) {
   const displayList = brands;
-  const customDescriptions: Record<string, string> = {
-    '노볼독': '꾸준한 구강 관리를 고민하는 브랜드',
-    '알로밍': '교감의 시간을 제품으로 설계하는 브랜드',
-    '오미포로': '몸속의 작은 변화까지 고민하는 영양 브랜드',
-    '페네핏': '더 많은 아이들이 함께할 수 있는 식탁을 고민하는 브랜드',
-    '써니사이드업': '연구의 시작부터 생명을 먼저 생각하는 브랜드',
-    '차콜스토리': '숯의 가치를 반려동물에게 전하는 브랜드',
-    'RE:펫': '펫로스를 가장 가까이에서 경험한 작가가 만드는 브랜드',
-    '메종슈슈': '입히는 대상이 아닌, 함께 살아가는 존재로 대하는 브랜드'
-  };
   const railRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(displayList.length > 1);
@@ -90,34 +81,37 @@ export default function BrandShowcaseSlider({ brands }: Props) {
             onScroll={updateRailState}
             className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
-            {displayList.map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/brands/${brand.id}`}
-                className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
-              >
-                <div className="mb-3 flex h-[60px] w-full items-center">
-                  <BrandLogo
-                    brand={brand}
-                    size="lg"
-                    surface={false}
-                    fluid
-                    uniformScale
-                    className="max-h-11 max-w-[150px] object-contain"
-                  />
-                </div>
-                <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
-                  {(brand.name.includes('써니사이드업') || brand.name.includes('써니 사이드업') || brand.name.includes('써니 사이어드')) ? '써니사이드업' : brand.name}
-                </span>
-                <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
-                  {customDescriptions[(brand.name.includes('써니') ? '써니사이드업' : brand.name)] || brand.description}
-                </p>
-                <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
-                  브랜드 자세히 보기
-                  <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
-                </span>
-              </Link>
-            ))}
+            {displayList.map((brand) => {
+              const { finalName, finalDescription } = getCustomBrandDetails(brand);
+              return (
+                <Link
+                  key={brand.id}
+                  href={`/brands/${brand.id}`}
+                  className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
+                >
+                  <div className="mb-3 flex h-[60px] w-full items-center">
+                    <BrandLogo
+                      brand={brand}
+                      size="lg"
+                      surface={false}
+                      fluid
+                      uniformScale
+                      className="max-h-11 max-w-[150px] object-contain"
+                    />
+                  </div>
+                  <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
+                    {finalName}
+                  </span>
+                  <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
+                    {finalDescription}
+                  </p>
+                  <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
+                    브랜드 자세히 보기
+                    <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
