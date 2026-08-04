@@ -12,6 +12,16 @@ interface Props {
 
 export default function BrandShowcaseSlider({ brands }: Props) {
   const displayList = brands;
+  const customDescriptions: Record<string, string> = {
+    '노볼독': '꾸준한 구강 관리를 고민하는 브랜드',
+    '알로밍': '교감의 시간을 제품으로 설계하는 브랜드',
+    '오미포로': '몸속의 작은 변화까지 고민하는 영양 브랜드',
+    '페네핏': '더 많은 아이들이 함께할 수 있는 식탁을 고민하는 브랜드',
+    '써니사이드업': '연구의 시작부터 생명을 먼저 생각하는 브랜드',
+    '차콜스토리': '숯의 가치를 반려동물에게 전하는 브랜드',
+    'RE:펫': '펫로스를 가장 가까이에서 경험한 작가가 만드는 브랜드',
+    '메종슈슈': '입히는 대상이 아닌, 함께 살아가는 존재로 대하는 브랜드'
+  };
   const railRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(displayList.length > 1);
@@ -48,10 +58,10 @@ export default function BrandShowcaseSlider({ brands }: Props) {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h2 className="break-keep text-[24px] font-bold leading-[1.35] tracking-tight text-[#17211D] md:text-[28px]">
-            브랜드의 기준까지 고른 셀렉션
+            CURATED BRANDS
           </h2>
           <p className="mt-2 break-keep text-[14px] leading-[1.6] text-[#59615B]">
-            검증을 통과한 브랜드만 소개합니다.
+            백조오브제 Audit을 통과한 브랜드를 소개합니다.
           </p>
         </div>
         <Link
@@ -74,11 +84,11 @@ export default function BrandShowcaseSlider({ brands }: Props) {
           <ArrowLeft className="size-5" strokeWidth={1.2} aria-hidden="true" />
         </button>
 
-        <div className="overflow-hidden border-t border-[#DED8CE]">
+        <div className="overflow-hidden rounded-[20px] border border-[#E7E2D9] bg-white shadow-sm">
           <div
             ref={railRef}
             onScroll={updateRailState}
-            className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
+            className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
             {displayList.map((brand) => (
               <Link
@@ -97,10 +107,10 @@ export default function BrandShowcaseSlider({ brands }: Props) {
                   />
                 </div>
                 <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
-                  {brand.name}
+                  {(brand.name.includes('써니사이드업') || brand.name.includes('써니 사이드업') || brand.name.includes('써니 사이어드')) ? '써니사이드업' : brand.name}
                 </span>
                 <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
-                  {brand.description}
+                  {customDescriptions[(brand.name.includes('써니') ? '써니사이드업' : brand.name)] || brand.description}
                 </p>
                 <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
                   브랜드 자세히 보기
