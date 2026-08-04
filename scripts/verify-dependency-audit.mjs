@@ -51,6 +51,14 @@ const allowedAdvisories = new Map([
     'https://github.com/advisories/GHSA-r28c-9q8g-f849',
     'PostCSS sourceMappingURL path traversal; nested under Next.js, build-time only, no user-controlled CSS or source maps are parsed.',
   ],
+  [
+    // 2026-08-04 공개 — GHSA-6g55(위)의 불완전 수정 후속 advisory. 동일 취약점 계열(from
+    // 미설정 시 sourceMappingURL로 임의 .map 파일 읽힘), 동일 도달성 논거: postcss는 Next
+    // 빌드 체인 내부에서만 실행되고 사용자 제어 CSS/소스맵을 파싱하지 않는다. 패치판 postcss
+    // 배포 시 업그레이드로 전환(만료일 exceptionExpiresOn이 재검토를 강제).
+    'https://github.com/advisories/GHSA-fxqj-rqcc-2cmp',
+    'PostCSS sourceMappingURL incomplete-fix follow-up; same GHSA-6g55 reachability — build-time only, no user-controlled CSS or source maps are parsed.',
+  ],
 ]);
 
 function runAudit() {
