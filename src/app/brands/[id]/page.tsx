@@ -166,7 +166,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              <div className="flex-1 lg:w-[52%]">
                 <AuditAccordion
                   title="백조오브제 검토 상태"
-                  subtitle="BAEKJO AUDIT"
+                  subtitle="BAEKJO OBJET AUDIT"
                   statusLabel={auditStatusText}
                   theme="light"
                   density="compact"
