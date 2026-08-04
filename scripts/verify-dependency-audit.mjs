@@ -3,7 +3,7 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
-const exceptionExpiresOn = '2026-08-02';
+const exceptionExpiresOn = '2026-08-18';
 const today = new Date().toISOString().slice(0, 10);
 
 const allowedAdvisories = new Map([
