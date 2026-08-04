@@ -20,11 +20,11 @@ interface Props {
 const PAGE_SIZE = 12;
 
 const selectionStandards = [
-  { icon: Leaf, title: '브랜드 철학', description: '아이의 행복을 최우선으로 하는가' },
-  { icon: Box, title: '원료와 소재', description: '안전하고 신뢰할 수 있는가' },
-  { icon: ShieldCheck, title: '제조와 유통', description: '투명하고 위생적인 과정을 거치는가' },
-  { icon: ThumbsUp, title: '상품 & 사용자 경험', description: '사용 만족도와 경험이 우수한가' },
-  { icon: Recycle, title: '지속 가능성', description: '환경과 사회에 긍정적인 영향을 주는가' },
+  { icon: Leaf, title: 'WHO', description: '반려동물의 행복을 가장 먼저 생각하는 브랜드' },
+  { icon: Box, title: 'VALUE', description: '제품 하나에도 브랜드의 철학과 진심을 담는 브랜드' },
+  { icon: ShieldCheck, title: 'PRINCIPLE', description: '제품이 만들어지는 과정에서도 타협하지 않는 브랜드' },
+  { icon: ThumbsUp, title: 'SAFETY', description: '안심하고 선택할 수 있는 안전성을 갖춘 브랜드' },
+  { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지키는 브랜드' },
 ];
 
 const filterLabels: Record<string, string> = {
@@ -91,8 +91,9 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
           {/* Left Text */}
           <div className="flex-1 w-full md:w-[44%] max-w-[540px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] uppercase mb-3 md:mb-4">BRAND CURATION</span>
-            <h1 className="text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
-              좋은 선택은 브랜드를 이해하는 것부터 시작됩니다.
+            <h1 className="text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.25] tracking-tight text-[#17231E] break-keep">
+              우리 아이를 생각한다면,<br className="hidden md:block" />
+              좋은 선택이 필요합니다.
             </h1>
             <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
               백조오브제는 브랜드 철학과 제품 가치를 살피고 우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
@@ -118,8 +119,8 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
       <section className="bg-[#F7F4ED] pb-16 md:pb-[72px]">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 -mt-6 md:-mt-10 relative z-10">
           <div className="bg-[#FFFEFB] rounded-[20px] border border-[#E4DDD1] p-6 md:px-9 md:py-8 shadow-[0_4px_24px_rgba(23,37,31,0.04)]">
-            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17251F] mb-6 md:mb-8">
-              백조오브제의 5가지 브랜드 오디트 기준
+            <h2 className="text-[18px] md:text-[20px] font-bold text-[#17251F] mb-6 md:mb-8 tracking-[0.08em]">
+              WHAT WE VALUE
             </h2>
             <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 pb-4 md:pb-0">
               {selectionStandards.map((item, idx) => (
@@ -163,7 +164,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <span className="text-[12px] font-semibold text-[#B48A4A] mb-4">스포트라이트 브랜드</span>
                     <div className="flex flex-col gap-1 mb-5">
                       <h3 className="text-[24px] md:text-[28px] font-bold text-[#17251F] tracking-tight flex items-center gap-2">
-                        {spotlightBrand.name} 
+                        {spotlightBrand.name}
                       </h3>
                     </div>
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
@@ -260,23 +261,23 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
           <div className="bg-[#F7F4ED] border border-[#E4DDD1] rounded-[20px] overflow-hidden flex flex-col md:flex-row items-center h-auto md:h-[180px] lg:h-[200px]">
              {/* Left Image */}
-             <div className="w-full md:w-[30%] h-[160px] md:h-full relative bg-[#E4DDD1]">
+             <div className="w-full md:w-[28%] lg:w-[24%] h-[160px] md:h-full relative bg-[#E4DDD1]">
                <Image src="/images/poodle-pet-food.png" alt="프리미엄 펫푸드 제안" fill className="object-cover" sizes="(max-width: 768px) 100vw, 30vw" />
              </div>
              {/* Center Text */}
-             <div className="w-full md:w-[45%] flex flex-col justify-center px-6 md:px-10 py-8 md:py-0 text-center md:text-left">
+             <div className="w-full md:flex-1 flex flex-col justify-center px-6 md:px-10 py-8 md:py-0 text-center md:text-left">
                <h3 className="text-[20px] md:text-[22px] font-bold text-[#17251F] mb-2 tracking-tight">
-                 가치 있는 브랜드를 찾고 계신가요?
+                 기준이 같다면, 함께 만들어갑니다.
                </h3>
-               <p className="text-[14px] md:text-[15px] text-[#6F756F] leading-[1.6]">
-                 백조오브제의 기준에 함께할 브랜드를 기다립니다.<br className="hidden md:block" />
-                 진정성 있는 브랜드라면 언제든 제안해주세요.
+               <p className="text-[14px] md:text-[15px] text-[#6F756F] leading-[1.6] break-keep">
+                 <span className="inline-block xl:whitespace-nowrap">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다.</span><br className="hidden lg:block" />
+                 <span className="inline-block mt-1 lg:mt-0">신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</span>
                </p>
              </div>
              {/* Right CTA */}
-             <div className="w-full md:w-[25%] flex justify-center md:justify-end px-6 md:pr-10 pb-8 md:pb-0">
+             <div className="w-full md:w-auto flex justify-center md:justify-end px-6 md:pr-10 pb-8 md:pb-0">
                <Link href="/landing/care-kit" className="inline-flex items-center justify-center h-[46px] px-6 bg-[#17382D] text-white text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F] whitespace-nowrap">
-                 브랜드 입점 제안하기 <ArrowRight className="ml-2 w-4 h-4" />
+                 파트너십 문의하기 <ArrowRight className="ml-2 w-4 h-4" />
                </Link>
              </div>
           </div>

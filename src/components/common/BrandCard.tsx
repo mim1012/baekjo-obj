@@ -30,7 +30,11 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
       skin: '피부/모질',
       living: '생활환경'
     };
-    const displayCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
+    const defaultCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
+
+    const finalName = brand.name;
+    const finalDescription = brand.description;
+    const finalCategory = defaultCategory;
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
@@ -41,20 +45,20 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
               {brand.logo ? (
                 <BrandLogo brand={brand} size="md" surface fluid uniformScale />
               ) : (
-                <span className="text-[16px] font-bold text-[#17251F]">{brand.name}</span>
+                <span className="text-[16px] font-bold text-[#17251F]">{finalName}</span>
               )}
             </div>
           </div>
 
           {/* Category / Name / Description */}
           <span className="mb-1.5 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
-            {displayCategory}
+            {finalCategory}
           </span>
-          <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F]">
-            {brand.name}
+          <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] line-clamp-2 min-h-[42px] md:min-h-[47px] flex items-start">
+            {finalName}
           </h3>
           <p className="break-keep text-[12px] leading-[1.6] text-[#6F756F] md:text-[13px]">
-            {brand.description}
+            {finalDescription}
           </p>
 
           {/* Bottom CTA */}

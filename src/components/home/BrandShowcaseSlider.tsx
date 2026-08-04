@@ -48,10 +48,10 @@ export default function BrandShowcaseSlider({ brands }: Props) {
       <div className="mb-6 flex items-end justify-between">
         <div>
           <h2 className="break-keep text-[24px] font-bold leading-[1.35] tracking-tight text-[#17211D] md:text-[28px]">
-            브랜드의 기준까지 고른 셀렉션
+            CURATED BRANDS
           </h2>
           <p className="mt-2 break-keep text-[14px] leading-[1.6] text-[#59615B]">
-            검증을 통과한 브랜드만 소개합니다.
+            백조오브제 Audit을 통과한 브랜드를 소개합니다.
           </p>
         </div>
         <Link
@@ -74,40 +74,44 @@ export default function BrandShowcaseSlider({ brands }: Props) {
           <ArrowLeft className="size-5" strokeWidth={1.2} aria-hidden="true" />
         </button>
 
-        <div className="overflow-hidden border-t border-[#DED8CE]">
+        <div className="overflow-hidden rounded-[20px] border border-[#E7E2D9] bg-white shadow-sm">
           <div
             ref={railRef}
             onScroll={updateRailState}
-            className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
+            className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
-            {displayList.map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/brands/${brand.id}`}
-                className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
-              >
-                <div className="mb-3 flex h-[60px] w-full items-center">
-                  <BrandLogo
-                    brand={brand}
-                    size="lg"
-                    surface={false}
-                    fluid
-                    uniformScale
-                    className="max-h-11 max-w-[150px] object-contain"
-                  />
-                </div>
-                <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
-                  {brand.name}
-                </span>
-                <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
-                  {brand.description}
-                </p>
-                <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
-                  브랜드 자세히 보기
-                  <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
-                </span>
-              </Link>
-            ))}
+            {displayList.map((brand) => {
+              const finalName = brand.name;
+              const finalDescription = brand.description;
+              return (
+                <Link
+                  key={brand.id}
+                  href={`/brands/${brand.id}`}
+                  className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
+                >
+                  <div className="mb-3 flex h-[60px] w-full items-center">
+                    <BrandLogo
+                      brand={brand}
+                      size="lg"
+                      surface={false}
+                      fluid
+                      uniformScale
+                      className="max-h-11 max-w-[150px] object-contain"
+                    />
+                  </div>
+                  <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
+                    {finalName}
+                  </span>
+                  <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
+                    {finalDescription}
+                  </p>
+                  <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
+                    브랜드 자세히 보기
+                    <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         </div>
 

@@ -135,7 +135,7 @@ export default function HomeClient({
                   alt="백조오브제 Audit 엠블럼"
                   fill
                   sizes="(max-width: 1024px) 80vw, 320px"
-                  className="object-cover"
+                  className="object-contain"
                   priority
                 />
               </div>
@@ -201,15 +201,17 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{curation.title}</h2>
-            <p className="mt-2 text-[14px] md:text-[15px] text-[#59615B]">{curation.description}</p>
+            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">우리 아이 고민에 맞는 케어 가이드</h2>
+            <p className="mt-2 text-[14px] md:text-[15px] text-[#59615B] break-keep">
+              우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.
+            </p>
           </div>
-          <div className="flex items-center gap-4">
-            <Link href="/diagnosis" className="text-[13px] md:text-[14px] font-bold text-[#7A4E1D] hover:text-[#17211D] transition-colors">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#18231F] px-5 text-[13px] md:text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
               {curation.diagnosisLinkLabel}
             </Link>
-            <Link href="/concerns" className="flex items-center text-[13px] md:text-[14px] font-semibold text-[#59615B] hover:text-[#18231F] transition-colors">
-              {curation.allConcernsLinkLabel} <ArrowRight className="ml-1 size-4" />
+            <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
+              {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
           </div>
         </div>
@@ -254,7 +256,7 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
-            <div className="flex flex-col items-start text-white max-w-[400px]">
+            <div className="flex flex-col items-start text-white max-w-[480px]">
               <div className="flex items-center gap-2 mb-2 md:mb-3">
                 <ShieldCheck className="size-5 text-[#B99562]" strokeWidth={2} />
                 <span className="text-[13px] md:text-[14px] font-semibold text-[#D8C4A3]">{insuranceBanner.eyebrow}</span>
@@ -286,8 +288,10 @@ export default function HomeClient({
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
-              <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
-              <Link href="/reviews" className="flex items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
+              <div>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
+              </div>
+              <Link href="/reviews" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
@@ -304,8 +308,10 @@ export default function HomeClient({
           </div>
           <div className="w-full lg:w-[42%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
-              <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
-              <Link href="/notices" className="flex items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
+              <div>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
+              </div>
+              <Link href="/notices" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
                 {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>

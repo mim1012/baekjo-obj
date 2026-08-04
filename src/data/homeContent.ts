@@ -71,8 +71,8 @@ export interface HomeSettings {
 
 export const defaultHomeSettings: HomeSettings = {
   hero: {
-    eyebrow: 'PREMIUM PET CURATION',
-    titleLines: ['검증된 브랜드를', '우리 아이 고민에', '맞게.'],
+    eyebrow: 'Curated Pet Brands',
+    titleLines: ['좋은 브랜드를', '찾고 계셨나요?'],
     descriptionLines: [
       '성분과 제조 기준, 보호자의 사용 가치를 확인한 반려동물 브랜드와',
       '상품을 소개합니다.',
@@ -107,22 +107,22 @@ export const defaultHomeSettings: HomeSettings = {
     diagnosisLinkLabel: '1분 맞춤 진단 시작',
     allConcernsLinkLabel: '모든 고민 살펴보기',
     cards: [
-      { title: '눈물', desc: '눈물 자국이 걱정될 때' },
-      { title: '피부', desc: '자주 긁거나 피부가 예민할 때' },
-      { title: '관절', desc: '걷거나 움직임이 불편해 보일 때' },
+      { title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
+      { title: '피부', desc: '피부를 자주 긁을 때' },
+      { title: '관절', desc: '걸음걸이가 달라졌을 때' },
       { title: '체중', desc: '체중 관리가 필요할 때' },
     ],
   },
   audit: {
-    badge: '백조오브제 Audit',
-    titleLines: ['100개 중', '5개만 선택합니다.'],
-    description: '성분, 원료, 제조·유통, 브랜드 운영 방향을 철저히 확인한 상품만 소개합니다.',
+    badge: 'BAEKJO OBJET AUDIT',
+    titleLines: ['길지만은 않은', '우리 아이와의 시간'],
+    description: '좋은 브랜드를 통해 우리 아이와 더 많은 행복을 함께할 수 있도록 백조오브제 Audit을 진행합니다.',
     linkLabel: '검증 기준 자세히 보기',
     criteria: [
-      { title: '브랜드 운영 방향', desc: '가치와 철학을 함께 봅니다' },
-      { title: '성분·원료 정보', desc: '안전한 성분을 확인합니다' },
-      { title: '제조·유통 기준', desc: '과정을 세밀하게 검토합니다' },
-      { title: '보호자 사용 가치', desc: '실제 사용 경험을 확인합니다' },
+      { title: '브랜드 철학', desc: '브랜드가 추구하는 가치를 확인합니다.' },
+      { title: '성분·원료', desc: '성분과 원료를 확인합니다.' },
+      { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
+      { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
     ],
   },
   solutions: {
@@ -136,14 +136,14 @@ export const defaultHomeSettings: HomeSettings = {
   insuranceBanner: {
     eyebrow: '펫보험 보장 확인',
     title: '보험도 우리 아이 기준으로.',
-    description: '보험 상품을 우리 아이의 조건에 맞게 비교해 보세요. 가장 적합한 펫보험을 찾아보세요.',
+    description: '같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.',
     buttonLabel: '보험 분석 알아보기',
   },
   trustBoard: {
-    reviewsTitle: '반려가족 후기',
-    reviewsLinkLabel: '더 보기',
-    noticesTitle: '백조 소식',
-    noticesLinkLabel: '더 보기',
+    reviewsTitle: '보호자 후기',
+    reviewsLinkLabel: '후기 전체 보기',
+    noticesTitle: '소식',
+    noticesLinkLabel: '소식 전체 보기',
   },
 };
 
