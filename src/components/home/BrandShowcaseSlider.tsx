@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
-import { getCustomBrandDetails } from '@/lib/brandOverrides';
 
 interface Props {
   brands: Brand[];
@@ -82,7 +81,8 @@ export default function BrandShowcaseSlider({ brands }: Props) {
             className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
             {displayList.map((brand) => {
-              const { finalName, finalDescription } = getCustomBrandDetails(brand);
+              const finalName = brand.name;
+              const finalDescription = brand.description;
               return (
                 <Link
                   key={brand.id}

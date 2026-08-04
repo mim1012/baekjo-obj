@@ -11,7 +11,6 @@ import { ArrowRight, Leaf, ShieldCheck, Box, ThumbsUp, Recycle } from 'lucide-re
 import Image from 'next/image';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getCustomBrandDetails } from '@/lib/brandOverrides';
 
 interface Props {
   brands: Brand[];
@@ -78,7 +77,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   }, [spotlightBrandsList.length, isSpotlightHovered]);
 
   const spotlightBrand = spotlightBrandsList[spotlightIndex];
-  const spotlightCustomDetails = spotlightBrand ? getCustomBrandDetails(spotlightBrand) : null;
 
   const handleLoadMore = () => {
     setPagination({ filter, visibleCount: visibleCount + PAGE_SIZE });
@@ -166,11 +164,11 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <span className="text-[12px] font-semibold text-[#B48A4A] mb-4">스포트라이트 브랜드</span>
                     <div className="flex flex-col gap-1 mb-5">
                       <h3 className="text-[24px] md:text-[28px] font-bold text-[#17251F] tracking-tight flex items-center gap-2">
-                        {spotlightCustomDetails?.finalName || spotlightBrand.name} 
+                        {spotlightBrand.name}
                       </h3>
                     </div>
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
-                      {spotlightCustomDetails?.finalDescription || spotlightBrand.description}
+                      {spotlightBrand.description}
                     </p>
                     <Link href={`/brands/${spotlightBrand.id}`} className="mt-auto self-start inline-flex items-center justify-center h-[42px] md:h-[46px] px-6 bg-[#17382D] text-white text-[13px] md:text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F]">
                       브랜드 자세히 보기 <ArrowRight className="ml-2 w-4 h-4" />

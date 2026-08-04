@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
-import { getCustomBrandDetails } from '@/lib/brandOverrides';
 
 type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
@@ -33,8 +32,9 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
     };
     const defaultCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
 
-    const { finalName, finalDescription, finalCategory: overrideCategory } = getCustomBrandDetails(brand);
-    const finalCategory = overrideCategory ?? defaultCategory;
+    const finalName = brand.name;
+    const finalDescription = brand.description;
+    const finalCategory = defaultCategory;
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
