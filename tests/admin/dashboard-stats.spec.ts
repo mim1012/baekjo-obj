@@ -17,6 +17,7 @@ const SINCE = '2026-07-01T00:00:00.000Z';
 function brand(id: string, over: Partial<Brand> = {}): Brand {
   return {
     id,
+    slug: id,
     name: `브랜드 ${id}`,
     logo: `/brands/${id}.webp`,
     description: '',

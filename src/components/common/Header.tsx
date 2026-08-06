@@ -70,7 +70,7 @@ export default function Header() {
             .filter((brand) => brand.isVisible !== false)
             .map((brand) => ({
               label: brand.name.split(' (')[0],
-              href: `/brands/${brand.id}`,
+              href: `/brands/${brand.slug}`,
             })),
         ),
       )

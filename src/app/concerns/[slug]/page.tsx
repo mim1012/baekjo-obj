@@ -264,7 +264,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
                 return (
                   <Link
                     key={brand.id}
-                    href={`/brands/${brand.id}`}
+                    href={`/brands/${brand.slug}`}
                     className="horizontal-snap-item group flex min-h-[210px] flex-col justify-between rounded-[16px] border border-[#E4DDD1] bg-[#FFFEFB] p-6 transition-transform duration-300 hover:-translate-y-[2px] lg:min-h-[240px] lg:rounded-[18px] lg:basis-[calc(25%-0.75rem)]"
                   >
                     <div>
