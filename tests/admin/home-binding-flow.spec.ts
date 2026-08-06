@@ -23,7 +23,7 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain("export const dynamic = 'force-dynamic'");
     expect(pageSource).toContain('listCachedPublicProducts()');
     expect(pageSource).toContain('listCachedPublicBrands()');
-    expect(publicCache).toContain("import { getBrandById, listBrands } from '@/lib/brands/repo'");
+    expect(publicCache).toContain("import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo'");
     expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
     expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
     expect(publicCache).toContain('async () => listBrands(true)');
