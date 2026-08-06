@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache';
-import { getBrandById, listBrands } from '@/lib/brands/repo';
+import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo';
 import { getCategorySettings } from '@/lib/categorySettings/repo';
 import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo';
 import { getSiteSettings } from '@/lib/settings/repo';
@@ -42,6 +42,12 @@ const cachedPublicBrandById = unstable_cache(
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
+const cachedPublicBrandBySlug = unstable_cache(
+  async (slug: string) => getBrandBySlug(slug),
+  ['public-brand-by-slug'],
+  { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
+);
+
 export const getCachedSiteSettings = unstable_cache(
   async () => getSiteSettings(),
   ['public-site-settings'],
@@ -68,4 +74,8 @@ export function listCachedPublicBrands() {
 
 export function getCachedPublicBrandById(id: string) {
   return cachedPublicBrandById(id);
+}
+
+export function getCachedPublicBrandBySlug(slug: string) {
+  return cachedPublicBrandBySlug(slug);
 }

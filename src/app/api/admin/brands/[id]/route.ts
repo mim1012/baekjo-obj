@@ -32,7 +32,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     revalidateTag(PUBLIC_READ_CACHE_TAGS.brands, EXPIRE_PUBLIC_READ_CACHE);
     revalidatePath('/brands');
-    revalidatePath(`/brands/${id}`);
+    revalidatePath(`/brands/${brand.slug}`);
     return NextResponse.json({ brand }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/admin/brands/[id]] 수정 실패', error);

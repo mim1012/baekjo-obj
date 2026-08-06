@@ -68,6 +68,9 @@ export type ProductDetailBlock =
 /* ── 브랜드 ─────────────────────────────────────── */
 export interface Brand {
   id: string;
+  /** 공개 URL(/brands/[slug]) 전용 표시값. id와 달리 브랜드명이 바뀌어도 재생성하지 않는다
+   *  — 이미 퍼진 링크·SEO 색인이 깨지지 않도록 최초 발급 후 고정, 관리자가 필요시 수동 변경. */
+  slug: string;
   name: string;
   officialUrl?: string;
   sourceUrls?: string[];

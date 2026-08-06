@@ -162,7 +162,15 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     await expect(brandCard).toContainText(description);
     await brandCard.getByRole('link').first().click();
     await expect(page).toHaveURL(/\/brands\/.+/);
-    const brandId = new URL(page.url()).pathname.split('/').pop()!;
+    // ⚠️ 공개 URL은 slug(/brands/[slug], 예: /brands/penefit) 기반이라 URL 세그먼트는 브랜드 id와
+    // 다르다 — 이후 admin 폼(#product-brand select option value=id)에서 쓸 실제 id는 관리자 API로
+    // 이름 조회해 확보한다(orderShipmentScenarioHelpers.ts getAdminBrands와 동일 패턴).
+    const brandsRes = await page.request.get('/api/admin/brands');
+    expect(brandsRes.ok()).toBe(true);
+    const { brands } = (await brandsRes.json()) as { brands: Array<{ id: string; name: string }> };
+    const brandId = brands.find((b) => b.name === name)?.id;
+    expect(brandId).toBeTruthy();
+    if (!brandId) throw new Error('brandId 조회 실패');
 
     // 3-1) isNew는 카드에 별도 배지가 없고 /brands?filter=new 탭 필터로만 드러난다
     // (BrandsContent.tsx filteredBrands: filter==='new' → brand.isNew) — 필터 탭에서도 보이는지 확인.

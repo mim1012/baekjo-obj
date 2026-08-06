@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
@@ -10,6 +10,7 @@ import BrandAuditReport from '@/components/common/BrandAuditReport';
 import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
 import {
   getCachedPublicBrandById,
+  getCachedPublicBrandBySlug,
   listCachedPublicProducts,
 } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
@@ -20,9 +21,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const brand = await getCachedPublicBrandById(id);
+  // [id] 세그먼트는 이제 slug 값을 받는다(URL은 /brands/penefit 형태). 하위호환을 위해
+  // slug 조회 실패 시 구 URL(/brands/b1)로도 한 번 더 시도하고, id로 찾으면 정식 slug URL로
+  // 영구 리다이렉트한다.
+  const brand = await getCachedPublicBrandBySlug(id);
 
   if (!brand) {
+    const byId = await getCachedPublicBrandById(id);
+    if (byId) {
+      permanentRedirect(`/brands/${byId.slug}`);
+    }
     notFound();
   }
 
