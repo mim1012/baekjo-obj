@@ -58,6 +58,9 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
             <p className="mt-3 max-w-2xl leading-6 text-[#FBFAF7]/70">
               {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
             </p>
+            <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
+              사업장주소 {COMPANY.address} · 전화 {COMPANY.tel}
+            </p>
           </div>
         </div>
       </div>
