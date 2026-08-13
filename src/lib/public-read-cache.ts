@@ -50,7 +50,7 @@ const cachedPublicBrandBySlug = unstable_cache(
 
 export const getCachedSiteSettings = unstable_cache(
   async () => getSiteSettings(),
-  ['public-site-settings'],
+  ['public-site-settings-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.siteSettings] },
 );
 

@@ -13,7 +13,7 @@ import { AdminPageHeader } from '@/components/admin/AdminUi';
 // HomeClient 하드코딩이라 편집 대상이 아니고, 여기서는 "문구"만 편집한다(§ homeContent).
 const TABS = [
   { id: 'hero', label: '메인 히어로' },
-  { id: 'quickShop', label: '빠른 쇼핑' },
+  { id: 'quickShop', label: '쇼핑 카테고리' },
   { id: 'bestProducts', label: '오늘의 추천' },
   { id: 'curation', label: '맞춤 큐레이션' },
   { id: 'audit', label: '백조오브제 Audit' },
@@ -234,10 +234,9 @@ export default function SiteSettingsPage() {
               </div>
             )}
 
-            {/* 2. 빠른 쇼핑 */}
             {activeTab === 'quickShop' && (
               <div className="space-y-4">
-                {renderInput('섹션 제목 (title)', draft.quickShop.title, (v) => updateDraft('quickShop', 'title', v))}
+                <p className="text-sm leading-6 text-gray-600">홈에는 아래 6개 카테고리 바로가기만 노출됩니다.</p>
                 <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">바로가기 이름 (아이콘·링크는 고정)</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {draft.quickShop.links.map((link, idx) => (
