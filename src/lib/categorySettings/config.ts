@@ -14,7 +14,7 @@ export interface CategorySettings {
 }
 
 export const defaultCategorySettings: CategorySettings = {
-  productCategories: ['사료', '간식', '영양제', '위생용품', '생활용품', '장난감', '산책용품', '미용용품'],
+  productCategories: ['푸드', '영양', '케어', '패션', '펫로스', '라이프'],
   lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
   brandFilters: [
     { id: 'all', label: '전체 브랜드' },

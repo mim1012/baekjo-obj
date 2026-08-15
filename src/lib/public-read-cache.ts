@@ -32,19 +32,19 @@ const cachedPublicProductById = unstable_cache(
 
 const cachedPublicBrands = unstable_cache(
   async () => listBrands(true),
-  ['public-brands'],
+  ['public-brands-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 const cachedPublicBrandById = unstable_cache(
   async (id: string) => getBrandById(id),
-  ['public-brand-by-id'],
+  ['public-brand-by-id-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 const cachedPublicBrandBySlug = unstable_cache(
   async (slug: string) => getBrandBySlug(slug),
-  ['public-brand-by-slug'],
+  ['public-brand-by-slug-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
@@ -56,7 +56,7 @@ export const getCachedSiteSettings = unstable_cache(
 
 export const getCachedCategorySettings = unstable_cache(
   async () => getCategorySettings(),
-  ['public-category-settings'],
+  ['public-category-settings-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.categorySettings] },
 );
 

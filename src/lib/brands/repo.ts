@@ -124,6 +124,9 @@ function rowToBrand(row: BrandRow): Brand {
     logo: typeof d.logo === 'string' ? d.logo : '',
     description: typeof d.description === 'string' ? d.description : '',
     philosophy: typeof d.philosophy === 'string' ? d.philosophy : '',
+    displayTags: Array.isArray(d.displayTags)
+      ? d.displayTags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+      : undefined,
     auditGrade: normalizeAuditGrade(d.auditGrade),
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : [],
     auditReport: detailAuditReport(d.auditReport),

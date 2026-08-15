@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
+import { getBrandDisplayTags } from '@/lib/brands/display';
 
 type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
@@ -13,28 +14,10 @@ interface Props {
 export default function BrandCard({ brand, variant = 'default' }: Props) {
   if (variant === 'brand-page') {
     const linkedProductCount = brand.representativeProductIds ? brand.representativeProductIds.length : 0;
-    
-    // Convert related concern slugs to readable labels (just using the slug as placeholder for now, or use a generic "브랜드" label if empty)
-    const categoryLabel = brand.relatedConcernSlugs && brand.relatedConcernSlugs.length > 0
-      ? brand.relatedConcernSlugs[0]
-      : '브랜드';
-
-    // To properly map concern slugs to readable labels (picky -> 입맛/편식, nutrition -> 영양/보양, oral -> 구강/위생, grooming -> 그루밍, stress -> 스트레스/행동, digestion -> 소화/장, skin -> 피부/모질, living -> 생활환경)
-    const concernMap: Record<string, string> = {
-      picky: '입맛/편식',
-      nutrition: '영양/보양',
-      oral: '구강/위생',
-      grooming: '그루밍',
-      stress: '스트레스/행동',
-      digestion: '소화/장',
-      skin: '피부/모질',
-      living: '생활환경'
-    };
-    const defaultCategory = concernMap[categoryLabel] || '프리미엄 펫 브랜드';
+    const displayTags = getBrandDisplayTags(brand);
 
     const finalName = brand.name;
     const finalDescription = brand.description;
-    const finalCategory = defaultCategory;
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
@@ -51,9 +34,9 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           </div>
 
           {/* Category / Name / Description */}
-          <span className="mb-1.5 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
-            {finalCategory}
-          </span>
+          <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
+            {displayTags.map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
           <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] line-clamp-2 min-h-[42px] md:min-h-[47px] flex items-start">
             {finalName}
           </h3>

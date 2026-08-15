@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Brand, Concern, Product } from '@/types';
-import { normalizeShopCategory, toShopCategoryOption } from '@/data/shopFilters';
+import { normalizeShopCategory, sortShopCategoryOptions, toShopCategoryOption } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
@@ -159,9 +159,10 @@ function ShopInner({ products, brands, concerns }: Props) {
 
   const rawCategoryOptions = categorySettings.productCategories.map(toShopCategoryOption);
 
-  const categoryOptions = rawCategoryOptions.filter((cat, index, self) =>
+  const dedupedCategoryOptions = rawCategoryOptions.filter((cat, index, self) =>
     index === self.findIndex((c) => c.slug === cat.slug)
   );
+  const categoryOptions = sortShopCategoryOptions(dedupedCategoryOptions);
 
   const activeFilterCount = [
     params.petType,
@@ -285,7 +286,7 @@ function ShopInner({ products, brands, concerns }: Props) {
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">Baekjo selection</p>
           <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">우리 아이를 위한 셀렉션</h1>
-          <p className="mt-2 text-[15px] text-[#59615B]">브랜드의 생각과 제품 정보를 살펴, 일상에 잘 맞을 상품을 모으고 있어요.</p>
+          <p className="mt-2 break-keep text-[15px] text-[#59615B]">브랜드의 생각과 제품 정보를 살펴, 일상에 잘 맞을 상품을 모으고 있어요.</p>
         </div>
         <form onSubmit={handleSearchSubmit} role="search" className="flex h-12 w-full shrink-0 items-center rounded-full border border-[#E7E0D5] bg-white px-4 transition-colors duration-500 focus-within:border-[#A8742E] focus-within:ring-2 focus-within:ring-[#A8742E]/10 md:w-[420px]">
           <Search aria-hidden="true" className="mr-3 size-4 shrink-0 text-[#59615B]" />
@@ -312,7 +313,7 @@ function ShopInner({ products, brands, concerns }: Props) {
       </div>
 
       {/* 2. 빠른 카테고리 */}
-      <div className="shop-category-tabs hide-scrollbar mb-10 flex gap-2 overflow-x-auto border-b border-[#E7E0D5] pb-4">
+      <div className="shop-category-tabs mb-10 flex flex-wrap gap-2 border-b border-[#E7E0D5] pb-4">
         <Link href={makeHref('category', 'all')} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${!params.category ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>전체</Link>
         {categoryOptions.map(cat => (
           <Link key={cat.slug} href={makeHref('category', cat.slug)} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${normalizeShopCategory(params.category) === cat.slug ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>

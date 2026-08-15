@@ -73,12 +73,11 @@ export const defaultHomeSettings: HomeSettings = {
     eyebrow: 'Curated Pet Brands',
     titleLines: ['좋은 브랜드를', '찾고 계셨나요?'],
     descriptionLines: [
-      '성분과 제조 기준, 보호자의 사용 가치를 확인한 반려동물 브랜드와',
-      '상품을 소개합니다.',
+      '좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.',
     ],
     primaryCtaLabel: '검증 상품 보기',
     secondaryCtaLabel: '고민별 찾아보기',
-    trustNote: '백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.',
+    trustNote: '백조오브제 Audit을 통과한 브랜드만 소개합니다.',
     badgeTitle: 'Audit Passed',
     badgeSubtitle: '검증 기준 통과',
   },
@@ -98,8 +97,8 @@ export const defaultHomeSettings: HomeSettings = {
     linkLabel: '전체 셀렉션 보기',
   },
   curation: {
-    title: '반려동물 고민에 맞춘 큐레이션',
-    description: '우리 아이의 일상적인 고민부터 차근차근 확인해 보세요.',
+    title: '우리 아이 고민에 맞는 케어 가이드',
+    description: '우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.',
     diagnosisLinkLabel: '1분 맞춤 진단 시작',
     allConcernsLinkLabel: '모든 고민 살펴보기',
     cards: [
@@ -115,10 +114,10 @@ export const defaultHomeSettings: HomeSettings = {
     description: '좋은 브랜드를 통해 우리 아이와 더 많은 행복을 함께할 수 있도록 백조오브제 Audit을 진행합니다.',
     linkLabel: '검증 기준 자세히 보기',
     criteria: [
-      { title: '브랜드 철학', desc: '브랜드가 추구하는 가치를 확인합니다.' },
-      { title: '성분·원료', desc: '성분과 원료를 확인합니다.' },
-      { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
-      { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
+      { title: '브랜드 철학', desc: '브랜드가 추구하는 가치' },
+      { title: '성분·원료', desc: '성분과 원료의 안전성' },
+      { title: '제조 과정', desc: '제조 과정의 신뢰성' },
+      { title: '사용 경험', desc: '실제 보호자의 사용 경험' },
     ],
   },
   solutions: {
@@ -126,14 +125,14 @@ export const defaultHomeSettings: HomeSettings = {
     cards: [
       { title: '검증 브랜드', desc: 'Audit 기준을 철저히 통과한 믿을 수 있는 브랜드와 상품', linkLabel: '브랜드 보러가기' },
       { title: '고민별 큐레이션', desc: '우리 아이의 증상과 고민에 딱 맞는 상품 맞춤 추천', linkLabel: '큐레이션 보러가기' },
-      { title: '펫보험 비교', desc: '복잡한 보장 조건을 우리 아이 맞춤으로 한눈에 비교', linkLabel: '보험 분석 알아보기' },
+      { title: '펫보험 비교', desc: '복잡한 보장 조건을 우리 아이 맞춤으로 한눈에 비교', linkLabel: '보험 분석 시작하기' },
     ],
   },
   insuranceBanner: {
     eyebrow: '펫보험 보장 확인',
     title: '보험도 우리 아이 기준으로.',
     description: '같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.',
-    buttonLabel: '보험 분석 알아보기',
+    buttonLabel: '보험 분석 시작하기',
   },
   trustBoard: {
     reviewsTitle: '보호자 후기',
