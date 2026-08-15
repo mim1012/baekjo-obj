@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, ShieldCheck, Activity, Leaf, Monitor, Heart,
-  Droplet, Sparkles, Bone, Scale, Grid, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse, Stethoscope, Store
+  Droplet, Sparkles, Bone, Scale, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse
 } from 'lucide-react';
 import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
@@ -53,15 +53,12 @@ export default function HomeClient({
 
   // 아이콘·href·이미지 등 "구조"는 여기 하드코딩으로 두고, 문구만 settings 로 오버레이한다.
   const quickLinks = [
-    { icon: Grid, href: '/shop' },
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
     { icon: Rabbit, href: '/shop?petType=small' },
     { icon: Utensils, href: '/shop?category=dining-and-nourish' },
     { icon: Bath, href: '/shop?category=fragrance-and-hygiene' },
     { icon: HeartPulse, href: '/shop?category=wellness-and-care' },
-    { icon: Stethoscope, href: '/concerns' },
-    { icon: Store, href: '/brands' },
   ];
 
   const curationCards = [
@@ -161,8 +158,7 @@ export default function HomeClient({
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-24">
         <div className="rounded-[20px] bg-white border border-[#F2EFE9] p-4 md:p-6 lg:p-8 flex flex-col xl:flex-row xl:items-center gap-4 md:gap-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <h3 className="text-[15px] md:text-[16px] font-bold text-[#18231F] shrink-0">{quickShop.title}</h3>
-          <div className="grid grid-cols-4 gap-y-4 gap-x-2 md:flex md:flex-wrap md:gap-x-8 xl:flex-1 xl:justify-between">
+          <nav aria-label="쇼핑 카테고리 바로가기" className="grid grid-cols-4 gap-y-4 gap-x-2 md:flex md:flex-wrap md:gap-x-8 xl:flex-1 xl:justify-between">
             {quickLinks.map((link, i) => {
               const Icon = link.icon;
               const name = quickShop.links[i]?.name ?? '';
@@ -175,7 +171,7 @@ export default function HomeClient({
                 </Link>
               );
             })}
-          </div>
+          </nav>
         </div>
       </section>
 

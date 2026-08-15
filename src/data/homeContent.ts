@@ -22,7 +22,6 @@ export interface HomeSettings {
     badgeTitle: string;
     badgeSubtitle: string;
   };
-  /** 2. 빠른 쇼핑 (아이콘·href 는 HomeClient 하드코딩, 이름만 편집) */
   quickShop: {
     title: string;
     links: Array<{ name: string }>;
@@ -84,17 +83,14 @@ export const defaultHomeSettings: HomeSettings = {
     badgeSubtitle: '검증 기준 통과',
   },
   quickShop: {
-    title: '빠른 쇼핑',
+    title: '',
     links: [
-      { name: '전체 상품' },
       { name: '강아지' },
       { name: '고양이' },
       { name: '소동물' },
       { name: '사료·간식' },
       { name: '위생·배변' },
       { name: '건강관리' },
-      { name: '고민별 케어' },
-      { name: '브랜드관' },
     ],
   },
   bestProducts: {
@@ -180,6 +176,35 @@ function asObjectArray<T>(
   });
 }
 
+function normalizeQuickShopLinks(
+  value: unknown,
+  defaults: Array<{ name: string }>,
+): Array<{ name: string }> {
+  const input = Array.isArray(value) ? value : [];
+  const names = input.map((item) => (isRecord(item) ? asString(item.name, '') : ''));
+  const findNamedItem = (fragment: string, fallbackIndex: number) => {
+    const index = names.findIndex((name) => name.includes(fragment));
+    return index >= 0 ? input[index] : input[fallbackIndex];
+  };
+  const source = input.length >= 9
+    ? [
+        findNamedItem('강아지', 1),
+        findNamedItem('고양이', 2),
+        findNamedItem('소동물', -1) ?? { name: '소동물' },
+        findNamedItem('사료', 3),
+        findNamedItem('위생', 4),
+        findNamedItem('건강', 5),
+      ]
+    : names.length === 6 && names[5] === '고민별 케어'
+      ? [input[0], input[1], { name: '소동물' }, input[2], input[3], input[4]]
+      : input;
+
+  return defaults.map((fallback, index) => {
+    const item = source[index];
+    return { name: asString(isRecord(item) ? item.name : undefined, fallback.name) };
+  });
+}
+
 export function normalizeHomeSettings(input: unknown): HomeSettings {
   const root = isRecord(input) ? input : {};
   const hero = isRecord(root.hero) ? root.hero : {};
@@ -205,10 +230,8 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
       badgeSubtitle: asString(hero.badgeSubtitle, d.hero.badgeSubtitle),
     },
     quickShop: {
-      title: asString(quickShop.title, d.quickShop.title),
-      links: asObjectArray(quickShop.links, d.quickShop.links, (item, fallback) => ({
-        name: asString(item.name, fallback.name),
-      })),
+      title: '',
+      links: normalizeQuickShopLinks(quickShop.links, d.quickShop.links),
     },
     bestProducts: {
       title: asString(bestProducts.title, d.bestProducts.title),
