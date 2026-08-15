@@ -19,6 +19,7 @@ import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/confi
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
+import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -471,6 +472,39 @@ export async function updateOrderStatus(
     }
     throw new Error(code);
   }
+}
+
+export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/refunds`, {
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error('refund-history-failed');
+  const body = (await response.json()) as { refunds?: unknown };
+  return Array.isArray(body.refunds) ? (body.refunds as OrderRefundRecord[]) : [];
+}
+
+export interface CreateAdminOrderRefundInput {
+  idempotencyKey: string;
+  reason: string;
+  includeDeliveryFee: boolean;
+  items: RefundItemInput[];
+}
+
+export async function createAdminOrderRefund(
+  orderId: string,
+  input: CreateAdminOrderRefundInput,
+): Promise<OrderRefundRecord> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/refunds`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const body = (await response.json().catch(() => null)) as { error?: unknown; refund?: unknown } | null;
+  if (!response.ok || !body || !body.refund || typeof body.refund !== 'object') {
+    const code = body && typeof body.error === 'string' ? body.error : 'refund-create-failed';
+    throw new Error(code);
+  }
+  return body.refund as OrderRefundRecord;
 }
 
 /**

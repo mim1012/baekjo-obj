@@ -35,6 +35,15 @@ export interface TossConfirmResult {
    *  응답에 없거나 숫자가 아니면 null로 흡수한다 — confirm/query의 기존 판단(DONE·금액일치)은
    *  이 필드에 의존하지 않고, 오직 isFullyCanceledToss(환불 재조정, §8-6 codex)만 이 값을 쓴다. */
   balanceAmount: number | null;
+  cancels: TossCancel[];
+}
+
+export interface TossCancel {
+  transactionKey: string;
+  cancelAmount: number;
+  cancelReason: string;
+  refundableAmount: number;
+  canceledAt?: string;
 }
 
 /**
@@ -46,7 +55,9 @@ export interface TossConfirmResult {
  * 선택적 메타데이터라 이 필수 필드 검증에는 참여하지 않고, 각 호출부가 readBalanceAmount로 별도
  * 흡수해 반환 객체에 합성한다(타입과 실제 파싱이 어긋나지 않게).
  */
-function isValidTossConfirmResult(data: unknown): data is Omit<TossConfirmResult, 'balanceAmount'> {
+function isValidTossConfirmResult(
+  data: unknown,
+): data is Pick<TossConfirmResult, 'paymentKey' | 'orderId' | 'totalAmount' | 'status'> {
   if (!data || typeof data !== 'object') return false;
   const d = data as Record<string, unknown>;
   return (
@@ -66,6 +77,37 @@ function readBalanceAmount(data: unknown): number | null {
   if (!data || typeof data !== 'object') return null;
   const d = data as Record<string, unknown>;
   return typeof d.balanceAmount === 'number' && Number.isFinite(d.balanceAmount) ? d.balanceAmount : null;
+}
+
+function readCancelHistory(data: unknown): TossCancel[] {
+  if (!data || typeof data !== 'object') return [];
+  const raw = (data as Record<string, unknown>).cancels;
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value) => {
+    if (!value || typeof value !== 'object') return [];
+    const cancel = value as Record<string, unknown>;
+    if (
+      typeof cancel.transactionKey !== 'string' ||
+      cancel.transactionKey.length === 0 ||
+      typeof cancel.cancelAmount !== 'number' ||
+      !Number.isSafeInteger(cancel.cancelAmount) ||
+      cancel.cancelAmount <= 0 ||
+      typeof cancel.refundableAmount !== 'number' ||
+      !Number.isSafeInteger(cancel.refundableAmount) ||
+      cancel.refundableAmount < 0
+    ) {
+      return [];
+    }
+    return [
+      {
+        transactionKey: cancel.transactionKey,
+        cancelAmount: cancel.cancelAmount,
+        cancelReason: typeof cancel.cancelReason === 'string' ? cancel.cancelReason : '',
+        refundableAmount: cancel.refundableAmount,
+        ...(typeof cancel.canceledAt === 'string' ? { canceledAt: cancel.canceledAt } : {}),
+      },
+    ];
+  });
 }
 
 /**
@@ -90,7 +132,7 @@ export function isFullyCanceledToss(result: { status: string; balanceAmount: num
  * 관리자 환불 라우트가 이 판정으로 409(거절) vs 502(불명)를 나눈다.
  */
 export function isTossClientRejection(httpStatus: number | null): boolean {
-  return httpStatus !== null && httpStatus < 500;
+  return httpStatus !== null && httpStatus >= 400 && httpStatus < 500;
 }
 
 /** 실패 응답(비-2xx)에서 에러 코드/메시지만 느슨하게 읽는다 — 사람이 읽는 로그용이라 형식이
@@ -149,7 +191,7 @@ export async function confirmTossPayment(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return { ...data, balanceAmount: readBalanceAmount(data) };
+  return { ...data, balanceAmount: readBalanceAmount(data), cancels: readCancelHistory(data) };
 }
 
 /**
@@ -194,7 +236,7 @@ export async function queryTossPayment(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return { ...data, balanceAmount: readBalanceAmount(data) };
+  return { ...data, balanceAmount: readBalanceAmount(data), cancels: readCancelHistory(data) };
 }
 
 /**
@@ -239,7 +281,7 @@ export async function queryTossPaymentByOrderId(
     throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
   }
 
-  return { ...data, balanceAmount: readBalanceAmount(data) };
+  return { ...data, balanceAmount: readBalanceAmount(data), cancels: readCancelHistory(data) };
 }
 
 /** 취소(cancel) 2xx 응답은 confirm/query와 같은 필드 모양이되, isFullyCanceledToss 기준(전액취소)을
@@ -247,9 +289,84 @@ export async function queryTossPaymentByOrderId(
  *  성공 취급하면 부분환불인데 refundOrderAndRestore(재고 복원 RPC)가 전량 복원하는 구멍이 생긴다
  *  (§8-6 codex LOW-1). cancelTossPayment는 항상 전액취소를 요청하므로, PARTIAL_CANCELED가 왔다면
  *  balanceAmount===0(잔액 없음)일 때만 "이번 요청이 실제로 전액을 취소시켰다"고 인정한다. */
-function isValidTossCancelResult(data: unknown): data is Omit<TossConfirmResult, 'balanceAmount'> {
+function isValidTossCancelResult(
+  data: unknown,
+): data is Pick<TossConfirmResult, 'paymentKey' | 'orderId' | 'totalAmount' | 'status'> {
   if (!isValidTossConfirmResult(data)) return false;
   return isFullyCanceledToss({ status: data.status, balanceAmount: readBalanceAmount(data) });
+}
+
+function isValidTossPartialCancelResult(
+  data: unknown,
+): data is Pick<TossConfirmResult, 'paymentKey' | 'orderId' | 'totalAmount' | 'status'> {
+  if (!isValidTossConfirmResult(data)) return false;
+  const balanceAmount = readBalanceAmount(data);
+  return (data.status === 'CANCELED' || data.status === 'PARTIAL_CANCELED') && balanceAmount !== null;
+}
+
+interface TossCancelRequestOptions {
+  cancelAmount?: number;
+  idempotencyKey?: string;
+  timeoutMs: number;
+}
+
+async function requestTossCancel(
+  paymentKey: string,
+  cancelReason: string,
+  options: TossCancelRequestOptions,
+): Promise<TossConfirmResult> {
+  const secretKey = process.env.TOSS_SECRET_KEY;
+  if (!secretKey) {
+    throw new TossConfirmError('toss-secret-key-missing', null, null);
+  }
+  if (
+    options.cancelAmount !== undefined &&
+    (!Number.isSafeInteger(options.cancelAmount) || options.cancelAmount <= 0)
+  ) {
+    throw new TossConfirmError('invalid-cancel-amount', null, null);
+  }
+  if (options.cancelAmount !== undefined && !options.idempotencyKey) {
+    throw new TossConfirmError('missing-idempotency-key', null, null);
+  }
+
+  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
+  const headers: Record<string, string> = {
+    Authorization: authHeader,
+    'Content-Type': 'application/json',
+  };
+  if (options.idempotencyKey) headers['Idempotency-Key'] = options.idempotencyKey;
+
+  let response: Response;
+  try {
+    response = await fetch(`${TOSS_CANCEL_URL}/${encodeURIComponent(paymentKey)}/cancel`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        cancelReason,
+        ...(options.cancelAmount !== undefined ? { cancelAmount: options.cancelAmount } : {}),
+      }),
+      signal: AbortSignal.timeout(options.timeoutMs),
+    });
+  } catch {
+    throw new TossConfirmError('toss-network-error', null, null);
+  }
+
+  const data: unknown = await response.json().catch(() => null);
+
+  if (!response.ok || !data) {
+    const { code, message } = readErrorFields(data);
+    throw new TossConfirmError(message ?? 'toss-cancel-failed', code, response.status);
+  }
+
+  if (options.cancelAmount === undefined) {
+    if (!isValidTossCancelResult(data)) {
+      throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+    }
+  } else if (!isValidTossPartialCancelResult(data)) {
+    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
+  }
+
+  return { ...data, balanceAmount: readBalanceAmount(data), cancels: readCancelHistory(data) };
 }
 
 /**
@@ -263,38 +380,15 @@ export async function cancelTossPayment(
   cancelReason: string,
   timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
 ): Promise<TossConfirmResult> {
-  const secretKey = process.env.TOSS_SECRET_KEY;
-  if (!secretKey) {
-    throw new TossConfirmError('toss-secret-key-missing', null, null);
-  }
+  return requestTossCancel(paymentKey, cancelReason, { timeoutMs });
+}
 
-  const authHeader = 'Basic ' + Buffer.from(`${secretKey}:`).toString('base64');
-
-  let response: Response;
-  try {
-    response = await fetch(`${TOSS_CANCEL_URL}/${encodeURIComponent(paymentKey)}/cancel`, {
-      method: 'POST',
-      headers: {
-        Authorization: authHeader,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ cancelReason }),
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-  } catch {
-    throw new TossConfirmError('toss-network-error', null, null);
-  }
-
-  const data: unknown = await response.json().catch(() => null);
-
-  if (!response.ok || !data) {
-    const { code, message } = readErrorFields(data);
-    throw new TossConfirmError(message ?? 'toss-cancel-failed', code, response.status);
-  }
-
-  if (!isValidTossCancelResult(data)) {
-    throw new TossConfirmError('toss-response-schema-invalid', null, response.status);
-  }
-
-  return { ...data, balanceAmount: readBalanceAmount(data) };
+export async function cancelTossPaymentPartial(
+  paymentKey: string,
+  cancelReason: string,
+  cancelAmount: number,
+  idempotencyKey: string,
+  timeoutMs: number = TOSS_FETCH_TIMEOUT_MS,
+): Promise<TossConfirmResult> {
+  return requestTossCancel(paymentKey, cancelReason, { cancelAmount, idempotencyKey, timeoutMs });
 }

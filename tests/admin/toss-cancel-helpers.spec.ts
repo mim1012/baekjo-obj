@@ -14,6 +14,8 @@ test.describe('isTossClientRejection — 4xx(거절) vs 네트워크·5xx(불명
   });
 
   test('httpStatus null(네트워크/타임아웃/시크릿키 미설정) 또는 5xx는 결과 불명(false, route.ts가 502로 매핑)', () => {
+    expect(isTossClientRejection(200)).toBe(false);
+    expect(isTossClientRejection(302)).toBe(false);
     expect(isTossClientRejection(null)).toBe(false);
     expect(isTossClientRejection(500)).toBe(false);
     expect(isTossClientRejection(502)).toBe(false);

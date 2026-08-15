@@ -13,6 +13,7 @@ import ErrorState from '@/components/admin-new/common/ErrorState';
 import FormSection from '@/components/admin-new/common/FormSection';
 import OrderStatusPanel from './OrderStatusPanel';
 import OrderShipmentsPanel from './OrderShipmentsPanel';
+import OrderRefundPanel from './OrderRefundPanel';
 
 interface OrderDetailPageProps {
   id: string;
@@ -79,7 +80,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
       <div className="flex items-center gap-4 mb-2">
         <button
           onClick={() => router.push('/admin/orders')}
-          className="p-2 -ml-2 text-gray-500 hover:text-gray-900 transition-colors"
+          className="-ml-2 inline-flex min-h-11 min-w-11 items-center justify-center p-2 text-gray-500 transition-colors hover:text-gray-900"
           title="목록으로 돌아가기"
         >
           <ArrowLeft className="w-5 h-5" />
@@ -103,7 +104,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           <button
             type="button"
             onClick={handleCopyOrderId}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#17201B] hover:bg-gray-50"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-gray-300 bg-white px-4 py-2 text-[13px] font-medium text-[#17201B] hover:bg-gray-50"
           >
             {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
             {copied ? '복사됨' : '주문번호 복사'}
@@ -117,8 +118,8 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
             title={<div className="flex items-center gap-2"><Package className="w-5 h-5" /> 주문 상품 정보</div>}
             description="주문한 상품 및 수량 내역"
           >
-            <div className="border border-gray-200 rounded-md overflow-hidden">
-              <table className="w-full text-left text-[14px]">
+            <div className="overflow-x-auto rounded-md border border-gray-200">
+              <table className="min-w-[640px] w-full text-left text-[14px]">
                 <thead className="bg-gray-50 border-b border-gray-200 text-gray-600 font-medium">
                   <tr>
                     <th className="px-4 py-3">상품명</th>
@@ -206,7 +207,13 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
             </div>
           </FormSection>
 
-          <OrderStatusPanel order={order} onUpdate={loadOrder} />
+          <OrderRefundPanel order={order} onUpdate={loadOrder} />
+
+          <OrderStatusPanel
+            key={`${order.id}:${order.orderStatus}:${order.paymentStatus}:${order.deliveryStatus}:${order.trackingNumber ?? ''}:${order.carrier ?? ''}:${order.deliveryMemo ?? ''}`}
+            order={order}
+            onUpdate={loadOrder}
+          />
         </div>
       </div>
     </div>
