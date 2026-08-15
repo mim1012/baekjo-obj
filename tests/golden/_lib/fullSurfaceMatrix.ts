@@ -43,7 +43,12 @@ export const FULL_SURFACE_DOMAINS: readonly FullSurfaceDomain[] = [
     key: 'orders',
     label: '주문 관리',
     adminPages: ['/admin/orders', '/admin/orders/[id]'],
-    adminApiRoutes: ['/api/admin/orders', '/api/admin/orders/[id]', '/api/admin/orders/[id]/shipments'],
+    adminApiRoutes: [
+      '/api/admin/orders',
+      '/api/admin/orders/[id]',
+      '/api/admin/orders/[id]/refunds',
+      '/api/admin/orders/[id]/shipments',
+    ],
     publicOrMemberSurfaces: ['/checkout', '/order-complete', '/mypage?tab=orders'],
     goldenSpecs: ['admin-crud-orders.spec.ts', 'member-order-journey.spec.ts'],
     operations: ['create-order', 'status-transition', 'shipment-update', 'member-reflection'],

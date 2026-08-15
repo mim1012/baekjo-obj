@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { listAllOrders, ORDERS_LIST_CAP } from '@/lib/orders/repo';
+import { listAllOrderRefunds, listAllOrders, ORDERS_LIST_CAP } from '@/lib/orders/repo';
 import { listInsuranceApplications } from '@/lib/insurance/repo';
 import { listMembers } from '@/lib/members/repo';
 import { listAllBrandsForAdmin, BRANDS_LIST_CAP } from '@/lib/brands/repo';
@@ -22,6 +22,7 @@ import type {
   Product,
   ProductInquiry,
 } from '@/types';
+import type { OrderRefundRecord } from '@/lib/orders/refund';
 
 const RECENT_LIMIT = 5;
 
@@ -52,14 +53,18 @@ function recordSourceFailure<T>(result: PromiseSettledResult<T>, sourceName: str
  * - brands가 실패하면 행 자체를 만들 수 없으므로 brandStats 필드를 생략한다(대시보드 본체는 산다).
  * - repo LIST_CAP에 도달하면 모집단이 잘린 것이므로 meta.truncated=true + 서버 로그.
  */
-async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandStatsPayload | undefined> {
+async function loadBrandStats(
+  ordersPromise: Promise<Order[]>,
+  refundsPromise: Promise<OrderRefundRecord[]>,
+): Promise<BrandStatsPayload | undefined> {
   const failedSources: string[] = [];
   // orders는 본 응답과 같은 조회를 재사용한다(중복 쿼리 방지).
-  const [brandsRes, productsRes, inquiriesRes, ordersRes] = await Promise.allSettled([
+  const [brandsRes, productsRes, inquiriesRes, ordersRes, refundsRes] = await Promise.allSettled([
     listAllBrandsForAdmin(),
     listAllProductsForAdmin(),
     listAllInquiries(),
     ordersPromise,
+    refundsPromise,
   ]);
 
   const brands = resolveBrandsOrSkip(brandsRes);
@@ -71,9 +76,11 @@ async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandSta
   const products: Product[] = settledOr(productsRes).data;
   const inquiries: ProductInquiry[] = settledOr(inquiriesRes).data;
   const orders: Order[] = settledOr(ordersRes).data;
+  const refunds: OrderRefundRecord[] = settledOr(refundsRes).data;
   recordSourceFailure(productsRes, 'products', failedSources);
   recordSourceFailure(inquiriesRes, 'inquiries', failedSources);
   recordSourceFailure(ordersRes, 'orders', failedSources);
+  recordSourceFailure(refundsRes, 'refunds', failedSources);
 
   const since = new Date(Date.now() - BRAND_STATS_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
@@ -82,6 +89,7 @@ async function loadBrandStats(ordersPromise: Promise<Order[]>): Promise<BrandSta
     brands,
     products,
     orders,
+    refunds,
     inquiries,
     since,
     onInvalidOrderItem: () => {
@@ -143,12 +151,13 @@ export async function GET() {
 
   try {
     const ordersPromise = listAllOrders();
+    const refundsPromise = listAllOrderRefunds();
     const [orders, insurances, members, brandStatsPayload] = await Promise.all([
       ordersPromise,
       listInsuranceApplications(),
       listMembers(),
       // 브랜드 통계는 가산 필드다 — 실패해도 대시보드 본체(최근 주문·보험·승인 대기)는 살아야 한다.
-      loadBrandStats(ordersPromise),
+      loadBrandStats(ordersPromise, refundsPromise),
     ]);
 
     const recentOrders = [...orders]

@@ -8,6 +8,7 @@ import {
   type Product,
   type ProductInquiry,
 } from '@/types';
+import type { OrderRefundRecord } from '@/lib/orders/refund';
 
 /**
  * 관리자 대시보드 브랜드별 통계 — 순수 집계(DB를 모른다).
@@ -33,6 +34,7 @@ export interface BrandStatsInput {
   brands: Brand[];
   products: Product[];
   orders: Order[];
+  refunds?: OrderRefundRecord[];
   inquiries: ProductInquiry[];
   /** ISO 문자열. 이 시각 이후(inclusive) 생성된 주문만 금액에 합산한다. */
   since: string;
@@ -97,7 +99,7 @@ function itemAmount(item: { price: unknown; quantity: unknown }): number | null 
  * - 매칭되지 않는 상품을 참조하는 주문 아이템·문의도 같은 이유로 어느 브랜드에도 합산되지 않는다.
  */
 export function buildBrandStats(input: BrandStatsInput): AdminDashboardBrandStat[] {
-  const { brands, products, orders, inquiries, since, onInvalidOrderItem } = input;
+  const { brands, products, orders, refunds = [], inquiries, since, onInvalidOrderItem } = input;
   if (brands.length === 0) return [];
 
   const statByBrandId = new Map<string, AdminDashboardBrandStat>();
@@ -131,6 +133,15 @@ export function buildBrandStats(input: BrandStatsInput): AdminDashboardBrandStat
   }
 
   const sinceMs = new Date(since).getTime();
+  const refundedByOrderLine = new Map<string, Map<number, number>>();
+  for (const refund of refunds) {
+    if (refund.status !== 'SUCCEEDED') continue;
+    const byLine = refundedByOrderLine.get(refund.orderId) ?? new Map<number, number>();
+    for (const item of refund.items) {
+      byLine.set(item.lineIndex, (byLine.get(item.lineIndex) ?? 0) + item.quantity);
+    }
+    refundedByOrderLine.set(refund.orderId, byLine);
+  }
 
   for (const order of orders) {
     // ① 결제 확정이 매출의 진실 소스. orderStatus('주문접수' 등)만으로는 "돈이 들어왔는지"를 알 수 없다.
@@ -140,14 +151,17 @@ export function buildBrandStats(input: BrandStatsInput): AdminDashboardBrandStat
     const createdMs = new Date(order.createdAt).getTime();
     if (Number.isNaN(createdMs) || createdMs < sinceMs) continue;
 
-    for (const item of order.items ?? []) {
+    for (const [lineIndex, item] of (order.items ?? []).entries()) {
       const brandId = brandIdByProductId.get(item.productId);
       if (!brandId) continue;
       const stat = statByBrandId.get(brandId);
       if (!stat) continue;
       // OrderItem.price = 단가 → 아이템 금액 = price × quantity.
       // 주문 1건이 여러 브랜드를 포함할 수 있으므로 총액(totalPrice)이 아니라 아이템 단위로 귀속한다.
-      const amount = itemAmount(item);
+      const refundedQuantity = refundedByOrderLine.get(order.id)?.get(lineIndex) ?? 0;
+      const remainingQuantity = item.quantity - refundedQuantity;
+      if (remainingQuantity <= 0) continue;
+      const amount = itemAmount({ price: item.price, quantity: remainingQuantity });
       if (amount === null) {
         onInvalidOrderItem?.({ orderId: order.id, productId: item.productId });
         continue; // NaN 오염 방지 — 합계 전체가 null로 직렬화돼 UI가 터지는 걸 막는다.
