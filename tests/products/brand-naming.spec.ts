@@ -12,7 +12,7 @@ test.describe('brand naming normalization', () => {
     const home = read('src/components/home/HomeClient.tsx');
     const defaults = read('src/data/homeContent.ts');
 
-    expect(defaults).toContain('백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.');
+    expect(defaults).toContain('백조오브제 Audit을 통과한 브랜드만 소개합니다.');
     expect(defaults).toContain("badge: 'BAEKJO OBJET AUDIT'");
     expect(home).not.toContain('백조 Audit');
     expect(defaults).not.toContain('백조 Audit');

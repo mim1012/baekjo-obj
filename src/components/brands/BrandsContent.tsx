@@ -24,7 +24,7 @@ const selectionStandards = [
   { icon: Box, title: 'VALUE', description: '제품 하나에도 브랜드의 철학과 진심을 담는 브랜드' },
   { icon: ShieldCheck, title: 'PRINCIPLE', description: '제품이 만들어지는 과정에서도 타협하지 않는 브랜드' },
   { icon: ThumbsUp, title: 'SAFETY', description: '안심하고 선택할 수 있는 안전성을 갖춘 브랜드' },
-  { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지키는 브랜드' },
+  { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지켜가는 브랜드' },
 ];
 
 const filterLabels: Record<string, string> = {
@@ -96,7 +96,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
               좋은 선택이 필요합니다.
             </h1>
             <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
-              백조오브제는 브랜드 철학과 제품 가치를 살피고 우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
+              우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.
             </p>
 
             {/* Stats — 검증 브랜드 수만 간결하게 (등록 상품 수·케어 카테고리는 클라이언트 요청으로 제거) */}

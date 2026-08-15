@@ -77,6 +77,7 @@ export interface Brand {
   logo: string;
   description: string;
   philosophy: string;
+  displayTags?: string[];
   // 데이터/백엔드 전용 필드. 사용자 화면의 등급 배지는 제거되었으나 repo/validate/admin
   // (src/lib/brands/repo.ts, validate.ts, admin/brands)가 이 값을 계속 읽고 관리한다.
   // 정적 목데이터(data/brands.ts)에는 값이 없을 수 있어 선택적. DB repo 는 누락 시 'B' 로 보정.

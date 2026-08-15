@@ -1,7 +1,7 @@
 // category_settings 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 // 카테고리 설정(CategorySettings)을 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
-import type { CategorySettings } from '@/lib/categorySettings/config';
+import { normalizeStoredCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';
 
 const SETTINGS_ROW_ID = 'default';
 
@@ -16,7 +16,7 @@ export async function getCategorySettings(): Promise<CategorySettings | null> {
     .eq('id', SETTINGS_ROW_ID)
     .maybeSingle();
   if (error) throw error;
-  return data ? (data.value as CategorySettings) : null;
+  return data ? normalizeStoredCategorySettings(data.value as CategorySettings) : null;
 }
 
 /** 카테고리 설정을 통째로 upsert(id='default') 한다. 없으면 생성, 있으면 덮어쓴다. */

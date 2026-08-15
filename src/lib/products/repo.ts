@@ -1,6 +1,7 @@
 // products 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
+import { getShopCategorySlugs } from '@/data/shopFilters';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
 
@@ -104,7 +105,10 @@ export const PRODUCTS_LIST_CAP = 1000;
 
 export async function listProducts(filter: ProductListFilter = {}): Promise<Product[]> {
   let query = getSupabase().from('products').select(SELECT_COLUMNS);
-  if (filter.categorySlug) query = query.eq('category_slug', filter.categorySlug);
+  if (filter.categorySlug) {
+    const categorySlugs = getShopCategorySlugs(filter.categorySlug);
+    query = categorySlugs ? query.in('category_slug', categorySlugs) : query.eq('category_slug', filter.categorySlug);
+  }
   if (filter.brandId) query = query.eq('brand_id', filter.brandId);
   if (filter.petType) query = query.eq('pet_type', filter.petType);
   if (filter.visibleOnly ?? true) query = query.eq('is_visible', true);

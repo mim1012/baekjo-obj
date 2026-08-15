@@ -197,9 +197,9 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">우리 아이 고민에 맞는 케어 가이드</h2>
+            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{curation.title}</h2>
             <p className="mt-2 text-[14px] md:text-[15px] text-[#59615B] break-keep">
-              우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.
+              {curation.description}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
