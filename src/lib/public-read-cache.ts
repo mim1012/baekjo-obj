@@ -56,7 +56,7 @@ export const getCachedSiteSettings = unstable_cache(
 
 export const getCachedCategorySettings = unstable_cache(
   async () => getCategorySettings(),
-  ['public-category-settings-v2'],
+  ['public-category-settings-v3'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.categorySettings] },
 );
 
