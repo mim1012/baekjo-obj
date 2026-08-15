@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
-import { defaultCategorySettings } from '../../src/lib/categorySettings/config';
+import {
+  defaultCategorySettings,
+  normalizeStoredCategorySettings,
+} from '../../src/lib/categorySettings/config';
 import {
   getShopCategorySlugs,
   normalizeShopCategory,
@@ -41,5 +44,30 @@ test.describe('HWPX 공개 쇼핑 분류', () => {
       'grooming-and-brushing',
     ]);
     expect(getShopCategorySlugs('pet-loss')).toEqual(['pet-loss', 'desk-and-stationery']);
+  });
+
+  test('구버전 저장 카테고리는 HWPX 공개 6개 분류로 정규화한다', () => {
+    const savedSettings = {
+      ...defaultCategorySettings,
+      productCategories: ['사료', '간식', '영양제', '위생용품', '생활용품', '장난감', '산책용품', '미용용품'],
+    };
+
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual([
+      '푸드',
+      '영양',
+      '케어',
+      '패션',
+      '펫로스',
+      '라이프',
+    ]);
+  });
+
+  test('관리자가 저장한 비레거시 분류는 그대로 유지한다', () => {
+    const savedSettings = {
+      ...defaultCategorySettings,
+      productCategories: ['푸드', '커스텀'],
+    };
+
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(['푸드', '커스텀']);
   });
 });
