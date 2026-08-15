@@ -141,7 +141,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(getFunction).toContain(".select('value')");
     expect(getFunction).toContain(".eq('id', SETTINGS_ROW_ID)");
     expect(getFunction).toContain('.maybeSingle()');
-    expect(getFunction).toContain('return data ? (data.value as CategorySettings) : null;');
+    expect(getFunction).toContain('normalizeStoredCategorySettings(data.value as CategorySettings)');
     expect(saveFunction).toContain(".from('category_settings')");
     expect(saveFunction).toContain('upsert({ id: SETTINGS_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
