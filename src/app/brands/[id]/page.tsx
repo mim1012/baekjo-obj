@@ -121,7 +121,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">카테고리</div>
                   <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{categoryNames || '종합 케어'}</div>
-                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">아이의 건강한 습관을 돕는 제품을 소개합니다.</div>
+                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote ?? '아이의 건강한 습관을 돕는 제품을 소개합니다.'}</div>
                 </div>
               </div>
               
@@ -132,8 +132,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{relatedConcerns.map(c => c.title).join(' · ') || '전반적 관리'}</div>
-                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">전반적인 컨디션을 세심하게 케어합니다.</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? (relatedConcerns.map(c => c.title).join(' · ') || '전반적 관리')}</div>
+                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote ?? '전반적인 컨디션을 세심하게 케어합니다.'}</div>
                 </div>
               </div>
             </div>
@@ -157,15 +157,25 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                </p>
                
                <div className="flex flex-wrap gap-2">
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 꼼꼼한 원료 선별
-                 </div>
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 안전한 제조 공정
-                 </div>
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 반려가족 중심 설계
-                 </div>
+                 {brand.highlights?.length ? (
+                   brand.highlights.map((highlight, idx) => (
+                     <div key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> {highlight}
+                     </div>
+                   ))
+                 ) : (
+                   <>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 꼼꼼한 원료 선별
+                     </div>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 안전한 제조 공정
+                     </div>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 반려가족 중심 설계
+                     </div>
+                   </>
+                 )}
                </div>
 
              </div>

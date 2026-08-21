@@ -127,6 +127,12 @@ function rowToBrand(row: BrandRow): Brand {
     displayTags: Array.isArray(d.displayTags)
       ? d.displayTags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
       : undefined,
+    highlights: Array.isArray(d.highlights)
+      ? d.highlights.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : undefined,
+    summaryCategoryNote: typeof d.summaryCategoryNote === 'string' ? d.summaryCategoryNote : undefined,
+    summaryConcernLabel: typeof d.summaryConcernLabel === 'string' ? d.summaryConcernLabel : undefined,
+    summaryConcernNote: typeof d.summaryConcernNote === 'string' ? d.summaryConcernNote : undefined,
     auditGrade: normalizeAuditGrade(d.auditGrade),
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : [],
     auditReport: detailAuditReport(d.auditReport),
