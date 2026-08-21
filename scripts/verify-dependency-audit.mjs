@@ -3,7 +3,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
-const exceptionExpiresOn = '2026-08-18';
+// 2026-08-21 재검토: 아래 allowedAdvisories(nodemailer·Next 하위 postcss 계열)는 모두
+// 빌드타임 전용·사용자 입력 미도달 논거가 유효하고, Next 16.2.11 기준 패치판 postcss/nodemailer
+// 업그레이드 경로가 아직 없어 예외를 재승인한다. 다음 재검토 강제일로 연장.
+const exceptionExpiresOn = '2026-09-30';
 const today = new Date().toISOString().slice(0, 10);
 
 const allowedAdvisories = new Map([
