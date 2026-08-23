@@ -152,6 +152,32 @@ export default function BrandAuditReport({ brand }: { brand: Brand }) {
             <ArrowDown className="size-4" aria-hidden="true" />
           </Link>
         </div>
+
+        {Boolean(report.materialReview?.length) && (
+          <div className="mt-10 border-t border-[#E7E0D5] pt-10">
+            <h3 className="text-base font-bold tracking-tight text-[#17211D]">소재와 품질</h3>
+            <div className="mt-5 max-w-4xl space-y-4">
+              {report.materialReview!.map((paragraph, index) => (
+                <p key={index} className="break-keep text-sm leading-7 text-[#6F766F]">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {Boolean(report.curatorNote?.length) && (
+          <div className="mt-10 border-t border-[#E7E0D5] pt-10">
+            <h3 className="text-base font-bold tracking-tight text-[#17211D]">큐레이터 노트</h3>
+            <div className="mt-5 max-w-4xl space-y-4">
+              {report.curatorNote!.map((paragraph, index) => (
+                <p key={index} className="break-keep text-sm leading-7 text-[#6F766F]">
+                  {paragraph}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
