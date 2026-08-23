@@ -80,6 +80,7 @@ export interface Brand {
   displayTags?: string[];
   highlights?: string[];
   summaryCategoryNote?: string;
+  summaryCategoryLabel?: string;
   summaryConcernLabel?: string;
   summaryConcernNote?: string;
   // 데이터/백엔드 전용 필드. 사용자 화면의 등급 배지는 제거되었으나 repo/validate/admin
