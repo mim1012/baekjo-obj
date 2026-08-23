@@ -131,6 +131,7 @@ function rowToBrand(row: BrandRow): Brand {
       ? d.highlights.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
       : undefined,
     summaryCategoryNote: typeof d.summaryCategoryNote === 'string' ? d.summaryCategoryNote : undefined,
+    summaryCategoryLabel: typeof d.summaryCategoryLabel === 'string' ? d.summaryCategoryLabel : undefined,
     summaryConcernLabel: typeof d.summaryConcernLabel === 'string' ? d.summaryConcernLabel : undefined,
     summaryConcernNote: typeof d.summaryConcernNote === 'string' ? d.summaryConcernNote : undefined,
     auditGrade: normalizeAuditGrade(d.auditGrade),

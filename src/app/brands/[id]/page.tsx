@@ -120,7 +120,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">카테고리</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{categoryNames || '종합 케어'}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
                   <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote ?? '아이의 건강한 습관을 돕는 제품을 소개합니다.'}</div>
                 </div>
               </div>
