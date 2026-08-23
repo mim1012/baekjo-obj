@@ -146,6 +146,8 @@ function rowToBrand(row: BrandRow): Brand {
     isVisible: row.is_visible,
     displayOrder: typeof d.displayOrder === 'number' ? d.displayOrder : undefined,
     shipping: detailShipping(d.shipping),
+    wordmarkColor: typeof d.wordmarkColor === 'string' ? d.wordmarkColor : undefined,
+    wordmarkImage: typeof d.wordmarkImage === 'string' ? d.wordmarkImage : undefined,
   };
 }
 
