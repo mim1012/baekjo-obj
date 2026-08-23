@@ -32,19 +32,19 @@ const cachedPublicProductById = unstable_cache(
 
 const cachedPublicBrands = unstable_cache(
   async () => listBrands(true),
-  ['public-brands-v5'],
+  ['public-brands-v6'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 const cachedPublicBrandById = unstable_cache(
   async (id: string) => getBrandById(id),
-  ['public-brand-by-id-v5'],
+  ['public-brand-by-id-v6'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 const cachedPublicBrandBySlug = unstable_cache(
   async (slug: string) => getBrandBySlug(slug),
-  ['public-brand-by-slug-v5'],
+  ['public-brand-by-slug-v6'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 

@@ -96,6 +96,8 @@ export interface Brand {
   isVisible?: boolean;
   displayOrder?: number;
   shipping?: BrandShippingPolicy;
+  wordmarkColor?: string;
+  wordmarkImage?: string;
 }
 export interface BrandShippingPolicy {
   carrierLabel?: string;

@@ -35,6 +35,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   }
 
   const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
+  const wmMatch = brand.name.match(/^(.*?)\s*(\([A-Za-z][A-Za-z0-9 .&-]*\))\s*$/);
+  const wmBase = wmMatch ? wmMatch[1] : brand.name;
+  const wmEnglish = wmMatch ? wmMatch[2] : null;
   const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
   const representativeProducts = brandProducts.filter((product) =>
     brand.representativeProductIds.includes(product.id),
@@ -76,7 +79,24 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <h1 className="break-keep text-[28px] font-bold leading-[1.18] tracking-[-0.03em] text-[#17251F] sm:text-[32px] md:text-[36px] lg:text-[40px]">
-              {brand.name}
+              {brand.wordmarkImage ? (
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {wmBase}
+                  <Image
+                    src={brand.wordmarkImage}
+                    alt={brand.name}
+                    width={102}
+                    height={42}
+                    className="inline-block h-[0.62em] w-auto align-baseline"
+                  />
+                </span>
+              ) : brand.wordmarkColor && wmEnglish ? (
+                <>
+                  {wmBase} <span style={{ color: brand.wordmarkColor }}>{wmEnglish}</span>
+                </>
+              ) : (
+                brand.name
+              )}
             </h1>
             
             <p className="mt-3 max-w-[440px] break-keep text-[14px] leading-[1.75] text-[#6F756F] md:mt-4 md:text-[15px]">
