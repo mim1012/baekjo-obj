@@ -29,6 +29,14 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## QA and Vercel cost guard
+
+Automated browser QA is local-first by default. `npm run test:e2e` uses `http://127.0.0.1:3000` unless `E2E_BASE_URL` or `BASE_URL` is set, and Playwright starts the local dev server only for local targets.
+
+Production domains are blocked by default for Playwright, release QA, layout snapshots, and manual GitHub workflow dispatches. Production QA requires explicit approval and `ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST`; otherwise the guard exits before generating traffic. See [`docs/testing/dev-testing-guide.md`](docs/testing/dev-testing-guide.md) and [`docs/runbooks/staging-production-verification.md`](docs/runbooks/staging-production-verification.md).
+
+`src/app/robots.ts` also blocks high-cost AI crawlers (`meta-externalagent`, Meta fetch/index agents, `GPTBot`, `Amazonbot`) while leaving normal public crawling and link previews available.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

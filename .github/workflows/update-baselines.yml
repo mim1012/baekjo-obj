@@ -77,6 +77,15 @@ jobs:
           fi
           echo "url=$URL" >> "$GITHUB_OUTPUT"
 
+      - name: Production URL guard
+        env:
+          TARGET_URL: ${{ steps.preview.outputs.url }}
+        run: |
+          if echo "$TARGET_URL" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then
+            echo "::error::Production URL은 베이스라인 갱신 대상이 아닙니다. Preview URL을 사용하세요."
+            exit 1
+          fi
+
       - name: Regenerate baselines
         run: npx playwright test tests/golden/visual.spec.ts --update-snapshots=all --reporter=line
         env:

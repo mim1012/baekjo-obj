@@ -28,11 +28,24 @@ Staging과 production은 같은 코드 경로를 많이 공유하지만, 다음 
 
 ## 현재 자동화의 의도
 
-`.github/workflows/golden-crud.yml`의 `golden-crud`는 Preview/staging 전용이다. 워크플로 주석과 dispatch guard가 production 도메인(`baekjo-obj.vercel.app`)을 쓰기 스펙 대상으로 쓰지 못하게 막는다.
+`.github/workflows/golden-crud.yml`의 `golden-crud`는 Preview/staging 전용이다. 워크플로 주석과 dispatch guard가 production 도메인(`baekjo-obj.vercel.app`, `baekjo-objet.com`, `www.baekjo-objet.com`)을 쓰기 스펙 대상으로 쓰지 못하게 막는다.
 
 `tests/golden/_lib/adminCrudHelpers.ts`와 `tests/golden/_lib/memberCrudHelpers.ts`도 같은 원칙을 따른다. CRUD 스펙은 production 직접 검증용이 아니라 staging 실구동 회귀 검증용이다.
 
 상세한 테스트 구조는 [verification-procedures.md](../testing/verification-procedures.md)를 정본으로 본다.
+
+## Production 비용 안전 가드
+
+Production을 직접 때리는 자동화는 기본 금지다.
+
+- `playwright.config.ts`: `E2E_BASE_URL`/`BASE_URL`이 없으면 로컬 `http://127.0.0.1:3000`을 사용한다. production 도메인을 명시하면 `ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST` 없이는 config 로딩 단계에서 실패한다.
+- `scripts/layout-snapshot.mjs`: 스냅샷 기본값도 로컬이다. production 캡처는 같은 승인 환경변수가 있어야 한다.
+- `scripts/qa-release-check.mjs`: release QA 직접 실행도 production 도메인을 거부한다.
+- `.github/workflows/golden-crud.yml`, `release-qa.yml`, `update-baselines.yml`: 수동 입력 URL이 production이면 테스트 시작 전에 실패한다.
+
+Production 확인은 읽기 카나리 중심으로 제한한다. 쓰기/전체 스윕/베이스라인 갱신은 Preview/staging에서 실행한다.
+
+`src/app/robots.ts`는 비용 유발 AI 크롤러(`meta-externalagent`, Meta fetch/index agents, `GPTBot`, `Amazonbot`)를 전체 차단한다. 일반 사용자와 검색 노출을 위해 `facebookexternalhit` 같은 링크 미리보기 봇은 차단 목록에 넣지 않는다.
 
 ## 릴리즈 판단 기준
 
@@ -59,6 +72,7 @@ Production에서 쓰기 검증을 하려면 스펙이 아래 조건을 모두 �
 - 생성한 데이터가 스펙 안에서 정리된다.
 - 실패해도 고객 주문, 결제, 회원 권한, 공개 콘텐츠를 오염시키지 않는다.
 - production 도메인 guard를 의도적으로 우회하지 않는다.
+- `ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST` 사용 이유, 예상 요청 수, 실행 범위를 작업 로그에 남긴다.
 - 어떤 계정과 어떤 데이터를 만지는지 문서나 스펙 주석에 남아 있다.
 
 이 조건을 만족하지 못하면 production에서는 읽기 카나리만 실행하고, 쓰기 CRUD 검증은 staging에서 한다.
