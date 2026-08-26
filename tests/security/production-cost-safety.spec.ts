@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { shouldStartLocalWebServer } from '../../playwright.config';
 
 const root = path.resolve(__dirname, '..', '..');
 
@@ -17,7 +18,11 @@ test.describe('Production 비용 안전 경계', () => {
     expect(source).toContain('fullyParallel: isLocal');
     expect(source).toContain('retries: isLocal ? 1 : 0');
     expect(source).toContain('workers: isLocal ? undefined : 1');
-    expect(source).toContain('const shouldStartLocalServer = isLocal;');
+    expect(shouldStartLocalWebServer(true, ['--project=chromium'])).toBe(true);
+    expect(shouldStartLocalWebServer(true, ['--project', 'golden-smoke'])).toBe(true);
+    expect(shouldStartLocalWebServer(true, ['--project=products'])).toBe(false);
+    expect(shouldStartLocalWebServer(true, ['--project=security'])).toBe(false);
+    expect(shouldStartLocalWebServer(false, ['--project=chromium'])).toBe(false);
     expect(source).toContain("'www.baekjo-objet.com'");
     expect(source).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain('ALLOW_PRODUCTION_QA');

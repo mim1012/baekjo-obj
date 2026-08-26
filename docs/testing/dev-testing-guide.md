@@ -22,13 +22,12 @@
 실행:
 ```bash
 npm run test:e2e                                   # 전체 — 기본 타깃은 http://127.0.0.1:3000
-E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=admin --project=products --project=security --reporter=line
+npx playwright test --project=admin --project=products --project=security --reporter=line
 E2E_BASE_URL=https://<preview> npx playwright test --project=chromium        # 원격 Preview 명시 실행
 ```
 
-`admin`/`products`/`security`는 소스 검증이라 URL을 쓰지 않는다. 다만 Playwright config의 로컬 기본값은
-전역 `webServer`를 띄우므로, `.env.local`이 없는 깨끗한 worktree에서는 위처럼 production이 아닌 dummy URL을
-넣어 dev 서버 기동을 피한다.
+`admin`/`products`/`security`처럼 소스만 검증하는 프로젝트를 선택하면 로컬 `webServer`를 띄우지 않는다.
+브라우저 프로젝트를 선택하지 않은 검증에는 dummy URL을 넣을 필요가 없다.
 
 ## 2. ⚠️ 함정 목록 (전부 실사고에서 나옴)
 
@@ -79,7 +78,7 @@ E2E_BASE_URL=https://<preview> npx playwright test --project=chromium        # �
 
 ```bash
 npm run lint && npm run build
-E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=admin --project=products --project=security --reporter=line
+npx playwright test --project=admin --project=products --project=security --reporter=line
 ```
 
 - PR은 CI green + §8-6 삼중 검증(opus 리뷰·codex 리뷰·Playwright 프리뷰)이 머지 조건이다.

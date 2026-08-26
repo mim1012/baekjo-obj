@@ -35,7 +35,37 @@ if (
 }
 
 const isLocal = targetHost === 'localhost' || targetHost === '127.0.0.1';
-const shouldStartLocalServer = isLocal;
+const browserProjects = new Set([
+  'chromium',
+  'golden-crud',
+  'golden-smoke',
+  'golden-smoke-mobile',
+]);
+
+export function shouldStartLocalWebServer(
+  localTarget: boolean,
+  args: readonly string[],
+): boolean {
+  const selectedProjects: string[] = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index];
+    if (argument === '--project') {
+      const project = args[index + 1];
+      if (project) selectedProjects.push(project);
+      continue;
+    }
+    if (argument?.startsWith('--project=')) {
+      selectedProjects.push(argument.slice('--project='.length));
+    }
+  }
+  return (
+    localTarget &&
+    (selectedProjects.length === 0 ||
+      selectedProjects.some((project) => browserProjects.has(project)))
+  );
+}
+
+const shouldStartLocalServer = shouldStartLocalWebServer(isLocal, process.argv);
 const windowsChromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const localChromiumExecutablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||

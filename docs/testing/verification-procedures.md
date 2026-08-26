@@ -147,10 +147,10 @@ cron으로 "최신 main preview URL"을 안정 재해석할 방법이 마땅치 
 
 ```bash
 # 소스-계약 테스트(브라우저·DB 불필요, 즉시 실행 가능)
-E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=admin --reporter=line
+npx playwright test --project=admin --reporter=line
 
 # Production 비용 안전장치 회귀(브라우저·DB 불필요)
-E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=security --reporter=line
+npx playwright test --project=security --reporter=line
 
 # 실구동 CRUD 스펙 1개 (Preview/staging 대상, 계정 필요)
 E2E_BASE_URL=https://<preview-url> \
