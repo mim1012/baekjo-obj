@@ -26,6 +26,7 @@ test.describe('Production 비용 안전 경계', () => {
     expect(source).toContain("'www.baekjo-objet.com'");
     expect(source).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain('ALLOW_PRODUCTION_QA');
+    expect(source).toContain("'x-vercel-protection-bypass'");
   });
 
   test('레이아웃 캡처는 Production을 기본값으로 사용하지 않는다', () => {

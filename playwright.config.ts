@@ -66,6 +66,9 @@ export function shouldStartLocalWebServer(
 }
 
 const shouldStartLocalServer = shouldStartLocalWebServer(isLocal, process.argv);
+const protectionBypassHeaders = process.env.VERCEL_AUTOMATION_BYPASS
+  ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS }
+  : undefined;
 const windowsChromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const localChromiumExecutablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
@@ -93,6 +96,7 @@ export default defineConfig({
       testIgnore: ['**/admin-crud-*.spec.ts', '**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
         navigationTimeout: 30_000,
         actionTimeout: 15_000,
         trace: 'on-first-retry',
@@ -110,6 +114,7 @@ export default defineConfig({
       testMatch: ['**/admin-crud-*.spec.ts', '**/member-*.spec.ts'],
       use: {
         baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
         navigationTimeout: 30_000,
         actionTimeout: 15_000,
         trace: 'on-first-retry',
@@ -125,6 +130,7 @@ export default defineConfig({
       testMatch: ['**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
         navigationTimeout: 30_000,
         actionTimeout: 15_000,
         trace: 'on-first-retry',
@@ -140,6 +146,7 @@ export default defineConfig({
       testMatch: ['**/all-pages-smoke.spec.ts'],
       use: {
         baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
         navigationTimeout: 30_000,
         actionTimeout: 15_000,
         trace: 'on-first-retry',
