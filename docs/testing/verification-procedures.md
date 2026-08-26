@@ -107,6 +107,8 @@ Node에서 파일시스템/타입/문자열 패턴만 검사하므로 초 단위
   다른 섹션 행까지 지우는 것을 막는다(`:62-67` 주석).
 - **`workflow_dispatch`는 `base_url` 입력 필수** — dispatch 이벤트는 `deployment_status` payload가
   없어 `environment_url`이 빈 문자열이 되기 때문(opus 리뷰 MEDIUM, `golden-crud.yml:175-176` 주석).
+- **production URL guard** — 수동 입력 `base_url`이 `baekjo-obj.vercel.app`, `baekjo-objet.com`,
+  `www.baekjo-objet.com`이면 테스트 시작 전에 실패한다. 쓰기 스펙은 Preview/staging 전용이다.
 
 ### 야간/정기 전체 스윕은 없다
 
@@ -145,7 +147,10 @@ cron으로 "최신 main preview URL"을 안정 재해석할 방법이 마땅치 
 
 ```bash
 # 소스-계약 테스트(브라우저·DB 불필요, 즉시 실행 가능)
-npx playwright test --project=admin
+E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=admin --reporter=line
+
+# Production 비용 안전장치 회귀(브라우저·DB 불필요)
+E2E_BASE_URL=https://preview.example.invalid npx playwright test --project=security --reporter=line
 
 # 실구동 CRUD 스펙 1개 (Preview/staging 대상, 계정 필요)
 E2E_BASE_URL=https://<preview-url> \
