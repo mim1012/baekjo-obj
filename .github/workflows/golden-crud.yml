@@ -47,7 +47,7 @@ jobs:
       - name: prod 도메인 dispatch 가드
         if: github.event_name == 'workflow_dispatch'
         run: |
-          if echo "${{ inputs.base_url }}" | grep -qi 'baekjo-obj\.vercel\.app'; then
+          if echo "${{ inputs.base_url }}" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then
             echo "::error::base_url 이 production(baekjo-obj.vercel.app)을 가리킵니다 — 쓰기 스펙을 prod 에 돌릴 수 없습니다. Preview/staging URL 을 입력하세요."
             exit 1
           fi

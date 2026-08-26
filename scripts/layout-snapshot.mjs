@@ -1,6 +1,6 @@
 // 레이아웃 통일 작업의 before/after 기준선 스냅샷 캡처 (재실행 가능).
 // 사용: node scripts/layout-snapshot.mjs <outDir> [baseUrl]
-//   baseUrl 기본값 = https://www.baekjo-objet.com
+//   baseUrl 기본값 = http://127.0.0.1:3000 (Production은 명시적 승인 환경변수 필요)
 // 대표 public 페이지를 데스크톱/모바일 풀페이지로 캡처하고 index.html(대조 뷰)을 생성한다.
 // 통일 전 baseline을 찍어두고, 작업 후 같은 스크립트로 다시 찍어 나란히 비교한다.
 import { chromium } from '@playwright/test';
@@ -8,7 +8,23 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const outDir = process.argv[2] || 'docs/layout-baseline';
-const baseUrl = (process.argv[3] || 'https://www.baekjo-objet.com').replace(/\/$/, '');
+const baseUrl = (process.argv[3] || 'http://127.0.0.1:3000').replace(/\/$/, '');
+const targetHost = new URL(baseUrl).hostname.toLowerCase();
+const productionHosts = new Set([
+  'www.baekjo-objet.com',
+  'baekjo-objet.com',
+  'baekjo-obj.vercel.app',
+]);
+
+if (
+  productionHosts.has(targetHost) &&
+  process.env.ALLOW_PRODUCTION_QA !== 'I_ACCEPT_PRODUCTION_COST'
+) {
+  throw new Error(
+    `Production snapshot target ${targetHost} is blocked. ` +
+      'Set ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST only after explicit user approval.',
+  );
+}
 
 // 레이아웃 통일 대상 대표 페이지
 const PAGES = [
@@ -37,11 +53,7 @@ async function run() {
     const page = await context.newPage();
     for (const [name, route] of PAGES) {
       const url = `${baseUrl}${route}`;
-      try {
-        await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
-      } catch {
-        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
-      }
+      await page.goto(url, { waitUntil: 'load', timeout: 45000 });
       await page.waitForTimeout(1200);
       const file = `${name}-${vpName}.png`;
       await page.screenshot({ path: path.join(outDir, file), fullPage: true });

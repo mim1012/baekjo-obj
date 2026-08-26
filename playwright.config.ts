@@ -1,8 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import fs from 'node:fs';
 
-// 골든플로우(배포 게이트) E2E. 기본 타깃은 LIVE Vercel preview(공개).
-// 로컬 실행: E2E_BASE_URL=http://localhost:3000 로 오버라이드하면 dev 서버를 자동 기동한다.
 // 실행: `E2E_BASE_URL=<url> npx playwright test --reporter=line`
 //
 // ⚠️ `??`가 아니라 `||`로 빈 문자열도 미설정 취급한다(opus 리뷰 MEDIUM) — GitHub Actions에서
@@ -11,10 +9,33 @@ import fs from 'node:fs';
 // 통과시켜 baseURL=''이 되고, 그 상태로 page.goto()가 던진다 — 이 폴백은 golden-crud 등
 // 다른 프로젝트에도 공유되는 일반 강건성 수정이라 항상 켜둔다.
 const fromEnv = process.env.E2E_BASE_URL || process.env.BASE_URL;
-const baseURL =
-  fromEnv || 'https://baekjo-obj-git-integrate-approval-2df5a8-parkjoonhyuns-projects.vercel.app';
+const baseURL = fromEnv || 'http://127.0.0.1:3000';
+const targetHost = new URL(baseURL).hostname.toLowerCase();
+const productionHosts = new Set([
+  'www.baekjo-objet.com',
+  'baekjo-objet.com',
+  'baekjo-obj.vercel.app',
+]);
 
-const isLocal = baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
+class UnsafeProductionTargetError extends Error {
+  constructor(host: string) {
+    super(
+      `Production E2E target ${host} is blocked. ` +
+        'Set ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST only after explicit user approval.',
+    );
+    this.name = 'UnsafeProductionTargetError';
+  }
+}
+
+if (
+  productionHosts.has(targetHost) &&
+  process.env.ALLOW_PRODUCTION_QA !== 'I_ACCEPT_PRODUCTION_COST'
+) {
+  throw new UnsafeProductionTargetError(targetHost);
+}
+
+const isLocal = targetHost === 'localhost' || targetHost === '127.0.0.1';
+const shouldStartLocalServer = isLocal;
 const windowsChromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const localChromiumExecutablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
@@ -26,9 +47,10 @@ const localBrowserUse = localChromiumExecutablePath
   : {};
 
 export default defineConfig({
-  fullyParallel: true,
+  fullyParallel: isLocal,
   forbidOnly: !!process.env.CI,
-  retries: 1,
+  retries: isLocal ? 1 : 0,
+  workers: isLocal ? undefined : 1,
   timeout: 60_000,
   expect: { timeout: 10_000 },
   reporter: [['line'], ['html', { open: 'never' }]],
@@ -138,7 +160,7 @@ export default defineConfig({
     },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
-  ...(isLocal
+  ...(shouldStartLocalServer
     ? {
         webServer: {
           command: 'npm run dev',
