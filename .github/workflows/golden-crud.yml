@@ -12,6 +12,63 @@ on:
 permissions:
   contents: read
 
+env:
+  GOLDEN_CRUD_API_PATHS: |
+    src/app/api/admin/brands/
+    src/app/api/admin/category-settings/
+    src/app/api/admin/concerns/
+    src/app/api/admin/inquiries/
+    src/app/api/admin/insurance/
+    src/app/api/admin/insurance-content/
+    src/app/api/admin/kits/
+    src/app/api/admin/members/
+    src/app/api/admin/notices/
+    src/app/api/admin/order-policy/
+    src/app/api/admin/orders/
+    src/app/api/admin/partner-inquiries/
+    src/app/api/admin/partners/
+    src/app/api/admin/products/
+    src/app/api/admin/qna/
+    src/app/api/admin/reviews/
+    src/app/api/admin/settings/
+    src/app/api/admin/showcase-reviews/
+    src/app/api/admin/survey/
+  GOLDEN_CRUD_SPECS: |
+    admin-crud-brand-fields.spec.ts
+    admin-crud-brands.spec.ts
+    admin-crud-category-settings.spec.ts
+    admin-crud-concerns.spec.ts
+    admin-crud-home-settings.spec.ts
+    admin-crud-insurance.spec.ts
+    admin-crud-insurance-cert.spec.ts
+    admin-crud-insurance-content.spec.ts
+    admin-crud-kits-partners.spec.ts
+    admin-crud-members.spec.ts
+    admin-crud-members-pending-signup.spec.ts
+    admin-crud-notices.spec.ts
+    admin-crud-order-policy.spec.ts
+    admin-crud-orders.spec.ts
+    admin-crud-order-shipments.spec.ts
+    admin-crud-partner-inquiries.spec.ts
+    admin-crud-product-fields.spec.ts
+    admin-crud-product-gallery-removal.spec.ts
+    admin-crud-products.spec.ts
+    admin-crud-qna-config.spec.ts
+    admin-crud-qna-inquiries.spec.ts
+    admin-crud-reviews-moderation.spec.ts
+    admin-crud-showcase-reviews.spec.ts
+    admin-crud-survey.spec.ts
+    member-admin-edit-propagation.spec.ts
+    member-card-payment-boundary.spec.ts
+    member-diagnosis.spec.ts
+    member-inquiry-edit-save.spec.ts
+    member-order-journey.spec.ts
+    member-password-change.spec.ts
+    member-profile.spec.ts
+    member-review-inquiry.spec.ts
+    member-social-login-contract.spec.ts
+    member-wishlist.spec.ts
+
 concurrency:
   group: golden-crud-localhost-staging
   cancel-in-progress: false
@@ -67,6 +124,10 @@ jobs:
         run: |
           runtime_ref=$(node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if(typeof value.projectRef!=='string') process.exit(1); process.stdout.write(value.projectRef)" "$RUNNER_TEMP/runtime-ref.json")
           if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]; then exit 1; fi
+      - name: Validate golden coverage manifest
+        run: |
+          test -n "$GOLDEN_CRUD_API_PATHS"
+          test -n "$GOLDEN_CRUD_SPECS"
       - name: Golden CRUD and storage write validation
         run: npx playwright test --project=golden-crud --workers=1 --retries=0 --reporter=line
       - name: Payment order and confirm write validation
