@@ -9,22 +9,19 @@ import { getDataBackedShopCategoryOptions, normalizeShopCategory } from '@/data/
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const PRODUCTS_PER_PAGE = 20;
-
-const ageOptions = [
-  { id: 'all', label: '전체 연령' },
-  { id: 'puppy', label: '어린 강아지·고양이' },
-  { id: 'adult', label: '성견·성묘' },
-  { id: 'senior', label: '나이 든 아이' },
-];
 
 const priceOptions = [
   { id: 'all', label: '전체 가격' },
   { id: 'under-20000', label: '2만원 미만' },
-  { id: '20000-40000', label: '2–4만원' },
-  { id: '40000-plus', label: '4만원 이상' },
+  { id: '20000-50000', label: '2-5만원' },
+  { id: '50000-100000', label: '5-10만원' },
+  { id: '100000-plus', label: '10만원 이상' },
 ];
+
+const concernFilterSlugs = new Set(['skin', 'joint', 'obesity', 'oral']);
 
 const sortOptions: Array<{ id: SortOption; label: string }> = [
   { id: 'recommended', label: '기본순' },
@@ -59,7 +56,6 @@ function ShopInner({ products, brands, concerns }: Props) {
     lifestyle: searchParams.get('lifestyle') || undefined,
     concern: searchParams.get('concern') || undefined,
     brandId: searchParams.get('brandId') || undefined,
-    ageGroup: searchParams.get('ageGroup') || undefined,
     price: searchParams.get('price') || undefined,
     rating: searchParams.get('rating') || undefined,
     search: searchParams.get('search') || undefined,
@@ -111,8 +107,20 @@ function ShopInner({ products, brands, concerns }: Props) {
 
   const currentSort = (params.sort as SortOption) || 'recommended';
   const priceRange = params.price || 'all';
-  const minPrice = priceRange === '20000-40000' ? 20000 : priceRange === '40000-plus' ? 40000 : undefined;
-  const maxPrice = priceRange === 'under-20000' ? 19999 : priceRange === '20000-40000' ? 40000 : undefined;
+  const minPrice = priceRange === '20000-50000'
+    ? 20_000
+    : priceRange === '50000-100000'
+      ? 50_000
+      : priceRange === '100000-plus'
+        ? 100_000
+        : undefined;
+  const maxPrice = priceRange === 'under-20000'
+    ? 19_999
+    : priceRange === '20000-50000'
+      ? 49_999
+      : priceRange === '50000-100000'
+        ? 99_999
+        : undefined;
 
   // products/brands 는 서버 wrapper(page.tsx)가 repo(listProducts/listBrands)로 이미
   // is_visible=true 만 걸러 내려준다(콘센트) — 여기서 재필터링하지 않는다.
@@ -123,7 +131,6 @@ function ShopInner({ products, brands, concerns }: Props) {
       lifestyleCategory: params.lifestyle,
       concern: params.concern,
       brandId: params.brandId,
-      ageGroup: params.ageGroup,
       minPrice,
       maxPrice,
       minRating: params.rating ? Number(params.rating) : undefined,
@@ -161,6 +168,7 @@ function ShopInner({ products, brands, concerns }: Props) {
     categorySettings.productCategories,
     products.map((product) => product.categorySlug ?? product.category),
   );
+  const concernOptions = concerns.filter((concern) => concernFilterSlugs.has(concern.slug));
 
   const activeFilterCount = [
     params.petType,
@@ -168,7 +176,6 @@ function ShopInner({ products, brands, concerns }: Props) {
     params.lifestyle,
     params.concern,
     params.brandId,
-    params.ageGroup,
     params.price,
     params.rating,
   ].filter((value) => value && value !== 'all').length;
@@ -197,8 +204,8 @@ function ShopInner({ products, brands, concerns }: Props) {
 
   const shouldFocusSearch = searchParams.get('focus') === 'search';
 
-  // 고민·연령·평점 중 하나라도 적용돼 있으면 상세 필터를 펼친 상태로 렌더한다.
-  const hasDetailFilter = Boolean(params.concern || params.ageGroup || params.rating);
+  // 2026-08-27 고객 요청: 상세 필터는 고민·평점만 유지한다.
+  const hasDetailFilter = Boolean(params.concern || params.rating);
 
   const renderFilterPanel = (onNavigate?: () => void) => (
     <div className="shop-filter-sidebar pb-8">
@@ -206,6 +213,7 @@ function ShopInner({ products, brands, concerns }: Props) {
         <FilterLink onClick={onNavigate} href={makeHref('petType', 'all')} active={!params.petType}>전체</FilterLink>
         <FilterLink onClick={onNavigate} href={makeHref('petType', 'dog')} active={params.petType === 'dog'}>강아지</FilterLink>
         <FilterLink onClick={onNavigate} href={makeHref('petType', 'cat')} active={params.petType === 'cat'}>고양이</FilterLink>
+        <FilterLink onClick={onNavigate} href={makeHref('petType', 'small')} active={params.petType === 'small'}>소동물</FilterLink>
       </FilterGroup>
 
       <FilterGroup title="카테고리" defaultOpen>
@@ -226,7 +234,7 @@ function ShopInner({ products, brands, concerns }: Props) {
         <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>전체</FilterLink>
         {brands.map((brand) => (
           <FilterLink onClick={onNavigate} key={brand.id} href={makeHref('brandId', brand.id)} active={params.brandId === brand.id}>
-            {brand.name}
+            {formatBrandDisplayName(brand.name)}
           </FilterLink>
         ))}
       </FilterGroup>
@@ -239,7 +247,7 @@ function ShopInner({ products, brands, concerns }: Props) {
         ))}
       </FilterGroup>
 
-      {/* 상세 필터 — 클라이언트 요청(2026-07-24)으로 고민·연령·평점은 기본 노출에서 분리.
+      {/* 상세 필터 — 고민·평점은 기본 노출에서 분리.
           해당 필터가 이미 적용된 상태라면 접힌 채 숨지 않도록 펼쳐서 보여준다. */}
       <details open={hasDetailFilter} className="group border-b border-[#E7E0D5] py-4">
         <summary className="cursor-pointer list-none py-1 text-[13px] font-semibold tracking-wide text-[#59615B] transition-colors hover:text-[#A8742E]">
@@ -248,17 +256,9 @@ function ShopInner({ products, brands, concerns }: Props) {
         <div className="mt-1">
           <FilterGroup title="고민">
             <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>전체</FilterLink>
-            {concerns.map((concern) => (
+            {concernOptions.map((concern) => (
               <FilterLink onClick={onNavigate} key={concern.slug} href={makeHref('concern', concern.slug)} active={params.concern === concern.slug}>
                 {concern.title}
-              </FilterLink>
-            ))}
-          </FilterGroup>
-
-          <FilterGroup title="연령">
-            {ageOptions.map((option) => (
-              <FilterLink onClick={onNavigate} key={option.id} href={makeHref('ageGroup', option.id)} active={(params.ageGroup || 'all') === option.id}>
-                {option.label}
               </FilterLink>
             ))}
           </FilterGroup>
@@ -282,9 +282,9 @@ function ShopInner({ products, brands, concerns }: Props) {
       {/* 1. 상단 인트로 및 검색 */}
       <div className="shop-intro mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">Baekjo selection</p>
-          <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">우리 아이를 위한 셀렉션</h1>
-          <p className="mt-2 text-[15px] text-[#59615B]">브랜드의 생각과 제품 정보를 살펴, 일상에 잘 맞을 상품을 모으고 있어요.</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">BAEKJO OBJET SELECTION</p>
+          <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">우리 아이를 위한 좋은 선택</h1>
+          <p className="mt-2 text-[15px] text-[#59615B]">백조오브제의 기준으로 살펴보고 선택한 제품을 소개합니다.</p>
         </div>
         <form onSubmit={handleSearchSubmit} role="search" className="flex h-12 w-full shrink-0 items-center rounded-full border border-[#E7E0D5] bg-white px-4 transition-colors duration-500 focus-within:border-[#A8742E] focus-within:ring-2 focus-within:ring-[#A8742E]/10 md:w-[420px]">
           <Search aria-hidden="true" className="mr-3 size-4 shrink-0 text-[#59615B]" />
@@ -296,7 +296,7 @@ function ShopInner({ products, brands, concerns }: Props) {
             autoFocus={shouldFocusSearch}
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="상품명이나 브랜드를 검색하세요"
+            placeholder="상품명, 브랜드명, 키워드를 검색하세요"
             className="min-w-0 flex-1 bg-transparent text-sm text-[#17211D] outline-none placeholder:text-[#59615B]/60"
           />
           {searchTerm && (
@@ -323,9 +323,8 @@ function ShopInner({ products, brands, concerns }: Props) {
       {/* 3. 추천 상품 영역 */}
       {recommendedProducts.length > 0 && validPage === 1 && (
         <section className="mb-14 rounded-3xl bg-[#F3EEE6]/60 p-6 lg:p-8">
-          <div className="mb-6 flex items-baseline gap-3">
-            <h2 className="text-[22px] font-bold text-[#17211D]">에디터 추천 상품</h2>
-            <p className="text-sm text-[#59615B]">지금 백조오브제가 가장 주목하는 제품</p>
+          <div className="mb-6">
+            <h2 className="text-[22px] font-bold text-[#17211D]">DAILY PICK</h2>
           </div>
           <div className="flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-4 hide-scrollbar">
             {recommendedProducts.map(product => (
@@ -467,9 +466,8 @@ function ShopInner({ products, brands, concerns }: Props) {
           ) : (
             <div className="rounded-3xl border border-dashed border-[#D8C4A3] bg-[#FAF8F3] px-6 py-20 text-center">
               <p className="text-lg font-bold text-[#17211D]">선택한 조건에 맞는 상품을 찾지 못했어요.</p>
-              <p className="mt-2 text-[15px] text-[#59615B]">조건을 조금 넓혀 다시 살펴볼까요?</p>
               <Link href="/shop" scroll={false} className="btn-primary mt-8 inline-flex px-8">
-                필터 모두 지우기
+                필터 초기화
               </Link>
             </div>
           )}

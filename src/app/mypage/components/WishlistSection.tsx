@@ -9,6 +9,7 @@ import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { Heart, ShoppingBag, X } from 'lucide-react';
 import type { Product } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface WishlistSectionProps {
   wishlistIds: string[];
@@ -85,7 +86,7 @@ export default function WishlistSection({ wishlistIds, products, onWishlistChang
             </Link>
             <div className="mt-4 flex flex-1 flex-col">
               {product.brandName && (
-                <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
+                <span className="text-xs font-semibold text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>
               )}
               <Link href={`/shop/${product.id}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-2 hover:underline">
                 {product.name}

@@ -1,11 +1,11 @@
 'use client';
 
 import { Fragment } from 'react';
-import Image from 'next/image';
+import Image, { getImageProps } from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, ShieldCheck, Activity, Leaf, Monitor, Heart,
-  Droplet, Sparkles, Bone, Scale, Grid, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse, Stethoscope, Store
+  Droplet, Sparkles, Bone, Scale, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse
 } from 'lucide-react';
 import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
@@ -27,6 +27,24 @@ function renderLines(lines: string[], brClassName?: string) {
     </Fragment>
   ));
 }
+
+const { props: desktopHeroImageProps } = getImageProps({
+  src: '/images/home-hero-copy-safe-v2.png',
+  alt: '백조오브제의 반려생활 큐레이션을 소개하는 푸들',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+  priority: true,
+});
+
+const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
+  src: '/images/home-hero-copy-safe-mobile-v2.png',
+  alt: '백조오브제의 반려생활 큐레이션을 소개하는 푸들',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+  priority: true,
+});
 
 export default function HomeClient({
   products,
@@ -53,15 +71,12 @@ export default function HomeClient({
 
   // 아이콘·href·이미지 등 "구조"는 여기 하드코딩으로 두고, 문구만 settings 로 오버레이한다.
   const quickLinks = [
-    { icon: Grid, href: '/shop' },
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
     { icon: Rabbit, href: '/shop?petType=small' },
-    { icon: Utensils, href: '/shop?category=dining-and-nourish' },
-    { icon: Bath, href: '/shop?category=fragrance-and-hygiene' },
-    { icon: HeartPulse, href: '/shop?category=wellness-and-care' },
-    { icon: Stethoscope, href: '/concerns' },
-    { icon: Store, href: '/brands' },
+    { icon: Utensils, href: '/shop?category=food-nutrition' },
+    { icon: Bath, href: '/shop?category=care' },
+    { icon: HeartPulse, href: '/concerns' },
   ];
 
   const curationCards = [
@@ -76,9 +91,24 @@ export default function HomeClient({
   return (
     <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
       {/* 1. 메인 히어로 */}
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 pt-6 md:pt-10 pb-8 md:pb-14 lg:pt-14 lg:pb-16">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:h-[500px] gap-8 md:gap-10 lg:gap-14">
-          <div className="flex w-full flex-col items-start lg:w-[47%]">
+      <section data-testid="home-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
+        <div className="relative h-full w-full overflow-hidden">
+          <picture>
+            <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileHeroSrcSet} />
+            <img
+              {...desktopHeroImageProps}
+              alt="백조오브제의 반려생활 큐레이션을 소개하는 푸들"
+              data-testid="home-hero-image"
+              className="object-cover object-top md:object-center"
+            />
+          </picture>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
+          />
+
+          <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+            <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
             <h1 className="text-[30px] md:text-[34px] lg:text-[44px] font-bold leading-[1.2] lg:leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
               {renderLines(hero.titleLines)}
@@ -86,33 +116,32 @@ export default function HomeClient({
             <p className="mt-4 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[14px] md:text-[15px] lg:text-[16px] leading-[1.7] text-[#59615B] break-keep">
               {renderLines(hero.descriptionLines, 'hidden sm:block')}
             </p>
-            <div className="mt-6 md:mt-7 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link href="/shop" className="flex h-[48px] lg:h-[50px] items-center justify-center rounded-xl bg-[#18231F] px-8 text-[15px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
+            <div className="mt-5 grid w-full grid-cols-2 gap-2.5 md:mt-7 md:flex md:w-auto md:gap-3">
+              <Link href="/shop" className="flex h-[46px] items-center justify-center rounded-xl bg-[#18231F] px-3 text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34] md:h-[48px] md:px-8 md:text-[15px] lg:h-[50px]">
                 {hero.primaryCtaLabel}
               </Link>
-              <Link href="/concerns" className="flex h-[48px] lg:h-[50px] items-center justify-center rounded-xl border border-[#DED8CC] bg-white px-8 text-[15px] font-bold text-[#18231F] transition-colors hover:border-[#B99562]">
+              <Link href="/concerns" className="flex h-[46px] items-center justify-center rounded-xl border border-white/80 bg-white/85 px-3 text-[14px] font-bold text-[#18231F] shadow-sm backdrop-blur-sm transition-colors hover:border-[#B99562] hover:bg-white md:h-[48px] md:px-8 md:text-[15px] lg:h-[50px]">
                 {hero.secondaryCtaLabel}
               </Link>
             </div>
-            <div className="mt-6 flex items-center gap-2 text-[13px] font-medium text-[#68716C]">
+            <div className="mt-5 flex items-center gap-2 text-[12px] font-medium text-[#68716C] md:mt-6 md:text-[13px]">
               <ShieldCheck className="size-4 text-[#B99562]" strokeWidth={2} />
               {hero.trustNote}
             </div>
           </div>
-          <div className="w-full lg:w-[53%] aspect-[4/3] min-h-[260px] sm:aspect-auto sm:h-[400px] lg:h-full relative overflow-hidden rounded-[24px]">
-            <img src="/images/poodle-pet-food.png" alt="백조오브제 펫 푸드와 푸들" className="absolute inset-0 h-full w-full object-cover object-center" />
-            <div className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
-              <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
-              <div className="flex flex-col">
-                <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
-                <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
-              </div>
+          </div>
+
+          <div className="absolute right-5 top-5 z-20 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md sm:right-8 sm:top-8 lg:right-12 xl:right-14">
+            <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
+            <div className="flex flex-col">
+              <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
+              <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
+      <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
@@ -160,23 +189,22 @@ export default function HomeClient({
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-24">
-        <div className="rounded-[20px] bg-white border border-[#F2EFE9] p-4 md:p-6 lg:p-8 flex flex-col xl:flex-row xl:items-center gap-4 md:gap-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <h3 className="text-[15px] md:text-[16px] font-bold text-[#18231F] shrink-0">{quickShop.title}</h3>
-          <div className="grid grid-cols-4 gap-y-4 gap-x-2 md:flex md:flex-wrap md:gap-x-8 xl:flex-1 xl:justify-between">
+        <nav aria-label={quickShop.title} className="rounded-[22px] border border-[#E8E0D4] bg-white px-3 py-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 md:py-7 lg:px-8 lg:py-8">
+          <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:grid-cols-6 sm:gap-x-4">
             {quickLinks.map((link, i) => {
               const Icon = link.icon;
               const name = quickShop.links[i]?.name ?? '';
               return (
-                <Link key={link.href} href={link.href} className="group flex flex-col items-center gap-2 md:gap-3">
-                  <div className="flex size-[48px] md:size-[52px] items-center justify-center rounded-full bg-[#F9F8F5] text-[#18231F] transition-colors group-hover:bg-[#F2EFE9]">
-                    <Icon className="size-[22px] md:size-[24px]" strokeWidth={1.5} />
+                <Link key={`${link.href}-${i}`} href={link.href} className="group flex min-w-0 flex-col items-center gap-2.5 md:gap-3">
+                  <div className="flex size-[54px] items-center justify-center rounded-full bg-[#F8F7F4] text-[#18231F] transition-colors group-hover:bg-[#F0ECE5] md:size-[58px]">
+                    <Icon className="size-[23px] md:size-[25px]" strokeWidth={1.6} />
                   </div>
-                  <span className="text-[12px] md:text-[13px] font-medium text-[#68716C] group-hover:text-[#18231F] whitespace-nowrap tracking-tight">{name}</span>
+                  <span className="whitespace-nowrap text-[13px] font-medium tracking-tight text-[#59615B] transition-colors group-hover:text-[#18231F] md:text-[14px]">{name}</span>
                 </Link>
               );
             })}
           </div>
-        </div>
+        </nav>
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
@@ -265,7 +293,7 @@ export default function HomeClient({
                 {insuranceBanner.title}
               </h2>
               <p className="mt-2 text-[13px] md:text-[15px] leading-[1.6] text-white/80 break-keep">
-                같은 품종이라도,<br />나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.
+                {insuranceBanner.description}
               </p>
             </div>
 

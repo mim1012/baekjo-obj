@@ -11,6 +11,7 @@ import { ArrowRight, Leaf, ShieldCheck, Box, ThumbsUp, Recycle } from 'lucide-re
 import Image from 'next/image';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 
 interface Props {
   brands: Brand[];
@@ -34,35 +35,11 @@ const filterLabels: Record<string, string> = {
 };
 
 function getCustomBrandDetails(brand: Brand) {
-  let finalName = brand.name;
-  let finalDescription = brand.description;
-
-  if (brand.name.includes('노블독') || brand.name.includes('노볼독')) {
-    finalName = '노볼독 (NobleDog)';
-    finalDescription = '꾸준한 구강 관리를 고민하는 브랜드';
-  } else if (brand.name.includes('알로밍')) {
-    finalName = '알로밍 (ALLOMING)';
-    finalDescription = '교감의 시간을 제품으로 설계하는 브랜드';
-  } else if (brand.name.includes('오미프로')) {
-    finalName = '오미프로 (OMIPRO)';
-    finalDescription = '몸속의 작은 변화까지 고민하는 영양 브랜드';
-  } else if (brand.name.includes('페네핏')) {
-    finalName = '페네핏 (PENEFIT)';
-    finalDescription = '더 많은 아이들이 함께할 수 있는 식탁을 고민하는 브랜드';
-  } else if (brand.name.includes('써니사이드업') || brand.name.includes('써니 사이드업') || brand.name.includes('써니 사이어드')) {
-    finalName = '써니사이드업';
-    finalDescription = '연구의 시작부터 생명을 먼저 생각하는 브랜드';
-  } else if (brand.name.includes('차콜스토리') || brand.name.includes('챠콜스토리')) {
-    finalName = '차콜스토리 (Charcoal Story)';
-    finalDescription = '숯의 가치를 반려동물에게 전하는 브랜드';
-  } else if (brand.name.includes('RE:펫') || brand.name.includes('리펫')) {
-    finalName = 'RE:펫';
-    finalDescription = '펫로스를 가장 가까이에서 경험한 작가가 만드는 브랜드';
-  } else if (brand.name.includes('메종슈슈')) {
-    finalName = '메종슈슈 (Maison Chouchou)';
-    finalDescription = '입히는 대상이 아닌, 함께 살아가는 존재로 대하는 브랜드';
-  }
-  return { finalName, finalDescription };
+  const presentation = getBrandPresentation(brand);
+  return {
+    finalName: formatBrandDisplayName(brand.name),
+    finalDescription: presentation.cardDescription,
+  };
 }
 
 function BrandsInner({ brands, initialSpotlightBrand }: Props) {
@@ -138,7 +115,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
               좋은 선택이 필요합니다.
             </h1>
             <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
-              백조오브제는 브랜드 철학과 제품 가치를 살피고 우리 아이의 일상에 오래 함께할 브랜드를 소개합니다.
+              우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.
             </p>
 
             {/* Stats — 검증 브랜드 수만 간결하게 (등록 상품 수·케어 카테고리는 클라이언트 요청으로 제거) */}

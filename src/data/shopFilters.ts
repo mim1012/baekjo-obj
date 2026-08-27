@@ -9,14 +9,30 @@ export interface ShopCategoryFilter {
  * 기존 운영 데이터의 한글 카테고리도 aliases로 받아 기존 링크가 끊기지 않게 합니다.
  */
 export const shopCategoryFilters: ShopCategoryFilter[] = [
-  { slug: 'dining-and-nourish', label: '식사와 영양', aliases: ['사료', '간식'] },
-  { slug: 'wellness-and-care', label: '건강과 케어', aliases: ['영양제', '건강과 관리'] },
-  { slug: 'fragrance-and-hygiene', label: '구강과 위생', aliases: ['위생용품', '향기와 위생'] },
-  { slug: 'grooming-and-brushing', label: '그루밍과 브러싱', aliases: ['미용용품'] },
-  { slug: 'living-and-objet', label: '생활과 오브제', aliases: ['생활용품', '주거와 미학'] },
-  { slug: 'fashion-and-accessories', label: '패션과 액세서리' },
-  { slug: 'play-and-activity', label: '놀이와 활동', aliases: ['장난감', '산책용품'] },
-  { slug: 'desk-and-stationery', label: '기록과 소품' },
+  {
+    slug: 'food-nutrition',
+    label: '식품·영양',
+    aliases: ['푸드', '식품', '영양', '사료', '간식', '영양제', '식사와 영양', 'dining-and-nourish'],
+  },
+  {
+    slug: 'care',
+    label: '케어',
+    aliases: [
+      '건강과 케어', '건강과 관리', '구강과 위생', '위생용품', '향기와 위생',
+      '그루밍과 브러싱', '미용용품', 'wellness-and-care', 'fragrance-and-hygiene',
+      'grooming-and-brushing',
+    ],
+  },
+  { slug: 'fashion', label: '패션', aliases: ['패션과 액세서리', 'fashion-and-accessories'] },
+  { slug: 'pet-loss', label: '펫로스', aliases: ['반려동물 장례', '추모'] },
+  {
+    slug: 'life',
+    label: '라이프',
+    aliases: [
+      '생활과 오브제', '생활용품', '주거와 미학', '놀이와 활동', '장난감', '산책용품',
+      '기록과 소품', 'living-and-objet', 'play-and-activity', 'desk-and-stationery',
+    ],
+  },
 ];
 
 export function resolveShopCategory(value?: string): ShopCategoryFilter | undefined {
@@ -37,9 +53,9 @@ export function toShopCategoryOption(value: string): ShopCategoryFilter {
 }
 
 /**
- * 관리자 설정과 실제 공개 상품 데이터가 어긋나더라도 0건짜리 죽은 카테고리를 노출하지 않는다.
- * 설정에 있으면서 실제 상품이 있는 항목을 먼저 유지하고, 설정에 누락된 실제 카테고리는 공개
- * 기준 순서로 보완한다. 사용자 정의 카테고리도 상품에 실제로 쓰이고 있으면 그대로 보존한다.
+ * 2026-08-27 고객 확정 기본 카테고리 5개는 상품 수와 관계없이 같은 순서로 노출한다.
+ * 기존 운영 데이터와 관리자 사용자 정의 카테고리는 실제 상품에 쓰이는 경우 뒤에 보완해
+ * 링크와 저장 데이터의 하위 호환성을 유지한다.
  */
 export function getDataBackedShopCategoryOptions(
   configuredValues: string[],
@@ -51,14 +67,14 @@ export function getDataBackedShopCategoryOptions(
   const availableSlugs = new Set(availableOptions.map((option) => option.slug));
 
   const candidates = [
-    ...configuredValues.map(toShopCategoryOption),
     ...shopCategoryFilters,
+    ...configuredValues.map(toShopCategoryOption),
     ...availableOptions,
   ];
 
   return candidates.filter(
     (option, index, self) =>
-      availableSlugs.has(option.slug) &&
+      (shopCategoryFilters.some((category) => category.slug === option.slug) || availableSlugs.has(option.slug)) &&
       index === self.findIndex((candidate) => candidate.slug === option.slug),
   );
 }

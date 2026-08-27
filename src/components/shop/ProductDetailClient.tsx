@@ -12,6 +12,7 @@ import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
 import { getFirstAvailableOption, getPurchasableStock } from '@/lib/products/inventory';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface Props {
   product: Product;
@@ -84,7 +85,7 @@ export default function ProductDetailClient({ product }: Props) {
     setSelectedOption(getFirstAvailableOption(product)?.id || product.options?.[0]?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
-  const brandName = product.brandName ?? product.brandId;
+  const brandName = formatBrandDisplayName(product.brandName ?? product.brandId);
 
 
   // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
@@ -153,7 +154,7 @@ export default function ProductDetailClient({ product }: Props) {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
+    <div data-testid="product-detail" className="flex flex-col lg:flex-row gap-12 lg:gap-16">
       {/* Image Gallery */}
       <div className="w-full lg:w-1/2">
         {gallery.length > 0 ? (

@@ -73,28 +73,22 @@ export const defaultHomeSettings: HomeSettings = {
   hero: {
     eyebrow: 'Curated Pet Brands',
     titleLines: ['좋은 브랜드를', '찾고 계셨나요?'],
-    descriptionLines: [
-      '성분과 제조 기준, 보호자의 사용 가치를 확인한 반려동물 브랜드와',
-      '상품을 소개합니다.',
-    ],
+    descriptionLines: ['좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.'],
     primaryCtaLabel: '검증 상품 보기',
     secondaryCtaLabel: '고민별 찾아보기',
-    trustNote: '백조오브제 Audit 검증을 통과한 브랜드만 소개합니다.',
+    trustNote: '백조오브제 Audit을 통과한 브랜드만 소개합니다.',
     badgeTitle: 'Audit Passed',
     badgeSubtitle: '검증 기준 통과',
   },
   quickShop: {
     title: '빠른 쇼핑',
     links: [
-      { name: '전체 상품' },
       { name: '강아지' },
       { name: '고양이' },
       { name: '소동물' },
       { name: '사료·간식' },
       { name: '위생·배변' },
       { name: '건강관리' },
-      { name: '고민별 케어' },
-      { name: '브랜드관' },
     ],
   },
   bestProducts: {
@@ -136,8 +130,8 @@ export const defaultHomeSettings: HomeSettings = {
   insuranceBanner: {
     eyebrow: '펫보험 보장 확인',
     title: '보험도 우리 아이 기준으로.',
-    description: '보험 상품을 우리 아이의 조건에 맞게 비교해 보세요. 가장 적합한 펫보험을 찾아보세요.',
-    buttonLabel: '보험 분석 알아보기',
+    description: '같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.',
+    buttonLabel: '보험 분석 시작하기',
   },
   trustBoard: {
     reviewsTitle: '반려가족 후기',
@@ -192,6 +186,12 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
   const trustBoard = isRecord(root.trustBoard) ? root.trustBoard : {};
 
   const d = defaultHomeSettings;
+  const storedQuickShopLinks = Array.isArray(quickShop.links) ? quickShop.links : [];
+  const firstStoredQuickShopLink = storedQuickShopLinks[0];
+  const quickShopLinksInput = isRecord(firstStoredQuickShopLink)
+    && firstStoredQuickShopLink.name === '전체 상품'
+    ? storedQuickShopLinks.slice(1, 7)
+    : storedQuickShopLinks;
 
   return {
     hero: {
@@ -206,7 +206,7 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
     },
     quickShop: {
       title: asString(quickShop.title, d.quickShop.title),
-      links: asObjectArray(quickShop.links, d.quickShop.links, (item, fallback) => ({
+      links: asObjectArray(quickShopLinksInput, d.quickShop.links, (item, fallback) => ({
         name: asString(item.name, fallback.name),
       })),
     },

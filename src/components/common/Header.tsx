@@ -14,6 +14,7 @@ import {
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { getCartCount } from '@/lib/cart';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import BrandMark from './BrandMark';
@@ -70,7 +71,7 @@ export default function Header() {
           list
             .filter((brand) => brand.isVisible !== false)
             .map((brand) => ({
-              label: brand.name.split(' (')[0],
+              label: formatBrandDisplayName(brand.name),
               href: `/brands/${brand.id}`,
             })),
         ),

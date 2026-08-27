@@ -15,6 +15,7 @@ import {
 } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
+import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -23,17 +24,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const brand = await getCachedPublicBrandById(id);
   if (!brand) return { title: '브랜드를 찾을 수 없습니다', robots: { index: false, follow: false } };
+  const fullBrandName = formatBrandDisplayName(brand.name);
 
   return {
-    title: brand.name,
+    title: fullBrandName,
     description: brand.description,
     alternates: { canonical: `/brands/${brand.id}` },
     openGraph: {
       type: 'website',
       url: `/brands/${brand.id}`,
-      title: brand.name,
+      title: fullBrandName,
       description: brand.description,
-      images: brand.logo ? [{ url: brand.logo, alt: `${brand.name} 로고` }] : undefined,
+      images: brand.logo ? [{ url: brand.logo, alt: `${fullBrandName} 로고` }] : undefined,
     },
   };
 }
@@ -46,7 +48,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
+  const presentation = getBrandPresentation(brand);
+  const fullBrandName = formatBrandDisplayName(brand.name);
   const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
   const representativeProducts = brandProducts.filter((product) =>
     brand.representativeProductIds.includes(product.id),
@@ -66,7 +69,10 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const hasPublishedAudit = Boolean(brand.auditReport);
   
   const auditStatusText = hasPublishedAudit ? (brand.auditReport?.status || 'Audit 통과') : '입점 자료 확인 중';
-  const categoryNames = [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
+  const categoryNames = presentation.categories
+    || [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
+  const relatedConcernNames = presentation.concerns
+    || relatedConcerns.map((concern) => concern.title).join(' · ');
 
   return (
     <main className="bg-[#F8F6F0] pb-24 md:pb-14">
@@ -88,17 +94,17 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <h1 className="break-keep text-[28px] font-bold leading-[1.18] tracking-[-0.03em] text-[#17251F] sm:text-[32px] md:text-[36px] lg:text-[40px]">
-              {brand.name}
+              {fullBrandName}
             </h1>
             
             <p className="mt-3 max-w-[440px] break-keep text-[14px] leading-[1.75] text-[#6F756F] md:mt-4 md:text-[15px]">
-              {brand.description}
+              {presentation.detailDescription}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {relatedConcerns.map((concern) => (
-                <span key={concern.slug} className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
-                  {concern.title}
+              {presentation.audienceTags.map((tag) => (
+                <span key={tag} className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
+                  {tag}
                 </span>
               ))}
               <span className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
@@ -113,7 +119,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                {displayProducts[0] ? (
                  <Image src={displayProducts[0].image} alt={displayProducts[0].name} fill className="object-contain p-4 mix-blend-multiply md:p-6" sizes="(max-width: 768px) 100vw, 54vw" priority />
                ) : (
-                 <Image src={getBrandDisplayLogo(brand)} alt={brand.name} fill className="object-contain p-12 mix-blend-multiply" sizes="(max-width: 768px) 100vw, 57vw" priority />
+                 <Image src={getBrandDisplayLogo(brand)} alt={fullBrandName} fill className="object-contain p-12 mix-blend-multiply" sizes="(max-width: 768px) 100vw, 57vw" priority />
                )}
             </div>
           </div>
@@ -144,7 +150,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{relatedConcerns.map(c => c.title).join(' · ') || '전반적 관리'}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{relatedConcernNames}</div>
                   <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">전반적인 컨디션을 세심하게 케어합니다.</div>
                 </div>
               </div>
@@ -162,7 +168,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              <div className="flex-1 border-b border-[#E2DACD] p-5 md:p-6 lg:w-[48%] lg:border-r lg:border-b-0 lg:p-8">
                <div className="text-[11px] md:text-[12px] font-bold text-[#6F756F] tracking-wide mb-3">BRAND STORY</div>
                <h2 className="mb-3 break-keep text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:text-[20px]">
-                 {brand.name}의 브랜드 철학
+                 {fullBrandName}의 브랜드 철학
                </h2>
                <p className="mb-6 whitespace-pre-line break-keep text-[13px] leading-[1.75] text-[#6F756F] md:text-[14px]">
                  {brand.philosophy || brand.description}
@@ -258,7 +264,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">이 브랜드에서 먼저 보여드리고 싶은 것들</h2>
-               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{shortBrandName}의 대표 제품을 소개합니다.</p>
+               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}의 대표 제품을 소개합니다.</p>
              </div>
              {brandProducts.length > 0 && (
                <Link href={`/shop?brandId=${brand.id}`} className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
@@ -295,7 +301,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">반려가족 후기</h2>
-               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{shortBrandName}을 사용한 보호자들의 솔직한 후기를 확인해보세요.</p>
+               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}을 사용한 보호자들의 솔직한 후기를 확인해보세요.</p>
              </div>
              {brandReviews.length > 0 && (
                <Link href="/reviews" className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">

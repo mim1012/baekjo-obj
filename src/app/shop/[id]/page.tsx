@@ -80,9 +80,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   return (
     <div className="page-canvas pb-16">
       <div className="site-container-wide py-8 lg:py-12">
-        <ProductDetailClient product={product} />
+        <ProductDetailClient product={{ ...product, brandName: brand?.name ?? product.brandName }} />
 
-        <ProductTabsClient product={{ ...product, brandName: brand?.name }}>
+        <ProductTabsClient product={{ ...product, brandName: brand?.name ?? product.brandName }}>
           <section id="story" className="scroll-mt-36">
             <div className="mx-auto max-w-3xl">
               <p className="page-eyebrow">상품 이야기</p>

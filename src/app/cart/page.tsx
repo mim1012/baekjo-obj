@@ -11,6 +11,7 @@ import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
 import { getPurchasableStock } from '@/lib/products/inventory';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 export default function CartPage() {
   const mounted = useMounted();
@@ -72,7 +73,9 @@ export default function CartPage() {
     const basePrice = hasPrice ? (product?.salePrice || product?.price || 0) : 0;
     const optionPrice = option?.priceDiff ?? option?.price ?? 0;
     const price = basePrice + optionPrice;
-    const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
+    const brandName = formatBrandDisplayName(
+      product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId || '',
+    );
     const availableStock = product ? getPurchasableStock(product, item.optionId) : 0;
 
     return {

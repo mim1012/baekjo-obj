@@ -124,7 +124,7 @@ const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/privacy': (page) => h1Visible(page, '개인정보처리방침'),
   '/refund-policy': (page) => h1Visible(page, '배송·교환·환불 안내'),
   '/reviews': (page) => h1Visible(page, '반려가족의 리얼 후기'),
-  '/shop': (page) => h1Visible(page, '우리 아이를 위한 셀렉션'),
+  '/shop': (page) => h1Visible(page, '우리 아이를 위한 좋은 선택'),
   '/signup': (page) => h1Visible(page, '회원가입'),
   '/terms': (page) => h1Visible(page, '이용약관'),
   // 토큰 없는 cold visit — 각 페이지의 "링크가 올바르지 않다" 계열 문구가 정상 상태다.

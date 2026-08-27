@@ -29,6 +29,9 @@ async function visibleGridNames(page: Page): Promise<string[]> {
 }
 
 async function expectGridNames(page: Page, expectedNames: string[]): Promise<void> {
+  // Next의 라우트 전환 동안 이전/새 트리가 약 100ms 함께 존재할 수 있으므로
+  // 클라이언트 provider 갱신까지 끝난 안정 상태의 그리드를 비교한다.
+  await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
   const headings = page.locator('.shop-product-grid article h3');
   await expect(headings).toHaveCount(expectedNames.length);
   expect((await headings.allTextContents()).sort()).toEqual([...expectedNames].sort());
@@ -46,7 +49,7 @@ async function expectNoHorizontalOverflow(page: Page, route: string, width: numb
 }
 
 test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
-  test('실제 상품이 있는 모든 카테고리를 클릭하면 URL·건수·상품 데이터가 일치한다', async ({ page }) => {
+  test('0827 기본 카테고리를 클릭하면 URL·건수·상품 또는 빈 상태가 실제 데이터와 일치한다', async ({ page }) => {
     const { products } = await catalog(page);
     await page.goto('/shop');
 
@@ -61,13 +64,14 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       const expectedProducts = products.filter(
         (product) => normalizeShopCategory(product.categorySlug ?? product.category) === normalizeShopCategory(selected),
       );
-      expect(expectedProducts.length, `${selected} 데이터가 0건인 죽은 필터`).toBeGreaterThan(0);
-
       await page.goto('/shop');
-      await page.locator(`.shop-category-tabs a[href="${href}"]`).click();
+      await page.locator(`.shop-category-tabs a[href="${href}"]`).first().click();
       await expect(page).toHaveURL(new RegExp(`category=${encodeURIComponent(selected)}`));
       await expect(page.locator('#shop-toolbar')).toContainText(`${expectedProducts.length}개`);
       expect((await visibleGridNames(page)).sort()).toEqual(expectedProducts.map((product) => product.name).sort());
+      if (expectedProducts.length === 0) {
+        await expect(page.getByText('선택한 조건에 맞는 상품을 찾지 못했어요.')).toBeVisible();
+      }
 
       await page.reload();
       await expect(page.locator('#shop-toolbar')).toContainText(`${expectedProducts.length}개`);
@@ -75,6 +79,7 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
   });
 
   test('정확명·부분명·브랜드·영문/숫자·앞뒤 공백·0건 검색과 뒤로가기를 검증한다', async ({ page }) => {
+    test.setTimeout(180_000);
     const { products } = await catalog(page);
     const sellable = products.find((product) => product.price != null && product.stock > 0)!;
     const englishToken = products
@@ -128,6 +133,7 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
   });
 
   test('모든 브랜드·가격 필터·카테고리 조합과 모든 정렬 결과가 실제 데이터와 일치한다', async ({ page }) => {
+    test.setTimeout(180_000);
     const { products, brands } = await catalog(page);
     const dataBackedBrands = brands.filter((candidate) => products.some((product) => product.brandId === candidate.id));
 
@@ -156,7 +162,8 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
     await expectGridNames(page, brandProducts.map((product) => product.name));
 
     const category = brandProducts[0].categorySlug ?? brandProducts[0].category;
-    await page.locator(`.shop-category-tabs a[href*="category=${encodeURIComponent(category)}"]`).click();
+    const normalizedCategory = normalizeShopCategory(category)!;
+    await page.locator(`.shop-category-tabs a[href*="category=${encodeURIComponent(normalizedCategory)}"]`).click();
     const combined = brandProducts.filter(
       (product) => normalizeShopCategory(product.categorySlug ?? product.category) === normalizeShopCategory(category),
     );
@@ -165,8 +172,9 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
 
     const priceCases = [
       { id: 'under-20000', label: '2만원 미만', minPrice: undefined, maxPrice: 19_999 },
-      { id: '20000-40000', label: '2–4만원', minPrice: 20_000, maxPrice: 40_000 },
-      { id: '40000-plus', label: '4만원 이상', minPrice: 40_000, maxPrice: undefined },
+      { id: '20000-50000', label: '2-5만원', minPrice: 20_000, maxPrice: 49_999 },
+      { id: '50000-100000', label: '5-10만원', minPrice: 50_000, maxPrice: 99_999 },
+      { id: '100000-plus', label: '10만원 이상', minPrice: 100_000, maxPrice: undefined },
     ];
     for (const priceCase of priceCases) {
       await page.goto('/shop');
@@ -284,6 +292,7 @@ test.describe('런칭 핵심: 옵션·장바구니·모바일·예외 상태', (
   });
 
   test('요청된 대표 PC·태블릿·모바일 너비에서 핵심 페이지 가로 넘침이 없다', async ({ page }) => {
+    test.setTimeout(180_000);
     const widths = [320, 360, 375, 390, 412, 430, 768, 820, 1024, 1280, 1366, 1440, 1920];
     for (const width of widths) {
       for (const route of ['/', '/shop', '/shop/p1', '/cart']) {

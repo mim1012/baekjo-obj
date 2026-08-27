@@ -10,6 +10,7 @@ import BrandLogo from '@/components/common/BrandLogo';
 import EmptyState from '@/components/common/EmptyState';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface ConcernDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -22,9 +23,8 @@ interface ConcernHeroCopy {
 
 const concernHeroCopy: Record<string, ConcernHeroCopy> = {
   tear: {
-    title: '눈물 자국이 자꾸\n신경 쓰일 때',
-    description:
-      '눈가에 남는 자국은 식사와 환경, 눈 주변 상태처럼 여러 이유가 함께 영향을 줄 수 있어요. 평소와 달라진 점부터 하나씩 살펴봐요.',
+    title: '눈물 자국, 닦아주는 것만으로 충분할까요?',
+    description: '매일 닦아도 반복된다면, 관리 방법부터 다시 살펴볼 필요가 있어요.',
   },
   joint: {
     title: '걷고 움직이는 모습이 예전과 다를 때',
@@ -62,6 +62,24 @@ const concernHeroCopy: Record<string, ConcernHeroCopy> = {
       '나이가 들수록 필요한 돌봄의 속도도 달라져요. 움직임과 식사, 휴식의 변화를 세심하게 살펴봐요.',
   },
 };
+
+const tearHospitalSigns = [
+  '심한 충혈·부음',
+  '노란색·녹색 눈곱 지속',
+  '눈을 잘 못 뜸·찡그림',
+  '반복적인 심한 비빔·긁음',
+  '눈이 뿌옇게 보임',
+  '눈 또는 눈꺼풀 상처',
+];
+
+const tearSymptoms = [
+  '갈색·적갈색 자국',
+  '눈물 양 증가',
+  '눈 주변 털 축축함',
+  '노란 눈곱',
+  '눈 비빔·긁음',
+  '한쪽 눈물 증가',
+];
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -116,6 +134,8 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
     tear: '/images/care-hero-tear.webp',
   };
   const heroImage = concernHeroImages[concern.slug] || '/images/hero-curation-visual.png';
+  const hospitalSigns = concern.slug === 'tear' ? tearHospitalSigns : concern.causes;
+  const symptoms = concern.slug === 'tear' ? tearSymptoms : concern.symptoms;
 
   return (
     <main className="flex flex-col bg-[#F8F6F0] min-h-screen pb-0">
@@ -134,7 +154,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
 
             <div className="inline-flex h-[34px] sm:h-[36px] items-center gap-1.5 rounded-full border border-[#E4DDD1] bg-[#F2EEE5]/50 px-3.5 sm:px-4 text-[13px] sm:text-[14px] font-bold text-[#17251F]">
               <span aria-hidden="true" className="text-[16px] leading-none">{concern.icon}</span>
-              {concern.title} CARE
+              {concern.title} 케어
             </div>
 
             <h1 className="mt-6 sm:mt-7 max-w-[520px] break-keep text-[32px] sm:text-[42px] lg:text-[54px] font-bold leading-[1.14] tracking-[-0.035em] text-[#17251F] whitespace-pre-line">
@@ -171,7 +191,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
             </div>
             <div className="flex flex-col flex-1">
               <span className="flex items-center gap-1.5 text-[15px] lg:text-[16px] font-bold tracking-tight text-[#17251F]">
-                <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">01</span> 주요 원인 확인
+                <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">01</span> 원인 살펴보기
               </span>
               <span className="mt-1 text-[13px] lg:text-[14px] text-[#72766F] break-keep leading-snug">식사·환경·생활 습관 등<br className="hidden lg:block" />주요 원인을 함께 살펴봅니다.</span>
             </div>
@@ -199,7 +219,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
             </div>
             <div className="flex flex-col flex-1">
               <span className="flex items-center gap-1.5 text-[15px] lg:text-[16px] font-bold tracking-tight text-[#17251F]">
-                <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">03</span> 병원 방문 기준
+                <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">03</span> 병원 방문 판단하기
               </span>
               <span className="mt-1 text-[13px] lg:text-[14px] text-[#72766F] break-keep leading-snug">진료가 필요한 신호와<br className="hidden lg:block" />병원 방문 기준을 정리했습니다.</span>
             </div>
@@ -216,7 +236,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           <div className="w-full lg:w-[52%] p-6 sm:p-8 lg:p-10 bg-[#FFFEFB] border border-[#E4DDD1] rounded-[20px] lg:rounded-[24px]">
             <h3 className="text-[18px] lg:text-[20px] font-bold tracking-tight text-[#17251F] mb-6">생활 속에서 보이는 신호</h3>
             <ul className="grid gap-3 sm:grid-cols-2">
-              {concern.symptoms.map((symptom) => (
+              {symptoms.map((symptom) => (
                 <li
                   key={symptom}
                   className="flex items-center gap-3 rounded-[12px] lg:rounded-[14px] border border-[#E4DDD1] bg-white px-4 lg:px-[18px] h-[64px] lg:h-[72px]"
@@ -231,17 +251,17 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           {/* 오른쪽: 병원 방문 기준 (48%) */}
           <div className="w-full lg:w-[48%] p-6 sm:p-8 lg:p-10 bg-[#FFFEFB] border border-[#E4DDD1] rounded-[20px] lg:rounded-[24px]">
             <h3 className="break-keep text-[18px] lg:text-[20px] font-bold tracking-tight text-[#17251F]">
-              병원은 하나의 정답지지 않아요
+              병원 방문을 판단해야 하는 신호
             </h3>
             <p className="mt-2.5 break-keep text-[13px] lg:text-[14px] leading-[1.65] text-[#72766F]">
               다음 중 하나 이상에 해당한다면 수의사와 상담해보세요.<br className="hidden lg:block"/>
               정확한 진단을 통해 적절한 케어를 시작할 수 있어요.
             </p>
             <ol className="mt-7 space-y-3 lg:space-y-3.5">
-              {concern.causes.map((cause) => (
-                <li key={cause} className="flex items-start gap-2.5">
+              {hospitalSigns.map((sign) => (
+                <li key={sign} className="flex items-start gap-2.5">
                   <span className="mt-[7px] size-1.5 shrink-0 rounded-full bg-[#B68B4E]" />
-                  <span className="break-keep text-[14px] font-medium leading-[1.6] text-[#17251F]">{cause}</span>
+                  <span className="break-keep text-[14px] font-medium leading-[1.6] text-[#17251F]">{sign}</span>
                 </li>
               ))}
             </ol>
@@ -272,7 +292,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
                         <BrandLogo brand={brand} size="md" surface={false} />
                       </div>
                       <h3 className="break-keep text-[16px] lg:text-[17px] font-bold tracking-tight text-[#17251F]">
-                        {brand.name} <span className="font-editorial font-normal text-[14px] text-[#72766F]">({brand.name.replace(/[^a-zA-Z\s()]/g, '').trim() || brand.id})</span>
+                        {formatBrandDisplayName(brand.name)}
                       </h3>
                       <p className="mt-2 break-keep text-[13px] leading-[1.6] text-[#72766F]">
                         {brand.description}

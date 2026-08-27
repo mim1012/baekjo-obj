@@ -35,9 +35,19 @@ export function filterProducts(
     if (filters.maxPrice && (p.salePrice ?? p.price ?? Infinity) > filters.maxPrice) return false;
     if (filters.minRating && p.rating < filters.minRating) return false;
     if (filters.search) {
-      const q = filters.search.toLowerCase();
-      const searchableText = `${p.name} ${p.brandName ?? ''} ${p.description}`.toLowerCase();
-      if (!searchableText.includes(q)) return false;
+      const normalizeSearchText = (value: string) => value.toLocaleLowerCase('ko-KR').replace(/[\s:·()[\]_-]+/g, '');
+      const q = normalizeSearchText(filters.search);
+      const searchableText = [
+        p.name,
+        p.brandName ?? '',
+        p.description,
+        p.category,
+        p.categoryName ?? '',
+        p.categorySlug ?? '',
+        ...p.concernTags,
+      ].join(' ');
+      const normalizedSearchableText = normalizeSearchText(searchableText);
+      if (!normalizedSearchableText.includes(q)) return false;
     }
     return true;
   });

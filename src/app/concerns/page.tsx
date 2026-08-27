@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ConcernsPage() {
   const { items: concerns } = await getConcernsConfigWithFallback();
-  const mainConcerns = concerns.slice(0, 8);
-  const subConcerns = concerns.slice(8, 12);
+  const mainConcerns = concerns.slice(0, 6);
+  const subConcerns = concerns.slice(6, 12);
 
   // 고민 핵심 6개(눈물·피부·관절·비만·스트레스·구강) 정리로 nutrition·grooming 이 삭제될 예정이라
   // 매거진 카드도 함께 교체한다(2026-07-18, 데이터 삭제는 이 PR 병합 후 별도 진행). 이미지는 새로
@@ -61,7 +61,7 @@ export default async function ConcernsPage() {
               </span>
               <div className="mt-0.5">
                 <span className="text-[12px] md:text-[13px] font-semibold tracking-widest text-[#B68B4E]">
-                  {String(concerns.length).padStart(2, '0')} CARE
+                  {String(mainConcerns.length).padStart(2, '0')} CARE
                 </span>
               </div>
             </div>
@@ -77,7 +77,7 @@ export default async function ConcernsPage() {
           </div>
         </section>
 
-        {/* 3. 주요 고민 카드 8개 */}
+        {/* 3. 주요 고민 카드 6개 */}
         <section className="mb-[40px] md:mb-[52px]">
           <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
             {mainConcerns.map((concern, index) => (
@@ -99,7 +99,7 @@ export default async function ConcernsPage() {
                 <Search className="size-5 text-[#17231E]" strokeWidth={1.5} />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">01 주요 원인 확인</h3>
+                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">01 원인 살펴보기</h3>
                 <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">식사·환경·생활 습관 등 주요 원인을 함께 살펴봅니다.</p>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default async function ConcernsPage() {
                 <PlusSquare className="size-5 text-[#17231E]" strokeWidth={1.5} />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">03 병원 방문 기준</h3>
+                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">03 병원 방문 판단하기</h3>
                 <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">진료가 필요한 신호와 병원 방문 기준을 정리했습니다.</p>
               </div>
             </div>
@@ -215,7 +215,7 @@ export default async function ConcernsPage() {
               <div key={concern.slug} className="w-[85vw] sm:w-[320px] md:w-auto shrink-0 snap-start">
                 <SubConcernCard
                   concern={concern}
-                  index={String(index + 9).padStart(2, '0')}
+                  index={String(index + 7).padStart(2, '0')}
                 />
               </div>
             ))}
