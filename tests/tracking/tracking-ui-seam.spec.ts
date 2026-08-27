@@ -49,74 +49,50 @@ test.describe('tracking storage facade', () => {
   });
 });
 
-test.describe('tracking open-cycle request gate', () => {
-  test('Given one shipment, When auto is reconsidered and the modal reopens, Then calls are one per cycle', () => {
+test.describe('tracking manual-click request gate', () => {
+  test('Given one shipment, When the modal opens and reopens without a manual click, Then no request is made', () => {
     // Given
     const key = makeTrackingKey('order', 'brand', 'cj', '123456789012');
     expect(key).not.toBeNull();
-    let lastAutoLoadedTrackingKey: string | null = null;
-    let inFlightTrackingKey: string | null = null;
     let calls = 0;
 
-    const auto = (openCycleId: number): void => {
+    const requestFromVisibleAction = (inFlightTrackingKey: string | null): void => {
       const decision = decideTrackingRequest({
-        mode: 'auto',
-        openCycleId,
         trackingKey: key,
-        lastAutoLoadedTrackingKey,
         inFlightTrackingKey,
       });
       if (!decision) return;
       calls += 1;
-      lastAutoLoadedTrackingKey = decision.autoTrackingKey;
-      inFlightTrackingKey = decision.trackingKey;
-      inFlightTrackingKey = null;
     };
 
     // When
-    auto(1);
-    auto(1); // StrictMode/effect re-run in the same open cycle
-    const reopenedCycleId = 2;
-    auto(reopenedCycleId);
+    const firstOpenCycle = 1;
+    const reopenedCycle = firstOpenCycle + 1;
 
     // Then
-    expect(calls).toBe(2);
+    expect(reopenedCycle).toBe(2);
+    expect(calls).toBe(0);
+
+    // When
+    requestFromVisibleAction(null);
+
+    // Then
+    expect(calls).toBe(1);
   });
 
-  test('Given a shipment key changes in one open cycle, When auto is reconsidered, Then each key gets one request', () => {
+  test('Given a shipment, When the visible delivery action is clicked, Then exactly one manual request decision is created', () => {
     // Given
-    const firstKey = makeTrackingKey('order', 'brand', 'cj', '123456789012');
-    const replacementKey = makeTrackingKey('order', 'brand', 'hanjin', '987654321098');
-    let lastAutoLoadedTrackingKey: string | null = null;
-    let inFlightTrackingKey: string | null = null;
-    const requestedKeys: string[] = [];
-
-    const auto = (trackingKey: string | null): void => {
-      const decision = decideTrackingRequest({
-        mode: 'auto',
-        openCycleId: 1,
-        trackingKey,
-        lastAutoLoadedTrackingKey,
-        inFlightTrackingKey,
-      });
-      if (!decision) return;
-      requestedKeys.push(decision.trackingKey);
-      lastAutoLoadedTrackingKey = decision.autoTrackingKey;
-      inFlightTrackingKey = decision.trackingKey;
-      inFlightTrackingKey = null;
-    };
+    const key = makeTrackingKey('order', 'brand', 'cj', '123456789012');
+    expect(key).not.toBeNull();
 
     // When
-    auto(firstKey);
-    auto(firstKey);
-    auto(replacementKey);
-    auto(replacementKey);
+    const decision = decideTrackingRequest({ trackingKey: key, inFlightTrackingKey: null });
 
     // Then
-    expect(requestedKeys).toEqual([firstKey, replacementKey]);
+    expect(decision).toEqual({ trackingKey: key });
   });
 
-  test('Given legacy or incomplete shipment data, When auto is considered, Then no request key exists', () => {
+  test('Given legacy or incomplete shipment data, When manual delivery lookup is available, Then no request key exists', () => {
     // Given / When
     const keys = [
       makeTrackingKey('order', null, 'cj', '123'),
@@ -128,7 +104,7 @@ test.describe('tracking open-cycle request gate', () => {
     expect(keys).toEqual([null, null, null]);
   });
 
-  test('Given a request in flight, When refresh is clicked repeatedly, Then it is blocked until completion', () => {
+  test('Given a manual request in flight, When delivery lookup is clicked repeatedly, Then concurrent requests are blocked', () => {
     // Given
     const key = makeTrackingKey('order', 'brand', 'cj', '123');
     expect(key).not.toBeNull();
@@ -137,10 +113,7 @@ test.describe('tracking open-cycle request gate', () => {
     // When / Then
     expect(
       decideTrackingRequest({
-        mode: 'refresh',
-        openCycleId: 1,
         trackingKey: key,
-        lastAutoLoadedTrackingKey: null,
         inFlightTrackingKey,
       }),
     ).toBeNull();
@@ -148,10 +121,7 @@ test.describe('tracking open-cycle request gate', () => {
     inFlightTrackingKey = null;
     expect(
       decideTrackingRequest({
-        mode: 'refresh',
-        openCycleId: 1,
         trackingKey: key,
-        lastAutoLoadedTrackingKey: null,
         inFlightTrackingKey,
       }),
     ).not.toBeNull();
@@ -166,6 +136,8 @@ test.describe('tracking open-cycle request gate', () => {
         requestOpenCycleId: 1,
         currentOpenCycleId: 2,
         isOpen: true,
+        requestTrackingKey: 'first-target',
+        currentTrackingKey: 'second-target',
       }),
     ).toBe(false);
     expect(
@@ -175,7 +147,24 @@ test.describe('tracking open-cycle request gate', () => {
         requestOpenCycleId: 2,
         currentOpenCycleId: 2,
         isOpen: true,
+        requestTrackingKey: 'current-target',
+        currentTrackingKey: 'current-target',
       }),
     ).toBe(true);
+  });
+
+  test('Given a response for a replaced shipment target, When the modal remains open, Then stale state cannot apply', () => {
+    // Given / When / Then
+    expect(
+      canApplyTrackingResponse({
+        requestSequence: 1,
+        currentRequestSequence: 1,
+        requestOpenCycleId: 1,
+        currentOpenCycleId: 1,
+        isOpen: true,
+        requestTrackingKey: 'cj|123456789012',
+        currentTrackingKey: 'hanjin|987654321098',
+      }),
+    ).toBe(false);
   });
 });

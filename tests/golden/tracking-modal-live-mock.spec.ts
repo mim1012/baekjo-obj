@@ -202,7 +202,7 @@ async function openMypageWithFixtures(page: Page, shipments: readonly typeof shi
   return audit;
 }
 
-test('Given a CJ shipment, When the real order modal opens, Then live history is rendered once per open cycle and refresh is in-flight safe', async ({ page }) => {
+test('Given a CJ shipment, When the customer explicitly requests live tracking, Then the modal is request-gated and refresh is in-flight safe', async ({ page }) => {
   let releaseThirdResponse: (() => void) | null = null;
   const thirdResponse = new Promise<void>((resolve) => {
     releaseThirdResponse = resolve;
@@ -216,6 +216,11 @@ test('Given a CJ shipment, When the real order modal opens, Then live history is
   await shippingButton.click();
   const dialog = page.getByRole('dialog', { name: '배송조회' });
   await expect(dialog.getByRole('heading', { name: '실시간 배송이력', exact: true })).toBeVisible();
+  await expect(dialog.getByText('배송조회 버튼을 눌러 최신 배송이력을 확인하세요.', { exact: true })).toBeVisible();
+  expect(audit.trackingCalls()).toBe(0);
+
+  const initialTrackingAction = dialog.getByLabel('실시간 배송이력 배송조회');
+  await initialTrackingAction.click();
   await expect(dialog.getByText('배송중', { exact: true }).last()).toBeVisible();
   await expect(dialog.getByText('2026-08-26 12:34 · 서울 테스트 허브', { exact: true })).toBeVisible();
   await expect(dialog.getByText(SCRIPT_LIKE_KIND, { exact: true })).toBeVisible();
@@ -225,6 +230,9 @@ test('Given a CJ shipment, When the real order modal opens, Then live history is
   await dialog.getByLabel('닫기').click();
   await expect(dialog).toHaveCount(0);
   await shippingButton.click();
+  await expect(dialog.getByText('배송조회 버튼을 눌러 최신 배송이력을 확인하세요.', { exact: true })).toBeVisible();
+  expect(audit.trackingCalls()).toBe(1);
+  await dialog.getByLabel('실시간 배송이력 배송조회').click();
   await expect(dialog.getByText(SCRIPT_LIKE_KIND, { exact: true })).toBeVisible();
   expect(audit.trackingCalls()).toBe(2);
 
@@ -252,6 +260,8 @@ test('Given a not-found live response, When the real modal renders it, Then the 
 
   await page.getByRole('button', { name: '배송조회', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '배송조회' });
+  expect(audit.trackingCalls()).toBe(0);
+  await dialog.getByLabel('실시간 배송이력 배송조회').click();
   await expect(dialog.getByText('택배사에 등록된 배송이력이 아직 없어요.', { exact: true })).toBeVisible();
   await expect(dialog.getByText('CJ대한통운', { exact: true })).toBeVisible();
   await expect(dialog.getByText(shipment.trackingNumber, { exact: true })).toBeVisible();
