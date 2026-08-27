@@ -11,6 +11,7 @@ import { getSessionUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishli
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
+import { getFirstAvailableOption, getPurchasableStock } from '@/lib/products/inventory';
 
 interface Props {
   product: Product;
@@ -20,7 +21,9 @@ export default function ProductDetailClient({ product }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
-  const [selectedOption, setSelectedOption] = useState(product.options?.[0]?.id || '');
+  const [selectedOption, setSelectedOption] = useState(
+    getFirstAvailableOption(product)?.id || product.options?.[0]?.id || '',
+  );
   const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
   const [activeImage, setActiveImage] = useState(0);
   const [wishlisted, setWishlisted] = useState(false);
@@ -78,14 +81,14 @@ export default function ProductDetailClient({ product }: Props) {
     setQuantity(1);
     // 파생 검증(validOption)만으론 다른 상품이 같은 옵션 id 를 쓸 때 이전 선택이 유효 매치로
     // 넘어오므로, 상품 전환 시점 리셋을 병행한다.
-    setSelectedOption(product.options?.[0]?.id || '');
+    setSelectedOption(getFirstAvailableOption(product)?.id || product.options?.[0]?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
 
 
   // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
-  const validOption = product.options?.find(o => o.id === selectedOption) ?? product.options?.[0];
+  const validOption = product.options?.find(o => o.id === selectedOption) ?? getFirstAvailableOption(product) ?? product.options?.[0];
   const effectiveOptionId = validOption?.id ?? '';
 
   const hasPrice = product.price !== null && product.price !== undefined;
@@ -94,10 +97,11 @@ export default function ProductDetailClient({ product }: Props) {
 
   const finalPrice = basePrice + optionPrice;
   // 표시·계산·핸들러 전달 수량 일원화 — stock 변동과 무관하게 항상 1 이상으로 클램프
-  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, product.stock)));
+  const availableStock = getPurchasableStock(product, effectiveOptionId || undefined);
+  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, availableStock)));
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
-  const isSellable = hasPrice && product.stock > 0;
+  const isSellable = hasPrice && availableStock > 0;
   const unavailableTitle = isAdminViewer
     ? '판매가 미입력'
     : product.isMembersOnlyPrice
@@ -118,15 +122,15 @@ export default function ProductDetailClient({ product }: Props) {
       router.push('/login');
       return;
     }
-    if (product.stock <= 0) {
-      alert('일시 품절된 상품입니다.');
+    if (!isSellable) {
+      alert('선택한 옵션은 일시 품절입니다.');
       return;
     }
     addToCart({
       productId: product.id,
       optionId: effectiveOptionId || undefined,
       quantity: displayQty,
-    });
+    }, availableStock);
     alert('장바구니에 담겼습니다.');
   };
 
@@ -136,15 +140,15 @@ export default function ProductDetailClient({ product }: Props) {
       router.push('/login');
       return;
     }
-    if (product.stock <= 0) {
-      alert('일시 품절된 상품입니다.');
+    if (!isSellable) {
+      alert('선택한 옵션은 일시 품절입니다.');
       return;
     }
     addToCart({
       productId: product.id,
       optionId: effectiveOptionId || undefined,
       quantity: displayQty,
-    });
+    }, availableStock);
     router.push('/checkout');
   };
 
@@ -254,8 +258,8 @@ export default function ProductDetailClient({ product }: Props) {
                 className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 md:py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
               >
                 {product.options.map(opt => (
-                  <option key={opt.id} value={opt.id}>
-                    {opt.name} {(opt.priceDiff ?? opt.price) > 0 ? `(+${formatPrice(opt.priceDiff ?? opt.price)})` : ''}
+                  <option key={opt.id} value={opt.id} disabled={opt.stock <= 0}>
+                    {opt.name} {(opt.priceDiff ?? opt.price) > 0 ? `(+${formatPrice(opt.priceDiff ?? opt.price)})` : ''}{opt.stock <= 0 ? ' (품절)' : ''}
                   </option>
                 ))}
               </select>
@@ -287,7 +291,7 @@ export default function ProductDetailClient({ product }: Props) {
             <button 
               type="button"
               aria-label="수량 늘리기"
-              onClick={() => setQuantity(Math.min(product.stock, displayQty + 1))}
+              onClick={() => setQuantity(Math.min(availableStock, displayQty + 1))}
               disabled={!isSellable}
               className="flex h-10 w-10 items-center justify-center text-[#8A918B] hover:text-[#17211D] hover:bg-[#F4F2EC] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >

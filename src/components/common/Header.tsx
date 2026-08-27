@@ -11,7 +11,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { getCartCount } from '@/lib/cart';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
@@ -54,6 +54,7 @@ const subscribeToCart = (callback: () => void) => {
 type MobilePanel = 'shop' | 'story' | null;
 
 export default function Header() {
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const mounted = useMounted();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,9 +86,33 @@ export default function Header() {
     setMobilePanel(null);
   };
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
-      <div className="site-container-wide flex h-16 items-center justify-between lg:h-[72px]">
+    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
+      <div className="site-container-wide relative z-10 flex h-16 items-center justify-between lg:h-[72px]">
         <Link href="/" aria-label="백조오브제 홈" className="text-[#17211D]" onClick={closeMenu}>
           <BrandMark />
         </Link>
@@ -228,10 +253,19 @@ export default function Header() {
       </div>
 
       {menuOpen && (
+        <button
+          type="button"
+          aria-label="메뉴 바깥 영역 닫기"
+          onClick={closeMenu}
+          className="fixed inset-0 top-16 z-0 cursor-default bg-[#17211D]/10 lg:hidden"
+        />
+      )}
+
+      {menuOpen && (
         <nav
           id="mobile-menu"
           aria-label="전체 메뉴"
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
+          className="relative z-10 max-h-[calc(100dvh-12rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
         >
           <div className="mx-auto flex max-w-lg flex-col">
             <MobileAccordion

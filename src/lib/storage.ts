@@ -1341,7 +1341,7 @@ export async function getSessionUser(): Promise<User | null> {
       return null;
     }
     if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User };
+    const { user } = (await response.json()) as { user: User | null };
     setCurrentUser(user);
     return user;
   } catch {

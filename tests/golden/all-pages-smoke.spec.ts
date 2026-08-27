@@ -71,19 +71,12 @@ function attachErrorCapture(page: Page): ErrorCapture {
   return capture;
 }
 
-/** pageerror(미처리 예외)와 hydration 관련 console 에러는 하드 실패. 나머지 console 에러는 소프트 리포트. */
+/** 런칭 게이트에서는 pageerror와 allowlist 밖 console.error를 모두 하드 실패한다. */
 function assertNoBlockingErrors(capture: ErrorCapture, route: string): void {
   expect(capture.pageErrors, `${route} 에서 캡처된 미처리 예외(pageerror)`).toEqual([]);
 
-  const hydrationIssues = capture.consoleErrors.filter((e) => /hydration/i.test(e));
-  expect(hydrationIssues, `${route} 에서 캡처된 hydration 불일치 console 에러`).toEqual([]);
-
   const nonNoise = capture.consoleErrors.filter((e) => !isNoise(e));
-  if (nonNoise.length > 0) {
-    // 소프트 리포트 — 테스트를 실패시키지 않는다. 반복 발생 시 사람이 판단해 NOISE_ALLOWLIST 로
-    // 옮기거나 진짜 버그로 승격(하드 실패 목록에 패턴 추가)할 것.
-    console.warn(`[all-pages-smoke] ${route} 콘솔 에러(비차단, 리포트 전용): ${nonNoise.join(' || ')}`);
-  }
+  expect(nonNoise, `${route} 에서 캡처된 console.error`).toEqual([]);
 }
 
 /** Next.js 기본 에러 바운더리/오버레이가 뜨지 않았는지 body 텍스트로 방어적으로 확인한다. */
@@ -113,7 +106,7 @@ const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/': (page) => h1Visible(page),
   '/audit': (page) => h1Visible(page),
   '/b2b': (page) => h1Visible(page),
-  '/brands': (page) => h1Visible(page, '좋은 선택은 브랜드를 이해하는 것부터 시작됩니다.'),
+  '/brands': (page) => h1Visible(page, /우리 아이를 생각한다면/),
   '/cart': (page) => h1Visible(page, '장바구니'),
   '/concerns': (page) => h1Visible(page, /어떤 변화가 보이나요/),
   '/diagnosis': (page) => h1Visible(page),

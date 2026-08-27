@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
@@ -17,6 +18,25 @@ import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const brand = await getCachedPublicBrandById(id);
+  if (!brand) return { title: '브랜드를 찾을 수 없습니다', robots: { index: false, follow: false } };
+
+  return {
+    title: brand.name,
+    description: brand.description,
+    alternates: { canonical: `/brands/${brand.id}` },
+    openGraph: {
+      type: 'website',
+      url: `/brands/${brand.id}`,
+      title: brand.name,
+      description: brand.description,
+      images: brand.logo ? [{ url: brand.logo, alt: `${brand.name} 로고` }] : undefined,
+    },
+  };
+}
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

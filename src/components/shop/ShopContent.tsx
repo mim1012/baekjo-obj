@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
 import { Brand, Concern, Product } from '@/types';
-import { normalizeShopCategory, toShopCategoryOption } from '@/data/shopFilters';
+import { getDataBackedShopCategoryOptions, normalizeShopCategory } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
@@ -157,10 +157,9 @@ function ShopInner({ products, brands, concerns }: Props) {
     return query ? `/shop?${query}` : '/shop';
   };
 
-  const rawCategoryOptions = categorySettings.productCategories.map(toShopCategoryOption);
-
-  const categoryOptions = rawCategoryOptions.filter((cat, index, self) =>
-    index === self.findIndex((c) => c.slug === cat.slug)
+  const categoryOptions = getDataBackedShopCategoryOptions(
+    categorySettings.productCategories,
+    products.map((product) => product.categorySlug ?? product.category),
   );
 
   const activeFilterCount = [

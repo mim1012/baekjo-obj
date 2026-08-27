@@ -1,4 +1,5 @@
 import type { OrderItem, Product } from '@/types';
+import { getPurchasableStock } from '@/lib/products/inventory';
 
 // productName 길이 상한 — route.ts의 거대 페이로드 방어 상한과 동일(카탈로그 이름이 비정상적으로
 // 길면 주문을 거부한다).
@@ -32,10 +33,8 @@ export function resolveCatalogPrice(product: Product): number | null {
  * - optionId가 있으면: 카탈로그 options에서 조회해 단가 = 기본가 + (priceDiff ?? price ?? 0)로 계산하고
  *   optionName도 그 옵션에서 파생한다(productName과 동일 정책 — 클라이언트가 보낸 optionName은 버린다).
  *   optionId가 카탈로그에 없으면(위조·구식 옵션) 항목을 거부한다.
- * - optionId가 없으면: 옵션 없는 구매로 간주해 기본가만 쓰고 optionName을 저장하지 않는다.
- *   상품에 옵션이 있어도 거부하지 않는다 — 옵션은 priceDiff 가산형 부가선택이고, 카트/체크아웃이
- *   옵션 없는 담기를 허용하며(CartItem.optionId optional), 데이터 모델에 '필수 옵션' 플래그가 없어
- *   필수 여부를 신뢰성 있게 강제할 수 없기 때문이다. 이 규칙이 기존 옵션 없는 주문 동작을 그대로 보존한다.
+ * - 옵션이 있는 상품은 optionId를 반드시 요구한다. 옵션을 생략해 가격 가산·옵션 재고 검증을
+ *   우회하는 주문을 막는다. 선택 옵션 재고와 상품 전체 재고 중 작은 값이 주문 수량보다 적으면 거부한다.
  */
 export function resolveOrderItem(shape: OrderItemShape, product: Product): ResolveOrderItemResult {
   const basePrice = resolveCatalogPrice(product);
@@ -50,9 +49,13 @@ export function resolveOrderItem(shape: OrderItemShape, product: Product): Resol
 
   let unitPrice = basePrice;
   let optionName: string | undefined;
+  if (product.options && product.options.length > 0 && shape.optionId === undefined) {
+    return { ok: false };
+  }
   if (shape.optionId !== undefined) {
     const option = product.options?.find((candidate) => candidate.id === shape.optionId);
     if (!option) return { ok: false };
+    if (getPurchasableStock(product, shape.optionId) < shape.quantity) return { ok: false };
     unitPrice = basePrice + (option.priceDiff ?? option.price ?? 0);
     optionName = option.name;
   }

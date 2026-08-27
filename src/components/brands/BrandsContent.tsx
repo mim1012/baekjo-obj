@@ -68,6 +68,7 @@ function getCustomBrandDetails(brand: Brand) {
 function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
+  const sort = searchParams.get('sort') === 'az' ? 'az' : 'default';
   const { categorySettings } = useCategorySettings();
   const [pagination, setPagination] = useState({ filter: 'all', visibleCount: PAGE_SIZE });
 
@@ -82,7 +83,15 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
     if (filter === 'recommended') return brand.isRecommended;
     if (filter === 'new') return brand.isNew;
     return true;
-  });
+  }).sort((a, b) => (sort === 'az' ? a.name.localeCompare(b.name, 'ko') : 0));
+
+  const makeHref = (nextFilter: string, nextSort = sort) => {
+    const next = new URLSearchParams();
+    if (nextFilter !== 'all') next.set('filter', nextFilter);
+    if (nextSort === 'az') next.set('sort', 'az');
+    const query = next.toString();
+    return query ? `/brands?${query}` : '/brands';
+  };
 
   const displayedBrands = filteredBrands.slice(0, visibleCount);
   const hasMore = visibleCount < filteredBrands.length;
@@ -235,7 +244,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                 return (
                   <Link
                     key={tab.id}
-                    href={tab.id === 'all' ? '/brands' : `/brands?filter=${tab.id}`}
+                    href={makeHref(tab.id)}
                     scroll={false}
                     aria-current={active ? 'page' : undefined}
                     className={`flex h-[38px] md:h-[42px] items-center rounded-full px-[18px] text-[13px] md:text-[14px] font-semibold transition-colors duration-300 ${
@@ -251,9 +260,15 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
               })}
             </nav>
           </div>
-          <div className="hidden md:flex items-center text-[13px] font-semibold text-[#17251F] cursor-pointer">
-            브랜드 A-Z <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </div>
+          <Link
+            href={makeHref(filter, sort === 'az' ? 'default' : 'az')}
+            scroll={false}
+            aria-pressed={sort === 'az'}
+            className="hidden md:flex items-center rounded-full px-3 py-2 text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F7F4ED]"
+          >
+            {sort === 'az' ? '기본순' : '브랜드 A-Z'}
+            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </Link>
         </div>
       </section>
 
@@ -261,7 +276,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
       <section className="mb-16 md:mb-[72px]">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
           {displayedBrands.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div data-testid="brand-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayedBrands.map((brand) => (
                 <BrandCard key={brand.id} brand={brand} variant="brand-page" />
               ))}

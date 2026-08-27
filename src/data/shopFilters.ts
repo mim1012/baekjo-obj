@@ -35,3 +35,30 @@ export function normalizeShopCategory(value?: string): string | undefined {
 export function toShopCategoryOption(value: string): ShopCategoryFilter {
   return resolveShopCategory(value) ?? { slug: value, label: value };
 }
+
+/**
+ * 관리자 설정과 실제 공개 상품 데이터가 어긋나더라도 0건짜리 죽은 카테고리를 노출하지 않는다.
+ * 설정에 있으면서 실제 상품이 있는 항목을 먼저 유지하고, 설정에 누락된 실제 카테고리는 공개
+ * 기준 순서로 보완한다. 사용자 정의 카테고리도 상품에 실제로 쓰이고 있으면 그대로 보존한다.
+ */
+export function getDataBackedShopCategoryOptions(
+  configuredValues: string[],
+  productCategoryValues: string[],
+): ShopCategoryFilter[] {
+  const availableOptions = productCategoryValues
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .map(toShopCategoryOption);
+  const availableSlugs = new Set(availableOptions.map((option) => option.slug));
+
+  const candidates = [
+    ...configuredValues.map(toShopCategoryOption),
+    ...shopCategoryFilters,
+    ...availableOptions,
+  ];
+
+  return candidates.filter(
+    (option, index, self) =>
+      availableSlugs.has(option.slug) &&
+      index === self.findIndex((candidate) => candidate.slug === option.slug),
+  );
+}

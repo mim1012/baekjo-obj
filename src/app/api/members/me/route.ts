@@ -11,11 +11,17 @@ import {
 } from '@/lib/members/repo';
 import { logServerError } from '@/lib/logServerError';
 
-/** GET /api/members/me — 로그인한 본인 회원 정보 조회. */
+/**
+ * GET /api/members/me — 현재 세션 회원 정보 조회.
+ *
+ * 공개 페이지도 헤더/찜/후기 작성 가능 여부를 결정하려고 이 엔드포인트를 호출한다.
+ * 비로그인은 오류가 아니라 정상적인 세션 상태이므로 PII 없이 `{ user: null }`을 반환한다.
+ * 변경 작업(PATCH/DELETE)은 아래에서 계속 401로 보호한다.
+ */
 export async function GET() {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'no-session' }, { status: 401 });
+    return NextResponse.json({ user: null }, { status: 200 });
   }
 
   try {
