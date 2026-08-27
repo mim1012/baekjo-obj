@@ -31,7 +31,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const headerLogo = page.getByTestId('site-header-logo');
     await expect(headerLogo).toBeVisible();
     expect(decodeURIComponent(await headerLogo.evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('baekjo-objet-official-logo-v1');
+      .toContain('baekjo-objet-header-logo-v2');
     expect((await page.getByTestId('home-hero').boundingBox())?.height).toBeLessThanOrEqual(560);
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
       .toContain('home-hero-copy-safe-v2');

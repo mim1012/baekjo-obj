@@ -117,16 +117,16 @@ export default function Header() {
         <Link
           href="/"
           aria-label="백조오브제 홈"
-          className="relative block h-[54px] w-12 shrink-0 overflow-hidden lg:h-[62px] lg:w-[54px]"
+          className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
           onClick={closeMenu}
         >
           <Image
-            src="/images/baekjo-objet-official-logo-v1.png"
+            src="/images/baekjo-objet-header-logo-v2.png"
             alt="Baekjo Objet"
             fill
-            sizes="(min-width: 1024px) 54px, 48px"
+            sizes="(min-width: 1024px) 156px, 143px"
             priority
-            className="scale-[2.08] object-contain"
+            className="object-contain"
             data-testid="site-header-logo"
           />
         </Link>
