@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -17,7 +18,6 @@ import { getCartCount } from '@/lib/cart';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import BrandMark from './BrandMark';
 
 const MAIN_LINKS = [
   { label: '브랜드', href: '/brands' },
@@ -114,8 +114,21 @@ export default function Header() {
   return (
     <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
       <div className="site-container-wide relative z-10 flex h-16 items-center justify-between lg:h-[72px]">
-        <Link href="/" aria-label="백조오브제 홈" className="text-[#17211D]" onClick={closeMenu}>
-          <BrandMark />
+        <Link
+          href="/"
+          aria-label="백조오브제 홈"
+          className="relative block h-[54px] w-12 shrink-0 overflow-hidden lg:h-[62px] lg:w-[54px]"
+          onClick={closeMenu}
+        >
+          <Image
+            src="/images/baekjo-objet-official-logo-v1.png"
+            alt="Baekjo Objet"
+            fill
+            sizes="(min-width: 1024px) 54px, 48px"
+            priority
+            className="scale-[2.08] object-contain"
+            data-testid="site-header-logo"
+          />
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">

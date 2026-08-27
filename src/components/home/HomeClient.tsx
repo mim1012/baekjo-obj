@@ -46,6 +46,22 @@ const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
   priority: true,
 });
 
+const { props: desktopAuditImageProps } = getImageProps({
+  src: '/images/home-audit-background-v2.png',
+  alt: '백조오브제 Audit을 상징하는 백조 오브제',
+  fill: true,
+  sizes: '(max-width: 1280px) 100vw, 1168px',
+  quality: 90,
+});
+
+const { props: { srcSet: mobileAuditSrcSet } } = getImageProps({
+  src: '/images/home-audit-background-mobile-v2.png',
+  alt: '백조오브제 Audit을 상징하는 백조 오브제',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+});
+
 export default function HomeClient({
   products,
   brands,
@@ -144,17 +160,18 @@ export default function HomeClient({
       <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div data-testid="home-audit-hero" className="relative isolate min-h-[390px] overflow-hidden md:min-h-[360px] lg:min-h-[380px]">
-            <Image
-              src="/images/baekjo-audit-logo.png"
-              alt="백조오브제 Audit 상징물"
-              fill
-              sizes="(max-width: 1280px) 100vw, 1168px"
-              className="object-cover object-center"
-              data-testid="home-audit-image"
-            />
+            <picture>
+              <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileAuditSrcSet} />
+              <img
+                {...desktopAuditImageProps}
+                alt="백조오브제 Audit을 상징하는 백조 오브제"
+                className="object-cover object-center"
+                data-testid="home-audit-image"
+              />
+            </picture>
             <div
               aria-hidden="true"
-              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.96)_0%,rgba(248,246,240,0.88)_58%,rgba(248,246,240,0.66)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.97)_0%,rgba(248,246,240,0.91)_46%,rgba(248,246,240,0.58)_72%,rgba(248,246,240,0.2)_100%)]"
+              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.62)_0%,rgba(248,246,240,0.42)_60%,rgba(248,246,240,0.16)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)]"
             />
 
             <div className="relative z-10 flex min-h-[390px] max-w-[680px] flex-col justify-center p-6 md:min-h-[360px] md:p-8 lg:min-h-[380px] lg:p-10">

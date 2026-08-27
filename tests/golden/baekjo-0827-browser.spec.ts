@@ -28,6 +28,10 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
   test('PC 홈·셀렉션·케어 화면을 1:1 확인한다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openHealthy(page, '/');
+    const headerLogo = page.getByTestId('site-header-logo');
+    await expect(headerLogo).toBeVisible();
+    expect(decodeURIComponent(await headerLogo.evaluate((image: HTMLImageElement) => image.currentSrc)))
+      .toContain('baekjo-objet-official-logo-v1');
     expect((await page.getByTestId('home-hero').boundingBox())?.height).toBeLessThanOrEqual(560);
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
       .toContain('home-hero-copy-safe-v2');
@@ -46,6 +50,8 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
     const auditHero = page.getByTestId('home-audit-hero');
     const auditImage = page.getByTestId('home-audit-image');
+    expect(decodeURIComponent(await auditImage.evaluate((image: HTMLImageElement) => image.currentSrc)))
+      .toContain('home-audit-background-v2');
     const [auditHeroBox, auditImageBox] = await Promise.all([auditHero.boundingBox(), auditImage.boundingBox()]);
     expect(auditImageBox?.width).toBeGreaterThanOrEqual((auditHeroBox?.width ?? 0) - 1);
     expect(auditImageBox?.height).toBeGreaterThanOrEqual((auditHeroBox?.height ?? 0) - 1);
@@ -155,9 +161,12 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
   test('모바일 메뉴·필터·반응형과 404를 확인한다', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await openHealthy(page, '/');
+    await expect(page.getByTestId('site-header-logo')).toBeVisible();
     expect((await page.getByTestId('home-hero').boundingBox())?.height).toBeLessThanOrEqual(640);
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
       .toContain('home-hero-copy-safe-mobile-v2');
+    expect(decodeURIComponent(await page.getByTestId('home-audit-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
+      .toContain('home-audit-background-mobile-v2');
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile.png'), fullPage: false });
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-full.png'), fullPage: true });
     await page.getByRole('button', { name: '메뉴 열기' }).click();
