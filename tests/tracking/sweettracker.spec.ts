@@ -1,14 +1,23 @@
 import { test, expect } from '@playwright/test';
 import {
-  fetchTrackingInfo,
-  fetchKeyUsage,
+  fetchTrackingInfoWithApiKey,
+  fetchKeyUsageWithApiKey,
   levelToDeliveryStatus,
-} from '@/lib/tracking/sweettracker';
+} from '@/lib/tracking/sweettracker-core';
+import type { TrackingResult } from '@/types';
 
 // 스마트택배(Sweet Tracker) 조회 클라이언트 순수 함수 스펙 — 브라우저/DB/실 네트워크 불필요.
 // fetch를 stub해서 검증한다: FREE 플랜(100건/월)을 CI가 소진하면 안 되므로 라이브 호출 절대 금지.
 
 type FetchStub = (url: string, init?: RequestInit) => Promise<Response>;
+
+function fetchTrackingInfo(carrier: string, invoice: string): Promise<TrackingResult> {
+  return fetchTrackingInfoWithApiKey(carrier, invoice, process.env.SWEETTRACKER_API_KEY);
+}
+
+function fetchKeyUsage(): Promise<{ readonly total: number; readonly left: number } | null> {
+  return fetchKeyUsageWithApiKey(process.env.SWEETTRACKER_API_KEY);
+}
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -74,6 +83,22 @@ test.describe('levelToDeliveryStatus', () => {
 });
 
 test.describe('fetchTrackingInfo', () => {
+  test('core는 환경변수가 아니라 명시적으로 공급된 API 키를 사용한다', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'environment-key-must-not-be-used';
+    let capturedUrl = '';
+    const restore = installFetchStub(async (url) => {
+      capturedUrl = String(url);
+      return jsonResponse({ result: 'N', trackingDetails: [] });
+    });
+    try {
+      await fetchTrackingInfoWithApiKey('cj', '123456789012', 'supplied-core-key');
+      expect(capturedUrl).toContain('t_key=supplied-core-key');
+      expect(capturedUrl).not.toContain('environment-key-must-not-be-used');
+    } finally {
+      restore();
+    }
+  });
+
   test('알 수 없는 택배사 코드 → invalid-carrier (fetch 호출 없음)', async () => {
     process.env.SWEETTRACKER_API_KEY = 'test-key';
     let called = false;
