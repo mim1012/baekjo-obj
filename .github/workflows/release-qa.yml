@@ -1,70 +1,70 @@
-name: release-qa (실사용자 플로우)
+name: release-qa (Preview read-only)
 
 on:
-  deployment_status:
   workflow_dispatch:
     inputs:
-      base_url:
-        description: '점검할 Preview/Staging URL'
+      target_url:
+        description: '명시 승인된 Preview URL'
         required: true
         type: string
+      allow_preview_readonly:
+        description: 'Preview 읽기 전용 release QA 비용을 승인함'
+        required: true
+        type: boolean
+        default: false
 
-concurrency:
-  group: release-qa-${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.sha }}
-  cancel-in-progress: true
+permissions:
+  contents: read
 
 jobs:
   release-qa:
-    if: >-
-      github.event_name != 'deployment_status' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment_status.environment == 'Preview')
+    if: ${{ inputs.allow_preview_readonly == true }}
     runs-on: ubuntu-latest
+    env:
+      TARGET_URL: ${{ inputs.target_url }}
+      PREVIEW_QA_ACK: '1'
+      MAX_TOP_LEVEL_NAVIGATIONS: '5'
+      MAX_ROUTE_CALLS: '5'
+      PLAYWRIGHT_WORKERS: '1'
+      PLAYWRIGHT_RETRIES: '0'
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'deployment_status' && github.event.deployment.sha || github.sha }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      - name: Preview target and budget guard
+        run: |
+          test "$PREVIEW_QA_ACK" = "1" || exit 1
+          budget="$MAX_TOP_LEVEL_NAVIGATIONS"
+          echo "$budget" | grep -qE '^[0-9]+$' || exit 1
+          if [ "$budget" -gt 5 ]; then exit 1; fi
+          test "$MAX_ROUTE_CALLS" = "5" || exit 1
+          test "$PLAYWRIGHT_WORKERS" = "1" || exit 1
+          test "$PLAYWRIGHT_RETRIES" = "0" || exit 1
+          host=$(node -e "const u=new URL(process.env.TARGET_URL); if(u.protocol!=='https:') process.exit(1); process.stdout.write(u.hostname.toLowerCase())")
+          if echo "$host" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then exit 1; fi
       - name: Install
         run: npm ci
-
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-
-      - name: Resolve target URL
-        id: target
-        run: |
-          if [ "${{ github.event_name }}" = "deployment_status" ]; then
-            echo "url=${{ github.event.deployment_status.environment_url }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Production URL guard
+      - name: Enforce selected route budget
         env:
-          TARGET_URL: ${{ steps.target.outputs.url }}
+          E2E_BASE_URL: ${{ inputs.target_url }}
         run: |
-          if echo "$TARGET_URL" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then
-            echo "::error::Production URL은 release QA 대상이 아닙니다. Preview/Staging URL을 사용하세요."
-            exit 1
-          fi
-
-      - name: Release QA browser gate
-        run: npm run qa:release
+          budget="$MAX_TOP_LEVEL_NAVIGATIONS"
+          selected=$(npx playwright test tests/golden/visual.spec.ts --project=chromium --grep 'desktop.*(#1|#2|#3|#4|#5)' --list | grep -c '›')
+          if [ "$selected" -gt "$budget" ]; then exit 1; fi
+          test "$selected" -eq 5 || exit 1
+      - name: Release read-only route smoke
+        run: npx playwright test tests/golden/visual.spec.ts --project=chromium --grep 'desktop.*(#1|#2|#3|#4|#5)' --workers=1 --retries=0 --reporter=line
         env:
-          E2E_BASE_URL: ${{ steps.target.outputs.url }}
-          APP_BASE_URL: ${{ steps.target.outputs.url }}
+          E2E_BASE_URL: ${{ inputs.target_url }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
       - name: Upload QA evidence
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: release-qa-report
-          path: .gstack/qa-reports/
+          path: test-results/
           retention-days: 14

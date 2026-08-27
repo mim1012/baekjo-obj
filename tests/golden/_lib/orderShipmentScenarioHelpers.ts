@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import { assertLocalhostAppRuntimeSupabaseRefMatchesTestRef } from '../../_lib/supabaseSafety';
 
 type AdminBrand = {
   id: string;
@@ -73,6 +74,7 @@ export async function getAdminOrders(page: Page): Promise<AdminOrder[]> {
 }
 
 export async function cleanupScenarioRows(page: Page): Promise<void> {
+  await assertScenarioWritePreflight();
   const products = await getAdminProducts(page);
   for (const product of products.filter((item) => item.name.startsWith(PRODUCT_PREFIX))) {
     await page.request.delete(`/api/admin/products/${encodeURIComponent(product.id)}`);
@@ -85,6 +87,7 @@ export async function cleanupScenarioRows(page: Page): Promise<void> {
 }
 
 export async function createScenarioRows(page: Page, scenarios: BrandScenario[]): Promise<void> {
+  await assertScenarioWritePreflight();
   for (const scenario of scenarios) {
     scenario.brandId = await createBrand(page, scenario);
     scenario.productId = await createProduct(page, scenario);
@@ -97,6 +100,7 @@ export async function createBankTransferOrder(
   runId: number,
   scenarios: BrandScenario[],
 ): Promise<CreatedOrder> {
+  await assertScenarioWritePreflight();
   const cartItems = scenarios.map((scenario) => {
     if (!scenario.productId) throw new Error(`${scenario.name} productId가 없습니다.`);
     return { productId: scenario.productId, quantity: 1 };
@@ -118,6 +122,7 @@ export async function createBankTransferOrder(
 }
 
 export async function confirmBankTransfer(page: Page, orderId: string): Promise<void> {
+  await assertScenarioWritePreflight();
   const response = await page.request.patch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
     data: { paymentStatus: '결제완료' },
   });
@@ -126,6 +131,7 @@ export async function confirmBankTransfer(page: Page, orderId: string): Promise<
 }
 
 export async function completeOrderStatus(page: Page, orderId: string): Promise<void> {
+  await assertScenarioWritePreflight();
   const response = await page.request.patch(`/api/admin/orders/${encodeURIComponent(orderId)}`, {
     data: { deliveryStatus: '배송완료' },
   });
@@ -134,6 +140,7 @@ export async function completeOrderStatus(page: Page, orderId: string): Promise<
 }
 
 export async function updateBrandShipment(page: Page, orderId: string, scenario: BrandScenario): Promise<void> {
+  await assertScenarioWritePreflight();
   if (!scenario.brandId) throw new Error(`${scenario.name} brandId가 없습니다.`);
   const response = await page.request.patch(
     `/api/admin/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(scenario.brandId)}`,
@@ -202,6 +209,10 @@ export async function expectOrderField(
     const orders = await getAdminOrders(page);
     expect(orders.find((order) => order.id === orderId)?.[field]).toBe(value);
   }).toPass({ timeout: 20_000 });
+}
+
+async function assertScenarioWritePreflight(): Promise<void> {
+  await assertLocalhostAppRuntimeSupabaseRefMatchesTestRef('golden');
 }
 
 async function getAdminBrands(page: Page): Promise<AdminBrand[]> {

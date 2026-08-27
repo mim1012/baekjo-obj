@@ -47,6 +47,7 @@ jobs:
       - name: 택배 추적 어댑터 스펙 (순수 함수 — DB/브라우저 불필요)
         run: npx playwright test --project=tracking --reporter=line
 
+  # deploy-lane-exception: main push production migration only
   # 마이그레이션 자동 적용 — 빌드가 통과한 실제 push(머지)에서만 실행한다.
   # PR 에는 돌지 않아(머지 전 DB 를 건드리지 않음), 깨진 코드가 DB 스키마를 바꾸지 못한다.
   # 러너(scripts/apply-migrations.mjs)는 public._migrations 로 적용 이력을 추적해 미적용만 돌리고,
@@ -102,6 +103,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
 
       # 배송(shipments) 스펙 — 순수 4개 + staging DB 2개(confirm-guard.db, auto-confirm-payment-gate.db).
       # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
@@ -111,3 +113,4 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}

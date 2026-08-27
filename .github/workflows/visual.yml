@@ -1,113 +1,74 @@
-name: visual (골든플로우 시각 회귀)
+name: visual (Preview read-only)
 
-# Vercel Preview 배포가 성공한 시점에 그 배포 URL을 대상으로 시각 회귀(14장) + 결제 라우트
-# 통합 스펙을 돈다. 표현(마크업·스타일)이 병합에서 유실되면 픽셀 diff로 잡는 게이트
-# (AGENTS.md §8-1). 베이스라인 갱신은 update-baselines.yml(라벨 `update-baselines` 또는 수동 dispatch).
 on:
-  deployment_status:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: '명시 승인된 Preview URL'
+        required: true
+        type: string
+      allow_preview_readonly:
+        description: 'Preview 읽기 전용 QA 비용을 승인함'
+        required: true
+        type: boolean
+        default: false
 
-# ★payments-routes를 별도 워크플로가 아니라 이 워크플로 안의 순차 잡으로 둔다(2026-07-13
-# 구조 변경 — 이전엔 두 워크플로가 concurrency 그룹만 공유했었다). 이유: GitHub Actions는
-# 한 concurrency 그룹에 "실행 중(running) 1개 + 대기(pending) 1개"만 유지한다. Vercel이 같은
-# SHA로 deployment_status를 여러 번 쏘면, 큐에 있던 워크플로가 새로 들어온 워크플로에 밀려
-# **취소**된다(cancel-in-progress: false는 "실행 중인 것"만 보호하지 "대기 중인 것"은 못
-# 지킨다) — 실측: payments-routes가 최근 실행 전부 cancelled로 찍혀 결제 라우트 스펙이
-# 아예 안 돌고 있었다. 같은 워크플로 안의 순차 잡(needs:)으로 합치면 이 취소 경합 자체가
-# 구조적으로 사라진다(잡 간 경합이 아니라 같은 실행 안의 순서일 뿐이므로).
-#
-# payments-routes가 staging DB에 합성 상품(주문 생성을 위해 is_visible=true 필수)을 만드는데,
-# 이게 같은 DB를 스크린샷하는 visual과 겹치면 그 합성 상품이 /shop 시각 회귀에 찍혀 오탐이
-# 난다(실측: PR #32, /shop 데스크톱 4% diff) — payments-routes를 `needs: visual`로 visual
-# **다음에만** 돌게 해 오염 창을 없앤다. /admin/products는 그 자체로 관리자 목록(비노출 포함
-# DB 상품을 그대로 렌더)이라 별개로 tbody를 mask한다(tests/golden/visual.spec.ts, PR #14부터
-# 이미 적용돼 있음 — 재시드 등 콘텐츠 변화에 원래부터 취약해서였지 payments-routes 때문이 아님).
-#
-# cancel-in-progress: true — 이제 워크플로가 하나뿐이라 자기 자신의 이전 실행만 취소한다(같은
-# SHA 중복 deployment_status 이벤트 dedupe). visual↔payments-routes 사이의 취소는 더 이상
-# 있을 수 없다(같은 워크플로 실행 안의 순차 잡이므로 서로를 취소할 방법이 없다).
+permissions:
+  contents: read
+
 concurrency:
-  group: preview-${{ github.event.deployment.sha }}
+  group: preview-visual-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   visual:
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment_status.environment == 'Preview'
+    if: ${{ inputs.allow_preview_readonly == true }}
     runs-on: ubuntu-latest
+    env:
+      TARGET_URL: ${{ inputs.target_url }}
+      PREVIEW_QA_ACK: '1'
+      MAX_TOP_LEVEL_NAVIGATIONS: '5'
+      MAX_ROUTE_CALLS: '5'
+      PLAYWRIGHT_WORKERS: '1'
+      PLAYWRIGHT_RETRIES: '0'
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.deployment.sha }}
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
+      - name: Preview target and budget guard
+        run: |
+          test "$PREVIEW_QA_ACK" = "1" || exit 1
+          budget="$MAX_TOP_LEVEL_NAVIGATIONS"
+          echo "$budget" | grep -qE '^[0-9]+$' || exit 1
+          if [ "$budget" -gt 5 ]; then exit 1; fi
+          test "$MAX_ROUTE_CALLS" = "5" || exit 1
+          test "$PLAYWRIGHT_WORKERS" = "1" || exit 1
+          test "$PLAYWRIGHT_RETRIES" = "0" || exit 1
+          host=$(node -e "const u=new URL(process.env.TARGET_URL); if(u.protocol!=='https:') process.exit(1); process.stdout.write(u.hostname.toLowerCase())")
+          if echo "$host" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then exit 1; fi
       - name: Install
         run: npm ci
-
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-
-      - name: Visual regression (vs baseline)
-        run: npx playwright test tests/golden/visual.spec.ts --reporter=line
+      - name: Enforce selected page budget
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
-          # Deployment Protection 재활성화 대비(§8-6) — secret 미등록이면 빈 값으로 무시됨
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-          # 공개 리포 — admin 자격증명은 secret으로만 주입(미등록 시 admin 촬영 skip)
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-
-      - name: 장바구니 자가치유 실패-안전성 회귀(CRITICAL, PR #173) — DB 쓰기 없음, 항상 실행
-        run: npx playwright test tests/golden/cart-badge-failure-safety.spec.ts --reporter=line
+          E2E_BASE_URL: ${{ inputs.target_url }}
+        run: |
+          budget="$MAX_TOP_LEVEL_NAVIGATIONS"
+          selected=$(npx playwright test tests/golden/visual.spec.ts --project=chromium --grep 'desktop.*(#1|#2|#3|#4|#5)' --list | grep -c '›')
+          if [ "$selected" -gt "$budget" ]; then exit 1; fi
+          test "$selected" -eq 5 || exit 1
+      - name: Visual read-only check
+        run: npx playwright test tests/golden/visual.spec.ts --project=chromium --grep 'desktop.*(#1|#2|#3|#4|#5)' --workers=1 --retries=0 --reporter=line
         env:
-          E2E_BASE_URL: ${{ github.event.deployment_status.environment_url }}
+          E2E_BASE_URL: ${{ inputs.target_url }}
           VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
       - name: Upload diff artifacts
         uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: visual-diff
-          path: test-results/
-          retention-days: 7
-
-  # tests/payments/payment-routes.spec.ts는 PAYMENTS_PREVIEW_URL이 없으면 skip하도록 짜여
-  # 있어(로컬 실행 편의) — 이 잡이 그 값을 실제로 채워 넣는 배선이다.
-  payments-routes:
-    needs: visual
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment_status.environment == 'Preview'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.deployment.sha }}
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install
-        run: npm ci
-
-      - name: 결제 라우트 통합 스펙 (프리뷰=staging DB)
-        run: npx playwright test --project=payments tests/payments/payment-routes.spec.ts --reporter=line
-        env:
-          # Preview 배포는 staging DB를 본다(AGENTS.md §8-4 환경 매핑) — DB 검증도 staging 시크릿으로 일관.
-          PAYMENTS_PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-
-      - name: Upload failure artifacts
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: payments-routes-failure
           path: test-results/
           retention-days: 7

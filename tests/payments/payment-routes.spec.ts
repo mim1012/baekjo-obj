@@ -2,16 +2,16 @@ import { test, expect } from '@playwright/test';
 import { q, stockOf, orderRow, supabaseEnvReady, fixtureId, sweepStaleFixtures } from './helpers';
 import { bypassHeaders } from '../golden/_lib/adminCrudHelpers';
 import { MEMBER_EMAIL, MEMBER_PASSWORD, loginAsMember } from '../golden/_lib/memberCrudHelpers';
+import { resolvePaymentsWriteBaseUrl } from '../_lib/envSafety';
 
-// 결제 라우트 통합 스펙 — 실제 프리뷰 배포(staging DB 연결) 대상 API 테스트. 브라우저 불필요.
+// 결제 라우트 통합 스펙 — localhost 앱과 staging DB 연결 대상 API 테스트. 브라우저 불필요.
 // 승격 출처: wave1-preview-integration-test.mjs (PR#23 프리뷰에서 22 PASS 확인됨).
-// PAYMENTS_PREVIEW_URL 미설정 시 skip — 토스 결제 라우트가 배포된 프리뷰가 있을 때만 의미있는 스펙이라
-// 골든플로우처럼 상시 URL을 고정하지 않는다(그 프리뷰는 이미 소멸됨 — 회귀 시 재설정 필요).
-const BASE = process.env.PAYMENTS_PREVIEW_URL ?? '';
+// PAYMENTS_PREVIEW_URL은 localhost write lane에서만 허용한다.
+const BASE = resolvePaymentsWriteBaseUrl();
 let orderAuthCookieHeader = '';
 
 test.skip(!supabaseEnvReady(), 'SUPABASE_URL/SUPABASE_ACCESS_TOKEN 미설정 — staging DB 스펙 skip');
-test.skip(!BASE, 'PAYMENTS_PREVIEW_URL 미설정 — 결제 라우트가 배포된 프리뷰 URL이 없어 skip');
+test.skip(!BASE, 'PAYMENTS_PREVIEW_URL 미설정 — localhost 결제 라우트 대상이 없어 skip');
 test.skip(!MEMBER_EMAIL || !MEMBER_PASSWORD, 'E2E_MEMBER_* secret 미주입 — 회원 전용 주문 생성 불가로 skip');
 test.use({ baseURL: BASE, extraHTTPHeaders: bypassHeaders() });
 
