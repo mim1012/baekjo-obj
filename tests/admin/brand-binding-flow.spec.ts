@@ -87,7 +87,7 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(itemRoute).toContain("import { updateBrand, deleteBrand } from '@/lib/brands/repo'");
     expect(patchFunction).toContain('const brand = await updateBrand(id, toPatchInput(fields));');
     expect(patchFunction).toContain("revalidatePath('/brands')");
-    expect(patchFunction).toContain('revalidatePath(`/brands/${id}`)');
+    expect(patchFunction).toContain('revalidatePath(`/brands/${brand.slug}`)');
     expect(patchFunction).toContain('return NextResponse.json({ brand }, { status: 200 });');
   });
 
@@ -109,7 +109,7 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(adminListFunction).toContain('return listBrands(false);');
 
     expect(updateFunction).toContain('const existing = await getBrandById(id, { includeHidden: true });');
-    expect(updateFunction).toContain('const merged: Brand = { ...existing, ...patch, id: existing.id };');
+    expect(updateFunction).toContain('const merged: Brand = { ...existing, ...patch, id: existing.id, slug: existing.slug };');
     expect(updateFunction).toContain('const { columns, detail } = splitBrandInput(merged);');
     expect(updateFunction).toContain(".from('brands')");
     expect(updateFunction).toContain('.update({ ...columns, detail })');
@@ -134,12 +134,12 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
 
     expect(detailPage).toContain('getCachedPublicBrandById,');
     expect(detailPage).toContain('listCachedPublicProducts,');
-    expect(detailPage).toContain('const brand = await getCachedPublicBrandById(id);');
+    expect(detailPage).toContain('const brand = await getCachedPublicBrandBySlug(id);');
     expect(detailPage).toContain('const brandProducts = await listCachedPublicProducts({ brandId: brand.id });');
     expect(detailPage).not.toMatch(/getBrandById\(\s*id\s*,/);
     expect(detailPage).not.toContain('getBrandById(id, { includeHidden');
     expectPublicBrandSource(detailPage);
-    expect(publicCache).toContain("import { getBrandById, listBrands } from '@/lib/brands/repo'");
+    expect(publicCache).toContain("import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo'");
     expect(publicCache).toContain('async () => listBrands(true)');
     expect(publicCache).toContain('async (id: string) => getBrandById(id)');
 

@@ -2,45 +2,58 @@
 
 > 대상: 이 레포에서 코드를 작성·검증하는 개발자(사람·AI 세션 모두).
 > 운영자(고객사 관리자)용은 [`admin-ops-manual.md`](../guides/admin-ops-manual.md) — 섞지 말 것.
-> 기준일: 2026-07-18. 아키텍처 근거는 `AGENTS.md` §8·§10-10.
+> 기준일: 2026-08-26. 아키텍처 근거는 `AGENTS.md` §8·§10-10.
 
-## 1. 테스트 지형 — Playwright 프로젝트 4개
+## 1. 테스트 지형 — Playwright 프로젝트 10개
 
 | project | 브라우저 | 대상 | 무엇을 지키나 |
 |---|---|---|---|
-| `chromium` | O | `tests/golden/**` | 골든플로우(§7) — 실제 화면 구동 + 시각 회귀 |
+| `chromium` | O | `tests/golden/**` (`admin-crud-*`, `all-pages-smoke` 제외) | 골든플로우(§7) — 실제 화면 구동 |
+| `golden-crud` | O | `tests/golden/admin-crud-*.spec.ts`, `tests/golden/member-*.spec.ts` | Preview/staging 대상 쓰기 CRUD 실구동 |
+| `golden-smoke` | O | `tests/golden/all-pages-smoke.spec.ts` | 공개 페이지 데스크톱 스모크 |
+| `golden-smoke-mobile` | O | `tests/golden/all-pages-smoke.spec.ts` | 공개 페이지 모바일 스모크 |
 | `admin` | X | `tests/admin/**` | 순수 데이터/함수 회귀(내비 SSOT·폼 payload 등). DB 불필요, 초 단위 |
 | `products` | X | `tests/products/**` | 검증·정규화·정책 순수 로직(validate, TTL, 클램프) |
 | `payments` | X | `tests/payments/**` | 결제 상태기계 — **라이브 프리뷰 API + staging DB 통합** |
+| `tracking` | X | `tests/tracking/**` | 택배 조회 클라이언트 순수 함수 + fetch stub |
+| `shipments` | X | `tests/shipments/**` | 배송 파생·구매확정 순수/DB 계약 |
+| `security` | X | `tests/security/**` | Production 비용 안전 경계와 crawler guard 회귀 |
 
 실행:
 ```bash
-npm run test:e2e                                   # ⚠️ 전체 — 기본 타깃이 로컬이 아니라 라이브 프리뷰
-npx playwright test --project=admin                # 브라우저·DB 없는 순수 검증(가장 빠른 피드백)
-npx playwright test tests/products/xxx.spec.ts --project=products
-E2E_BASE_URL=http://localhost:3000 npx playwright test --project=chromium   # 이때만 dev 서버 자동 기동
+npm run test:e2e                                   # 전체 — 기본 타깃은 http://127.0.0.1:3000
+npx playwright test --project=admin --project=products --project=security --reporter=line
+E2E_BASE_URL=https://<preview> npx playwright test --project=chromium        # 원격 Preview 명시 실행
 ```
+
+`admin`/`products`/`security`처럼 소스만 검증하는 프로젝트를 선택하면 로컬 `webServer`를 띄우지 않는다.
+브라우저 프로젝트를 선택하지 않은 검증에는 dummy URL을 넣을 필요가 없다.
 
 ## 2. ⚠️ 함정 목록 (전부 실사고에서 나옴)
 
-1. **기본 baseURL은 라이브 Vercel 프리뷰다.** `E2E_BASE_URL` 없이 돌리면 로컬 코드가 아니라
-   배포본을 검증한다. `webServer`는 baseURL이 localhost일 때만 뜬다.
-2. **visual 베이스라인은 CI(Linux) 전용.** 로컬 Windows 스냅샷은 폰트 렌더 차이로 전부 오탐 —
+1. **기본 baseURL은 로컬 `http://127.0.0.1:3000`이다.** `E2E_BASE_URL` 없이 돌리면 Playwright가
+   로컬 dev 서버를 자동 기동한다. 원격 Preview 검증은 `E2E_BASE_URL=https://<preview>`를 명시해야 한다.
+   원격 타깃은 비용 폭주 방지를 위해 병렬 실행을 끄고 재시도도 하지 않는다.
+2. **Production 도메인은 기본 차단된다.** `www.baekjo-objet.com`, `baekjo-objet.com`,
+   `baekjo-obj.vercel.app`은 Playwright config와 `qa-release-check.mjs`,
+   `layout-snapshot.mjs`에서 `ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST` 없이는 즉시 실패한다.
+   GitHub `golden-crud`, `release-qa`, `update-baselines` 수동 실행도 같은 production URL을 거부한다.
+3. **visual 베이스라인은 CI(Linux) 전용.** 로컬 Windows 스냅샷은 폰트 렌더 차이로 전부 오탐 —
    커밋 금지. 갱신은 PR에 `update-baselines` 라벨 또는 워크플로 수동 dispatch.
    봇 커밋은 CI를 재트리거하지 않으므로 빈 커밋으로 깨운다.
-3. **`networkidle` 금지** — 프리뷰 툴바 websocket 때문에 영원히 idle이 안 된다.
+4. **`networkidle` 금지** — 프리뷰 툴바 websocket 때문에 영원히 idle이 안 된다.
    `settlePage()`(load + 전체 스크롤) 패턴을 쓴다.
-4. **주문 생성 레이트리밋(분당 5건/IP)과 스펙의 경합.** payments 스펙처럼 한 파일에서 주문을
+5. **주문 생성 레이트리밋(분당 5건/IP)과 스펙의 경합.** payments 스펙처럼 한 파일에서 주문을
    여러 건 만들면 CI 러너 단일 IP가 예산을 소진해, 이후 요청이 409가 아니라 **429로 오염**된다
    (2026-07-18 CI 2회 실측). 대책: 다건 주문 스펙은 발사 전 60초 창 리셋 대기
    (`payment-routes.spec.ts` 오버셀 테스트의 `test.slow()` + 65s 대기 패턴). 리밋은 인스턴스별
    인메모리라 완전 결정적이진 않다 — 신규 스펙 설계 시 주문 수 자체를 줄이는 게 우선.
-5. **staging DB 스펙(`payments-db-spec`)은 훅 타임아웃 플레이크가 있다**(Management API 지연,
+6. **staging DB 스펙(`payments-db-spec`)은 훅 타임아웃 플레이크가 있다**(Management API 지연,
    `beforeAll` 60s 초과). 코드 무관 실패면 `gh run rerun <id> --failed` 1회가 적절한 대응.
-6. **가드 스펙은 소스를 리터럴로 고정한다.** 메뉴·문구·시그니처를 *의도적으로* 바꾸면 해당
+7. **가드 스펙은 소스를 리터럴로 고정한다.** 메뉴·문구·시그니처를 *의도적으로* 바꾸면 해당
    스펙도 같은 PR에서 추종 갱신해야 한다(예: `admin-nav.spec.ts`의 href 목록/개수 — "기대값을
    같이 고치는 순간이 유실을 자각하는 지점"). 스펙을 코드에 맞추는 변경은 PR에 명시할 것.
-7. **골든 스펙 중 `purchase`·`admin`은 아직 `test.fixme` 스텁**이다(§0 킥오프 잔재).
+8. **골든 스펙 중 `purchase`·`admin`은 아직 `test.fixme` 스텁**이다(§0 킥오프 잔재).
    "passed"가 아니라 "실행 안 됨"이다 — 플로우 2·7의 완전한 프리뷰 실구동 검증은
    스텁 구현 + 프리뷰 admin 계정(`E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD`) 주입이 선행 과제.
 
@@ -65,7 +78,7 @@ E2E_BASE_URL=http://localhost:3000 npx playwright test --project=chromium   # �
 
 ```bash
 npm run lint && npm run build
-npx playwright test --project=admin --project=products     # 초 단위, 항상 돌릴 것
+npx playwright test --project=admin --project=products --project=security --reporter=line
 ```
 
 - PR은 CI green + §8-6 삼중 검증(opus 리뷰·codex 리뷰·Playwright 프리뷰)이 머지 조건이다.
@@ -87,3 +100,7 @@ curl -si <preview>/admin/xxx | grep -i location    # /login?error=admin 리다�
 Deployment Protection이 걸려 있으면 `VERCEL_AUTOMATION_BYPASS` 헤더로 통과한다.
 관리자 화면 스펙은 `E2E_ADMIN_EMAIL`/`E2E_ADMIN_PASSWORD` 없으면 조용히 skip — 결과 보고 시
 "passed"와 "skipped"를 구분해 적을 것.
+
+Production 도메인에서 위 명령을 실행하려고 하면 안전 가드가 먼저 실패한다. Production에서 꼭
+읽기 카나리를 해야 하는 경우에도 사용자 승인, 대상 URL, 예상 요청 수를 먼저 기록하고
+`ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST`를 한 번의 제한된 실행에만 붙인다.

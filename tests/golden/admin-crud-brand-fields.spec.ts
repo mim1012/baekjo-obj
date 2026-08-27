@@ -175,7 +175,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(brandCard.locator('img').first()).toBeVisible(); // logo(:114)
     await brandCard.getByRole('link').first().click();
     await expect(page).toHaveURL(/\/brands\/.+/);
-    const brandId = new URL(page.url()).pathname.split('/').pop()!;
+    // ⚠️ 공개 URL은 slug(/brands/[slug], 예: /brands/penefit) 기반이라 URL 세그먼트는 브랜드 id와
+    // 다르다 — 이후 #product-brand select(option value=id)·/admin/brands/[id] 편집 경로에서 쓸
+    // 실제 id는 관리자 API로 이름 조회해 확보한다(orderShipmentScenarioHelpers.ts getAdminBrands와
+    // 동일 패턴).
+    const brandsRes = await page.request.get('/api/admin/brands');
+    expect(brandsRes.ok()).toBe(true);
+    const { brands } = (await brandsRes.json()) as { brands: Array<{ id: string; name: string }> };
+    const brandId = brands.find((b) => b.name === brandName)?.id;
+    expect(brandId).toBeTruthy();
+    if (!brandId) throw new Error('brandId 조회 실패');
 
     // ── 2) 이 브랜드 아래 최소 상품 1건 생성(대표상품 연결용) ──
     await page.goto('/admin/products/new');

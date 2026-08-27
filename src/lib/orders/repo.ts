@@ -1,6 +1,13 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import { ORDER_STATUSES, type Order, type OrderItem, type OrderStatus } from '@/types';
+import {
+  REFUND_STATUSES,
+  type NormalizedRefundRequest,
+  type OrderRefundRecord,
+  type RefundItemSnapshot,
+  type RefundStatus,
+} from '@/lib/orders/refund';
 
 const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES);
 
@@ -75,6 +82,84 @@ function rowToRecord(row: OrderRow): OrderRecord {
     reclaimAttempts: row.reclaim_attempts,
     reclaimError: row.last_reclaim_error ?? undefined,
     reclaimDead: row.reclaim_dead,
+  };
+}
+
+const ORDER_REFUND_COLUMNS =
+  'id, order_id, idempotency_key, items, include_delivery_fee, requested_amount, approved_amount, status, reason, payment_key, provider_balance_before, provider_balance_after, provider_status, transaction_key, error_message, created_by, created_at, completed_at';
+
+function parseRefundItem(raw: unknown): RefundItemSnapshot {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-refund-item');
+  const item = raw as Record<string, unknown>;
+  if (
+    typeof item.lineIndex !== 'number' ||
+    !Number.isInteger(item.lineIndex) ||
+    typeof item.productId !== 'string' ||
+    typeof item.productName !== 'string' ||
+    typeof item.quantity !== 'number' ||
+    !Number.isSafeInteger(item.quantity) ||
+    item.quantity <= 0 ||
+    typeof item.unitPrice !== 'number' ||
+    !Number.isSafeInteger(item.unitPrice) ||
+    typeof item.amount !== 'number' ||
+    !Number.isSafeInteger(item.amount)
+  ) {
+    throw new Error('invalid-order-refund-item');
+  }
+  return {
+    lineIndex: item.lineIndex,
+    productId: item.productId,
+    productName: item.productName,
+    quantity: item.quantity,
+    unitPrice: item.unitPrice,
+    amount: item.amount,
+    ...(typeof item.optionId === 'string' ? { optionId: item.optionId } : {}),
+    ...(typeof item.optionName === 'string' ? { optionName: item.optionName } : {}),
+  };
+}
+
+function parseRefundRecord(raw: unknown): OrderRefundRecord {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-refund');
+  const row = raw as Record<string, unknown>;
+  const status = row.status;
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.order_id !== 'string' ||
+    typeof row.idempotency_key !== 'string' ||
+    !Array.isArray(row.items) ||
+    typeof row.include_delivery_fee !== 'boolean' ||
+    typeof row.requested_amount !== 'number' ||
+    !Number.isSafeInteger(row.requested_amount) ||
+    typeof status !== 'string' ||
+    !REFUND_STATUSES.includes(status as RefundStatus) ||
+    typeof row.reason !== 'string' ||
+    typeof row.created_at !== 'string'
+  ) {
+    throw new Error('invalid-order-refund');
+  }
+  return {
+    id: row.id,
+    orderId: row.order_id,
+    idempotencyKey: row.idempotency_key,
+    items: row.items.map(parseRefundItem),
+    includeDeliveryFee: row.include_delivery_fee,
+    requestedAmount: row.requested_amount,
+    ...(typeof row.approved_amount === 'number' ? { approvedAmount: row.approved_amount } : {}),
+    status: status as RefundStatus,
+    reason: row.reason,
+    ...(typeof row.payment_key === 'string' ? { paymentKey: row.payment_key } : {}),
+    ...(typeof row.provider_balance_before === 'number'
+      ? { providerBalanceBefore: row.provider_balance_before }
+      : {}),
+    ...(typeof row.provider_balance_after === 'number'
+      ? { providerBalanceAfter: row.provider_balance_after }
+      : {}),
+    ...(typeof row.provider_status === 'string' ? { providerStatus: row.provider_status } : {}),
+    ...(typeof row.transaction_key === 'string' ? { transactionKey: row.transaction_key } : {}),
+    ...(typeof row.error_message === 'string' ? { errorMessage: row.error_message } : {}),
+    ...(typeof row.created_by === 'string' ? { createdBy: row.created_by } : {}),
+    createdAt: row.created_at,
+    ...(typeof row.completed_at === 'string' ? { completedAt: row.completed_at } : {}),
   };
 }
 
@@ -200,6 +285,80 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
     .limit(ORDERS_LIST_CAP);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
+}
+
+export const ORDER_REFUNDS_LIST_CAP = 5000;
+
+export async function listOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
+  const { data, error } = await getSupabase()
+    .from('order_refunds')
+    .select(ORDER_REFUND_COLUMNS)
+    .eq('order_id', orderId)
+    .order('created_at', { ascending: false })
+    .limit(ORDER_REFUNDS_LIST_CAP);
+  if (error) throw error;
+  return (data as unknown[]).map(parseRefundRecord);
+}
+
+export async function listAllOrderRefunds(): Promise<OrderRefundRecord[]> {
+  const { data, error } = await getSupabase()
+    .from('order_refunds')
+    .select(ORDER_REFUND_COLUMNS)
+    .order('created_at', { ascending: false })
+    .limit(ORDER_REFUNDS_LIST_CAP);
+  if (error) throw error;
+  return (data as unknown[]).map(parseRefundRecord);
+}
+
+export async function createOrderRefundRequest(
+  orderId: string,
+  request: NormalizedRefundRequest,
+  providerBalanceBefore: number,
+  createdBy: string | null,
+): Promise<OrderRefundRecord> {
+  const { data, error } = await getSupabase().rpc('create_order_refund_request', {
+    p_order_id: orderId,
+    p_idempotency_key: request.idempotencyKey,
+    p_items: request.items.map(({ lineIndex, productId, quantity }) => ({ lineIndex, productId, quantity })),
+    p_include_delivery_fee: request.includeDeliveryFee,
+    p_provider_balance_before: providerBalanceBefore,
+    p_reason: request.reason,
+    p_created_by: createdBy,
+  });
+  if (error) throw new Error(error.message);
+  return parseRefundRecord(data);
+}
+
+export async function completeOrderRefund(
+  refundId: string,
+  approvedAmount: number,
+  providerBalanceAfter: number,
+  providerStatus: string,
+  transactionKey: string | null,
+): Promise<OrderRefundRecord> {
+  const { data, error } = await getSupabase().rpc('complete_order_refund', {
+    p_refund_id: refundId,
+    p_approved_amount: approvedAmount,
+    p_provider_balance_after: providerBalanceAfter,
+    p_provider_status: providerStatus,
+    p_transaction_key: transactionKey,
+  });
+  if (error) throw new Error(error.message);
+  return parseRefundRecord(data);
+}
+
+export async function updateOrderRefundException(
+  refundId: string,
+  status: Extract<RefundStatus, 'FAILED' | 'UNKNOWN'>,
+  errorMessage: string,
+): Promise<OrderRefundRecord> {
+  const { data, error } = await getSupabase().rpc('update_order_refund_exception', {
+    p_refund_id: refundId,
+    p_status: status,
+    p_error_message: errorMessage,
+  });
+  if (error) throw new Error(error.message);
+  return parseRefundRecord(data);
 }
 
 /** 관리자 주문 상태 변경 요청(라우트에서 화이트리스트 검증됨). paymentStatus 는 취소 감지·전이 판정에

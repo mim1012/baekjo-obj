@@ -3,7 +3,10 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
-const exceptionExpiresOn = '2026-08-02';
+// 2026-08-21 재검토: 아래 allowedAdvisories(nodemailer·Next 하위 postcss 계열)는 모두
+// 빌드타임 전용·사용자 입력 미도달 논거가 유효하고, Next 16.2.11 기준 패치판 postcss/nodemailer
+// 업그레이드 경로가 아직 없어 예외를 재승인한다. 다음 재검토 강제일로 연장.
+const exceptionExpiresOn = '2026-09-30';
 const today = new Date().toISOString().slice(0, 10);
 
 const allowedAdvisories = new Map([
@@ -50,6 +53,14 @@ const allowedAdvisories = new Map([
     // 패치판(8.5.18+) postcss를 동봉하면 업그레이드로 전환(만료일 exceptionExpiresOn이 강제).
     'https://github.com/advisories/GHSA-r28c-9q8g-f849',
     'PostCSS sourceMappingURL path traversal; nested under Next.js, build-time only, no user-controlled CSS or source maps are parsed.',
+  ],
+  [
+    // 2026-08-04 공개 — GHSA-6g55(위)의 불완전 수정 후속 advisory. 동일 취약점 계열(from
+    // 미설정 시 sourceMappingURL로 임의 .map 파일 읽힘), 동일 도달성 논거: postcss는 Next
+    // 빌드 체인 내부에서만 실행되고 사용자 제어 CSS/소스맵을 파싱하지 않는다. 패치판 postcss
+    // 배포 시 업그레이드로 전환(만료일 exceptionExpiresOn이 재검토를 강제).
+    'https://github.com/advisories/GHSA-fxqj-rqcc-2cmp',
+    'PostCSS sourceMappingURL incomplete-fix follow-up; same GHSA-6g55 reachability — build-time only, no user-controlled CSS or source maps are parsed.',
   ],
 ]);
 

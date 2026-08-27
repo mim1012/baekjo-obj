@@ -9,6 +9,7 @@ import {
   settledOr,
 } from '@/lib/admin/dashboardStats';
 import { PAID_PAYMENT_STATUS, type Brand, type Order, type Product, type ProductInquiry } from '@/types';
+import type { OrderRefundRecord } from '@/lib/orders/refund';
 
 // 대시보드 브랜드별 통계(§6-3) 단위 스펙 — 순수 함수, 브라우저·DB 불필요.
 
@@ -17,6 +18,7 @@ const SINCE = '2026-07-01T00:00:00.000Z';
 function brand(id: string, over: Partial<Brand> = {}): Brand {
   return {
     id,
+    slug: id,
     name: `브랜드 ${id}`,
     logo: `/brands/${id}.webp`,
     description: '',
@@ -151,6 +153,36 @@ test('주문 1건이 여러 브랜드를 포함하면 아이템 단위로 금액
   const stats = buildBrandStats({ brands, products, orders, inquiries, since: SINCE });
   expect(stats[0].orderAmount).toBe(20_000); // p1 10,000 × 2
   expect(stats[1].orderAmount).toBe(15_000); // p3 5,000 × 3
+});
+
+test('부분환불 원장은 성공한 수량만 대시보드 매출에서 차감한다', () => {
+  const partialOrder = order('partial-order', [{ productId: 'p1', price: 10_000, quantity: 2 }]);
+  const refunds: OrderRefundRecord[] = [
+    {
+      id: 'partial-refund',
+      orderId: 'partial-order',
+      idempotencyKey: 'partial-key',
+      items: [
+        {
+          lineIndex: 0,
+          productId: 'p1',
+          productName: 'p1',
+          quantity: 1,
+          unitPrice: 10_000,
+          amount: 10_000,
+        },
+      ],
+      includeDeliveryFee: false,
+      requestedAmount: 10_000,
+      approvedAmount: 10_000,
+      status: 'SUCCEEDED',
+      reason: '고객 요청',
+      createdAt: '2026-07-10T00:00:00.000Z',
+    },
+  ];
+
+  const stats = buildBrandStats({ brands, products, orders: [partialOrder], refunds, inquiries: [], since: SINCE });
+  expect(stats[0].orderAmount).toBe(10_000);
 });
 
 test('기간(since) 이전 주문은 금액에서 빠진다', () => {

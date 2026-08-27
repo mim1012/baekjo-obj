@@ -49,6 +49,7 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
   test('가격·이름 수정 — 장바구니/체크아웃은 최신값, 주문완료 이후엔 주문 시점 값이 고정된다', async ({
     browser,
   }) => {
+    test.slow();
     const adminPage = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     adminPage.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(adminPage);

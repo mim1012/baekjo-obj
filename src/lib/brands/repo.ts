@@ -76,12 +76,36 @@ function detailShipping(raw: unknown): BrandShippingPolicy | undefined {
 interface BrandRow {
   id: string;
   name: string;
+  slug: string | null;
   is_visible: boolean;
   detail: unknown;
   created_at: string;
 }
 
-const SELECT_COLUMNS = 'id, name, is_visible, detail, created_at';
+const SELECT_COLUMNS = 'id, name, slug, is_visible, detail, created_at';
+
+/** 브랜드명(괄호 안 영문 표기 우선)을 URL-safe slug로 변환한다. 3자 미만이면 자동 생성 불가로 null. */
+function slugifyBrandName(name: string): string | null {
+  const parenMatch = name.match(/\(([^)]+)\)/);
+  const source = parenMatch ? parenMatch[1] : name;
+  const slug = source.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return slug.length >= 3 ? slug : null;
+}
+
+/** base slug가 이미 쓰였으면 -2, -3... 접미사로 유일값을 만든다. excludeId는 자기 자신 갱신 시 제외. */
+async function uniqueSlug(base: string, excludeId?: string): Promise<string> {
+  const { data, error } = await getSupabase().from('brands').select('id, slug').ilike('slug', `${base}%`);
+  if (error) throw error;
+  const taken = new Set(
+    (data as { id: string; slug: string | null }[])
+      .filter((row) => row.id !== excludeId && row.slug)
+      .map((row) => row.slug as string),
+  );
+  if (!taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
 
 /** jsonb detail을 안전하게 객체로 취급한다. 객체가 아니면 빈 객체로 방어한다. */
 function detailOf(raw: unknown): Record<string, unknown> {
@@ -94,11 +118,22 @@ function rowToBrand(row: BrandRow): Brand {
   return {
     id: row.id,
     name: row.name,
+    slug: row.slug ?? row.id,
     officialUrl: typeof d.officialUrl === 'string' ? d.officialUrl : undefined,
     sourceUrls: Array.isArray(d.sourceUrls) ? (d.sourceUrls as string[]) : undefined,
     logo: typeof d.logo === 'string' ? d.logo : '',
     description: typeof d.description === 'string' ? d.description : '',
     philosophy: typeof d.philosophy === 'string' ? d.philosophy : '',
+    displayTags: Array.isArray(d.displayTags)
+      ? d.displayTags.filter((tag): tag is string => typeof tag === 'string' && tag.trim().length > 0)
+      : undefined,
+    highlights: Array.isArray(d.highlights)
+      ? d.highlights.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      : undefined,
+    summaryCategoryNote: typeof d.summaryCategoryNote === 'string' ? d.summaryCategoryNote : undefined,
+    summaryCategoryLabel: typeof d.summaryCategoryLabel === 'string' ? d.summaryCategoryLabel : undefined,
+    summaryConcernLabel: typeof d.summaryConcernLabel === 'string' ? d.summaryConcernLabel : undefined,
+    summaryConcernNote: typeof d.summaryConcernNote === 'string' ? d.summaryConcernNote : undefined,
     auditGrade: normalizeAuditGrade(d.auditGrade),
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : [],
     auditReport: detailAuditReport(d.auditReport),
@@ -111,12 +146,15 @@ function rowToBrand(row: BrandRow): Brand {
     isVisible: row.is_visible,
     displayOrder: typeof d.displayOrder === 'number' ? d.displayOrder : undefined,
     shipping: detailShipping(d.shipping),
+    wordmarkColor: typeof d.wordmarkColor === 'string' ? d.wordmarkColor : undefined,
+    wordmarkImage: typeof d.wordmarkImage === 'string' ? d.wordmarkImage : undefined,
   };
 }
 
 /** camelCase Brand 키 → snake_case 컬럼명. 여기 없는 키는 전부 detail jsonb로 들어간다. */
 const BRAND_COLUMN_MAP: Partial<Record<keyof Brand, string>> = {
   name: 'name',
+  slug: 'slug',
   isVisible: 'is_visible',
 };
 
@@ -162,20 +200,37 @@ export async function getBrandById(id: string, opts: { includeHidden?: boolean }
   return data ? rowToBrand(data as BrandRow) : null;
 }
 
+/** slug 기반 단건 조회. getBrandById와 동일한 노출 필터링 규칙을 따른다. */
+export async function getBrandBySlug(slug: string, opts: { includeHidden?: boolean } = {}): Promise<Brand | null> {
+  let query = getSupabase().from('brands').select(SELECT_COLUMNS).eq('slug', slug);
+  if (!opts.includeHidden) query = query.eq('is_visible', true);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) throw error;
+  return data ? rowToBrand(data as BrandRow) : null;
+}
+
 export async function listAllBrandsForAdmin(): Promise<Brand[]> {
   return listBrands(false);
 }
 
-/** 브랜드 생성 입력. id는 서버가 생성한다(mass-assignment 차단, seed 'b1' 스타일과 충돌 방지). */
-export type BrandInsertInput = Omit<Brand, 'id'>;
+/** 브랜드 생성 입력. id는 서버가 생성한다(mass-assignment 차단, seed 'b1' 스타일과 충돌 방지).
+ *  slug는 선택 입력 — 없으면 name에서 자동 생성한다. */
+export type BrandInsertInput = Omit<Brand, 'id' | 'slug'> & { slug?: string };
 export type BrandPatchInput = Partial<Omit<Brand, 'id'>>;
 
 export async function insertBrand(input: BrandInsertInput): Promise<Brand> {
   const id = `brand_${randomUUID()}`;
-  const { columns, detail } = splitBrandInput(input);
+  const baseSlug = input.slug
+    ? (slugifyBrandName(input.slug) ?? input.slug.toLowerCase())
+    : slugifyBrandName(input.name);
+  if (!baseSlug) throw new Error('브랜드 slug를 자동 생성할 수 없습니다. slug를 직접 입력해주세요.');
+  const slug = await uniqueSlug(baseSlug);
+
+  const { columns, detail } = splitBrandInput(input as Partial<Brand>);
   const { data, error } = await getSupabase()
     .from('brands')
-    .insert({ id, ...columns, detail })
+    .insert({ id, ...columns, slug, detail })
     .select(SELECT_COLUMNS)
     .single();
   if (error) throw error;
@@ -191,8 +246,15 @@ export async function updateBrand(id: string, patch: BrandPatchInput): Promise<B
   const existing = await getBrandById(id, { includeHidden: true });
   if (!existing) return null;
 
-  const merged: Brand = { ...existing, ...patch, id: existing.id };
+  const merged: Brand = { ...existing, ...patch, id: existing.id, slug: existing.slug };
   const { columns, detail } = splitBrandInput(merged);
+  // slug는 patch에 명시적으로 담긴 경우에만 재계산한다 — name만 바뀌어도 기존 slug는 유지되어야 한다.
+  if (patch.slug !== undefined) {
+    const baseSlug = slugifyBrandName(patch.slug) ?? patch.slug.toLowerCase();
+    columns.slug = await uniqueSlug(baseSlug, id);
+  } else {
+    delete columns.slug;
+  }
   const { data, error } = await getSupabase()
     .from('brands')
     .update({ ...columns, detail })

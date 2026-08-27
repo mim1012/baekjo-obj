@@ -207,17 +207,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     const paymentStatusField = adminPage.locator('div.mb-6', { hasText: '결제 상태' }).locator('select');
     await expect(paymentStatusField).toHaveValue('입금대기');
 
-    // 6) 부정 케이스 — 화이트리스트에 없는 결제상태 전이(입금대기→환불완료, 허용은 입금대기→결제완료뿐)를
-    // 시도하면 서버가 거부하고(409) 화면은 alert로 실패를 알리며, 실제 DB 값은 안 바뀐다.
-    // ⚠️ 반드시 입금확인(→결제완료) 이전에 해야 한다 — 결제완료 이후엔 결제완료→환불완료가
-    // 화이트리스트상 유효한 전이가 돼 더 이상 "부정 케이스"가 아니게 된다.
-    await paymentStatusField.selectOption('환불완료');
-    const [invalidDialog] = await Promise.all([
-      adminPage.waitForEvent('dialog', { timeout: 15_000 }),
-      adminPage.getByRole('button', { name: '저장하기' }).click(),
-    ]);
-    expect(invalidDialog.message()).toBeTruthy(); // orderUpdateErrorMessage — 정확한 문구는 구현 세부사항이라 존재만 확인.
-    await invalidDialog.accept();
+    await expect(paymentStatusField.getByRole('option', { name: '환불완료(전용 환불 처리)' })).toBeDisabled();
 
     // ⚠️ GET /api/admin/orders/[id] 단건 조회 라우트는 없다(route.ts는 PATCH만 export) — 목록
     // API로 재조회해 id로 찾는다.

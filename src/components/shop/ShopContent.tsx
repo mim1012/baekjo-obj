@@ -311,7 +311,7 @@ function ShopInner({ products, brands, concerns }: Props) {
       </div>
 
       {/* 2. 빠른 카테고리 */}
-      <div className="shop-category-tabs hide-scrollbar mb-10 flex gap-2 overflow-x-auto border-b border-[#E7E0D5] pb-4">
+      <div className="shop-category-tabs mb-10 flex flex-wrap gap-2 border-b border-[#E7E0D5] pb-4">
         <Link href={makeHref('category', 'all')} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${!params.category ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>전체</Link>
         {categoryOptions.map(cat => (
           <Link key={cat.slug} href={makeHref('category', cat.slug)} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${normalizeShopCategory(params.category) === cat.slug ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>

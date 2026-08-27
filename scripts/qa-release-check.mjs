@@ -4,6 +4,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const baseURL = process.env.E2E_BASE_URL || 'http://localhost:3000';
+const targetHost = new URL(baseURL).hostname.toLowerCase();
+const productionHosts = new Set([
+  'www.baekjo-objet.com',
+  'baekjo-objet.com',
+  'baekjo-obj.vercel.app',
+]);
+
+class UnsafeProductionTargetError extends Error {
+  constructor(host) {
+    super(
+      `Production release QA target ${host} is blocked. ` +
+        'Set ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST only after explicit user approval.',
+    );
+    this.name = 'UnsafeProductionTargetError';
+  }
+}
+
+if (
+  productionHosts.has(targetHost) &&
+  process.env.ALLOW_PRODUCTION_QA !== 'I_ACCEPT_PRODUCTION_COST'
+) {
+  throw new UnsafeProductionTargetError(targetHost);
+}
 const today = new Date().toISOString().slice(0, 10);
 const outDir = path.resolve(`.gstack/qa-reports/release-qa-${today}`);
 fs.mkdirSync(path.join(outDir, 'screenshots'), { recursive: true });

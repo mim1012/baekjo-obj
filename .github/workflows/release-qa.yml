@@ -45,6 +45,15 @@ jobs:
             echo "url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Production URL guard
+        env:
+          TARGET_URL: ${{ steps.target.outputs.url }}
+        run: |
+          if echo "$TARGET_URL" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then
+            echo "::error::Production URL은 release QA 대상이 아닙니다. Preview/Staging URL을 사용하세요."
+            exit 1
+          fi
+
       - name: Release QA browser gate
         run: npm run qa:release
         env:

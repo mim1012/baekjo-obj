@@ -189,7 +189,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
                       {spotlightCustomDetails?.finalDescription || spotlightBrand.description}
                     </p>
-                    <Link href={`/brands/${spotlightBrand.id}`} className="mt-auto self-start inline-flex items-center justify-center h-[42px] md:h-[46px] px-6 bg-[#17382D] text-white text-[13px] md:text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F]">
+                    <Link href={`/brands/${spotlightBrand.slug}`} className="mt-auto self-start inline-flex items-center justify-center h-[42px] md:h-[46px] px-6 bg-[#17382D] text-white text-[13px] md:text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F]">
                       브랜드 자세히 보기 <ArrowRight className="ml-2 w-4 h-4" />
                     </Link>
                   </div>

@@ -3,7 +3,7 @@ import { getDataBackedShopCategoryOptions } from '@/data/shopFilters';
 
 test('운영 설정과 상품 카테고리가 어긋나도 0827 기본 카테고리 5개를 같은 순서로 유지한다', () => {
   const options = getDataBackedShopCategoryOptions(
-    ['푸드', '영양', '케어', '패션', '펫로스', '라이프'],
+    ['식품·영양', '케어', '패션', '펫로스', '라이프'],
     [
       'dining-and-nourish',
       'wellness-and-care',

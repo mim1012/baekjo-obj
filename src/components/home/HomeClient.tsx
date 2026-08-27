@@ -189,7 +189,7 @@ export default function HomeClient({
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-24">
-        <nav aria-label={quickShop.title} className="rounded-[22px] border border-[#E8E0D4] bg-white px-3 py-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 md:py-7 lg:px-8 lg:py-8">
+        <nav aria-label={quickShop.title || '빠른 쇼핑'} className="rounded-[22px] border border-[#E8E0D4] bg-white px-3 py-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 md:py-7 lg:px-8 lg:py-8">
           <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:grid-cols-6 sm:gap-x-4">
             {quickLinks.map((link, i) => {
               const Icon = link.icon;
@@ -229,9 +229,9 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 md:mb-8 gap-4">
           <div>
-            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">우리 아이 고민에 맞는 케어 가이드</h2>
+            <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{curation.title}</h2>
             <p className="mt-2 text-[14px] md:text-[15px] text-[#59615B] break-keep">
-              우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.
+              {curation.description}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -317,10 +317,10 @@ export default function HomeClient({
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">보호자 후기</h2>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
               </div>
               <Link href="/reviews" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
-                후기 전체 보기 <ArrowRight className="ml-1 size-3" />
+                {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="horizontal-snap-rail pb-4" tabIndex={0} role="region" aria-label="보호자 후기 가로 스크롤">
@@ -337,10 +337,10 @@ export default function HomeClient({
           <div className="w-full lg:w-[42%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
               <div>
-                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">소식</h2>
+                <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
               </div>
               <Link href="/notices" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
-                소식 전체 보기 <ArrowRight className="ml-1 size-3" />
+                {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="flex flex-col">

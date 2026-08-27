@@ -22,7 +22,6 @@ export interface HomeSettings {
     badgeTitle: string;
     badgeSubtitle: string;
   };
-  /** 2. 빠른 쇼핑 (아이콘·href 는 HomeClient 하드코딩, 이름만 편집) */
   quickShop: {
     title: string;
     links: Array<{ name: string }>;
@@ -81,7 +80,7 @@ export const defaultHomeSettings: HomeSettings = {
     badgeSubtitle: '검증 기준 통과',
   },
   quickShop: {
-    title: '빠른 쇼핑',
+    title: '',
     links: [
       { name: '강아지' },
       { name: '고양이' },
@@ -96,14 +95,14 @@ export const defaultHomeSettings: HomeSettings = {
     linkLabel: '전체 셀렉션 보기',
   },
   curation: {
-    title: '반려동물 고민에 맞춘 큐레이션',
-    description: '우리 아이의 일상적인 고민부터 차근차근 확인해 보세요.',
+    title: '우리 아이 고민에 맞는 케어 가이드',
+    description: '우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.',
     diagnosisLinkLabel: '1분 맞춤 진단 시작',
     allConcernsLinkLabel: '모든 고민 살펴보기',
     cards: [
-      { title: '눈물', desc: '눈물 자국이 걱정될 때' },
-      { title: '피부', desc: '자주 긁거나 피부가 예민할 때' },
-      { title: '관절', desc: '걷거나 움직임이 불편해 보일 때' },
+      { title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
+      { title: '피부', desc: '피부를 자주 긁을 때' },
+      { title: '관절', desc: '걸음걸이가 달라졌을 때' },
       { title: '체중', desc: '체중 관리가 필요할 때' },
     ],
   },
@@ -124,7 +123,7 @@ export const defaultHomeSettings: HomeSettings = {
     cards: [
       { title: '검증 브랜드', desc: 'Audit 기준을 철저히 통과한 믿을 수 있는 브랜드와 상품', linkLabel: '브랜드 보러가기' },
       { title: '고민별 큐레이션', desc: '우리 아이의 증상과 고민에 딱 맞는 상품 맞춤 추천', linkLabel: '큐레이션 보러가기' },
-      { title: '펫보험 비교', desc: '복잡한 보장 조건을 우리 아이 맞춤으로 한눈에 비교', linkLabel: '보험 분석 알아보기' },
+      { title: '펫보험 비교', desc: '복잡한 보장 조건을 우리 아이 맞춤으로 한눈에 비교', linkLabel: '보험 분석 시작하기' },
     ],
   },
   insuranceBanner: {
@@ -134,10 +133,10 @@ export const defaultHomeSettings: HomeSettings = {
     buttonLabel: '보험 분석 시작하기',
   },
   trustBoard: {
-    reviewsTitle: '반려가족 후기',
-    reviewsLinkLabel: '더 보기',
-    noticesTitle: '백조 소식',
-    noticesLinkLabel: '더 보기',
+    reviewsTitle: '보호자 후기',
+    reviewsLinkLabel: '후기 전체 보기',
+    noticesTitle: '소식',
+    noticesLinkLabel: '소식 전체 보기',
   },
 };
 
@@ -174,6 +173,35 @@ function asObjectArray<T>(
   });
 }
 
+function normalizeQuickShopLinks(
+  value: unknown,
+  defaults: Array<{ name: string }>,
+): Array<{ name: string }> {
+  const input = Array.isArray(value) ? value : [];
+  const names = input.map((item) => (isRecord(item) ? asString(item.name, '') : ''));
+  const findNamedItem = (fragment: string, fallbackIndex: number) => {
+    const index = names.findIndex((name) => name.includes(fragment));
+    return index >= 0 ? input[index] : input[fallbackIndex];
+  };
+  const source = input.length >= 9
+    ? [
+        findNamedItem('강아지', 1),
+        findNamedItem('고양이', 2),
+        findNamedItem('소동물', -1) ?? { name: '소동물' },
+        findNamedItem('사료', 3),
+        findNamedItem('위생', 4),
+        findNamedItem('건강', 5),
+      ]
+    : names.length === 6 && names[5] === '고민별 케어'
+      ? [input[0], input[1], { name: '소동물' }, input[2], input[3], input[4]]
+      : input;
+
+  return defaults.map((fallback, index) => {
+    const item = source[index];
+    return { name: asString(isRecord(item) ? item.name : undefined, fallback.name) };
+  });
+}
+
 export function normalizeHomeSettings(input: unknown): HomeSettings {
   const root = isRecord(input) ? input : {};
   const hero = isRecord(root.hero) ? root.hero : {};
@@ -186,13 +214,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
   const trustBoard = isRecord(root.trustBoard) ? root.trustBoard : {};
 
   const d = defaultHomeSettings;
-  const storedQuickShopLinks = Array.isArray(quickShop.links) ? quickShop.links : [];
-  const firstStoredQuickShopLink = storedQuickShopLinks[0];
-  const quickShopLinksInput = isRecord(firstStoredQuickShopLink)
-    && firstStoredQuickShopLink.name === '전체 상품'
-    ? storedQuickShopLinks.slice(1, 7)
-    : storedQuickShopLinks;
-
   return {
     hero: {
       eyebrow: asString(hero.eyebrow, d.hero.eyebrow),
@@ -206,9 +227,7 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
     },
     quickShop: {
       title: asString(quickShop.title, d.quickShop.title),
-      links: asObjectArray(quickShopLinksInput, d.quickShop.links, (item, fallback) => ({
-        name: asString(item.name, fallback.name),
-      })),
+      links: normalizeQuickShopLinks(quickShop.links, d.quickShop.links),
     },
     bestProducts: {
       title: asString(bestProducts.title, d.bestProducts.title),

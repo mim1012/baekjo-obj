@@ -3,6 +3,7 @@ import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
+import { getBrandDisplayTags } from '@/lib/brands/display';
 
 type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
@@ -17,10 +18,13 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
 
   if (variant === 'brand-page') {
     const linkedProductCount = brand.representativeProductIds ? brand.representativeProductIds.length : 0;
+    const displayTags = brand.displayTags?.length
+      ? getBrandDisplayTags(brand)
+      : [presentation.cardTags];
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
-        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none w-full h-full">
+        <Link href={`/brands/${brand.slug}`} className="flex flex-1 flex-col outline-none w-full h-full">
           {/* Logo Stage */}
           <div className="mb-4 flex h-[72px] items-center justify-center md:h-[84px]">
             <div className="relative flex h-10 w-full max-w-[150px] items-center justify-center">
@@ -33,9 +37,9 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           </div>
 
           {/* Category / Name / Description */}
-          <span className="mb-1.5 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
-            {presentation.cardTags}
-          </span>
+          <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
+            {displayTags.map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
           <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] line-clamp-2 min-h-[42px] md:min-h-[47px] flex items-start">
             {fullBrandName}
           </h3>
@@ -58,7 +62,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
   if (variant === 'care-related') {
     return (
       <article className="group flex flex-col rounded-2xl border border-[#DED8CC] bg-[#FFFDF9] p-5 md:p-6 transition-all duration-300 hover:border-[#B99562] hover:shadow-sm">
-        <Link href={`/brands/${brand.id}`} className="flex flex-1 flex-col outline-none">
+        <Link href={`/brands/${brand.slug}`} className="flex flex-1 flex-col outline-none">
           {/* Logo Stage */}
           <div className="mb-5 flex h-[62px] w-full items-center justify-start rounded-xl border border-[#E7E1D7] bg-white p-3 md:h-[68px]">
             <BrandLogo 
@@ -88,7 +92,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
 
   return (
     <Link
-      href={`/brands/${brand.id}`}
+      href={`/brands/${brand.slug}`}
       className="premium-card group flex min-h-72 flex-col p-6 sm:min-h-80 sm:p-7"
     >
       <span

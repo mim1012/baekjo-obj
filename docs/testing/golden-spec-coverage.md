@@ -1,7 +1,7 @@
 # 골든스펙 커버리지 전수 문서
 
-> 작성: 2026-07-23. 목적: **스펙이 있는 기능과 없는 기능을 전부 명시**한다.
-> 실측 근거: `tests/**/*.spec.ts` 123개 파일 + `.github/workflows/*.yml` 5개 + `playwright.config.ts` 프로젝트 정의.
+> 작성: 2026-07-23. 갱신: 2026-08-26. 목적: **스펙이 있는 기능과 없는 기능을 전부 명시**한다.
+> 실측 근거: `tests/**/*.spec.ts` 135개 파일 + `.github/workflows/*.yml` 6개 + `playwright.config.ts` 프로젝트 정의.
 > 유스케이스 정의는 [`docs/use-cases.md`](../use-cases.md) — 이 문서는 그 유스케이스에 스펙을 1:1로 붙인 커버리지 대장이다.
 
 ---
@@ -10,7 +10,7 @@
 
 | 구분 | 수 |
 |---|---|
-| 스펙 파일 전체 | **123** (golden 47 · admin 48 · products 19 · shipments 6 · payments 2 · tracking 1) |
+| 스펙 파일 전체 | **135** (golden 49 · admin 51 · products 22 · shipments 6 · payments 3 · tracking 1 · security 3) |
 | CI에서 실제로 도는 스펙 | products 19 + admin 48 (매 PR `verify`) · payments 2 · **shipments 6 + tracking 1 (2026-07-23 배선)** · golden-crud 배선 **33** · visual 2 · smoke 1 |
 | **스펙은 있는데 CI에서 안 도는 것** | ~~shipments 6 + tracking 1 + member 3~~ **→ 2026-07-23 전부 배선 수리(§4)**. 남은 것: chromium 골든 11 (§4-3, 의도된 수동 게이트) |
 | 스펙 자체가 없는 기능 | §5 목록 (실메일 루프, 실 카드결제, 실 환불, 스윗트래커 실폴링 등) |
@@ -26,6 +26,7 @@
 | 시각 회귀 | `visual.yml` | `visual.spec.ts` (14장) + `cart-badge-failure-safety` + `payments/payment-routes` | Preview 배포마다 |
 | 베이스라인 갱신 | `update-baselines.yml` | `visual.spec.ts --update-snapshots` | 라벨/수동 dispatch |
 | 배송·추적 소스-계약 | `ci.yml` (tracking→`verify`, shipments 6개→`payments-db-spec` staging env) | `--project=shipments`(6) · `--project=tracking`(1) | 매 PR (2026-07-23 배선) |
+| Production 비용 안전장치 | 수동/로컬 확인 | `--project=security`(3) | production URL guard, local-first default, AI crawler robots 차단 회귀 |
 | **CI 미배선 (수동 게이트 전용)** | 없음 | chromium 골든 behavioral 11개 | §8-6 게이트에서 수동/에이전트 실행 (의도된 운영) |
 
 ⚠️ `golden-crud.yml`은 **파일 경로 명시 실행**이다 — 스펙을 새로 만들어도 yml에 스텝을 추가하지 않으면 영원히 안 돈다(#203에서 `admin-crud-order-shipments`가 실제로 그렇게 죽어 있었음). 파일단위 배선 감사(`tests/admin/golden-crud-coverage.spec.ts`)가 `admin-crud-*`에 한해 이를 CI에서 강제한다. **`member-*`는 감사 범위 밖**(§4-2).

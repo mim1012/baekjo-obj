@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
@@ -11,6 +11,7 @@ import BrandAuditReport from '@/components/common/BrandAuditReport';
 import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
 import {
   getCachedPublicBrandById,
+  getCachedPublicBrandBySlug,
   listCachedPublicProducts,
 } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
@@ -22,17 +23,18 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const brand = await getCachedPublicBrandById(id);
+  const brand = await getCachedPublicBrandBySlug(id) ?? await getCachedPublicBrandById(id);
   if (!brand) return { title: '브랜드를 찾을 수 없습니다', robots: { index: false, follow: false } };
   const fullBrandName = formatBrandDisplayName(brand.name);
+  const canonicalPath = `/brands/${brand.slug}`;
 
   return {
     title: fullBrandName,
     description: brand.description,
-    alternates: { canonical: `/brands/${brand.id}` },
+    alternates: { canonical: canonicalPath },
     openGraph: {
       type: 'website',
-      url: `/brands/${brand.id}`,
+      url: canonicalPath,
       title: fullBrandName,
       description: brand.description,
       images: brand.logo ? [{ url: brand.logo, alt: `${fullBrandName} 로고` }] : undefined,
@@ -42,14 +44,24 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const brand = await getCachedPublicBrandById(id);
+  // [id] 세그먼트는 이제 slug 값을 받는다(URL은 /brands/penefit 형태). 하위호환을 위해
+  // slug 조회 실패 시 구 URL(/brands/b1)로도 한 번 더 시도하고, id로 찾으면 정식 slug URL로
+  // 영구 리다이렉트한다.
+  const brand = await getCachedPublicBrandBySlug(id);
 
   if (!brand) {
+    const byId = await getCachedPublicBrandById(id);
+    if (byId) {
+      permanentRedirect(`/brands/${byId.slug}`);
+    }
     notFound();
   }
 
   const presentation = getBrandPresentation(brand);
   const fullBrandName = formatBrandDisplayName(brand.name);
+  const wmMatch = fullBrandName.match(/^(.*?)\s*(\([A-Za-z][A-Za-z0-9 .&:-]*\))\s*$/);
+  const wmBase = wmMatch ? wmMatch[1] : fullBrandName;
+  const wmEnglish = wmMatch ? wmMatch[2] : null;
   const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
   const representativeProducts = brandProducts.filter((product) =>
     brand.representativeProductIds.includes(product.id),
@@ -94,7 +106,24 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             </div>
 
             <h1 className="break-keep text-[28px] font-bold leading-[1.18] tracking-[-0.03em] text-[#17251F] sm:text-[32px] md:text-[36px] lg:text-[40px]">
-              {fullBrandName}
+              {brand.wordmarkImage ? (
+                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {wmBase}
+                  <Image
+                    src={brand.wordmarkImage}
+                    alt={wmEnglish ?? fullBrandName}
+                    width={102}
+                    height={42}
+                    className="inline-block h-[0.62em] w-auto align-baseline"
+                  />
+                </span>
+              ) : brand.wordmarkColor && wmEnglish ? (
+                <>
+                  {wmBase} <span style={{ color: brand.wordmarkColor }}>{wmEnglish}</span>
+                </>
+              ) : (
+                fullBrandName
+              )}
             </h1>
             
             <p className="mt-3 max-w-[440px] break-keep text-[14px] leading-[1.75] text-[#6F756F] md:mt-4 md:text-[15px]">
@@ -138,8 +167,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">카테고리</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{categoryNames || '종합 케어'}</div>
-                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">아이의 건강한 습관을 돕는 제품을 소개합니다.</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
+                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote ?? '아이의 건강한 습관을 돕는 제품을 소개합니다.'}</div>
                 </div>
               </div>
               
@@ -150,8 +179,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{relatedConcernNames}</div>
-                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">전반적인 컨디션을 세심하게 케어합니다.</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
+                  <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote ?? '전반적인 컨디션을 세심하게 케어합니다.'}</div>
                 </div>
               </div>
             </div>
@@ -175,15 +204,25 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                </p>
                
                <div className="flex flex-wrap gap-2">
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 꼼꼼한 원료 선별
-                 </div>
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 안전한 제조 공정
-                 </div>
-                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
-                    <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 반려가족 중심 설계
-                 </div>
+                 {brand.highlights?.length ? (
+                   brand.highlights.map((highlight, idx) => (
+                     <div key={idx} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> {highlight}
+                     </div>
+                   ))
+                 ) : (
+                   <>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 꼼꼼한 원료 선별
+                     </div>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 안전한 제조 공정
+                     </div>
+                     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-[#E2DACD] bg-[#F8F6F0] text-[12px] text-[#6F756F]">
+                        <Check className="w-3.5 h-3.5 text-[#B58A4C]" /> 반려가족 중심 설계
+                     </div>
+                   </>
+                 )}
                </div>
 
              </div>
@@ -233,9 +272,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                       검증 기준 자세히 보기 <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                     {hasPublishedAudit && brand.auditReport && (
-                      <button className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
+                      <Link href="#brand-audit-report" className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
                         브랜드 자료 더 보기 <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
+                      </Link>
                     )}
                   </div>
                 </AuditAccordion>
@@ -248,7 +287,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
       {/* 3-1. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만. 없으면 위 아코디언의
           "확인 중" 배지만 남기고 이 패널은 렌더하지 않는다 — 컴포넌트 내장 폴백과 중복 방지) */}
       {hasPublishedAudit && (
-        <section className="mb-10 md:mb-12 [&_section]:mt-0">
+        <section id="brand-audit-report" className="mb-10 scroll-mt-24 md:mb-12 [&_section]:mt-0">
           <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
             <BrandAuditReport brand={brand} />
           </div>

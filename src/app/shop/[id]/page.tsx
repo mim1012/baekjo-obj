@@ -184,7 +184,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
                       : '아직 모든 확인이 끝나지 않았어요. 판매를 시작하기 전에 필요한 자료와 상품 정보를 더 살펴볼게요.'}
                   </p>
                   {brand && (
-                    <Link href={`/brands/${brand.id}`} className="btn-secondary mt-7 border-[#FBFAF7]/25 text-[#FBFAF7] hover:border-[#FBFAF7]/50 hover:bg-white/10">
+                    <Link href={`/brands/${brand.slug}`} className="btn-secondary mt-7 border-[#FBFAF7]/25 text-[#FBFAF7] hover:border-[#FBFAF7]/50 hover:bg-white/10">
                       브랜드 이야기 더 보기
                       <ArrowRight className="size-4" />
                     </Link>

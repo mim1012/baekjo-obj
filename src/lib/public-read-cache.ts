@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache';
-import { getBrandById, listBrands } from '@/lib/brands/repo';
+import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo';
 import { getCategorySettings } from '@/lib/categorySettings/repo';
 import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo';
 import { getSiteSettings } from '@/lib/settings/repo';
@@ -32,25 +32,31 @@ const cachedPublicProductById = unstable_cache(
 
 const cachedPublicBrands = unstable_cache(
   async () => listBrands(true),
-  ['public-brands'],
+  ['public-brands-v7'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 const cachedPublicBrandById = unstable_cache(
   async (id: string) => getBrandById(id),
-  ['public-brand-by-id'],
+  ['public-brand-by-id-v7'],
+  { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
+);
+
+const cachedPublicBrandBySlug = unstable_cache(
+  async (slug: string) => getBrandBySlug(slug),
+  ['public-brand-by-slug-v7'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.brands] },
 );
 
 export const getCachedSiteSettings = unstable_cache(
   async () => getSiteSettings(),
-  ['public-site-settings'],
+  ['public-site-settings-v2'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.siteSettings] },
 );
 
 export const getCachedCategorySettings = unstable_cache(
   async () => getCategorySettings(),
-  ['public-category-settings'],
+  ['public-category-settings-v3'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.categorySettings] },
 );
 
@@ -68,4 +74,8 @@ export function listCachedPublicBrands() {
 
 export function getCachedPublicBrandById(id: string) {
   return cachedPublicBrandById(id);
+}
+
+export function getCachedPublicBrandBySlug(slug: string) {
+  return cachedPublicBrandBySlug(slug);
 }

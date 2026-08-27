@@ -72,7 +72,7 @@ export default function Header() {
             .filter((brand) => brand.isVisible !== false)
             .map((brand) => ({
               label: formatBrandDisplayName(brand.name),
-              href: `/brands/${brand.id}`,
+              href: `/brands/${brand.slug}`,
             })),
         ),
       )

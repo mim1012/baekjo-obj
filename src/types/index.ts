@@ -68,12 +68,21 @@ export type ProductDetailBlock =
 /* ── 브랜드 ─────────────────────────────────────── */
 export interface Brand {
   id: string;
+  /** 공개 URL(/brands/[slug]) 전용 표시값. id와 달리 브랜드명이 바뀌어도 재생성하지 않는다
+   *  — 이미 퍼진 링크·SEO 색인이 깨지지 않도록 최초 발급 후 고정, 관리자가 필요시 수동 변경. */
+  slug: string;
   name: string;
   officialUrl?: string;
   sourceUrls?: string[];
   logo: string;
   description: string;
   philosophy: string;
+  displayTags?: string[];
+  highlights?: string[];
+  summaryCategoryNote?: string;
+  summaryCategoryLabel?: string;
+  summaryConcernLabel?: string;
+  summaryConcernNote?: string;
   // 데이터/백엔드 전용 필드. 사용자 화면의 등급 배지는 제거되었으나 repo/validate/admin
   // (src/lib/brands/repo.ts, validate.ts, admin/brands)가 이 값을 계속 읽고 관리한다.
   // 정적 목데이터(data/brands.ts)에는 값이 없을 수 있어 선택적. DB repo 는 누락 시 'B' 로 보정.
@@ -87,6 +96,8 @@ export interface Brand {
   isVisible?: boolean;
   displayOrder?: number;
   shipping?: BrandShippingPolicy;
+  wordmarkColor?: string;
+  wordmarkImage?: string;
 }
 export interface BrandShippingPolicy {
   carrierLabel?: string;
@@ -115,6 +126,8 @@ export interface BrandAuditReport {
   summary: string;
   selectionReason: string;
   process: string[];
+  materialReview?: string[];
+  curatorNote?: string[];
 }
 
 /* ── 고민 ─────────────────────────────────────── */

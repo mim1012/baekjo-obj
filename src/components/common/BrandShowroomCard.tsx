@@ -65,7 +65,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
         {/* 4. Action */}
         <div>
           <Link
-            href={`/brands/${brand.id}`}
+            href={`/brands/${brand.slug}`}
             className="inline-flex items-center justify-center gap-2 rounded-full border border-[rgba(15,23,42,0.1)] bg-white px-8 py-3.5 text-sm font-semibold text-[#17211D] transition-all hover:bg-[#17211D] hover:text-white group w-full sm:w-auto"
           >
             브랜드 쇼룸 둘러보기

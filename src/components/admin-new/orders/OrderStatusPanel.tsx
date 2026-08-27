@@ -76,7 +76,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
 
           <FormField
             label="결제 상태"
-            description="입금확인 또는 PG 승인 결과가 반영됩니다."
+            description="입금확인 또는 PG 승인 결과가 반영됩니다. 환불은 전용 환불 처리에서 진행합니다."
             className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
           >
             <select
@@ -85,8 +85,16 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
             >
               {PAYMENT_STATUSES.map((status) => (
-                <option key={status} value={status} disabled={status === '승인중'}>
-                  {status === '승인중' ? '승인중(자동)' : status}
+                <option
+                  key={status}
+                  value={status}
+                  disabled={status === '승인중' || status === '환불완료'}
+                >
+                  {status === '승인중'
+                    ? '승인중(자동)'
+                    : status === '환불완료'
+                      ? '환불완료(전용 환불 처리)'
+                      : status}
                 </option>
               ))}
             </select>
