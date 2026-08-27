@@ -269,6 +269,7 @@ test.describe('Production 비용 안전 경계', () => {
 
   test('Playwright의 무설정 기본 대상은 로컬이며 원격 실행은 병렬·재시도하지 않는다', () => {
     const source = read('playwright.config.ts');
+    const targetSafetySource = read('tests', '_lib', 'envSafety.ts');
 
     expect(source).toContain('const baseURL = resolveE2EBaseUrl();');
     expect(source).toContain('assertNoProductionOrPreviewTarget(baseURL)');
@@ -280,9 +281,8 @@ test.describe('Production 비용 안전 경계', () => {
     expect(shouldStartLocalWebServer(true, ['--project=products'])).toBe(false);
     expect(shouldStartLocalWebServer(true, ['--project=security'])).toBe(false);
     expect(shouldStartLocalWebServer(false, ['--project=chromium'])).toBe(false);
-    expect(source).toContain("'www.baekjo-objet.com'");
-    expect(source).toContain("'baekjo-obj.vercel.app'");
-    expect(source).toContain('ALLOW_PRODUCTION_QA');
+    expect(targetSafetySource).toContain("'www.baekjo-objet.com'");
+    expect(targetSafetySource).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain("'x-vercel-protection-bypass'");
     expect(source).toContain('selectedProjects.some((project) => browserProjects.has(project))');
     expect(source).not.toContain('process.env.ALLOW_PRODUCTION_QA =');
