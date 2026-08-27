@@ -2,9 +2,19 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Copy, Check, ExternalLink, PackageCheck } from 'lucide-react';
-import type { Order, Shipment, Brand, BrandShippingPolicy } from '@/types';
-import { getOrderShipments, confirmOrderShipment } from '@/lib/storage';
+import { X, Copy, Check, ExternalLink, PackageCheck, RefreshCw } from 'lucide-react';
+import type {
+  Order,
+  Shipment,
+  Brand,
+  BrandShippingPolicy,
+  OrderShipmentTrackingResponse,
+} from '@/types';
+import {
+  getOrderShipments,
+  confirmOrderShipment,
+  getOrderShipmentTracking,
+} from '@/lib/storage';
 import { buildTrackingUrl, CARRIER_LABELS, isCarrierCode } from '@/lib/carriers';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { formatPrice } from '@/lib/format';
@@ -19,6 +29,71 @@ interface TrackingModalProps {
   bundle: OrderBundle | null;
   /** 마이페이지가 콘센트(getPublicBrands)로 이미 읽어둔 공개 브랜드 목록. 배송정책 폴백용. */
   brands: Brand[];
+}
+
+export type TrackingRequestDecision = {
+  readonly trackingKey: string;
+  readonly autoTrackingKey: string | null;
+};
+
+type TrackingRequestInput = {
+  readonly mode: 'auto' | 'refresh';
+  readonly openCycleId: number;
+  readonly trackingKey: string | null;
+  readonly lastAutoLoadedTrackingKey: string | null;
+  readonly inFlightTrackingKey: string | null;
+};
+
+type TrackingResponseGateInput = {
+  readonly requestSequence: number;
+  readonly currentRequestSequence: number;
+  readonly requestOpenCycleId: number;
+  readonly currentOpenCycleId: number;
+  readonly isOpen: boolean;
+};
+
+type LiveTrackingState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'loading' }
+  | { readonly kind: 'result'; readonly response: OrderShipmentTrackingResponse };
+
+export function makeTrackingKey(
+  orderId: string,
+  brandId: string | null,
+  carrier: string | undefined,
+  trackingNumber: string | undefined,
+): string | null {
+  if (!orderId || !brandId || !carrier || !trackingNumber) return null;
+  return [orderId, brandId, carrier, trackingNumber].map(encodeURIComponent).join('|');
+}
+
+export function decideTrackingRequest({
+  mode,
+  openCycleId,
+  trackingKey,
+  lastAutoLoadedTrackingKey,
+  inFlightTrackingKey,
+}: TrackingRequestInput): TrackingRequestDecision | null {
+  if (!trackingKey || inFlightTrackingKey !== null) return null;
+  if (mode === 'refresh') return { trackingKey, autoTrackingKey: null };
+
+  const autoTrackingKey = `${openCycleId}|${trackingKey}`;
+  if (lastAutoLoadedTrackingKey === autoTrackingKey) return null;
+  return { trackingKey, autoTrackingKey };
+}
+
+export function canApplyTrackingResponse({
+  requestSequence,
+  currentRequestSequence,
+  requestOpenCycleId,
+  currentOpenCycleId,
+  isOpen,
+}: TrackingResponseGateInput): boolean {
+  return (
+    isOpen &&
+    requestSequence === currentRequestSequence &&
+    requestOpenCycleId === currentOpenCycleId
+  );
 }
 
 /** 브랜드 배송정책 없이도 화면이 비지 않게 기본 상거래 정책으로 폴백해 표기 문자열을 만든다. */
@@ -51,7 +126,14 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [liveTracking, setLiveTracking] = useState<LiveTrackingState>({ kind: 'idle' });
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const wasOpenRef = useRef(false);
+  const isOpenRef = useRef(false);
+  const openCycleIdRef = useRef(0);
+  const lastAutoLoadedTrackingKeyRef = useRef<string | null>(null);
+  const inFlightTrackingKeyRef = useRef<string | null>(null);
+  const requestSequenceRef = useRef(0);
 
   const orderId = order.id;
   const brandId = bundle?.brandId ?? null;
@@ -62,7 +144,24 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
   }, [orderId]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    isOpenRef.current = isOpen;
+    if (!isOpen) {
+      if (wasOpenRef.current) {
+        requestSequenceRef.current += 1;
+        inFlightTrackingKeyRef.current = null;
+      }
+      wasOpenRef.current = false;
+      return;
+    }
+
+    if (!wasOpenRef.current) {
+      openCycleIdRef.current += 1;
+      requestSequenceRef.current += 1;
+      lastAutoLoadedTrackingKeyRef.current = null;
+      inFlightTrackingKeyRef.current = null;
+      setLiveTracking({ kind: 'idle' });
+    }
+    wasOpenRef.current = true;
     document.body.style.overflow = 'hidden';
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setShipments(null);
@@ -86,8 +185,6 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
     return () => window.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   // 이 번들의 송장. 브랜드 번들이면 brandId로 찾고, 레거시(null)면 주문 단위 carrier/trackingNumber로 대체한다.
   const shipment = brandId ? shipments?.find((s) => s.brandId === brandId) ?? null : null;
 
@@ -98,6 +195,7 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
   const fill = timelineFill(deliveryStatus);
   const carrierLabel = carrier && isCarrierCode(carrier) ? CARRIER_LABELS[carrier] : null;
   const trackingUrl = buildTrackingUrl(carrier, trackingNumber);
+  const trackingKey = makeTrackingKey(orderId, brandId, carrier, trackingNumber);
 
   const brand = brandId ? brands.find((b) => b.id === brandId) ?? null : null;
   const policy = resolvePolicy(brand?.shipping);
@@ -107,6 +205,51 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
   const canConfirm = Boolean(brandId) && shipment?.deliveryStatus === '배송완료';
   // 송장 조회는 끝났는데 브랜드 번들에 송장 행이 없으면 판매자가 아직 준비 중이다.
   const awaitingShipment = Boolean(brandId) && shipments !== null && shipment === null;
+
+  const requestLiveTracking = useCallback(
+    async (mode: 'auto' | 'refresh', key: string): Promise<void> => {
+      if (!brandId) return;
+      const decision = decideTrackingRequest({
+        mode,
+        openCycleId: openCycleIdRef.current,
+        trackingKey: key,
+        lastAutoLoadedTrackingKey: lastAutoLoadedTrackingKeyRef.current,
+        inFlightTrackingKey: inFlightTrackingKeyRef.current,
+      });
+      if (!decision) return;
+
+      if (decision.autoTrackingKey !== null) {
+        lastAutoLoadedTrackingKeyRef.current = decision.autoTrackingKey;
+      }
+      inFlightTrackingKeyRef.current = decision.trackingKey;
+      requestSequenceRef.current += 1;
+      const requestSequence = requestSequenceRef.current;
+      const requestOpenCycleId = openCycleIdRef.current;
+      setLiveTracking({ kind: 'loading' });
+
+      const response = await getOrderShipmentTracking(orderId, brandId);
+      if (
+        canApplyTrackingResponse({
+          requestSequence,
+          currentRequestSequence: requestSequenceRef.current,
+          requestOpenCycleId,
+          currentOpenCycleId: openCycleIdRef.current,
+          isOpen: isOpenRef.current,
+        })
+      ) {
+        setLiveTracking({ kind: 'result', response });
+      }
+      if (requestSequenceRef.current === requestSequence) {
+        inFlightTrackingKeyRef.current = null;
+      }
+    },
+    [brandId, orderId],
+  );
+
+  useEffect(() => {
+    if (!isOpen || !trackingKey) return;
+    void requestLiveTracking('auto', trackingKey);
+  }, [isOpen, requestLiveTracking, trackingKey]);
 
   const handleCopy = async () => {
     if (!trackingNumber) return;
@@ -136,6 +279,13 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
       setConfirming(false);
     }
   };
+
+  const handleTrackingRefresh = () => {
+    if (!trackingKey) return;
+    void requestLiveTracking('refresh', trackingKey);
+  };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
@@ -251,6 +401,93 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                   아직 등록된 운송장 정보가 없어요.
                 </p>
               )
+            )}
+
+            {brandId && (
+              <section
+                aria-labelledby="live-tracking-title"
+                className="mb-6 rounded-xl border border-[#EBE6DC] bg-[#FBF9F4] p-4"
+              >
+                <div className="flex min-h-9 items-center justify-between gap-3">
+                  <h3 id="live-tracking-title" className="text-sm font-bold text-[#18231F]">
+                    실시간 배송이력
+                  </h3>
+                  {trackingKey && (
+                    <button
+                      type="button"
+                      onClick={handleTrackingRefresh}
+                      disabled={liveTracking.kind === 'loading'}
+                      aria-label="실시간 배송이력 새로고침"
+                      className="inline-flex min-w-20 items-center justify-center gap-1.5 rounded-lg border border-[#DED8CC] bg-white px-3 py-2 text-xs font-semibold text-[#18231F] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        aria-hidden="true"
+                        className={`h-3.5 w-3.5 ${
+                          liveTracking.kind === 'loading'
+                            ? 'animate-spin motion-reduce:animate-none'
+                            : ''
+                        }`}
+                      />
+                      {liveTracking.kind === 'loading' ? '조회 중' : '새로고침'}
+                    </button>
+                  )}
+                </div>
+
+                <div aria-live="polite" className="mt-3 min-h-24 text-sm text-[#68716C]">
+                  {liveTracking.kind === 'idle' && (
+                    <p>
+                      {trackingKey
+                        ? '실시간 배송이력을 준비하고 있어요.'
+                        : '운송장이 등록되면 실시간 배송이력을 확인할 수 있어요.'}
+                    </p>
+                  )}
+                  {liveTracking.kind === 'loading' && <p>최신 배송이력을 불러오고 있어요.</p>}
+                  {liveTracking.kind === 'result' && liveTracking.response.ok && (
+                    <div className="flex flex-col gap-3 text-[#18231F]">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <strong className="text-sm">{liveTracking.response.deliveryStatus}</strong>
+                        <time
+                          dateTime={liveTracking.response.refreshedAt}
+                          className="text-xs text-[#68716C]"
+                        >
+                          갱신 {liveTracking.response.refreshedAt}
+                        </time>
+                      </div>
+                      {liveTracking.response.steps.length === 0 ? (
+                        <p className="text-[#68716C]">
+                          운송장은 등록되었지만 아직 택배사가 상품을 인수하지 않았어요.
+                        </p>
+                      ) : (
+                        <ol className="flex flex-col gap-3 border-l border-[#DED8CC] pl-4">
+                          {liveTracking.response.steps.map((step, index) => (
+                            <li key={`${step.time}|${step.where}|${step.kind}|${index}`}>
+                              <p className="font-semibold">{step.kind}</p>
+                              <p className="mt-0.5 text-xs text-[#68716C]">
+                                {step.time} · {step.where}
+                              </p>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </div>
+                  )}
+                  {liveTracking.kind === 'result' && !liveTracking.response.ok && (
+                    <p role={liveTracking.response.source === 'client' ? 'alert' : undefined}>
+                      {liveTracking.response.source === 'client'
+                        ? '실시간 배송이력을 불러오지 못했어요. 잠시 후 새로고침해주세요.'
+                        : liveTracking.response.reason === 'no-api-key'
+                          ? '실시간 배송조회 서비스가 아직 준비되지 않았어요.'
+                          : liveTracking.response.reason === 'not-found'
+                            ? '택배사에 등록된 배송이력이 아직 없어요.'
+                            : liveTracking.response.reason === 'invalid-carrier'
+                              ? '이 택배사는 실시간 배송조회를 지원하지 않아요.'
+                              : liveTracking.response.reason === 'missing-shipment'
+                                ? '운송장이 등록되면 실시간 배송이력을 확인할 수 있어요.'
+                                : '실시간 배송이력을 불러오지 못했어요. 잠시 후 새로고침해주세요.'}
+                    </p>
+                  )}
+                </div>
+              </section>
             )}
 
             {/* 브랜드 배송정책 */}

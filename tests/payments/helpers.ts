@@ -1,8 +1,13 @@
 // 결제 상태기계 DB/라우트 스펙 공용 헬퍼 — staging Supabase Management API 질의.
 // ⚠️ SUPABASE_URL은 반드시 staging 프로젝트 ref여야 한다. prod에 __test_* 합성 레코드가 심기면 안 된다.
+import {
+  assertAllowedTestSupabaseRef,
+  supabaseEnvReadySafely,
+  UnsafeSupabaseTestTargetError,
+} from '../_lib/supabaseSafety';
 
 export function supabaseEnvReady(): boolean {
-  return !!process.env.SUPABASE_URL && !!process.env.SUPABASE_ACCESS_TOKEN;
+  return supabaseEnvReadySafely('payments') && Boolean(process.env.SUPABASE_ACCESS_TOKEN);
 }
 
 // 실행 스코프 고유 접두사(payments-db-spec CI 사고 실측 방지) — 스펙이 고정 ID 픽스처
@@ -35,9 +40,11 @@ export async function sweepStaleFixtures(): Promise<void> {
 const THROTTLE_MAX_ATTEMPTS = 6;
 
 export async function q(sql: string): Promise<Record<string, unknown>[]> {
-  const SUPABASE_URL = process.env.SUPABASE_URL ?? '';
-  const TOKEN = process.env.SUPABASE_ACCESS_TOKEN ?? '';
-  const ref = SUPABASE_URL.replace(/^https?:\/\/([^.]+)\..*$/, '$1');
+  const ref = assertAllowedTestSupabaseRef('payments');
+  const TOKEN = process.env.SUPABASE_ACCESS_TOKEN;
+  if (!TOKEN) {
+    throw new UnsafeSupabaseTestTargetError('payments', 'missing-credential');
+  }
   const API = `https://api.supabase.com/v1/projects/${ref}/database/query`;
 
   for (let attempt = 1; ; attempt++) {

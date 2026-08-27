@@ -3,7 +3,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import { assertAllowedTestSupabaseRef } from '../_lib/supabaseSafety';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  assertGoldenWritePreflight,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+} from './_lib/adminCrudHelpers';
 
 // 골든플로우 #3 — 증권 업로드 실구동: /insurance/apply에서 진짜 파일을 첨부·제출하고,
 // 비공개 버킷(insurance-docs) 저장 → 관리자 signed URL 열람 → DELETE 시 스토리지 선삭제
@@ -62,7 +70,8 @@ test.describe('골든플로우 #3: 증권 업로드 실구동 — 업로드→�
   }) => {
     // 0) 관리자 로그인 + 이전 실행 잔재 정리 — 반드시 제출 **전**에 한다. 제출 후에 돌리면
     //    prefix 매칭이 이번 실행 건까지 파기한다(실측 — 첫 실행에서 실제로 그랬다).
-    const adminPage = await page.context().browser()!.newPage({ extraHTTPHeaders: bypassHeaders() });
+    await assertGoldenWritePreflight();
+    const adminPage = await page.context().newPage();
     await loginAsAdmin(adminPage);
     await purgeStaleApplications(adminPage);
 
@@ -112,7 +121,8 @@ test.describe('골든플로우 #3: 증권 업로드 실구동 — 업로드→�
     };
     const created = applications.find((a) => a.petName === petName);
     expect(created, `${petName} 신청 건이 admin API 목록에 없습니다`).toBeTruthy();
-    const applicationId = created!.id;
+    if (!created) return;
+    const applicationId = created.id;
 
     const guestCertRes = await page.request.get(`/api/admin/insurance/${applicationId}/cert`);
     expect(guestCertRes.status(), '게스트가 증권 열람 엔드포인트에 접근됐습니다').toBe(401);
@@ -148,6 +158,7 @@ test.describe('골든플로우 #3: 증권 업로드 실구동 — 업로드→�
     // service key는 CI(golden-crud.yml)에 주입되지 않으므로 있는 환경(로컬↔스테이징)에서만 실행 —
     // CI에서는 위의 행 소멸 + cert 404가 파기 검증을 담당한다.
     if (process.env.SUPABASE_URL && process.env.SUPABASE_SECRET_KEY) {
+      assertAllowedTestSupabaseRef('storage');
       const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SECRET_KEY);
       const { data: remaining, error: listError } = await supabase.storage.from('insurance-docs').list('certs');
       expect(listError).toBeNull();
