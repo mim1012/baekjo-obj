@@ -87,6 +87,8 @@ jobs:
   payments-db-spec:
     runs-on: ubuntu-latest
     needs: verify
+    env:
+      TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
 
@@ -99,6 +101,7 @@ jobs:
         run: npm ci
 
       - name: 결제 상태기계 DB 스펙 (staging)
+        if: ${{ env.TEST_SUPABASE_PROJECT_REF != '' }}
         run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
@@ -109,6 +112,7 @@ jobs:
       # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
       # (2026-07-23 커버리지 전수조사 전까지 CI 미배선이었음 — golden-spec-coverage.md §4-1)
       - name: 배송 파생·구매확정 가드 스펙 (순수 + staging DB)
+        if: ${{ env.TEST_SUPABASE_PROJECT_REF != '' }}
         run: npx playwright test --project=shipments --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
