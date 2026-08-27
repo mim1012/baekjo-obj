@@ -143,8 +143,21 @@ export default function HomeClient({
 
       <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
+          <div data-testid="home-audit-hero" className="relative isolate min-h-[390px] overflow-hidden md:min-h-[360px] lg:min-h-[380px]">
+            <Image
+              src="/images/baekjo-audit-logo.png"
+              alt="백조오브제 Audit 상징물"
+              fill
+              sizes="(max-width: 1280px) 100vw, 1168px"
+              className="object-cover object-center"
+              data-testid="home-audit-image"
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.96)_0%,rgba(248,246,240,0.88)_58%,rgba(248,246,240,0.66)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.97)_0%,rgba(248,246,240,0.91)_46%,rgba(248,246,240,0.58)_72%,rgba(248,246,240,0.2)_100%)]"
+            />
+
+            <div className="relative z-10 flex min-h-[390px] max-w-[680px] flex-col justify-center p-6 md:min-h-[360px] md:p-8 lg:min-h-[380px] lg:p-10">
               <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
@@ -155,19 +168,6 @@ export default function HomeClient({
               <Link href="/audit" className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
                 {audit.linkLabel} <ArrowRight className="ml-1.5 size-4" />
               </Link>
-            </div>
-
-            <div className="flex items-center justify-center bg-[#EDE8DD] p-6 md:p-8 lg:p-10">
-              <div className="relative h-[180px] w-full max-w-[320px] overflow-hidden rounded-[18px] border border-white/70 bg-white shadow-sm md:h-[220px]">
-                <Image
-                  src="/images/baekjo-audit-logo.png"
-                  alt="백조오브제 Audit 엠블럼"
-                  fill
-                  sizes="(max-width: 1024px) 80vw, 320px"
-                  className="object-contain"
-                  priority
-                />
-              </div>
             </div>
           </div>
 

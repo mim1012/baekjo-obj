@@ -44,6 +44,12 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await expect(page.getByText('좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.')).toBeVisible();
     await expect(page.getByText('백조오브제 Audit을 통과한 브랜드만 소개합니다.')).toBeVisible();
     await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
+    const auditHero = page.getByTestId('home-audit-hero');
+    const auditImage = page.getByTestId('home-audit-image');
+    const [auditHeroBox, auditImageBox] = await Promise.all([auditHero.boundingBox(), auditImage.boundingBox()]);
+    expect(auditImageBox?.width).toBeGreaterThanOrEqual((auditHeroBox?.width ?? 0) - 1);
+    expect(auditImageBox?.height).toBeGreaterThanOrEqual((auditHeroBox?.height ?? 0) - 1);
+    await expect(auditHero.getByRole('heading', { name: '길지만은 않은 우리 아이와의 시간' })).toBeVisible();
     const quickShopNav = page.getByRole('navigation', { name: '빠른 쇼핑' });
     for (const category of ['강아지', '고양이', '소동물', '사료·간식', '위생·배변', '건강관리']) {
       await expect(quickShopNav.getByText(category, { exact: true })).toBeVisible();
