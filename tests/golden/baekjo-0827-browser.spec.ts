@@ -51,7 +51,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const auditHero = page.getByTestId('home-audit-hero');
     const auditImage = page.getByTestId('home-audit-image');
     expect(decodeURIComponent(await auditImage.evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('home-audit-client-photo-v3');
+      .toContain('home-audit-client-photo-extended-v4');
     const [auditHeroBox, auditImageBox] = await Promise.all([auditHero.boundingBox(), auditImage.boundingBox()]);
     expect(auditImageBox?.width).toBeGreaterThanOrEqual((auditHeroBox?.width ?? 0) - 1);
     expect(auditImageBox?.height).toBeGreaterThanOrEqual((auditHeroBox?.height ?? 0) - 1);
