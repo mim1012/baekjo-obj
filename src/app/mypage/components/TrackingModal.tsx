@@ -29,6 +29,8 @@ interface TrackingModalProps {
   bundle: OrderBundle | null;
   /** 마이페이지가 콘센트(getPublicBrands)로 이미 읽어둔 공개 브랜드 목록. 배송정책 폴백용. */
   brands: Brand[];
+  /** 바깥 배송조회 버튼 클릭에서 온 명시적 실시간 조회 의도. 없으면 모달 열림만으로 조회하지 않는다. */
+  liveTrackingRequestId?: number;
 }
 
 export type TrackingRequestDecision = {
@@ -38,6 +40,15 @@ export type TrackingRequestDecision = {
 type TrackingRequestInput = {
   readonly trackingKey: string | null;
   readonly inFlightTrackingKey: string | null;
+};
+
+type ExplicitTrackingRequestInput = TrackingRequestInput & {
+  readonly requestId: number | null | undefined;
+  readonly consumedRequestId: number | null;
+};
+
+export type ExplicitTrackingRequestDecision = TrackingRequestDecision & {
+  readonly requestId: number;
 };
 
 type TrackingResponseGateInput = {
@@ -75,6 +86,20 @@ export function decideTrackingRequest({
 }: TrackingRequestInput): TrackingRequestDecision | null {
   if (!trackingKey || inFlightTrackingKey !== null) return null;
   return { trackingKey };
+}
+
+export function decideExplicitTrackingRequest({
+  requestId,
+  consumedRequestId,
+  trackingKey,
+  inFlightTrackingKey,
+}: ExplicitTrackingRequestInput): ExplicitTrackingRequestDecision | null {
+  if (requestId === undefined || requestId === null || requestId === consumedRequestId) {
+    return null;
+  }
+  const decision = decideTrackingRequest({ trackingKey, inFlightTrackingKey });
+  if (!decision) return null;
+  return { requestId, trackingKey: decision.trackingKey };
 }
 
 export function canApplyTrackingResponse({
@@ -119,7 +144,14 @@ function resolvePolicy(shipping: BrandShippingPolicy | undefined) {
   };
 }
 
-export default function TrackingModal({ isOpen, onClose, order, bundle, brands }: TrackingModalProps) {
+export default function TrackingModal({
+  isOpen,
+  onClose,
+  order,
+  bundle,
+  brands,
+  liveTrackingRequestId,
+}: TrackingModalProps) {
   const [shipments, setShipments] = useState<Shipment[] | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [confirmError, setConfirmError] = useState<string | null>(null);
@@ -132,6 +164,7 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
   const inFlightTrackingKeyRef = useRef<string | null>(null);
   const requestSequenceRef = useRef(0);
   const currentTrackingKeyRef = useRef<string | null>(null);
+  const consumedLiveTrackingRequestIdRef = useRef<number | null>(null);
 
   const orderId = order.id;
   const brandId = bundle?.brandId ?? null;
@@ -246,6 +279,20 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
     },
     [brandId, orderId],
   );
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const decision = decideExplicitTrackingRequest({
+      requestId: liveTrackingRequestId,
+      consumedRequestId: consumedLiveTrackingRequestIdRef.current,
+      trackingKey,
+      inFlightTrackingKey: inFlightTrackingKeyRef.current,
+    });
+    if (!decision) return;
+
+    consumedLiveTrackingRequestIdRef.current = decision.requestId;
+    void requestLiveTracking(decision.trackingKey);
+  }, [isOpen, liveTrackingRequestId, requestLiveTracking, trackingKey]);
 
   const handleCopy = async () => {
     if (!trackingNumber) return;
@@ -430,7 +477,7 @@ export default function TrackingModal({ isOpen, onClose, order, bundle, brands }
                         ? '조회 중'
                         : visibleLiveTracking.kind === 'result'
                           ? '새로고침'
-                          : '배송조회'}
+                          : '실시간 배송조회'}
                     </button>
                   )}
                 </div>

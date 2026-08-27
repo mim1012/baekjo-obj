@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Order, ProductReview, Product, Brand, Shipment } from '@/types';
@@ -28,7 +28,12 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
-  const [tracking, setTracking] = useState<{ order: Order; bundle: OrderBundle } | null>(null);
+  const [tracking, setTracking] = useState<{
+    order: Order;
+    bundle: OrderBundle;
+    liveTrackingRequestId: number;
+  } | null>(null);
+  const liveTrackingRequestIdRef = useRef(0);
 
   useEffect(() => {
     getPublicBrands().then(setBrands);
@@ -83,6 +88,11 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       return '구매확정';
     }
     return order.deliveryStatus || '배송전';
+  };
+
+  const openTracking = (order: Order, bundle: OrderBundle) => {
+    liveTrackingRequestIdRef.current += 1;
+    setTracking({ order, bundle, liveTrackingRequestId: liveTrackingRequestIdRef.current });
   };
 
   return (
@@ -206,7 +216,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       <span className="ml-1 text-xs text-[#A29E93]">· {bundle.items.length}개 상품</span>
                     </span>
                     <button
-                      onClick={() => setTracking({ order, bundle })}
+                      onClick={() => openTracking(order, bundle)}
                       className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
                     >
                       <Truck className="h-3.5 w-3.5" />
@@ -235,6 +245,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
           order={tracking.order}
           bundle={tracking.bundle}
           brands={brands}
+          liveTrackingRequestId={tracking.liveTrackingRequestId}
         />
       )}
     </section>

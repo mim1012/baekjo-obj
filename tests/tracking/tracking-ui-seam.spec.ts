@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { getOrderShipmentTracking } from '@/lib/storage';
 import {
   canApplyTrackingResponse,
+  decideExplicitTrackingRequest,
   decideTrackingRequest,
   makeTrackingKey,
 } from '@/app/mypage/components/TrackingModal';
@@ -49,38 +50,56 @@ test.describe('tracking storage facade', () => {
   });
 });
 
-test.describe('tracking manual-click request gate', () => {
-  test('Given one shipment, When the modal opens and reopens without a manual click, Then no request is made', () => {
+test.describe('tracking explicit-click request gate', () => {
+  test('Given one shipment, When the modal opens and reopens without an outer click intent, Then no request is made', () => {
     // Given
     const key = makeTrackingKey('order', 'brand', 'cj', '123456789012');
     expect(key).not.toBeNull();
-    let calls = 0;
-
-    const requestFromVisibleAction = (inFlightTrackingKey: string | null): void => {
-      const decision = decideTrackingRequest({
-        trackingKey: key,
-        inFlightTrackingKey,
-      });
-      if (!decision) return;
-      calls += 1;
-    };
 
     // When
-    const firstOpenCycle = 1;
-    const reopenedCycle = firstOpenCycle + 1;
+    const firstOpen = decideExplicitTrackingRequest({
+      requestId: null,
+      consumedRequestId: null,
+      trackingKey: key,
+      inFlightTrackingKey: null,
+    });
+    const reopened = decideExplicitTrackingRequest({
+      requestId: undefined,
+      consumedRequestId: null,
+      trackingKey: key,
+      inFlightTrackingKey: null,
+    });
 
     // Then
-    expect(reopenedCycle).toBe(2);
-    expect(calls).toBe(0);
-
-    // When
-    requestFromVisibleAction(null);
-
-    // Then
-    expect(calls).toBe(1);
+    expect(firstOpen).toBeNull();
+    expect(reopened).toBeNull();
   });
 
-  test('Given a shipment, When the visible delivery action is clicked, Then exactly one manual request decision is created', () => {
+  test('Given a shipment, When the visible outer delivery action is clicked, Then exactly one manual request decision is created', () => {
+    // Given
+    const key = makeTrackingKey('order', 'brand', 'cj', '123456789012');
+    expect(key).not.toBeNull();
+
+    // When
+    const decision = decideExplicitTrackingRequest({
+      requestId: 1,
+      consumedRequestId: null,
+      trackingKey: key,
+      inFlightTrackingKey: null,
+    });
+    const duplicate = decideExplicitTrackingRequest({
+      requestId: 1,
+      consumedRequestId: decision?.requestId ?? null,
+      trackingKey: key,
+      inFlightTrackingKey: null,
+    });
+
+    // Then
+    expect(decision).toEqual({ requestId: 1, trackingKey: key });
+    expect(duplicate).toBeNull();
+  });
+
+  test('Given a shipment, When the refresh action is clicked after a result, Then a manual refresh decision is created', () => {
     // Given
     const key = makeTrackingKey('order', 'brand', 'cj', '123456789012');
     expect(key).not.toBeNull();

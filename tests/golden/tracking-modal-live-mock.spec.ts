@@ -203,11 +203,16 @@ async function openMypageWithFixtures(page: Page, shipments: readonly typeof shi
 }
 
 test('Given a CJ shipment, When the customer explicitly requests live tracking, Then the modal is request-gated and refresh is in-flight safe', async ({ page }) => {
+  let releaseFirstResponse: (() => void) | null = null;
+  const firstResponse = new Promise<void>((resolve) => {
+    releaseFirstResponse = resolve;
+  });
   let releaseThirdResponse: (() => void) | null = null;
   const thirdResponse = new Promise<void>((resolve) => {
     releaseThirdResponse = resolve;
   });
   const audit = await openMypageWithFixtures(page, [shipment], async (route, call) => {
+    if (call === 1) await firstResponse;
     if (call === 3) await thirdResponse;
     await fulfillJson(route, trackingSuccess);
   });
@@ -216,23 +221,18 @@ test('Given a CJ shipment, When the customer explicitly requests live tracking, 
   await shippingButton.click();
   const dialog = page.getByRole('dialog', { name: '배송조회' });
   await expect(dialog.getByRole('heading', { name: '실시간 배송이력', exact: true })).toBeVisible();
-  await expect(dialog.getByText('배송조회 버튼을 눌러 최신 배송이력을 확인하세요.', { exact: true })).toBeVisible();
-  expect(audit.trackingCalls()).toBe(0);
-
-  const initialTrackingAction = dialog.getByLabel('실시간 배송이력 배송조회');
-  await initialTrackingAction.click();
+  await expect(dialog.getByText('최신 배송이력을 불러오고 있어요.', { exact: true })).toBeVisible();
+  expect(audit.trackingCalls()).toBe(1);
+  const releaseFirst = releaseFirstResponse ?? (() => { throw new Error('first tracking response was not deferred'); });
+  releaseFirst();
   await expect(dialog.getByText('배송중', { exact: true }).last()).toBeVisible();
   await expect(dialog.getByText('2026-08-26 12:34 · 서울 테스트 허브', { exact: true })).toBeVisible();
   await expect(dialog.getByText(SCRIPT_LIKE_KIND, { exact: true })).toBeVisible();
   await expect(dialog.locator('script')).toHaveCount(0);
-  expect(audit.trackingCalls()).toBe(1);
 
   await dialog.getByLabel('닫기').click();
   await expect(dialog).toHaveCount(0);
   await shippingButton.click();
-  await expect(dialog.getByText('배송조회 버튼을 눌러 최신 배송이력을 확인하세요.', { exact: true })).toBeVisible();
-  expect(audit.trackingCalls()).toBe(1);
-  await dialog.getByLabel('실시간 배송이력 배송조회').click();
   await expect(dialog.getByText(SCRIPT_LIKE_KIND, { exact: true })).toBeVisible();
   expect(audit.trackingCalls()).toBe(2);
 
@@ -260,8 +260,6 @@ test('Given a not-found live response, When the real modal renders it, Then the 
 
   await page.getByRole('button', { name: '배송조회', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '배송조회' });
-  expect(audit.trackingCalls()).toBe(0);
-  await dialog.getByLabel('실시간 배송이력 배송조회').click();
   await expect(dialog.getByText('택배사에 등록된 배송이력이 아직 없어요.', { exact: true })).toBeVisible();
   await expect(dialog.getByText('CJ대한통운', { exact: true })).toBeVisible();
   await expect(dialog.getByText(shipment.trackingNumber, { exact: true })).toBeVisible();
