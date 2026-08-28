@@ -25,6 +25,7 @@ jobs:
       CI: '1'
       E2E_BASE_URL: 'http://127.0.0.1:3000'
       E2E_ADMIN_CRUD: '1'
+      AUTH_TRUST_HOST: 'true'
       LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'
       PLAYWRIGHT_SKIP_WEB_SERVER: '1'
       SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
@@ -45,6 +46,8 @@ jobs:
         run: npm ci
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
+      - name: Generate local Auth.js secret
+        run: node -e "console.log('AUTH_SECRET='+require('node:crypto').randomBytes(32).toString('base64url'))" >> "$GITHUB_ENV"
       - name: Fail closed on missing isolated staging configuration
         run: |
           test -n "$TEST_SUPABASE_PROJECT_REF" || exit 1

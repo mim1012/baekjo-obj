@@ -44,6 +44,11 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("PAYMENTS_PREVIEW_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("E2E_ADMIN_CRUD: '1'");
+    expect(golden).toContain("AUTH_TRUST_HOST: 'true'");
+    expect(golden).toContain('Generate local Auth.js secret');
+    expect(golden).toContain("randomBytes(32).toString('base64url')");
+    expect(golden).toContain('>> "$GITHUB_ENV"');
+    expect(golden).not.toContain('AUTH_SECRET: ${{ secrets');
     expect(golden).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
     expect(golden).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
     expect(golden).not.toContain('secrets.STAGING_SUPABASE_URL');
@@ -70,6 +75,11 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(shipping).toContain("if: ${{ inputs.allow_localhost_staging_write == true }}");
     expect(shipping).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
     expect(shipping).toContain("E2E_ADMIN_CRUD: '1'");
+    expect(shipping).toContain("AUTH_TRUST_HOST: 'true'");
+    expect(shipping).toContain('Generate local Auth.js secret');
+    expect(shipping).toContain("randomBytes(32).toString('base64url')");
+    expect(shipping).toContain('>> "$GITHUB_ENV"');
+    expect(shipping).not.toContain('AUTH_SECRET: ${{ secrets');
     expect(shipping).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
     expect(shipping).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
     expect(shipping).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
