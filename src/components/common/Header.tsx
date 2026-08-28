@@ -281,6 +281,21 @@ export default function Header() {
               <Link href="/cart" onClick={closeMenu} className="btn-secondary min-h-11 px-4">
                 장바구니 {cartCount > 0 ? `${cartCount}` : ''}
               </Link>
+              {/* 데스크톱 로그아웃 버튼은 md:block 이라 좁은 화면에선 숨겨진다 —
+                  모바일에서 로그아웃 경로가 마이페이지뿐인 문제를 메뉴에 버튼을 추가해 해결한다. */}
+              {currentUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu();
+                    logout();
+                    window.location.reload();
+                  }}
+                  className="btn-secondary col-span-2 min-h-11 px-4"
+                >
+                  로그아웃
+                </button>
+              )}
               {currentUser?.role === 'admin' && (
                 <Link href="/admin" onClick={closeMenu} className="btn-secondary min-h-11 px-4 col-span-2">
                   관리자 페이지
