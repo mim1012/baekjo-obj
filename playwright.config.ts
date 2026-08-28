@@ -32,7 +32,10 @@ const browserProjects = new Set([
 export function shouldStartLocalWebServer(
   localTarget: boolean,
   args: readonly string[],
+  environment: Readonly<Record<string, string | undefined>> = process.env,
 ): boolean {
+  if (environment.PLAYWRIGHT_SKIP_WEB_SERVER === '1') return false;
+
   const selectedProjects: string[] = [];
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];

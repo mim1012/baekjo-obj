@@ -281,6 +281,9 @@ test.describe('Production 비용 안전 경계', () => {
     expect(shouldStartLocalWebServer(true, ['--project=products'])).toBe(false);
     expect(shouldStartLocalWebServer(true, ['--project=security'])).toBe(false);
     expect(shouldStartLocalWebServer(false, ['--project=chromium'])).toBe(false);
+    expect(
+      shouldStartLocalWebServer(true, ['--project=golden-crud'], { PLAYWRIGHT_SKIP_WEB_SERVER: '1' }),
+    ).toBe(false);
     expect(targetSafetySource).toContain("'www.baekjo-objet.com'");
     expect(targetSafetySource).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain("'x-vercel-protection-bypass'");

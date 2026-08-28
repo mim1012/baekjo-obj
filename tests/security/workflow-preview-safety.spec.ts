@@ -44,6 +44,7 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("PAYMENTS_PREVIEW_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("E2E_ADMIN_CRUD: '1'");
+    expect(golden).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
     expect(golden).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
     expect(golden).not.toContain('secrets.STAGING_SUPABASE_URL');
     expect(golden).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
