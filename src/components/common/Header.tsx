@@ -13,17 +13,25 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
+import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import BrandMark from './BrandMark';
 
-const MAIN_LINKS = [
+type NavLinkDef = { label: string; href: string; description?: string; feature?: keyof typeof FEATURES };
+
+const ALL_MAIN_LINKS: NavLinkDef[] = [
   { label: '브랜드', href: '/brands' },
   { label: '케어', href: '/concerns' },
-  { label: '펫보험', href: '/insurance' },
+  { label: '펫보험', href: '/insurance', feature: 'insurance' },
   { label: 'B2B', href: '/b2b' },
 ];
+
+// 미노출 기능은 GNB 자체에서 제외 — 배열이 정적이라 조건부 렌더가 아니라 필터로 처리.
+const MAIN_LINKS = ALL_MAIN_LINKS.filter(
+  (link) => !link.feature || FEATURES[link.feature],
+);
 
 const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
@@ -152,7 +160,10 @@ export default function Header() {
             </div>
           </div>
 
-          <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
+          {/* 기능 플래그로 펫보험이 빠질 수 있어 4번째 링크가 없을 수 있다 — 가드 렌더. */}
+          {MAIN_LINKS[3] && (
+            <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
+          )}
         </nav>
 
         <div className="flex items-center gap-1">
@@ -272,7 +283,9 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
+            {MAIN_LINKS[3] && (
+              <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
+            )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">
               <Link href={currentUser ? '/mypage' : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">

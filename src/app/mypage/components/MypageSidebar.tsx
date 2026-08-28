@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { User } from '@/types';
 import { LogOut, User as UserIcon, Package, Heart, Star, MessageCircle, Shield, Settings } from 'lucide-react';
+import { FEATURES } from '@/config/features';
 import { logout } from '@/lib/storage';
 
 interface MypageSidebarProps {
@@ -35,9 +36,10 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
     },
     {
       title: '케어 서비스',
-      items: [
-        { id: 'insurance', label: '보험 분석 내역', icon: Shield },
-      ],
+      // 펫보험 미노출 기간에는 보험 분석 내역 탭 자체를 숨긴다(features.ts).
+      items: FEATURES.insurance
+        ? [{ id: 'insurance', label: '보험 분석 내역', icon: Shield }]
+        : [],
     },
     {
       title: '회원 관리',
@@ -68,9 +70,9 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
         </div>
       </div>
 
-      {/* 네비게이션 메뉴 */}
+      {/* 네비게이션 메뉴 — 항목이 빈 그룹(케어 서비스 등)은 제목까지 숨긴다 */}
       <nav className="flex flex-col gap-6">
-        {navGroups.map((group) => (
+        {navGroups.filter((group) => group.items.length > 0).map((group) => (
           <div key={group.title}>
             <h3 className="mb-2 px-4 text-xs font-bold tracking-wider text-[#68716C]">{group.title}</h3>
             <ul className="flex flex-col gap-1">

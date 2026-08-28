@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getSurveyResult } from '@/lib/survey/match';
 import { getPublicBrands, getPublicProducts, getSurveyConfig } from '@/lib/storage';
+import { FEATURES } from '@/config/features';
 import BrandCard from '@/components/common/BrandCard';
 import ProductCard from '@/components/common/ProductCard';
 import { ArrowRight, CheckCircle2, ShieldCheck, HeartHandshake } from 'lucide-react';
@@ -160,10 +161,10 @@ export default function DiagnosisResultPage() {
             </section>
           )}
 
-          {/* Insurance & Kit */}
-          {(result.recommendation.needInsuranceAnalysis || result.recommendation.recommendKit) && (
+          {/* Insurance & Kit — 보험 카드는 기능 플래그로 미노출 */}
+          {(result.recommendation.recommendKit || (result.recommendation.needInsuranceAnalysis && FEATURES.insurance)) && (
             <section className={`${activeTab === 'care' ? 'flex' : 'hidden'} md:flex md:grid md:grid-cols-2 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 mt-0 md:mt-16`}>
-              {result.recommendation.needInsuranceAnalysis && (
+              {result.recommendation.needInsuranceAnalysis && FEATURES.insurance && (
                 <div className="bg-[#EAE8E1] p-6 md:p-8 rounded-sm border border-[#D8D6CE] w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-start h-auto flex flex-col">
                   <ShieldCheck className="size-8 text-[#5E6C62] mb-4" />
                   <h3 className="text-[18px] md:text-xl font-bold text-[#202521] mb-2">펫보험 보장 점검 필요</h3>
