@@ -73,9 +73,7 @@ test.describe('levelToDeliveryStatus', () => {
     expect(levelToDeliveryStatus(6)).toBe('배송완료');
   });
 
-  test('범위 밖 값(0, 7, -1)은 보수적으로 배송준비로 폴백한다', () => {
-    // FIX 4: 주석은 "범위 밖은 배송준비로 폴백"이라 말하는데 코드는 level>=6이면 7도 배송완료로
-    // 반환했었다 — 6 초과는 배송완료로 단정하지 않고 보수적으로 배송준비로 폴백하도록 정정했다.
+  test('level 0과 범위 밖 값(7, -1)은 보수적으로 배송준비로 폴백한다', () => {
     expect(levelToDeliveryStatus(0)).toBe('배송준비');
     expect(levelToDeliveryStatus(-1)).toBe('배송준비');
     expect(levelToDeliveryStatus(7)).toBe('배송준비');
@@ -273,7 +271,7 @@ test.describe('fetchTrackingInfo', () => {
     }
   });
 
-  test('result:"Y" + level:0 → quota-or-api-error (범위 밖)', async () => {
+  test('result:"Y" + level:0 + 빈 trackingDetails → ok:true, 배송준비, steps:[]', async () => {
     process.env.SWEETTRACKER_API_KEY = 'test-key';
     const restore = installFetchStub(async () =>
       jsonResponse({
@@ -287,10 +285,62 @@ test.describe('fetchTrackingInfo', () => {
     );
     try {
       const result = await fetchTrackingInfo('cj', '123456789012');
-      expect(result.ok).toBe(false);
-      if (!result.ok) expect(result.reason).toBe('quota-or-api-error');
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.level).toBe(0);
+        expect(result.deliveryStatus).toBe('배송준비');
+        expect(result.steps).toEqual([]);
+      }
     } finally {
       restore();
+    }
+  });
+
+  test('provider status:false code:104 → invalid-invoice-or-carrier, quota로 오분류하지 않음', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const restore = installFetchStub(async () =>
+      jsonResponse({
+        status: false,
+        code: '104',
+        msg: 'synthetic provider diagnostic must stay server-side',
+      }),
+    );
+    try {
+      const result = await fetchTrackingInfo('cj', '123456789012');
+      expect(result).toEqual({
+        ok: false,
+        reason: 'invalid-invoice-or-carrier',
+        message: 'synthetic provider diagnostic must stay server-side',
+      });
+      expect(result).not.toMatchObject({ reason: 'quota-or-api-error' });
+    } finally {
+      restore();
+    }
+  });
+
+  test('provider key/quota/error codes keep distinct typed reasons', async () => {
+    process.env.SWEETTRACKER_API_KEY = 'test-key';
+    const cases: readonly {
+      readonly code: string;
+      readonly reason: Exclude<Extract<TrackingResult, { ok: false }>['reason'], 'not-found' | 'invalid-carrier' | 'no-api-key'>;
+    }[] = [
+      { code: '101', reason: 'unknown-api-key' },
+      { code: '102', reason: 'expired-api-key' },
+      { code: '103', reason: 'quota-exceeded' },
+      { code: '105', reason: 'same-invoice-daily-limit-exceeded' },
+      { code: '106', reason: 'invoice-query-error' },
+    ];
+
+    for (const scenario of cases) {
+      const restore = installFetchStub(async () =>
+        jsonResponse({ status: false, code: scenario.code, msg: `provider ${scenario.code}` }),
+      );
+      try {
+        const result = await fetchTrackingInfo('cj', '123456789012');
+        expect(result).toMatchObject({ ok: false, reason: scenario.reason });
+      } finally {
+        restore();
+      }
     }
   });
 

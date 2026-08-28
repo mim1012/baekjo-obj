@@ -207,6 +207,12 @@ test.describe('GET 주문 배송조회 route 계약', () => {
     'no-api-key',
     'invalid-carrier',
     'quota-or-api-error',
+    'invalid-invoice-or-carrier',
+    'unknown-api-key',
+    'expired-api-key',
+    'quota-exceeded',
+    'same-invoice-daily-limit-exceeded',
+    'invoice-query-error',
   ] as const) {
     test(`Given vendor ${reason}, When GET, Then typed 200 failure로 접고 비밀 메시지를 버린다`, async () => {
       // Given

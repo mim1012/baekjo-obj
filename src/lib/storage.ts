@@ -542,7 +542,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isTrackingLevel(value: unknown): value is TrackingLevel {
-  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
+  return value === 0 || value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
 }
 
 function isDeliveryStatus(value: unknown): value is DeliveryStatus {
@@ -566,6 +566,12 @@ function isTrackingFailureReason(
     value === 'not-found' ||
     value === 'invalid-carrier' ||
     value === 'no-api-key' ||
+    value === 'unknown-api-key' ||
+    value === 'expired-api-key' ||
+    value === 'quota-exceeded' ||
+    value === 'invalid-invoice-or-carrier' ||
+    value === 'same-invoice-daily-limit-exceeded' ||
+    value === 'invoice-query-error' ||
     value === 'quota-or-api-error'
   );
 }

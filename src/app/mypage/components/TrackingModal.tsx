@@ -119,6 +119,33 @@ export function canApplyTrackingResponse({
   );
 }
 
+export function getLiveTrackingFailureMessage(
+  response: Extract<OrderShipmentTrackingResponse, { readonly ok: false }>,
+): string {
+  if (response.source === 'client') {
+    return '실시간 배송이력을 불러오지 못했어요. 잠시 후 새로고침해주세요.';
+  }
+
+  switch (response.reason) {
+    case 'no-api-key':
+    case 'unknown-api-key':
+    case 'expired-api-key':
+    case 'quota-exceeded':
+    case 'same-invoice-daily-limit-exceeded':
+    case 'invoice-query-error':
+    case 'quota-or-api-error':
+      return '실시간 배송조회가 일시적으로 원활하지 않아요. 잠시 후 다시 시도해주세요.';
+    case 'not-found':
+      return '택배사에 등록된 배송이력이 아직 없어요.';
+    case 'invalid-carrier':
+      return '이 택배사는 실시간 배송조회를 지원하지 않아요.';
+    case 'invalid-invoice-or-carrier':
+      return '운송장 번호나 택배사 정보가 맞는지 확인 중이에요.';
+    case 'missing-shipment':
+      return '운송장이 등록되면 실시간 배송이력을 확인할 수 있어요.';
+  }
+}
+
 /** 브랜드 배송정책 없이도 화면이 비지 않게 기본 상거래 정책으로 폴백해 표기 문자열을 만든다. */
 function resolvePolicy(shipping: BrandShippingPolicy | undefined) {
   const fee = shipping?.shippingFee;
@@ -534,17 +561,7 @@ export default function TrackingModal({
                         visibleLiveTracking.response.source === 'client' ? 'alert' : undefined
                       }
                     >
-                      {visibleLiveTracking.response.source === 'client'
-                        ? '실시간 배송이력을 불러오지 못했어요. 잠시 후 새로고침해주세요.'
-                        : visibleLiveTracking.response.reason === 'no-api-key'
-                          ? '실시간 배송조회 서비스가 아직 준비되지 않았어요.'
-                          : visibleLiveTracking.response.reason === 'not-found'
-                            ? '택배사에 등록된 배송이력이 아직 없어요.'
-                            : visibleLiveTracking.response.reason === 'invalid-carrier'
-                              ? '이 택배사는 실시간 배송조회를 지원하지 않아요.'
-                              : visibleLiveTracking.response.reason === 'missing-shipment'
-                                ? '운송장이 등록되면 실시간 배송이력을 확인할 수 있어요.'
-                                : '실시간 배송이력을 불러오지 못했어요. 잠시 후 새로고침해주세요.'}
+                      {getLiveTrackingFailureMessage(visibleLiveTracking.response)}
                     </p>
                   )}
                 </div>

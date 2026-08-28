@@ -14,12 +14,23 @@ interface RawTrackingDetail {
   kind?: unknown;
 }
 
+const PROVIDER_ERROR_REASONS = {
+  '101': 'unknown-api-key',
+  '102': 'expired-api-key',
+  '103': 'quota-exceeded',
+  '104': 'invalid-invoice-or-carrier',
+  '105': 'same-invoice-daily-limit-exceeded',
+  '106': 'invoice-query-error',
+} as const satisfies Record<string, Extract<TrackingResult, { ok: false }>['reason']>;
+
+type ProviderErrorCode = keyof typeof PROVIDER_ERROR_REASONS;
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isValidLevel(value: unknown): value is TrackingLevel {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 6;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 6;
 }
 
 export function levelToDeliveryStatus(level: number): DeliveryStatus {
@@ -66,6 +77,21 @@ function sanitizeFetchErrorForLog(error: unknown, secret: string): { name?: stri
   return { message: redact(String(error), secret) };
 }
 
+function isProviderErrorCode(value: string): value is ProviderErrorCode {
+  return Object.hasOwn(PROVIDER_ERROR_REASONS, value);
+}
+
+function parseProviderError(parsed: Record<string, unknown>): TrackingResult | null {
+  if (parsed.status !== false) return null;
+  const code = typeof parsed.code === 'string' ? parsed.code : '';
+  if (!isProviderErrorCode(code)) {
+    return { ok: false, reason: 'quota-or-api-error', message: '알 수 없는 provider code' };
+  }
+  const reason = PROVIDER_ERROR_REASONS[code];
+  const message = typeof parsed.msg === 'string' ? parsed.msg : undefined;
+  return message === undefined ? { ok: false, reason } : { ok: false, reason, message };
+}
+
 export async function fetchTrackingInfoWithApiKey(
   carrier: string,
   invoice: string,
@@ -106,11 +132,6 @@ export async function fetchTrackingInfoWithApiKey(
     return { ok: false, reason: 'quota-or-api-error', message: '네트워크 오류' };
   }
 
-  if (!res.ok) {
-    logServerError('sweettracker.fetchTrackingInfo:http', { message: `status ${res.status}` });
-    return { ok: false, reason: 'quota-or-api-error', message: `HTTP ${res.status}` };
-  }
-
   let parsed: unknown;
   try {
     parsed = await res.json();
@@ -123,7 +144,18 @@ export async function fetchTrackingInfoWithApiKey(
   }
 
   if (!isPlainObject(parsed)) {
+    if (!res.ok) {
+      logServerError('sweettracker.fetchTrackingInfo:http', { message: `status ${res.status}` });
+    }
     return { ok: false, reason: 'quota-or-api-error', message: '응답 형식 오류' };
+  }
+
+  const providerError = parseProviderError(parsed);
+  if (providerError) return providerError;
+
+  if (!res.ok) {
+    logServerError('sweettracker.fetchTrackingInfo:http', { message: `status ${res.status}` });
+    return { ok: false, reason: 'quota-or-api-error', message: `HTTP ${res.status}` };
   }
 
   const steps = parseSteps(parsed.trackingDetails);

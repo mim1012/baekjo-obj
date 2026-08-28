@@ -677,7 +677,7 @@ export interface AdminDashboardSummary {
  * §4(콘센트 규칙): 앱이 쓰는 데이터 형태는 이 파일에만 정의한다. 벤더 wire-format(원본 응답 필드)은
  * 여기 두지 않는다 — sweettracker.ts 내부의 RawTrackingInfoResponse/RawTrackingDetail 참고.
  */
-export type TrackingLevel = 1 | 2 | 3 | 4 | 5 | 6;
+export type TrackingLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export interface TrackingStep {
   time: string;
@@ -696,7 +696,17 @@ export type TrackingResult =
     }
   | {
       ok: false;
-      reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
+      reason:
+        | 'not-found'
+        | 'invalid-carrier'
+        | 'no-api-key'
+        | 'unknown-api-key'
+        | 'expired-api-key'
+        | 'quota-exceeded'
+        | 'invalid-invoice-or-carrier'
+        | 'same-invoice-daily-limit-exceeded'
+        | 'invoice-query-error'
+        | 'quota-or-api-error';
       message?: string;
     };
 
@@ -719,6 +729,12 @@ export type OrderShipmentTrackingResponse =
         | 'not-found'
         | 'invalid-carrier'
         | 'no-api-key'
+        | 'unknown-api-key'
+        | 'expired-api-key'
+        | 'quota-exceeded'
+        | 'invalid-invoice-or-carrier'
+        | 'same-invoice-daily-limit-exceeded'
+        | 'invoice-query-error'
         | 'quota-or-api-error';
       readonly refreshedAt: string;
     }

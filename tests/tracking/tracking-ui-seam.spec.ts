@@ -4,6 +4,7 @@ import {
   canApplyTrackingResponse,
   decideExplicitTrackingRequest,
   decideTrackingRequest,
+  getLiveTrackingFailureMessage,
   makeTrackingKey,
 } from '@/app/mypage/components/TrackingModal';
 
@@ -47,6 +48,68 @@ test.describe('tracking storage facade', () => {
     // Then
     expect(result).toMatchObject({ ok: false, source: 'client', reason: 'request-failed' });
     expect(JSON.stringify(result)).not.toContain('synthetic-secret');
+  });
+
+  test('Given level 0 success response, When requested, Then 배송준비 상태와 빈 이력을 보존한다', async () => {
+    // Given
+    const fetcher = async (): Promise<Response> =>
+      Response.json({
+        ok: true,
+        source: 'sweettracker',
+        deliveryStatus: '배송준비',
+        complete: false,
+        level: 0,
+        invoiceNo: 'synthetic-invoice',
+        steps: [],
+        refreshedAt: '2026-08-26T03:00:00.000Z',
+      });
+
+    // When
+    const result = await getOrderShipmentTracking('order', 'brand', fetcher);
+
+    // Then
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.level).toBe(0);
+      expect(result.deliveryStatus).toBe('배송준비');
+      expect(result.steps).toEqual([]);
+    }
+  });
+});
+
+test.describe('tracking customer-safe failure copy', () => {
+  test('Given provider contract failures, When rendered, Then raw provider/API-key text is never exposed', () => {
+    // Given
+    const unsafeTerms = [
+      'synthetic-secret-key',
+      't_key',
+      'info.sweettracker.co.kr',
+      '유효하지 않은 운송장 번호 혹은 택배사 코드 입력',
+    ];
+    const reasons = [
+      'invalid-invoice-or-carrier',
+      'unknown-api-key',
+      'expired-api-key',
+      'quota-exceeded',
+      'same-invoice-daily-limit-exceeded',
+      'invoice-query-error',
+    ] as const;
+
+    for (const reason of reasons) {
+      // When
+      const message = getLiveTrackingFailureMessage({
+        ok: false,
+        source: 'sweettracker',
+        reason,
+        refreshedAt: '2026-08-26T03:00:00.000Z',
+      });
+
+      // Then
+      expect(message).not.toBe('');
+      for (const unsafeTerm of unsafeTerms) {
+        expect(message).not.toContain(unsafeTerm);
+      }
+    }
   });
 });
 
