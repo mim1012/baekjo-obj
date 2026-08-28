@@ -8,6 +8,14 @@ on:
         required: true
         type: boolean
         default: false
+      target:
+        description: '실행 범위: full Golden CRUD 또는 배송 Golden E2E 단일 스펙'
+        required: false
+        type: choice
+        default: full
+        options:
+          - full
+          - shipping-only
 
 permissions:
   contents: read
@@ -126,12 +134,19 @@ jobs:
           runtime_ref=$(node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if(typeof value.projectRef!=='string') process.exit(1); process.stdout.write(value.projectRef)" "$RUNNER_TEMP/runtime-ref.json")
           if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]; then exit 1; fi
       - name: Validate golden coverage manifest
+        if: ${{ inputs.target != 'shipping-only' }}
         run: |
           test -n "$GOLDEN_CRUD_API_PATHS"
           test -n "$GOLDEN_CRUD_SPECS"
       - name: Golden CRUD and storage write validation
+        if: ${{ inputs.target != 'shipping-only' }}
         run: npx playwright test --project=golden-crud --workers=1 --retries=0 --reporter=line
+      - name: Shipping Golden E2E write validation
+        if: ${{ inputs.target == 'shipping-only' }}
+        timeout-minutes: 8
+        run: npx playwright test --project=golden-crud tests/golden/admin-crud-order-shipments.spec.ts --workers=1 --retries=0 --reporter=line
       - name: Payment order and confirm write validation
+        if: ${{ inputs.target != 'shipping-only' }}
         run: npx playwright test --project=payments tests/payments/payment-routes.spec.ts --workers=1 --retries=0 --reporter=line
       - name: Upload failure artifacts
         uses: actions/upload-artifact@v4

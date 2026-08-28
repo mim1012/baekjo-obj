@@ -52,6 +52,13 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
     expect(golden).toContain('if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]');
     expect(golden).toContain('--project=golden-crud --workers=1 --retries=0');
+    expect(golden).toContain('target:');
+    expect(golden).toContain('- shipping-only');
+    expect(golden).toContain("if: ${{ inputs.target != 'shipping-only' }}");
+    expect(golden).toContain("if: ${{ inputs.target == 'shipping-only' }}");
+    expect(golden).toContain(
+      'npx playwright test --project=golden-crud tests/golden/admin-crud-order-shipments.spec.ts --workers=1 --retries=0 --reporter=line',
+    );
     expect(golden).toContain('tests/payments/payment-routes.spec.ts --workers=1 --retries=0');
   });
 
