@@ -1,0 +1,5 @@
+{
+  "worktree": {
+    "setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/paseo-worktree-setup.ps1"
+  }
+}
