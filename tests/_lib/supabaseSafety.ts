@@ -89,7 +89,7 @@ export async function assertLocalhostAppRuntimeSupabaseRefMatchesTestRef(
   request: LocalRuntimePreflightRequest = requestLocalRuntimePreflight,
 ): Promise<string> {
   const expectedRef = assertAllowedTestSupabaseRef(source, environment);
-  const target = new URL('/api/__test__/supabase-ref', assertLocalhostTarget(source, environment));
+  const target = new URL('/api/test/supabase-ref', assertLocalhostTarget(source, environment));
 
   let response: Pick<Response, 'ok' | 'json'>;
   try {
