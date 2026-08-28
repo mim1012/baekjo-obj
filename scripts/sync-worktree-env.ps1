@@ -6,7 +6,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$envFiles = @('.env.local')
+$envFiles = @('.env.local', '.env.test.local')
 if ($IncludeProduction) {
     $envFiles += '.env.production.local'
 }
