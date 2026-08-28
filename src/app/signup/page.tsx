@@ -10,6 +10,7 @@ import SocialLoginButtons from '@/components/common/SocialLoginButtons';
 import B2BSignupForm from '@/components/signup/B2BSignupForm';
 import InsuranceSignupForm from '@/components/signup/InsuranceSignupForm';
 import PartnerSignupForm from '@/components/signup/PartnerSignupForm';
+import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
 
 const SIGNUP_SOCIAL_LABELS = { kakao: '카카오로 시작하기', naver: '네이버로 시작하기' };
 
@@ -37,6 +38,8 @@ export default function SignupPage() {
     termsAgree: false,
     privacyAgree: false,
   });
+  // 이메일 입력 시점(디바운스) 중복 선체크 — 최종 판정은 가입 API 409가 담당한다.
+  const emailStatus = useEmailAvailability(formData.email);
 
   // 이미 로그인된 사용자는 마이페이지로 — 회원가입 탭 전환 로직과는 무관하게
   // 최초 진입 시 1회만 확인한다.
@@ -76,6 +79,12 @@ export default function SignupPage() {
     event.preventDefault();
     if (formData.password !== formData.passwordConfirm) {
       setError('비밀번호가 서로 일치하지 않습니다.');
+      scrollToError();
+      return;
+    }
+    if (emailStatus === 'duplicate') {
+      setError('이미 가입된 이메일입니다. 로그인해 주세요.');
+      scrollToError();
       return;
     }
     setError('');
@@ -93,18 +102,22 @@ export default function SignupPage() {
 
     if (result.error === 'duplicate-email') {
       setError('이미 가입된 이메일입니다. 로그인해 주세요.');
+      scrollToError();
       return;
     }
     if (result.error === 'invalid-input') {
       setError('입력값을 다시 확인해 주세요.');
+      scrollToError();
       return;
     }
     if (result.error === 'network') {
       setError('잠시 후 다시 시도해 주세요.');
+      scrollToError();
       return;
     }
     if (result.error === 'session') {
       setError('가입은 완료됐어요. 로그인 화면에서 로그인해 주세요.');
+      scrollToError();
       router.push('/login');
       return;
     }
@@ -131,9 +144,20 @@ export default function SignupPage() {
     }
     if (result.error === 'duplicate-email') {
       setBusinessResult('duplicate');
+      scrollToError();
       return;
     }
     setBusinessResult('error');
+    scrollToError();
+  };
+
+  // 폼이 길어(입점 양식 9섹션) 제출 버튼 근처에서 에러가 보이지 않는 문제 방지 —
+  // 에러 표시 대상(인라인 에러 id 또는 페이지 상단 배너)으로 스크롤을 이동한다.
+  const scrollToError = () => {
+    if (typeof document === 'undefined') return;
+    requestAnimationFrame(() => {
+      document.getElementById('signup-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
   };
 
   const handleTabChange = (tab: SignupTab) => {
@@ -149,7 +173,15 @@ export default function SignupPage() {
       <div className="min-h-dvh bg-[#E9E7E0] px-5 py-16 flex flex-col items-center justify-center">
         <div className="max-w-md w-full border border-[#D1D0C8] bg-[#FAF9F5] p-10 text-center shadow-sm">
           <h2 className="text-2xl font-bold text-[#202521] mb-4">가입 신청 완료</h2>
-          <p className="text-[#59615B] mb-8">가입 신청이 완료되었습니다.<br />관리자 승인 후 이용 가능합니다.</p>
+          <p className="text-[#59615B] mb-6">
+            가입 신청이 완료되었습니다.<br />
+            관리자 승인 후 이용 가능합니다.
+          </p>
+          <ul className="mb-8 space-y-2 rounded-sm border border-[#D8D6CE] bg-white/60 p-4 text-left text-xs leading-6 text-[#5F6761]">
+            <li>· 제출하신 신청서는 관리자 심사 후 승인됩니다.</li>
+            <li>· 승인 완료 후 가입 시 등록한 이메일과 비밀번호로 로그인하실 수 있습니다.</li>
+            <li>· 승인 전에는 로그인이 제한되며, 심사 관련 문의는 고객센터(카카오톡·인스타그램)로 가능합니다.</li>
+          </ul>
           <Link href="/" className="inline-flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white w-full">
             홈으로 돌아가기
           </Link>
@@ -192,18 +224,22 @@ export default function SignupPage() {
         </div>
 
         {businessResult === 'duplicate' && (
-          <p className="mt-6 text-sm text-[#A65348]">이미 가입된 이메일입니다.</p>
+          <p id="signup-error" className="mt-6 rounded-sm border border-[#E3C9C4] bg-[#FBF1EF] p-3 text-sm text-[#A65348]" role="alert">
+            이미 가입된 이메일입니다. 가입하신 계정으로 로그인해 주세요.
+          </p>
         )}
         {businessResult === 'error' && (
-          <p className="mt-6 text-sm text-[#A65348]">가입 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.</p>
+          <p id="signup-error" className="mt-6 rounded-sm border border-[#E3C9C4] bg-[#FBF1EF] p-3 text-sm text-[#A65348]" role="alert">
+            가입 신청 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.
+          </p>
         )}
 
         {signupTab === 'partner' ? (
-          <PartnerSignupForm onSuccess={(data) => handleBusinessSuccess('partner', data)} />
+          <PartnerSignupForm onSuccess={(data) => handleBusinessSuccess('partner', data)} pending={pending} />
         ) : signupTab === 'b2b' ? (
-          <B2BSignupForm onSuccess={(data) => handleBusinessSuccess('b2b', data)} />
+          <B2BSignupForm onSuccess={(data) => handleBusinessSuccess('b2b', data)} pending={pending} />
         ) : signupTab === 'insurance' ? (
-          <InsuranceSignupForm onSuccess={(data) => handleBusinessSuccess('insurance', data as Record<string, unknown>)} />
+          <InsuranceSignupForm onSuccess={(data) => handleBusinessSuccess('insurance', data as Record<string, unknown>)} pending={pending} />
         ) : (
           <>
             <form onSubmit={handleSubmit} className="mt-9 space-y-7">
@@ -212,11 +248,22 @@ export default function SignupPage() {
                 <Field label="연락처 *"><input required type="tel" name="phone" value={formData.phone} onChange={handleChange} className={fieldClass} placeholder="010-0000-0000" /></Field>
               </div>
               <Field label="이메일 *"><input required type="email" name="email" value={formData.email} onChange={handleChange} className={fieldClass} placeholder="name@example.com" /></Field>
+              <EmailCheckMessage status={emailStatus} />
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="비밀번호 *"><input required minLength={6} type="password" name="password" value={formData.password} onChange={handleChange} className={fieldClass} /></Field>
                 <Field label="비밀번호 확인 *"><input required minLength={6} type="password" name="passwordConfirm" value={formData.passwordConfirm} onChange={handleChange} className={fieldClass} /></Field>
               </div>
-              {error && <p className="-mt-3 text-sm text-[#A65348]">{error}</p>}
+              {error && (
+                <p id="signup-error" className="sm:col-span-2 rounded-sm border border-[#E3C9C4] bg-[#FBF1EF] p-3 text-sm text-[#A65348]" role="alert">
+                  {error}
+                  {error.includes('가입된 이메일') && (
+                    <>
+                      {' '}
+                      <Link href="/login" className="font-semibold underline underline-offset-2">로그인하러 가기</Link>
+                    </>
+                  )}
+                </p>
+              )}
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <Field label="반려동물 종류">
