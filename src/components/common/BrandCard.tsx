@@ -40,8 +40,8 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
             {displayTags.map((tag) => <span key={tag}>{tag}</span>)}
           </div>
-          <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] line-clamp-2 min-h-[42px] md:min-h-[47px] flex items-start">
-            {fullBrandName}
+          <h3 className="mb-2 min-h-[24px] break-keep text-[16px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:min-h-[26px] md:text-[18px]">
+            {presentation.displayName}
           </h3>
           <p className="break-keep text-[12px] leading-[1.6] text-[#6F756F] md:text-[13px]">
             {presentation.cardDescription}

@@ -14,14 +14,20 @@ import { formatBrandDisplayName } from '@/lib/brands/presentation';
 const PRODUCTS_PER_PAGE = 20;
 
 const priceOptions = [
-  { id: 'all', label: '전체 가격' },
+  { id: 'all', label: '전체' },
   { id: 'under-20000', label: '2만원 미만' },
   { id: '20000-50000', label: '2-5만원' },
   { id: '50000-100000', label: '5-10만원' },
   { id: '100000-plus', label: '10만원 이상' },
 ];
 
-const concernFilterSlugs = new Set(['skin', 'joint', 'obesity', 'oral']);
+const concernOptions = [
+  { slug: 'skin', title: '피부' },
+  { slug: 'joint', title: '관절' },
+  { slug: 'obesity', title: '체중' },
+  { slug: 'oral', title: '구강' },
+  { slug: 'odor', title: '냄새' },
+];
 
 const sortOptions: Array<{ id: SortOption; label: string }> = [
   { id: 'recommended', label: '기본순' },
@@ -39,7 +45,7 @@ interface Props {
   concerns: Concern[];
 }
 
-function ShopInner({ products, brands, concerns }: Props) {
+function ShopInner({ products, brands }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
@@ -122,10 +128,18 @@ function ShopInner({ products, brands, concerns }: Props) {
         ? 99_999
         : undefined;
 
+  // 상품 detail에 저장된 과거 브랜드명이 오래되었더라도 현재 브랜드 테이블을 정본으로 사용한다.
+  // 카드 표기와 브랜드명 검색이 같은 이름을 바라보게 해 브랜드 필터/검색 결과가 어긋나지 않는다.
+  const brandNameById = new Map(brands.map((brand) => [brand.id, brand.name]));
+  const productsWithBrandNames = products.map((product) => ({
+    ...product,
+    brandName: brandNameById.get(product.brandId) ?? product.brandName,
+  }));
+
   // products/brands 는 서버 wrapper(page.tsx)가 repo(listProducts/listBrands)로 이미
   // is_visible=true 만 걸러 내려준다(콘센트) — 여기서 재필터링하지 않는다.
   const filtered = sortProducts(
-    filterProducts(products, {
+    filterProducts(productsWithBrandNames, {
       petType: params.petType,
       category: params.category,
       lifestyleCategory: params.lifestyle,
@@ -149,7 +163,7 @@ function ShopInner({ products, brands, concerns }: Props) {
   const paginatedProducts = filtered.slice(startIndex, endIndex);
 
   // 추천 상품은 페이지네이션과 분리해 전체를 가로 탐색한다.
-  const recommendedProducts = products.filter((p) => p.isRecommended || p.isBest);
+  const recommendedProducts = productsWithBrandNames.filter((p) => p.isRecommended || p.isBest);
 
   const makeHref = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -166,9 +180,8 @@ function ShopInner({ products, brands, concerns }: Props) {
 
   const categoryOptions = getDataBackedShopCategoryOptions(
     categorySettings.productCategories,
-    products.map((product) => product.categorySlug ?? product.category),
+    productsWithBrandNames.map((product) => product.categorySlug ?? product.category),
   );
-  const concernOptions = concerns.filter((concern) => concernFilterSlugs.has(concern.slug));
 
   const activeFilterCount = [
     params.petType,
@@ -272,7 +285,7 @@ function ShopInner({ products, brands, concerns }: Props) {
       </details>
 
       <Link href="/shop" scroll={false} onClick={onNavigate} className="mt-6 inline-flex text-sm font-semibold text-[#59615B] underline underline-offset-4 transition-colors duration-500 hover:text-[#17211D]">
-        선택한 조건 모두 지우기
+        필터 초기화
       </Link>
     </div>
   );

@@ -17,7 +17,12 @@ export function filterProducts(
   }
 ): Product[] {
   return products.filter((p) => {
-    if (filters.petType && filters.petType !== 'all' && p.petType !== filters.petType && p.petType !== 'both') return false;
+    if (
+      filters.petType &&
+      filters.petType !== 'all' &&
+      p.petType !== filters.petType &&
+      !(filters.petType !== 'small' && p.petType === 'both')
+    ) return false;
     if (
       filters.category &&
       filters.category !== 'all' &&
@@ -44,6 +49,7 @@ export function filterProducts(
         p.category,
         p.categoryName ?? '',
         p.categorySlug ?? '',
+        ...(p.tags ?? []),
         ...p.concernTags,
       ].join(' ');
       const normalizedSearchableText = normalizeSearchText(searchableText);

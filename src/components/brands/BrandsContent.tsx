@@ -105,31 +105,35 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   return (
     <main className="brand-page bg-[#FFFEFB] pb-16 md:pb-24">
       {/* 1. 브랜드관 히어로 */}
-      <section className="bg-[#F7F4ED] pt-12 pb-14 md:pt-[64px] md:pb-[56px]">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col md:flex-row items-center gap-12 md:gap-16">
-          {/* Left Text */}
-          <div className="flex-1 w-full md:w-[44%] max-w-[540px]">
-            <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] uppercase mb-3 md:mb-4">BRAND CURATION</span>
-            <h1 className="text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.25] tracking-tight text-[#17231E] break-keep">
+      <section data-testid="brands-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
+        <Image
+          src="/images/brands-hero-cat-architectural.png"
+          alt="햇살이 드는 공간에 앉아 있는 고양이"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[72%_center] md:object-center"
+          data-testid="brands-hero-image"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.82)_0%,rgba(249,246,239,0.64)_54%,rgba(249,246,239,0.08)_76%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.68)_0%,rgba(249,246,239,0.34)_44%,rgba(249,246,239,0)_64%)]"
+        />
+
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+          <div className="flex w-full max-w-[540px] flex-col items-start md:w-[52%] md:min-w-[430px]">
+            <span className="mb-3 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A4E1D] md:mb-4 lg:text-[12px]">BRAND CURATION</span>
+            <h1 className="break-keep text-[30px] font-bold leading-[1.2] tracking-[-0.035em] text-[#17231E] md:text-[34px] lg:text-[44px] lg:leading-[1.18]">
               우리 아이를 생각한다면,<br className="hidden md:block" />
               좋은 선택이 필요합니다.
             </h1>
-            <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
+            <p className="mt-4 max-w-[500px] break-keep text-[14px] leading-[1.7] text-[#59615B] md:mt-5 md:text-[15px] lg:mt-6 lg:text-[16px]">
               우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.
             </p>
-
-            {/* Stats — 검증 브랜드 수만 간결하게 (등록 상품 수·케어 카테고리는 클라이언트 요청으로 제거) */}
-            <div className="mt-6 lg:mt-7 flex items-baseline gap-2">
-              <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{brands.length}곳</span>
-              <span className="text-[12px] font-medium text-[#6F756F]">검증 브랜드 수</span>
+            <div className="mt-5 flex items-baseline gap-2 md:mt-6 lg:mt-7">
+              <span className="text-[18px] font-bold text-[#17251F] lg:text-[20px]">{brands.length}곳</span>
+              <span className="text-[12px] font-medium text-[#59615B]">검증 브랜드 수</span>
             </div>
-          </div>
-
-          {/* Right Visual */}
-          <div className="flex-1 w-full md:w-[56%] relative">
-             <div className="relative w-full aspect-[4/3] max-h-[410px] rounded-[24px] overflow-hidden bg-[#F2EDE4]">
-                <Image src="/images/brand-curation-hero.webp" alt="Premium Pet Lifestyle" fill className="object-cover object-right" sizes="(max-width: 768px) 100vw, 56vw" priority />
-             </div>
           </div>
         </div>
       </section>
@@ -298,10 +302,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                  <span className="inline-block xl:whitespace-nowrap">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다.</span><br className="hidden lg:block" />
                  <span className="inline-block mt-1 lg:mt-0">신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</span>
                </p>
-             </div>
-             {/* Right CTA */}
-             <div className="w-full md:w-auto flex justify-center md:justify-end px-6 md:pr-10 pb-8 md:pb-0">
-               <Link href="/landing/care-kit" className="inline-flex items-center justify-center h-[46px] px-6 bg-[#17382D] text-white text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F] whitespace-nowrap">
+               <Link href="/landing/care-kit" className="mt-5 inline-flex h-[46px] self-center items-center justify-center whitespace-nowrap rounded-md bg-[#17382D] px-6 text-[14px] font-semibold text-white transition-colors hover:bg-[#10291F] md:self-start">
                  파트너십 문의하기 <ArrowRight className="ml-2 w-4 h-4" />
                </Link>
              </div>

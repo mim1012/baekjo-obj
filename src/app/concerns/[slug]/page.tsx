@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Check, ChevronDown, ChevronRight, MessageCircleQuestion, Home, PlusSquare, Search } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronRight, Home, PlusSquare, Search } from 'lucide-react';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
@@ -21,6 +21,11 @@ interface ConcernHeroCopy {
   description: string;
 }
 
+interface ConcernHeroVisual {
+  src: string;
+  objectPosition: string;
+}
+
 const concernHeroCopy: Record<string, ConcernHeroCopy> = {
   tear: {
     title: '눈물 자국, 닦아주는 것만으로 충분할까요?',
@@ -32,9 +37,9 @@ const concernHeroCopy: Record<string, ConcernHeroCopy> = {
       '걷는 속도나 계단 앞에서 머뭇거리는 모습처럼 작은 변화부터 기록해 보세요. 무리하지 않는 생활 관리 기준을 함께 살펴봐요.',
   },
   skin: {
-    title: '자꾸 긁거나 피부가 붉어 보일 때',
+    title: '자꾸 긁는 우리 아이,\n피부부터 살펴보세요',
     description:
-      '긁는 횟수와 붉어진 부위, 최근 바뀐 식사나 환경을 함께 살펴보면 진료 상담에도 도움이 돼요.',
+      '피부가 붉어지거나 자주 긁는 모습이 보인다면, 최근 달라진 식사나 생활 환경은 없는지 살펴보세요.',
   },
   obesity: {
     title: '건강한 체중을 천천히 되찾고 싶을 때',
@@ -63,22 +68,47 @@ const concernHeroCopy: Record<string, ConcernHeroCopy> = {
   },
 };
 
+const concernHeroVisuals: Record<string, ConcernHeroVisual> = {
+  tear: { src: '/images/care-detail-hero-tear.png', objectPosition: '50% center' },
+  joint: { src: '/images/care-detail-hero-joint.png', objectPosition: '47% center' },
+  skin: { src: '/images/care-detail-hero-skin.png', objectPosition: '46% center' },
+  obesity: { src: '/images/care-detail-hero-obesity.png', objectPosition: '45% center' },
+  stress: { src: '/images/care-detail-hero-stress.png', objectPosition: '50% center' },
+  oral: { src: '/images/care-detail-hero-oral.png', objectPosition: '48% center' },
+};
+
 const tearHospitalSigns = [
-  '심한 충혈·부음',
-  '노란색·녹색 눈곱 지속',
-  '눈을 잘 못 뜸·찡그림',
-  '반복적인 심한 비빔·긁음',
-  '눈이 뿌옇게 보임',
-  '눈 또는 눈꺼풀 상처',
+  '눈이 심하게 붉어지거나 부어오름',
+  '노란색·녹색 눈곱이 계속 생김',
+  '눈을 잘 뜨지 못하거나 계속 찡그림',
+  '눈을 반복해서 심하게 비비거나 긁음',
+  '눈이 평소보다 뿌옇게 보임',
+  '눈 또는 눈꺼풀에 상처가 보임',
 ];
 
 const tearSymptoms = [
-  '갈색·적갈색 자국',
-  '눈물 양 증가',
-  '눈 주변 털 축축함',
-  '노란 눈곱',
-  '눈 비빔·긁음',
-  '한쪽 눈물 증가',
+  '눈 밑의 갈색·적갈색 자국이 짙어짐',
+  '평소보다 눈물 양이 많아짐',
+  '눈 주위 털이 계속 축축하게 젖어 있음',
+  '노란 눈곱이 생기거나 눈곱 양이 많아짐',
+  '눈을 평소보다 자주 비비거나 긁음',
+  '한쪽 눈의 눈물만 유독 많아짐',
+];
+
+const skinHospitalSigns = [
+  '긁거나 핥는 행동이 계속되거나 심해짐',
+  '붉어짐이나 피부 변화가 넓어지거나 오래 지속됨',
+  '상처·진물·출혈이 생김',
+  '털이 빠지는 범위가 넓어지거나 피부가 드러남',
+  '피부 변화와 함께 식욕이나 활동량이 평소와 달라짐',
+];
+
+const skinSymptoms = [
+  '몸을 자주 긁거나 핥음',
+  '피부가 붉어지거나 평소와 다른 변화가 생김',
+  '비듬이나 각질이 많아짐',
+  '털이 평소보다 많이 빠지거나 부분적으로 빠짐',
+  '특정 부위에서 평소와 다른 냄새가 남',
 ];
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
@@ -119,70 +149,99 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
     listCachedPublicProducts(),
     listCachedPublicBrands(),
   ]);
-  const recommendedProducts = allProducts.filter((product) =>
-    concern.recommendedProductIds.includes(product.id),
-  );
-  const recommendedBrands = allBrands.filter((brand) =>
-    concern.recommendedBrandIds.includes(brand.id),
-  );
+  const recommendedProducts = concern.recommendedProductIds.flatMap((productId) => {
+    const product = allProducts.find((item) => item.id === productId);
+    return product ? [product] : [];
+  });
+  const recommendedBrands = concern.recommendedBrandIds.flatMap((brandId) => {
+    const brand = allBrands.find((item) => item.id === brandId);
+    return brand ? [brand] : [];
+  });
   const { items: showcaseReviews } = await getShowcaseReviewsConfigWithFallback();
   const relatedReviews = showcaseReviews.filter((review) =>
     review.isVisible !== false && concern.recommendedProductIds.includes(review.productId),
   );
 
-  const concernHeroImages: Record<string, string> = {
-    tear: '/images/care-hero-tear.webp',
+  const heroVisual = concernHeroVisuals[concern.slug] ?? {
+    src: '/images/hero-curation-visual.png',
+    objectPosition: 'center',
   };
-  const heroImage = concernHeroImages[concern.slug] || '/images/hero-curation-visual.png';
-  const hospitalSigns = concern.slug === 'tear' ? tearHospitalSigns : concern.causes;
-  const symptoms = concern.slug === 'tear' ? tearSymptoms : concern.symptoms;
+  const hospitalSigns = concern.slug === 'tear'
+    ? tearHospitalSigns
+    : concern.slug === 'skin'
+      ? skinHospitalSigns
+      : concern.causes;
+  const symptoms = concern.slug === 'tear'
+    ? tearSymptoms
+    : concern.slug === 'skin'
+      ? skinSymptoms
+      : concern.symptoms;
+  const quickGuideDescriptions = concern.slug === 'tear'
+    ? [
+        '식사·환경·눈 주변 상태 등 눈물 자국에 영향을 주는 원인',
+        '눈가 청결과 식사·환경 등 매일 챙겨야 할 관리 방법',
+        '눈의 상태와 행동으로 구분하는 진료가 필요한 신호',
+      ]
+    : concern.slug === 'skin'
+      ? [
+          '식사·환경·피부 상태 등 피부 변화에 영향을 줄 수 있는 원인',
+          '피부 청결과 식사·환경 등 일상에서 챙겨야 할 관리 방법',
+          '피부 상태와 행동으로 구분하는 진료가 필요한 신호',
+        ]
+    : [
+        '식사·환경·생활 습관 등 주요 원인을 함께 살펴봅니다.',
+        '매일 실천할 수 있는 생활 관리 방법을 안내합니다.',
+        '진료가 필요한 신호와 병원 방문 기준을 정리했습니다.',
+      ];
 
   return (
     <main className="flex flex-col bg-[#F8F6F0] min-h-screen pb-0">
-      {/* 1. 상단 인트로 및 히어로 */}
-      <div className="mx-auto w-full max-w-[1240px] px-5 md:px-7 lg:px-10 xl:px-12 pt-9 lg:pt-12 pb-7 lg:pb-9">
-        <section className="flex flex-col lg:flex-row lg:items-center gap-12 lg:gap-16 lg:h-[440px]">
-          {/* 좌측 텍스트 (43%) */}
-          <div className="w-full lg:w-[43%] flex flex-col items-start relative z-10 order-2 lg:order-1">
+      {/* 1. 상단 인트로 및 히어로 — 홈과 같은 전체 배경형 구조 */}
+      <section data-testid="concern-detail-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
+        <Image
+          src={heroVisual.src}
+          alt={`${concern.title} 케어 안내`}
+          fill
+          priority
+          sizes="100vw"
+          quality={90}
+          data-testid="concern-detail-hero-image"
+          className="object-cover"
+          style={{ objectPosition: heroVisual.objectPosition }}
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.94)_0%,rgba(248,246,240,0.76)_42%,rgba(248,246,240,0.18)_72%,rgba(248,246,240,0)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.95)_0%,rgba(248,246,240,0.80)_32%,rgba(248,246,240,0.30)_56%,rgba(248,246,240,0)_78%)]"
+        />
+
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-12 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+          <div className="flex w-full max-w-[560px] flex-col items-start md:w-[54%] md:min-w-[450px]">
             <Link
               href="/concerns"
-              className="inline-flex items-center gap-2 text-[14px] sm:text-[15px] font-medium text-[#72766F] transition-colors duration-300 hover:text-[#17251F] mb-6 sm:mb-8"
+              className="mb-6 inline-flex items-center gap-2 text-[14px] font-medium text-[#59615B] transition-colors duration-300 hover:text-[#17251F] sm:mb-8 sm:text-[15px]"
             >
               <ArrowLeft className="size-4" aria-hidden="true" />
               케어 가이드로 돌아가기
             </Link>
 
-            <div className="inline-flex h-[34px] sm:h-[36px] items-center gap-1.5 rounded-full border border-[#E4DDD1] bg-[#F2EEE5]/50 px-3.5 sm:px-4 text-[13px] sm:text-[14px] font-bold text-[#17251F]">
+            <div className="inline-flex h-[34px] items-center gap-1.5 rounded-full border border-white/80 bg-white/82 px-3.5 text-[13px] font-bold text-[#17251F] shadow-sm backdrop-blur-sm sm:h-[36px] sm:px-4 sm:text-[14px]">
               <span aria-hidden="true" className="text-[16px] leading-none">{concern.icon}</span>
               {concern.title} 케어
             </div>
 
-            <h1 className="mt-6 sm:mt-7 max-w-[520px] break-keep text-[32px] sm:text-[42px] lg:text-[54px] font-bold leading-[1.14] tracking-[-0.035em] text-[#17251F] whitespace-pre-line">
+            <h1 className="mt-6 max-w-[540px] whitespace-pre-line break-keep text-[32px] font-bold leading-[1.14] tracking-[-0.035em] text-[#17251F] sm:mt-7 sm:text-[42px] lg:text-[52px]">
               {heroCopy.title}
             </h1>
 
-            <p className="mt-5 sm:mt-6 max-w-[500px] break-keep text-[15px] sm:text-[16px] leading-[1.7] text-[#72766F]">
+            <p className="mt-5 max-w-[500px] break-keep text-[15px] leading-[1.7] text-[#59615B] sm:mt-6 sm:text-[16px]">
               {heroCopy.description}
             </p>
           </div>
-
-          {/* 우측 이미지 (57%) */}
-          <div className="w-full lg:w-[57%] h-[340px] sm:h-[390px] relative overflow-hidden rounded-[20px] lg:rounded-[24px] bg-[#E4DDD1]/30 order-1 lg:order-2">
-            <Image
-              src={heroImage}
-              alt={`${concern.title} 케어 안내`}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 57vw"
-              className="object-cover"
-              style={{ objectPosition: concern.slug === 'tear' ? 'center 30%' : 'center' }}
-            />
-          </div>
-        </section>
-      </div>
+        </div>
+      </section>
 
       {/* 2. 핵심 정보 요약 바 */}
-      <div className="mx-auto w-full max-w-[1240px] px-5 md:px-7 lg:px-10 xl:px-12 mb-12 lg:mb-16">
+      <div className="mx-auto mb-12 mt-10 w-full max-w-[1240px] px-5 md:mt-14 md:px-7 lg:mb-16 lg:mt-16 lg:px-10 xl:px-12">
         <div className="flex flex-col sm:flex-row sm:items-center overflow-hidden rounded-[18px] sm:rounded-[20px] border border-[#E4DDD1] bg-[#FFFEFB] sm:h-[100px] lg:h-[110px]">
           {/* 주요 원인 확인 */}
           <a href="#causes" className="group flex flex-1 items-center px-5 py-6 sm:px-4 lg:px-6 sm:py-0 hover:bg-[#F8F6F0] transition-colors border-b sm:border-b-0 sm:border-r border-[#E4DDD1] h-full gap-4 lg:gap-5">
@@ -193,7 +252,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
               <span className="flex items-center gap-1.5 text-[15px] lg:text-[16px] font-bold tracking-tight text-[#17251F]">
                 <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">01</span> 원인 살펴보기
               </span>
-              <span className="mt-1 text-[13px] lg:text-[14px] text-[#72766F] break-keep leading-snug">식사·환경·생활 습관 등<br className="hidden lg:block" />주요 원인을 함께 살펴봅니다.</span>
+              <span className="mt-1 break-keep text-[13px] leading-snug text-[#72766F] lg:text-[14px]">{quickGuideDescriptions[0]}</span>
             </div>
             <ChevronRight className="size-4 text-[#E4DDD1] group-hover:text-[#B68B4E] transition-colors" />
           </a>
@@ -207,7 +266,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
               <span className="flex items-center gap-1.5 text-[15px] lg:text-[16px] font-bold tracking-tight text-[#17251F]">
                 <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">02</span> 집에서 관리하기
               </span>
-              <span className="mt-1 text-[13px] lg:text-[14px] text-[#72766F] break-keep leading-snug">매일 실천할 수 있는<br className="hidden lg:block" />생활 관리 방법을 안내합니다.</span>
+              <span className="mt-1 break-keep text-[13px] leading-snug text-[#72766F] lg:text-[14px]">{quickGuideDescriptions[1]}</span>
             </div>
             <ChevronRight className="size-4 text-[#E4DDD1] group-hover:text-[#B68B4E] transition-colors" />
           </a>
@@ -221,7 +280,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
               <span className="flex items-center gap-1.5 text-[15px] lg:text-[16px] font-bold tracking-tight text-[#17251F]">
                 <span className="font-editorial text-[#B68B4E] font-semibold text-[13px] lg:text-[14px]">03</span> 병원 방문 판단하기
               </span>
-              <span className="mt-1 text-[13px] lg:text-[14px] text-[#72766F] break-keep leading-snug">진료가 필요한 신호와<br className="hidden lg:block" />병원 방문 기준을 정리했습니다.</span>
+              <span className="mt-1 break-keep text-[13px] leading-snug text-[#72766F] lg:text-[14px]">{quickGuideDescriptions[2]}</span>
             </div>
             <ChevronRight className="size-4 text-[#E4DDD1] group-hover:text-[#B68B4E] transition-colors" />
           </a>
@@ -251,11 +310,10 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           {/* 오른쪽: 병원 방문 기준 (48%) */}
           <div className="w-full lg:w-[48%] p-6 sm:p-8 lg:p-10 bg-[#FFFEFB] border border-[#E4DDD1] rounded-[20px] lg:rounded-[24px]">
             <h3 className="break-keep text-[18px] lg:text-[20px] font-bold tracking-tight text-[#17251F]">
-              병원 방문을 판단해야 하는 신호
+              병원 진료를 고려해야 할 신호
             </h3>
             <p className="mt-2.5 break-keep text-[13px] lg:text-[14px] leading-[1.65] text-[#72766F]">
-              다음 중 하나 이상에 해당한다면 수의사와 상담해보세요.<br className="hidden lg:block"/>
-              정확한 진단을 통해 적절한 케어를 시작할 수 있어요.
+              아래 증상이 보인다면 집에서 관리하기보다 수의사와 상담해보세요.
             </p>
             <ol className="mt-7 space-y-3 lg:space-y-3.5">
               {hospitalSigns.map((sign) => (
@@ -322,7 +380,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           <div className="flex items-end justify-between mb-6 lg:mb-8">
             <h2 className="text-[20px] lg:text-[24px] font-bold text-[#17251F] tracking-tight">일상 관리에 함께 볼 상품</h2>
             <Link href={`/shop?concern=${concern.slug}`} className="text-[13px] lg:text-[14px] font-semibold text-[#17251F] flex items-center gap-1 hover:text-[#B68B4E] transition-colors">
-              전체 상품 보기 <ChevronRight className="size-4" />
+              {concern.title} 관련 상품 보기 <ChevronRight className="size-4" />
             </Link>
           </div>
 
@@ -348,15 +406,11 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           <div className="w-full rounded-[20px] lg:rounded-[24px] bg-[#16382D] px-6 py-8 sm:px-10 lg:px-10 lg:py-10 flex flex-col md:flex-row md:items-center justify-between gap-8 relative overflow-hidden h-auto md:h-[220px] lg:h-[240px]">
             {/* 좌측 콘텐츠 (55%) */}
             <div className="relative z-10 md:w-[55%] flex flex-col">
-              <span className="text-[12px] font-medium tracking-wide text-[#B68B4E] mb-2 opacity-90">
-                사랑하는 아이를 위한 든든한 준비
-              </span>
               <h2 className="break-keep text-[22px] sm:text-[24px] lg:text-[26px] font-bold leading-[1.3] tracking-tight text-[#FFFEFB]">
-                가입한 보험, 이 고민도 보장될까요?
+                우리 아이에게 필요한 보장은 무엇일까요?
               </h2>
               <p className="mt-3 break-keep text-[14px] lg:text-[15px] leading-[1.65] text-[#FFFEFB]/80">
-                질병·사고 보장 범위부터 보장한도, 면책기간까지<br className="hidden lg:block"/>
-                반려동물 보험을 한눈에 비교해 보세요.
+                나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.
               </p>
             </div>
             {/* 중앙 CTA (20%) */}
@@ -385,13 +439,13 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
         {/* 7. 반려가족 후기 */}
         <section id="reviews" className="scroll-mt-32">
           <div className="flex items-end justify-between mb-6 lg:mb-8">
-            <h2 className="text-[20px] lg:text-[24px] font-bold text-[#17251F] tracking-tight">함께 읽어볼 반려가족 이야기</h2>
+            <h2 className="text-[20px] lg:text-[24px] font-bold text-[#17251F] tracking-tight">보호자 후기</h2>
             <Link href="/reviews" className="text-[13px] lg:text-[14px] font-semibold text-[#17251F] flex items-center gap-1 hover:text-[#B68B4E] transition-colors">
-              전체 이야기 보기 <ChevronRight className="size-4" />
+              후기 전체 보기 <ChevronRight className="size-4" />
             </Link>
           </div>
 
-          {relatedReviews.length > 0 ? (
+          {relatedReviews.length > 0 && (
             <div className="horizontal-snap-rail pb-4" tabIndex={0} role="region" aria-label="관련 후기 가로 스크롤">
               {relatedReviews.map((review) => {
                 const product = allProducts.find((item) => item.id === review.productId);
@@ -402,22 +456,13 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
                 );
               })}
             </div>
-          ) : (
-            <EmptyState
-              compact
-              title="함께 읽을 이야기가 아직 없어요"
-              description="다른 반려가족의 이야기가 도착하면 이곳에서 소개할게요."
-              actionLabel="전체 이야기 보기"
-              actionHref="/reviews"
-            />
           )}
         </section>
 
-        {/* 8. FAQ + 1:1 문의 */}
+        {/* 8. FAQ */}
         <section id="faq" className="scroll-mt-32">
-          <div className="flex flex-col lg:flex-row bg-[#FFFEFB] border border-[#E4DDD1] rounded-[18px] lg:rounded-[20px] overflow-hidden">
-            {/* 왼쪽 FAQ (72%) */}
-            <div className="w-full lg:w-[72%] p-6 sm:p-8 lg:p-9 border-b lg:border-b-0 lg:border-r border-[#E4DDD1]">
+          <div className="bg-[#FFFEFB] border border-[#E4DDD1] rounded-[18px] lg:rounded-[20px] overflow-hidden">
+            <div className="w-full p-6 sm:p-8 lg:p-9">
               <h2 className="text-[18px] lg:text-[20px] font-bold text-[#17251F] tracking-tight mb-6">많이 궁금해하시는 점</h2>
               <div className="space-y-2 lg:space-y-3">
                 {concern.faq.map((item) => (
@@ -441,19 +486,6 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
                   </details>
                 ))}
               </div>
-            </div>
-            {/* 오른쪽 문의 (28%) */}
-            <div className="w-full lg:w-[28%] p-6 sm:p-8 lg:p-9 flex flex-col items-center justify-center text-center bg-[#FFFEFB]">
-              <div className="w-[80px] h-[80px] lg:w-[100px] lg:h-[100px] mb-4 text-[#E4DDD1]">
-                {/* 시안의 라인 일러스트 느낌의 아이콘을 대체 */}
-                <MessageCircleQuestion className="w-full h-full text-[#B68B4E]/20" strokeWidth={1} />
-              </div>
-              <p className="text-[14px] lg:text-[15px] font-medium text-[#72766F] mb-4">
-                더 궁금한 점이 있으신가요?
-              </p>
-              <Link href="/qna" className="inline-flex items-center gap-1 text-[14px] lg:text-[15px] font-bold text-[#17251F] hover:text-[#B68B4E] transition-colors">
-                1:1 문의하기 <ChevronRight className="size-[18px]" />
-              </Link>
             </div>
           </div>
         </section>

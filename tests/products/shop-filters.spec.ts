@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import {
   defaultCategorySettings,
   normalizeStoredCategorySettings,
@@ -8,6 +8,8 @@ import {
   normalizeShopCategory,
   resolveShopCategory,
 } from '../../src/data/shopFilters';
+import { filterProducts } from '../../src/lib/filters';
+import type { Product } from '../../src/types';
 
 test.describe('0827 공개 쇼핑 분류', () => {
   test('전체를 제외한 공개 상품 분류는 확정된 5개 문구다', () => {
@@ -91,4 +93,52 @@ test.describe('0827 공개 쇼핑 분류', () => {
 
     expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(['푸드', '커스텀']);
   });
+});
+
+function product(overrides: Partial<Product> = {}): Product {
+  return {
+    id: 'p-test',
+    brandId: 'b-test',
+    brandName: '메종슈슈 (Maison Chouchou)',
+    name: '테스트 상품',
+    price: 30_000,
+    rating: 4.5,
+    reviewCount: 1,
+    category: '패션과 액세서리',
+    categorySlug: 'fashion-and-accessories',
+    lifestyleCategory: 'fashion-and-accessories',
+    concernTags: ['skin'],
+    petType: 'both',
+    ageGroup: 'all',
+    image: '',
+    stock: 1,
+    description: '',
+    tags: ['편안한 착용'],
+    isBest: false,
+    isRecommended: false,
+    ...overrides,
+  };
+}
+
+test('상품명·현재 브랜드명·키워드를 모두 검색한다', () => {
+  const products = [product()];
+  expect(filterProducts(products, { search: '메종슈슈' })).toHaveLength(1);
+  expect(filterProducts(products, { search: 'Maison Chouchou' })).toHaveLength(1);
+  expect(filterProducts(products, { search: '편안한 착용' })).toHaveLength(1);
+});
+
+test('강아지·고양이 공용 상품을 소동물 전용 상품으로 취급하지 않는다', () => {
+  const products = [product(), product({ id: 'p-small', petType: 'small' })];
+  expect(filterProducts(products, { petType: 'small' }).map((item) => item.id)).toEqual(['p-small']);
+  expect(filterProducts(products, { petType: 'dog' }).map((item) => item.id)).toEqual(['p-test']);
+});
+
+test('냄새 태그와 가격 경계로 정확히 필터링한다', () => {
+  const products = [
+    product({ id: 'p-odor', concernTags: ['odor'], price: 19_999 }),
+    product({ id: 'p-other', concernTags: ['skin'], price: 20_000 }),
+  ];
+  expect(filterProducts(products, { concern: 'odor' }).map((item) => item.id)).toEqual(['p-odor']);
+  expect(filterProducts(products, { maxPrice: 19_999 }).map((item) => item.id)).toEqual(['p-odor']);
+  expect(filterProducts(products, { minPrice: 20_000 }).map((item) => item.id)).toEqual(['p-other']);
 });

@@ -29,8 +29,8 @@ function renderLines(lines: string[], brClassName?: string) {
 }
 
 const { props: desktopHeroImageProps } = getImageProps({
-  src: '/images/home-hero-copy-safe-v2.png',
-  alt: '백조오브제의 반려생활 큐레이션을 소개하는 푸들',
+  src: '/images/home-hero-pet-lifestyle-desktop.png',
+  alt: '반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품',
   fill: true,
   sizes: '100vw',
   quality: 90,
@@ -38,8 +38,8 @@ const { props: desktopHeroImageProps } = getImageProps({
 });
 
 const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
-  src: '/images/home-hero-copy-safe-mobile-v2.png',
-  alt: '백조오브제의 반려생활 큐레이션을 소개하는 푸들',
+  src: '/images/home-hero-pet-lifestyle-mobile.png',
+  alt: '반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품',
   fill: true,
   sizes: '100vw',
   quality: 90,
@@ -113,9 +113,9 @@ export default function HomeClient({
             <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileHeroSrcSet} />
             <img
               {...desktopHeroImageProps}
-              alt="백조오브제의 반려생활 큐레이션을 소개하는 푸들"
+              alt="반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품"
               data-testid="home-hero-image"
-              className="object-cover object-top md:object-center"
+              className="object-cover object-center"
             />
           </picture>
           <div
@@ -301,29 +301,34 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
-            <div className="flex flex-col items-start text-white max-w-[480px]">
+            <div className="flex max-w-[480px] flex-col items-start text-[#17231E]">
               <div className="flex items-center gap-2 mb-2 md:mb-3">
-                <ShieldCheck className="size-5 text-[#B99562]" strokeWidth={2} />
-                <span className="text-[13px] md:text-[14px] font-semibold text-[#D8C4A3]">{insuranceBanner.eyebrow}</span>
+                <ShieldCheck className="size-5 text-[#7A4E1D]" strokeWidth={2} />
+                <span className="text-[13px] font-semibold text-[#66431D] md:text-[14px]">{insuranceBanner.eyebrow}</span>
               </div>
               <h2 className="text-[22px] md:text-[28px] font-bold leading-[1.3] tracking-tight">
                 {insuranceBanner.title}
               </h2>
-              <p className="mt-2 text-[13px] md:text-[15px] leading-[1.6] text-white/80 break-keep">
+              <p className="mt-2 break-keep text-[13px] leading-[1.6] text-[#35433D] md:text-[15px]">
                 {insuranceBanner.description}
               </p>
             </div>
 
             <div className="mt-2 md:mt-0 relative z-20 shrink-0">
-              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl bg-white/10 border border-white/20 px-8 text-[14px] font-bold text-white transition-colors hover:bg-white hover:text-[#18231F] backdrop-blur-sm">
+              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
                 {insuranceBanner.buttonLabel}
               </Link>
             </div>
           </div>
-          <div className="absolute bottom-0 right-0 h-[85%] md:h-[120%] w-[50%] md:w-[45%] opacity-90 mix-blend-luminosity">
-            <img src="/images/care_guide_hero.png" alt="강아지와 고양이" className="h-full w-full object-cover object-left-top scale-x-[-1]" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1A2F25] to-transparent"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1A2F25] to-transparent md:hidden"></div>
+          <div className="absolute inset-0 h-full w-full overflow-hidden">
+            <picture>
+              <source media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.png" />
+              <img
+                src="/images/insurance-analysis-banner.png"
+                alt="반려동물 보험을 분석하는 보호자와 강아지, 고양이"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
           </div>
         </div>
       </section>

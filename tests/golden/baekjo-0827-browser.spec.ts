@@ -34,7 +34,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
       .toContain('baekjo-objet-header-logo-v2');
     expect((await page.getByTestId('home-hero').boundingBox())?.height).toBeLessThanOrEqual(560);
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('home-hero-copy-safe-v2');
+      .toContain('home-hero-pet-lifestyle-desktop');
 
     const mainNav = page.getByRole('navigation', { name: '주요 메뉴' });
     const navText = await mainNav.innerText();
@@ -98,10 +98,15 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await openHealthy(page, '/concerns/tear');
     await expect(page.locator('body')).toContainText('눈물 케어');
     await expect(page.getByRole('heading', { name: '눈물 자국, 닦아주는 것만으로 충분할까요?' })).toBeVisible();
-    for (const sign of ['갈색·적갈색 자국', '눈물 양 증가', '노란 눈곱', '한쪽 눈물 증가']) {
+    for (const sign of [
+      '눈 밑의 갈색·적갈색 자국이 짙어짐',
+      '평소보다 눈물 양이 많아짐',
+      '노란 눈곱이 생기거나 눈곱 양이 많아짐',
+      '한쪽 눈의 눈물만 유독 많아짐',
+    ]) {
       await expect(page.getByText(sign, { exact: true })).toBeVisible();
     }
-    for (const sign of ['심한 충혈·부음', '노란색·녹색 눈곱 지속', '눈이 뿌옇게 보임']) {
+    for (const sign of ['눈이 심하게 붉어지거나 부어오름', '노란색·녹색 눈곱이 계속 생김', '눈이 평소보다 뿌옇게 보임']) {
       await expect(page.getByText(sign, { exact: true })).toBeVisible();
     }
     await page.screenshot({ path: path.join(OUTPUT, 'tear-care-desktop.png'), fullPage: true });
@@ -164,7 +169,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await expect(page.getByTestId('site-header-logo')).toBeVisible();
     expect((await page.getByTestId('home-hero').boundingBox())?.height).toBeLessThanOrEqual(640);
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('home-hero-copy-safe-mobile-v2');
+      .toContain('home-hero-pet-lifestyle-mobile');
     expect(decodeURIComponent(await page.getByTestId('home-audit-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
       .toContain('home-audit-client-photo-v3');
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile.png'), fullPage: false });
