@@ -238,12 +238,13 @@ test('Given a CJ shipment, When the customer explicitly requests live tracking, 
 
   const refresh = dialog.getByLabel('실시간 배송이력 새로고침');
   await refresh.click();
-  await expect(refresh).toBeDisabled();
-  await refresh.click({ force: true });
+  const loadingAction = dialog.getByLabel('실시간 배송이력 조회 중');
+  await expect(loadingAction).toBeDisabled();
+  await loadingAction.click({ force: true });
   expect(audit.trackingCalls()).toBe(3);
   const releaseThird = releaseThirdResponse ?? (() => { throw new Error('third tracking response was not deferred'); });
   releaseThird();
-  await expect(refresh).toBeEnabled();
+  await expect(dialog.getByLabel('실시간 배송이력 새로고침')).toBeEnabled();
   expect(audit.trackingCalls()).toBe(3);
   audit.assertClean();
 });

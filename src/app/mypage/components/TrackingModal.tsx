@@ -461,7 +461,11 @@ export default function TrackingModal({
                       onClick={handleLiveTrackingRequest}
                       disabled={visibleLiveTracking.kind === 'loading'}
                       aria-label={`실시간 배송이력 ${
-                        visibleLiveTracking.kind === 'result' ? '새로고침' : '배송조회'
+                        visibleLiveTracking.kind === 'loading'
+                          ? '조회 중'
+                          : visibleLiveTracking.kind === 'result'
+                            ? '새로고침'
+                            : '배송조회'
                       }`}
                       className="inline-flex min-w-20 items-center justify-center gap-1.5 rounded-lg border border-[#DED8CC] bg-white px-3 py-2 text-xs font-semibold text-[#18231F] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                     >
