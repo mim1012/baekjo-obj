@@ -103,6 +103,42 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(shipping).not.toContain('inputs.base_url');
   });
 
+  test('Auth Golden login diagnostics is localhost staging read-only and never runs write specs', () => {
+    const diagnostics = readWorkflow('auth-golden-login-diagnostics.yml');
+
+    expect(diagnostics).toContain('workflow_dispatch:');
+    expect(diagnostics).toContain('allow_localhost_staging_auth_read:');
+    expect(diagnostics).toContain("if: ${{ inputs.allow_localhost_staging_auth_read == true }}");
+    expect(diagnostics).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
+    expect(diagnostics).toContain("AUTH_TRUST_HOST: 'true'");
+    expect(diagnostics).toContain('Generate local Auth.js secret');
+    expect(diagnostics).toContain("randomBytes(32).toString('base64url')");
+    expect(diagnostics).toContain('echo "::add-mask::$local_auth_secret"');
+    expect(diagnostics).toContain("printf 'AUTH_SECRET=%s\\n' \"$local_auth_secret\"");
+    expect(diagnostics).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
+    expect(diagnostics).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
+    expect(diagnostics).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
+    expect(diagnostics).toContain('SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}');
+    expect(diagnostics).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
+    expect(diagnostics).toContain('test -n "$E2E_ADMIN_EMAIL" || exit 1');
+    expect(diagnostics).toContain('test -n "$E2E_ADMIN_PASSWORD" || exit 1');
+    expect(diagnostics).toContain('test -n "$E2E_MEMBER_EMAIL" || exit 1');
+    expect(diagnostics).toContain('test -n "$E2E_MEMBER_PASSWORD" || exit 1');
+    expect(diagnostics).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
+    expect(diagnostics).toContain('/api/test/auth-env');
+    expect(diagnostics).toContain(
+      'npx playwright test --project=chromium tests/golden/credentials-login.spec.ts --workers=1 --retries=0 --reporter=line',
+    );
+    expect(diagnostics).not.toContain("E2E_ADMIN_CRUD: '1'");
+    expect(diagnostics).not.toContain('tests/golden/admin-crud-order-shipments.spec.ts');
+    expect(diagnostics).not.toContain('tests/payments/payment-routes.spec.ts');
+    expect(diagnostics).not.toContain('SweetTracker');
+    expect(diagnostics).not.toContain('deployment_status:');
+    expect(diagnostics).not.toContain('environment_url');
+    expect(diagnostics).not.toContain('vercel.app');
+    expect(diagnostics).not.toContain('inputs.base_url');
+  });
+
   test('golden localhost staging ref shell regex accepts a valid Supabase host', () => {
     const golden = readWorkflow('golden-crud.yml');
     const command = /actual_ref=\$\(node -e "([^"]+)"\)/.exec(golden)?.[1];
