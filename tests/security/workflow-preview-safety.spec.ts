@@ -48,7 +48,7 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).not.toContain('secrets.STAGING_SUPABASE_URL');
     expect(golden).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
     expect(golden).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
-    expect(golden).toContain('http://127.0.0.1:3000/api/__test__/supabase-ref');
+    expect(golden).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
     expect(golden).toContain('if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]');
     expect(golden).toContain('--project=golden-crud --workers=1 --retries=0');
     expect(golden).toContain('tests/payments/payment-routes.spec.ts --workers=1 --retries=0');
