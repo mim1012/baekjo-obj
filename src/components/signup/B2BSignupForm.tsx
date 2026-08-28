@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
+import { uploadBusinessFile, type UploadedFile } from '@/components/signup/uploadBusinessFile';
 
 const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
 const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
@@ -62,6 +63,10 @@ export default function B2BSignupForm({
   // alert 대신 제출 버튼 바로 위 인라인 배너로 안내한다(긴 양식에서 상단 메시지는 안 보임).
   const [formError, setFormError] = useState('');
   const emailStatus = useEmailAvailability(formData.email);
+  // 실제 업로드 상태 — 체크박스는 "보유 서류" 표시일 뿐이고, 서류 자체는
+  // signup-docs private 버킷에 업로드해야 관리자가 열람할 수 있다.
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const scrollToFormError = () => {
     requestAnimationFrame(() => {
@@ -100,6 +105,24 @@ export default function B2BSignupForm({
     alert('임시저장 되었습니다.');
   };
 
+  const handleFileSelect = async (category: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = '';
+    if (files.length === 0) return;
+
+    setUploading(true);
+    setFormError('');
+    try {
+      const uploaded = await Promise.all(files.map((file) => uploadBusinessFile(file, category)));
+      setUploadedFiles((prev) => [...prev, ...uploaded]);
+    } catch {
+      setFormError('서류 업로드에 실패했습니다. 파일 형식(PDF/PNG/JPG)과 크기(10MB 이하)를 확인 후 다시 시도해 주세요.');
+      scrollToFormError();
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.passwordConfirm) {
@@ -112,6 +135,12 @@ export default function B2BSignupForm({
       scrollToFormError();
       return;
     }
+    const hasBizLicense = uploadedFiles.some((file) => file.category === '사업자등록증');
+    if (!hasBizLicense) {
+      setFormError('사업자등록증 서류를 1개 이상 업로드해주세요.');
+      scrollToFormError();
+      return;
+    }
     if (!formData.privacyAgreement) {
       setFormError('개인정보 및 자료 활용 동의는 필수입니다.');
       scrollToFormError();
@@ -120,23 +149,7 @@ export default function B2BSignupForm({
     // 실제 서버 전송 또는 파일 업로드 처리
     localStorage.removeItem('b2b_signup_draft');
     setFormError('');
-
-    // 첨부된 파일 mock 처리
-    const mockFiles = [
-      formData.attachBizLicense ? '사업자등록증.pdf' : null,
-      formData.attachMedicalLicense ? '의료기관 개설허가증.pdf' : null,
-      formData.attachFuneralLicense ? '동물장묘업 등록증.pdf' : null,
-      formData.attachEntrustLicense ? '동물위탁관리업 등록증.pdf' : null,
-      formData.attachBeautyLicense ? '동물미용업 등록증.pdf' : null,
-      formData.attachOtherLicense ? '기타 인허가 등록증.pdf' : null,
-      formData.attachCompanyIntro ? '회사소개서.pdf' : null,
-      formData.attachServiceIntro ? '서비스 소개서.pdf' : null,
-      formData.attachFacilityPhoto ? '시설 사진.jpg' : null,
-      formData.attachCert ? '인증서.pdf' : null,
-      formData.attachEtc ? '기타 참고자료.zip' : null,
-    ].filter(Boolean);
-
-    onSuccess({ ...formData, attachedFiles: mockFiles });
+    onSuccess({ ...formData, attachedFiles: uploadedFiles });
   };
 
   return (
@@ -180,7 +193,7 @@ export default function B2BSignupForm({
       {/* 3. 인증 자료 */}
       <section className="space-y-5">
         <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">3. 인증 자료</h2>
-        <p className="text-sm text-[#747B75] mb-2">업종별 해당하는 인증 자료를 체크하고 업로드해주세요.</p>
+        <p className="text-sm text-[#747B75] mb-2">보유하신 인허가·등록증 항목을 모두 선택해주세요.</p>
         <div className="flex flex-wrap gap-4">
           <Checkbox label="사업자등록증 (필수)" name="attachBizLicense" checked={formData.attachBizLicense} onChange={handleChange} required />
           <Checkbox label="의료기관 개설허가증 (동물병원)" name="attachMedicalLicense" checked={formData.attachMedicalLicense} onChange={handleChange} />
@@ -188,6 +201,37 @@ export default function B2BSignupForm({
           <Checkbox label="동물위탁관리업 등록증" name="attachEntrustLicense" checked={formData.attachEntrustLicense} onChange={handleChange} />
           <Checkbox label="동물미용업 등록증" name="attachBeautyLicense" checked={formData.attachBeautyLicense} onChange={handleChange} />
           <Checkbox label="기타 업종별 인허가·등록증" name="attachOtherLicense" checked={formData.attachOtherLicense} onChange={handleChange} />
+        </div>
+        <div className="mt-4 space-y-3">
+          <Field label="사업자등록증 업로드 (필수 · PDF/PNG/JPG, 10MB 이하)">
+            <input
+              type="file"
+              className={fieldClass}
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploading}
+              onChange={(e) => handleFileSelect('사업자등록증', e)}
+            />
+          </Field>
+          <Field label="기타 인허가·등록증 서류 업로드 (선택 · 여러 개 가능)">
+            <input
+              type="file"
+              multiple
+              className={fieldClass}
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploading}
+              onChange={(e) => handleFileSelect('기타', e)}
+            />
+          </Field>
+          {uploading && <p className="text-xs text-[#8B928C]">업로드 중…</p>}
+          {uploadedFiles.length > 0 && (
+            <ul className="space-y-1">
+              {uploadedFiles.map((file) => (
+                <li key={file.path} className="text-xs text-[#2F7A4F]">
+                  업로드됨 · [{file.category}] {file.name}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
@@ -200,6 +244,18 @@ export default function B2BSignupForm({
           <Checkbox label="시설 사진" name="attachFacilityPhoto" checked={formData.attachFacilityPhoto} onChange={handleChange} />
           <Checkbox label="인증서" name="attachCert" checked={formData.attachCert} onChange={handleChange} />
           <Checkbox label="기타 참고자료" name="attachEtc" checked={formData.attachEtc} onChange={handleChange} />
+        </div>
+        <div className="mt-4 space-y-3">
+          <Field label="추가 첨부 서류 업로드 (선택 · 여러 개 가능)">
+            <input
+              type="file"
+              multiple
+              className={fieldClass}
+              accept=".pdf,.jpg,.jpeg,.png"
+              disabled={uploading}
+              onChange={(e) => handleFileSelect('기타', e)}
+            />
+          </Field>
         </div>
       </section>
 
@@ -239,10 +295,10 @@ export default function B2BSignupForm({
           </button>
           <button
             type="submit"
-            disabled={pending}
+            disabled={pending || uploading}
             className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {pending ? '제출 중…' : '가입 신청하기'}
+            {pending ? '제출 중…' : uploading ? '서류 업로드 중…' : '가입 신청하기'}
           </button>
         </div>
       </div>
