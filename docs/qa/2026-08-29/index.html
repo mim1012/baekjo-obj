@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>백조오브제 통합 QA 캡처</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; background:#f2f0eb; color:#202521; }
+    body { margin:0; padding:16px 10px 40px; }
+    main { max-width:1100px; margin:auto; }
+    h1 { margin:0 0 6px; font-size:clamp(22px,5vw,40px); }
+    .meta { color:#59645d; margin:0 0 14px; font-size:13px; }
+    h2 { margin:24px 0 10px; font-size:18px; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    figure { margin:0; padding:7px; background:#fffdf8; border:1px solid #ddd8cd; border-radius:10px; box-shadow:0 3px 10px #27352b12; }
+    figcaption { font-weight:700; margin:0 0 6px; font-size:12px; }
+    img { display:block; width:100%; height:150px; object-fit:cover; object-position:top; background:#eeece7; border-radius:6px; }
+    .mobile img { height:220px; }
+    .note { margin:24px 0; padding:14px 16px; background:#e8efe9; border-radius:12px; line-height:1.6; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>백조오브제 통합 QA 캡처</h1>
+    <p class="meta">2026-08-29 · Preview + staging · Playwright Chromium 실제 브라우저 캡처</p>
+    <div class="note">입점업체·B2B·보험사 회원가입 화면을 데스크톱과 모바일에서 실제 렌더링해 확인한 결과입니다. 이미지를 눌러 확대할 수 있습니다.</div>
+    <h2>핵심 사용자 흐름</h2>
+    <section class="grid">
+      <figure><figcaption>로그인 · 데스크톱</figcaption><a href="screenshots/desktop-login.png"><img src="screenshots/desktop-login.png" alt="로그인 데스크톱"></a></figure>
+      <figure class="mobile"><figcaption>로그인 · 모바일</figcaption><a href="screenshots/mobile-login.png"><img src="screenshots/mobile-login.png" alt="로그인 모바일"></a></figure>
+      <figure><figcaption>일반 회원가입 · 데스크톱</figcaption><a href="screenshots/desktop-signup.png"><img src="screenshots/desktop-signup.png" alt="일반 회원가입 데스크톱"></a></figure>
+      <figure class="mobile"><figcaption>일반 회원가입 · 모바일</figcaption><a href="screenshots/mobile-signup.png"><img src="screenshots/mobile-signup.png" alt="일반 회원가입 모바일"></a></figure>
+      <figure><figcaption>상품 목록 · 데스크톱</figcaption><a href="screenshots/desktop-shop.png"><img src="screenshots/desktop-shop.png" alt="상품 목록 데스크톱"></a></figure>
+      <figure class="mobile"><figcaption>상품 목록 · 모바일</figcaption><a href="screenshots/mobile-shop.png"><img src="screenshots/mobile-shop.png" alt="상품 목록 모바일"></a></figure>
+      <figure><figcaption>체크아웃 · 데스크톱</figcaption><a href="screenshots/desktop-checkout.png"><img src="screenshots/desktop-checkout.png" alt="체크아웃 데스크톱"></a></figure>
+      <figure class="mobile"><figcaption>체크아웃 · 모바일</figcaption><a href="screenshots/mobile-checkout.png"><img src="screenshots/mobile-checkout.png" alt="체크아웃 모바일"></a></figure>
+    </section>
+    <h2>입점·파트너 가입 흐름</h2>
+    <section class="grid">
+      <figure><figcaption>입점 업체 · 데스크톱</figcaption><a href="screenshots/desktop-partner.png"><img src="screenshots/desktop-partner.png" alt="입점 업체 데스크톱 회원가입 화면"></a></figure>
+      <figure class="mobile"><figcaption>입점 업체 · 모바일</figcaption><a href="screenshots/mobile-partner.png"><img src="screenshots/mobile-partner.png" alt="입점 업체 모바일 회원가입 화면"></a></figure>
+      <figure><figcaption>B2B 업체 · 데스크톱</figcaption><a href="screenshots/desktop-b2b.png"><img src="screenshots/desktop-b2b.png" alt="B2B 업체 데스크톱 회원가입 화면"></a></figure>
+      <figure class="mobile"><figcaption>B2B 업체 · 모바일</figcaption><a href="screenshots/mobile-b2b.png"><img src="screenshots/mobile-b2b.png" alt="B2B 업체 모바일 회원가입 화면"></a></figure>
+      <figure><figcaption>보험사 · 데스크톱</figcaption><a href="screenshots/desktop-insurance.png"><img src="screenshots/desktop-insurance.png" alt="보험사 데스크톱 회원가입 화면"></a></figure>
+      <figure class="mobile"><figcaption>보험사 · 모바일</figcaption><a href="screenshots/mobile-insurance.png"><img src="screenshots/mobile-insurance.png" alt="보험사 모바일 회원가입 화면"></a></figure>
+    </section>
+  </main>
+</body>
+</html>
