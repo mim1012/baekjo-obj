@@ -1495,11 +1495,29 @@ export async function getSessionUser(): Promise<User | null> {
  * signIn 자체가 실패하면 'invalid-credentials'(비밀번호 오류). signIn은 성공했는데
  * /api/members/me 조회가 실패하면 — 서버 세션은 이미 생성된 상태이므로 비밀번호
  * 문제로 오인시키지 않도록 별도로 'network'를 반환한다.
+ *
+ * 서버에서 자격 증명이 맞는데 상태로 차단된 경우(auth.ts의 CredentialsSignin 코드가
+ * 그대로 error로 전달된다) 상황별 안내를 위해 구분해서 반환한다:
+ * 'pending-approval'(입점/B2B/보험사 승인 대기), 'member-rejected'(반려),
+ * 'member-inactive'(휴면·탈퇴).
  */
+export type LoginError =
+  | 'invalid-credentials'
+  | 'network'
+  | 'pending-approval'
+  | 'member-rejected'
+  | 'member-inactive';
+
+const KNOWN_STATUS_ERRORS: ReadonlySet<string> = new Set([
+  'pending-approval',
+  'member-rejected',
+  'member-inactive',
+]);
+
 export async function login(
   email: string,
   password: string,
-): Promise<{ user?: User; error?: 'invalid-credentials' | 'network' }> {
+): Promise<{ user?: User; error?: LoginError }> {
   const { signIn } = await import('next-auth/react');
   const result = await signIn('credentials', {
     email,
@@ -1507,7 +1525,16 @@ export async function login(
     redirect: false,
     redirectTo: '/',
   });
-  if (result?.error) return { error: 'invalid-credentials' };
+  if (result?.error) {
+    // next-auth v5 클라이언트는 error를 'CredentialsSignin'으로 일반화하고,
+    // authorize가 던진 CredentialsSignin.code는 별도 `code` 필드로 전달한다 —
+    // 상황별 안내를 위해 code를 매핑한다.
+    const code = (result as { code?: unknown }).code;
+    if (typeof code === 'string' && KNOWN_STATUS_ERRORS.has(code)) {
+      return { error: code as LoginError };
+    }
+    return { error: 'invalid-credentials' };
+  }
 
   try {
     const response = await fetch('/api/members/me');
@@ -1580,6 +1607,22 @@ export async function registerBusinessMember(input: {
     return { error: 'network' };
   } catch {
     return { error: 'network' };
+  }
+}
+
+/**
+ * 이메일 사용 가능 여부 선체크(GET /api/members/check-email). 가입 폼에서 입력 시점에
+ * 중복을 미리 알려주기 위한 보조 수단이다. 4xx/5xx·네트워크 실패 시엔 판정 보류(null)로
+ * 반환해 최종 중복 판정은 가입 API의 409가 담당하도록 한다.
+ */
+export async function checkEmailAvailable(email: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/members/check-email?email=${encodeURIComponent(email)}`);
+    if (!response.ok) return null;
+    const { available } = (await response.json()) as { available: boolean };
+    return available;
+  } catch {
+    return null;
   }
 }
 

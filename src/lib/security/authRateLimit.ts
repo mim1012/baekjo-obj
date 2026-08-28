@@ -1,11 +1,13 @@
 import type { NextRequest } from 'next/server';
 
-export type AuthRateLimitAction = 'login' | 'signup' | 'password-reset';
+export type AuthRateLimitAction = 'login' | 'signup' | 'password-reset' | 'email-check';
 
 const WINDOWS: Record<AuthRateLimitAction, { windowMs: number; maxHits: number }> = {
   login: { windowMs: 15 * 60_000, maxHits: 10 },
   signup: { windowMs: 60 * 60_000, maxHits: 30 },
   'password-reset': { windowMs: 60 * 60_000, maxHits: 20 },
+  // 이메일 중복 선체크는 사용자가 입력을 고치며 여러 번 치므로 넉넉하게 잡는다.
+  'email-check': { windowMs: 60 * 60_000, maxHits: 60 },
 };
 
 const hits = new Map<string, { count: number; windowStart: number }>();

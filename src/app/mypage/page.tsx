@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { FEATURES } from '@/config/features';
 import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry, Shipment } from '@/types';
 import {
   getSessionUser,
@@ -48,7 +49,9 @@ type ReviewTargetProduct = Product & {
 function MypageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tab = searchParams.get('tab') || 'overview';
+  // URL(?tab=)로 보험 탭 직접 접근도 차단 — 미노출 기간엔 요약 탭으로 되돌린다(features.ts).
+  const requestedTab = searchParams.get('tab') || 'overview';
+  const tab = requestedTab === 'insurance' && !FEATURES.insurance ? 'overview' : requestedTab;
 
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);

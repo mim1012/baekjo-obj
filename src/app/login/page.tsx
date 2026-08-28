@@ -56,6 +56,18 @@ export default function LoginPage() {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.');
       return;
     }
+    if (result.error === 'pending-approval') {
+      setError('가입 신청 검토 중입니다. 관리자 승인 완료 후 로그인할 수 있어요.');
+      return;
+    }
+    if (result.error === 'member-rejected') {
+      setError('가입 신청이 승인되지 않았습니다. 자세한 내용은 고객센터에 문의해 주세요.');
+      return;
+    }
+    if (result.error === 'member-inactive') {
+      setError('이용이 중지되었거나 탈퇴한 계정입니다. 고객센터에 문의해 주세요.');
+      return;
+    }
     if (result.error === 'network' || !result.user) {
       setError('로그인 처리 중 문제가 발생했어요. 새로고침 후 다시 시도해 주세요.');
       return;
