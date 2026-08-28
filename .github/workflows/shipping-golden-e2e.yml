@@ -47,7 +47,10 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
       - name: Generate local Auth.js secret
-        run: node -e "console.log('AUTH_SECRET='+require('node:crypto').randomBytes(32).toString('base64url'))" >> "$GITHUB_ENV"
+        run: |
+          local_auth_secret=$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")
+          echo "::add-mask::$local_auth_secret"
+          printf 'AUTH_SECRET=%s\n' "$local_auth_secret" >> "$GITHUB_ENV"
       - name: Fail closed on missing isolated staging configuration
         run: |
           test -n "$TEST_SUPABASE_PROJECT_REF" || exit 1

@@ -47,6 +47,8 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain("AUTH_TRUST_HOST: 'true'");
     expect(golden).toContain('Generate local Auth.js secret');
     expect(golden).toContain("randomBytes(32).toString('base64url')");
+    expect(golden).toContain('echo "::add-mask::$local_auth_secret"');
+    expect(golden).toContain("printf 'AUTH_SECRET=%s\\n' \"$local_auth_secret\"");
     expect(golden).toContain('>> "$GITHUB_ENV"');
     expect(golden).not.toContain('AUTH_SECRET: ${{ secrets');
     expect(golden).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
@@ -78,6 +80,8 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(shipping).toContain("AUTH_TRUST_HOST: 'true'");
     expect(shipping).toContain('Generate local Auth.js secret');
     expect(shipping).toContain("randomBytes(32).toString('base64url')");
+    expect(shipping).toContain('echo "::add-mask::$local_auth_secret"');
+    expect(shipping).toContain("printf 'AUTH_SECRET=%s\\n' \"$local_auth_secret\"");
     expect(shipping).toContain('>> "$GITHUB_ENV"');
     expect(shipping).not.toContain('AUTH_SECRET: ${{ secrets');
     expect(shipping).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
