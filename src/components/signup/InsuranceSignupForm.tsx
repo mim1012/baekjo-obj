@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
 
 const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
 const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
@@ -35,8 +36,26 @@ export interface InsuranceFormData {
   attachedFiles?: string[];
 }
 
-export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuccess: (data: InsuranceFormData) => void, onFormChange?: (data: InsuranceFormData) => void }) {
+export default function InsuranceSignupForm({
+  onSuccess,
+  onFormChange,
+  pending = false,
+}: {
+  onSuccess: (data: InsuranceFormData) => void,
+  onFormChange?: (data: InsuranceFormData) => void,
+  /** 제출 중 여부 — 페이지 레벨 API 호출 중 재제출을 막는다. */
+  pending?: boolean,
+}) {
   const [formData, setFormData] = useState(initialData);
+  // alert 대신 제출 버튼 바로 위 인라인 배너로 안내한다(긴 양식에서 상단 메시지는 안 보임).
+  const [formError, setFormError] = useState('');
+  const emailStatus = useEmailAvailability(formData.email);
+
+  const scrollToFormError = () => {
+    requestAnimationFrame(() => {
+      document.getElementById('business-form-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
 
   // 임시저장 데이터 불러오기
   useEffect(() => {
@@ -76,24 +95,33 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.passwordConfirm) {
-      alert('비밀번호가 서로 일치하지 않습니다.');
+      setFormError('비밀번호가 서로 일치하지 않습니다.');
+      scrollToFormError();
+      return;
+    }
+    if (emailStatus === 'duplicate') {
+      setFormError('이미 가입된 이메일입니다. 가입하신 계정으로 로그인해 주세요.');
+      scrollToFormError();
       return;
     }
     if (!formData.privacyAgreement) {
-      alert('개인정보 수집 및 이용 동의는 필수입니다.');
+      setFormError('개인정보 수집 및 이용 동의는 필수입니다.');
+      scrollToFormError();
       return;
     }
 
     // 파일 업로드는 mock 처리
     const fileInput = document.getElementById('insuranceFiles') as HTMLInputElement;
     if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-      alert('인증 자료(서류)를 1개 이상 업로드해주세요.');
+      setFormError('인증 자료(서류)를 1개 이상 업로드해주세요.');
+      scrollToFormError();
       return;
     }
 
     const attachedFiles = Array.from(fileInput.files).map(f => f.name);
 
     localStorage.removeItem('insurance_signup_draft');
+    setFormError('');
     onSuccess({ ...formData, attachedFiles });
   };
 
@@ -106,6 +134,7 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
           <Field label="성명 *"><input required name="name" value={formData.name} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="연락처 *"><input required name="contact" value={formData.contact} onChange={handleChange} className={fieldClass} placeholder="010-0000-0000" /></Field>
           <Field label="이메일 *"><input required type="email" name="email" value={formData.email} onChange={handleChange} className={fieldClass} placeholder="name@example.com" /></Field>
+          <div className="sm:col-span-2 -mt-4"><EmailCheckMessage status={emailStatus} /></div>
           <Field label="소속 보험회사 또는 GA *"><input required name="insuranceCompany" value={formData.insuranceCompany} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="보험설계사 등록번호 *"><input required name="insuranceRegNumber" value={formData.insuranceRegNumber} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="비밀번호 *"><input required minLength={6} type="password" name="password" value={formData.password} onChange={handleChange} className={fieldClass} /></Field>
@@ -142,13 +171,24 @@ export default function InsuranceSignupForm({ onSuccess, onFormChange }: { onSuc
         <Checkbox label="[필수] 위 내용에 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />
       </section>
 
-      <div className="flex gap-3 pt-6 border-t border-[#D1D0C8]">
-        <button type="button" onClick={handleSaveDraft} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5]">
-          임시저장
-        </button>
-        <button type="submit" className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white">
-          자격 인증 신청하기
-        </button>
+      <div className="flex flex-col gap-3 pt-6 border-t border-[#D1D0C8]">
+        {formError && (
+          <p id="business-form-error" className="rounded-sm border border-[#E3C9C4] bg-[#FBF1EF] p-3 text-sm text-[#A65348]" role="alert">
+            {formError}
+          </p>
+        )}
+        <div className="flex gap-3">
+          <button type="button" onClick={handleSaveDraft} disabled={pending} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5] disabled:cursor-not-allowed disabled:opacity-60">
+            임시저장
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pending ? '제출 중…' : '자격 인증 신청하기'}
+          </button>
+        </div>
       </div>
     </form>
   );

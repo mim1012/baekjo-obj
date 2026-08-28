@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
 
 const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
 const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
@@ -49,8 +50,24 @@ const initialData = {
   privacyAgreement: false,
 };
 
-export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<string, unknown>) => void }) {
+export default function B2BSignupForm({
+  onSuccess,
+  pending = false,
+}: {
+  onSuccess: (data: Record<string, unknown>) => void;
+  /** 제출 중 여부 — 페이지 레벨 API 호출 중 재제출을 막는다. */
+  pending?: boolean;
+}) {
   const [formData, setFormData] = useState(initialData);
+  // alert 대신 제출 버튼 바로 위 인라인 배너로 안내한다(긴 양식에서 상단 메시지는 안 보임).
+  const [formError, setFormError] = useState('');
+  const emailStatus = useEmailAvailability(formData.email);
+
+  const scrollToFormError = () => {
+    requestAnimationFrame(() => {
+      document.getElementById('business-form-error')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
 
   // 임시저장 데이터 불러오기
   useEffect(() => {
@@ -86,15 +103,23 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.password !== formData.passwordConfirm) {
-      alert('비밀번호가 서로 일치하지 않습니다.');
+      setFormError('비밀번호가 서로 일치하지 않습니다.');
+      scrollToFormError();
+      return;
+    }
+    if (emailStatus === 'duplicate') {
+      setFormError('이미 가입된 이메일입니다. 가입하신 계정으로 로그인해 주세요.');
+      scrollToFormError();
       return;
     }
     if (!formData.privacyAgreement) {
-      alert('개인정보 및 자료 활용 동의는 필수입니다.');
+      setFormError('개인정보 및 자료 활용 동의는 필수입니다.');
+      scrollToFormError();
       return;
     }
     // 실제 서버 전송 또는 파일 업로드 처리
     localStorage.removeItem('b2b_signup_draft');
+    setFormError('');
 
     // 첨부된 파일 mock 처리
     const mockFiles = [
@@ -128,6 +153,7 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
           <Field label="담당자명 *"><input required name="managerName" value={formData.managerName} onChange={handleChange} className={fieldClass} /></Field>
           <Field label="연락처 *"><input required name="contact" value={formData.contact} onChange={handleChange} className={fieldClass} placeholder="010-0000-0000" /></Field>
           <Field label="이메일 *"><input required type="email" name="email" value={formData.email} onChange={handleChange} className={fieldClass} placeholder="name@example.com" /></Field>
+          <div className="sm:col-span-2 -mt-4"><EmailCheckMessage status={emailStatus} /></div>
           <div className="sm:col-span-2 grid gap-5 sm:grid-cols-2">
             <Field label="홈페이지"><input name="website" value={formData.website} onChange={handleChange} className={fieldClass} placeholder="https://" /></Field>
             <Field label="사업장 주소 *"><input required name="address" value={formData.address} onChange={handleChange} className={fieldClass} placeholder="전체 주소 입력" /></Field>
@@ -175,12 +201,6 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
           <Checkbox label="인증서" name="attachCert" checked={formData.attachCert} onChange={handleChange} />
           <Checkbox label="기타 참고자료" name="attachEtc" checked={formData.attachEtc} onChange={handleChange} />
         </div>
-        <div className="mt-4">
-          <Field label="관련 첨부 파일 전체 업로드 (다중 선택 가능)">
-            <input type="file" multiple className={fieldClass} accept=".pdf,.jpg,.jpeg,.png,.zip" />
-            <p className="text-xs text-[#8B928C] mt-2">* 허용 형식: PDF, JPG, JPEG, PNG (최대 파일 크기: 20MB)</p>
-          </Field>
-        </div>
       </section>
 
       {/* 5. 운영 정보 */}
@@ -207,13 +227,24 @@ export default function B2BSignupForm({ onSuccess }: { onSuccess: (data: Record<
         <Checkbox label="[필수] 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />
       </section>
 
-      <div className="flex gap-3 pt-6 border-t border-[#D1D0C8]">
-        <button type="button" onClick={handleSaveDraft} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5]">
-          임시저장
-        </button>
-        <button type="submit" className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white">
-          가입 신청하기
-        </button>
+      <div className="flex flex-col gap-3 pt-6 border-t border-[#D1D0C8]">
+        {formError && (
+          <p id="business-form-error" className="rounded-sm border border-[#E3C9C4] bg-[#FBF1EF] p-3 text-sm text-[#A65348]" role="alert">
+            {formError}
+          </p>
+        )}
+        <div className="flex gap-3">
+          <button type="button" onClick={handleSaveDraft} disabled={pending} className="min-h-14 flex-1 bg-white border border-[#D1D0C8] text-base font-semibold text-[#202521] hover:bg-[#FAF9F5] disabled:cursor-not-allowed disabled:opacity-60">
+            임시저장
+          </button>
+          <button
+            type="submit"
+            disabled={pending}
+            className="min-h-14 flex-[2] bg-[#2F3B34] text-base font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {pending ? '제출 중…' : '가입 신청하기'}
+          </button>
+        </div>
       </div>
     </form>
   );
