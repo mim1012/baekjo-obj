@@ -16,15 +16,18 @@
     figcaption { font-weight:700; margin:0 0 6px; font-size:12px; }
     img { display:block; width:100%; height:150px; object-fit:cover; object-position:top; background:#eeece7; border-radius:6px; }
     .mobile img { height:220px; }
-    .note { margin:24px 0; padding:14px 16px; background:#e8efe9; border-radius:12px; line-height:1.6; }
+    .note { margin:18px 0; padding:14px 16px; background:#e8efe9; border-radius:12px; line-height:1.6; }
+    .status { padding:12px; border:1px dashed #c9c2b5; border-radius:10px; color:#59645d; font-size:13px; line-height:1.5; }
+    .status.done { border-color:#9bb6a2; background:#f2f8f3; color:#2f5038; }
+    .status.todo { background:#faf8f3; }
   </style>
 </head>
 <body>
   <main>
     <h1>백조오브제 통합 QA 캡처</h1>
     <p class="meta">2026-08-29 · Preview + staging · Playwright Chromium 실제 브라우저 캡처</p>
-    <div class="note">입점업체·B2B·보험사 회원가입 화면을 데스크톱과 모바일에서 실제 렌더링해 확인한 결과입니다. 이미지를 눌러 확대할 수 있습니다.</div>
-    <h2>핵심 사용자 흐름</h2>
+    <div class="note">실제 Playwright Chromium으로 클릭·입력·제출한 화면을 사용자 여정 순서로 나열했습니다. 초록색은 캡처 완료, 점선 카드는 아직 실제 실행 전인 항목입니다.</div>
+    <h2>1. 방문자 → 회원 인증</h2>
     <section class="grid">
       <figure><figcaption>로그인 · 데스크톱</figcaption><a href="screenshots/desktop-login.png"><img src="screenshots/desktop-login.png" alt="로그인 데스크톱"></a></figure>
       <figure class="mobile"><figcaption>로그인 · 모바일</figcaption><a href="screenshots/mobile-login.png"><img src="screenshots/mobile-login.png" alt="로그인 모바일"></a></figure>
@@ -35,7 +38,11 @@
       <figure><figcaption>체크아웃 · 데스크톱</figcaption><a href="screenshots/desktop-checkout.png"><img src="screenshots/desktop-checkout.png" alt="체크아웃 데스크톱"></a></figure>
       <figure class="mobile"><figcaption>체크아웃 · 모바일</figcaption><a href="screenshots/mobile-checkout.png"><img src="screenshots/mobile-checkout.png" alt="체크아웃 모바일"></a></figure>
     </section>
-    <h2>입점·파트너 가입 흐름</h2>
+    <section class="grid">
+      <div class="status done">✓ 일반 로그인 화면 캡처 완료<br>✓ 카카오/네이버 버튼 노출 확인<br>✓ 일반 회원가입 화면 캡처 완료</div>
+      <div class="status todo">미캡처: 카카오 OAuth 실제 동의·callback<br>미캡처: 네이버 OAuth 실제 동의·callback</div>
+    </section>
+    <h2>2. 입점·파트너 가입 → 관리자 심사</h2>
     <section class="grid">
       <figure><figcaption>입점 업체 · 데스크톱</figcaption><a href="screenshots/desktop-partner.png"><img src="screenshots/desktop-partner.png" alt="입점 업체 데스크톱 회원가입 화면"></a></figure>
       <figure class="mobile"><figcaption>입점 업체 · 모바일</figcaption><a href="screenshots/mobile-partner.png"><img src="screenshots/mobile-partner.png" alt="입점 업체 모바일 회원가입 화면"></a></figure>
@@ -43,6 +50,36 @@
       <figure class="mobile"><figcaption>B2B 업체 · 모바일</figcaption><a href="screenshots/mobile-b2b.png"><img src="screenshots/mobile-b2b.png" alt="B2B 업체 모바일 회원가입 화면"></a></figure>
       <figure><figcaption>보험사 · 데스크톱</figcaption><a href="screenshots/desktop-insurance.png"><img src="screenshots/desktop-insurance.png" alt="보험사 데스크톱 회원가입 화면"></a></figure>
       <figure class="mobile"><figcaption>보험사 · 모바일</figcaption><a href="screenshots/mobile-insurance.png"><img src="screenshots/mobile-insurance.png" alt="보험사 모바일 회원가입 화면"></a></figure>
+    </section>
+    <section class="grid">
+      <div class="status done">✓ 입점업체 신청 제출 완료<br>✓ B2B 신청 제출 완료<br>✓ 보험사 신청 제출 완료<br>✓ 관리자 회원관리 목록 확인<br>✓ 첨부파일 보기 확인</div>
+      <div class="status todo">미캡처: 관리자 승인 클릭<br>미캡처: 승인 후 파트너/B2B/보험 계정 로그인</div>
+    </section>
+    <h2>3. 상품 탐색 → 주문 생성</h2>
+    <section class="grid">
+      <figure class="mobile"><figcaption>1. 장바구니</figcaption><a href="screenshots/mobile-cart-order-flow.png"><img src="screenshots/mobile-cart-order-flow.png" alt="장바구니 주문 흐름"></a></figure>
+      <figure class="mobile"><figcaption>2. 체크아웃 기본</figcaption><a href="screenshots/mobile-checkout-empty-order-flow.png"><img src="screenshots/mobile-checkout-empty-order-flow.png" alt="체크아웃 기본 상태"></a></figure>
+      <figure class="mobile"><figcaption>3. 배송정보·무통장입금</figcaption><a href="screenshots/mobile-checkout-filled-bank-order-flow.png"><img src="screenshots/mobile-checkout-filled-bank-order-flow.png" alt="배송정보와 무통장입금 선택"></a></figure>
+      <figure class="mobile"><figcaption>4. 주문완료</figcaption><a href="screenshots/mobile-order-complete-flow.png"><img src="screenshots/mobile-order-complete-flow.png" alt="주문완료 화면"></a></figure>
+    </section>
+    <section class="grid">
+      <div class="status done">✓ 상품 목록<br>✓ 장바구니<br>✓ 배송정보 입력<br>✓ 2개 브랜드 상품 선택<br>✓ 무통장입금 주문 생성(HTTP 201)</div>
+      <div class="status todo">미캡처: Toss 카드 결제수단 선택<br>미캡처: 결제 승인 callback<br>미캡처: 주문완료 상세 상태</div>
+    </section>
+    <h2>4. 관리자 주문 → 결제·환불</h2>
+    <section class="grid">
+      <div class="status done">✓ 관리자 주문 상세 화면<br>✓ 브랜드별 배송관리 UI<br>✓ 결제 상태·환불 영역 표시<br>✓ 무통장입금 주문의 입금대기 상태</div>
+      <div class="status todo">미캡처: 무통장 입금확인<br>미캡처: Toss 결제 취소<br>미캡처: 부분환불<br>미캡처: 전액환불<br>미캡처: 재고·환불원장 read-back</div>
+    </section>
+    <h2>5. 배송 → 배송조회 → 구매확정</h2>
+    <section class="grid">
+      <div class="status todo">미캡처: 브랜드별 택배사·송장 등록<br>미캡처: 배송준비·배송중·배송완료<br>미캡처: 구매확정 버튼<br>미캡처: 배송 타임라인</div>
+      <div class="status todo">미캡처: SweetTracker 실제 조회<br>미캡처: 조회 중/성공/실패 상태<br>미캡처: `reclaim-stock` 실행 결과<br>미캡처: `reconcile-confirming` 실행 결과<br>미캡처: `auto-confirm-shipments` 실행 결과</div>
+    </section>
+    <h2>6. 최종 판정</h2>
+    <section class="grid">
+      <div class="status done">캡처 완료: 인증·가입·상품·장바구니·체크아웃·무통장입금·관리자 주문</div>
+      <div class="status todo">후속 필요: Toss 실제 인증, 환불, 배송, Cron, 실제 OAuth. 외부 인증이 필요한 항목은 사용자 인증 단계에서 대기합니다.</div>
     </section>
   </main>
 </body>
