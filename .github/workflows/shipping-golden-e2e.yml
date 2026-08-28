@@ -1,0 +1,85 @@
+name: shipping-golden-e2e (localhost isolated staging)
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_localhost_staging_write:
+        description: 'localhost 앱과 승인된 staging ref에서 배송 Golden E2E write QA를 실행함'
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shipping-golden-e2e-localhost-staging
+  cancel-in-progress: false
+
+jobs:
+  localhost-shipping-write-validation:
+    if: ${{ inputs.allow_localhost_staging_write == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: '1'
+      E2E_BASE_URL: 'http://127.0.0.1:3000'
+      E2E_ADMIN_CRUD: '1'
+      LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'
+      PLAYWRIGHT_SKIP_WEB_SERVER: '1'
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Fail closed on missing isolated staging configuration
+        run: |
+          test -n "$TEST_SUPABASE_PROJECT_REF" || exit 1
+          test -n "$SUPABASE_URL" || exit 1
+          test -n "$SUPABASE_ACCESS_TOKEN" || exit 1
+          test -n "$SUPABASE_SECRET_KEY" || exit 1
+          actual_ref=$(node -e "const u=new URL(process.env.SUPABASE_URL); const m=/^([a-z0-9]{20})\.supabase\.co$/.exec(u.hostname.toLowerCase()); if(!m) process.exit(1); process.stdout.write(m[1])")
+          test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || exit 1
+      - name: Start localhost app
+        run: |
+          npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/local-app.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/test/supabase-ref > "$RUNNER_TEMP/runtime-ref.json"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: App runtime staging ref preflight
+        run: |
+          runtime_ref=$(node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if(typeof value.projectRef!=='string') process.exit(1); process.stdout.write(value.projectRef)" "$RUNNER_TEMP/runtime-ref.json")
+          if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]; then exit 1; fi
+      - name: Validate shipping-only target
+        run: |
+          test -f tests/golden/admin-crud-order-shipments.spec.ts
+      - name: Shipping Golden E2E write validation
+        timeout-minutes: 8
+        run: npx playwright test --project=golden-crud tests/golden/admin-crud-order-shipments.spec.ts --workers=1 --retries=0 --reporter=line
+      - name: Upload failure artifacts
+        uses: actions/upload-artifact@v4
+        if: failure() || cancelled()
+        with:
+          name: localhost-shipping-write-validation-failure
+          path: |
+            test-results/
+            ${{ runner.temp }}/local-app.log
+          retention-days: 7

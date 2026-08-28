@@ -55,6 +55,33 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain('tests/payments/payment-routes.spec.ts --workers=1 --retries=0');
   });
 
+  test('shipping Golden E2E write validation is isolated to localhost staging and one spec', () => {
+    const shipping = readWorkflow('shipping-golden-e2e.yml');
+
+    expect(shipping).toContain('workflow_dispatch:');
+    expect(shipping).toContain('allow_localhost_staging_write:');
+    expect(shipping).toContain("if: ${{ inputs.allow_localhost_staging_write == true }}");
+    expect(shipping).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
+    expect(shipping).toContain("E2E_ADMIN_CRUD: '1'");
+    expect(shipping).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
+    expect(shipping).toContain("PLAYWRIGHT_SKIP_WEB_SERVER: '1'");
+    expect(shipping).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
+    expect(shipping).not.toContain('secrets.STAGING_SUPABASE_URL');
+    expect(shipping).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
+    expect(shipping).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
+    expect(shipping).toContain('if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]');
+    expect(shipping).toContain(
+      'npx playwright test --project=golden-crud tests/golden/admin-crud-order-shipments.spec.ts --workers=1 --retries=0 --reporter=line',
+    );
+    expect(shipping).toContain('timeout-minutes: 15');
+    expect(shipping).not.toContain('GOLDEN_CRUD_SPECS');
+    expect(shipping).not.toContain('tests/payments/payment-routes.spec.ts');
+    expect(shipping).not.toContain('deployment_status:');
+    expect(shipping).not.toContain('environment_url');
+    expect(shipping).not.toContain('vercel.app');
+    expect(shipping).not.toContain('inputs.base_url');
+  });
+
   test('golden localhost staging ref shell regex accepts a valid Supabase host', () => {
     const golden = readWorkflow('golden-crud.yml');
     const command = /actual_ref=\$\(node -e "([^"]+)"\)/.exec(golden)?.[1];
