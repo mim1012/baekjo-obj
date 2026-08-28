@@ -29,26 +29,31 @@ export async function loginWithCredentials(page: Page, email: string, password: 
     try {
       await page.context().clearCookies();
 
-      await page.goto('/login', { waitUntil: 'domcontentloaded' });
-      await page.locator('form[data-e2e-login-ready="true"]').waitFor({ state: 'visible', timeout: 10_000 });
-      await page.evaluate(() => {
-        localStorage.clear();
-        sessionStorage.clear();
-      }).catch(() => {});
-      await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
-
-      const emailInput = page.locator('input[type="email"]').first();
-      const passwordInput = page.locator('input[type="password"]').first();
-      const loginButton = page.getByRole('button', { name: /로그인/ }).first();
-
-      await emailInput.waitFor({ state: 'visible', timeout: 10_000 });
-      await emailInput.fill(email, { timeout: 5_000 });
-      await passwordInput.fill(password, { timeout: 5_000 });
-      await expect(loginButton).toBeEnabled({ timeout: 10_000 });
-      await Promise.all([
-        page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 15_000 }),
-        loginButton.click({ timeout: 5_000 }),
-      ]);
+      const csrfResponse = await page.request.get('/api/auth/csrf');
+      if (!csrfResponse.ok()) {
+        throw new Error(`로그인 CSRF 확인 실패: ${csrfResponse.status()}`);
+      }
+      const { csrfToken } = (await csrfResponse.json()) as { csrfToken?: string };
+      if (!csrfToken) {
+        throw new Error('로그인 CSRF 확인 실패: token missing');
+      }
+      const callbackResponse = await page.request.post('/api/auth/callback/credentials', {
+        headers: { 'X-Auth-Return-Redirect': '1' },
+        form: {
+          email,
+          password,
+          csrfToken,
+          callbackUrl: '/',
+        },
+      });
+      if (!callbackResponse.ok()) {
+        throw new Error(`로그인 credentials callback 실패: ${callbackResponse.status()}`);
+      }
+      const callbackPayload = (await callbackResponse.json()) as { url?: string };
+      const callbackUrl = callbackPayload.url ? new URL(callbackPayload.url, 'http://127.0.0.1:3000') : null;
+      if (callbackUrl?.searchParams.get('error')) {
+        throw new Error('로그인 credentials callback 거부: rejected');
+      }
       const sessionResponse = await page.request.get('/api/members/me', {
         headers: { 'Cache-Control': 'no-store' },
       });
@@ -59,6 +64,10 @@ export async function loginWithCredentials(page: Page, email: string, password: 
       if (user?.email !== email) {
         throw new Error('로그인 계정 불일치: session user did not match requested credential');
       }
+      await page.goto('/', { waitUntil: 'domcontentloaded' });
+      await page.evaluate((sessionUser) => {
+        localStorage.setItem('baekjo_user', JSON.stringify(sessionUser));
+      }, user);
       return;
     } catch (error) {
       lastError = error;

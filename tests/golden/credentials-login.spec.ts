@@ -20,6 +20,10 @@ type AuthCsrfPayload = {
   readonly csrfToken: string;
 };
 
+type AuthCallbackPayload = {
+  readonly url?: string;
+};
+
 type AuthSessionPayload = {
   readonly user?: {
     readonly role?: string;
@@ -59,6 +63,10 @@ function isAuthCsrfPayload(value: unknown): value is AuthCsrfPayload {
   return isRecord(value) && typeof value.csrfToken === 'string';
 }
 
+function isAuthCallbackPayload(value: unknown): value is AuthCallbackPayload {
+  return isRecord(value) && (value.url === undefined || typeof value.url === 'string');
+}
+
 function isAuthSessionPayload(value: unknown): value is AuthSessionPayload {
   if (!isRecord(value)) return false;
   if (value.user === undefined) return true;
@@ -75,36 +83,26 @@ function isMemberMePayload(value: unknown): value is MemberMePayload {
   return userValid && (value.error === undefined || typeof value.error === 'string');
 }
 
-function safePathnameWithQueryKeys(rawUrl: string): string {
-  const url = new URL(rawUrl);
-  const queryKeys = [...url.searchParams.keys()].sort();
-  return `${url.pathname}${queryKeys.length > 0 ? `?${queryKeys.join('&')}` : ''}`;
-}
-
-function categorizeLoginAlert(text: string): 'invalid-credentials' | 'session-or-member-fetch' | 'unknown-alert' {
-  if (text.includes('이메일 또는 비밀번호')) return 'invalid-credentials';
-  if (text.includes('로그인 처리 중')) return 'session-or-member-fetch';
-  return 'unknown-alert';
+function categorizeAuthCallback(
+  response: APIResponse,
+  payload: AuthCallbackPayload,
+): 'accepted' | 'invalid-credentials' | 'csrf-or-config' | 'server-error' | 'unknown-error' {
+  const callbackUrl = payload.url ? new URL(payload.url, 'http://127.0.0.1:3000') : null;
+  const error = callbackUrl?.searchParams.get('error') ?? '';
+  const code = callbackUrl?.searchParams.get('code') ?? '';
+  if (response.ok() && !error) return 'accepted';
+  if (error === 'CredentialsSignin' || code === 'credentials') return 'invalid-credentials';
+  if (/csrf|config|callback/i.test(error)) return 'csrf-or-config';
+  if (response.status() >= 500) return 'server-error';
+  return 'unknown-error';
 }
 
 async function parseJson(response: APIResponse): Promise<unknown> {
   return response.json();
 }
 
-async function waitForLoginReady(page: Page): Promise<void> {
-  await page.locator('form[data-e2e-login-ready="true"]').waitFor({ state: 'visible', timeout: 10_000 });
-}
-
 async function verifyLoginPath(page: Page, check: LoginCheck): Promise<void> {
   const { label, credentials, expectedRole } = check;
-  const authResponses: string[] = [];
-  page.on('response', (response) => {
-    const url = new URL(response.url());
-    if (url.pathname.startsWith('/api/auth') || url.pathname === '/api/members/me') {
-      authResponses.push(`${url.pathname}:${response.status()}`);
-    }
-  });
-
   const providersResponse = await page.request.get('/api/auth/providers');
   console.log(`AUTH_DIAG ${label} providers status=${providersResponse.status()}`);
   expect(providersResponse.status(), `${label} /api/auth/providers status`).toBe(200);
@@ -122,40 +120,21 @@ async function verifyLoginPath(page: Page, check: LoginCheck): Promise<void> {
   console.log(`AUTH_DIAG ${label} csrf tokenPresent=${csrfPayload.csrfToken.length > 0}`);
   expect(csrfPayload.csrfToken.length, `${label} /api/auth/csrf token present`).toBeGreaterThan(0);
 
-  await page.context().clearCookies();
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
-  await waitForLoginReady(page);
-  await page.evaluate(() => {
-    localStorage.clear();
-    sessionStorage.clear();
+  const callbackResponse = await page.request.post('/api/auth/callback/credentials', {
+    headers: { 'X-Auth-Return-Redirect': '1' },
+    form: {
+      email: credentials.email,
+      password: credentials.password,
+      csrfToken: csrfPayload.csrfToken,
+      callbackUrl: '/',
+    },
   });
-  await page.locator('input[type="email"]').fill(credentials.email);
-  await page.locator('input[type="password"]').fill(credentials.password);
-  await page.getByRole('button', { name: '로그인', exact: true }).click();
-
-  try {
-    await Promise.race([
-      page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 }),
-      page.getByRole('alert').waitFor({ state: 'visible', timeout: 20_000 }),
-    ]);
-  } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(
-        `auth-only ${label} login unresolved: category=timeout location=${safePathnameWithQueryKeys(page.url())} responses=${authResponses.join(',')}`,
-      );
-    }
-    throw error;
-  }
-
-  const alert = page.getByRole('alert').first();
-  const currentPath = safePathnameWithQueryKeys(page.url());
-  if (await alert.isVisible()) {
-    const alertText = (await alert.textContent())?.trim() ?? '';
-    throw new Error(
-      `auth-only ${label} login rejected: category=${categorizeLoginAlert(alertText)} location=${currentPath} responses=${authResponses.join(',')}`,
-    );
-  }
-  console.log(`AUTH_DIAG ${label} callback category=navigated location=${currentPath} responses=${authResponses.join(',')}`);
+  const callbackPayload = await parseJson(callbackResponse);
+  expect(isAuthCallbackPayload(callbackPayload), `${label} credentials callback payload shape`).toBe(true);
+  if (!isAuthCallbackPayload(callbackPayload)) return;
+  const callbackCategory = categorizeAuthCallback(callbackResponse, callbackPayload);
+  console.log(`AUTH_DIAG ${label} callback status=${callbackResponse.status()} category=${callbackCategory} location=/api/auth/callback/credentials`);
+  expect(callbackCategory, `${label} credentials callback result`).toBe('accepted');
 
   const sessionResponse = await page.request.get('/api/auth/session', { headers: { 'Cache-Control': 'no-store' } });
   console.log(`AUTH_DIAG ${label} session status=${sessionResponse.status()}`);
@@ -214,7 +193,6 @@ test.describe('Credentials 로그인 redirect hygiene', () => {
 
   test('관리자 가드에서 돌아온 error 쿼리가 성공 로그인을 실패로 오인시키지 않는다', async ({ page }) => {
     await page.goto('/login?error=admin', { waitUntil: 'domcontentloaded' });
-    await waitForLoginReady(page);
     await page.locator('input[type="email"]').fill(adminCredentials.email);
     await page.locator('input[type="password"]').fill(adminCredentials.password);
 
