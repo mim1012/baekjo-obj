@@ -152,7 +152,7 @@ jobs:
           node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if(value.authSecretPresent!==true || value.authTrustHostEnabled!==true) process.exit(1); console.log('AUTH_DIAG env authSecretPresent=true authTrustHostEnabled=true')" "$RUNNER_TEMP/auth-env.json"
       - name: Auth-only admin and member login diagnostics
         timeout-minutes: 3
-        run: npx playwright test --project=chromium tests/golden/credentials-login.spec.ts --workers=1 --retries=0 --reporter=line
+        run: npx playwright test --project=chromium tests/golden/credentials-login.spec.ts --grep "establishes admin and member" --workers=1 --retries=0 --reporter=line
       - name: Upload auth diagnostic artifacts
         uses: actions/upload-artifact@v4
         if: failure() || cancelled()

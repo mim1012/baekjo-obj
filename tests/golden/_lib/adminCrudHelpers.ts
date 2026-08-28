@@ -30,6 +30,7 @@ export async function loginWithCredentials(page: Page, email: string, password: 
       await page.context().clearCookies();
 
       await page.goto('/login', { waitUntil: 'domcontentloaded' });
+      await page.locator('form[data-e2e-login-ready="true"]').waitFor({ state: 'visible', timeout: 10_000 });
       await page.evaluate(() => {
         localStorage.clear();
         sessionStorage.clear();
@@ -56,7 +57,7 @@ export async function loginWithCredentials(page: Page, email: string, password: 
       }
       const { user } = (await sessionResponse.json()) as { user?: { email?: string } };
       if (user?.email !== email) {
-        throw new Error(`로그인 계정 불일치: expected=${email} actual=${user?.email ?? 'unknown'}`);
+        throw new Error('로그인 계정 불일치: session user did not match requested credential');
       }
       return;
     } catch (error) {

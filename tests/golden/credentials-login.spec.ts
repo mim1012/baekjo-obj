@@ -91,6 +91,10 @@ async function parseJson(response: APIResponse): Promise<unknown> {
   return response.json();
 }
 
+async function waitForLoginReady(page: Page): Promise<void> {
+  await page.locator('form[data-e2e-login-ready="true"]').waitFor({ state: 'visible', timeout: 10_000 });
+}
+
 async function verifyLoginPath(page: Page, check: LoginCheck): Promise<void> {
   const { label, credentials, expectedRole } = check;
   const authResponses: string[] = [];
@@ -120,6 +124,7 @@ async function verifyLoginPath(page: Page, check: LoginCheck): Promise<void> {
 
   await page.context().clearCookies();
   await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  await waitForLoginReady(page);
   await page.evaluate(() => {
     localStorage.clear();
     sessionStorage.clear();
@@ -209,6 +214,7 @@ test.describe('Credentials 로그인 redirect hygiene', () => {
 
   test('관리자 가드에서 돌아온 error 쿼리가 성공 로그인을 실패로 오인시키지 않는다', async ({ page }) => {
     await page.goto('/login?error=admin', { waitUntil: 'domcontentloaded' });
+    await waitForLoginReady(page);
     await page.locator('input[type="email"]').fill(adminCredentials.email);
     await page.locator('input[type="password"]').fill(adminCredentials.password);
 

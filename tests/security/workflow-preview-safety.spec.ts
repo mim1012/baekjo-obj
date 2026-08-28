@@ -135,7 +135,7 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(diagnostics).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
     expect(diagnostics).toContain('/api/test/auth-env');
     expect(diagnostics).toContain(
-      'npx playwright test --project=chromium tests/golden/credentials-login.spec.ts --workers=1 --retries=0 --reporter=line',
+      'npx playwright test --project=chromium tests/golden/credentials-login.spec.ts --grep "establishes admin and member" --workers=1 --retries=0 --reporter=line',
     );
     expect(authJob).not.toContain("E2E_ADMIN_CRUD: '1'");
     expect(authJob).not.toContain('tests/golden/admin-crud-order-shipments.spec.ts');

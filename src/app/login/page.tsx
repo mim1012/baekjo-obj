@@ -96,7 +96,7 @@ export default function LoginPage() {
           <h1 className="mt-10 text-3xl font-normal text-[#202521] md:mt-0">다시 만나 반가워요.</h1>
           <p className="mt-2 text-sm text-[#59615B]">백조오브제 계정으로 로그인해 주세요.</p>
 
-          <form onSubmit={handleLogin} className="mt-9 space-y-4">
+          <form onSubmit={handleLogin} data-e2e-login-ready={mounted ? 'true' : 'false'} className="mt-9 space-y-4">
             {(error || socialError) && (
               <div role="alert" className="rounded-md bg-red-50 p-3 text-xs font-medium text-red-600 border border-red-200">
                 {error || socialError}
