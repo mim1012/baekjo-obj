@@ -1584,6 +1584,22 @@ export async function registerBusinessMember(input: {
 }
 
 /**
+ * 이메일 사용 가능 여부 선체크(GET /api/members/check-email). 가입 폼에서 입력 시점에
+ * 중복을 미리 알려주기 위한 보조 수단이다. 4xx/5xx·네트워크 실패 시엔 판정 보류(null)로
+ * 반환해 최종 중복 판정은 가입 API의 409가 담당하도록 한다.
+ */
+export async function checkEmailAvailable(email: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/members/check-email?email=${encodeURIComponent(email)}`);
+    if (!response.ok) return null;
+    const { available } = (await response.json()) as { available: boolean };
+    return available;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 관리자 회원 목록(전체). GET /api/admin/members(관리자 세션 필요). 화면이 "로그인 필요"와
  * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
  * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
