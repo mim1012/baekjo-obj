@@ -36,12 +36,16 @@ const MAIN_LINKS = ALL_MAIN_LINKS.filter(
 const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
-const STORY_LINKS = [
+const ALL_STORY_LINKS: NavLinkDef[] = [
   { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
-  { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts' },
+  { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts', feature: 'experts' },
   { label: '보호자 후기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
   { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
 ];
+
+const STORY_LINKS = ALL_STORY_LINKS.filter(
+  (link) => !link.feature || FEATURES[link.feature],
+);
 
 const SHOP_LINKS = {
   categories: shopCategoryFilters.map((category) => ({

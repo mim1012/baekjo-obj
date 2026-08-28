@@ -16,6 +16,9 @@ function proxy(req: NextAuthRequest) {
   if (!FEATURES.insurance && pathname.startsWith('/insurance')) {
     return NextResponse.redirect(new URL('/', req.nextUrl.origin));
   }
+  if (!FEATURES.experts && pathname.startsWith('/experts')) {
+    return NextResponse.redirect(new URL('/', req.nextUrl.origin));
+  }
 
   if (pathname.startsWith('/api/admin')) {
     if (!isAdmin) {
@@ -44,5 +47,5 @@ function proxy(req: NextAuthRequest) {
 export default auth(proxy);
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*', '/insurance/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*', '/insurance/:path*', '/experts/:path*'],
 };
