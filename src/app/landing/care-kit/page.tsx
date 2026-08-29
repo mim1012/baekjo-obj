@@ -22,9 +22,20 @@ const kitIcons = {
   sample: Gift,
 } satisfies Record<CareKit['type'], LucideIcon>;
 
+const legacyDefaultKitNames = new Set(['병원 회복 케어 키트', '시니어 활력 키트']);
+
 async function listVisibleCareKits(): Promise<CareKit[]> {
   const saved = await getKitsConfig();
-  return (saved ?? defaultKitsConfig).items.filter((kit) => kit.isVisible);
+  const savedItems = saved?.items ?? [];
+  const hasLegacyDefaults = savedItems.some((kit) => legacyDefaultKitNames.has(kit.name));
+  const items = hasLegacyDefaults
+    ? [
+        ...defaultKitsConfig.items,
+        ...savedItems.filter((kit) => !legacyDefaultKitNames.has(kit.name)),
+      ]
+    : (saved ?? defaultKitsConfig).items;
+
+  return items.filter((kit) => kit.isVisible);
 }
 
 export default async function CareKitLandingPage() {
@@ -114,6 +125,7 @@ export default async function CareKitLandingPage() {
               );
             })}
           </div>
+
         </div>
       </section>
 
