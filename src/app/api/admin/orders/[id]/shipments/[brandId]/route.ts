@@ -67,24 +67,13 @@ export async function PATCH(
     // D-3 파생: 업체별 송장이 바뀌면 주문 단위 deliveryStatus를 다시 파생한다. 주문 단위는
     // deliveryStatus만 파생하며 orderStatus는 절대 동반 전이하지 않는다(120992a 입금확인 TOCTOU 회귀
     // 교훈 — 배송 전이가 결제/주문 상태를 건드리면 안 된다). brandId 누락 레거시 주문이면 파생을 건너뛴다.
-    // 이 파생은 송장 PATCH 자체와 별개 실패 모드다 — 위 updateShipmentUnlessConfirmed는 이미
-    // 커밋됐으므로, 파생 갱신만 실패했다고 클라이언트에 전체 저장 실패(500)로 보고하면 안 된다
-    // (관리자가 "저장 실패" 보고 재시도하다 이미 반영된 송장을 놓고 헷갈리는 걸 방지).
-    try {
-      const bids = orderBrandIds(order.items);
-      if (bids) {
-        const fresh = await listShipmentsByOrder(id);
-        const next = deriveOrderDeliveryStatus(bids, fresh);
-        if (next !== order.deliveryStatus) {
-          await updateOrderStatus(id, { deliveryStatus: next });
-        }
+    const bids = orderBrandIds(order.items);
+    if (bids) {
+      const fresh = await listShipmentsByOrder(id);
+      const next = deriveOrderDeliveryStatus(bids, fresh);
+      if (next !== order.deliveryStatus) {
+        await updateOrderStatus(id, { deliveryStatus: next });
       }
-    } catch (deriveError) {
-      logServerError(
-        `[PATCH /api/admin/orders/[id]/shipments/[brandId]] 송장 저장은 성공했으나 주문 단위 ` +
-          `deliveryStatus 파생 갱신 실패 orderId=${id} brandId=${brandId}`,
-        deriveError,
-      );
     }
 
     return NextResponse.json({ ok: true }, { status: 200 });

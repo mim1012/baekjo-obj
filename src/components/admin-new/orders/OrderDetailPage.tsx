@@ -97,7 +97,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
             <span className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-gray-500">
               주문번호
             </span>
-            <code className="mt-1 block max-w-full overflow-x-auto whitespace-nowrap rounded bg-[#F4F2EC] px-3 py-2 font-mono text-[18px] font-semibold text-[#17201B] sm:text-[20px]">
+            <code className="mt-1 block break-all rounded bg-[#F4F2EC] px-3 py-2 font-mono text-[18px] font-semibold text-[#17201B] sm:text-[20px]">
               {order.id}
             </code>
           </div>
@@ -112,7 +112,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.65fr)_minmax(360px,1fr)] xl:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <FormSection
             title={<div className="flex items-center gap-2"><Package className="w-5 h-5" /> 주문 상품 정보</div>}
@@ -131,7 +131,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
                 <tbody className="divide-y divide-gray-100">
                   {order.items.map((item, idx) => (
                     <tr key={idx}>
-                      <td className="max-w-[360px] px-4 py-3 font-medium leading-6 text-[#17201B] break-words">{item.productName}</td>
+                      <td className="px-4 py-3 font-medium text-[#17201B]">{item.productName}</td>
                       <td className="px-4 py-3 text-gray-500">{item.optionName || '-'}</td>
                       <td className="px-4 py-3 text-right">{item.quantity}개</td>
                       <td className="px-4 py-3 text-right font-medium">{formatPrice(item.price * item.quantity)}</td>

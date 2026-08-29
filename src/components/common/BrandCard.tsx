@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
-import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import { getBrandDisplayTags } from '@/lib/brands/display';
 
 type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
@@ -13,14 +12,12 @@ interface Props {
 }
 
 export default function BrandCard({ brand, variant = 'default' }: Props) {
-  const presentation = getBrandPresentation(brand);
-  const fullBrandName = formatBrandDisplayName(brand.name);
-
   if (variant === 'brand-page') {
     const linkedProductCount = brand.representativeProductIds ? brand.representativeProductIds.length : 0;
-    const displayTags = brand.displayTags?.length
-      ? getBrandDisplayTags(brand)
-      : [presentation.cardTags];
+    const displayTags = getBrandDisplayTags(brand);
+
+    const finalName = brand.name;
+    const finalDescription = brand.description;
 
     return (
       <article className="group flex flex-col min-h-[250px] md:min-h-[270px] bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px] p-5 md:p-6 transition-all duration-300 hover:-translate-y-[2px] hover:border-[#D8C9B4] hover:shadow-[0_8px_24px_rgba(23,37,31,0.04)]">
@@ -31,7 +28,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
               {brand.logo ? (
                 <BrandLogo brand={brand} size="md" surface fluid uniformScale />
               ) : (
-                <span className="text-[16px] font-bold text-[#17251F]">{fullBrandName}</span>
+                <span className="text-[16px] font-bold text-[#17251F]">{finalName}</span>
               )}
             </div>
           </div>
@@ -40,11 +37,11 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           <div className="mb-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[10px] md:text-[11px] font-semibold text-[#B48A4A]">
             {displayTags.map((tag) => <span key={tag}>{tag}</span>)}
           </div>
-          <h3 className="mb-2 min-h-[24px] break-keep text-[16px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:min-h-[26px] md:text-[18px]">
-            {presentation.displayName}
+          <h3 className="mb-2 text-[16px] md:text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] line-clamp-2 min-h-[42px] md:min-h-[47px] flex items-start">
+            {finalName}
           </h3>
           <p className="break-keep text-[12px] leading-[1.6] text-[#6F756F] md:text-[13px]">
-            {presentation.cardDescription}
+            {finalDescription}
           </p>
 
           {/* Bottom CTA */}
@@ -74,7 +71,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
           </div>
 
           <h3 className="mb-2 break-keep text-[18px] font-bold leading-[1.35] tracking-tight text-[#18231F] md:text-[20px]">
-            {fullBrandName}
+            {brand.name}
           </h3>
           <p className="line-clamp-2 text-[14px] leading-[1.65] text-[#68716C]">
             {brand.description}
@@ -103,7 +100,7 @@ export default function BrandCard({ brand, variant = 'default' }: Props) {
       <div className="relative z-10">
         <BrandLogo brand={brand} size="md" />
         <h3 className="mt-6 break-keep text-xl font-bold tracking-tight text-[#17211D] transition-colors duration-500 group-hover:text-[#8A6230]">
-          {fullBrandName}
+          {brand.name}
         </h3>
         <p className="mt-3 break-keep text-sm leading-6 text-[#6F766F]">{brand.description}</p>
       </div>

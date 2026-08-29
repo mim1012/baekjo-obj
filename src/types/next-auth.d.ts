@@ -8,7 +8,7 @@ declare module 'next-auth' {
     provider?: string;
     user?: DefaultSession['user'] & {
       /** members 테이블의 role — 관리자 화면 접근 가드(미들웨어)에 사용 */
-      role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+      role?: 'user' | 'admin';
       /** members 테이블 PK. 이메일/소셜 로그인 모두 이 값으로 회원을 조회한다. */
       memberId?: string;
     };
@@ -20,7 +20,7 @@ declare module 'next-auth/jwt' {
     /** account.provider 를 세션까지 전달하기 위한 저장 필드 */
     provider?: string;
     /** members 테이블의 role */
-    role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+    role?: 'user' | 'admin';
     /** members 테이블 PK */
     memberId?: string;
   }
@@ -31,7 +31,7 @@ declare module 'next-auth/jwt' {
 declare module '@auth/core/jwt' {
   interface JWT {
     provider?: string;
-    role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
+    role?: 'user' | 'admin';
     memberId?: string;
   }
 }

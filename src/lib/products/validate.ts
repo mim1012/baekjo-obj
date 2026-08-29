@@ -23,7 +23,7 @@ const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
 const MAX_REVIEW_COUNT = 10_000_000;
-const PET_TYPES = new Set(['dog', 'cat', 'both']);
+const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;

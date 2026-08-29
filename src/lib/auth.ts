@@ -25,6 +25,9 @@ class MemberRejectedError extends CredentialsSignin {
 class MemberInactiveError extends CredentialsSignin {
   code = 'member-inactive';
 }
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = 'email-not-verified';
+}
 
 /**
  * Node 전용 인증 설정. Supabase/bcrypt를 쓰는 이메일 로그인(Credentials)과 소셜 계정 upsert가
@@ -52,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const member = await findMemberByEmail(normalizedEmail);
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
+        if (!member.emailVerified) throw new EmailNotVerifiedError();
         // bcrypt는 이미 위에서 실행됐으므로 이 분기는 타이밍 오라클과 무관하다.
         // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)/withdrawn(탈퇴)는
         // 차단하되, 올바른 자격 증명으로 확인된 경우엔 코드를 던져 상황에 맞는 안내를 제공한다
@@ -94,13 +98,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: typeof user.name === 'string' ? user.name : null,
           profileImage: typeof user.image === 'string' ? user.image : null,
         });
-        // false를 반환하면 next-auth가 일반 "AccessDenied"로 뭉개버려 이메일 로그인과 달리
-        // pending/rejected/inactive를 구분할 수 없다. 대신 signIn 콜백이 문자열(상대 경로)을
-        // 반환하면 next-auth가 그 URL로 그대로 리다이렉트한다(기본 redirect 콜백, @auth/core
-        // lib/init.js) — 이를 이용해 /login?error=... 에 상태별 코드를 실어 보낸다.
-        if (member.status === 'pending') return '/login?error=pending-approval';
-        if (member.status === 'rejected') return '/login?error=member-rejected';
-        if (member.status !== 'active') return '/login?error=member-inactive';
+        if (member.status !== 'active') return false;
       }
       return true;
     },
@@ -121,9 +119,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.provider = account.provider;
       } else if (user) {
         token.memberId = user.id;
-        token.role = (
-          user as { role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner' }
-        ).role;
+        token.role = (user as { role?: 'user' | 'admin' }).role;
         token.provider = 'email';
       }
       return token;

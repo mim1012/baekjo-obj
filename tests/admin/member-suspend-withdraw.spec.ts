@@ -166,11 +166,7 @@ test.describe('소셜(카카오/네이버) 재로그인 거부 (§CRITICAL-1 —
 
     expect(fn).toContain("account?.provider === 'kakao' || account?.provider === 'naver'");
     expect(fn).toContain('await upsertSocialMember(');
-    // 비active는 세션 없이 /login?error=... 리다이렉트 문자열을 반환한다(2026-08-29 상태별 안내 도입).
-    // 어떤 비active 상태도 true(세션 발급)로 흘러가면 안 된다는 불변식을 단언한다.
-    expect(fn).toContain("if (member.status === 'pending') return '/login?error=pending-approval';");
-    expect(fn).toContain("if (member.status === 'rejected') return '/login?error=member-rejected';");
-    expect(fn).toContain("if (member.status !== 'active') return '/login?error=member-inactive';");
+    expect(fn).toContain("if (member.status !== 'active') return false;");
   });
 
   test('signIn 체크가 jwt 콜백보다 먼저 나온다(세션이 발급되기 전에 거부해야 한다)', () => {

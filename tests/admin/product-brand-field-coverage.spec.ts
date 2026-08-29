@@ -253,7 +253,7 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'reviewCount',
   'isBest',
   'isRecommended',
-  'stock', // 빈 상태 테스트(재고0 → 구매 버튼 비활성)에서 검증
+  'stock', // 빈 상태 테스트(재고0 → "잠시 품절" 뱃지)에서 검증
   'options',
   'detailBlocks',
   'description',

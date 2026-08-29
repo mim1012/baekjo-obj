@@ -11,8 +11,6 @@ import { useMounted } from '@/lib/useMounted';
 
 function resolveLoginRedirect(role: User['role'], redirectTo: string | null): string {
   if (role === 'admin') return '/admin';
-  // 파트너 작업 공간은 /partner/orders 뿐 — 최초 로그인 비밀번호 변경 안내 모달도 거기서 뜬다.
-  if (role === 'partner') return '/partner/orders';
   if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') && !redirectTo.startsWith('/admin')) {
     return redirectTo;
   }
@@ -44,13 +42,7 @@ export default function LoginPage() {
   const socialError = errorParam
     ? errorParam === 'admin'
       ? '관리자 로그인이 필요합니다.'
-      : errorParam === 'pending-approval'
-        ? '가입 신청 검토 중입니다. 관리자 승인 완료 후 로그인할 수 있어요.'
-        : errorParam === 'member-rejected'
-          ? '가입 신청이 승인되지 않았습니다. 자세한 내용은 고객센터에 문의해 주세요.'
-          : errorParam === 'member-inactive'
-            ? '이용이 중지되었거나 탈퇴한 계정입니다. 고객센터에 문의해 주세요.'
-            : '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
+      : '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
     : '';
 
   const handleLogin = async (event: React.FormEvent) => {
@@ -74,6 +66,10 @@ export default function LoginPage() {
     }
     if (result.error === 'member-inactive') {
       setError('이용이 중지되었거나 탈퇴한 계정입니다. 고객센터에 문의해 주세요.');
+      return;
+    }
+    if (result.error === 'email-not-verified') {
+      setError('이메일 인증 후 로그인할 수 있어요. 인증 메일을 확인해 주세요.');
       return;
     }
     if (result.error === 'network' || !result.user) {

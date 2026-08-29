@@ -16,7 +16,6 @@ import {
   PaymentTransitionError,
   PaymentStatusConflictError,
   ConflictingOrderUpdateRequestError,
-  RefundAfterShipmentError,
 } from '@/lib/orders/applyOrderUpdates';
 import { cancelTossPayment, queryTossPayment, TossConfirmError, isTossClientRejection } from '@/lib/payments/toss';
 import { logServerError, logServerWarn } from '@/lib/logServerError';
@@ -73,9 +72,7 @@ function validate(body: unknown): OrderStatusUpdate | null {
   }
   if (b.trackingNumber !== undefined) {
     if (typeof b.trackingNumber !== 'string' || b.trackingNumber.length > MAX_TRACKING) return null;
-    // 공백만 있거나 앞뒤 공백이 섞인 운송장은 트림 후 저장한다 — 트림하지 않으면 스마트택배
-    // 조회 링크가 깨진다.
-    updates.trackingNumber = b.trackingNumber.trim();
+    updates.trackingNumber = b.trackingNumber;
   }
   if (b.carrier !== undefined) {
     if (typeof b.carrier !== 'string' || b.carrier.length > MAX_CARRIER) return null;
@@ -88,11 +85,6 @@ function validate(body: unknown): OrderStatusUpdate | null {
     if (typeof b.deliveryMemo !== 'string' || b.deliveryMemo.length > MAX_MEMO) return null;
     updates.deliveryMemo = b.deliveryMemo;
   }
-
-  // 택배사 없이 운송장만 저장되는 걸 서버에서도 막는다(클라이언트 검사 우회 대비) — 운송장이
-  // 비어있지 않은데 이 patch의 carrier가 없거나 ''(해제)면 400. 클라이언트(레거시 단일배송
-  // 패널)는 항상 carrier/trackingNumber를 함께 보내므로 정상 경로에는 영향이 없다.
-  if (updates.trackingNumber && !updates.carrier) return null;
 
   if (Object.keys(updates).length === 0) return null;
   return updates;
@@ -173,12 +165,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     if (error instanceof ConflictingOrderUpdateRequestError) {
       logServerWarn(`[PATCH /api/admin/orders/[id]] 취소+환불 동시 요청 거부 orderId=${id}`, {});
       return NextResponse.json({ error: 'conflicting-cancel-refund-request' }, { status: 400 });
-    }
-    // 부분환불 라우트(refunds/route.ts)와 동일한 배송상태 가드 — 배송 시작 후 전액환불 시도를
-    // 422로 거절한다(같은 에러 코드/상태코드로 통일, applyOrderUpdates.ts 참고).
-    if (error instanceof RefundAfterShipmentError) {
-      logServerWarn(`[PATCH /api/admin/orders/[id]] 배송 시작 후 전액환불 거부 orderId=${id}`, {});
-      return NextResponse.json({ error: 'refund-after-shipment-not-supported' }, { status: 422 });
     }
     // 아래 둘은 정상적인 거절(공격/경합)이라 error 레벨이 아니라 감사용 warn 으로 남긴다.
     if (error instanceof PaymentTransitionError) {

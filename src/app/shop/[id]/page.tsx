@@ -1,5 +1,4 @@
 import Image from 'next/image';
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
@@ -26,32 +25,6 @@ const defaultCautions = [
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
-
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const { id } = await params;
-  const product = await getCachedPublicProductById(id);
-  if (!product) return { title: '상품을 찾을 수 없습니다', robots: { index: false, follow: false } };
-
-  const description = product.summary || product.description;
-  return {
-    title: product.name,
-    description,
-    alternates: { canonical: `/shop/${product.id}` },
-    openGraph: {
-      type: 'website',
-      url: `/shop/${product.id}`,
-      title: product.name,
-      description,
-      images: product.image ? [{ url: product.image, alt: product.name }] : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title: product.name,
-      description,
-      images: product.image ? [product.image] : undefined,
-    },
-  };
-}
 
 export default async function ProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -80,9 +53,9 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   return (
     <div className="page-canvas pb-16">
       <div className="site-container-wide py-8 lg:py-12">
-        <ProductDetailClient product={{ ...product, brandName: brand?.name ?? product.brandName }} />
+        <ProductDetailClient product={product} />
 
-        <ProductTabsClient product={{ ...product, brandName: brand?.name ?? product.brandName }}>
+        <ProductTabsClient product={{ ...product, brandName: brand?.name }}>
           <section id="story" className="scroll-mt-36">
             <div className="mx-auto max-w-3xl">
               <p className="page-eyebrow">상품 이야기</p>

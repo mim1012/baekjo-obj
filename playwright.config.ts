@@ -23,9 +23,7 @@ if (process.env.E2E_ADMIN_CRUD === '1') {
 }
 
 const isLocal = targetHost === 'localhost' || targetHost === '127.0.0.1';
-const localWebServerPort = new URL(baseURL).port || '3000';
 const browserProjects = new Set([
-  'anonymous-session-contract',
   'chromium',
   'golden-crud',
   'golden-smoke',
@@ -77,22 +75,6 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [['line'], ['html', { open: 'never' }]],
   projects: [
-    {
-      name: 'anonymous-session-contract',
-      testDir: './tests/golden',
-      testMatch: ['**/anonymous-session-contract.spec.ts'],
-      use: {
-        baseURL,
-        extraHTTPHeaders: protectionBypassHeaders,
-        navigationTimeout: 30_000,
-        actionTimeout: 15_000,
-        trace: 'on-first-retry',
-        screenshot: 'only-on-failure',
-        video: 'off',
-        ...devices['Desktop Chrome'],
-        ...localBrowserUse,
-      },
-    },
     {
       name: 'chromium',
       testDir: './tests/golden',
@@ -200,19 +182,14 @@ export default defineConfig({
       testDir: './tests/shipments',
       use: {},
     },
-    {
-      name: 'partners',
-      testDir: './tests/partners',
-      use: {},
-    },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
   ...(shouldStartLocalServer
     ? {
         webServer: {
           command: 'npm run dev',
-          env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1', PORT: localWebServerPort },
-          url: new URL('/api/members/me', baseURL).toString(),
+          env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1' },
+          url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },

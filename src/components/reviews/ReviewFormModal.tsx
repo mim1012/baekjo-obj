@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { X, Star } from 'lucide-react';
 import Image from 'next/image';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface ReviewFormModalProps {
   isOpen: boolean;
@@ -95,7 +94,7 @@ export default function ReviewFormModal({
               )}
             </div>
             <div className="flex flex-col justify-center">
-              {product.brandName && <span className="text-xs font-semibold text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>}
+              {product.brandName && <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>}
               <span className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1">{product.name}</span>
               {optionName && <span className="mt-1 text-xs text-[#68716C] line-clamp-1">{optionName}</span>}
             </div>

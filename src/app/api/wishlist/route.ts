@@ -23,7 +23,7 @@ function parseProductId(body: WishlistBody): string | null {
 export async function GET() {
   const session = await auth();
   if (!session?.user?.memberId) {
-    return NextResponse.json({ productIds: [] }, { status: 200, headers: NO_STORE_HEADERS });
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
   }
 
   try {
