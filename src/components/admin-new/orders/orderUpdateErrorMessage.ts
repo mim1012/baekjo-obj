@@ -41,3 +41,26 @@ export function summarizeBulkFailures(
   if (other.length > 0) lines.push(`· 기타 오류: ${describe(other)}`);
   return lines.join('\n');
 }
+
+// 관리자 업체별 송장 저장 실패를 UI 문구로 매핑하는 순수 함수. 서버(shipments/[brandId]/route.ts)가
+// 주는 코드:
+//   · shipment-confirmed — 고객이 이미 구매확정한 송장(종결 행). 되돌릴 수 없음, 재시도 무의미.
+//   · invalid-input / invalid-brand — 요청 자체가 잘못됨(택배사·운송장·배송상태 형식/브랜드 불일치).
+//   · not-found — 주문을 찾을 수 없음(삭제됐거나 잘못된 주문ID).
+//   · server-error / 기타(네트워크 등) — 일시적 오류.
+// storage.ts의 updateOrderShipment는 실패 시 이 코드를 그대로 Error.message로 전달한다(파싱 실패 시
+// 'shipment-update-failed' 폴백).
+export function shipmentUpdateErrorMessage(error: unknown): string {
+  const code = error instanceof Error ? error.message : '';
+  switch (code) {
+    case 'shipment-confirmed':
+      return '고객이 이미 구매확정한 송장이라 변경할 수 없습니다. 화면을 새로고침해 최신 상태를 확인해주세요.';
+    case 'invalid-input':
+    case 'invalid-brand':
+      return '입력값을 확인해주세요. 택배사·운송장 번호·배송상태 형식이 올바르지 않습니다.';
+    case 'not-found':
+      return '주문을 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.';
+    default:
+      return '배송 정보 저장에 실패했습니다. 잠시 후 다시 시도해주세요.';
+  }
+}
