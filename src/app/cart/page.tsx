@@ -10,7 +10,7 @@ import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
-import { FREE_SHIPPING_THRESHOLD, calcDeliveryFee } from '@/lib/orderPolicy';
+import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 
 export default function CartPage() {
   const mounted = useMounted();
@@ -97,7 +97,15 @@ export default function CartPage() {
   const unpricedItems = enrichedItems.filter(item => !item.hasPrice);
 
   const totalProductsPrice = pricedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = calcDeliveryFee(totalProductsPrice);
+  const deliveryFeeCalculation = calcBrandDeliveryFee(
+    pricedItems.map((item) => ({
+      brandId: item.product?.brandId ?? '',
+      brandName: item.brandName,
+      totalPrice: item.totalPrice,
+    })),
+    brands,
+  );
+  const deliveryFee = deliveryFeeCalculation.deliveryFee;
   const finalPrice = totalProductsPrice + deliveryFee;
   const checkoutHref = isLoggedIn() ? '/checkout' : '/login?redirect=/checkout';
 
@@ -207,9 +215,13 @@ export default function CartPage() {
                     <span>배송비</span>
                     <span className="font-medium text-gray-900">{deliveryFee === 0 ? '무료' : formatPrice(deliveryFee)}</span>
                   </div>
-                  {deliveryFee > 0 && (
-                    <div className="text-xs text-[#68776C] text-right">
-                      {formatPrice(FREE_SHIPPING_THRESHOLD - totalProductsPrice)} 추가 주문 시 무료배송
+                  {deliveryFeeCalculation.breakdown.length > 0 && (
+                    <div className="space-y-1 text-right text-xs text-[#68776C]">
+                      {deliveryFeeCalculation.breakdown.map((item) => (
+                        <div key={item.brandId}>
+                          {item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

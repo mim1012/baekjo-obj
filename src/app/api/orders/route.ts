@@ -7,13 +7,14 @@ import {
   type InsertOrderInput,
 } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
+import { listBrandsByIds } from '@/lib/brands/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
 import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
 import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
-import { calcDeliveryFee } from '@/lib/orderPolicy';
-import type { OrderItem, Product } from '@/types';
+import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
+import type { Brand, OrderItem, Product } from '@/types';
 
 // 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
 const MAX_ITEMS = 100;
@@ -67,6 +68,7 @@ function validateItemShape(raw: unknown): OrderItemShape | null {
 function validate(
   body: unknown,
   productMap: Map<string, Product>,
+  brands: readonly Brand[],
   bankTransferTtlMs: number | null,
 ): InsertOrderInput | null {
   if (!body || typeof body !== 'object') return null;
@@ -92,7 +94,13 @@ function validate(
   }
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-  const deliveryFee = calcDeliveryFee(subtotal);
+  const deliveryFeeCalculation = calcBrandDeliveryFee(
+    items.map((item) => ({
+      brandId: item.brandId ?? '',
+      totalPrice: item.price * item.quantity,
+    })),
+    brands,
+  );
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
   const isBankTransfer = b.paymentMethod === BANK_TRANSFER_METHOD;
   const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';
@@ -109,7 +117,8 @@ function validate(
     address: b.address,
     items,
     totalPrice: subtotal,
-    deliveryFee,
+    deliveryFee: deliveryFeeCalculation.deliveryFee,
+    deliveryFeeBreakdown: deliveryFeeCalculation.breakdown,
     paymentMethod: b.paymentMethod,
     orderStatus: '주문접수',
     paymentStatus,
@@ -169,6 +178,8 @@ export async function POST(request: NextRequest) {
   const productIds = extractProductIds(body).slice(0, MAX_ITEMS);
   const productList = await listProductsByIds(productIds);
   const productMap = new Map(productList.map((product) => [product.id, product]));
+  const brandIds = productList.map((product) => product.brandId).filter((id) => id.length > 0);
+  const brandList = await listBrandsByIds(brandIds);
 
   // 무통장 TTL(관리자 설정 — 자동취소 미사용이면 null=만료 없음, 기본 미사용) — 조회 실패 시에도
   // repo 가 기본값(비활성=null)으로 폴백하므로 정책 테이블 장애가 주문 생성 실패로 번지지 않는다.
@@ -179,7 +190,7 @@ export async function POST(request: NextRequest) {
     (body as Record<string, unknown>).paymentMethod === BANK_TRANSFER_METHOD;
   const bankTransferTtlMs = claimsBankTransfer ? await resolveBankTransferTtlMs() : null;
 
-  const validated = validate(body, productMap, bankTransferTtlMs);
+  const validated = validate(body, productMap, brandList, bankTransferTtlMs);
   if (!validated) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
