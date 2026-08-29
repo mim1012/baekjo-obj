@@ -24,8 +24,12 @@ test('XLSX export creates an Excel workbook with safe values and product rows', 
   const sheet = workbook.getWorksheet('주문내역');
   expect(sheet).toBeTruthy();
   expect(sheet?.getRow(1).getCell(1).value).toBe('주문번호');
+  expect(sheet?.getRow(1).getCell(6).value).toBe('판매수량');
+  expect(sheet?.getRow(1).getCell(7).value).toBe('상품 판매금액 합계');
   expect(sheet?.getRow(2).getCell(1).value).toBe('order-1');
   expect(sheet?.getRow(2).getCell(10).value).toBe("'=FORMULA");
   expect(sheet?.getRow(2).getCell(4).value).toBe('상품');
   expect(sheet?.getRow(2).getCell(8).value).toBe(3000);
+  expect(sheet?.getRow(3).getCell(3).value).toBe('테스트 브랜드 합계');
+  expect(sheet?.getRow(3).getCell(6).value).toBe(2);
 });
