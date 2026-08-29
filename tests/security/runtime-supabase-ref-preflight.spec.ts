@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { GET } from '../../src/app/api/__test__/supabase-ref/route';
+import { GET } from '../../src/app/api/test/supabase-ref/route';
 
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 
@@ -49,7 +49,7 @@ test.describe('localhost app runtime Supabase ref preflight route', () => {
         SUPABASE_URL: 'https://aeooyivfijthfcrfrnyk.supabase.co',
       },
       async () => {
-        const response = await GET(new Request('http://127.0.0.1:3000/api/__test__/supabase-ref'));
+        const response = await GET(new Request('http://127.0.0.1:3000/api/test/supabase-ref'));
 
         expect(response.status).toBe(200);
         expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -72,14 +72,14 @@ test.describe('localhost app runtime Supabase ref preflight route', () => {
           LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1',
           SUPABASE_URL: sensitiveValues[0],
         },
-        requestUrl: 'http://127.0.0.1:3000/api/__test__/supabase-ref',
+        requestUrl: 'http://127.0.0.1:3000/api/test/supabase-ref',
       },
       {
         environment: {
           NODE_ENV: 'development',
           SUPABASE_URL: sensitiveValues[0],
         },
-        requestUrl: 'http://127.0.0.1:3000/api/__test__/supabase-ref',
+        requestUrl: 'http://127.0.0.1:3000/api/test/supabase-ref',
       },
       {
         environment: {
@@ -87,7 +87,7 @@ test.describe('localhost app runtime Supabase ref preflight route', () => {
           LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1',
           SUPABASE_URL: sensitiveValues[0],
         },
-        requestUrl: 'http://localhost.test/api/__test__/supabase-ref',
+        requestUrl: 'http://localhost.test/api/test/supabase-ref',
       },
       {
         environment: {
@@ -95,7 +95,7 @@ test.describe('localhost app runtime Supabase ref preflight route', () => {
           LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1',
           SUPABASE_URL: 'not-a-supabase-url',
         },
-        requestUrl: 'http://127.0.0.1:3000/api/__test__/supabase-ref',
+        requestUrl: 'http://127.0.0.1:3000/api/test/supabase-ref',
       },
     ] as const;
 

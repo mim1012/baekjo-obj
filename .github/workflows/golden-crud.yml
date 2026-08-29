@@ -114,7 +114,7 @@ jobs:
           npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &
           echo $! > "$RUNNER_TEMP/local-app.pid"
           for attempt in $(seq 1 30); do
-            if curl --fail --silent --show-error http://127.0.0.1:3000/api/__test__/supabase-ref > "$RUNNER_TEMP/runtime-ref.json"; then
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/test/supabase-ref > "$RUNNER_TEMP/runtime-ref.json"; then
               exit 0
             fi
             sleep 1
