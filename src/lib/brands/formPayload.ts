@@ -25,7 +25,6 @@ export const BRAND_FORM_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'isRecommended',
   'isVisible',
@@ -47,7 +46,6 @@ export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
     logo: formData.logo,
     description: formData.description,
     philosophy: formData.philosophy,
-    auditGrade: formData.auditGrade,
     officialUrl: formData.officialUrl?.trim() ?? '',
     isRecommended: formData.isRecommended ?? false,
     isVisible: formData.isVisible !== false,
@@ -233,7 +231,6 @@ export interface BrandDetailFormState {
   logo?: string;
   description?: string;
   philosophy?: string;
-  auditGrade?: Brand['auditGrade'];
   officialUrl?: string;
   isRecommended?: boolean;
   isVisible?: boolean;
@@ -442,7 +439,6 @@ export const BRAND_DETAIL_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'isRecommended',
   'isVisible',
@@ -472,7 +468,6 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     logo: form.logo,
     description: form.description,
     philosophy: form.philosophy,
-    auditGrade: form.auditGrade,
     officialUrl: form.officialUrl?.trim() ?? '',
     isRecommended: form.isRecommended ?? false,
     isVisible: form.isVisible !== false,

@@ -9,7 +9,6 @@ import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
-import Badge from '@/components/admin-new/common/Badge';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
 import BrandForm from '@/components/admin-new/brands/BrandForm';
@@ -142,17 +141,6 @@ export default function BrandListPage() {
       )
     },
     {
-      key: 'grade',
-      header: '검증 등급',
-      width: '100px',
-      render: (b: Brand) => (
-        <Badge 
-          label={`${b.auditGrade} 등급`} 
-          variant={b.auditGrade?.includes('A') ? 'success' : 'primary'} 
-        />
-      )
-    },
-    {
       key: 'products',
       header: '등록 상품',
       width: '100px',
@@ -230,7 +218,7 @@ export default function BrandListPage() {
     <div className="space-y-6 pb-24">
       <PageHeader
         title="브랜드 관리"
-        description="입점된 브랜드 정보와 스토리, 검증 등급을 관리합니다."
+        description="입점된 브랜드 정보와 스토리, 노출 상태를 관리합니다."
       >
         <button 
           onClick={handleCreate}

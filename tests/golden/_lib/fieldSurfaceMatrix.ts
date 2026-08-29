@@ -175,14 +175,6 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
           '공개 검증하지 않고 관리자 왕복(admin round-trip)으로만 검증한다(admin-only-as-of-now).',
       },
       {
-        field: 'auditGrade',
-        render: '없음(공개 렌더 PR 진행 중)',
-        kind: 'text',
-        assertNow: false,
-        note: 'admin-only-as-of-now — 현재 브랜드 상세에 auditGrade 공개 렌더 없음. 공개 렌더 PR ' +
-          '진행 중(fe/design-brand-audit-public) — 머지 후 승격. 관리자 왕복으로만 검증.',
-      },
-      {
         field: 'officialUrl',
         render: '없음(공개 브랜드 상세 렌더 금지)',
         kind: 'link',

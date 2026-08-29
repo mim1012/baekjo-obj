@@ -4,14 +4,6 @@ import { getSupabase } from '@/lib/supabase/server';
 import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
 import { isCarrierCode } from '@/lib/carriers';
 
-const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
-
-/** DB detail.auditGrade 는 자유 text(jsonb) 라 유니온 밖 값이 들어올 수 있다. 미지값/누락은
- *  가장 낮은 등급으로 정규화해 admin 화면이 조용히 깨지지 않게 한다. */
-function normalizeAuditGrade(raw: unknown): Brand['auditGrade'] {
-  return typeof raw === 'string' && AUDIT_GRADES.has(raw) ? (raw as Brand['auditGrade']) : 'B';
-}
-
 // 되읽기 방어 — 무검증 캐스트 금지. 공개 BrandAuditReport 컴포넌트가 report.headline·
 // report.process.map(...) 등으로 필드에 바로 접근하므로, 필수 필드가 없는 부분 객체를
 // auditReport로 담으면 상세 페이지가 런타임에 터진다. 누락 시 undefined(=미확인 상태 폴백).
@@ -134,7 +126,6 @@ function rowToBrand(row: BrandRow): Brand {
     summaryCategoryLabel: typeof d.summaryCategoryLabel === 'string' ? d.summaryCategoryLabel : undefined,
     summaryConcernLabel: typeof d.summaryConcernLabel === 'string' ? d.summaryConcernLabel : undefined,
     summaryConcernNote: typeof d.summaryConcernNote === 'string' ? d.summaryConcernNote : undefined,
-    auditGrade: normalizeAuditGrade(d.auditGrade),
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : [],
     auditReport: detailAuditReport(d.auditReport),
     representativeProductIds: Array.isArray(d.representativeProductIds)
