@@ -17,7 +17,13 @@ export const authConfig: NextAuthConfig = {
         session.provider = token.provider;
       }
       if (session.user) {
-        if (token.role === 'user' || token.role === 'admin') {
+        if (
+          token.role === 'user' ||
+          token.role === 'admin' ||
+          token.role === 'b2b' ||
+          token.role === 'insurance' ||
+          token.role === 'partner'
+        ) {
           session.user.role = token.role;
         }
         if (typeof token.memberId === 'string') {

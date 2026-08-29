@@ -128,6 +128,12 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
 
   // ── 회원 전용 ────────────────────────────────────────────────
   { route: '/mypage', kind: 'static', auth: 'member', note: '마이페이지(개요 탭)' },
+  {
+    route: '/partner/orders',
+    kind: 'static',
+    auth: 'member',
+    note: '입점업체 주문 목록 — 비로그인은 서버가 /login 으로, partner/admin 외 role 은 / 로 redirect',
+  },
 
   // ── 관리자 정적 ──────────────────────────────────────────────
   { route: '/admin', kind: 'static', auth: 'admin', note: '관리자 대시보드' },

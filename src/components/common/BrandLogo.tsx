@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Brand } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface Props {
   brand: Brand;
@@ -94,7 +95,7 @@ export default function BrandLogo({
   uniformScale = false,
   className = '',
 }: Props) {
-  const fallbackName = brand.name.replace(/\s*\(.*?\)/, '').trim();
+  const fallbackName = formatBrandDisplayName(brand.name);
   const logoSrc = getBrandDisplayLogo(brand);
   const hasTransparentDisplayLogo = Boolean(displayLogoMap[brand.id]);
   const imageFit = uniformScale ? 'contain' : (fit ?? 'contain');
