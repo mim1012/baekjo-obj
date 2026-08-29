@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment } from 'react';
-import Image from 'next/image';
+import Image, { getImageProps } from 'next/image';
 import Link from 'next/link';
 import {
   ArrowRight, ShieldCheck, Activity, Leaf, Monitor, Heart,
@@ -28,6 +28,40 @@ function renderLines(lines: string[], brClassName?: string) {
     </Fragment>
   ));
 }
+
+const { props: desktopHeroImageProps } = getImageProps({
+  src: '/images/home-hero-pet-lifestyle-desktop.png',
+  alt: '반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+  priority: true,
+});
+
+const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
+  src: '/images/home-hero-pet-lifestyle-mobile.png',
+  alt: '반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+  priority: true,
+});
+
+const { props: desktopAuditImageProps } = getImageProps({
+  src: '/images/home-audit-client-photo-extended-v4.png',
+  alt: '백조오브제 브랜드 패키지 오브제',
+  fill: true,
+  sizes: '(max-width: 1280px) 100vw, 1168px',
+  quality: 90,
+});
+
+const { props: { srcSet: mobileAuditSrcSet } } = getImageProps({
+  src: '/images/home-audit-client-photo-v3.png',
+  alt: '백조오브제 브랜드 패키지 오브제',
+  fill: true,
+  sizes: '100vw',
+  quality: 90,
+});
 
 export default function HomeClient({
   products,
@@ -57,26 +91,56 @@ export default function HomeClient({
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
     { icon: Rabbit, href: '/shop?petType=small' },
-    { icon: Utensils, href: '/shop?category=dining-and-nourish' },
-    { icon: Bath, href: '/shop?category=fragrance-and-hygiene' },
-    { icon: HeartPulse, href: '/shop?category=wellness-and-care' },
+    { icon: Utensils, href: '/shop?category=food-nutrition' },
+    { icon: Bath, href: '/shop?category=care' },
+    { icon: HeartPulse, href: '/concerns' },
   ];
 
   const curationCards = [
-    { icon: Droplet, href: '/concerns/tear', img: '/images/curation_tear.png' },
-    { icon: Sparkles, href: '/concerns/skin', img: '/images/curation_skin.png' },
-    { icon: Bone, href: '/concerns/joint', img: '/images/curation_joint.png' },
-    { icon: Scale, href: '/concerns/obesity', img: '/images/curation_weight.png' },
+    { icon: Droplet, href: '/concerns/tear', img: '/images/curation_tear.png', title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
+    { icon: Sparkles, href: '/concerns/skin', img: '/images/curation_skin.png', title: '피부', desc: '피부를 자주 긁을 때' },
+    { icon: Bone, href: '/concerns/joint', img: '/images/curation_joint.png', title: '관절', desc: '걸음걸이가 달라졌을 때' },
+    { icon: Scale, href: '/concerns/obesity', img: '/images/curation_weight.png', title: '체중', desc: '체중 관리가 필요할 때' },
   ];
 
   const auditCriteriaIcons = [Activity, Leaf, Monitor, Heart];
 
   return (
     <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
+      <aside
+        data-testid="home-soft-open-notice"
+        aria-label="가오픈 결제 안내"
+        className="flex min-h-[38px] w-full items-center bg-[#17211D] text-[#FBFAF7] sm:min-h-[34px]"
+      >
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center gap-2 px-2 py-1 sm:px-8 lg:px-12 xl:px-14">
+          <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
+            가오픈 진행 중
+          </span>
+          <p className="min-w-0 break-keep text-left text-[10px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#FBFAF7] sm:whitespace-nowrap sm:text-[12px] sm:leading-none sm:tracking-normal">
+            | 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
+          </p>
+        </div>
+      </aside>
+
       {/* 1. 메인 히어로 */}
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 pt-6 md:pt-10 pb-8 md:pb-14 lg:pt-14 lg:pb-16">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between lg:h-[500px] gap-8 md:gap-10 lg:gap-14">
-          <div className="flex w-full flex-col items-start lg:w-[47%]">
+      <section data-testid="home-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
+        <div className="relative h-full w-full overflow-hidden">
+          <picture>
+            <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileHeroSrcSet} />
+            <img
+              {...desktopHeroImageProps}
+              alt="반려동물과 함께하는 백조오브제의 펫 라이프스타일 제품"
+              data-testid="home-hero-image"
+              className="object-cover object-center"
+            />
+          </picture>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
+          />
+
+          <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+            <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
             <h1 className="text-[30px] md:text-[34px] lg:text-[44px] font-bold leading-[1.2] lg:leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
               {renderLines(hero.titleLines)}
@@ -84,37 +148,50 @@ export default function HomeClient({
             <p className="mt-4 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[14px] md:text-[15px] lg:text-[16px] leading-[1.7] text-[#59615B] break-keep">
               {renderLines(hero.descriptionLines, 'hidden sm:block')}
             </p>
-            <div className="mt-6 md:mt-7 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Link href="/shop" className="flex h-[48px] lg:h-[50px] items-center justify-center rounded-xl bg-[#18231F] px-8 text-[15px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
+            <div className="mt-5 grid w-full grid-cols-2 gap-2.5 md:mt-7 md:flex md:w-auto md:gap-3">
+              <Link href="/shop" className="flex h-[46px] items-center justify-center rounded-xl bg-[#18231F] px-3 text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34] md:h-[48px] md:px-8 md:text-[15px] lg:h-[50px]">
                 {hero.primaryCtaLabel}
               </Link>
-              <Link href="/concerns" className="flex h-[48px] lg:h-[50px] items-center justify-center rounded-xl border border-[#DED8CC] bg-white px-8 text-[15px] font-bold text-[#18231F] transition-colors hover:border-[#B99562]">
+              <Link href="/concerns" className="flex h-[46px] items-center justify-center rounded-xl border border-white/80 bg-white/85 px-3 text-[14px] font-bold text-[#18231F] shadow-sm backdrop-blur-sm transition-colors hover:border-[#B99562] hover:bg-white md:h-[48px] md:px-8 md:text-[15px] lg:h-[50px]">
                 {hero.secondaryCtaLabel}
               </Link>
             </div>
-            <div className="mt-6 flex items-center gap-2 text-[13px] font-medium text-[#68716C]">
+            <div className="mt-5 flex items-center gap-2 text-[12px] font-medium text-[#68716C] md:mt-6 md:text-[13px]">
               <ShieldCheck className="size-4 text-[#B99562]" strokeWidth={2} />
               {hero.trustNote}
             </div>
           </div>
-          <div className="w-full lg:w-[53%] aspect-[4/3] min-h-[260px] sm:aspect-auto sm:h-[400px] lg:h-full relative overflow-hidden rounded-[24px]">
-            <img src="/images/poodle-pet-food.png" alt="백조오브제 펫 푸드와 푸들" className="absolute inset-0 h-full w-full object-cover object-center" />
-            <div className="absolute right-5 top-5 inline-flex items-center gap-2 rounded-xl bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm">
-              <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
-              <div className="flex flex-col">
-                <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
-                <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
-              </div>
+          </div>
+
+          <div className="absolute right-5 top-5 z-20 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md sm:right-8 sm:top-8 lg:right-12 xl:right-14">
+            <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
+            <div className="flex flex-col">
+              <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
+              <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
+      <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <div className="flex flex-col justify-center p-6 md:p-8 lg:p-10">
-              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">{audit.badge}</span>
+          <div data-testid="home-audit-hero" className="relative isolate min-h-[390px] overflow-hidden md:min-h-[360px] lg:min-h-[380px]">
+            <picture>
+              <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileAuditSrcSet} />
+              <img
+                {...desktopAuditImageProps}
+                alt="백조오브제 브랜드 패키지 오브제"
+                className="object-contain object-bottom md:object-cover md:object-[center_39%]"
+                data-testid="home-audit-image"
+              />
+            </picture>
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.62)_0%,rgba(248,246,240,0.42)_60%,rgba(248,246,240,0.16)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)]"
+            />
+
+            <div className="relative z-10 flex min-h-[390px] max-w-[680px] flex-col justify-center p-6 md:min-h-[360px] md:p-8 lg:min-h-[380px] lg:p-10">
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
               </h2>
@@ -124,19 +201,6 @@ export default function HomeClient({
               <Link href="/audit" className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
                 {audit.linkLabel} <ArrowRight className="ml-1.5 size-4" />
               </Link>
-            </div>
-
-            <div className="flex items-center justify-center bg-[#EDE8DD] p-6 md:p-8 lg:p-10">
-              <div className="relative h-[180px] w-full max-w-[320px] overflow-hidden rounded-[18px] border border-white/70 bg-white shadow-sm md:h-[220px]">
-                <Image
-                  src="/images/baekjo-audit-logo.png"
-                  alt="백조오브제 Audit 엠블럼"
-                  fill
-                  sizes="(max-width: 1024px) 80vw, 320px"
-                  className="object-contain"
-                  priority
-                />
-              </div>
             </div>
           </div>
 
@@ -158,22 +222,22 @@ export default function HomeClient({
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-24">
-        <div className="rounded-[20px] bg-white border border-[#F2EFE9] p-4 md:p-6 lg:p-8 flex flex-col xl:flex-row xl:items-center gap-4 md:gap-6 shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <nav aria-label="쇼핑 카테고리 바로가기" className="grid grid-cols-4 gap-y-4 gap-x-2 md:flex md:flex-wrap md:gap-x-8 xl:flex-1 xl:justify-between">
+        <nav aria-label={quickShop.title || '빠른 쇼핑'} className="rounded-[22px] border border-[#E8E0D4] bg-white px-3 py-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 md:py-7 lg:px-8 lg:py-8">
+          <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:grid-cols-6 sm:gap-x-4">
             {quickLinks.map((link, i) => {
               const Icon = link.icon;
               const name = quickShop.links[i]?.name ?? '';
               return (
-                <Link key={link.href} href={link.href} className="group flex flex-col items-center gap-2 md:gap-3">
-                  <div className="flex size-[48px] md:size-[52px] items-center justify-center rounded-full bg-[#F9F8F5] text-[#18231F] transition-colors group-hover:bg-[#F2EFE9]">
-                    <Icon className="size-[22px] md:size-[24px]" strokeWidth={1.5} />
+                <Link key={`${link.href}-${i}`} href={link.href} className="group flex min-w-0 flex-col items-center gap-2.5 md:gap-3">
+                  <div className="flex size-[54px] items-center justify-center rounded-full bg-[#F8F7F4] text-[#18231F] transition-colors group-hover:bg-[#F0ECE5] md:size-[58px]">
+                    <Icon className="size-[23px] md:size-[25px]" strokeWidth={1.6} />
                   </div>
-                  <span className="text-[12px] md:text-[13px] font-medium text-[#68716C] group-hover:text-[#18231F] whitespace-nowrap tracking-tight">{name}</span>
+                  <span className="whitespace-nowrap text-[13px] font-medium tracking-tight text-[#59615B] transition-colors group-hover:text-[#18231F] md:text-[14px]">{name}</span>
                 </Link>
               );
             })}
-          </nav>
-        </div>
+          </div>
+        </nav>
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
@@ -214,8 +278,8 @@ export default function HomeClient({
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
           {curationCards.map((card, i) => {
-            const title = curation.cards[i]?.title ?? '';
-            const desc = curation.cards[i]?.desc ?? '';
+            const title = card.title;
+            const desc = card.desc;
             return (
               <Link
                 key={card.href}
@@ -254,29 +318,34 @@ export default function HomeClient({
         <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
-            <div className="flex flex-col items-start text-white max-w-[480px]">
+            <div className="flex max-w-[480px] flex-col items-start text-[#17231E]">
               <div className="flex items-center gap-2 mb-2 md:mb-3">
-                <ShieldCheck className="size-5 text-[#B99562]" strokeWidth={2} />
-                <span className="text-[13px] md:text-[14px] font-semibold text-[#D8C4A3]">{insuranceBanner.eyebrow}</span>
+                <ShieldCheck className="size-5 text-[#7A4E1D]" strokeWidth={2} />
+                <span className="text-[13px] font-semibold text-[#66431D] md:text-[14px]">{insuranceBanner.eyebrow}</span>
               </div>
               <h2 className="text-[22px] md:text-[28px] font-bold leading-[1.3] tracking-tight">
                 {insuranceBanner.title}
               </h2>
-              <p className="mt-2 text-[13px] md:text-[15px] leading-[1.6] text-white/80 break-keep">
+              <p className="mt-2 break-keep text-[13px] leading-[1.6] text-[#35433D] md:text-[15px]">
                 {insuranceBanner.description}
               </p>
             </div>
 
             <div className="mt-2 md:mt-0 relative z-20 shrink-0">
-              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl bg-white/10 border border-white/20 px-8 text-[14px] font-bold text-white transition-colors hover:bg-white hover:text-[#18231F] backdrop-blur-sm">
+              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
                 {insuranceBanner.buttonLabel}
               </Link>
             </div>
           </div>
-          <div className="absolute bottom-0 right-0 h-[85%] md:h-[120%] w-[50%] md:w-[45%] opacity-90 mix-blend-luminosity">
-            <img src="/images/care_guide_hero.png" alt="강아지와 고양이" className="h-full w-full object-cover object-left-top scale-x-[-1]" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[#1A2F25] to-transparent"></div>
-            <div className="absolute inset-0 bg-gradient-to-t from-[#1A2F25] to-transparent md:hidden"></div>
+          <div className="absolute inset-0 h-full w-full overflow-hidden">
+            <picture>
+              <source media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.png" />
+              <img
+                src="/images/insurance-analysis-banner.png"
+                alt="반려동물 보험을 분석하는 보호자와 강아지, 고양이"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
           </div>
         </div>
       </section>

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,13 +12,13 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import BrandMark from './BrandMark';
 
 type NavLinkDef = { label: string; href: string; description?: string; feature?: keyof typeof FEATURES };
 
@@ -39,7 +40,7 @@ const DESKTOP_NAV_TEXT_CLASS =
 const ALL_STORY_LINKS: NavLinkDef[] = [
   { label: '백조오브제 Audit의 검토 기준', description: '브랜드를 살펴보는 네 가지 확인 기준', href: '/audit' },
   { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts', feature: 'experts' },
-  { label: '보호자 후기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
+  { label: '보호자 후기', href: '/reviews' },
   { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
 ];
 
@@ -66,6 +67,7 @@ const subscribeToCart = (callback: () => void) => {
 type MobilePanel = 'shop' | 'story' | null;
 
 export default function Header() {
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const mounted = useMounted();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -81,7 +83,7 @@ export default function Header() {
           list
             .filter((brand) => brand.isVisible !== false)
             .map((brand) => ({
-              label: brand.name.split(' (')[0],
+              label: formatBrandDisplayName(brand.name),
               href: `/brands/${brand.slug}`,
             })),
         ),
@@ -97,11 +99,48 @@ export default function Header() {
     setMobilePanel(null);
   };
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
-      <div className="site-container-wide flex h-16 items-center justify-between lg:h-[72px]">
-        <Link href="/" aria-label="백조오브제 홈" className="text-[#17211D]" onClick={closeMenu}>
-          <BrandMark />
+    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
+      <div className="site-container-wide relative z-10 flex h-16 items-center justify-between lg:h-[72px]">
+        <Link
+          href="/"
+          aria-label="백조오브제 홈"
+          className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
+          onClick={closeMenu}
+        >
+          <Image
+            src="/images/baekjo-objet-header-logo-v2.png"
+            alt="Baekjo Objet"
+            fill
+            sizes="(min-width: 1024px) 156px, 143px"
+            priority
+            className="object-contain"
+            data-testid="site-header-logo"
+          />
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">
@@ -194,9 +233,8 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => {
-                  void logout().finally(() => {
-                    window.location.reload();
-                  });
+                  logout();
+                  window.location.reload();
                 }}
                 aria-label="로그아웃"
                 className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
@@ -246,10 +284,19 @@ export default function Header() {
       </div>
 
       {menuOpen && (
+        <button
+          type="button"
+          aria-label="메뉴 바깥 영역 닫기"
+          onClick={closeMenu}
+          className="fixed inset-0 top-16 z-0 cursor-default bg-[#17211D]/10 lg:hidden"
+        />
+      )}
+
+      {menuOpen && (
         <nav
           id="mobile-menu"
           aria-label="전체 메뉴"
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
+          className="relative z-10 max-h-[calc(100dvh-12rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
         >
           <div className="mx-auto flex max-w-lg flex-col">
             <MobileAccordion
@@ -310,9 +357,8 @@ export default function Header() {
                   type="button"
                   onClick={() => {
                     closeMenu();
-                    void logout().finally(() => {
-                      window.location.reload();
-                    });
+                    logout();
+                    window.location.reload();
                   }}
                   className="btn-secondary col-span-2 min-h-11 px-4"
                 >
