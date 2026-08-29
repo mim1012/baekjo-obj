@@ -17,6 +17,7 @@ export const authConfig: NextAuthConfig = {
         session.provider = token.provider;
       }
       if (session.user) {
+        // 화이트리스트 유지 — 위조되었거나 구버전 토큰의 임의 문자열을 세션 role로 넘기지 않기 위함.
         if (
           token.role === 'user' ||
           token.role === 'admin' ||
