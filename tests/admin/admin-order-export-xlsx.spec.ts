@@ -16,8 +16,8 @@ const order: Order = {
   deliveryFeeBreakdown: [{ brandId: 'b1', brandName: '테스트 브랜드', subtotal: 2000, shippingFee: 3000, appliedDeliveryFee: 3000, isFreeShipping: false, freeShippingThreshold: 50000 }],
 };
 
-test('XLSX export creates an Excel workbook with safe values and product rows', async () => {
-  const bytes = await serializeAdminOrdersXlsx([order], [brand]);
+test('XLSX export creates an Excel workbook with safe values, product rows, address, and brand summary', async () => {
+  const bytes = await serializeAdminOrdersXlsx({ orders: [order], brands: [brand] });
   expect(new Uint8Array(bytes).slice(0, 2)).toEqual(new Uint8Array([0x50, 0x4b]));
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(bytes);
@@ -25,11 +25,19 @@ test('XLSX export creates an Excel workbook with safe values and product rows', 
   expect(sheet).toBeTruthy();
   expect(sheet?.getRow(1).getCell(1).value).toBe('주문번호');
   expect(sheet?.getRow(1).getCell(6).value).toBe('판매수량');
-  expect(sheet?.getRow(1).getCell(7).value).toBe('상품 판매금액 합계');
+  expect(sheet?.getRow(1).getCell(7).value).toBe('상품 판매금액');
+  expect(sheet?.getRow(1).getCell(12).value).toBe('배송지');
   expect(sheet?.getRow(2).getCell(1).value).toBe('order-1');
   expect(sheet?.getRow(2).getCell(10).value).toBe("'=FORMULA");
   expect(sheet?.getRow(2).getCell(4).value).toBe('상품');
+  expect(sheet?.getRow(2).getCell(12).value).toBe('서울');
   expect(sheet?.getRow(2).getCell(8).value).toBe(3000);
-  expect(sheet?.getRow(3).getCell(3).value).toBe('테스트 브랜드 총합계');
-  expect(sheet?.getRow(3).getCell(6).value).toBe(2);
+
+  const summary = workbook.getWorksheet('브랜드별 집계');
+  expect(summary).toBeTruthy();
+  expect(summary?.getRow(1).getCell(1).value).toBe('브랜드명');
+  expect(summary?.getRow(2).getCell(2).value).toBe('상품');
+  expect(summary?.getRow(2).getCell(4).value).toBe(2);
+  expect(summary?.getRow(3).getCell(2).value).toBe('테스트 브랜드 총합계');
+  expect(summary?.getRow(4).getCell(2).value).toBe('조회기간 총합계');
 });
