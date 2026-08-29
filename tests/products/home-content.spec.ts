@@ -92,7 +92,7 @@ test.describe('홈 쇼핑 카테고리 설정', () => {
     ]);
   });
 
-  test('2026-08-14 HWPX의 홈 문구를 기본 설정에 반영한다', () => {
+  test('2026-08-27 고객 정본의 홈 문구를 기본 설정에 반영한다', () => {
     expect(defaultHomeSettings.hero.descriptionLines).toEqual([
       '좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.',
     ]);

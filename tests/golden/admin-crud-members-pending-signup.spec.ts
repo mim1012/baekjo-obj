@@ -53,7 +53,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
 
     await page.getByLabel('업체를 한 문장으로 소개해주세요. *').fill('E2E 테스트 업체 소개');
     await page.getByLabel('주요 서비스 및 운영 내용을 알려주세요. *').fill('E2E 테스트 서비스');
-    await page.getByLabel('백조 오브제와 함께하고 싶은 이유를 알려주세요. *').fill('E2E 테스트 사유');
+    await page.getByLabel('백조오브제와 함께하고 싶은 이유를 알려주세요. *').fill('E2E 테스트 사유');
 
     await page.getByLabel('사업자등록증 (필수)').check();
 

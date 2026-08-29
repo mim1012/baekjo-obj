@@ -10,6 +10,7 @@ import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
 import { Star, Edit2, Trash2 } from 'lucide-react';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface ReviewsSectionProps {
   orders: Order[];
@@ -132,7 +133,7 @@ export default function ReviewsSection({
                       <div className="flex flex-col justify-center">
                         <div className="mb-1 flex items-center gap-2">
                           <span className="font-editorial text-xs font-semibold text-[#B99562]">{formatDate(data.order.createdAt)}</span>
-                          {product?.brandName && <span className="text-xs text-[#68716C]">{product.brandName}</span>}
+                          {product?.brandName && <span className="text-xs text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>}
                         </div>
                         {canOpenProduct ? (
                           <Link href={`/shop/${data.item.productId}`} className="text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
@@ -183,7 +184,7 @@ export default function ReviewsSection({
                           </div>
                         )}
                         <div className="flex flex-col justify-center">
-                          {product?.brandName && <span className="text-xs text-[#68716C]">{product.brandName}</span>}
+                          {product?.brandName && <span className="text-xs text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>}
                           {canOpenProduct ? (
                             <Link href={`/shop/${review.productId}`} className="text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
                               {product?.name || '알 수 없는 상품'}
