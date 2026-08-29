@@ -30,6 +30,6 @@ test('XLSX export creates an Excel workbook with safe values and product rows', 
   expect(sheet?.getRow(2).getCell(10).value).toBe("'=FORMULA");
   expect(sheet?.getRow(2).getCell(4).value).toBe('상품');
   expect(sheet?.getRow(2).getCell(8).value).toBe(3000);
-  expect(sheet?.getRow(3).getCell(3).value).toBe('테스트 브랜드 합계');
+  expect(sheet?.getRow(3).getCell(3).value).toBe('테스트 브랜드 총합계');
   expect(sheet?.getRow(3).getCell(6).value).toBe(2);
 });
