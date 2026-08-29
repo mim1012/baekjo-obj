@@ -36,7 +36,7 @@ export default async function CareKitLandingPage() {
         <div className="site-container-wide grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-16">
           <PageIntro
             className="lg:col-span-6"
-            eyebrow="Baekjo Care Kit"
+            eyebrow="Baekjo Objet Care Kit"
             title={
               <>
                 가장 도움이 필요한 순간,

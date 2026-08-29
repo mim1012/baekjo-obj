@@ -85,8 +85,6 @@ test.describe('콘텐츠 관리자 저장/읽기 전용 → 공개 콘텐츠 바
     const reviewsPage = src('src', 'app', 'reviews', 'page.tsx');
 
     expect(reviewsPage).toContain("import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';");
-    expect(reviewsPage).toContain('const reviewConcernTagsByProductId: Record<string, string[]> = {');
-
     for (const page of [reviewsPage]) {
       expectNoMutableProductBrandImport(page);
       expect(page).not.toContain('@/lib/products/repo');

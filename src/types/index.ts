@@ -21,7 +21,7 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  petType: 'dog' | 'cat' | 'both';
+  petType: 'dog' | 'cat' | 'small' | 'both';
   ageGroup: string;
   image: string;
   images?: string[];
