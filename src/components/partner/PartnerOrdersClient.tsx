@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { PartnerOrderView } from '@/lib/partners/orderScope';
+import PartnerPasswordNoticeModal from '@/components/partner/PartnerPasswordNoticeModal';
 
 export default function PartnerOrdersClient() {
   const [orders, setOrders] = useState<PartnerOrderView[]>([]);
@@ -14,6 +15,7 @@ export default function PartnerOrdersClient() {
   }, []);
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+      <PartnerPasswordNoticeModal />
       <header className="mb-8">
         <p className="text-sm font-medium text-neutral-500">PARTNER OPERATIONS</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900">내 브랜드 주문</h1>
