@@ -6,9 +6,9 @@ name: CI (drift gate)
 
 on:
   pull_request:
-    branches: [main, "integrate/**"]
+    branches: [main, develop, "integrate/**"]
   push:
-    branches: [main, "integrate/**"]
+    branches: [main, develop, "integrate/**"]
 
 jobs:
   changes:
