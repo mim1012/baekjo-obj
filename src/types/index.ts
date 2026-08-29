@@ -154,7 +154,7 @@ export interface FAQ {
 export interface Review {
   id: string;
   productId: string;
-  petType: 'dog' | 'cat';
+  petType: 'dog' | 'cat' | 'small' | 'other';
   breed: string;
   age: string;
   usePeriod: string;
@@ -401,6 +401,8 @@ export interface User {
   partnerData?: Record<string, unknown>;
   /** 입점업체(partner)가 관리하는 브랜드 ID 목록 */
   managedBrandIds?: string[];
+  /** 운영자가 발급한 초기 비밀번호 사용 중 — 로그인 후 비밀번호 변경을 유도한다(강제 아님) */
+  mustChangePassword?: boolean;
   signupData?: Record<string, unknown>;
 }
 

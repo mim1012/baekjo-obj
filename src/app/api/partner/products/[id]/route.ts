@@ -27,6 +27,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const scoped = await requireBrandScoped(existing.brandId);
   if (!scoped.ok) return scoped.response;
+  if (scoped.requester.role !== 'admin') return NextResponse.json({ error: 'read-only' }, { status: 403 });
 
   let body: unknown;
   try {
@@ -85,6 +86,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
 
   const scoped = await requireBrandScoped(existing.brandId);
   if (!scoped.ok) return scoped.response;
+  if (scoped.requester.role !== 'admin') return NextResponse.json({ error: 'read-only' }, { status: 403 });
 
   try {
     const result = await deleteProductScoped(id, existing.brandId);

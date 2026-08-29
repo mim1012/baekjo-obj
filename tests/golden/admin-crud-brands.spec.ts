@@ -182,7 +182,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     await expect(page.locator('h1')).toContainText(name);
     await expect(page.locator('body')).toContainText(description);
     await expect(page.locator('body')).toContainText(philosophy);
-    await expect(page.locator('body')).toContainText('입점 자료 확인 중');
+    await expect(page.locator('body')).not.toContainText('입점 자료 확인 중');
 
     // 5) 관리자로 돌아와 이름 수정(빠른 수정 모달, "수정" 버튼의 aria-label이 "{name} 빠른 수정").
     await page.goto('/admin/brands');

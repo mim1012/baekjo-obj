@@ -3,15 +3,17 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, ProductReview, Product, Brand, Shipment } from '@/types';
+import { Order, OrderItem, ProductReview, Product, Brand, Shipment } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
 import { buildReviewTargetKey, getPublicBrands } from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
+import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
+import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
-import { PackageSearch, Truck } from 'lucide-react';
+import { ChevronDown, PackageSearch, Truck } from 'lucide-react';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -29,6 +31,10 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
   const [tracking, setTracking] = useState<{ order: Order; bundle: OrderBundle } | null>(null);
+  // '상세보기' — 고객용 개별 주문 상세 페이지가 따로 없어(주문 조회는 이 목록 카드가 전부),
+  // href="#"로 죽어 있던 링크를 배송지·결제수단·금액 요약을 펼쳐 보여주는 토글로 대체한다
+  // (order-complete 페이지의 OrderDetailCard와 같은 정보를 이 카드 안에서 보여주는 최소 침습 방식).
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     getPublicBrands().then(setBrands);
@@ -77,12 +83,25 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     }
   };
 
+  // 서버 파생(derive.ts: deriveOrderDeliveryStatus)과 동일한 "가장 뒤처진 번들이 주문을 대표한다"
+  // 규칙을 그대로 재사용한다. 순수 함수라 클라이언트에서 import해도 안전하다(Supabase 미의존).
+  // 이 규칙상 주문 단위 라벨은 절대 '구매확정'이 되지 않는다 — 확정은 브랜드(번들) 단위 행동이므로
+  // 모든 번들이 배송완료 이상이어도 주문 라벨은 '배송완료'로 상한선이 걸린다.
   const getOrderDeliveryLabel = (order: Order) => {
     const shipments = shipmentsByOrder[order.id] ?? [];
-    if (shipments.some((shipment) => shipment.deliveryStatus === '구매확정' || shipment.confirmedAt)) {
-      return '구매확정';
+    const brandIds = orderBrandIds(order.items);
+    if (brandIds === null) {
+      // 레거시 주문(brandId 없는 아이템 포함) — 브랜드별 파생이 불가능해 주문 자체 필드로 폴백.
+      return order.deliveryStatus || '배송전';
     }
-    return order.deliveryStatus || '배송전';
+    return deriveOrderDeliveryStatus(brandIds, shipments);
+  };
+
+  // 아이템(브랜드) 자신의 송장 상태. brandId가 없는 레거시 아이템은 주문 필드로 폴백한다.
+  const getItemDeliveryLabel = (order: Order, item: OrderItem) => {
+    if (!item.brandId) return order.deliveryStatus || '배송전';
+    const shipment = (shipmentsByOrder[order.id] ?? []).find((s) => s.brandId === item.brandId);
+    return shipment?.deliveryStatus || '배송전';
   };
 
   return (
@@ -109,17 +128,46 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.orderStatus)}`}>
                   {order.orderStatus}
                 </span>
-                <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(order.paymentStatus)}`}>
-                  {order.paymentStatus}
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${customerPaymentStatusStyle(order.paymentStatus) ?? getStatusStyle(order.paymentStatus)}`}>
+                  {customerPaymentStatusLabel(order.paymentStatus)}
                 </span>
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(getOrderDeliveryLabel(order))}`}>
                   {getOrderDeliveryLabel(order)}
                 </span>
-                <Link href="#" className="text-sm font-semibold text-[#18231F] hover:underline">
+                <button
+                  type="button"
+                  onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
+                  aria-expanded={expandedOrderId === order.id}
+                  className="flex items-center gap-1 text-sm font-semibold text-[#18231F] hover:underline"
+                >
                   상세보기
-                </Link>
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`}
+                  />
+                </button>
               </div>
             </div>
+
+            {expandedOrderId === order.id && (
+              <dl className="grid gap-3 border-b border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#68716C]">배송지</dt>
+                  <dd className="max-w-[70%] text-right text-[#18231F]">{order.address}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#68716C]">배송 요청</dt>
+                  <dd className="text-[#18231F]">{order.deliveryMemo || '없음'}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-[#68716C]">결제수단</dt>
+                  <dd className="text-[#18231F]">{order.paymentMethod}</dd>
+                </div>
+                <div className="flex justify-between gap-4 border-t border-[#EBE6DC] pt-3 font-semibold">
+                  <dt className="text-[#18231F]">최종 결제금액</dt>
+                  <dd className="text-[#18231F]">{formatPrice(order.totalPrice + order.deliveryFee)}</dd>
+                </div>
+              </dl>
+            )}
 
             <div className="flex flex-col divide-y divide-[#EBE6DC]">
               {order.items.map((item, idx) => {
@@ -172,8 +220,8 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       </div>
                     </div>
                     <div className="flex flex-row items-center gap-3 sm:flex-col sm:items-end">
-                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(isPurchaseConfirmed ? '구매확정' : order.deliveryStatus)}`}>
-                        {isPurchaseConfirmed ? '구매확정' : order.deliveryStatus}
+                      <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(isPurchaseConfirmed ? '구매확정' : getItemDeliveryLabel(order, item))}`}>
+                        {isPurchaseConfirmed ? '구매확정' : getItemDeliveryLabel(order, item)}
                       </span>
                       {canWriteReview ? (
                         <button

@@ -7,7 +7,7 @@ import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react
 import { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
-import { getSessionUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
+import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
@@ -31,8 +31,8 @@ export default function ProductDetailClient({ product }: Props) {
     if (!mounted) return;
     let active = true;
     const syncWishlist = () => {
-      getWishlist().then(() => {
-        if (active) setWishlisted(isWishlisted(product.id));
+      getWishlist().then((wishlistIds) => {
+        if (active) setWishlisted(wishlistIds.includes(product.id));
       });
     };
     syncWishlist();
@@ -56,11 +56,15 @@ export default function ProductDetailClient({ product }: Props) {
 
   const handleWishlist = async () => {
     if (wishlistBusy) return;
+    const previousWishlisted = wishlisted;
+    const nextWishlisted = !previousWishlisted;
     setWishlistBusy(true);
+    setWishlisted(nextWishlisted);
     try {
       const next = await toggleWishlist(product.id);
       setWishlisted(next);
     } catch (error) {
+      setWishlisted(previousWishlisted);
       if (error instanceof Error && error.message === 'login-required') {
         router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
       }
@@ -185,7 +189,7 @@ export default function ProductDetailClient({ product }: Props) {
           <div className="flex aspect-square w-full items-center justify-center rounded-[18px] border border-[rgba(15,23,42,0.08)] bg-white p-6 md:p-12 shadow-sm overflow-hidden relative group">
             <div className="flex h-full w-[80%] md:w-[72%] flex-col items-center justify-center border border-[rgba(15,23,42,0.04)] bg-[#FBFAF7] text-center shadow-sm rounded-xl group-hover:scale-[1.02] transition-transform duration-500">
               <span className="font-editorial text-5xl md:text-6xl italic text-[#8A918B]">{product.category.slice(0, 1)}</span>
-              <span className="mt-4 md:mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO CURATION</span>
+              <span className="mt-4 md:mt-6 text-[10px] font-semibold tracking-widest text-[#17211D]">BAEKJO OBJET CURATION</span>
               <span className="mt-2 text-[10px] text-[#59615B]">{product.name}</span>
             </div>
           </div>

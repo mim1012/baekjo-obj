@@ -94,7 +94,15 @@ test.describe('Preview workflow fail-closed policy', () => {
     const ci = readWorkflow('ci.yml');
     const dbJob = ci.slice(ci.indexOf('payments-db-spec:'));
 
-    expect(dbJob.match(/TEST_SUPABASE_PROJECT_REF:/g)).toHaveLength(2);
+    expect(dbJob).toContain('Fail closed on mandatory staging DB configuration');
+    expect(dbJob).toContain('STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}');
+    expect(dbJob).toContain('PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}');
+    expect(dbJob).toContain('SUPABASE_URL does not match TEST_SUPABASE_PROJECT_REF');
+    expect(dbJob).toContain('staging DB tests cannot target the production Supabase project');
+    expect(dbJob).not.toContain('STAGING_TEST_REF_GATE');
+    expect(dbJob).not.toContain("if: ${{ env.STAGING_TEST_REF_GATE != '' }}");
+    expect(dbJob.match(/TEST_SUPABASE_PROJECT_REF:/g)).toHaveLength(3);
+    expect(dbJob.match(/SUPABASE_URL: \$\{\{ secrets\.SUPABASE_URL_STAGING \}\}/g)).toHaveLength(3);
     expect(dbJob).not.toContain("github.ref == 'refs/heads/main'");
     expect(ci).toContain('deploy-lane-exception: main push production migration only');
   });

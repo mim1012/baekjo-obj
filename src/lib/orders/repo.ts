@@ -1,6 +1,7 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import { ORDER_STATUSES, type DeliveryFeeBreakdown, type Order, type OrderItem, type OrderStatus } from '@/types';
+import type { AdminOrderDateRange } from '@/lib/orders/adminOrderFilters';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -308,6 +309,19 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
+export async function listOrdersForAdminExport(
+  range: AdminOrderDateRange,
+  limit: number,
+): Promise<OrderRecord[]> {
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (range.createdFromIso) query = query.gte('created_at', range.createdFromIso);
+  if (range.createdToExclusiveIso) query = query.lt('created_at', range.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
 export const ORDER_REFUNDS_LIST_CAP = 5000;
 
 export async function listOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
@@ -524,16 +538,20 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
  */
 export async function getOrderPaymentInfo(
   id: string,
-): Promise<{ paymentStatus: string; paymentKey: string | null } | null> {
+): Promise<{ paymentStatus: string; paymentKey: string | null; deliveryStatus: string | null } | null> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .select('payment_status, payment_key')
+    .select('payment_status, payment_key, delivery_status')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as { payment_status: string; payment_key: string | null };
-  return { paymentStatus: row.payment_status, paymentKey: row.payment_key ?? null };
+  const row = data as { payment_status: string; payment_key: string | null; delivery_status: string | null };
+  return {
+    paymentStatus: row.payment_status,
+    paymentKey: row.payment_key ?? null,
+    deliveryStatus: row.delivery_status ?? null,
+  };
 }
 
 /**

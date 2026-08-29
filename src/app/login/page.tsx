@@ -11,6 +11,7 @@ import { useMounted } from '@/lib/useMounted';
 
 function resolveLoginRedirect(role: User['role'], redirectTo: string | null): string {
   if (role === 'admin') return '/admin';
+  if (role === 'partner') return '/partner/orders';
   if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') && !redirectTo.startsWith('/admin')) {
     return redirectTo;
   }

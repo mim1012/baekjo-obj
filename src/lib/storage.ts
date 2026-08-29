@@ -26,6 +26,8 @@ import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -58,6 +60,14 @@ function clearLegacyWishlistStorage(): void {
 function setWishlistCache(productIds: string[]): string[] {
   wishlistCache = productIds;
   return productIds;
+}
+
+function setCachedWishlistState(productId: string, wishlisted: boolean): string[] {
+  const current = wishlistCache ?? [];
+  const next = wishlisted
+    ? Array.from(new Set([...current, productId]))
+    : current.filter((id) => id !== productId);
+  return setWishlistCache(next);
 }
 
 function clearWishlistCache(): void {
@@ -107,7 +117,7 @@ export async function toggleWishlist(productId: string): Promise<boolean> {
   }
 
   const { wishlisted } = (await response.json()) as { wishlisted: boolean };
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, wishlisted);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return wishlisted;
 }
@@ -127,7 +137,7 @@ export async function removeWishlist(productId: string): Promise<boolean> {
     throw new Error('wishlist-remove-failed');
   }
 
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, false);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return false;
 }
@@ -411,6 +421,12 @@ export async function getAllOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export function adminOrdersExportHref(filters: AdminOrderFilters): string {
+  const params = adminOrderFiltersToSearchParams(filters);
+  const query = params.toString();
+  return `/api/admin/orders/export${query ? `?${query}` : ''}`;
 }
 
 /**
@@ -1456,6 +1472,7 @@ export async function saveOrderPolicyConfig(config: OrderPolicyConfig): Promise<
 }
 
 const USER_KEY = 'baekjo_user';
+let sessionUserRequest: Promise<User | null> | null = null;
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -1463,7 +1480,10 @@ export function getCurrentUser(): User | null {
 
 export function setCurrentUser(user: User | null): void {
   if (typeof window === 'undefined') return;
-  clearWishlistCache();
+  const previousUser = getCurrentUser();
+  if (!user || previousUser?.id !== user.id) {
+    clearWishlistCache();
+  }
   if (user) {
     setJSON(USER_KEY, user);
   } else {
@@ -1472,19 +1492,25 @@ export function setCurrentUser(user: User | null): void {
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  try {
-    const response = await fetch('/api/members/me');
-    if (response.status === 401) {
-      setCurrentUser(null);
-      return null;
-    }
-    if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User };
-    setCurrentUser(user);
-    return user;
-  } catch {
-    return null;
-  }
+  if (sessionUserRequest) return sessionUserRequest;
+
+  sessionUserRequest = fetch('/api/members/me')
+    .then(async (response) => {
+      if (response.status === 401) {
+        setCurrentUser(null);
+        return null;
+      }
+      if (!response.ok) return null;
+      const { user } = (await response.json()) as { user: User };
+      setCurrentUser(user);
+      return user;
+    })
+    .catch(() => null)
+    .finally(() => {
+      sessionUserRequest = null;
+    });
+
+  return sessionUserRequest;
 }
 
 /**

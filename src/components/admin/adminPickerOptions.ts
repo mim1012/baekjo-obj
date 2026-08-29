@@ -1,4 +1,5 @@
 import type { Brand, Product } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { AdminIdPickerOption } from './AdminIdMultiPicker';
 
 /**
@@ -13,7 +14,7 @@ export function buildProductOptions(products: Product[], brands: Brand[]): Admin
     return {
       id: product.id,
       label: product.name,
-      sublabel: `${brandName} · ${product.id}`,
+      sublabel: `${formatBrandDisplayName(brandName)} · ${product.id}`,
       // isVisible 이 명시적으로 false 일 때만 숨김 — 미지정(undefined)은 노출로 본다.
       isHidden: product.isVisible === false,
     };
@@ -24,7 +25,7 @@ export function buildProductOptions(products: Product[], brands: Brand[]): Admin
 export function buildBrandOptions(brands: Brand[]): AdminIdPickerOption[] {
   return brands.map((brand) => ({
     id: brand.id,
-    label: brand.name,
+    label: formatBrandDisplayName(brand.name),
     sublabel: brand.id,
     isHidden: brand.isVisible === false,
   }));
