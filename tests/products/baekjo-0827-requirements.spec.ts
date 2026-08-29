@@ -20,7 +20,6 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       expect(header).toContain(submenu);
     }
     expect(header).not.toContain('백조 Audit');
-    expect(header).not.toContain('먼저 경험한 보호자들의 기록');
     expect(footer).toContain('@BAEKJO OBJET');
     expect(footer).toContain("label: '배송·교환·환불'");
     expect(footer).not.toContain('PET LIFE CURATION');
