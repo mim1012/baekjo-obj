@@ -115,7 +115,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.provider = account.provider;
       } else if (user) {
         token.memberId = user.id;
-        token.role = (user as { role?: 'user' | 'admin' }).role;
+        token.role = (
+          user as { role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner' }
+        ).role;
         token.provider = 'email';
       }
       return token;

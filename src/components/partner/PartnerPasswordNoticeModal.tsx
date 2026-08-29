@@ -44,7 +44,9 @@ export default function PartnerPasswordNoticeModal() {
   const handleChangeNow = () => {
     window.sessionStorage.setItem(DISMISS_KEY, '1');
     setOpen(false);
-    router.push('/mypage#password');
+    // 비밀번호 변경 섹션(id=password)은 마이페이지 '회원정보 수정' 탭 안에만 렌더된다 —
+    // 탭 쿼리 없이 #password 만 주면 개요 탭이 떠서 폼에 도달하지 못한다(스테이징 실구동에서 확인).
+    router.push('/mypage?tab=profile#password');
   };
 
   return (
