@@ -1,13 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import { FEATURES } from '@/config/features';
 
 interface MypageMobileNavProps {
   activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
-export default function MypageMobileNav({ activeTab }: MypageMobileNavProps) {
+export default function MypageMobileNav({ activeTab, onTabChange }: MypageMobileNavProps) {
   const tabs = [
     { id: 'overview', label: '마이페이지' },
     { id: 'orders', label: '주문내역' },
@@ -21,11 +21,14 @@ export default function MypageMobileNav({ activeTab }: MypageMobileNavProps) {
 
   return (
     <div className="sticky top-14 z-20 -mx-5 mb-6 border-b border-[#DED8CC] bg-[#F8F6F0]/95 backdrop-blur-xl px-5 lg:hidden">
-      <nav aria-label="모바일 마이페이지 메뉴" className="hide-scrollbar -mb-px flex gap-6 overflow-x-auto">
+      <nav aria-label="모바일 마이페이지 메뉴" className="hide-scrollbar -mb-px flex gap-6 overflow-x-auto" role="tablist">
         {tabs.map((tab) => (
-          <Link
+          <button
             key={tab.id}
-            href={`/mypage?tab=${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            onClick={() => onTabChange(tab.id)}
             className={`shrink-0 border-b-2 py-4 text-sm font-semibold transition-colors duration-500 ${
               activeTab === tab.id
                 ? 'border-[#18231F] text-[#18231F]'
@@ -33,7 +36,7 @@ export default function MypageMobileNav({ activeTab }: MypageMobileNavProps) {
             }`}
           >
             {tab.label}
-          </Link>
+          </button>
         ))}
       </nav>
     </div>

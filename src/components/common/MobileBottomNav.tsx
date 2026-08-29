@@ -43,6 +43,9 @@ export default function MobileBottomNav() {
               key={item.href}
               href={item.href}
               aria-current={active ? 'page' : undefined}
+              onClick={(event) => {
+                if (active) event.preventDefault();
+              }}
               className={`flex h-full w-full flex-col items-center justify-center gap-1 ${
                 active ? 'text-[#17211D]' : 'text-[#8A918B]'
               }`}
