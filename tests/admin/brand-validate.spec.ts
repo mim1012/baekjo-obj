@@ -13,7 +13,6 @@ function base(over: Record<string, unknown> = {}): Record<string, unknown> {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     ...over,
   };
 }
@@ -35,6 +34,11 @@ test('officialUrl 빈 문자열도 허용된다(폼에서 지우기 가능)', ()
 test('officialUrl 이 500자를 넘으면 거부한다', () => {
   const out = validateBrandFields({ officialUrl: 'h'.repeat(501) }, false);
   expect(out).toBeNull();
+});
+
+test('폐기된 브랜드 등급 필드는 입력돼도 저장 결과에서 제거한다', () => {
+  const out = validateBrandFields({ auditGrade: 'A+' }, false);
+  expect(out).toEqual({});
 });
 
 /* ── sourceUrls (계약만 개방 — 폼 UI는 후속) ── */
@@ -198,7 +202,6 @@ function loadedFormData(over: Partial<Brand> = {}): Partial<Brand> {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     officialUrl: 'https://example.com',
     isRecommended: true,
     isVisible: true,
@@ -235,14 +238,14 @@ test('payload 는 폼이 편집하지 않는 auditReport·멀티셀렉트·sourc
 test('payload 는 화이트리스트 필드만 담는다', () => {
   const payload = buildBrandPayload(loadedFormData());
   const allowed = new Set([
-    'name', 'logo', 'description', 'philosophy', 'auditGrade',
+    'name', 'logo', 'description', 'philosophy',
     'officialUrl', 'isRecommended', 'isVisible', 'isNew', 'displayOrder',
   ]);
   for (const key of Object.keys(payload)) {
     expect(allowed.has(key)).toBe(true);
   }
   expect(payload.name).toBe('지위픽');
-  expect(payload.auditGrade).toBe('A+');
+  expect('auditGrade' in payload).toBe(false);
 });
 
 test('payload: officialUrl 빈 문자열은 그대로 실어 지우기를 지원한다', () => {

@@ -72,7 +72,6 @@ export default function BrandDetailEditor({
   const [logo, setLogo] = useState(initialBrand.logo ?? '');
   const [description, setDescription] = useState(initialBrand.description ?? '');
   const [philosophy, setPhilosophy] = useState(initialBrand.philosophy ?? '');
-  const [auditGrade, setAuditGrade] = useState<Brand['auditGrade']>(initialBrand.auditGrade ?? 'A+');
   const [officialUrl, setOfficialUrl] = useState(initialBrand.officialUrl ?? '');
   const [isRecommended, setIsRecommended] = useState(initialBrand.isRecommended ?? false);
   const [isVisible, setIsVisible] = useState(initialBrand.isVisible !== false);
@@ -140,7 +139,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
         officialUrl,
         isRecommended,
         isVisible,
@@ -170,7 +168,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
         officialUrl,
         isRecommended,
         isVisible,
@@ -257,32 +254,16 @@ export default function BrandDetailEditor({
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="검증 등급" htmlFor="bd-grade">
-                  <select
-                    id="bd-grade"
-                    value={auditGrade ?? 'A+'}
-                    onChange={(e) => setAuditGrade(e.target.value as Brand['auditGrade'])}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="A+">A+ 등급</option>
-                    <option value="A">A 등급</option>
-                    <option value="B+">B+ 등급</option>
-                    <option value="B">B 등급</option>
-                  </select>
-                </FormField>
-
-                <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
-                  <input
-                    id="bd-official"
-                    type="url"
-                    value={officialUrl}
-                    onChange={(e) => setOfficialUrl(e.target.value)}
-                    className={INPUT_CLASS}
-                    placeholder="https://"
-                  />
-                </FormField>
-              </div>
+              <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
+                <input
+                  id="bd-official"
+                  type="url"
+                  value={officialUrl}
+                  onChange={(e) => setOfficialUrl(e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="https://"
+                />
+              </FormField>
             </div>
           </div>
 

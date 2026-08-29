@@ -28,7 +28,6 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     logo: '',
     description: '',
     philosophy: '',
-    auditGrade: 'A+',
     officialUrl: '',
     isRecommended: false,
     isVisible: true,
@@ -141,30 +140,15 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
                   />
                 </FormField>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="검증 등급">
-                    <select
-                      value={formData.auditGrade || 'A+'}
-                      onChange={e => handleChange('auditGrade', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
-                    >
-                      <option value="A+">A+ 등급</option>
-                      <option value="A">A 등급</option>
-                      <option value="B+">B+ 등급</option>
-                      <option value="B">B 등급</option>
-                    </select>
-                  </FormField>
-                  
-                  <FormField label="공식몰 URL">
-                    <input 
-                      type="url" 
-                      value={formData.officialUrl || ''} 
-                      onChange={e => handleChange('officialUrl', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
-                      placeholder="https://"
-                    />
-                  </FormField>
-                </div>
+                <FormField label="공식몰 URL">
+                  <input
+                    type="url"
+                    value={formData.officialUrl || ''}
+                    onChange={e => handleChange('officialUrl', e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
+                    placeholder="https://"
+                  />
+                </FormField>
               </div>
             </div>
 
