@@ -13,6 +13,7 @@ import OrderFilters from './OrderFilters';
 import OrderFunnelTabs, { type FunnelTab } from './OrderFunnelTabs';
 import OrderDataTable from './OrderDataTable';
 import OrderMobileCard from './OrderMobileCard';
+import OrderSalesSummaryPanel from './OrderSalesSummaryPanel';
 import { stageCounts } from './orderFunnel';
 import { DEPOSIT_CONFIRM_UPDATE, type OrderStatusUpdate } from './DepositConfirmButton';
 import { orderUpdateErrorMessage, summarizeBulkFailures } from './orderUpdateErrorMessage';
@@ -22,6 +23,7 @@ import {
   DEFAULT_ADMIN_ORDER_FILTERS,
   type AdminOrderFilters,
 } from '@/lib/orders/adminOrderFilters';
+import { buildAdminOrderReport } from '@/lib/orders/adminOrderReporting';
 
 export default function OrderListPage() {
   const mounted = useMounted();
@@ -102,6 +104,14 @@ export default function OrderListPage() {
   const filteredOrders = useMemo(() => {
     return applyAdminOrderFilters(orders, filters);
   }, [orders, filters]);
+
+  const report = useMemo(() => {
+    return buildAdminOrderReport({
+      orders: filteredOrders,
+      brands: Object.values(brandMap),
+      brandId: filters.brandId,
+    });
+  }, [brandMap, filteredOrders, filters.brandId]);
 
   const exportHref = useMemo(() => adminOrdersExportHref(filters), [filters]);
 
@@ -255,6 +265,8 @@ export default function OrderListPage() {
           onFilterChange={handleFilterChange}
           onSearchChange={handleSearchChange}
         />
+
+        <OrderSalesSummaryPanel overall={report.overall} brands={report.brands} />
 
         {/* 일괄 입금확인 바 — 입금대기 탭에서 1건 이상 선택 시 노출. */}
         {selectable && selectedIds.length > 0 && (

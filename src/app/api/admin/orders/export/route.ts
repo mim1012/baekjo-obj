@@ -40,10 +40,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'export-row-limit-exceeded' }, { status: 413 });
     }
 
-    return new NextResponse(await serializeAdminOrdersXlsx(filteredOrders, brands), {
+    return new NextResponse(
+      await serializeAdminOrdersXlsx({
+        orders: filteredOrders,
+        brands,
+        brandId: parsed.filters.brandId,
+      }),
+      {
       status: 200,
       headers: XLSX_HEADERS,
-    });
+      },
+    );
   } catch (error) {
     logServerError('[GET /api/admin/orders/export] 다운로드 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
