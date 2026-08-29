@@ -436,7 +436,7 @@ export default function InsurancePage() {
                           e.stopPropagation();
                           setOpenConsent(consent);
                         }}
-                        className="text-[13px] text-[#5F6761] underline underline-offset-2 hover:text-[#1A1D1B]"
+                        className="inline-flex min-h-11 shrink-0 items-center px-2 text-[13px] text-[#5F6761] underline underline-offset-2 hover:text-[#1A1D1B]"
                       >
                         전문 보기
                       </button>
@@ -465,7 +465,7 @@ export default function InsurancePage() {
                   <p className="mt-1 text-[13px] text-[#5F6761]">증권과 개인정보는 다음 단계(신청서 제출) 시 안전하게 처리되며, 분석 목적 외에는 사용되지 않습니다.</p>
                 </div>
               </div>
-              <a href="#" className="mt-4 md:mt-0 text-[13px] font-bold text-[#1A1D1B] flex items-center gap-1">
+              <a href="#" className="mt-4 flex min-h-11 items-center gap-1 text-[13px] font-bold text-[#1A1D1B] md:mt-0">
                 개인정보 처리 방침 보기 <ArrowRight className="size-3" />
               </a>
            </div>
