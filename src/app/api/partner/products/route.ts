@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
 
   const scoped = await requireBrandScoped(input.brandId);
   if (!scoped.ok) return scoped.response;
+  if (scoped.requester.role !== 'admin') return NextResponse.json({ error: 'read-only' }, { status: 403 });
 
   try {
     const product = await insertProduct(input);

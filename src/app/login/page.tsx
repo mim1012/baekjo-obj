@@ -11,6 +11,8 @@ import { useMounted } from '@/lib/useMounted';
 
 function resolveLoginRedirect(role: User['role'], redirectTo: string | null): string {
   if (role === 'admin') return '/admin';
+  // 파트너 작업 공간은 /partner/orders 뿐 — 최초 로그인 비밀번호 변경 안내 모달도 거기서 뜬다.
+  if (role === 'partner') return '/partner/orders';
   if (redirectTo && redirectTo.startsWith('/') && !redirectTo.startsWith('//') && !redirectTo.startsWith('/admin')) {
     return redirectTo;
   }
