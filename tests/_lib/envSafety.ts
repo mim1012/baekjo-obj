@@ -12,7 +12,7 @@ const PRODUCTION_HOSTS = [
 ] as const;
 
 const LOOPBACK_HOSTS = ['localhost', '127.0.0.1'] as const;
-const APPROVED_PREVIEW_HOST = /^baekjo-objet-git-[a-z0-9]+(?:-[a-z0-9]+)*\.vercel\.app$/;
+const APPROVED_PREVIEW_HOST = /^baekjo-obj(?:et)?-git-[a-z0-9]+(?:-[a-z0-9]+)*\.vercel\.app$/;
 
 export class UnsafeE2ETargetError extends Error {
   readonly name = 'UnsafeE2ETargetError';
