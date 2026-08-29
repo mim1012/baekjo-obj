@@ -85,7 +85,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('케어키트 프로젝트와 협업 문의 문구가 최신 시안과 일치한다', () => {
     const careKit = read('src/app/landing/care-kit/page.tsx');
     const inquiryForm = read('src/components/care-kit/PartnerInquiryForm.tsx');
-    const migration = read('supabase/migrations/0108_care_kit_project_content.sql');
+    const migration = read('supabase/migrations/0110_care_kit_project_content.sql');
 
     for (const copy of [
       '필요한 순간에 맞는',

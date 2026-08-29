@@ -222,7 +222,7 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(formSource).toContain("'use client'");
     expect(formSource).toMatch(/<form\b/);
     expect(formSource).toContain('onSubmit');
-    expect(formSource).toContain('제휴 문의 제출하기');
+    expect(formSource).toContain('협업·제휴 문의하기');
     expect(formSource).toContain(
       "import { addPartnerInquiry, type CreatePartnerInquiryInput } from '@/lib/storage';",
     );
