@@ -499,20 +499,16 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
  */
 export async function getOrderPaymentInfo(
   id: string,
-): Promise<{ paymentStatus: string; paymentKey: string | null; deliveryStatus: string | null } | null> {
+): Promise<{ paymentStatus: string; paymentKey: string | null } | null> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .select('payment_status, payment_key, delivery_status')
+    .select('payment_status, payment_key')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as { payment_status: string; payment_key: string | null; delivery_status: string | null };
-  return {
-    paymentStatus: row.payment_status,
-    paymentKey: row.payment_key ?? null,
-    deliveryStatus: row.delivery_status ?? null,
-  };
+  const row = data as { payment_status: string; payment_key: string | null };
+  return { paymentStatus: row.payment_status, paymentKey: row.payment_key ?? null };
 }
 
 /**

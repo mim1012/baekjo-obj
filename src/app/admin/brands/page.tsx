@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Plus, Building2, Package, Search, Edit2, Trash2, ExternalLink, SlidersHorizontal } from 'lucide-react';
 import { getAdminBrands, getAdminProducts, deleteBrand, updateBrand } from '@/lib/storage';
 import type { Brand, Product } from '@/types';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
@@ -102,7 +101,7 @@ export default function BrandListPage() {
   const filteredBrands = brands.filter(b => {
     if (!keyword) return true;
     const lower = keyword.toLowerCase();
-    return formatBrandDisplayName(b.name).toLowerCase().includes(lower) ||
+    return b.name.toLowerCase().includes(lower) || 
            (b.description && b.description.toLowerCase().includes(lower));
   });
 
@@ -115,7 +114,7 @@ export default function BrandListPage() {
         <div className="w-12 h-12 bg-white rounded border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
           {b.logo && b.logo !== '/images/icon-product.svg' ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={b.logo} alt={formatBrandDisplayName(b.name)} className="w-full h-full object-contain p-1" />
+            <img src={b.logo} alt={b.name} className="w-full h-full object-contain p-1" />
           ) : (
             <Building2 size={20} className="text-gray-300" />
           )}
@@ -129,7 +128,7 @@ export default function BrandListPage() {
         <div>
           <div className="flex items-center gap-2">
             <span className="font-medium text-[#17201B] hover:underline cursor-pointer" onClick={() => handleEdit(b)}>
-              {formatBrandDisplayName(b.name)}
+              {b.name}
             </span>
             {b.officialUrl && (
               <a href={b.officialUrl} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-blue-500" onClick={e => e.stopPropagation()}>
@@ -199,7 +198,7 @@ export default function BrandListPage() {
             onClick={(e) => e.stopPropagation()}
             className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="상세 편집 (감사 보고서·대표상품 등 전 필드)"
-            aria-label={`${formatBrandDisplayName(b.name)} 상세 편집`}
+            aria-label={`${b.name} 상세 편집`}
           >
             <SlidersHorizontal size={15} />
             상세
@@ -208,7 +207,7 @@ export default function BrandListPage() {
             onClick={(e) => { e.stopPropagation(); handleEdit(b); }}
             className="flex items-center gap-1 px-2 py-1.5 text-[12px] font-medium text-gray-500 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="빠른 수정 (기본 정보)"
-            aria-label={`${formatBrandDisplayName(b.name)} 빠른 수정`}
+            aria-label={`${b.name} 빠른 수정`}
           >
             <Edit2 size={15} />
             수정
@@ -217,7 +216,7 @@ export default function BrandListPage() {
             onClick={(e) => { e.stopPropagation(); handleDelete(b.id); }}
             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
             title="삭제"
-            aria-label={`${formatBrandDisplayName(b.name)} 삭제`}
+            aria-label={`${b.name} 삭제`}
           >
             <Trash2 size={16} />
           </button>

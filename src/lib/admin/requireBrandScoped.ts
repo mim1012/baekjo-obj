@@ -10,18 +10,6 @@ export type RequireBrandScopedResult =
   | { ok: true; requester: MemberRecord }
   | { ok: false; response: NextResponse };
 
-export async function requirePartnerOrAdmin(): Promise<RequireBrandScopedResult> {
-  const session = await auth();
-  if (!session?.user) {
-    return { ok: false, response: NextResponse.json({ error: 'unauthorized' }, { status: 401 }) };
-  }
-  const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-  if (!requester || requester.status !== 'active' || !['admin', 'partner'].includes(requester.role)) {
-    return { ok: false, response: NextResponse.json({ error: 'forbidden' }, { status: 403 }) };
-  }
-  return { ok: true, requester };
-}
-
 export async function requireBrandScoped(brandId: string): Promise<RequireBrandScopedResult> {
   const session = await auth();
   if (!session?.user) {

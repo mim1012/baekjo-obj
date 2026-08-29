@@ -15,7 +15,6 @@ import {
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
 import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const MAX_SOURCE_URLS = 20;
 
@@ -201,7 +200,7 @@ export default function BrandDetailEditor({
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
-        title={`${formatBrandDisplayName(initialBrand.name)} · 상세 편집`}
+        title={`${initialBrand.name} · 상세 편집`}
         description="감사 보고서·대표상품·연관 고민 등 전 필드를 편집합니다. 빠른 편집은 목록의 수정 아이콘(모달)을 이용하세요."
       >
         <button

@@ -10,7 +10,6 @@ import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
-import { FREE_SHIPPING_THRESHOLD, calcDeliveryFee } from '@/lib/orderPolicy';
 
 export default function CartPage() {
   const mounted = useMounted();
@@ -73,11 +72,6 @@ export default function CartPage() {
     const optionPrice = option?.priceDiff ?? option?.price ?? 0;
     const price = basePrice + optionPrice;
     const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
-    // 상품 상세 페이지와 동일한 재고 판단 기준(ProductDetailClient.tsx: isSellable = hasPrice && stock > 0).
-    // stock 정보가 없는 상품(product 자체가 안 실린 경우)은 아래 filter(item.product)에서 이미 걸러진다.
-    const stock = product?.stock ?? null;
-    const isSoldOut = stock !== null && stock <= 0;
-    const isOverStock = stock !== null && stock > 0 && item.quantity > stock;
 
     return {
       ...item,
@@ -87,9 +81,6 @@ export default function CartPage() {
       price,
       totalPrice: hasPrice ? price * item.quantity : 0,
       brandName,
-      stock,
-      isSoldOut,
-      isOverStock,
     };
   }).filter(item => item.product);
 
@@ -97,7 +88,7 @@ export default function CartPage() {
   const unpricedItems = enrichedItems.filter(item => !item.hasPrice);
 
   const totalProductsPrice = pricedItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = calcDeliveryFee(totalProductsPrice);
+  const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
   const finalPrice = totalProductsPrice + deliveryFee;
   const checkoutHref = isLoggedIn() ? '/checkout' : '/login?redirect=/checkout';
 
@@ -147,42 +138,30 @@ export default function CartPage() {
                         {item.option && (
                           <div className="mt-1 break-keep text-[13px] leading-[1.6] text-gray-600 md:text-sm">옵션: {item.option.name}</div>
                         )}
-                        {item.isSoldOut ? (
-                          <div className="mt-1 text-[13px] font-semibold text-[#A65348] md:text-sm">품절된 상품입니다</div>
-                        ) : item.isOverStock ? (
-                          <div className="mt-1 text-[13px] font-semibold text-[#A65348] md:text-sm">재고 부족 (재고 {item.stock}개)</div>
-                        ) : null}
                       </div>
                       <button onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
-
+                    
                       <div className="flex items-end justify-between mt-3 sm:mt-4">
-                        {/* Quantity Control — stock 정보가 있는 상품은 상세 페이지(ProductDetailClient.tsx)와
-                            동일하게 + 버튼을 재고 수량에서 클램프한다. stock을 모르면(null) 기존처럼 무제한 허용. */}
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center rounded-lg border border-gray-200 bg-white">
-                            <button
-                              onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity - 1)}
-                              className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="flex h-10 w-8 sm:h-8 sm:w-10 items-center justify-center text-[14px] sm:text-sm font-bold text-gray-900">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleUpdateQuantity(item.productId, item.optionId, Math.min(item.quantity + 1, item.stock ?? Infinity))}
-                              disabled={item.stock !== null && item.quantity >= item.stock}
-                              className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-500"
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </div>
-                          {item.stock !== null && item.quantity >= item.stock && !item.isSoldOut && (
-                            <span className="text-[11px] text-[#A65348]">최대 재고 수량입니다</span>
-                          )}
+                        {/* Quantity Control */}
+                        <div className="flex items-center rounded-lg border border-gray-200 bg-white">
+                          <button 
+                            onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity - 1)}
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="flex h-10 w-8 sm:h-8 sm:w-10 items-center justify-center text-[14px] sm:text-sm font-bold text-gray-900">
+                            {item.quantity}
+                          </span>
+                          <button 
+                            onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity + 1)}
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
                         </div>
                         <div className="font-bold text-[15px] sm:text-base text-[#2F3B34]">
                           {item.hasPrice ? formatPrice(item.totalPrice) : <span className="text-[#A65348] text-[13px] sm:text-sm">가격 확인 필요</span>}
@@ -209,7 +188,7 @@ export default function CartPage() {
                   </div>
                   {deliveryFee > 0 && (
                     <div className="text-xs text-[#68776C] text-right">
-                      {formatPrice(FREE_SHIPPING_THRESHOLD - totalProductsPrice)} 추가 주문 시 무료배송
+                      {formatPrice(50000 - totalProductsPrice)} 추가 주문 시 무료배송
                     </div>
                   )}
                 </div>

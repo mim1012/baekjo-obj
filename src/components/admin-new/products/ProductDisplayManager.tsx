@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { GripVertical, Eye, EyeOff, Search } from 'lucide-react';
 import type { Product, Brand } from '@/types';
 import { updateProduct } from '@/lib/storage';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SaveBar from '@/components/admin-new/common/SaveBar';
@@ -99,7 +98,7 @@ export default function ProductDisplayManager({ initialProducts, brands }: Produ
   const hasChanges = Object.keys(pendingUpdates).length > 0;
 
   const renderProductItem = (p: Product, isAdding: boolean) => {
-    const brandName = formatBrandDisplayName(brands.find(b => b.id === p.brandId)?.name || '');
+    const brandName = brands.find(b => b.id === p.brandId)?.name || '';
     
     return (
       <div key={p.id} className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-md shadow-sm hover:border-gray-300 transition-colors">

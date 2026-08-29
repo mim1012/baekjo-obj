@@ -11,7 +11,6 @@ import { ArrowRight, Leaf, ShieldCheck, Box, ThumbsUp, Recycle } from 'lucide-re
 import Image from 'next/image';
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 
 interface Props {
   brands: Brand[];
@@ -25,7 +24,7 @@ const selectionStandards = [
   { icon: Box, title: 'VALUE', description: '제품 하나에도 브랜드의 철학과 진심을 담는 브랜드' },
   { icon: ShieldCheck, title: 'PRINCIPLE', description: '제품이 만들어지는 과정에서도 타협하지 않는 브랜드' },
   { icon: ThumbsUp, title: 'SAFETY', description: '안심하고 선택할 수 있는 안전성을 갖춘 브랜드' },
-  { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지키는 브랜드' },
+  { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지켜가는 브랜드' },
 ];
 
 const filterLabels: Record<string, string> = {
@@ -34,18 +33,9 @@ const filterLabels: Record<string, string> = {
   new: '새로 만난 브랜드',
 };
 
-function getCustomBrandDetails(brand: Brand) {
-  const presentation = getBrandPresentation(brand);
-  return {
-    finalName: formatBrandDisplayName(brand.name),
-    finalDescription: presentation.cardDescription,
-  };
-}
-
 function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
-  const sort = searchParams.get('sort') === 'az' ? 'az' : 'default';
   const { categorySettings } = useCategorySettings();
   const [pagination, setPagination] = useState({ filter: 'all', visibleCount: PAGE_SIZE });
 
@@ -60,15 +50,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
     if (filter === 'recommended') return brand.isRecommended;
     if (filter === 'new') return brand.isNew;
     return true;
-  }).sort((a, b) => (sort === 'az' ? a.name.localeCompare(b.name, 'ko') : 0));
-
-  const makeHref = (nextFilter: string, nextSort = sort) => {
-    const next = new URLSearchParams();
-    if (nextFilter !== 'all') next.set('filter', nextFilter);
-    if (nextSort === 'az') next.set('sort', 'az');
-    const query = next.toString();
-    return query ? `/brands?${query}` : '/brands';
-  };
+  });
 
   const displayedBrands = filteredBrands.slice(0, visibleCount);
   const hasMore = visibleCount < filteredBrands.length;
@@ -95,7 +77,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   }, [spotlightBrandsList.length, isSpotlightHovered]);
 
   const spotlightBrand = spotlightBrandsList[spotlightIndex];
-  const spotlightCustomDetails = spotlightBrand ? getCustomBrandDetails(spotlightBrand) : null;
 
   const handleLoadMore = () => {
     setPagination({ filter, visibleCount: visibleCount + PAGE_SIZE });
@@ -105,35 +86,31 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   return (
     <main className="brand-page bg-[#FFFEFB] pb-16 md:pb-24">
       {/* 1. 브랜드관 히어로 */}
-      <section data-testid="brands-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
-        <Image
-          src="/images/brands-hero-cat-architectural.png"
-          alt="햇살이 드는 공간에 앉아 있는 고양이"
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[72%_center] md:object-center"
-          data-testid="brands-hero-image"
-        />
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.82)_0%,rgba(249,246,239,0.64)_54%,rgba(249,246,239,0.08)_76%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.68)_0%,rgba(249,246,239,0.34)_44%,rgba(249,246,239,0)_64%)]"
-        />
-
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
-          <div className="flex w-full max-w-[540px] flex-col items-start md:w-[52%] md:min-w-[430px]">
-            <span className="mb-3 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A4E1D] md:mb-4 lg:text-[12px]">BRAND CURATION</span>
-            <h1 className="break-keep text-[30px] font-bold leading-[1.2] tracking-[-0.035em] text-[#17231E] md:text-[34px] lg:text-[44px] lg:leading-[1.18]">
+      <section className="bg-[#F7F4ED] pt-12 pb-14 md:pt-[64px] md:pb-[56px]">
+        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col md:flex-row items-center gap-12 md:gap-16">
+          {/* Left Text */}
+          <div className="flex-1 w-full md:w-[44%] max-w-[540px]">
+            <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] uppercase mb-3 md:mb-4">BRAND CURATION</span>
+            <h1 className="text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.25] tracking-tight text-[#17231E] break-keep">
               우리 아이를 생각한다면,<br className="hidden md:block" />
               좋은 선택이 필요합니다.
             </h1>
-            <p className="mt-4 max-w-[500px] break-keep text-[14px] leading-[1.7] text-[#59615B] md:mt-5 md:text-[15px] lg:mt-6 lg:text-[16px]">
+            <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[500px] text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F] break-keep">
               우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.
             </p>
-            <div className="mt-5 flex items-baseline gap-2 md:mt-6 lg:mt-7">
-              <span className="text-[18px] font-bold text-[#17251F] lg:text-[20px]">{brands.length}곳</span>
-              <span className="text-[12px] font-medium text-[#59615B]">검증 브랜드 수</span>
+
+            {/* Stats — 검증 브랜드 수만 간결하게 (등록 상품 수·케어 카테고리는 클라이언트 요청으로 제거) */}
+            <div className="mt-6 lg:mt-7 flex items-baseline gap-2">
+              <span className="text-[18px] lg:text-[20px] font-bold text-[#17251F]">{brands.length}곳</span>
+              <span className="text-[12px] font-medium text-[#6F756F]">검증 브랜드 수</span>
             </div>
+          </div>
+
+          {/* Right Visual */}
+          <div className="flex-1 w-full md:w-[56%] relative">
+             <div className="relative w-full aspect-[4/3] max-h-[410px] rounded-[24px] overflow-hidden bg-[#F2EDE4]">
+                <Image src="/images/brand-curation-hero.webp" alt="Premium Pet Lifestyle" fill className="object-cover object-right" sizes="(max-width: 768px) 100vw, 56vw" priority />
+             </div>
           </div>
         </div>
       </section>
@@ -187,11 +164,11 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <span className="text-[12px] font-semibold text-[#B48A4A] mb-4">스포트라이트 브랜드</span>
                     <div className="flex flex-col gap-1 mb-5">
                       <h3 className="text-[24px] md:text-[28px] font-bold text-[#17251F] tracking-tight flex items-center gap-2">
-                        {spotlightCustomDetails?.finalName || spotlightBrand.name} 
+                        {spotlightBrand.name}
                       </h3>
                     </div>
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
-                      {spotlightCustomDetails?.finalDescription || spotlightBrand.description}
+                      {spotlightBrand.description}
                     </p>
                     <Link href={`/brands/${spotlightBrand.slug}`} className="mt-auto self-start inline-flex items-center justify-center h-[42px] md:h-[46px] px-6 bg-[#17382D] text-white text-[13px] md:text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F]">
                       브랜드 자세히 보기 <ArrowRight className="ml-2 w-4 h-4" />
@@ -225,7 +202,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                 return (
                   <Link
                     key={tab.id}
-                    href={makeHref(tab.id)}
+                    href={tab.id === 'all' ? '/brands' : `/brands?filter=${tab.id}`}
                     scroll={false}
                     aria-current={active ? 'page' : undefined}
                     className={`flex h-[38px] md:h-[42px] items-center rounded-full px-[18px] text-[13px] md:text-[14px] font-semibold transition-colors duration-300 ${
@@ -241,15 +218,9 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
               })}
             </nav>
           </div>
-          <Link
-            href={makeHref(filter, sort === 'az' ? 'default' : 'az')}
-            scroll={false}
-            aria-pressed={sort === 'az'}
-            className="hidden md:flex items-center rounded-full px-3 py-2 text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F7F4ED]"
-          >
-            {sort === 'az' ? '기본순' : '브랜드 A-Z'}
-            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-          </Link>
+          <div className="hidden md:flex items-center text-[13px] font-semibold text-[#17251F] cursor-pointer">
+            브랜드 A-Z <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+          </div>
         </div>
       </section>
 
@@ -257,7 +228,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
       <section className="mb-16 md:mb-[72px]">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
           {displayedBrands.length > 0 ? (
-            <div data-testid="brand-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayedBrands.map((brand) => (
                 <BrandCard key={brand.id} brand={brand} variant="brand-page" />
               ))}
@@ -302,7 +273,10 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                  <span className="inline-block xl:whitespace-nowrap">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다.</span><br className="hidden lg:block" />
                  <span className="inline-block mt-1 lg:mt-0">신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</span>
                </p>
-               <Link href="/landing/care-kit" className="mt-5 inline-flex h-[46px] self-center items-center justify-center whitespace-nowrap rounded-md bg-[#17382D] px-6 text-[14px] font-semibold text-white transition-colors hover:bg-[#10291F] md:self-start">
+             </div>
+             {/* Right CTA */}
+             <div className="w-full md:w-auto flex justify-center md:justify-end px-6 md:pr-10 pb-8 md:pb-0">
+               <Link href="/landing/care-kit" className="inline-flex items-center justify-center h-[46px] px-6 bg-[#17382D] text-white text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F] whitespace-nowrap">
                  파트너십 문의하기 <ArrowRight className="ml-2 w-4 h-4" />
                </Link>
              </div>

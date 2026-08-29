@@ -210,8 +210,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     const shopCard = page.locator('article', { hasText: name }).first();
     await expect(shopCard).toBeVisible({ timeout: 15_000 });
     await expect(shopCard).toContainText('BEST'); // isBest 뱃지(shop-card:86-90)
-    await expect(shopCard).not.toContainText('SELECTED');
-    await expect(page.locator('section', { hasText: 'DAILY PICK' })).toContainText(name);
+    await expect(shopCard).toContainText('SELECTED'); // isRecommended 뱃지(:91-95)
     await expect(shopCard).toContainText('후기'); // reviewCount(:160)
     if (brandNameText) await expect(shopCard).toContainText(brandNameText); // brandName(:45,134)
     const detailHref = await page.getByRole('link', { name: `${name} 상세 보기` }).first().getAttribute('href');
@@ -383,7 +382,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   //    이미지 없는 상품은 레거시 시드 데이터로만 존재 → 카드/상세 placeholder 렌더는 코드 분기
   //    (ProductCard.tsx:124 "상품 이미지 준비 중", ProductDetailClient.tsx:148-156)로만 커버되며
   //    이 스펙 범위 밖(폼 경계). 나머지 빈 상태(재고0·옵션無·detailBlocks無)는 폼으로 재현·검증한다.
-  test('빈 상태 변형 — 재고0 구매 비활성·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
+  test('빈 상태 변형 — 재고0 품절 뱃지·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
     assertNotProd();
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(page);
@@ -403,12 +402,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
 
-    // 카드: 재고0 → 고객 요청에 따라 "잠시 품절" 문구 없이 구매만 비활성화한다.
+    // 카드: 재고0 → "잠시 품절" 뱃지(shop-card stock 계약), 리터럴 undefined 없음.
     await page.goto(`/shop?search=${encodeURIComponent(emptyName)}`);
     const card = page.locator('article', { hasText: emptyName }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card).not.toContainText('잠시 품절');
-    await expect(card.getByRole('button', { name: /구매 불가/ })).toBeDisabled();
+    await expect(card).toContainText('잠시 품절'); // ProductCard.tsx:70,96-100
     await expect(card).not.toContainText('undefined');
     const emptyDetailHref = await page.getByRole('link', { name: `${emptyName} 상세 보기` }).first().getAttribute('href');
     expect(emptyDetailHref).toMatch(/^\/shop\/.+/);

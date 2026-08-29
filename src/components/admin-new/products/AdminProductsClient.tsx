@@ -12,7 +12,6 @@ import Badge from '@/components/admin-new/common/Badge';
 import { formatPrice } from '@/lib/format';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import type { Product, Brand } from '@/types';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface AdminProductsClientProps {
   initialProducts: Product[];
@@ -89,8 +88,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
       key: 'name',
       header: '상품명 / 분류',
       render: (p: Product) => {
-        const rawBrandName = brands.find(b => b.id === p.brandId)?.name;
-        const brandName = rawBrandName ? formatBrandDisplayName(rawBrandName) : '브랜드 없음';
+        const brandName = brands.find(b => b.id === p.brandId)?.name || '브랜드 없음';
         return (
           <div>
             <div className="font-medium text-[#17201B] hover:underline cursor-pointer" onClick={() => handleEdit(p.id)}>

@@ -686,17 +686,7 @@ export async function updateOrderShipment(
     },
   );
   if (!response.ok) {
-    // 서버가 준 구체 코드(shipment-confirmed/invalid-input/invalid-brand/not-found 등)를 Error
-    // 메시지에 실어 호출부(shipmentUpdateErrorMessage)가 409/400/기타를 구분해 안내할 수 있게 한다
-    // (updateOrderStatus와 같은 패턴). body 파싱 실패 시 기존 일반 코드로 폴백한다.
-    let code = 'shipment-update-failed';
-    try {
-      const body = (await response.json()) as { error?: unknown };
-      if (typeof body?.error === 'string' && body.error) code = body.error;
-    } catch {
-      /* 본문 없음/비JSON — 일반 코드 유지 */
-    }
-    throw new Error(code);
+    throw new Error('shipment-update-failed');
   }
 }
 
@@ -1489,7 +1479,7 @@ export async function getSessionUser(): Promise<User | null> {
       return null;
     }
     if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User | null };
+    const { user } = (await response.json()) as { user: User };
     setCurrentUser(user);
     return user;
   } catch {
@@ -1549,8 +1539,7 @@ export async function login(
   try {
     const response = await fetch('/api/members/me');
     if (!response.ok) return { error: 'network' };
-    const { user } = (await response.json()) as { user: User | null };
-    if (!user) return { error: 'network' };
+    const { user } = (await response.json()) as { user: User };
     setCurrentUser(user);
     return { user };
   } catch {
@@ -1857,18 +1846,11 @@ export async function confirmEmailVerification(
   }
 }
 
-export async function logout(): Promise<void> {
+export function logout(): void {
   setCurrentUser(null);
   // 소셜(Auth.js 쿠키) 세션도 함께 정리. 동적 import 로 storage.ts 의 모든
-  // 사용처가 next-auth 에 정적 의존하지 않도록 처리한다. signOut 은 await 해야
-  // 세션 쿠키 만료 요청(POST /api/auth/signout)이 끝난 뒤 이동·reload 가
-  // 실행되므로, 호출부는 반환된 Promise 를 반드시 기다렸다가 이동한다.
-  try {
-    const m = await import('next-auth/react');
-    await m.signOut({ redirect: false });
-  } catch {
-    return;
-  }
+  // 사용처가 next-auth 에 정적 의존하지 않도록 fire-and-forget 처리.
+  import('next-auth/react').then((m) => m.signOut({ redirect: false })).catch(() => {});
 }
 
 export function isLoggedIn(): boolean {

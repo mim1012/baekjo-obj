@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabase } from '@/lib/supabase/server';
 import { logServerError } from '@/lib/logServerError';
-import { checkAuthRateLimit, requestRateLimitKey } from '@/lib/security/authRateLimit';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 // 멀티파트 오버헤드(바운더리·헤더 등) 감안한 요청 자체의 상한 — 실제 파일 상한(10MB)보다 여유를 둔다.
@@ -59,11 +58,6 @@ function detectContentType(buffer: Buffer): AllowedContentType | null {
  * 크기·형식·category 값을 서버에서 검증하고, private 버킷(signup-docs)에만 저장한다.
  */
 export async function POST(request: NextRequest) {
-  // 스토리지 쓰기 비용이 크므로 바디를 읽기 전에 먼저 rate limit부터 확인한다.
-  if (!checkAuthRateLimit('business-upload', requestRateLimitKey(request))) {
-    return NextResponse.json({ error: 'too-many-requests' }, { status: 429 });
-  }
-
   // 바디를 파싱하기 전에 Content-Length로 먼저 걸러 대용량 요청이 메모리를 잡아먹지 않게 한다.
   const contentLength = Number(request.headers.get('content-length'));
   if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_SIZE) {

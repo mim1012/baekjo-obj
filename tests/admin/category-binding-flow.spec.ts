@@ -158,8 +158,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(shopContent).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(shopContent).toContain('const { categorySettings } = useCategorySettings();');
-    expect(shopContent).toContain('getDataBackedShopCategoryOptions(');
-    expect(shopContent).toContain('product.categorySlug ?? product.category');
+    expect(shopContent).toContain('categorySettings.productCategories.map(toShopCategoryOption)');
     expect(shopContent).not.toContain('shopCategoryFilters');
     expectNoCategoryBypass(shopContent);
 
