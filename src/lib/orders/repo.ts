@@ -1,6 +1,6 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { ORDER_STATUSES, type Order, type OrderItem, type OrderStatus } from '@/types';
+import { ORDER_STATUSES, type DeliveryFeeBreakdown, type Order, type OrderItem, type OrderStatus } from '@/types';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -33,6 +33,7 @@ interface OrderRow {
   items: unknown;
   total_price: number;
   delivery_fee: number;
+  delivery_fee_breakdown: unknown;
   payment_method: string;
   order_status: string;
   payment_status: string;
@@ -50,12 +51,33 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
   if (Array.isArray(raw)) return raw as OrderItem[];
   return [];
+}
+
+function parseDeliveryFeeBreakdown(raw: unknown): DeliveryFeeBreakdown[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((item): item is DeliveryFeeBreakdown => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
+    const row = item as Record<string, unknown>;
+    return (
+      typeof row.brandId === 'string' &&
+      typeof row.subtotal === 'number' &&
+      Number.isSafeInteger(row.subtotal) &&
+      typeof row.shippingFee === 'number' &&
+      Number.isSafeInteger(row.shippingFee) &&
+      typeof row.appliedDeliveryFee === 'number' &&
+      Number.isSafeInteger(row.appliedDeliveryFee) &&
+      typeof row.isFreeShipping === 'boolean' &&
+      (row.brandName === undefined || typeof row.brandName === 'string') &&
+      (row.freeShippingThreshold === undefined ||
+        (typeof row.freeShippingThreshold === 'number' && Number.isSafeInteger(row.freeShippingThreshold)))
+    );
+  });
 }
 
 function rowToRecord(row: OrderRow): OrderRecord {
@@ -68,6 +90,7 @@ function rowToRecord(row: OrderRow): OrderRecord {
     items: parseItems(row.items),
     totalPrice: row.total_price,
     deliveryFee: row.delivery_fee,
+    deliveryFeeBreakdown: parseDeliveryFeeBreakdown(row.delivery_fee_breakdown),
     paymentMethod: row.payment_method,
     orderStatus: normalizeOrderStatus(row.order_status),
     paymentStatus: row.payment_status,
@@ -177,6 +200,7 @@ export type InsertOrderInput = Pick<
   | 'items'
   | 'totalPrice'
   | 'deliveryFee'
+  | 'deliveryFeeBreakdown'
   | 'paymentMethod'
   | 'orderStatus'
   | 'paymentStatus'
@@ -200,6 +224,7 @@ export async function insertOrder(
       items: input.items,
       total_price: input.totalPrice,
       delivery_fee: input.deliveryFee,
+      delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
       payment_method: input.paymentMethod,
       order_status: input.orderStatus,
       payment_status: input.paymentStatus,

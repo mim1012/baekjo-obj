@@ -189,6 +189,16 @@ export async function listBrands(visibleOnly = true): Promise<Brand[]> {
   return (data as BrandRow[]).map(rowToBrand);
 }
 
+export async function listBrandsByIds(ids: readonly string[]): Promise<Brand[]> {
+  if (ids.length === 0) return [];
+  const { data, error } = await getSupabase()
+    .from('brands')
+    .select(SELECT_COLUMNS)
+    .in('id', Array.from(new Set(ids)));
+  if (error) throw error;
+  return (data as BrandRow[]).map(rowToBrand);
+}
+
 /** 공개 경로는 includeHidden 없이 호출해 비노출(is_visible: false) 브랜드가 단건 URL로도
  *  새 나가지 않게 한다. 관리자 수정 폼처럼 비노출 브랜드도 봐야 하는 곳만 includeHidden: true. */
 export async function getBrandById(id: string, opts: { includeHidden?: boolean } = {}): Promise<Brand | null> {

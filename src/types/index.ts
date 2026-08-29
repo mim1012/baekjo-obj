@@ -235,6 +235,7 @@ export interface Order {
   items: OrderItem[];
   totalPrice: number;
   deliveryFee: number;
+  deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
   paymentMethod: string;
   orderStatus: OrderStatus;
   paymentStatus: string;
@@ -250,6 +251,16 @@ export interface Order {
   reclaimAttempts?: number;
   /** 마지막 reconcile 재시도 실패 사유(진단용). 기계만 갱신. */
   reclaimError?: string;
+}
+
+export interface DeliveryFeeBreakdown {
+  brandId: string;
+  brandName?: string;
+  subtotal: number;
+  shippingFee: number;
+  appliedDeliveryFee: number;
+  isFreeShipping: boolean;
+  freeShippingThreshold?: number;
 }
 
 export interface OrderItem {
