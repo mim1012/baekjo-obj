@@ -74,14 +74,14 @@ const PUBLIC_PAGES: Array<{
     fullPage: false,
     mask: (page) => [
       // 가격 영역: ProductCard.tsx의 가격 <p>는 formatPrice()가 '원'을 붙여 렌더한다(src/lib/format.ts).
-      // 추천 상품 섹션(page 1 상단, "에디터 추천 상품")과 메인 그리드(.shop-product-grid) 양쪽 모두 렌더.
+      // 추천 상품 섹션(page 1 상단, "DAILY PICK")과 메인 그리드(.shop-product-grid) 양쪽 모두 렌더.
       page.locator('.shop-product-grid p', { hasText: '원' }),
-      page.locator('section', { hasText: '에디터 추천 상품' }).locator('p', { hasText: '원' }),
-      // 품절/재고 배지: ProductCard.tsx availabilityLabel = '판매 준비 중' | '잠시 품절'.
-      page.locator('.shop-product-grid').getByText(/판매 준비 중|잠시 품절/),
-      page.locator('section', { hasText: '에디터 추천 상품' }).getByText(/판매 준비 중|잠시 품절/),
+      page.locator('section', { hasText: 'DAILY PICK' }).locator('p', { hasText: '원' }),
+      // 가격이 없는 상품만 "판매 준비 중"을 표시한다. 재고0 문구는 0827 요청으로 제거했다.
+      page.locator('.shop-product-grid').getByText('판매 준비 중'),
+      page.locator('section', { hasText: 'DAILY PICK' }).getByText('판매 준비 중'),
       page.locator('.shop-product-grid article'),
-      page.locator('section', { hasText: '에디터 추천 상품' }).locator('article'),
+      page.locator('section', { hasText: 'DAILY PICK' }).locator('article'),
       // 상단 "전체 상품 N개" 카운트: ShopContent.tsx #shop-toolbar 안의 {totalItems} 숫자 span.
       page.locator('#shop-toolbar').locator('span').filter({ hasText: /^\d+$/ }),
       page.locator('iframe'),

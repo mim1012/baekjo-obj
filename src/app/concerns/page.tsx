@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { ArrowRight, Search, Home, PlusSquare, ChevronDown, MessageCircle } from 'lucide-react';
+import { ArrowRight, ChevronDown, MessageCircle } from 'lucide-react';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { MainConcernCard, SubConcernCard } from '@/components/common/ConcernCard';
 
@@ -14,8 +14,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function ConcernsPage() {
   const { items: concerns } = await getConcernsConfigWithFallback();
-  const mainConcerns = concerns.slice(0, 8);
-  const subConcerns = concerns.slice(8, 12);
+  const mainConcerns = concerns.slice(0, 6);
+  const subConcerns = concerns.slice(6, 12);
 
   // 고민 핵심 6개(눈물·피부·관절·비만·스트레스·구강) 정리로 nutrition·grooming 이 삭제될 예정이라
   // 매거진 카드도 함께 교체한다(2026-07-18, 데이터 삭제는 이 PR 병합 후 별도 진행). 이미지는 새로
@@ -38,46 +38,53 @@ export default async function ConcernsPage() {
 
   return (
     <main className="flex flex-col bg-[#F8F6F0] w-full">
-      <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 pt-10 md:pt-[40px] pb-16 md:pb-[56px] lg:pb-[72px]">
+      {/* 2. 케어 가이드 인트로 — 홈과 같은 전체 배경형 히어로 */}
+      <section className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
+        <Image
+          src="/images/care-guide-hero-pet-family.png"
+          alt="보호자와 함께 생활하는 강아지와 고양이"
+          fill
+          sizes="100vw"
+          quality={90}
+          priority
+          className="object-cover object-[52%_center] md:object-center"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.92)_0%,rgba(248,246,240,0.74)_38%,rgba(248,246,240,0.18)_70%,rgba(248,246,240,0)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.94)_0%,rgba(248,246,240,0.78)_31%,rgba(248,246,240,0.28)_55%,rgba(248,246,240,0)_76%)]"
+        />
 
-        {/* 2. 케어 가이드 인트로 */}
-        <section className="flex flex-col-reverse md:flex-row md:items-center justify-between gap-[48px] lg:gap-[64px] h-auto md:h-[320px] lg:h-[380px] mb-[42px] md:mb-[52px]">
-          <div className="w-full md:w-[45%] lg:w-[40%] flex flex-col items-start justify-center">
-            <span className="text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#B68B4E] mb-3 md:mb-4">
+        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+          <div className="flex w-full max-w-[540px] flex-col items-start md:w-[52%] md:min-w-[440px]">
+            <span className="mb-3 text-[11px] font-bold tracking-[0.12em] text-[#7A4E1D] md:mb-4 lg:text-[12px]">
               CARE GUIDE
             </span>
-            <h1 className="break-keep text-[30px] sm:text-[34px] lg:text-[44px] font-bold leading-[1.18] tracking-[-0.035em] text-[#17231E] max-w-[500px]">
+            <h1 className="max-w-[520px] break-keep text-[30px] font-bold leading-[1.2] tracking-[-0.035em] text-[#17231E] md:text-[34px] lg:text-[44px] lg:leading-[1.18]">
               요즘, 우리 아이에게<br />
               어떤 변화가 보이나요?
             </h1>
-            <p className="mt-5 md:mt-[20px] lg:mt-[24px] max-w-[480px] break-keep text-[15px] lg:text-[16px] leading-[1.7] text-[#72766F]">
-              가장 마음에 걸리는 건강 고민부터 골라보세요.<br className="hidden sm:block" />
-              함께 살피고, 신호와 생활 관리 기준을 정리했어요.
+            <p className="mt-4 max-w-[480px] break-keep text-[14px] leading-[1.7] text-[#59615B] md:mt-5 md:text-[15px] lg:mt-6 lg:text-[16px]">
+              우리 아이가 보내는 작은 신호부터 살펴보세요.<br className="hidden sm:block" />
+              일상에서 알아두면 좋은 케어 기준을 정리했습니다.
             </p>
             {/* 클라이언트 요청(2026-07-24) — 'NN CARE' 인덱스는 작게 표기 */}
-            <div className="mt-8 md:mt-10">
-              <span className="text-[10px] md:text-[11px] font-semibold tracking-[0.1em] text-[#72766F]">
+            <div className="mt-7 md:mt-9">
+              <span className="text-[10px] font-semibold tracking-[0.1em] text-[#59615B] md:text-[11px]">
                 INDEX
               </span>
               <div className="mt-0.5">
-                <span className="text-[12px] md:text-[13px] font-semibold tracking-widest text-[#B68B4E]">
-                  {String(concerns.length).padStart(2, '0')} CARE
+                <span className="text-[12px] font-semibold tracking-widest text-[#7A4E1D] md:text-[13px]">
+                  {String(mainConcerns.length).padStart(2, '0')} CARE
                 </span>
               </div>
             </div>
           </div>
-          <div className="w-full md:w-[55%] lg:w-[60%] h-[240px] md:h-full relative overflow-hidden rounded-xl md:rounded-[20px]">
-            <Image
-              src="/images/care-guide-hero-cat.webp"
-              alt="반려묘 케어 가이드 인트로"
-              fill
-              className="object-cover object-[center_30%]"
-              priority
-            />
-          </div>
-        </section>
+        </div>
+      </section>
 
-        {/* 3. 주요 고민 카드 8개 */}
+      <div className="mx-auto w-full max-w-[1280px] px-5 pb-16 pt-[42px] md:px-7 md:pb-[56px] md:pt-[52px] lg:px-10 lg:pb-[72px] xl:px-12">
+
+        {/* 3. 주요 고민 카드 6개 */}
         <section className="mb-[40px] md:mb-[52px]">
           <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
             {mainConcerns.map((concern, index) => (
@@ -88,39 +95,6 @@ export default async function ConcernsPage() {
                 />
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* 4. 핵심 정보 요약 바 */}
-        <section className="mb-[56px] md:mb-[72px]">
-          <div className="flex flex-col md:flex-row w-full bg-white rounded-[20px] border border-[#E4DDD1] overflow-hidden">
-            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
-              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
-                <Search className="size-5 text-[#17231E]" strokeWidth={1.5} />
-              </div>
-              <div className="flex flex-col">
-                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">01 주요 원인 확인</h3>
-                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">식사·환경·생활 습관 등 주요 원인을 함께 살펴봅니다.</p>
-              </div>
-            </div>
-            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px] border-b md:border-b-0 md:border-r border-[#E4DDD1]">
-              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
-                <Home className="size-5 text-[#17231E]" strokeWidth={1.5} />
-              </div>
-              <div className="flex flex-col">
-                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">02 집에서 관리하기</h3>
-                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">매일 실천할 수 있는 생활 관리 방법을 안내합니다.</p>
-              </div>
-            </div>
-            <div className="flex-1 flex items-center gap-5 p-[22px] md:p-[28px]">
-              <div className="flex shrink-0 size-[42px] md:size-[46px] items-center justify-center rounded-full border border-[#D7CCBC]">
-                <PlusSquare className="size-5 text-[#17231E]" strokeWidth={1.5} />
-              </div>
-              <div className="flex flex-col">
-                <h3 className="text-[15px] md:text-[17px] font-bold text-[#17231E] mb-1">03 병원 방문 기준</h3>
-                <p className="text-[13px] md:text-[14px] text-[#72766F] break-keep leading-[1.5]">진료가 필요한 신호와 병원 방문 기준을 정리했습니다.</p>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -215,7 +189,7 @@ export default async function ConcernsPage() {
               <div key={concern.slug} className="w-[85vw] sm:w-[320px] md:w-auto shrink-0 snap-start">
                 <SubConcernCard
                   concern={concern}
-                  index={String(index + 9).padStart(2, '0')}
+                  index={String(index + 7).padStart(2, '0')}
                 />
               </div>
             ))}

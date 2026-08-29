@@ -207,11 +207,11 @@ export default function B2BPage() {
         <div className="site-container-wide flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
             <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">Start a partnership</p>
-            <h2 className="mt-3 text-[26px] font-bold leading-[1.25] text-[#FBFAF7] sm:text-[32px]">필요한 순간과 목적을 들려주세요.</h2>
-            <p className="mt-4 break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">담당자가 내용을 확인한 뒤 영업일 기준으로 순차 연락드립니다.</p>
+            <h2 className="mt-3 text-[26px] font-bold leading-[1.25] text-[#FBFAF7] sm:text-[32px]">기준이 같다면, 함께 만들어갑니다.</h2>
+            <p className="mt-4 max-w-3xl break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">모든 프로젝트는 백조 오브제 Audit을 거친 입점 브랜드에 한해 진행합니다. 신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</p>
           </div>
           <div className="grid w-full gap-3 sm:flex sm:w-auto">
-            <EditorialActionLink href="/landing/care-kit#partner" variant="inverse">B2B 문의 남기기</EditorialActionLink>
+            <EditorialActionLink href="/landing/care-kit#partner" variant="inverse">파트너십 문의하기</EditorialActionLink>
             <EditorialActionLink href="/signup" variant="inverse-outline">파트너 회원가입</EditorialActionLink>
           </div>
         </div>
