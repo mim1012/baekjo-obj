@@ -154,7 +154,7 @@ export interface FAQ {
 export interface Review {
   id: string;
   productId: string;
-  petType: 'dog' | 'cat';
+  petType: 'dog' | 'cat' | 'small' | 'other';
   breed: string;
   age: string;
   usePeriod: string;

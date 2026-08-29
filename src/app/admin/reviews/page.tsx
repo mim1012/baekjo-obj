@@ -9,11 +9,13 @@ import type { Review } from '@/types';
 
 type ReviewsTab = 'showcase' | 'purchase';
 
-const PET_TYPE_VALUES = ['dog', 'cat'] as const;
+const PET_TYPE_VALUES = ['dog', 'cat', 'small', 'other'] as const;
 
 const PET_TYPE_LABELS: Record<(typeof PET_TYPE_VALUES)[number], string> = {
   dog: '강아지',
   cat: '고양이',
+  small: '소동물',
+  other: '기타',
 };
 
 function asText(value: unknown): string {
@@ -238,11 +240,15 @@ function ShowcaseReviewsTab() {
         { key: 'productId', label: '상품 ID(p1 형식)' },
         {
           key: 'petType',
-          label: '반려동물',
+          label: '반려동물 종류 (필수)',
           type: 'select',
-          options: PET_TYPE_VALUES.map((value) => ({ value, label: PET_TYPE_LABELS[value] })),
+          required: true,
+          options: [
+            { value: '', label: '종류를 선택해 주세요' },
+            ...PET_TYPE_VALUES.map((value) => ({ value, label: PET_TYPE_LABELS[value] })),
+          ],
         },
-        { key: 'breed', label: '견종/묘종' },
+        { key: 'breed', label: '품종' },
         { key: 'age', label: '나이' },
         { key: 'usePeriod', label: '사용 기간' },
         { key: 'rating', label: '별점(1~5)', type: 'number' },

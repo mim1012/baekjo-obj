@@ -39,13 +39,13 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const mainNav = page.getByRole('navigation', { name: '주요 메뉴' });
     const navText = await mainNav.innerText();
     let navCursor = -1;
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조 오브제', 'B2B']) {
+    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
       const next = navText.indexOf(label, navCursor + 1);
       expect(next, `${label} 메뉴 순서`).toBeGreaterThan(navCursor);
       navCursor = next;
     }
     await expect(page.getByRole('heading', { name: '좋은 브랜드를 찾고 계셨나요?' })).toBeVisible();
-    await expect(page.getByText('좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.')).toBeVisible();
+    await expect(page.getByText('좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.')).toBeVisible();
     await expect(page.getByText('백조오브제 Audit을 통과한 브랜드만 소개합니다.')).toBeVisible();
     await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
     const auditHero = page.getByTestId('home-audit-hero');
@@ -177,7 +177,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.getByRole('button', { name: '메뉴 열기' }).click();
     const mobileNav = page.getByRole('navigation', { name: '전체 메뉴' });
     await expect(mobileNav).toBeVisible();
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조 오브제', 'B2B']) {
+    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
       await expect(mobileNav.getByText(label, { exact: true }).first()).toBeVisible();
     }
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-menu.png') });
