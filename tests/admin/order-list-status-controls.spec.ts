@@ -36,13 +36,14 @@ test.describe('주문 목록 상태 UX (퍼널 개편)', () => {
   test('목록 페이지는 진행 단계 탭 + 일괄 입금확인을 제공한다', () => {
     const listPage = src('src', 'components', 'admin-new', 'orders', 'OrderListPage.tsx');
 
-    expect(listPage).toContain("import { getAllOrders, updateOrderStatus, getAdminBrands } from '@/lib/storage'");
+    expect(listPage).toContain('adminOrdersExportHref');
     expect(listPage).toContain('<OrderFunnelTabs');
+    expect(listPage).toContain('applyAdminOrderFilters');
     // 일괄 입금확인: 같은 입금확인 경로(updateOrderStatus)를 순차 호출.
     expect(listPage).toContain('handleBulkDepositConfirm');
     expect(listPage).toContain('await updateOrderStatus(id, DEPOSIT_CONFIRM_UPDATE);');
     // 발송대기 탭에서는 선택(일괄)을 끈다.
-    expect(listPage).toContain("const selectable = activeTab === '입금대기';");
+    expect(listPage).toContain("const selectable = filters.funnelTab === '입금대기';");
     // 발송 성공 시 주문 재조회.
     expect(listPage).toContain('onShipped={loadOrders}');
   });
