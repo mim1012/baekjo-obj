@@ -11,6 +11,7 @@ import { createOrder, cancelReservation, getPublicBrands, getPublicProducts, get
 import { Brand, CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
+import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
@@ -122,6 +123,7 @@ function CheckoutForm() {
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
+  const hasRepetMadeToOrderItem = cartItems.some((item) => isRepetMadeToOrderProduct(item.product.brandId));
   const isCardPayment = formData.paymentMethod === '카드결제';
   const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFeeCalculation = calcBrandDeliveryFee(
@@ -336,6 +338,8 @@ function CheckoutForm() {
     <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
       <div className="site-container">
         <h1 className="text-xl md:text-2xl font-bold text-[#202521] mb-5 md:mb-8">주문/결제</h1>
+
+        {hasRepetMadeToOrderItem && <RepetMadeToOrderNotice className="mb-5 md:mb-8" />}
 
         <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Form Fields */}

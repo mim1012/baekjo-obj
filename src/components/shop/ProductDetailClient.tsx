@@ -11,6 +11,7 @@ import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/l
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
+import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 
 interface Props {
   product: Product;
@@ -115,6 +116,7 @@ export default function ProductDetailClient({ product }: Props) {
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
   const pointsRateLabel = getProductPointsRateLabel(product);
+  const isRepetMadeToOrder = isRepetMadeToOrderProduct(product.brandId);
 
   const handleAddToCart = () => {
     if (!hasPrice) {
@@ -246,6 +248,8 @@ export default function ProductDetailClient({ product }: Props) {
             </div>
           )}
         </div>
+
+        {isRepetMadeToOrder && <RepetMadeToOrderNotice className="mt-8" />}
 
         {/* Options */}
         {product.options && product.options.length > 0 && (
