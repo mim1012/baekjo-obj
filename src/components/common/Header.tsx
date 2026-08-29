@@ -20,7 +20,7 @@ import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 
-type NavLinkDef = { label: string; href: string; description?: string; feature?: keyof typeof FEATURES };
+type NavLinkDef = { label: string; href: string; feature?: keyof typeof FEATURES };
 
 const ALL_MAIN_LINKS: NavLinkDef[] = [
   { label: '브랜드', href: '/brands' },
@@ -38,10 +38,10 @@ const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
 const ALL_STORY_LINKS: NavLinkDef[] = [
-  { label: '백조오브제 Audit의 검토 기준', description: '브랜드를 살펴보는 네 가지 확인 기준', href: '/audit' },
-  { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts', feature: 'experts' },
+  { label: '백조오브제 Audit의 검토 기준', href: '/audit' },
+  { label: '전문가 칼럼', href: '/experts', feature: 'experts' },
   { label: '보호자 후기', href: '/reviews' },
-  { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
+  { label: '소식', href: '/notices' },
 ];
 
 const STORY_LINKS = ALL_STORY_LINKS.filter(
@@ -197,9 +197,6 @@ export default function Header() {
                   className="block rounded-2xl px-4 py-3 transition-colors duration-500 hover:bg-[#FAF8F3]"
                 >
                   <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                  {link.description && (
-                    <span className="mt-1 block text-xs leading-5 text-[#59615B]">{link.description}</span>
-                  )}
                 </Link>
               ))}
             </div>
@@ -331,9 +328,6 @@ export default function Header() {
                 {STORY_LINKS.map((link) => (
                   <Link key={link.href} href={link.href} onClick={closeMenu} className="flex min-h-11 flex-col justify-center">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                    {link.description && (
-                      <span className="mt-0.5 block text-xs text-[#59615B]">{link.description}</span>
-                    )}
                   </Link>
                 ))}
               </div>
