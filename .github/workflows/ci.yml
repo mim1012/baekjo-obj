@@ -1,14 +1,13 @@
 name: CI (drift gate)
 
-# 모든 PR과 main push에서 자동 실행됩니다.
 # 어떤 IDE(Antigravity / Claude Code / Codex)로 짰든 GitHub에서 동일하게 걸립니다.
 # typecheck / build / lint 중 하나라도 실패하면 머지가 막혀 drift가 프로덕션에 새지 않습니다.
 
 on:
   pull_request:
-    branches: [main, develop, "integrate/**"]
+    branches: [main]
   push:
-    branches: [main, develop, "integrate/**"]
+    branches: [main]
 
 jobs:
   changes:
@@ -98,7 +97,7 @@ jobs:
           if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == "refs/heads/main" ]]; then
             full_regression=true
           fi
-          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" && "$HEAD_REF" == "develop" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
             full_regression=true
           fi
           echo "full_regression=${full_regression}" >> "$GITHUB_OUTPUT"
@@ -249,12 +248,10 @@ jobs:
         with:
           node-version: 22
 
-      # 환경 체계(2026-07-12): main push → prod DB, 그 외(integrate/**) push → staging DB.
-      # Vercel 도 동일 매핑: main=Production(prod DB) / Preview=staging DB.
       - name: Apply migrations (미적용만) + 검증
         run: node scripts/apply-migrations.mjs
         env:
-          SUPABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.SUPABASE_URL || secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   # 결제 상태기계 DB 스펙(tests/payments/state-machine.db.spec.ts) — staging 전용, prod는 절대 사용하지 않는다.
