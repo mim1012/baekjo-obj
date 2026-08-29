@@ -1,6 +1,7 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import { ORDER_STATUSES, type DeliveryFeeBreakdown, type Order, type OrderItem, type OrderStatus } from '@/types';
+import type { AdminOrderDateRange } from '@/lib/orders/adminOrderFilters';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -304,6 +305,19 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
     .select(SELECT_COLUMNS)
     .order('created_at', { ascending: false })
     .limit(ORDERS_LIST_CAP);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
+export async function listOrdersForAdminExport(
+  range: AdminOrderDateRange,
+  limit: number,
+): Promise<OrderRecord[]> {
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (range.createdFromIso) query = query.gte('created_at', range.createdFromIso);
+  if (range.createdToExclusiveIso) query = query.lt('created_at', range.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
 }

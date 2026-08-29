@@ -26,6 +26,8 @@ import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -419,6 +421,12 @@ export async function getAllOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export function adminOrdersExportHref(filters: AdminOrderFilters): string {
+  const params = adminOrderFiltersToSearchParams(filters);
+  const query = params.toString();
+  return `/api/admin/orders/export${query ? `?${query}` : ''}`;
 }
 
 /**
