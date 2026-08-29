@@ -37,7 +37,7 @@ const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
 const ALL_STORY_LINKS: NavLinkDef[] = [
-  { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
+  { label: '백조오브제 Audit의 검토 기준', description: '브랜드를 살펴보는 네 가지 확인 기준', href: '/audit' },
   { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts', feature: 'experts' },
   { label: '보호자 후기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
   { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
@@ -140,14 +140,14 @@ export default function Header() {
           <div className="group relative flex h-full items-center">
             <button
               type="button"
-              aria-label="백조 오브제 메뉴"
+              aria-label="백조오브제 메뉴"
               className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
                 storyActive
                   ? 'border-[#A8742E]'
                   : 'border-transparent'
               }`}
             >
-              백조 오브제
+              백조오브제
               <ChevronDown className="size-3.5 transition-transform duration-500 group-hover:rotate-180 group-focus-within:rotate-180" />
             </button>
             <div className="absolute right-0 top-full z-40 hidden w-80 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white p-3 shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
@@ -158,7 +158,9 @@ export default function Header() {
                   className="block rounded-2xl px-4 py-3 transition-colors duration-500 hover:bg-[#FAF8F3]"
                 >
                   <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#59615B]">{link.description}</span>
+                  {link.description && (
+                    <span className="mt-1 block text-xs leading-5 text-[#59615B]">{link.description}</span>
+                  )}
                 </Link>
               ))}
             </div>
@@ -273,16 +275,18 @@ export default function Header() {
             ))}
 
             <MobileAccordion
-              title="백조 오브제"
+              title="백조오브제"
               open={mobilePanel === 'story'}
               active={storyActive}
               onToggle={() => setMobilePanel((panel) => (panel === 'story' ? null : 'story'))}
             >
               <div className="space-y-3">
                 {STORY_LINKS.map((link) => (
-                  <Link key={link.href} href={link.href} onClick={closeMenu} className="block">
+                  <Link key={link.href} href={link.href} onClick={closeMenu} className="flex min-h-11 flex-col justify-center">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                    <span className="mt-0.5 block text-xs text-[#59615B]">{link.description}</span>
+                    {link.description && (
+                      <span className="mt-0.5 block text-xs text-[#59615B]">{link.description}</span>
+                    )}
                   </Link>
                 ))}
               </div>

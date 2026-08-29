@@ -94,7 +94,7 @@ test.describe('홈 쇼핑 카테고리 설정', () => {
 
   test('2026-08-27 고객 정본의 홈 문구를 기본 설정에 반영한다', () => {
     expect(defaultHomeSettings.hero.descriptionLines).toEqual([
-      '좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.',
+      '좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.',
     ]);
     expect(defaultHomeSettings.hero.trustNote).toBe('백조오브제 Audit을 통과한 브랜드만 소개합니다.');
     expect(defaultHomeSettings.curation.title).toBe('우리 아이 고민에 맞는 케어 가이드');

@@ -219,7 +219,7 @@ export async function upsertSocialMember(input: UpsertSocialMemberInput): Promis
     .from('members')
     .insert({
       email: fallbackEmail,
-      name: input.name ?? '백조회원',
+      name: input.name ?? '백조오브제 회원',
       phone: '',
       provider: input.provider,
       provider_id: input.providerId,

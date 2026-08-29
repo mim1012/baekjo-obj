@@ -290,7 +290,7 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
               </div>
-              <Link href="/reviews" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
+              <Link href="/reviews" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
@@ -310,7 +310,7 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
               </div>
-              <Link href="/notices" className="flex shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
+              <Link href="/notices" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>

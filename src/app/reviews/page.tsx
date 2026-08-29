@@ -1,25 +1,16 @@
+import Link from 'next/link';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import ReviewCard from '@/components/common/ReviewCard';
 import EmptyState from '@/components/common/EmptyState';
-import { Image as ImageIcon, MessageCircle, Star } from 'lucide-react';
+import { Image as ImageIcon, Star } from 'lucide-react';
 
 export const metadata = {
-  title: '구매후기 | 백조오브제',
+  title: '보호자 후기',
   description: '백조오브제를 경험한 반려가족들의 진솔한 후기를 만나보세요.',
 };
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
-
-// 후기 콘텐츠는 showcase_reviews_config 가 정본이다. 상품 DB readback 없이 review metadata 로 필터링한다.
-const reviewConcernTagsByProductId: Record<string, string[]> = {
-  p1: ['picky'],
-  p2: ['picky'],
-  p3: ['picky'],
-  p6: ['skin'],
-  p8: ['tear'],
-  p11: ['skin'],
-};
 
 export default async function ReviewsPage({
   searchParams,
@@ -32,7 +23,7 @@ export default async function ReviewsPage({
   const filteredReviews = reviews.filter((review) => {
     if (filter === 'photo') return review.isPhotoReview;
     if (filter === 'all') return true;
-    return reviewConcernTagsByProductId[review.productId]?.includes(filter) ?? false;
+    return review.petType === filter;
   });
   const avgRating = reviews.length > 0
     ? (reviews.reduce((acc, cur) => acc + cur.rating, 0) / reviews.length).toFixed(1)
@@ -44,13 +35,8 @@ export default async function ReviewsPage({
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-editorial text-[13px] italic text-[#A8742E]">Voices from the home</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] md:text-[42px]">반려가족의 리얼 후기</h1>
-            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제와 함께한 우리 아이들의 이야기를 확인하세요.</p>
-          </div>
-          <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
-            <MessageCircle className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
-            실제 구매 후기를 모았습니다
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">REAL EXPERIENCES</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] md:text-[42px]">보호자 후기</h1>
           </div>
         </div>
 
@@ -73,20 +59,19 @@ export default async function ReviewsPage({
         </div>
         
         {/* 필터 */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1" aria-label="후기 필터">
+        <div className="hide-scrollbar mb-6 flex snap-x snap-mandatory scroll-px-1 gap-2 overflow-x-auto pb-1" aria-label="후기 필터">
           {[
             ['all', '전체'],
             ['photo', '사진 후기'],
-            ['tear', '눈물'],
-            ['skin', '피부'],
-            ['joint', '관절'],
-            ['picky', '편식'],
-            ['senior', '노령'],
+            ['dog', '강아지'],
+            ['cat', '고양이'],
+            ['small', '소동물'],
+            ['other', '기타'],
           ].map(([id, label]) => (
             <Link
               key={id}
               href={id === 'all' ? '/reviews' : `/reviews?filter=${id}`}
-              className={`flex h-9 shrink-0 items-center rounded-md border px-4 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 ${filter === id ? 'border-[#17211D] bg-[#17211D] text-[#FBFAF7]' : 'border-[#D8D6CE] bg-white text-[#59615B] hover:border-[#A8742E] hover:bg-[#F3EEE6] hover:text-[#17211D]'}`}
+              className={`flex h-11 shrink-0 snap-start items-center rounded-md border px-4 text-[13px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 ${filter === id ? 'border-[#17211D] bg-[#17211D] text-[#FBFAF7]' : 'border-[#D8D6CE] bg-white text-[#59615B] hover:border-[#A8742E] hover:bg-[#F3EEE6] hover:text-[#17211D]'}`}
             >
               {label}
             </Link>
@@ -110,4 +95,3 @@ export default async function ReviewsPage({
     </div>
   );
 }
-import Link from 'next/link';
