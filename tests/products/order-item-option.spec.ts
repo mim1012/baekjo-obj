@@ -70,16 +70,32 @@ test('카탈로그에 없는 optionId는 항목을 거부한다 (위조·구식 
   expect(result.ok).toBe(false);
 });
 
-test('optionId가 없으면 기본가만 쓰고 optionName을 저장하지 않는다', () => {
+test('옵션 상품에서 optionId를 생략하면 가격·재고 우회를 막기 위해 거부한다', () => {
   const result = resolveOrderItem(
     { productId: 'p-opt', quantity: 1 },
     productWithOptions(),
   );
+  expect(result.ok).toBe(false);
+});
+
+test('옵션 없는 상품은 optionId 없이 기본가로 주문할 수 있다', () => {
+  const product = { ...productWithOptions(), options: undefined };
+  const result = resolveOrderItem({ productId: 'p-opt', quantity: 1 }, product);
   expect(result.ok).toBe(true);
   if (!result.ok) return;
   expect(result.item.price).toBe(BASE_PRICE);
-  expect(result.item.optionName).toBeUndefined();
-  expect(result.item.optionId).toBeUndefined();
+});
+
+test('품절 옵션과 옵션 재고를 초과한 수량은 거부한다', () => {
+  const product = productWithOptions();
+  product.options = [
+    { id: 'sold-out', name: '품절', price: 0, stock: 0 },
+    { id: 'only-two', name: '2개 한정', price: 0, stock: 2 },
+  ];
+
+  expect(resolveOrderItem({ productId: 'p-opt', quantity: 1, optionId: 'sold-out' }, product).ok).toBe(false);
+  expect(resolveOrderItem({ productId: 'p-opt', quantity: 3, optionId: 'only-two' }, product).ok).toBe(false);
+  expect(resolveOrderItem({ productId: 'p-opt', quantity: 2, optionId: 'only-two' }, product).ok).toBe(true);
 });
 
 test('가격 미확정(price: null) 상품은 거부한다', () => {

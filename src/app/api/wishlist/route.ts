@@ -23,7 +23,10 @@ function parseProductId(body: WishlistBody): string | null {
 export async function GET() {
   const session = await auth();
   if (!session?.user?.memberId) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE_HEADERS });
+    // 공개 상품 카드가 첫 렌더에서 찜 상태를 동기화한다. 익명 사용자의 읽기는 자연스러운
+    // 빈 목록이므로 200으로 돌려 브라우저 콘솔·Network에 불필요한 401을 만들지 않는다.
+    // 쓰기(POST/DELETE)는 아래 requireActiveMember 가 계속 401로 차단한다.
+    return NextResponse.json({ productIds: [] }, { status: 200, headers: NO_STORE_HEADERS });
   }
 
   try {

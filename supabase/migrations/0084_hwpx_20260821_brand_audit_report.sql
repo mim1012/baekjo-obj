@@ -1,3 +1,5 @@
+-- 0084_hwpx_20260821_brand_audit_report.sql
+
 -- 왜: HWPX 지시서 2026-08-21의 "Audit 자세히 보기" 요구 반영. 노블독(b3)·알로밍(b5)의
 -- 장문 감사 리포트(백조오브제 AUDIT PDF: BOA-2026-001/002)를 brand.detail.auditReport 로 주입한다.
 -- auditReport 가 채워지면 /brands/[slug] 상세 페이지의 <BrandAuditReport> 패널이 자동으로 렌더되고

@@ -1,3 +1,5 @@
+-- 0082_hwpx_20260814_ui_content_sync.sql
+
 insert into public.site_settings (id, value)
 values ('home', '{}'::jsonb)
 on conflict (id) do nothing;

@@ -1,3 +1,5 @@
+-- 0085_hwpx_20260821_brand_category_label.sql
+
 -- 왜: HWPX 지시서의 브랜드별 "카테고리" 값 요구를 상세 요약바 라벨 override로 반영한다.
 -- detail.summaryCategoryLabel 이 채워지면 /brands/[slug] 상세 페이지의 카테고리 요약바
 -- 굵은 라벨이 상품 카테고리 집계 대신 이 값을 우선 노출한다(src/app/brands/[id]/page.tsx).

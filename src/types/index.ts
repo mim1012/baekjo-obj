@@ -21,7 +21,7 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  petType: 'dog' | 'cat' | 'both';
+  petType: 'dog' | 'cat' | 'small' | 'both';
   ageGroup: string;
   image: string;
   images?: string[];
@@ -154,7 +154,7 @@ export interface FAQ {
 export interface Review {
   id: string;
   productId: string;
-  petType: 'dog' | 'cat';
+  petType: 'dog' | 'cat' | 'small' | 'other';
   breed: string;
   age: string;
   usePeriod: string;

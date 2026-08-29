@@ -30,8 +30,9 @@ test.describe('필드 표면 데이터 바인딩 계약', () => {
     ]);
 
     expect(cartPage).toContain('Promise.all([getPublicProductsOrNull(), getPublicBrands()])');
+    expect(cartPage).toContain('const brandName = formatBrandDisplayName(');
     expect(cartPage).toContain(
-      "const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;",
+      "product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId || '',",
     );
     expect(cartPage).toContain('{item.brandName}</div>');
     expect(cartPage).toContain('{item.product?.name}');

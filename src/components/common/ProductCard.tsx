@@ -9,6 +9,8 @@ import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
 import { getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
+import { getFirstAvailableOption, getPurchasableStock } from '@/lib/products/inventory';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -44,9 +46,11 @@ export default function ProductCard({
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
-  const brandName = product.brandName ?? product.brandId;
+  const brandName = formatBrandDisplayName(product.brandName ?? product.brandId);
   const hasPrice = product.price !== null && product.price !== undefined;
-  const isSellable = hasPrice && product.stock > 0;
+  const defaultOption = getFirstAvailableOption(product);
+  const availableStock = getPurchasableStock(product, defaultOption?.id);
+  const isSellable = hasPrice && availableStock > 0;
   const isShopCard = variant === 'shop';
   const isHomeCard = variant === 'home';
   const isBrandDetailHorizontal = variant === 'brand-detail-horizontal';
@@ -90,14 +94,14 @@ export default function ProductCard({
     if (!isSellable) return;
     addToCart({
       productId: product.id,
-      optionId: product.options?.[0]?.id,
+      optionId: defaultOption?.id,
       quantity: 1,
-    });
+    }, availableStock);
     setCartMessage('장바구니에 담았어요.');
     window.setTimeout(() => setCartMessage(''), 1800);
   };
 
-  const availabilityLabel = !hasPrice ? '판매 준비 중' : product.stock <= 0 ? '잠시 품절' : null;
+  const availabilityLabel = !hasPrice ? '판매 준비 중' : null;
 
   return (
     <article className={`group relative flex h-full min-w-0 flex-col overflow-hidden transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 ${isHomeCard ? 'rounded-[16px] border border-[#E7E2D9] bg-white hover:border-[#173C32] shadow-none' : 'rounded-[18px] border border-[#E3DCCF] bg-[#FFFEFB] hover:border-[#CFC3B1] hover:shadow-[0_8px_24px_rgba(23,37,31,0.05)]'}`}>
@@ -120,11 +124,6 @@ export default function ProductCard({
           {product.isBest && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
               BEST
-            </span>
-          )}
-          {product.isRecommended && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#F3EEE6] px-1.5 py-1 text-[9px] font-bold leading-none text-[#17211D] md:px-2.5 md:text-[11px]">
-              SELECTED
             </span>
           )}
           {availabilityLabel && (
@@ -191,12 +190,14 @@ export default function ProductCard({
               )}
             </div>
 
-            <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
-              <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
-              <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
-              <span className="mx-1.5">·</span>
-              <span className="tabular-nums">후기 {product.reviewCount}</span>
-            </div>
+            {product.reviewCount > 0 && (
+              <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
+                <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
+                <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
+                <span className="mx-1.5">·</span>
+                <span className="tabular-nums">후기 {product.reviewCount}</span>
+              </div>
+            )}
 
             {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>

@@ -5,7 +5,7 @@
 // 깨질 수 있다.
 import type { Review } from '@/types';
 
-export const REVIEW_PET_TYPES = ['dog', 'cat'] as const;
+export const REVIEW_PET_TYPES = ['dog', 'cat', 'small', 'other'] as const;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;

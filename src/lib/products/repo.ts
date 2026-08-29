@@ -7,7 +7,7 @@ import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitP
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
-const PET_TYPES = new Set(['dog', 'cat', 'both']);
+const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
 
 /** DB pet_type 은 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 'both'로 정규화해
  *  admin select/필터가 조용히 깨지지 않게 한다. */

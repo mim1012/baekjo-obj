@@ -48,15 +48,21 @@ export function getCart(): CartItem[] {
 
 export const getCartItems = getCart;
 
-export function addToCart(item: CartItem): CartItem[] {
+export function addToCart(item: CartItem, maxQuantity?: number): CartItem[] {
   const cart = getCart();
   const idx = cart.findIndex(
     (c) => c.productId === item.productId && c.optionId === item.optionId
   );
   if (idx >= 0) {
     cart[idx].quantity += item.quantity;
+    if (maxQuantity !== undefined) {
+      cart[idx].quantity = Math.min(cart[idx].quantity, Math.max(1, maxQuantity));
+    }
   } else {
-    cart.push(item);
+    cart.push({
+      ...item,
+      quantity: maxQuantity === undefined ? item.quantity : Math.min(item.quantity, Math.max(1, maxQuantity)),
+    });
   }
   localStorage.setItem(CART_KEY, JSON.stringify(cart));
   window.dispatchEvent(new Event('cart-updated'));

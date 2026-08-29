@@ -192,14 +192,18 @@ export async function POST(request: NextRequest) {
 
     try {
       await decrementStockForOrder(
-        validated.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+        validated.items.map((it) => ({
+          productId: it.productId,
+          optionId: it.optionId,
+          quantity: it.quantity,
+        })),
       );
     } catch (stockError) {
       await deleteOrderById(order.id).catch((cleanupError) => {
         logServerError('[POST /api/orders] 재고 차감 실패 후 주문 보상 삭제 실패', cleanupError);
       });
       const message = stockError instanceof Error ? stockError.message : String(stockError);
-      if (message.includes('INSUFFICIENT_STOCK')) {
+      if (/INSUFFICIENT_(OPTION_)?STOCK/.test(message)) {
         return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
       }
       logServerError('[POST /api/orders] 재고 차감 실패', stockError);

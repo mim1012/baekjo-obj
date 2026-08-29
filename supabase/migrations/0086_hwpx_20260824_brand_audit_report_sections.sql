@@ -1,3 +1,5 @@
+-- 0086_hwpx_20260824_brand_audit_report_sections.sql
+
 -- 왜: 감사 리포트(BOA-2026-001/002)의 남은 두 섹션을 사이트에 마저 노출한다.
 -- 기존 auditReport에는 헤드라인·선정이유·검토과정·요약(결론)만 실려 있었고, PDF에서 서술 분량이
 -- 가장 큰 Material & Quality Review(소재·품질)와 Curator's Note(큐레이터 노트) 본문이 빠져 있었다.

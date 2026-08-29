@@ -14,7 +14,7 @@ export interface CategorySettings {
 }
 
 export const defaultCategorySettings: CategorySettings = {
-  productCategories: ['푸드', '영양', '케어', '패션', '펫로스', '라이프'],
+  productCategories: ['식품·영양', '케어', '패션', '펫로스', '라이프'],
   lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
   brandFilters: [
     { id: 'all', label: '전체 브랜드' },
@@ -34,12 +34,17 @@ const LEGACY_PRODUCT_CATEGORY_LABELS: ReadonlySet<string> = new Set([
   '미용용품',
 ]);
 
+const PRE_0827_PRODUCT_CATEGORIES = ['푸드', '영양', '케어', '패션', '펫로스', '라이프'];
+
 export function normalizeStoredCategorySettings(settings: CategorySettings): CategorySettings {
   const isLegacyProductCategorySet =
     settings.productCategories.length > 0 &&
     settings.productCategories.every((category) => LEGACY_PRODUCT_CATEGORY_LABELS.has(category));
+  const isPre0827ProductCategorySet =
+    settings.productCategories.length === PRE_0827_PRODUCT_CATEGORIES.length &&
+    settings.productCategories.every((category, index) => category === PRE_0827_PRODUCT_CATEGORIES[index]);
 
-  return isLegacyProductCategorySet
+  return isLegacyProductCategorySet || isPre0827ProductCategorySet
     ? { ...settings, productCategories: [...defaultCategorySettings.productCategories] }
     : settings;
 }

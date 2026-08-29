@@ -1,4 +1,4 @@
--- 0071_brand_slug.sql
+-- 0080_brand_slug.sql
 --
 -- 배경: 브랜드 공개 URL(/brands/[id])이 지금은 brands.id 그대로('b1'~'b9', 관리자 생성분은
 --   'brand_<uuid>')를 노출한다. id는 products.brand_id FK, shipments.brand_id, 주문 items

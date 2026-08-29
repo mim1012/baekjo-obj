@@ -10,6 +10,8 @@ import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
+import { getPurchasableStock } from '@/lib/products/inventory';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 export default function CartPage() {
   const mounted = useMounted();
@@ -71,7 +73,10 @@ export default function CartPage() {
     const basePrice = hasPrice ? (product?.salePrice || product?.price || 0) : 0;
     const optionPrice = option?.priceDiff ?? option?.price ?? 0;
     const price = basePrice + optionPrice;
-    const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
+    const brandName = formatBrandDisplayName(
+      product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId || '',
+    );
+    const availableStock = product ? getPurchasableStock(product, item.optionId) : 0;
 
     return {
       ...item,
@@ -81,11 +86,14 @@ export default function CartPage() {
       price,
       totalPrice: hasPrice ? price * item.quantity : 0,
       brandName,
+      availableStock,
+      isPurchasable: hasPrice && availableStock > 0 && item.quantity <= availableStock,
     };
   }).filter(item => item.product);
 
   const pricedItems = enrichedItems.filter(item => item.hasPrice);
   const unpricedItems = enrichedItems.filter(item => !item.hasPrice);
+  const unavailableItems = enrichedItems.filter(item => item.hasPrice && !item.isPurchasable);
 
   const totalProductsPrice = pricedItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
@@ -139,7 +147,7 @@ export default function CartPage() {
                           <div className="mt-1 break-keep text-[13px] leading-[1.6] text-gray-600 md:text-sm">옵션: {item.option.name}</div>
                         )}
                       </div>
-                      <button onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0">
+                      <button type="button" aria-label={`${item.product?.name} 삭제`} onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -148,8 +156,11 @@ export default function CartPage() {
                         {/* Quantity Control */}
                         <div className="flex items-center rounded-lg border border-gray-200 bg-white">
                           <button 
+                            type="button"
+                            aria-label={`${item.product?.name} 수량 줄이기`}
                             onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity - 1)}
-                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                            disabled={item.quantity <= 1}
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -157,14 +168,22 @@ export default function CartPage() {
                             {item.quantity}
                           </span>
                           <button 
+                            type="button"
+                            aria-label={`${item.product?.name} 수량 늘리기`}
                             onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity + 1)}
-                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
+                            disabled={item.availableStock <= 0 || item.quantity >= item.availableStock}
+                            className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-40"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
                         <div className="font-bold text-[15px] sm:text-base text-[#2F3B34]">
                           {item.hasPrice ? formatPrice(item.totalPrice) : <span className="text-[#A65348] text-[13px] sm:text-sm">가격 확인 필요</span>}
+                          {item.hasPrice && !item.isPurchasable && (
+                            <div className="mt-1 text-right text-[11px] font-medium text-[#A65348]">
+                              {item.availableStock <= 0 ? '선택 옵션 품절' : `구매 가능 ${item.availableStock}개`}
+                            </div>
+                          )}
                         </div>
                       </div>
                   </div>
@@ -197,28 +216,30 @@ export default function CartPage() {
                   <span className="font-bold text-gray-900 text-[14px] md:text-base">총 결제 예정금액</span>
                   <div className="text-right">
                     <span className="text-xl md:text-2xl font-bold text-[#2F3B34]">{formatPrice(finalPrice)}</span>
-                    {unpricedItems.length > 0 && (
-                      <div className="text-[11px] md:text-xs text-[#A65348] mt-1">+ 가격 미확정 상품 {unpricedItems.length}개</div>
+                    {(unpricedItems.length > 0 || unavailableItems.length > 0) && (
+                      <div className="text-[11px] md:text-xs text-[#A65348] mt-1">
+                        주문 확인 필요 상품 {unpricedItems.length + unavailableItems.length}개
+                      </div>
                     )}
                   </div>
                 </div>
 
-                {unpricedItems.length > 0 ? (
+                {unpricedItems.length > 0 || unavailableItems.length > 0 ? (
                   <button 
                     type="button"
                     onClick={() => {
-                      alert('가격 확인이 필요한 상품이 포함되어 있습니다. 주문 전 확인해주세요.');
+                      alert('가격 또는 재고 확인이 필요한 상품이 포함되어 있습니다. 주문 전 확인해주세요.');
                     }}
                     className="flex w-full items-center justify-center rounded-sm bg-[#9CA3AF] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white cursor-not-allowed"
                   >
-                    일부 상품 가격 확인 필요
+                    일부 상품 확인 필요
                   </button>
                 ) : (
                   <Link 
                     href={checkoutHref}
                     className="flex w-full items-center justify-center rounded-sm bg-[#2F3B34] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white transition hover:bg-[#2F3B34]/90"
                   >
-                    주문하기 ({cartItems.length}개)
+                    주문하기 ({enrichedItems.length}개)
                   </Link>
                 )}
               </div>

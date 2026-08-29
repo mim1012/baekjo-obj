@@ -30,8 +30,10 @@ test.describe('장바구니 브랜드명 표시', () => {
     expect(pageSource).toContain('Promise.all([getPublicProductsOrNull(), getPublicBrands()])');
 
     // 해석 순서: brandName(선택 필드) → 브랜드 목록 조회 → 최후 폴백 brandId.
+    // 고객 화면의 브랜드명은 공용 한글(영문) 포맷터를 거쳐 일관되게 표시한다.
+    expect(pageSource).toContain('const brandName = formatBrandDisplayName(');
     expect(pageSource).toContain(
-      "const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;",
+      "product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId || '',",
     );
 
     // 회귀 가드 — 카트 행 라벨이 다시 brandId 원값을 직접 렌더하지 않는다.

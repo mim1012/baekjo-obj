@@ -11,6 +11,7 @@ import { createOrder, cancelReservation, getPublicProducts, getSessionUser } fro
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import { getPurchasableStock } from '@/lib/products/inventory';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
@@ -23,6 +24,8 @@ interface CheckoutCartItem extends CartItem {
   hasPrice: boolean;
   price: number;
   totalPrice: number;
+  availableStock: number;
+  isPurchasable: boolean;
 }
 
 function getCheckoutItems(products: Product[]): CheckoutCartItem[] {
@@ -35,14 +38,17 @@ function getCheckoutItems(products: Product[]): CheckoutCartItem[] {
     const option = product.options?.find((candidate) => candidate.id === item.optionId);
     const optionPrice = option?.priceDiff ?? option?.price ?? 0;
     const price = basePrice + optionPrice;
+    const availableStock = getPurchasableStock(product, item.optionId);
     
     return [{ 
       ...item, 
       product, 
-      option, 
-      price, 
+      option,
+      price,
       hasPrice,
-      totalPrice: hasPrice ? price * item.quantity : 0 
+      totalPrice: hasPrice ? price * item.quantity : 0,
+      availableStock,
+      isPurchasable: hasPrice && availableStock > 0 && item.quantity <= availableStock,
     }];
   });
 }
@@ -115,18 +121,19 @@ function CheckoutForm() {
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
+  const hasUnavailableItems = cartItems.some(item => !item.isPurchasable);
   const isCardPayment = formData.paymentMethod === '카드결제';
 
   useEffect(() => {
     if (ready && canOrder) {
       if (cartItems.length === 0) {
         router.replace('/cart');
-      } else if (hasUnpricedItems) {
-        alert('가격 확인이 필요한 상품이 포함되어 결제를 진행할 수 없습니다.');
+      } else if (hasUnpricedItems || hasUnavailableItems) {
+        alert('가격 또는 재고 확인이 필요한 상품이 포함되어 결제를 진행할 수 없습니다.');
         router.replace('/cart');
       }
     }
-  }, [canOrder, cartItems.length, hasUnpricedItems, ready, router]);
+  }, [canOrder, cartItems.length, hasUnavailableItems, hasUnpricedItems, ready, router]);
 
   // 결제창에서 실패/취소로 돌아온 경우: 직전에 만들어둔 PENDING 주문의 재고 선점을 해제한다.
   // 토스가 failUrl에 붙여주는 orderId 쿼리를 우선 신뢰하고, 없을 때만 세션 키를 폴백으로 쓴다
@@ -160,7 +167,7 @@ function CheckoutForm() {
 
   // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
   useEffect(() => {
-    if (!isCardPayment || !ready || !canOrder || cartItems.length === 0 || hasUnpricedItems) return;
+    if (!isCardPayment || !ready || !canOrder || cartItems.length === 0 || hasUnpricedItems || hasUnavailableItems) return;
     if (!TOSS_CLIENT_KEY) return;
 
     let cancelled = false;
@@ -194,11 +201,11 @@ function CheckoutForm() {
     };
     // widgetAmount 는 카트 확정 후에만 바뀌므로 위젯 재마운트 트리거로 쓰지 않는다(중복 렌더 방지).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCardPayment, ready, canOrder, cartItems.length, hasUnpricedItems]);
+  }, [isCardPayment, ready, canOrder, cartItems.length, hasUnpricedItems, hasUnavailableItems]);
 
   if (!ready) return null;
 
-  if (!canOrder || cartItems.length === 0 || hasUnpricedItems) {
+  if (!canOrder || cartItems.length === 0 || hasUnpricedItems || hasUnavailableItems) {
     return null;
   }
 

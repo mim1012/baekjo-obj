@@ -1,3 +1,5 @@
+-- 0083_hwpx_20260821_brand_alloming_nobledog.sql
+
 -- 왜: HWPX 지시서 2026-08-21 알로밍(b5)·노블독(b3) 브랜드 상세 콘텐츠 반영.
 -- 상세 페이지의 하드코딩 3문구(카테고리 설명/관련고민 라벨·설명/스토리 특징 칩)를
 -- brand.detail jsonb 신규 키(highlights, summaryCategoryNote, summaryConcernLabel,

@@ -223,10 +223,14 @@ export async function deleteOrderById(id: string): Promise<void> {
 /** 주문 항목만큼 상품 재고를 원자적으로 차감(0021 마이그레이션 rpc). 재고 부족 시
  *  'INSUFFICIENT_STOCK:<productId>' 메시지를 담은 에러를 던지고 DB 트랜잭션은 롤백된다. */
 export async function decrementStockForOrder(
-  items: Pick<OrderItem, 'productId' | 'quantity'>[],
+  items: Pick<OrderItem, 'productId' | 'optionId' | 'quantity'>[],
 ): Promise<void> {
   const { error } = await getSupabase().rpc('decrement_stock_for_order', {
-    p_items: items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
+    p_items: items.map((it) => ({
+      productId: it.productId,
+      ...(it.optionId ? { optionId: it.optionId } : {}),
+      quantity: it.quantity,
+    })),
   });
   // PostgrestError는 instanceof Error가 아니어서 String() 검사에서 '[object Object]'로 유실된다 —
   // 진짜 Error로 감싸 'INSUFFICIENT_STOCK:<id>' 메시지를 라우트까지 보존한다(프리뷰 실측으로 발견).

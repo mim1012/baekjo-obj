@@ -1,11 +1,11 @@
 import Link from 'next/link';
-import { ArrowUpRight, Bell } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
 
 export const metadata = {
-  title: '공지사항 | 백조오브제',
+  title: '공지사항',
   description: '백조오브제의 새로운 소식과 이벤트, 서비스 안내를 확인하세요.',
 };
 
@@ -25,9 +25,9 @@ export default async function NoticesPage() {
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-editorial text-[13px] italic text-[#A8742E]">Baekjo archive</p>
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">NEWS &amp; NOTICE</p>
             <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">공지사항</h1>
-            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제의 새로운 소식과 이벤트를 안내해 드립니다.</p>
+            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제의 새로운 소식과 안내</p>
           </div>
           <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
             <Bell className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
@@ -36,14 +36,11 @@ export default async function NoticesPage() {
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E7E0D5] bg-white">
-          <div className="hidden h-[52px] items-center bg-[#FAF8F3] px-4 text-[12px] font-bold text-[#59615B] lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_128px_120px_84px_84px] lg:text-center">
+          <div className="hidden h-[52px] items-center bg-[#FAF8F3] px-4 text-[12px] font-bold text-[#59615B] lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
             <div>No</div>
             <div>분류</div>
             <div className="text-left">제목</div>
-            <div>글쓴이</div>
             <div>작성시간</div>
-            <div>조회수</div>
-            <div>좋아요</div>
           </div>
           
           <ul className="divide-y divide-[#E1DDD4]">
@@ -58,17 +55,12 @@ export default async function NoticesPage() {
                     <h2 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
                       {notice.title}
                     </h2>
-                    <div className="mt-3 flex items-center gap-3 text-[12px] text-[#59615B]">
-                      <span>{notice.writer}</span>
-                      <span className="text-[#B1ADA4]" aria-hidden="true">·</span>
-                      <span>조회 {notice.views}</span>
-                      <span className="text-[#B1ADA4]" aria-hidden="true">·</span>
-                      <span>좋아요 {notice.likes}</span>
+                    <div className="mt-3 flex items-center text-[12px] text-[#59615B]">
                       <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">No. {notices.length - index}</span>
                     </div>
                   </div>
 
-                  <div className="hidden min-h-[68px] items-center lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_128px_120px_84px_84px] lg:text-center">
+                  <div className="hidden min-h-[68px] items-center lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
                     <div className="text-[13px] tabular-nums text-[#59615B]">
                       {notices.length - index}
                     </div>
@@ -78,10 +70,7 @@ export default async function NoticesPage() {
                     <div className="min-w-0 truncate pr-5 text-left text-[15px] font-medium text-[#17211D] group-hover:text-[#A8742E]">
                       {notice.title}
                     </div>
-                    <div className="text-[13px] text-[#59615B]">{notice.writer}</div>
                     <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
-                    <div className="text-[13px] tabular-nums text-[#59615B]">{notice.views}</div>
-                    <div className="flex items-center justify-center text-[13px] tabular-nums text-[#59615B]">{notice.likes}<ArrowUpRight className="ml-1 size-3 text-[#A8742E] opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" /></div>
                   </div>
                 </Link>
               </li>
@@ -90,7 +79,7 @@ export default async function NoticesPage() {
         </div>
 
         <div className="mt-6 flex justify-center gap-2">
-          <button type="button" aria-current="page" className="flex size-9 items-center justify-center rounded-md border border-[#17211D] bg-[#17211D] text-sm font-semibold text-[#FBFAF7]">1</button>
+          <button type="button" aria-current="page" className="flex size-11 items-center justify-center rounded-md border border-[#17211D] bg-[#17211D] text-sm font-semibold text-[#FBFAF7]">1</button>
         </div>
 
       </div>

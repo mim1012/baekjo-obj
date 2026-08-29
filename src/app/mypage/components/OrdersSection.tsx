@@ -12,6 +12,7 @@ import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
 import { PackageSearch, Truck } from 'lucide-react';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -154,7 +155,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       )}
                       <div className="flex flex-col justify-center">
                         {product?.brandName && (
-                          <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
+                          <span className="text-xs font-semibold text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>
                         )}
                         {canOpenProduct ? (
                           <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">

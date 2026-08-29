@@ -59,7 +59,7 @@ export interface HomeSettings {
     description: string;
     buttonLabel: string;
   };
-  /** 10. 반려가족 후기와 백조 소식 */
+  /** 10. 반려가족 후기와 백조오브제 소식 */
   trustBoard: {
     reviewsTitle: string;
     reviewsLinkLabel: string;
@@ -72,9 +72,7 @@ export const defaultHomeSettings: HomeSettings = {
   hero: {
     eyebrow: 'Curated Pet Brands',
     titleLines: ['좋은 브랜드를', '찾고 계셨나요?'],
-    descriptionLines: [
-      '좋은 브랜드는 결과입니다. 백조 오브제는 그 과정까지 확인합니다.',
-    ],
+    descriptionLines: ['좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.'],
     primaryCtaLabel: '검증 상품 보기',
     secondaryCtaLabel: '고민별 찾아보기',
     trustNote: '백조오브제 Audit을 통과한 브랜드만 소개합니다.',
@@ -112,12 +110,12 @@ export const defaultHomeSettings: HomeSettings = {
     badge: 'BAEKJO OBJET AUDIT',
     titleLines: ['길지만은 않은', '우리 아이와의 시간'],
     description: '좋은 브랜드를 통해 우리 아이와 더 많은 행복을 함께할 수 있도록 백조오브제 Audit을 진행합니다.',
-    linkLabel: '검증 기준 자세히 보기',
+    linkLabel: '검토 기준 자세히 보기',
     criteria: [
-      { title: '브랜드 철학', desc: '브랜드가 추구하는 가치' },
-      { title: '성분·원료', desc: '성분과 원료의 안전성' },
-      { title: '제조 과정', desc: '제조 과정의 신뢰성' },
-      { title: '사용 경험', desc: '실제 보호자의 사용 경험' },
+      { title: '브랜드 철학', desc: '브랜드가 추구하는 가치를 확인합니다.' },
+      { title: '성분·원료', desc: '성분과 원료를 확인합니다.' },
+      { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
+      { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
     ],
   },
   solutions: {
@@ -216,7 +214,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
   const trustBoard = isRecord(root.trustBoard) ? root.trustBoard : {};
 
   const d = defaultHomeSettings;
-
   return {
     hero: {
       eyebrow: asString(hero.eyebrow, d.hero.eyebrow),
@@ -229,7 +226,7 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
       badgeSubtitle: asString(hero.badgeSubtitle, d.hero.badgeSubtitle),
     },
     quickShop: {
-      title: '',
+      title: asString(quickShop.title, d.quickShop.title),
       links: normalizeQuickShopLinks(quickShop.links, d.quickShop.links),
     },
     bestProducts: {

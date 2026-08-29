@@ -1,3 +1,5 @@
+-- 0088_hwpx_20260824_brand_charcoalstory.sql
+
 -- 왜: HWPX 지시서(2026-08-24) 챠콜스토리(b8) 반영. 알로밍·노블독과 동일 구조.
 -- 0073이 b8 name에서 영문을 떼어 '챠콜스토리'만 남겼는데, 지시서가 영문(회색) 재노출을 요구.
 -- name에 '(CHARCOALSTORY)' 복원 + detail.wordmarkColor(회색)로 h1 영문만 회색 처리한다.
