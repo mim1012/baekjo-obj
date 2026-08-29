@@ -1848,11 +1848,13 @@ export async function confirmEmailVerification(
   }
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
   setCurrentUser(null);
-  // 소셜(Auth.js 쿠키) 세션도 함께 정리. 동적 import 로 storage.ts 의 모든
-  // 사용처가 next-auth 에 정적 의존하지 않도록 fire-and-forget 처리.
-  import('next-auth/react').then((m) => m.signOut({ redirect: false })).catch(() => {});
+  try {
+    const m = await import('next-auth/react');
+    await m.signOut({ redirect: false });
+  } catch {
+  }
 }
 
 export function isLoggedIn(): boolean {
