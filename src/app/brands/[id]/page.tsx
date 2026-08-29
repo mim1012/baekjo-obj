@@ -89,7 +89,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     review.isVisible !== false && brandProducts.some((product) => product.id === review.productId),
   );
   const hasPublishedAudit = Boolean(brand.auditReport);
-  const auditStatusText = 'Audit Completed';
+  const auditStatusText = hasPublishedAudit ? 'Audit Completed' : '입점 자료 확인 중';
   const categoryNames = presentation.categories
     || [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
   const relatedConcernNames = presentation.concerns
@@ -245,14 +245,14 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              {/* Audit */}
              <div className="flex-1 lg:w-[52%]">
                 <AuditAccordion
-                  title="백조오브제 검토 완료"
+                  title={hasPublishedAudit ? '백조오브제 검토 완료' : '백조오브제 검토 상태'}
                   subtitle="BAEKJO OBJET AUDIT"
                   statusLabel={auditStatusText}
                   theme="light"
                   density="compact"
                 >
                   <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
-                    아래 항목을 중심으로 검토를 완료하였습니다.
+                    {hasPublishedAudit ? '아래 항목을 중심으로 검토를 완료하였습니다.' : '아래 항목을 중심으로 꼼꼼히 확인하고 있습니다.'}
                   </p>
 
                   <div className="mb-6 flex flex-col gap-2.5">
