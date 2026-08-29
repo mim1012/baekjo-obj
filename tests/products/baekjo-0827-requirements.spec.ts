@@ -43,7 +43,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(home).toContain('소식');
     expect(home).toContain('data-testid="home-soft-open-notice"');
     expect(home).toContain('가오픈 진행 중');
-    expect(home).toContain('현재 결제는 무통장입금으로 진행됩니다.');
+    expect(home).toContain('| 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.');
     expect(home).not.toContain('이용 안내 보기');
   });
 

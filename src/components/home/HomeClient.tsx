@@ -116,8 +116,8 @@ export default function HomeClient({
           <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
             가오픈 진행 중
           </span>
-          <p className="min-w-0 whitespace-nowrap text-center text-[10px] font-semibold leading-none tracking-[-0.02em] text-[#FBFAF7] sm:text-[12px] sm:tracking-normal">
-            현재 결제는 무통장입금으로 진행됩니다.
+          <p className="min-w-0 break-keep text-left text-[10px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#FBFAF7] sm:whitespace-nowrap sm:text-[12px] sm:leading-none sm:tracking-normal">
+            | 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
           </p>
         </div>
       </aside>
