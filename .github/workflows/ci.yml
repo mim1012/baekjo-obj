@@ -185,8 +185,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [verify, changes]
     if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || needs.changes.outputs.database == 'true' || github.event_name == 'push'
-    env:
-      STAGING_TEST_REF_GATE: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
 
@@ -198,21 +196,68 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Fail closed on mandatory staging DB configuration
+        run: |
+          node <<'NODE'
+          const required = [
+            'SUPABASE_URL',
+            'SUPABASE_ACCESS_TOKEN',
+            'STAGING_SUPABASE_SECRET_KEY',
+            'TEST_SUPABASE_PROJECT_REF',
+            'PRODUCTION_SUPABASE_URL',
+          ];
+          for (const name of required) {
+            if (!process.env[name]) {
+              console.error(`${name} is required`);
+              process.exit(1);
+            }
+          }
+
+          const extractProjectRef = (name) => {
+            const value = process.env[name];
+            const url = new URL(value);
+            const match = /^([a-z0-9]{20})\.supabase\.co$/.exec(url.hostname.toLowerCase());
+            if (!match) {
+              console.error(`${name} must be a Supabase project URL`);
+              process.exit(1);
+            }
+            return match[1];
+          };
+
+          const stagingRef = extractProjectRef('SUPABASE_URL');
+          const productionRef = extractProjectRef('PRODUCTION_SUPABASE_URL');
+          if (stagingRef !== process.env.TEST_SUPABASE_PROJECT_REF) {
+            console.error('SUPABASE_URL does not match TEST_SUPABASE_PROJECT_REF');
+            process.exit(1);
+          }
+          if (stagingRef === productionRef) {
+            console.error('staging DB tests cannot target the production Supabase project');
+            process.exit(1);
+          }
+          console.log('mandatory staging DB preflight passed');
+          NODE
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+          PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+
       - name: 결제 상태기계 DB 스펙 (staging)
-        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
           TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
 
       # 배송(shipments) 스펙 — 순수 4개 + staging DB 2개(confirm-guard.db, auto-confirm-payment-gate.db).
       # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
       # (2026-07-23 커버리지 전수조사 전까지 CI 미배선이었음 — golden-spec-coverage.md §4-1)
       - name: 배송 파생·구매확정 가드 스펙 (순수 + staging DB)
-        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=shipments --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
           TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
