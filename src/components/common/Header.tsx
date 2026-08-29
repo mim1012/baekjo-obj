@@ -193,7 +193,7 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   void logout().finally(() => {
-                    window.location.reload();
+                    window.location.href = '/login';
                   });
                 }}
                 aria-label="로그아웃"
@@ -307,7 +307,7 @@ export default function Header() {
                   onClick={() => {
                     closeMenu();
                     void logout().finally(() => {
-                      window.location.reload();
+                      window.location.href = '/login';
                     });
                   }}
                   className="btn-secondary col-span-2 min-h-11 px-4"
