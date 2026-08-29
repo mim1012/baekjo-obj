@@ -13,7 +13,6 @@ const MAX_ARRAY_ITEMS = 50;
 const MAX_SOURCE_URLS = 20;
 const MAX_PROCESS_ITEMS = 30;
 const MAX_DISPLAY_ORDER = 100_000;
-const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
 const MAX_SHIPPING_TEXT = 500;
 
 function isStr(v: unknown, min: number, max: number): v is string {
@@ -139,11 +138,6 @@ export function validateBrandFields(body: unknown, requireAll: boolean): Validat
     out.philosophy = b.philosophy;
   } else if (requireAll) return null;
 
-  if (b.auditGrade !== undefined) {
-    if (typeof b.auditGrade !== 'string' || !AUDIT_GRADES.has(b.auditGrade)) return null;
-    out.auditGrade = b.auditGrade as Brand['auditGrade'];
-  } else if (requireAll) return null;
-
   // 공식몰 URL. optional·가산 — 빈 문자열을 허용해 폼에서 지울 수 있게 한다(0..MAX_URL).
   if (b.officialUrl !== undefined) {
     if (!isStr(b.officialUrl, 0, MAX_URL)) return null;
@@ -223,8 +217,7 @@ export function toInsertInput(fields: ValidatedBrandFields): BrandInsertInput | 
     fields.name === undefined ||
     fields.logo === undefined ||
     fields.description === undefined ||
-    fields.philosophy === undefined ||
-    fields.auditGrade === undefined
+    fields.philosophy === undefined
   ) {
     return null;
   }

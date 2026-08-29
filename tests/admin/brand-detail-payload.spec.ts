@@ -40,7 +40,6 @@ function form(over: Partial<BrandDetailFormState> = {}): BrandDetailFormState {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     officialUrl: 'https://example.com',
     isRecommended: true,
     isVisible: true,

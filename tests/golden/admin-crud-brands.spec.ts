@@ -30,8 +30,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // === true) — getByRole 기본 substring 매칭이라 exact:true 없이는 두 버튼 다 매칭돼 strict-mode
 // violation이 난다. 실측 후 exact:true로 고정했다(다른 wave의 label 충돌과 같은 종류의 함정).
 //
-// ⚠️ 생성 필수 필드(src/lib/brands/validate.ts:112-227, requireAll=true 경로): name·logo·
-// description·philosophy·auditGrade 5개(toInsertInput이 이 5개 중 하나라도 undefined면 null을
+// ⚠️ 생성 필수 필드(src/lib/brands/validate.ts, requireAll=true 경로): name·logo·
+// description·philosophy 4개(toInsertInput이 이 4개 중 하나라도 undefined면 null을
 // 반환해 400). 모달의 자체 JS 검증(BrandForm.tsx:48-49)은 name·description만 막고 logo·philosophy는
 // 막지 않는다 — 빈 채로 제출하면 서버가 400을 내 등록이 조용히 실패한다(logo는 min 1자라 이미지
 // 업로드 없이는 통과 불가). 그래서 이 스펙은 5개 필드를 전부 채우고, 로고는 ImageUploader(숨겨진
@@ -124,7 +124,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     await loginAsAdmin(page);
     await page.goto('/admin/brands');
 
-    // 1) 등록 — BrandForm 모달. 필수 5필드(name/logo/description/philosophy/auditGrade) 전부 채우고
+    // 1) 등록 — BrandForm 모달. 필수 4필드(name/logo/description/philosophy) 전부 채우고
     // displayOrder=0으로 목록 최상단·PAGE_SIZE 안쪽에 고정한다.
     await page.getByRole('button', { name: '새 브랜드 등록' }).click();
     const form = page.locator('form#brand-form');
@@ -133,7 +133,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     // 빈 문자열로 남아 서버 validate(min 1자)가 400을 낸다.
     await expect(form.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
     await form.locator('input[placeholder="예: 지위픽"]').fill(name);
-    await form.locator('select').selectOption('B+');
     await form.locator('textarea[placeholder="브랜드관에 표시할 간단한 소개"]').fill(description);
     await form
       .locator('textarea[placeholder="상세한 브랜드 스토리와 철학을 입력하세요."]')
@@ -144,10 +143,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     // ⚠️ "브랜드 등록"은 "새 브랜드 등록"(헤더 트리거)의 substring이라 exact:true 필수(위 주석).
     await page.getByRole('button', { name: '브랜드 등록', exact: true }).click();
 
-    // 2) 관리자 목록 — 등록한 필드 전부(등급·상품수·노출상태·공식몰 URL)가 반영됐는지 행 단위로 확인.
+    // 2) 관리자 목록 — 상품수·노출상태·공식몰 URL이 반영됐는지 행 단위로 확인.
     const adminRow = page.locator('tr', { hasText: name });
     await expect(adminRow).toBeVisible({ timeout: 15_000 });
-    await expect(adminRow).toContainText('B+ 등급');
     await expect(adminRow).toContainText('0개'); // 신규 브랜드라 등록 상품 0건
     await expect(adminRow).toContainText('노출'); // isVisible 기본값 true
     await expect(adminRow.locator(`a[href="${officialUrl}"]`)).toHaveCount(1);

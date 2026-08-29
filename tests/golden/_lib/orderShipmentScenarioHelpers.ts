@@ -236,7 +236,6 @@ async function createBrand(page: Page, scenario: BrandScenario): Promise<string>
       logo: BRAND_LOGO,
       description: `${scenario.name} 배송 정책 검증용 브랜드`,
       philosophy: `${scenario.name} 브랜드별 배송 문구가 회원 배송조회에 반영되는지 검증합니다.`,
-      auditGrade: 'A',
       auditPoints: [],
       representativeProductIds: [],
       relatedConcernSlugs: [],
