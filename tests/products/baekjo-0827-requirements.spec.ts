@@ -5,6 +5,7 @@ import { defaultHomeSettings, normalizeHomeSettings } from '@/data/homeContent';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { defaultConcernsConfig } from '@/lib/concerns/config';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
+import { defaultKitsConfig } from '@/lib/kits/config';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -79,6 +80,35 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     for (const hiddenColumn of ['<div>글쓴이</div>', '<div>조회수</div>', '<div>좋아요</div>']) {
       expect(notices).not.toContain(hiddenColumn);
     }
+  });
+
+  test('케어키트 프로젝트와 협업 문의 문구가 최신 시안과 일치한다', () => {
+    const careKit = read('src/app/landing/care-kit/page.tsx');
+    const inquiryForm = read('src/components/care-kit/PartnerInquiryForm.tsx');
+    const migration = read('supabase/migrations/0108_care_kit_project_content.sql');
+
+    for (const copy of [
+      '필요한 순간에 맞는',
+      '파트너십 문의하기',
+      'MOMENTS OF CARE',
+      '파트너와 함께 만드는 케어',
+      'CARE KIT PARTNER',
+      '첫 케어키트 프로젝트는 페네핏과 함께 기획하고 제작합니다.',
+      '현재 상세 구성 및 디자인 이미지는 공개하지 않습니다.',
+      '협업·제휴 문의',
+    ]) {
+      expect(careKit).toContain(copy);
+    }
+    expect(careKit).toContain("legacyDefaultKitNames");
+    expect(inquiryForm).toContain('협업·제휴 문의하기');
+    expect(defaultKitsConfig.items.map((kit) => kit.name)).toEqual([
+      '웰컴 케어',
+      '위로 케어',
+      '기억 케어',
+      '맞춤 케어',
+    ]);
+    expect(migration).toContain("'웰컴 케어'");
+    expect(migration).toContain("'맞춤 케어'");
   });
 
   test('빠른 쇼핑은 6개 카테고리로 통일하고 기존 9개 설정을 호환한다', () => {
