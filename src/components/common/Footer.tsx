@@ -3,7 +3,6 @@ import { COMPANY } from '@/data/company';
 import BrandMark from './BrandMark';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
-const KAKAO_TALK_URL = 'https://pf.kakao.com/_KYWxon';
 
 const footerLinks = [
   { label: '1:1 문의', href: '/mypage?tab=inquiries' },
@@ -44,7 +43,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
               <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
                 <InstagramIcon />
               </SnsButton>
-              <SnsButton href={KAKAO_TALK_URL} label="카카오톡" tone="kakao" disabled={!KAKAO_TALK_URL}>
+              <SnsButton href={COMPANY.kakaoTalkUrl} label="카카오톡" tone="kakao" disabled={!COMPANY.kakaoTalkUrl}>
                 <KakaoIcon />
               </SnsButton>
               <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">@BAEKJO OBJET</p>
