@@ -175,22 +175,22 @@ export default function HomeClient({
 
       <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <div data-testid="home-audit-hero" className="relative isolate min-h-[390px] overflow-hidden md:min-h-[360px] lg:min-h-[380px]">
-            <picture>
+          <div data-testid="home-audit-hero" className="relative isolate flex min-h-0 flex-col overflow-hidden md:block md:min-h-[360px] lg:min-h-[380px]">
+            <picture className="order-2 relative block h-[214px] shrink-0 md:absolute md:inset-0 md:h-auto">
               <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileAuditSrcSet} />
               <img
                 {...desktopAuditImageProps}
                 alt="백조오브제 브랜드 패키지 오브제"
-                className="object-contain object-bottom md:object-cover md:object-[center_39%]"
+                className="object-cover object-[center_58%] md:object-cover md:object-[center_39%]"
                 data-testid="home-audit-image"
               />
             </picture>
             <div
               aria-hidden="true"
-              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.62)_0%,rgba(248,246,240,0.42)_60%,rgba(248,246,240,0.16)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)]"
+              className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)] md:block"
             />
 
-            <div className="relative z-10 flex min-h-[390px] max-w-[680px] flex-col justify-center p-6 md:min-h-[360px] md:p-8 lg:min-h-[380px] lg:p-10">
+            <div className="relative z-10 order-1 flex min-h-0 max-w-[680px] flex-col justify-center bg-[#F6F3ED] p-6 md:min-h-[360px] md:bg-transparent md:p-8 lg:min-h-[380px] lg:p-10">
               <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
