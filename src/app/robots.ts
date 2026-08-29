@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { SITE_URL } from '@/data/site';
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -16,9 +17,10 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin/', '/api/', '/mypage/', '/checkout/'],
+        disallow: ['/admin/', '/api/', '/mypage/', '/checkout/', '/order-complete/', '/auth/'],
       },
     ],
-    host: 'https://www.baekjo-objet.com',
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

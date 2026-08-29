@@ -1,7 +1,7 @@
 # 백조오브제 유스케이스 점검표 (도메인별)
 
 > 작성: 2026-07-23. 목적: **각 도메인별 기능을 유스케이스 단위로 점검**하기 위한 체크리스트.
-> 출처: `src/app/**/page.tsx` 59개 · `src/app/api/**/route.ts` 85개 실측 + AGENTS.md §7 골든플로우.
+> 출처: `src/app/**/page.tsx` 62개 · `src/app/api/**/route.ts` 실측 + 골든플로우 라우트 레지스트리.
 > 점검 방법: 각 항목의 ☐ 를 점검 후 ☑ 로 바꾸고, 이상 발견 시 "비고"에 기록.
 > 검증 스펙 열은 해당 유스케이스를 자동 검증하는 Playwright 스펙(`tests/`)이다 — 스펙이 없는 항목은 수동 점검 대상.
 > **스펙 유무·CI 배선 전수 대장: [`docs/testing/golden-spec-coverage.md`](./testing/golden-spec-coverage.md)** (있는 것/없는 것/있는데 CI에서 안 도는 것 전부 명시).
@@ -42,7 +42,8 @@
 | 3-7 | 상품 리뷰 작성/열람 | 회원 | 구매 상품에 리뷰 작성 → 상세 페이지 노출, 별점 집계 갱신(트리거 0070) | golden/member-review-inquiry.spec.ts, admin/purchase-review-eligibility.spec.ts | ☐ |
 | 3-8 | 상품 Q&A | 회원 | 상세에서 문의 작성 → 관리자 답변 → 재열람 | golden/member-review-inquiry.spec.ts, golden/admin-crud-qna-inquiries.spec.ts | ☐ |
 
-**알려진 제약:** 옵션별 재고 미구현(보류 — memory `option-stock-dorami-blueprint`). 재고는 상품 단위.
+**배포 확인 필요:** 옵션별 재고 검증·장바구니 상한·원자 차감/복원 코드는 0071 마이그레이션으로 구현됨.
+운영 반영 전에는 `supabase/migrations/0071_option_stock_atomic.sql` 적용과 staging 동시주문 회귀를 완료해야 한다.
 
 ## 4. 결제 (무통장 / 토스)
 
