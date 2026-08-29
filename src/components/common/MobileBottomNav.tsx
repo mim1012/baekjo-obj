@@ -3,20 +3,14 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HeartPulse, Home, ShoppingBag, ShieldCheck, User } from 'lucide-react';
-import { FEATURES } from '@/config/features';
 
-const ALL_NAV_ITEMS = [
+const NAV_ITEMS = [
   { label: '홈', href: '/', icon: Home },
   { label: '케어', href: '/concerns', icon: HeartPulse },
   { label: '쇼핑', href: '/shop', icon: ShoppingBag },
   { label: '보험', href: '/insurance', icon: ShieldCheck },
   { label: '마이', href: '/mypage', icon: User },
 ];
-
-// 미노출 기능은 하단 네비에서 제외한다(4개 항목은 justify-around로 자연 배치).
-const NAV_ITEMS = ALL_NAV_ITEMS.filter(
-  (item) => item.href !== '/insurance' || FEATURES.insurance,
-);
 
 export default function MobileBottomNav() {
   const pathname = usePathname();

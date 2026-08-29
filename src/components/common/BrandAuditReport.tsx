@@ -76,7 +76,7 @@ export default function BrandAuditReport({ brand }: { brand: Brand }) {
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 text-sm font-semibold text-[#D8C4A3]">
             <ShieldCheck className="size-4" strokeWidth={1.5} aria-hidden="true" />
-            백조가 살펴본 기록
+            백조오브제가 살펴본 기록
           </div>
           <h2
             id={`${brand.id}-audit-title`}

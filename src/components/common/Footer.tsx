@@ -25,7 +25,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
           <div className="flex flex-col gap-5 md:items-end">
             <nav aria-label="푸터 메뉴" className="flex flex-wrap gap-x-5 gap-y-3 text-sm md:justify-end">
               {footerLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="transition-colors duration-500 hover:text-[#FBFAF7]">
+                <Link key={link.href} href={link.href} className="inline-flex min-h-11 items-center transition-colors duration-500 hover:text-[#FBFAF7] md:min-h-0">
                   {link.label}
                 </Link>
               ))}
@@ -33,7 +33,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
                 href={COMPANY.businessLookupUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="transition-colors duration-500 hover:text-[#FBFAF7]"
+                className="inline-flex min-h-11 items-center transition-colors duration-500 hover:text-[#FBFAF7] md:min-h-0"
               >
                 사업자정보
               </a>
@@ -85,7 +85,7 @@ function SnsButton({
     instagram: 'border-transparent bg-[radial-gradient(circle_at_30%_107%,#fdf497_0%,#fdf497_5%,#fd5949_45%,#d6249f_60%,#285AEB_90%)] text-white shadow-[0_8px_18px_rgba(214,36,159,0.18)] hover:brightness-110',
     kakao: 'border-transparent bg-[#FEE500] text-[#000000] shadow-[0_8px_18px_rgba(254,229,0,0.12)] hover:bg-[#F7D900]',
   };
-  const className = `flex size-9 items-center justify-center rounded-full transition-all duration-500 ${
+  const className = `flex size-11 items-center justify-center rounded-full transition-all duration-500 md:size-9 ${
     disabled ? `${tones[tone]} cursor-not-allowed` : tones[tone]
   }`;
 
