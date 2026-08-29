@@ -23,7 +23,9 @@ if (process.env.E2E_ADMIN_CRUD === '1') {
 }
 
 const isLocal = targetHost === 'localhost' || targetHost === '127.0.0.1';
+const localWebServerPort = new URL(baseURL).port || '3000';
 const browserProjects = new Set([
+  'anonymous-session-contract',
   'chromium',
   'golden-crud',
   'golden-smoke',
@@ -75,6 +77,22 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   reporter: [['line'], ['html', { open: 'never' }]],
   projects: [
+    {
+      name: 'anonymous-session-contract',
+      testDir: './tests/golden',
+      testMatch: ['**/anonymous-session-contract.spec.ts'],
+      use: {
+        baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'on-first-retry',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+        ...localBrowserUse,
+      },
+    },
     {
       name: 'chromium',
       testDir: './tests/golden',
@@ -193,8 +211,8 @@ export default defineConfig({
     ? {
         webServer: {
           command: 'npm run dev',
-          env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1' },
-          url: baseURL,
+          env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1', PORT: localWebServerPort },
+          url: new URL('/api/members/me', baseURL).toString(),
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
         },
