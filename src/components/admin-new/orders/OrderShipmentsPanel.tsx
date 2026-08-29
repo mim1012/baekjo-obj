@@ -7,6 +7,7 @@ import type { Brand, Order, Shipment } from '@/types';
 import FormSection from '@/components/admin-new/common/FormSection';
 import { groupItemsByBrand } from './groupItemsByBrand';
 import BrandShipmentCard from './BrandShipmentCard';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface OrderShipmentsPanelProps {
   order: Order;
@@ -74,7 +75,7 @@ export default function OrderShipmentsPanel({ order, onUpdate }: OrderShipmentsP
             <BrandShipmentCard
               key={bundle.brandId}
               orderId={order.id}
-              brandName={brandMap[bundle.brandId]?.name || bundle.brandId}
+              brandName={formatBrandDisplayName(brandMap[bundle.brandId]?.name || bundle.brandId)}
               bundle={bundle}
               defaultCarrier={brandMap[bundle.brandId]?.shipping?.defaultCarrier}
               onSaved={refresh}

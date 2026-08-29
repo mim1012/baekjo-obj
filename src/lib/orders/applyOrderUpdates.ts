@@ -38,6 +38,17 @@ export class PaymentStatusConflictError extends Error {
   }
 }
 
+/** 배송이 이미 시작된(배송전/배송준비를 벗어난) 주문의 전액 환불 요청 → 422. 부분환불 라우트
+ *  (refunds/route.ts → normalizeRefundRequest, refund.ts 'refund-after-shipment-not-supported')와
+ *  동일한 배송상태 가드·같은 에러 코드/상태코드를 전액 환불 경로에도 적용한다 — 배송 시작 후
+ *  전액환불을 막는 규칙이 호출 경로(부분/전액)에 상관없이 서버에서 일관되게 적용되도록 한다. */
+export class RefundAfterShipmentError extends Error {
+  constructor() {
+    super('refund-after-shipment-not-supported');
+    this.name = 'RefundAfterShipmentError';
+  }
+}
+
 /** 취소(orderStatus='취소완료')와 환불(paymentStatus='환불완료')이 한 요청에 섞이면 의미가
  *  충돌한다 — 두 분기 모두 orderStatus/paymentStatus 를 보고 갈라지는데, 취소 분기가 먼저
  *  매치되면 환불 요청이 조용히 무시된 채 취소로만 처리된다(§8-6 codex LOW-2, resolveCancelFallback
@@ -67,7 +78,7 @@ export interface OrderUpdatePorts {
    *  가르는데, 이는 취소·전이 판정과는 다른 관심사라서다. */
   getOrderPaymentInfo: (
     id: string,
-  ) => Promise<{ paymentStatus: string; paymentKey: string | null } | null>;
+  ) => Promise<{ paymentStatus: string; paymentKey: string | null; deliveryStatus: string | null } | null>;
   /** 카드 결제(paymentKey 있음) 환불 시 Toss 취소 API 호출 — "돈 먼저". 실패 시 예외를 던져야
    *  하고(TossConfirmError 등), 이 예외가 그대로 위(route.ts)로 전파돼 DB 상태·재고가 전혀
    *  바뀌지 않은 채 요청이 실패해야 한다. */
@@ -135,6 +146,13 @@ export async function applyOrderUpdates(
     if (current.paymentStatus !== '결제완료') {
       // 이미 환불됐거나 결제완료가 아닌 주문의 환불 요청 — 화이트리스트 위반과 같은 409로 통일한다.
       throw new PaymentTransitionError(current.paymentStatus, '환불완료');
+    }
+
+    // 부분환불 라우트(refund.ts normalizeRefundRequest)와 동일한 가드: 배송이 '배송전'/'배송준비'를
+    // 벗어난 주문은 전액 환불도 거절한다 — 이 서버 경로(PATCH paymentStatus='환불완료')가 UI의
+    // 비활성화 버튼을 우회해 배송 시작 후 전액환불을 직접 호출할 수 있던 구멍을 막는다.
+    if (current.deliveryStatus && !['배송전', '배송준비'].includes(current.deliveryStatus)) {
+      throw new RefundAfterShipmentError();
     }
 
     if (current.paymentKey) {

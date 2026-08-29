@@ -34,14 +34,6 @@ const filterLabels: Record<string, string> = {
   new: '새로 만난 브랜드',
 };
 
-const brandCategoryAliases: Record<string, string[]> = {
-  '식품·영양': ['식품·영양', '푸드', '영양'],
-  케어: ['케어'],
-  패션: ['패션'],
-  펫로스: ['펫로스'],
-  라이프: ['라이프'],
-};
-
 function getCustomBrandDetails(brand: Brand) {
   const presentation = getBrandPresentation(brand);
   return {
@@ -67,13 +59,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   const filteredBrands = visibleBrands.filter((brand) => {
     if (filter === 'recommended') return brand.isRecommended;
     if (filter === 'new') return brand.isNew;
-    const category = categorySettings.productCategories.find((value) => value === filter);
-    if (category) {
-      const presentation = getBrandPresentation(brand);
-      return (brandCategoryAliases[category] ?? [category]).some((label) =>
-        presentation.categories.includes(label),
-      );
-    }
     return true;
   }).sort((a, b) => (sort === 'az' ? a.name.localeCompare(b.name, 'ko') : 0));
 
@@ -202,7 +187,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <span className="text-[12px] font-semibold text-[#B48A4A] mb-4">스포트라이트 브랜드</span>
                     <div className="flex flex-col gap-1 mb-5">
                       <h3 className="text-[24px] md:text-[28px] font-bold text-[#17251F] tracking-tight flex items-center gap-2">
-                        {spotlightCustomDetails?.finalName || spotlightBrand.name}
+                        {spotlightCustomDetails?.finalName || spotlightBrand.name} 
                       </h3>
                     </div>
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
@@ -251,24 +236,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                   >
                     {filterLabels[tab.id] ?? tab.label}
                     {tab.id === 'all' && ` (${filteredBrands.length})`}
-                  </Link>
-                );
-              })}
-              {categorySettings.productCategories.map((category) => {
-                const active = filter === category;
-                return (
-                  <Link
-                    key={`category-${category}`}
-                    href={makeHref(category)}
-                    scroll={false}
-                    aria-current={active ? 'page' : undefined}
-                    className={`flex h-[38px] items-center rounded-full border px-[18px] text-[13px] font-semibold transition-colors duration-300 md:h-[42px] md:text-[14px] ${
-                      active
-                        ? 'border-[#17382D] bg-[#17382D] text-white'
-                        : 'border-[#E4DDD1] bg-[#FFFEFB] text-[#6F756F] hover:bg-[#F7F4ED]'
-                    }`}
-                  >
-                    {category}
                   </Link>
                 );
               })}
