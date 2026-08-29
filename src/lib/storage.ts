@@ -60,6 +60,14 @@ function setWishlistCache(productIds: string[]): string[] {
   return productIds;
 }
 
+function setCachedWishlistState(productId: string, wishlisted: boolean): string[] {
+  const current = wishlistCache ?? [];
+  const next = wishlisted
+    ? Array.from(new Set([...current, productId]))
+    : current.filter((id) => id !== productId);
+  return setWishlistCache(next);
+}
+
 function clearWishlistCache(): void {
   wishlistCache = null;
   wishlistRequest = null;
@@ -107,7 +115,7 @@ export async function toggleWishlist(productId: string): Promise<boolean> {
   }
 
   const { wishlisted } = (await response.json()) as { wishlisted: boolean };
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, wishlisted);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return wishlisted;
 }
@@ -127,7 +135,7 @@ export async function removeWishlist(productId: string): Promise<boolean> {
     throw new Error('wishlist-remove-failed');
   }
 
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, false);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return false;
 }
@@ -1456,6 +1464,7 @@ export async function saveOrderPolicyConfig(config: OrderPolicyConfig): Promise<
 }
 
 const USER_KEY = 'baekjo_user';
+let sessionUserRequest: Promise<User | null> | null = null;
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -1463,7 +1472,10 @@ export function getCurrentUser(): User | null {
 
 export function setCurrentUser(user: User | null): void {
   if (typeof window === 'undefined') return;
-  clearWishlistCache();
+  const previousUser = getCurrentUser();
+  if (!user || previousUser?.id !== user.id) {
+    clearWishlistCache();
+  }
   if (user) {
     setJSON(USER_KEY, user);
   } else {
@@ -1472,19 +1484,25 @@ export function setCurrentUser(user: User | null): void {
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  try {
-    const response = await fetch('/api/members/me');
-    if (response.status === 401) {
-      setCurrentUser(null);
-      return null;
-    }
-    if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User };
-    setCurrentUser(user);
-    return user;
-  } catch {
-    return null;
-  }
+  if (sessionUserRequest) return sessionUserRequest;
+
+  sessionUserRequest = fetch('/api/members/me')
+    .then(async (response) => {
+      if (response.status === 401) {
+        setCurrentUser(null);
+        return null;
+      }
+      if (!response.ok) return null;
+      const { user } = (await response.json()) as { user: User };
+      setCurrentUser(user);
+      return user;
+    })
+    .catch(() => null)
+    .finally(() => {
+      sessionUserRequest = null;
+    });
+
+  return sessionUserRequest;
 }
 
 /**
