@@ -7,10 +7,10 @@ import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { createOrder, cancelReservation, getPublicProducts, getSessionUser } from '@/lib/storage';
-import { CartItem, OrderItem, Product, ProductOption } from '@/types';
+import { createOrder, cancelReservation, getPublicBrands, getPublicProducts, getSessionUser } from '@/lib/storage';
+import { Brand, CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
-import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
@@ -63,15 +63,17 @@ function CheckoutForm() {
   // 카트와 마찬가지로 어떤 상품이 필요한지 서버에서 미리 알 수 없어 마운트 시
   // 전체 카탈로그를 한 번 불러온다.
   const [products, setProducts] = useState<Product[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [canOrder, setCanOrder] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    getPublicProducts().then((list) => {
+    Promise.all([getPublicProducts(), getPublicBrands()]).then(([productList, brandList]) => {
       if (cancelled) return;
-      setProducts(list);
+      setProducts(productList);
+      setBrands(brandList);
       setProductsLoading(false);
     });
     return () => {
@@ -111,13 +113,35 @@ function CheckoutForm() {
   const [widgetReady, setWidgetReady] = useState(false);
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
+  // 주문 성공 후 clearCart()로 카트가 비면 cartItems.length===0 이 되어 아래 "빈 카트 → /cart" 리다이렉트
+  // 이펙트와 order-complete 이동이 경합한다. 성공이 확정되는 즉시(= clearCart 호출 전) true 로 세워
+  // 그 이펙트와 렌더 중단(early return)을 모두 무력화해 실제 이동만 이기게 한다.
+  // (setOrderCompleted 와 clearCart 는 같은 핸들러에서 배치되므로 다음 렌더에서 항상 함께 보인다.)
+  const [orderCompleted, setOrderCompleted] = useState(false);
 
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
   const isCardPayment = formData.paymentMethod === '카드결제';
+  const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
+  const deliveryFeeCalculation = calcBrandDeliveryFee(
+    cartItems.map((item) => {
+      const brand = brands.find((candidate) => candidate.id === item.product.brandId);
+      return {
+        brandId: item.product.brandId,
+        brandName: brand?.name ?? item.product.brandName,
+        totalPrice: item.totalPrice,
+      };
+    }),
+    brands,
+  );
+  const deliveryFee = deliveryFeeCalculation.deliveryFee;
+  const finalPrice = totalProductsPrice + deliveryFee;
 
   useEffect(() => {
+    // 주문 성공 후 clearCart() 로 카트가 비어도 이 이펙트가 /cart 로 되튕기면 안 된다 — 이동은
+    // handleSubmit 이 이미 order-complete 로 트리거했다.
+    if (orderCompleted) return;
     if (ready && canOrder) {
       if (cartItems.length === 0) {
         router.replace('/cart');
@@ -126,7 +150,7 @@ function CheckoutForm() {
         router.replace('/cart');
       }
     }
-  }, [canOrder, cartItems.length, hasUnpricedItems, ready, router]);
+  }, [canOrder, cartItems.length, hasUnpricedItems, orderCompleted, ready, router]);
 
   // 결제창에서 실패/취소로 돌아온 경우: 직전에 만들어둔 PENDING 주문의 재고 선점을 해제한다.
   // 토스가 failUrl에 붙여주는 orderId 쿼리를 우선 신뢰하고, 없을 때만 세션 키를 폴백으로 쓴다
@@ -154,9 +178,7 @@ function CheckoutForm() {
       });
   }, [router, searchParams]);
 
-  const finalPriceForWidget = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFeeForWidget = finalPriceForWidget > 0 && finalPriceForWidget < 50000 ? 3000 : 0;
-  const widgetAmount = finalPriceForWidget + deliveryFeeForWidget;
+  const widgetAmount = finalPrice;
 
   // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
   useEffect(() => {
@@ -198,13 +220,12 @@ function CheckoutForm() {
 
   if (!ready) return null;
 
-  if (!canOrder || cartItems.length === 0 || hasUnpricedItems) {
+  // 주문 성공 후에는 카트가 비어 cartItems.length===0 이 되지만, 여기서 null 을 반환하면
+  // order-complete 로 이동하는 동안 "주문 처리 중…" 오버레이가 사라져 버린다. 이동이 끝날 때까지는
+  // 마지막 렌더(오버레이 표시 상태)를 그대로 유지한다.
+  if (!orderCompleted && (!canOrder || cartItems.length === 0 || hasUnpricedItems)) {
     return null;
   }
-
-  const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
-  const finalPrice = totalProductsPrice + deliveryFee;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,8 +275,11 @@ function CheckoutForm() {
     }
 
     if (!isCardPayment) {
+      // clearCart() 는 cartItems.length 를 0으로 만들어 위의 "빈 카트 → /cart" 이펙트를 트리거할 수
+      // 있다 — 그 이펙트가 order-complete 이동을 덮어쓰지 못하도록 clearCart() 보다 먼저 표시해둔다.
+      setOrderCompleted(true);
       clearCart();
-      router.push('/order-complete');
+      router.replace('/order-complete');
       return;
     }
 
@@ -399,7 +423,7 @@ function CheckoutForm() {
                   수집·이용합니다. 주문 및 대금결제 기록은 전자상거래법에 따라 5년간 보관됩니다.
                 </p>
                 <p>
-                  기본 배송비는 {DEFAULT_COMMERCE_POLICY.shippingLabel}이며, 출고·교환·반품 기준은 상품 상세와{' '}
+                  배송비는 브랜드별 정책을 합산하며, 출고·교환·반품 기준은 상품 상세와{' '}
                   <Link href="/refund-policy" className="font-semibold text-[#2F3B34] underline underline-offset-2">
                     배송·교환·환불 안내
                   </Link>
@@ -447,6 +471,15 @@ function CheckoutForm() {
                   <span>배송비</span>
                   <span className="font-medium text-gray-900">{formatPrice(deliveryFee)}</span>
                 </div>
+                {deliveryFeeCalculation.breakdown.length > 0 && (
+                  <div className="space-y-1 text-right text-xs text-[#68776C]">
+                    {deliveryFeeCalculation.breakdown.map((item) => (
+                      <div key={item.brandId}>
+                        {item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="pt-5 md:pt-6 border-t border-gray-100 flex items-end justify-between mb-6 md:mb-8">

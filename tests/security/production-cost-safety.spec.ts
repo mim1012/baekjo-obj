@@ -209,7 +209,7 @@ test.describe('Production 비용 안전 경계', () => {
       }),
     ).resolves.toBe('aeooyivfijthfcrfrnyk');
 
-    expect(requestedTarget).toBe('http://127.0.0.1:3000/api/__test__/supabase-ref');
+    expect(requestedTarget).toBe('http://127.0.0.1:3000/api/test/supabase-ref');
   });
 
   test('localhost 앱 runtime ref mismatch와 missing 또는 invalid response는 쓰기 전에 hard fail한다', async () => {

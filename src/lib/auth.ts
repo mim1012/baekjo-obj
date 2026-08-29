@@ -25,6 +25,9 @@ class MemberRejectedError extends CredentialsSignin {
 class MemberInactiveError extends CredentialsSignin {
   code = 'member-inactive';
 }
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = 'email-not-verified';
+}
 
 /**
  * Node 전용 인증 설정. Supabase/bcrypt를 쓰는 이메일 로그인(Credentials)과 소셜 계정 upsert가
@@ -52,6 +55,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const member = await findMemberByEmail(normalizedEmail);
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
+        if (!member.emailVerified) throw new EmailNotVerifiedError();
         // bcrypt는 이미 위에서 실행됐으므로 이 분기는 타이밍 오라클과 무관하다.
         // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)/withdrawn(탈퇴)는
         // 차단하되, 올바른 자격 증명으로 확인된 경우엔 코드를 던져 상황에 맞는 안내를 제공한다
