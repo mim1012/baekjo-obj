@@ -2,31 +2,12 @@ import type { Brand, DeliveryFeeBreakdown, Order, OrderItem } from '@/types';
 import { ALL_ORDER_FILTER_VALUE } from './adminOrderFilters';
 
 export const ADMIN_ORDER_DETAIL_COLUMNS = [
-  '주문번호',
-  '주문일시',
-  '브랜드명',
-  '상품명',
-  '옵션',
-  '판매수량',
-  '상품 판매금액',
-  '배송비',
-  '최종 결제금액',
-  '구매자명',
-  '연락처',
-  '배송지',
-  '주문상태',
-  '취소·환불 여부',
-  '송장번호',
+  '주문번호', '주문일시', '브랜드명', '상품명', '옵션', '판매수량', '상품 판매금액', '배송비',
+  '최종 결제금액', '구매자명', '연락처', '배송지', '주문상태', '취소·환불 여부', '송장번호',
 ] as const;
 
 export const ADMIN_ORDER_BRAND_SUMMARY_COLUMNS = [
-  '브랜드명',
-  '상품명',
-  '옵션',
-  '판매수량',
-  '상품 판매금액 합계',
-  '배송비 합계',
-  '최종 결제금액 합계',
+  '브랜드명', '상품명', '옵션', '판매수량', '상품 판매금액 합계', '배송비 합계', '최종 결제금액 합계',
 ] as const;
 
 export interface AdminOrderReportInput {
