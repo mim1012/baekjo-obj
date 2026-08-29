@@ -13,12 +13,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('헤더와 푸터 메뉴가 정본 순서와 구성으로 유지된다', () => {
     const header = read('src/components/common/Header.tsx');
     const footer = read('src/components/common/Footer.tsx');
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조 오브제', 'B2B']) {
+    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
       expect(header, `${label} 메뉴`).toContain(label);
     }
-    for (const submenu of ['검증 기준', '전문가 칼럼', '보호자 후기', '소식']) {
+    for (const submenu of ['백조오브제 Audit의 검토 기준', '전문가 칼럼', '보호자 후기', '소식']) {
       expect(header).toContain(submenu);
     }
+    expect(header).not.toContain('백조 Audit');
+    expect(header).not.toContain('먼저 경험한 보호자들의 기록');
     expect(footer).toContain('@BAEKJO OBJET');
     expect(footer).toContain("label: '배송·교환·환불'");
     expect(footer).not.toContain('PET LIFE CURATION');
@@ -39,6 +41,45 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(home).toContain(".slice(0, 3)");
     expect(home).toContain('보호자 후기');
     expect(home).toContain('소식');
+  });
+
+  test('Audit·보호자 후기·소식 화면이 최신 콘텐츠 정본과 일치한다', () => {
+    const audit = read('src/app/audit/page.tsx');
+    const reviews = read('src/app/reviews/page.tsx');
+    const notices = read('src/app/notices/page.tsx');
+    const reviewsAdmin = read('src/app/admin/reviews/page.tsx');
+
+    for (const copy of [
+      '확인하는 기준이 있습니다.',
+      '브랜드 둘러보기',
+      '모든 브랜드를 소개하지 않습니다. 확인하고 선택한 브랜드만 소개합니다.',
+      '브랜드를 바라보는 기준',
+      'Audit은 완료된 뒤에도 이어집니다',
+      '추가 확인 중',
+      '화면에서는 이렇게 표시됩니다.',
+      '확인한 기준은 선택으로 이어집니다.',
+    ]) {
+      expect(audit).toContain(copy);
+    }
+    expect(audit).not.toContain('100 to 5');
+    expect(audit).not.toContain('검증 브랜드 보기');
+    expect(audit).not.toContain('검토 기준 살펴보기');
+
+    for (const copy of ['REAL EXPERIENCES', '보호자 후기', "['small', '소동물']", "['other', '기타']"]) {
+      expect(reviews).toContain(copy);
+    }
+    expect(reviews).toContain('return review.petType === filter;');
+    expect(reviews).not.toContain('반려가족의 리얼 후기');
+    expect(reviews).not.toContain('reviewConcernTagsByProductId');
+    expect(reviewsAdmin).toContain("label: '반려동물 종류 (필수)'");
+    expect(reviewsAdmin).toContain('required: true');
+    expect(reviewsAdmin).toContain("{ value: '', label: '종류를 선택해 주세요' }");
+
+    expect(notices).toContain('NEWS &amp; NOTICE');
+    expect(notices).toContain('백조오브제의 새로운 소식과 안내');
+    for (const hiddenColumn of ['<div>글쓴이</div>', '<div>조회수</div>', '<div>좋아요</div>']) {
+      expect(notices).not.toContain(hiddenColumn);
+    }
   });
 
   test('빠른 쇼핑은 6개 카테고리로 통일하고 기존 9개 설정을 호환한다', () => {
@@ -130,9 +171,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(skin?.faq).toHaveLength(4);
     expect(skin?.faq[0].question).toBe('목욕은 얼마나 자주 하는 게 좋을까요?');
     for (const text of [
-      '식사·환경·피부 상태 등 피부 변화에 영향을 줄 수 있는 원인',
-      '피부 청결과 식사·환경 등 일상에서 챙겨야 할 관리 방법',
-      '피부 상태와 행동으로 구분하는 진료가 필요한 신호',
+      "title: '변화 살펴보기'",
+      "description: '평소 생활에서 확인할 수 있는 몸과 행동의 변화'",
+      "title: '병원 방문 판단하기'",
+      "description: '병원 진료를 고려해야 할 신호와 기준'",
       '긁거나 핥는 행동이 계속되거나 심해짐',
       '피부 변화와 함께 식욕이나 활동량이 평소와 달라짐',
       '우리 아이에게 필요한 보장은 무엇일까요?',
@@ -148,9 +190,78 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(detail).toContain('concern.recommendedBrandIds.flatMap');
   });
 
-  // '공개 상품 구매 제한 해제 마이그레이션은 상품과 옵션 재고를 함께 연다' 테스트는
-  // 0105_unlock_visible_product_purchases.sql(옵션재고 묶음 B, PR #244 A묶음에서 제외)을
-  // 전제로 해서 제외했다. bundle B 작업 시 함께 복원한다.
+  test('체중·구강·관절·행동 상세 문구와 추천 노출 규칙이 최신 시안과 일치한다', () => {
+    const overview = read('src/app/concerns/page.tsx');
+    const detail = read('src/app/concerns/[slug]/page.tsx');
+    const bySlug = (slug: string) => defaultConcernsConfig.items.find((concern) => concern.slug === slug);
+    const obesity = bySlug('obesity');
+    const oral = bySlug('oral');
+    const joint = bySlug('joint');
+    const stress = bySlug('stress');
+
+    expect(overview).not.toContain('CARE EDIT');
+    expect(overview).not.toContain('함께 알아두면 좋은 정보');
+    expect(overview).not.toContain("title: '변화 살펴보기'");
+    expect(overview).not.toContain("title: '병원 방문 판단하기'");
+    expect(overview).not.toContain('더 궁금한 점이 있으신가요?');
+    expect(overview).not.toContain('1:1 문의하기');
+    for (const faq of [
+      '이 정보는 어떻게 활용하면 되나요?',
+      '여러 고민이 함께 보이면 어떻게 살펴봐야 하나요?',
+      '언제 진료가 필요한가요?',
+      '이 정보만으로 건강 상태를 판단해도 되나요?',
+    ]) {
+      expect(overview).toContain(faq);
+    }
+    expect(overview).not.toContain('사랑하는 아이를 위한 든든한 준비');
+    expect(overview).toContain('우리 아이에게 필요한 보장은 무엇일까요?');
+    expect(overview).toContain('나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.');
+    expect(overview).toContain('보험 분석하기');
+    expect(overview).toContain('<Link href="/insurance"');
+    expect(overview).not.toContain('href="/insurance/recommend"');
+
+    expect(detail).toContain("title: '우리 아이의 체중,\\n괜찮은 걸까요?'");
+    expect(detail).toContain("title: '구강, 어디서부터 살펴볼까요?'");
+    expect(detail).toContain("title: '걸음걸이가 예전과 달라졌나요?'");
+    expect(detail).toContain("title: '평소와 다른 행동이 자주 보이나요?'");
+    expect(detail).not.toContain("title: '관리 기준 알아보기'");
+    expect(detail).not.toContain('href="#management"');
+    expect(detail).toContain('href="#signals"');
+    expect(detail).toContain('recommendedBrands.length > 0 &&');
+    expect(detail).toContain('recommendedProducts.length > 0 &&');
+    expect(detail).toContain('relatedReviews.length > 0 &&');
+    expect(detail).toContain('보험 분석하기');
+    expect(detail).not.toContain('보험 보장 범위 분석하기');
+    expect(detail).toContain('href="/insurance"');
+    expect(detail).not.toContain('href="/insurance/recommend"');
+    expect(detail).not.toContain('더 궁금한 점이 있으신가요?');
+
+    expect(obesity?.recommendedBrandIds).toEqual(['b1']);
+    expect(obesity?.recommendedProductIds).toEqual(['p1', 'p2', 'p3']);
+    expect(obesity?.faq).toHaveLength(4);
+    expect(obesity?.symptoms[0]).toBe('갈비뼈가 쉽게 만져지지 않음');
+
+    expect(oral?.recommendedBrandIds).toEqual(['b3']);
+    expect(oral?.recommendedProductIds).toEqual(['p7', 'p8']);
+    expect(oral?.faq).toHaveLength(4);
+    expect(oral?.symptoms[1]).toBe('치아에 누렇거나 갈색의 치석이 보임');
+
+    expect(joint?.recommendedBrandIds).toEqual([]);
+    expect(joint?.recommendedProductIds).toEqual([]);
+    expect(joint?.faq).toHaveLength(4);
+    expect(joint?.symptoms[4]).toBe('다리나 관절 주변을 만질 때 불편해하는 모습을 보임');
+
+    expect(stress?.symptoms).toContain('평소와 다르게 숨거나 사람·다른 동물과의 접촉을 피함');
+    expect(detail).toContain('불안하거나 두려워하는 행동으로 일상생활이 어려워 보임');
+  });
+
+
+  test('저장된 홈 설정의 브랜드 표기도 백조오브제로 갱신한다', () => {
+    const migration = read('supabase/migrations/0107_baekjo_objet_display_name.sql');
+    expect(migration).toContain('백조오브제는 그 과정까지 확인합니다.');
+    expect(migration).toContain('검토 기준 자세히 보기');
+    expect(migration).toContain("where id = 'home'");
+  });
 
   test('브랜드 8개 표시 문구를 이름 변형과 무관하게 정규화한다', () => {
     const brandsPage = read('src/components/brands/BrandsContent.tsx');

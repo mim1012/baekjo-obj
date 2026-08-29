@@ -80,7 +80,7 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
     // rating 은 1~5 범위의 유한한 숫자만 허용한다.
     expect(validateSource).toContain('export function isRating(value: unknown): value is number');
     expect(validateSource).toContain('value >= 1 && value <= 5');
-    expect(validateSource).toContain("export const REVIEW_PET_TYPES = ['dog', 'cat'] as const;");
+    expect(validateSource).toContain("export const REVIEW_PET_TYPES = ['dog', 'cat', 'small', 'other'] as const;");
     // null → undefined 정규화(반환·저장 전 항상 거친다).
     expect(validateSource).toContain('export function normalizeShowcaseReview');
     expect(validateSource).toContain('image: review.image ?? undefined');

@@ -12,7 +12,7 @@ import { EditorialActionLink, EditorialIconBadge } from '@/components/common/Edi
 import { PageIntro, SectionHeading } from '@/components/common/EditorialHeading';
 
 export const metadata = {
-  title: 'B2B 파트너십 | 백조오브제',
+  title: 'B2B 파트너십',
   description: '동물병원, 반려생활 기관, 기업과 브랜드를 위한 케어키트, 대량 구매, 입점 및 공동 기획 파트너십을 안내합니다.',
 };
 
@@ -83,7 +83,7 @@ export default function B2BPage() {
         <div className="site-container-wide grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-16">
           <PageIntro
             className="lg:col-span-6"
-            eyebrow="Baekjo for business"
+            eyebrow="Baekjo Objet for business"
             title={<>반려가족과 만나는 순간을<br />함께 설계합니다.</>}
             description={
               <p>
@@ -208,7 +208,7 @@ export default function B2BPage() {
           <div className="max-w-2xl">
             <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">Start a partnership</p>
             <h2 className="mt-3 text-[26px] font-bold leading-[1.25] text-[#FBFAF7] sm:text-[32px]">기준이 같다면, 함께 만들어갑니다.</h2>
-            <p className="mt-4 max-w-3xl break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">모든 프로젝트는 백조 오브제 Audit을 거친 입점 브랜드에 한해 진행합니다. 신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</p>
+            <p className="mt-4 max-w-3xl break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다. 신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</p>
           </div>
           <div className="grid w-full gap-3 sm:flex sm:w-auto">
             <EditorialActionLink href="/landing/care-kit#partner" variant="inverse">파트너십 문의하기</EditorialActionLink>

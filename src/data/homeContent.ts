@@ -59,7 +59,7 @@ export interface HomeSettings {
     description: string;
     buttonLabel: string;
   };
-  /** 10. 반려가족 후기와 백조 소식 */
+  /** 10. 반려가족 후기와 백조오브제 소식 */
   trustBoard: {
     reviewsTitle: string;
     reviewsLinkLabel: string;
@@ -110,7 +110,7 @@ export const defaultHomeSettings: HomeSettings = {
     badge: 'BAEKJO OBJET AUDIT',
     titleLines: ['길지만은 않은', '우리 아이와의 시간'],
     description: '좋은 브랜드를 통해 우리 아이와 더 많은 행복을 함께할 수 있도록 백조오브제 Audit을 진행합니다.',
-    linkLabel: '검증 기준 자세히 보기',
+    linkLabel: '검토 기준 자세히 보기',
     criteria: [
       { title: '브랜드 철학', desc: '브랜드가 추구하는 가치를 확인합니다.' },
       { title: '성분·원료', desc: '성분과 원료를 확인합니다.' },

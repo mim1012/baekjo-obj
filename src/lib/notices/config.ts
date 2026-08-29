@@ -45,7 +45,7 @@ export const defaultNoticesConfig: NoticesConfig = {
     {
       id: 'n4',
       title: '무료 펫보험 분석 서비스 오픈',
-      writer: '백조케어팀',
+      writer: '백조오브제 케어팀',
       date: '2023-12-20',
       views: 2100,
       likes: 350,
