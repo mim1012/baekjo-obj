@@ -72,7 +72,7 @@ export const defaultHomeSettings: HomeSettings = {
   hero: {
     eyebrow: 'Curated Pet Brands',
     titleLines: ['좋은 브랜드를', '찾고 계셨나요?'],
-    descriptionLines: ['좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.'],
+    descriptionLines: ['좋은 브랜드는 결과입니다. 백조오브제는 과정까지 확인합니다.'],
     primaryCtaLabel: '검증 상품 보기',
     secondaryCtaLabel: '고민별 찾아보기',
     trustNote: '백조오브제 Audit을 통과한 브랜드만 소개합니다.',
