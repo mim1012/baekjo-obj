@@ -82,24 +82,25 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     }
   });
 
-  test('케어키트 프로젝트와 협업 문의 문구가 디자이너 정본과 일치한다', () => {
+  test('케어키트 프로젝트와 협업 문의 문구가 최신 시안과 일치한다', () => {
     const careKit = read('src/app/landing/care-kit/page.tsx');
     const inquiryForm = read('src/components/care-kit/PartnerInquiryForm.tsx');
-    const migration = read('supabase/migrations/0109_care_kit_project_content.sql');
+    const migration = read('supabase/migrations/0110_care_kit_project_content.sql');
 
     for (const copy of [
-      '가장 도움이 필요한 순간,',
-      '작은 위로를 전합니다',
-      '제휴 문의하기',
-      'Four moments of care',
-      '4가지 맞춤 케어 키트',
-      'B2B 파트너십 문의',
+      '필요한 순간에 맞는',
+      '파트너십 문의하기',
+      'MOMENTS OF CARE',
+      '파트너와 함께 만드는 케어',
+      'CARE KIT PARTNER',
+      '첫 케어키트 프로젝트는 페네핏과 함께 기획하고 제작합니다.',
+      '현재 상세 구성 및 디자인 이미지는 공개하지 않습니다.',
+      '협업·제휴 문의',
     ]) {
       expect(careKit).toContain(copy);
     }
     expect(careKit).toContain("legacyDefaultKitNames");
-    expect(inquiryForm).toContain('B2B 파트너십 문의 양식');
-    expect(inquiryForm).toContain('제휴 문의 제출하기');
+    expect(inquiryForm).toContain('협업·제휴 문의하기');
     expect(defaultKitsConfig.items.map((kit) => kit.name)).toEqual([
       '웰컴 케어',
       '위로 케어',
