@@ -13,6 +13,7 @@ const order: Order = {
     { productId: 'p1', productName: '상품', optionName: 'S', quantity: 2, price: 1000, brandId: 'b1' },
   ], totalPrice: 2000, deliveryFee: 3000, paymentMethod: '카드', orderStatus: '주문접수',
   paymentStatus: '결제완료', deliveryStatus: '배송준비', createdAt: '2026-08-30T00:00:00.000Z',
+  deliveryFeeBreakdown: [{ brandId: 'b1', brandName: '테스트 브랜드', subtotal: 2000, shippingFee: 3000, appliedDeliveryFee: 3000, isFreeShipping: false, freeShippingThreshold: 50000 }],
 };
 
 test('XLSX export creates an Excel workbook with safe values and product rows', async () => {
@@ -22,9 +23,9 @@ test('XLSX export creates an Excel workbook with safe values and product rows', 
   await workbook.xlsx.load(bytes);
   const sheet = workbook.getWorksheet('주문내역');
   expect(sheet).toBeTruthy();
-  expect(sheet?.getRow(1).getCell(1).value).toBe('주문일');
-  expect(sheet?.getRow(2).getCell(2).value).toBe('order-1');
-  expect(sheet?.getRow(2).getCell(3).value).toBe("'=FORMULA");
-  expect(sheet?.getRow(2).getCell(13).value).toBe('p1');
-  expect(sheet?.getRow(2).getCell(23).value).toBe('');
+  expect(sheet?.getRow(1).getCell(1).value).toBe('주문번호');
+  expect(sheet?.getRow(2).getCell(1).value).toBe('order-1');
+  expect(sheet?.getRow(2).getCell(10).value).toBe("'=FORMULA");
+  expect(sheet?.getRow(2).getCell(4).value).toBe('상품');
+  expect(sheet?.getRow(2).getCell(8).value).toBe(3000);
 });
