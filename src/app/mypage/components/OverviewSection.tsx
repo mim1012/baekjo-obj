@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Package, Truck, Heart, Star, MessageCircle, Shield } from 'lucide-react';
+import { FEATURES } from '@/config/features';
 
 interface OverviewSectionProps {
   stats: {
@@ -51,13 +52,17 @@ export default function OverviewSection({ stats }: OverviewSectionProps) {
       href: '/mypage?tab=inquiries',
       icon: MessageCircle,
     },
-    {
-      id: 'insurance',
-      label: '보험 분석 진행',
-      value: stats.insuranceCount,
-      href: '/mypage?tab=insurance',
-      icon: Shield,
-    },
+    ...(FEATURES.insurance
+      ? [
+          {
+            id: 'insurance',
+            label: '보험 분석 진행',
+            value: stats.insuranceCount,
+            href: '/mypage?tab=insurance',
+            icon: Shield,
+          },
+        ]
+      : []),
   ];
 
   return (

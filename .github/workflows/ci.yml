@@ -11,6 +11,54 @@ on:
     branches: [main, "integrate/**"]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      payment: ${{ steps.filter.outputs.payment }}
+      shipping: ${{ steps.filter.outputs.shipping }}
+      database: ${{ steps.filter.outputs.database }}
+      ui: ${{ steps.filter.outputs.ui }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            auth:
+              - 'src/app/api/auth/**'
+              - 'src/app/api/members/**'
+              - 'src/app/login/**'
+              - 'src/app/signup/**'
+              - 'src/components/signup/**'
+              - 'src/lib/auth*'
+              - 'src/lib/members/**'
+              - 'tests/golden/credentials-login.spec.ts'
+            payment:
+              - 'src/app/api/payments/**'
+              - 'src/lib/payments/**'
+              - 'tests/payments/**'
+              - 'tests/admin/*refund*'
+            shipping:
+              - 'src/app/api/cron/**'
+              - 'src/app/api/orders/**/shipments/**'
+              - 'src/lib/shipments/**'
+              - 'src/lib/tracking/**'
+              - 'src/app/mypage/components/Tracking*'
+              - 'tests/tracking/**'
+              - 'tests/shipments/**'
+            database:
+              - 'supabase/migrations/**'
+              - 'scripts/apply-migrations.mjs'
+              - 'tests/**/*.db.spec.ts'
+            ui:
+              - 'src/**/*.tsx'
+              - 'src/**/*.css'
+              - 'public/**'
+              - 'DESIGN.md'
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -48,6 +96,8 @@ jobs:
         run: npx playwright test --project=tracking --reporter=line
 
   visual:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.auth == 'true' || needs.changes.outputs.shipping == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,6 +111,8 @@ jobs:
         run: npx playwright test tests/tracking/tracking-ui-seam.spec.ts --project=tracking --workers=1 --retries=0 --reporter=line
 
   payments-routes:
+    needs: changes
+    if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.auth == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -76,6 +128,8 @@ jobs:
         run: npx playwright test tests/payments/payment-routes.spec.ts --project=payments --workers=1 --retries=0 --reporter=line
 
   crud:
+    needs: changes
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -129,7 +183,8 @@ jobs:
   # 상품이 원인이었고, 그건 이제 visual → payments-routes 순차 실행으로 막힌다).
   payments-db-spec:
     runs-on: ubuntu-latest
-    needs: verify
+    needs: [verify, changes]
+    if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || needs.changes.outputs.database == 'true' || github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
 

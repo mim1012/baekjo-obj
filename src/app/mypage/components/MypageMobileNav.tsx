@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { FEATURES } from '@/config/features';
 
 interface MypageMobileNavProps {
   activeTab: string;
@@ -13,7 +14,8 @@ export default function MypageMobileNav({ activeTab }: MypageMobileNavProps) {
     { id: 'wishlist', label: '관심 상품' },
     { id: 'reviews', label: '구매평 관리' },
     { id: 'inquiries', label: '상품문의 관리' },
-    { id: 'insurance', label: '보험 분석 내역' },
+    // 펫보험 미노출 기간에는 탭 자체를 숨긴다(features.ts).
+    ...(FEATURES.insurance ? [{ id: 'insurance', label: '보험 분석 내역' }] : []),
     { id: 'profile', label: '회원정보 수정' },
   ];
 

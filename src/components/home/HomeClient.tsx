@@ -11,6 +11,7 @@ import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import { FEATURES } from '@/config/features';
 import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
@@ -248,8 +249,9 @@ export default function HomeClient({
         <BrandShowcaseSlider brands={displayBrands} />
       </section>
 
-      {/* 9. 펫보험 안내 배너 */}
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+      {/* 9. 펫보험 안내 배너 — 기능 플래그로 미노출(복귀는 features.ts) */}
+      {FEATURES.insurance && (
+        <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
             <div className="flex flex-col items-start text-white max-w-[480px]">
@@ -278,6 +280,7 @@ export default function HomeClient({
           </div>
         </div>
       </section>
+      )}
 
       {/* 10. 반려가족 후기와 백조오브제 소식 */}
       <section className="mx-auto mb-12 w-full max-w-[1280px] rounded-[24px] bg-[#F2EEE5] px-5 py-8 md:mb-16 md:px-7 md:py-10 lg:px-10 xl:px-14">

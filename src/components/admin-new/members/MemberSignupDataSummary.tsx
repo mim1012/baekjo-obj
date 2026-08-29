@@ -126,7 +126,12 @@ function SignupValue({ value }: { value: unknown }) {
               <FileText className="h-3.5 w-3.5 text-[#687069]" />
               <span>{file.category ? `${file.category} · ${file.name}` : file.name}</span>
               {file.path && (
-                <a href={file.path} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[#2F3B34] underline">
+                <a
+                  href={`/api/admin/members/file?path=${encodeURIComponent(file.path)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[#2F3B34] underline"
+                >
                   보기 <LinkIcon className="h-3 w-3" />
                 </a>
               )}

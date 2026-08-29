@@ -1,15 +1,24 @@
 import NextAuth, { type NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authConfig } from '@/lib/auth.config';
+import { FEATURES } from '@/config/features';
 
 // Next.js 16: 'middleware' 파일 컨벤션이 deprecated 되어 'proxy'로 대체됐다(런타임은 nodejs 고정,
 // edge 미지원). 엣지 전용으로 나눠뒀던 auth.config.ts는 더 이상 필수는 아니지만, 가볍고 안전해서 그대로 재사용한다.
 const { auth } = NextAuth(authConfig);
 
-/** 관리자 전용 경로(/admin, /api/admin) 접근 가드. */
+/** 관리자 전용 경로(/admin, /api/admin) 접근 가드 + 미노출 기능 페이지 리다이렉트. */
 function proxy(req: NextAuthRequest) {
   const { pathname } = req.nextUrl;
   const isAdmin = req.auth?.user?.role === 'admin';
+
+  // 미노출 기능 페이지는 링크 공유·북마크로도 진입하지 못하게 메인으로 돌린다(features.ts).
+  if (!FEATURES.insurance && pathname.startsWith('/insurance')) {
+    return NextResponse.redirect(new URL('/', req.nextUrl.origin));
+  }
+  if (!FEATURES.experts && pathname.startsWith('/experts')) {
+    return NextResponse.redirect(new URL('/', req.nextUrl.origin));
+  }
 
   if (pathname.startsWith('/api/admin')) {
     if (!isAdmin) {
@@ -38,5 +47,5 @@ function proxy(req: NextAuthRequest) {
 export default auth(proxy);
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*', '/insurance/:path*', '/experts/:path*'],
 };

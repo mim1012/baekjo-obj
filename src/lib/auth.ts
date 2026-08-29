@@ -1,4 +1,5 @@
 import NextAuth from 'next-auth';
+import { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from '@/lib/auth.config';
 import { findMemberByEmail, upsertSocialMember } from '@/lib/members/repo';
@@ -9,6 +10,21 @@ import { checkAuthRateLimit, resetAuthRateLimit } from '@/lib/security/authRateL
 // 이메일이 없거나(가입 안 됨) 소셜 전용 계정이라 비밀번호 해시가 없어도 verifyPassword를
 // 항상 한 번 실행해, "회원 없음"/"비밀번호 없음"/"비밀번호 오답" 세 분기의 응답 시간을 맞춘다.
 const DUMMY_PASSWORD_HASH = '$2b$10$i2b5w49ImCKbBpSb38axye9XEMPOGaJHg.2NXwSG4o9laUb4nNKsW';
+
+/**
+ * 자격 증명이 맞음이 확인된 후 상태로만 차단되는 경우 — null 반환(단순 실패) 대신
+ * 코드를 담은 CredentialsSignin을 던져 클라이언트가 상황별 안내를 할 수 있게 한다.
+ * 이 분기는 비밀번호 검증이 끝난 뒤에 도달하므로 "존재하지 않는 이메일" 열거 수단이 되지 않는다.
+ */
+class PendingApprovalError extends CredentialsSignin {
+  code = 'pending-approval';
+}
+class MemberRejectedError extends CredentialsSignin {
+  code = 'member-rejected';
+}
+class MemberInactiveError extends CredentialsSignin {
+  code = 'member-inactive';
+}
 
 /**
  * Node 전용 인증 설정. Supabase/bcrypt를 쓰는 이메일 로그인(Credentials)과 소셜 계정 upsert가
@@ -37,8 +53,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
         // bcrypt는 이미 위에서 실행됐으므로 이 분기는 타이밍 오라클과 무관하다.
-        // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)는 차단.
-        if (member.status !== 'active') return null;
+        // active만 로그인 허용 — pending(승인대기)/rejected(반려)/inactive(휴면)/withdrawn(탈퇴)는
+        // 차단하되, 올바른 자격 증명으로 확인된 경우엔 코드를 던져 상황에 맞는 안내를 제공한다
+        // (pending에게 "비밀번호가 틀렸다"고 오인시키던 문제 해소).
+        if (member.status !== 'active') {
+          if (member.status === 'pending') throw new PendingApprovalError();
+          if (member.status === 'rejected') throw new MemberRejectedError();
+          throw new MemberInactiveError();
+        }
 
         resetAuthRateLimit('login', normalizedEmail);
 
@@ -72,7 +94,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: typeof user.name === 'string' ? user.name : null,
           profileImage: typeof user.image === 'string' ? user.image : null,
         });
-        if (member.status !== 'active') return false;
+        // false를 반환하면 next-auth가 일반 "AccessDenied"로 뭉개버려 이메일 로그인과 달리
+        // pending/rejected/inactive를 구분할 수 없다. 대신 signIn 콜백이 문자열(상대 경로)을
+        // 반환하면 next-auth가 그 URL로 그대로 리다이렉트한다(기본 redirect 콜백, @auth/core
+        // lib/init.js) — 이를 이용해 /login?error=... 에 상태별 코드를 실어 보낸다.
+        if (member.status === 'pending') return '/login?error=pending-approval';
+        if (member.status === 'rejected') return '/login?error=member-rejected';
+        if (member.status !== 'active') return '/login?error=member-inactive';
       }
       return true;
     },
@@ -93,7 +121,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.provider = account.provider;
       } else if (user) {
         token.memberId = user.id;
-        token.role = (user as { role?: 'user' | 'admin' }).role;
+        token.role = (
+          user as { role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner' }
+        ).role;
         token.provider = 'email';
       }
       return token;
