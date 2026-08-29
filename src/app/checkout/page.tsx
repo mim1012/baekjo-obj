@@ -11,6 +11,7 @@ import { createOrder, cancelReservation, getPublicProducts, getSessionUser } fro
 import { CartItem, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import { calcDeliveryFee } from '@/lib/orderPolicy';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
@@ -111,6 +112,11 @@ function CheckoutForm() {
   const [widgetReady, setWidgetReady] = useState(false);
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
+  // 주문 성공 후 clearCart()로 카트가 비면 cartItems.length===0 이 되어 아래 "빈 카트 → /cart" 리다이렉트
+  // 이펙트와 order-complete 이동이 경합한다. 성공이 확정되는 즉시(= clearCart 호출 전) true 로 세워
+  // 그 이펙트와 렌더 중단(early return)을 모두 무력화해 실제 이동만 이기게 한다.
+  // (setOrderCompleted 와 clearCart 는 같은 핸들러에서 배치되므로 다음 렌더에서 항상 함께 보인다.)
+  const [orderCompleted, setOrderCompleted] = useState(false);
 
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
@@ -118,6 +124,9 @@ function CheckoutForm() {
   const isCardPayment = formData.paymentMethod === '카드결제';
 
   useEffect(() => {
+    // 주문 성공 후 clearCart() 로 카트가 비어도 이 이펙트가 /cart 로 되튕기면 안 된다 — 이동은
+    // handleSubmit 이 이미 order-complete 로 트리거했다.
+    if (orderCompleted) return;
     if (ready && canOrder) {
       if (cartItems.length === 0) {
         router.replace('/cart');
@@ -126,7 +135,7 @@ function CheckoutForm() {
         router.replace('/cart');
       }
     }
-  }, [canOrder, cartItems.length, hasUnpricedItems, ready, router]);
+  }, [canOrder, cartItems.length, hasUnpricedItems, orderCompleted, ready, router]);
 
   // 결제창에서 실패/취소로 돌아온 경우: 직전에 만들어둔 PENDING 주문의 재고 선점을 해제한다.
   // 토스가 failUrl에 붙여주는 orderId 쿼리를 우선 신뢰하고, 없을 때만 세션 키를 폴백으로 쓴다
@@ -155,7 +164,7 @@ function CheckoutForm() {
   }, [router, searchParams]);
 
   const finalPriceForWidget = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFeeForWidget = finalPriceForWidget > 0 && finalPriceForWidget < 50000 ? 3000 : 0;
+  const deliveryFeeForWidget = calcDeliveryFee(finalPriceForWidget);
   const widgetAmount = finalPriceForWidget + deliveryFeeForWidget;
 
   // 카드결제 선택 + 결제 가능 금액이 확정된 뒤에만 토스 위젯을 로드·렌더한다.
@@ -198,12 +207,15 @@ function CheckoutForm() {
 
   if (!ready) return null;
 
-  if (!canOrder || cartItems.length === 0 || hasUnpricedItems) {
+  // 주문 성공 후에는 카트가 비어 cartItems.length===0 이 되지만, 여기서 null 을 반환하면
+  // order-complete 로 이동하는 동안 "주문 처리 중…" 오버레이가 사라져 버린다. 이동이 끝날 때까지는
+  // 마지막 렌더(오버레이 표시 상태)를 그대로 유지한다.
+  if (!orderCompleted && (!canOrder || cartItems.length === 0 || hasUnpricedItems)) {
     return null;
   }
 
   const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
-  const deliveryFee = totalProductsPrice > 0 && totalProductsPrice < 50000 ? 3000 : 0;
+  const deliveryFee = calcDeliveryFee(totalProductsPrice);
   const finalPrice = totalProductsPrice + deliveryFee;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -254,8 +266,11 @@ function CheckoutForm() {
     }
 
     if (!isCardPayment) {
+      // clearCart() 는 cartItems.length 를 0으로 만들어 위의 "빈 카트 → /cart" 이펙트를 트리거할 수
+      // 있다 — 그 이펙트가 order-complete 이동을 덮어쓰지 못하도록 clearCart() 보다 먼저 표시해둔다.
+      setOrderCompleted(true);
       clearCart();
-      router.push('/order-complete');
+      router.replace('/order-complete');
       return;
     }
 
