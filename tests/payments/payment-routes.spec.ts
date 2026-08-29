@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 import { q, stockOf, orderRow, supabaseEnvReady, fixtureId, sweepStaleFixtures } from './helpers';
 import { bypassHeaders } from '../golden/_lib/adminCrudHelpers';
 import { MEMBER_EMAIL, MEMBER_PASSWORD, loginAsMember } from '../golden/_lib/memberCrudHelpers';
@@ -106,7 +106,7 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${P}';`);
     await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${P}','${P}', (select id from public.brands limit 1), 'etc', 1000, 5, true);`);
+             values ('${P}','${P}', 'b1', 'etc', 1000, 5, true);`);
   });
 
   test.afterAll(async () => {
@@ -177,7 +177,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${Q}';`);
     await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${Q}','${Q}', (select id from public.brands limit 1), 'etc', 1000, 5, true);`);
+             values ('${Q}','${Q}', 'b1', 'etc', 1000, 5, true);`);
     const res = await mkOrder(1);
     orderId = (res.json?.order?.id ?? res.json?.id) as string;
   });
@@ -231,7 +231,7 @@ test.describe('결제 라우트 — 카드 주문 취소 안전 수렴 (프리�
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
     await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${S}','${S}', (select id from public.brands limit 1), 'etc', 1000, 5, true);`);
+             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true);`);
   });
 
   test.afterAll(async () => {
@@ -286,7 +286,7 @@ test.describe('결제 라우트 — 오버셀 (독립 시나리오, 프리뷰 �
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${R}';`);
     await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${R}','${R}', (select id from public.brands limit 1), 'etc', 1000, 1, true);`);
+             values ('${R}','${R}', 'b1', 'etc', 1000, 1, true);`);
   });
 
   test.afterAll(async () => {
@@ -342,17 +342,20 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
 
   // /api/payments/return은 302 리다이렉트라 fetch 기본 동작(자동 추적)으로는 최종 목적지의
   // 200만 보인다 — redirect:'manual'로 Location 헤더 자체를 확인해 status 쿼리를 검사한다.
-  async function callReturn(query: Record<string, string>) {
+  async function callReturn(request: APIRequestContext, query: Record<string, string>) {
     const qs = new URLSearchParams(query).toString();
-    const res = await fetch(`${BASE}/api/payments/return?${qs}`, { redirect: 'manual' });
-    return { status: res.status, location: res.headers.get('location') };
+    const res = await request.get(`${BASE}/api/payments/return?${qs}`, {
+      maxRedirects: 0,
+      headers: bypassHeaders(),
+    });
+    return { status: res.status(), location: res.headers().location ?? null };
   }
 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
     await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${S}','${S}', (select id from public.brands limit 1), 'etc', 1000, 5, true);`);
+             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true);`);
   });
 
   test.afterAll(async () => {
@@ -360,7 +363,7 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
     await q(`delete from public.products where id='${S}';`);
   });
 
-  test('위조된 paymentKey로 /api/payments/return을 호출해도 결제대기 주문·재고를 건드리지 않는다', async () => {
+  test('위조된 paymentKey로 /api/payments/return을 호출해도 결제대기 주문·재고를 건드리지 않는다', async ({ request }) => {
     const res = await mkOrder(2); // subtotal 2000 + 배송비 3000 = 5000
     const orderId = (res.json?.order?.id ?? res.json?.id) as string;
     expect(orderId).toBeTruthy();
@@ -369,7 +372,7 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
 
     // 공격자는 피해자의 orderId·금액만 알면 된다 — paymentKey는 완전히 지어낸다.
     const forgedKey = fixtureId('forged_return_key');
-    const { location } = await callReturn({ paymentKey: forgedKey, orderId, amount: '5000' });
+    const { location } = await callReturn(request, { paymentKey: forgedKey, orderId, amount: '5000' });
     expect(location).toContain('/order-complete');
     // 토스 키가 없으면 바인딩 조회 자체가 "불명"(status=unconfirmed)으로, 토스 테스트키가 있으면
     // 위조 키가 권위 응답으로 거부돼 409 계열(status=expired)로 매핑될 수 있다. 어느 쪽이든
@@ -380,12 +383,12 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
     expect(await stockOf(S)).toBe(3); // 재고도 건드려지지 않았다
   });
 
-  test('불완전 쿼리는 조회·claim 없이 곧장 invalid로 리다이렉트하고 DB를 건드리지 않는다', async () => {
+  test('불완전 쿼리는 조회·claim 없이 곧장 invalid로 리다이렉트하고 DB를 건드리지 않는다', async ({ request }) => {
     const res = await mkOrder(1);
     const orderId = (res.json?.order?.id ?? res.json?.id) as string;
     expect(orderId).toBeTruthy();
 
-    const { location } = await callReturn({ orderId }); // paymentKey·amount 누락
+    const { location } = await callReturn(request, { orderId }); // paymentKey·amount 누락
     expect(location).toContain('/order-complete');
     expect(location).toMatch(/status=invalid/);
     expect((await orderRow(orderId)).payment_status).toBe('결제대기'); // DB 무변경

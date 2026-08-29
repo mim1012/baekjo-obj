@@ -1506,12 +1506,14 @@ export type LoginError =
   | 'network'
   | 'pending-approval'
   | 'member-rejected'
-  | 'member-inactive';
+  | 'member-inactive'
+  | 'email-not-verified';
 
 const KNOWN_STATUS_ERRORS: ReadonlySet<string> = new Set([
   'pending-approval',
   'member-rejected',
   'member-inactive',
+  'email-not-verified',
 ]);
 
 export async function login(

@@ -68,6 +68,10 @@ export default function LoginPage() {
       setError('이용이 중지되었거나 탈퇴한 계정입니다. 고객센터에 문의해 주세요.');
       return;
     }
+    if (result.error === 'email-not-verified') {
+      setError('이메일 인증 후 로그인할 수 있어요. 인증 메일을 확인해 주세요.');
+      return;
+    }
     if (result.error === 'network' || !result.user) {
       setError('로그인 처리 중 문제가 발생했어요. 새로고침 후 다시 시도해 주세요.');
       return;
