@@ -22,10 +22,20 @@ const PUBLIC_ROUTES = [
   '/refund-policy',
 ];
 
+/** DB를 사용할 수 없는 CI 프리렌더에서도 정적 공개 경로로 유효한 sitemap을 만든다. */
+function safeList<T>(promise: Promise<T[]>, label: string): Promise<T[]> {
+  return promise.catch((error: unknown) => {
+    console.warn(`[sitemap] ${label} 조회 실패 — 정적 경로만 포함`, {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  });
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, brands, concerns, notices] = await Promise.all([
-    listCachedPublicProducts(),
-    listCachedPublicBrands(),
+    safeList(listCachedPublicProducts(), 'products'),
+    safeList(listCachedPublicBrands(), 'brands'),
     getConcernsConfigWithFallback(),
     getNoticesConfigWithFallback(),
   ]);
