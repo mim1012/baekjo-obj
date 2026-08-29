@@ -3,7 +3,7 @@ import type { Brand, DeliveryFeeBreakdown, Order, OrderItem } from '@/types';
 
 const COLUMNS = [
   '주문번호', '주문일시', '브랜드명(업체명)', '상품명', '옵션', '판매수량', '상품 판매금액 합계', '배송비 합계',
-  '최종 결제금액', '구매자명', '연락처', '주문상태', '취소·환불 여부', '송장번호',
+  '최종 결제금액', '구매자명', '연락처', '배송지', '주문상태', '취소·환불 여부', '송장번호',
 ] as const;
 
 function safeCell(value: unknown): string | number {
@@ -19,7 +19,7 @@ function itemRow(order: Order, item: OrderItem, firstBrandRow: boolean, brandMap
   return [
     order.id, order.createdAt, brandName, item.productName, item.optionName ?? '', item.quantity, item.price * item.quantity,
     firstBrandRow ? (breakdown?.appliedDeliveryFee ?? (item.brandId ? 0 : order.deliveryFee)) : 0,
-    item.price * item.quantity + (firstBrandRow ? (breakdown?.appliedDeliveryFee ?? (item.brandId ? 0 : order.deliveryFee)) : 0), order.customerName, order.phone, order.orderStatus, canceled ? 'Y' : 'N', order.trackingNumber ?? '',
+    item.price * item.quantity + (firstBrandRow ? (breakdown?.appliedDeliveryFee ?? (item.brandId ? 0 : order.deliveryFee)) : 0), order.customerName, order.phone, order.address, order.orderStatus, canceled ? 'Y' : 'N', order.trackingNumber ?? '',
   ].map(safeCell);
 }
 
