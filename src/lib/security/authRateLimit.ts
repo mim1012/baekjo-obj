@@ -1,12 +1,6 @@
 import type { NextRequest } from 'next/server';
 
-export type AuthRateLimitAction =
-  | 'login'
-  | 'signup'
-  | 'password-reset'
-  | 'email-check'
-  | 'business-signup'
-  | 'business-upload';
+export type AuthRateLimitAction = 'login' | 'signup' | 'password-reset' | 'email-check';
 
 const WINDOWS: Record<AuthRateLimitAction, { windowMs: number; maxHits: number }> = {
   login: { windowMs: 15 * 60_000, maxHits: 10 },
@@ -14,10 +8,6 @@ const WINDOWS: Record<AuthRateLimitAction, { windowMs: number; maxHits: number }
   'password-reset': { windowMs: 60 * 60_000, maxHits: 20 },
   // 이메일 중복 선체크는 사용자가 입력을 고치며 여러 번 치므로 넉넉하게 잡는다.
   'email-check': { windowMs: 60 * 60_000, maxHits: 60 },
-  // 사업자 가입은 일반 가입과 동일한 창에서 조금 더 보수적으로 잡는다(승인 대기 row가 쌓이는 비용).
-  'business-signup': { windowMs: 60 * 60_000, maxHits: 20 },
-  // 업로드는 스토리지 쓰기 비용이 크므로 훨씬 낮게 — 가입 1건당 첨부서류 여러 개를 감안한 값.
-  'business-upload': { windowMs: 60 * 60_000, maxHits: 15 },
 };
 
 const hits = new Map<string, { count: number; windowStart: number }>();

@@ -7,7 +7,6 @@ import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { getLastOrder, getPaymentStatus } from '@/lib/storage';
 import { clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { customerPaymentStatusLabel } from '@/lib/orders/customerPaymentLabels';
 import type { Order } from '@/types';
 
 // checkout PENDING_ORDER_KEY와 동기화 — 토스 위젯 진입 시 checkout이 심어두는 미완료 결제
@@ -103,7 +102,7 @@ function OrderDetailCard({ order }: { order: Order }) {
         <div className="flex justify-between"><dt className="text-[#7B827C]">배송지</dt><dd className="max-w-[70%] text-right text-[#303731]">{order.address}</dd></div>
         <div className="flex justify-between"><dt className="text-[#7B827C]">배송 요청</dt><dd className="text-[#303731]">{order.deliveryMemo || '없음'}</dd></div>
         <div className="flex justify-between"><dt className="text-[#7B827C]">결제수단</dt><dd className="text-[#303731]">{order.paymentMethod}</dd></div>
-        <div className="flex justify-between"><dt className="text-[#7B827C]">결제상태</dt><dd className="text-[#303731]">{customerPaymentStatusLabel(order.paymentStatus)}</dd></div>
+        <div className="flex justify-between"><dt className="text-[#7B827C]">결제상태</dt><dd className="text-[#303731]">{order.paymentStatus}</dd></div>
         <div className="mt-2 flex justify-between border-t border-[#D8D6CE] pt-4"><dt className="font-semibold text-[#303731]">최종 결제금액</dt><dd className="text-lg font-semibold tabular-nums text-[#2F3B34]">{formatPrice(order.totalPrice + order.deliveryFee)}</dd></div>
       </dl>
     </div>

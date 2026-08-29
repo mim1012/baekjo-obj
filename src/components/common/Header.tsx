@@ -192,9 +192,8 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => {
-                  void logout().finally(() => {
-                    window.location.reload();
-                  });
+                  logout();
+                  window.location.reload();
                 }}
                 aria-label="로그아웃"
                 className="hidden rounded-full px-3 py-2.5 text-xs font-semibold text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
@@ -306,9 +305,8 @@ export default function Header() {
                   type="button"
                   onClick={() => {
                     closeMenu();
-                    void logout().finally(() => {
-                      window.location.reload();
-                    });
+                    logout();
+                    window.location.reload();
                   }}
                   className="btn-secondary col-span-2 min-h-11 px-4"
                 >

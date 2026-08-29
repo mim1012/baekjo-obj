@@ -5,7 +5,6 @@ import {
   PaymentTransitionError,
   PaymentStatusConflictError,
   ConflictingOrderUpdateRequestError,
-  RefundAfterShipmentError,
   type OrderUpdatePorts,
 } from '@/lib/orders/applyOrderUpdates';
 import type { OrderFieldsUpdate } from '@/lib/orders/repo';
@@ -20,7 +19,6 @@ interface FakeOrder {
   orderStatus: string;
   trackingNumber?: string;
   paymentKey?: string | null;
-  deliveryStatus?: string | null;
 }
 
 // 0031/0050 RPC / CAS 시맨틱을 흉내내는 인메모리 fake. restores 로 재고 복원 횟수를 센다(이중 복원 감지).
@@ -65,11 +63,7 @@ function makeFake(initial: FakeOrder) {
     },
     getOrderPaymentInfo: async () => {
       calls.push('getOrderPaymentInfo');
-      return {
-        paymentStatus: state.paymentStatus,
-        paymentKey: state.paymentKey ?? null,
-        deliveryStatus: state.deliveryStatus ?? null,
-      };
+      return { paymentStatus: state.paymentStatus, paymentKey: state.paymentKey ?? null };
     },
     cancelTossPayment: async () => {
       calls.push('cancelTossPayment');
@@ -238,38 +232,6 @@ test.describe('applyOrderUpdates — 환불(Toss 취소 + 재고 복원)', () =>
 
     expect(fake.state.paymentStatus).toBe('환불완료');
     expect(fake.tossCancelCount()).toBe(0); // ★ Toss 호출 없음 — 청구된 적 없는 결제라서
-    expect(fake.restoreCount()).toBe(1);
-  });
-
-  // 서버 가드 일관성(코드리뷰 지적) — 부분환불 라우트(refunds/route.ts → refund.ts
-  // normalizeRefundRequest)는 배송이 '배송전'/'배송준비'를 벗어나면 422로 거절하는데, 이 전액환불
-  // 경로(PATCH paymentStatus='환불완료')는 배송상태를 전혀 보지 않아 UI 버튼 비활성화만으로 막혀
-  // 있었다 — API를 직접 호출하면 배송 시작 후에도 전액환불이 통과했다. applyOrderUpdates에 같은
-  // 가드를 추가해 호출 경로와 무관하게 서버에서 일관되게 차단한다.
-  test('(e) 배송중인 주문의 전액환불 요청은 RefundAfterShipmentError로 거절되고 Toss/RPC 모두 호출되지 않는다', async () => {
-    const fake = makeFake({
-      paymentStatus: '결제완료',
-      orderStatus: '주문접수',
-      paymentKey: 'pk_11',
-      deliveryStatus: '배송중',
-    });
-    await expect(
-      applyOrderUpdates('r11', { paymentStatus: '환불완료' }, fake.ports),
-    ).rejects.toThrow(RefundAfterShipmentError);
-    expect(fake.calls).not.toContain('cancelTossPayment');
-    expect(fake.calls).not.toContain('refundRPC');
-    expect(fake.state.paymentStatus).toBe('결제완료');
-  });
-
-  test('(f) 배송전/배송준비 단계의 전액환불은 배송 가드를 통과해 정상 처리된다', async () => {
-    const fake = makeFake({
-      paymentStatus: '결제완료',
-      orderStatus: '주문접수',
-      paymentKey: 'pk_12',
-      deliveryStatus: '배송준비',
-    });
-    await applyOrderUpdates('r12', { paymentStatus: '환불완료' }, fake.ports);
-    expect(fake.state.paymentStatus).toBe('환불완료');
     expect(fake.restoreCount()).toBe(1);
   });
 

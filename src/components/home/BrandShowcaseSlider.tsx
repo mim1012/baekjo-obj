@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import type { Brand } from '@/types';
 import BrandLogo from '@/components/common/BrandLogo';
-import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 
 interface Props {
   brands: Brand[];
@@ -82,34 +81,35 @@ export default function BrandShowcaseSlider({ brands }: Props) {
             className="grid auto-cols-[100%] auto-rows-fr grid-flow-col snap-x snap-mandatory divide-x divide-[#E7E2D9] overflow-x-auto scroll-smooth scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] md:auto-cols-[50%] lg:auto-cols-[33.333333%]"
           >
             {displayList.map((brand) => {
-              const presentation = getBrandPresentation(brand);
+              const finalName = brand.name;
+              const finalDescription = brand.description;
               return (
-              <Link
-                key={brand.id}
-                href={`/brands/${brand.slug}`}
-                className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
-              >
-                <div className="mb-3 flex h-[60px] w-full items-center">
-                  <BrandLogo
-                    brand={brand}
-                    size="lg"
-                    surface={false}
-                    fluid
-                    uniformScale
-                    className="max-h-11 max-w-[150px] object-contain"
-                  />
-                </div>
-                <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
-                  {formatBrandDisplayName(brand.name)}
-                </span>
-                <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
-                  {presentation.cardDescription}
-                </p>
-                <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
-                  브랜드관 보기
-                  <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
-                </span>
-              </Link>
+                <Link
+                  key={brand.id}
+                  href={`/brands/${brand.slug}`}
+                  className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
+                >
+                  <div className="mb-3 flex h-[60px] w-full items-center">
+                    <BrandLogo
+                      brand={brand}
+                      size="lg"
+                      surface={false}
+                      fluid
+                      uniformScale
+                      className="max-h-11 max-w-[150px] object-contain"
+                    />
+                  </div>
+                  <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
+                    {finalName}
+                  </span>
+                  <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
+                    {finalDescription}
+                  </p>
+                  <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">
+                    브랜드 자세히 보기
+                    <ArrowRight className="ml-1 size-[14px] transition-transform duration-300 group-hover:translate-x-1" aria-hidden="true" />
+                  </span>
+                </Link>
               );
             })}
           </div>

@@ -6,7 +6,6 @@ import { getSessionUser, getAdminInquiries, answerProductInquiry, getAdminProduc
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 /**
  * 이 화면은 레거시 QnA 뷰(question/writerName/editable)와 같은 모양으로 문의를 렌더한다.
@@ -95,7 +94,7 @@ export default function AdminInquiriesPage() {
     const product = products.find(p => p.id === inq.productId);
     return {
       id: inq.id,
-      brand: product?.brandName ? formatBrandDisplayName(product.brandName) : '알 수 없음',
+      brand: product?.brandName || '알 수 없음',
       productName: product?.name || '알 수 없음',
       title: inq.title || inq.question || '',
       writer: inq.userId || inq.writerName || 'Unknown',

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { X, Lock, Unlock } from 'lucide-react';
 import Image from 'next/image';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface ProductInfo {
   id: string;
@@ -122,7 +121,7 @@ export default function InquiryFormModal({
                 )}
               </div>
               <div className="flex flex-col justify-center">
-                {product.brandName && <span className="text-xs font-semibold text-[#68716C]">{formatBrandDisplayName(product.brandName)}</span>}
+                {product.brandName && <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>}
                 <span className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1">{product.name}</span>
               </div>
             </div>
@@ -139,7 +138,7 @@ export default function InquiryFormModal({
                 <option value="">상품을 선택해주세요</option>
                 {availableProducts?.map((p) => (
                   <option key={p.id} value={p.id}>
-                    [{p.brandName ? formatBrandDisplayName(p.brandName) : p.brandId}] {p.name}
+                    [{p.brandName}] {p.name}
                   </option>
                 ))}
               </select>

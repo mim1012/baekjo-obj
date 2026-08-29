@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { ArrowDown, Check, FileCheck2, Search, ShieldCheck } from 'lucide-react';
 import type { Brand } from '@/types';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const reviewingTopics = [
   '브랜드 철학과 제품 방향',
@@ -12,7 +11,6 @@ const reviewingTopics = [
 
 export default function BrandAuditReport({ brand }: { brand: Brand }) {
   const report = brand.auditReport;
-  const fullBrandName = formatBrandDisplayName(brand.name);
 
   if (!report) {
     return (
@@ -33,7 +31,7 @@ export default function BrandAuditReport({ brand }: { brand: Brand }) {
               브랜드 자료를 살펴보고 있어요.
             </h2>
             <p className="mt-5 break-keep text-sm leading-7 text-[#6F766F] sm:text-base sm:leading-8">
-              {fullBrandName}이 무엇을 만들고 어떤 마음으로 이어가는지 차근차근 확인하는 중이에요. 확인을 마친 내용부터 솔직하게 안내할게요.
+              {brand.name}이 무엇을 만들고 어떤 마음으로 이어가는지 차근차근 확인하는 중이에요. 확인을 마친 내용부터 솔직하게 안내할게요.
             </p>
           </div>
 

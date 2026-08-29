@@ -13,7 +13,7 @@ test.describe('골든플로우 #2: 상품 상세 구매 액션', () => {
     await page.goto(href!);
 
     await expect(page.getByRole('button', { name: /장바구니|장바구니 준비중/ }).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /바로구매|결제 준비중|품절/ }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /바로구매|결제 준비중/ }).first()).toBeVisible();
     await expect(page.getByText('로그인 후 가격 확인')).toHaveCount(0);
   });
 });
