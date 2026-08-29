@@ -184,7 +184,7 @@ export default function PartnerSignupForm({ onSuccess }: { onSuccess: (data: Rec
         <Field label="브랜드를 시작하게 된 계기가 무엇인가요? *">
           <textarea required name="startMotivation" value={formData.startMotivation} onChange={handleChange} className={textareaClass} />
         </Field>
-        <Field label="백조 오브제와 함께하고 싶은 이유를 알려주세요. *">
+        <Field label="백조오브제와 함께하고 싶은 이유를 알려주세요. *">
           <textarea required name="joinReason" value={formData.joinReason} onChange={handleChange} className={textareaClass} />
         </Field>
       </section>
@@ -291,7 +291,7 @@ export default function PartnerSignupForm({ onSuccess }: { onSuccess: (data: Rec
       <section className="space-y-5 border-t border-[#D1D0C8] pt-6">
         <h2 className="text-xl font-bold text-[#202521] mb-2">9. 개인정보 및 자료 활용 동의</h2>
         <div className="bg-white p-4 border border-[#D1D0C8] text-sm text-[#5F6761] mb-3">
-          제출한 자료는 백조 오브제의 입점 심사 및 Audit 검토를 위한 용도로만 활용됩니다.<br />
+          제출한 자료는 백조오브제의 입점 심사 및 Audit 검토를 위한 용도로만 활용됩니다.<br />
           외부 공개 또는 제3자 제공은 별도 협의 없이 진행되지 않습니다.
         </div>
         <Checkbox label="[필수] 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />
