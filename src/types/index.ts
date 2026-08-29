@@ -699,3 +699,31 @@ export type TrackingResult =
       reason: 'not-found' | 'invalid-carrier' | 'no-api-key' | 'quota-or-api-error';
       message?: string;
     };
+
+export type OrderShipmentTrackingResponse =
+  | {
+      readonly ok: true;
+      readonly source: 'sweettracker';
+      readonly deliveryStatus: DeliveryStatus;
+      readonly complete: boolean;
+      readonly level: TrackingLevel;
+      readonly invoiceNo: string;
+      readonly steps: readonly TrackingStep[];
+      readonly refreshedAt: string;
+    }
+  | {
+      readonly ok: false;
+      readonly source: 'sweettracker';
+      readonly reason:
+        | 'missing-shipment'
+        | 'not-found'
+        | 'invalid-carrier'
+        | 'no-api-key'
+        | 'quota-or-api-error';
+      readonly refreshedAt: string;
+    }
+  | {
+      readonly ok: false;
+      readonly source: 'client';
+      readonly reason: 'request-failed';
+    };

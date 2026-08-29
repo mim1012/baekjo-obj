@@ -29,6 +29,23 @@ E2E_BASE_URL=https://<preview> npx playwright test --project=chromium        # �
 `admin`/`products`/`security`처럼 소스만 검증하는 프로젝트를 선택하면 로컬 `webServer`를 띄우지 않는다.
 브라우저 프로젝트를 선택하지 않은 검증에는 dummy URL을 넣을 필요가 없다.
 
+### 로컬 staging DB 테스트 환경
+
+앱 실행용 `.env.local`과 staging DB 테스트용 `.env.test.local`은 분리한다. `paseo.json`의 setup hook은
+새 worktree에 두 파일을 복사하고, `.env.test.local`의 `SUPABASE_URL`과
+`TEST_SUPABASE_PROJECT_REF`가 일치하는지 검사한다. Production 환경 파일은 기본으로 복사하지 않는다.
+
+staging DB 스펙은 일반 `npm run test:e2e`에 섞지 말고 명시적인 runner로 실행한다.
+
+```bash
+npm run test:staging -- -- --project=shipments --allow-staging-writes
+npm run test:staging -- -- --project=payments --allow-staging-writes
+```
+
+`--allow-staging-writes` 없이는 write-capable project를 실행할 수 없고, runner는 브라우저 대상 URL이
+localhost가 아니면 중단한다. `.env.test.local`은 실제 secret을 포함하므로 절대 커밋하지 않으며,
+필요한 키 목록은 `.env.test.example`을 기준으로 한다.
+
 ## 2. ⚠️ 함정 목록 (전부 실사고에서 나옴)
 
 1. **기본 baseURL은 로컬 `http://127.0.0.1:3000`이다.** `E2E_BASE_URL` 없이 돌리면 Playwright가

@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { assertLocalhostAppRuntimeSupabaseRefMatchesTestRef } from '../../_lib/supabaseSafety';
 
 // admin-crud-*.spec.ts 전용 헬퍼. 파일명이 *.spec.ts 가 아니라 Playwright 테스트로 수집되지 않는다.
 //
@@ -15,6 +16,10 @@ export const CRUD_ENABLED = process.env.E2E_ADMIN_CRUD === '1';
 
 export function bypassHeaders(): Record<string, string> {
   return BYPASS_SECRET ? { 'x-vercel-protection-bypass': BYPASS_SECRET } : {};
+}
+
+export async function assertGoldenWritePreflight(): Promise<void> {
+  await assertLocalhostAppRuntimeSupabaseRefMatchesTestRef('golden');
 }
 
 export async function loginWithCredentials(page: Page, email: string, password: string): Promise<void> {
@@ -65,6 +70,7 @@ export async function loginWithCredentials(page: Page, email: string, password: 
 
 /** visual.spec.ts 의 관리자 로그인 시퀀스와 동일(§8-6 bypass 헤더는 test.use extraHTTPHeaders로 별도 주입). */
 export async function loginAsAdmin(page: Page): Promise<void> {
+  await assertGoldenWritePreflight();
   await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 }
 
@@ -79,6 +85,7 @@ export async function deleteMatchingAdminRows(
   searchPlaceholder: string,
   searchTerm: string,
 ): Promise<void> {
+  await assertGoldenWritePreflight();
   page.on('dialog', (dialog) => {
     dialog.accept().catch(() => {});
   });
@@ -110,6 +117,7 @@ export async function deleteMatchingRowsWithin(
   searchPlaceholder: string,
   searchTerm: string,
 ): Promise<void> {
+  await assertGoldenWritePreflight();
   page.on('dialog', (dialog) => {
     dialog.accept().catch(() => {});
   });

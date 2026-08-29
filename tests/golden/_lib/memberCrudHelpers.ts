@@ -3,7 +3,8 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
+import { encode } from 'next-auth/jwt';
+import { assertGoldenWritePreflight, loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
 
 // member-*.spec.ts(wave6 — 회원 여정 전수) 전용 헬퍼. 파일명이 *.spec.ts가 아니라
 // Playwright 테스트로 수집되지 않는다.
@@ -16,7 +17,44 @@ export const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 
 /** 로그인 폼 셀렉터는 loginAsAdmin(adminCrudHelpers.ts)과 동일 — 계정만 다르다. */
 export async function loginAsMember(page: Page): Promise<void> {
+  await assertGoldenWritePreflight();
   await loginWithCredentials(page, MEMBER_EMAIL!, MEMBER_PASSWORD!);
+}
+
+export async function loginAsMemberReadOnly(page: Page): Promise<void> {
+  const authSecret =
+    process.env.AUTH_SECRET ??
+    fs
+      .readFileSync(path.join(process.cwd(), '.env.local'), 'utf8')
+      .match(/^AUTH_SECRET=(.+)$/m)?.[1]
+      .trim();
+  if (!authSecret) {
+    throw new Error('AUTH_SECRET is required for member read-only login');
+  }
+
+  await page.context().clearCookies();
+  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+
+  const sessionToken = await encode({
+    secret: authSecret,
+    salt: 'authjs.session-token',
+    token: {
+      sub: 'member-live-tracking-1',
+      email: 'member-live-tracking@example.test',
+      role: 'user',
+      memberId: 'member-live-tracking-1',
+      name: '렌더 테스트 회원',
+    },
+  });
+  await page.context().addCookies([
+    {
+      name: 'authjs.session-token',
+      value: sessionToken,
+      url: page.url(),
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
 }
 
 const PNG_1PX_BASE64 =
@@ -35,6 +73,7 @@ export async function createThrowawayProduct(
   namePrefix: string,
   priceWon: number,
 ): Promise<{ id: string; name: string }> {
+  await assertGoldenWritePreflight();
   const runId = Date.now();
   const name = `${namePrefix}${runId}`;
   const imageFilePath = path.join(os.tmpdir(), `e2e-member-product-${runId}.png`);
@@ -93,6 +132,7 @@ export async function createThrowawayProduct(
 
 /** 잔여 스로어웨이 상품(namePrefix로 시작) 정리 — 체크박스 + 일괄 삭제(products 목록엔 행별 삭제 없음). */
 export async function cleanupThrowawayProducts(page: Page, namePrefix: string): Promise<void> {
+  await assertGoldenWritePreflight();
   page.on('dialog', (dialog) => {
     dialog.accept().catch(() => {});
   });
@@ -128,6 +168,7 @@ export async function patchProductAsAdmin(
   productId: string,
   fields: Partial<{ name: string; price: number; isVisible: boolean }>,
 ): Promise<void> {
+  await assertGoldenWritePreflight();
   const response = await page.request.patch(`/api/admin/products/${productId}`, { data: fields });
   if (!response.ok()) {
     throw new Error(`상품 필드 PATCH 실패: ${response.status()} ${await response.text()}`);
@@ -142,6 +183,7 @@ export async function patchProductAsAdmin(
  * (관리자 측 주문 상태전이 UI 자체는 wave4 admin-crud-orders 소관).
  */
 export async function forceOrderDelivered(page: Page, orderId: string): Promise<void> {
+  await assertGoldenWritePreflight();
   const response = await page.request.patch(`/api/admin/orders/${orderId}`, {
     data: { paymentStatus: '결제완료', deliveryStatus: '배송완료' },
   });
@@ -155,6 +197,7 @@ export async function forceOrderPurchaseConfirmed(
   orderId: string,
   brandId = 'b1',
 ): Promise<void> {
+  await assertGoldenWritePreflight();
   await forceOrderDelivered(page, orderId);
 
   const shipmentResponse = await page.request.patch(`/api/admin/orders/${orderId}/shipments/${brandId}`, {

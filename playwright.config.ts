@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 import fs from 'node:fs';
+import { assertNoProductionOrPreviewTarget, resolveE2EBaseUrl } from './tests/_lib/envSafety';
+import { assertAllowedTestSupabaseRef } from './tests/_lib/supabaseSafety';
 
 // 실행: `E2E_BASE_URL=<url> npx playwright test --reporter=line`
 //
@@ -8,30 +10,16 @@ import fs from 'node:fs';
 // undefined가 아니라 빈 문자열('')로 주입된다. `??`는 빈 문자열을 "설정됨"으로 보고 그대로
 // 통과시켜 baseURL=''이 되고, 그 상태로 page.goto()가 던진다 — 이 폴백은 golden-crud 등
 // 다른 프로젝트에도 공유되는 일반 강건성 수정이라 항상 켜둔다.
-const fromEnv = process.env.E2E_BASE_URL || process.env.BASE_URL;
-const baseURL = fromEnv || 'http://127.0.0.1:3000';
-const targetHost = new URL(baseURL).hostname.toLowerCase();
-const productionHosts = new Set([
-  'www.baekjo-objet.com',
-  'baekjo-objet.com',
-  'baekjo-obj.vercel.app',
-]);
+const baseURL = resolveE2EBaseUrl();
+const previewReadOnlyTargetMode =
+  process.env.PREVIEW_QA_ACK === '1'
+    ? { allowPreviewReadOnly: true, environment: process.env }
+    : undefined;
+const targetHost = assertNoProductionOrPreviewTarget(baseURL, previewReadOnlyTargetMode).hostname.toLowerCase();
 
-class UnsafeProductionTargetError extends Error {
-  constructor(host: string) {
-    super(
-      `Production E2E target ${host} is blocked. ` +
-        'Set ALLOW_PRODUCTION_QA=I_ACCEPT_PRODUCTION_COST only after explicit user approval.',
-    );
-    this.name = 'UnsafeProductionTargetError';
-  }
-}
-
-if (
-  productionHosts.has(targetHost) &&
-  process.env.ALLOW_PRODUCTION_QA !== 'I_ACCEPT_PRODUCTION_COST'
-) {
-  throw new UnsafeProductionTargetError(targetHost);
+if (process.env.E2E_ADMIN_CRUD === '1') {
+  assertNoProductionOrPreviewTarget(baseURL);
+  assertAllowedTestSupabaseRef('golden');
 }
 
 const isLocal = targetHost === 'localhost' || targetHost === '127.0.0.1';
@@ -41,7 +29,6 @@ const browserProjects = new Set([
   'golden-smoke',
   'golden-smoke-mobile',
 ]);
-
 export function shouldStartLocalWebServer(
   localTarget: boolean,
   args: readonly string[],
@@ -201,6 +188,7 @@ export default defineConfig({
     ? {
         webServer: {
           command: 'npm run dev',
+          env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1' },
           url: baseURL,
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,

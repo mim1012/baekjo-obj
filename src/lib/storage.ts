@@ -10,6 +10,12 @@ import {
   Shipment,
   User,
 } from '@/types';
+import type {
+  DeliveryStatus,
+  OrderShipmentTrackingResponse,
+  TrackingLevel,
+  TrackingStep,
+} from '@/types';
 import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import type { KitsConfig } from '@/lib/kits/config';
 import type { PartnersConfig } from '@/lib/partners/config';
@@ -520,6 +526,104 @@ export async function getOrderShipments(orderId: string): Promise<Shipment[]> {
     return shipments;
   } catch {
     return [];
+  }
+}
+
+type TrackingFetcher = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+const TRACKING_REQUEST_FAILED: OrderShipmentTrackingResponse = {
+  ok: false,
+  source: 'client',
+  reason: 'request-failed',
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isTrackingLevel(value: unknown): value is TrackingLevel {
+  return value === 1 || value === 2 || value === 3 || value === 4 || value === 5 || value === 6;
+}
+
+function isDeliveryStatus(value: unknown): value is DeliveryStatus {
+  return value === '배송전' || value === '배송준비' || value === '배송중' || value === '배송완료';
+}
+
+function isTrackingStep(value: unknown): value is TrackingStep {
+  return (
+    isRecord(value) &&
+    typeof value.time === 'string' &&
+    typeof value.where === 'string' &&
+    typeof value.kind === 'string'
+  );
+}
+
+function isTrackingFailureReason(
+  value: unknown,
+): value is Extract<OrderShipmentTrackingResponse, { readonly source: 'sweettracker'; readonly ok: false }>['reason'] {
+  return (
+    value === 'missing-shipment' ||
+    value === 'not-found' ||
+    value === 'invalid-carrier' ||
+    value === 'no-api-key' ||
+    value === 'quota-or-api-error'
+  );
+}
+
+function parseOrderShipmentTrackingResponse(body: unknown): OrderShipmentTrackingResponse | null {
+  if (!isRecord(body) || body.source !== 'sweettracker' || typeof body.refreshedAt !== 'string') {
+    return null;
+  }
+
+  if (body.ok === false) {
+    if (!isTrackingFailureReason(body.reason)) return null;
+    return {
+      ok: false,
+      source: 'sweettracker',
+      reason: body.reason,
+      refreshedAt: body.refreshedAt,
+    };
+  }
+
+  if (
+    body.ok !== true ||
+    !isDeliveryStatus(body.deliveryStatus) ||
+    typeof body.complete !== 'boolean' ||
+    !isTrackingLevel(body.level) ||
+    typeof body.invoiceNo !== 'string' ||
+    !Array.isArray(body.steps) ||
+    !body.steps.every(isTrackingStep)
+  ) {
+    return null;
+  }
+
+  return {
+    ok: true,
+    source: 'sweettracker',
+    deliveryStatus: body.deliveryStatus,
+    complete: body.complete,
+    level: body.level,
+    invoiceNo: body.invoiceNo,
+    steps: body.steps,
+    refreshedAt: body.refreshedAt,
+  };
+}
+
+export async function getOrderShipmentTracking(
+  orderId: string,
+  brandId: string,
+  fetcher: TrackingFetcher = fetch,
+): Promise<OrderShipmentTrackingResponse> {
+  try {
+    const response = await fetcher(
+      `/api/orders/${encodeURIComponent(orderId)}/shipments/${encodeURIComponent(brandId)}/tracking`,
+      { cache: 'no-store' },
+    );
+    if (!response.ok) return TRACKING_REQUEST_FAILED;
+    const body: unknown = await response.json();
+    return parseOrderShipmentTrackingResponse(body) ?? TRACKING_REQUEST_FAILED;
+  } catch {
+    return TRACKING_REQUEST_FAILED;
   }
 }
 
@@ -1391,14 +1495,46 @@ export async function getSessionUser(): Promise<User | null> {
  * signIn 자체가 실패하면 'invalid-credentials'(비밀번호 오류). signIn은 성공했는데
  * /api/members/me 조회가 실패하면 — 서버 세션은 이미 생성된 상태이므로 비밀번호
  * 문제로 오인시키지 않도록 별도로 'network'를 반환한다.
+ *
+ * 서버에서 자격 증명이 맞는데 상태로 차단된 경우(auth.ts의 CredentialsSignin 코드가
+ * 그대로 error로 전달된다) 상황별 안내를 위해 구분해서 반환한다:
+ * 'pending-approval'(입점/B2B/보험사 승인 대기), 'member-rejected'(반려),
+ * 'member-inactive'(휴면·탈퇴).
  */
+export type LoginError =
+  | 'invalid-credentials'
+  | 'network'
+  | 'pending-approval'
+  | 'member-rejected'
+  | 'member-inactive';
+
+const KNOWN_STATUS_ERRORS: ReadonlySet<string> = new Set([
+  'pending-approval',
+  'member-rejected',
+  'member-inactive',
+]);
+
 export async function login(
   email: string,
   password: string,
-): Promise<{ user?: User; error?: 'invalid-credentials' | 'network' }> {
+): Promise<{ user?: User; error?: LoginError }> {
   const { signIn } = await import('next-auth/react');
-  const result = await signIn('credentials', { email, password, redirect: false });
-  if (result?.error) return { error: 'invalid-credentials' };
+  const result = await signIn('credentials', {
+    email,
+    password,
+    redirect: false,
+    redirectTo: '/',
+  });
+  if (result?.error) {
+    // next-auth v5 클라이언트는 error를 'CredentialsSignin'으로 일반화하고,
+    // authorize가 던진 CredentialsSignin.code는 별도 `code` 필드로 전달한다 —
+    // 상황별 안내를 위해 code를 매핑한다.
+    const code = (result as { code?: unknown }).code;
+    if (typeof code === 'string' && KNOWN_STATUS_ERRORS.has(code)) {
+      return { error: code as LoginError };
+    }
+    return { error: 'invalid-credentials' };
+  }
 
   try {
     const response = await fetch('/api/members/me');
@@ -1471,6 +1607,22 @@ export async function registerBusinessMember(input: {
     return { error: 'network' };
   } catch {
     return { error: 'network' };
+  }
+}
+
+/**
+ * 이메일 사용 가능 여부 선체크(GET /api/members/check-email). 가입 폼에서 입력 시점에
+ * 중복을 미리 알려주기 위한 보조 수단이다. 4xx/5xx·네트워크 실패 시엔 판정 보류(null)로
+ * 반환해 최종 중복 판정은 가입 API의 409가 담당하도록 한다.
+ */
+export async function checkEmailAvailable(email: string): Promise<boolean | null> {
+  try {
+    const response = await fetch(`/api/members/check-email?email=${encodeURIComponent(email)}`);
+    if (!response.ok) return null;
+    const { available } = (await response.json()) as { available: boolean };
+    return available;
+  } catch {
+    return null;
   }
 }
 

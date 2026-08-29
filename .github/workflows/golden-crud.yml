@@ -1,683 +1,143 @@
-name: golden-crud (관리자 CRUD 실구동)
+name: golden-crud (localhost isolated staging)
 
-# 3계층 테스트 모델(2026-07-18 — 관리자 삭제/수정 유실 버그가 209개 소스-계약 테스트를
-# 통과한 채 배포된 사고에서 도출):
-#   1) 상시(always-on) 소스-계약 테스트 — tests/admin, tests/products 등. 순수 함수/타입
-#      검증. 빠르고 항상 돈다. 하지만 "화면을 실제로 클릭"하지는 않는다.
-#   2) 변경-매핑(change-mapped) 실구동 CRUD — 바로 이 워크플로. 배포된 커밋이 매핑된 도메인
-#      (도메인별 경로 매핑은 아래 블록과 tests/admin/golden-crud-coverage.spec.ts 분류가
-#      정본 — 여기 숫자로 세지 말 것) 중 관련 경로를 건드렸을 때만, 실제 Preview에 로그인해서
-#      등록→공개 반영(해당 시)→수정→삭제→새로고침까지
-#      진짜로 클릭한다(tests/golden/admin-crud-*.spec.ts). 매번 전체를 돌리면 다른 도메인
-#      PR까지 느려지고 DB 쓰기가 불필요하게 늘어나므로 "변경된 파일이 그 도메인에
-#      속하는가"로 게이트한다.
-#   3) 수동/야간 전체 스윕(dispatch full sweep) — workflow_dispatch(all=true)로 매핑 무시
-#      하고 전체 스펙 강제 실행. 배포 직전 확인이나 정기 회귀용.
-#
-# 🚨 이 워크플로에서만 E2E_ADMIN_CRUD=1 을 주입한다 — 스펙 자체는 이 값이 없으면 항상 skip.
-# 대상은 Vercel Preview(=staging DB, AGENTS.md §8-4)뿐이다. production을 겨냥하지 말 것.
 on:
-  deployment_status:
   workflow_dispatch:
     inputs:
-      all:
-        description: '경로 매핑 무시하고 전체 스펙 강제 실행'
+      allow_localhost_staging_write:
+        description: 'localhost 앱과 승인된 staging ref에서 write QA를 실행함'
+        required: true
         type: boolean
         default: false
-      base_url:
-        description: '대상 Preview URL (workflow_dispatch 전용 — deployment_status에는 event payload가 있어 불필요)'
-        required: true
-        type: string
+
+permissions:
+  contents: read
+
+env:
+  GOLDEN_CRUD_API_PATHS: |
+    src/app/api/admin/brands/
+    src/app/api/admin/category-settings/
+    src/app/api/admin/concerns/
+    src/app/api/admin/inquiries/
+    src/app/api/admin/insurance/
+    src/app/api/admin/insurance-content/
+    src/app/api/admin/kits/
+    src/app/api/admin/members/
+    src/app/api/admin/notices/
+    src/app/api/admin/order-policy/
+    src/app/api/admin/orders/
+    src/app/api/admin/partner-inquiries/
+    src/app/api/admin/partners/
+    src/app/api/admin/products/
+    src/app/api/admin/qna/
+    src/app/api/admin/reviews/
+    src/app/api/admin/settings/
+    src/app/api/admin/showcase-reviews/
+    src/app/api/admin/survey/
+  GOLDEN_CRUD_SPECS: |
+    admin-crud-brand-fields.spec.ts
+    admin-crud-brands.spec.ts
+    admin-crud-category-settings.spec.ts
+    admin-crud-concerns.spec.ts
+    admin-crud-home-settings.spec.ts
+    admin-crud-insurance.spec.ts
+    admin-crud-insurance-cert.spec.ts
+    admin-crud-insurance-content.spec.ts
+    admin-crud-kits-partners.spec.ts
+    admin-crud-members.spec.ts
+    admin-crud-members-pending-signup.spec.ts
+    admin-crud-notices.spec.ts
+    admin-crud-order-policy.spec.ts
+    admin-crud-orders.spec.ts
+    admin-crud-order-shipments.spec.ts
+    admin-crud-partner-inquiries.spec.ts
+    admin-crud-product-fields.spec.ts
+    admin-crud-product-gallery-removal.spec.ts
+    admin-crud-products.spec.ts
+    admin-crud-qna-config.spec.ts
+    admin-crud-qna-inquiries.spec.ts
+    admin-crud-reviews-moderation.spec.ts
+    admin-crud-showcase-reviews.spec.ts
+    admin-crud-survey.spec.ts
+    member-admin-edit-propagation.spec.ts
+    member-card-payment-boundary.spec.ts
+    member-diagnosis.spec.ts
+    member-inquiry-edit-save.spec.ts
+    member-order-journey.spec.ts
+    member-password-change.spec.ts
+    member-profile.spec.ts
+    member-review-inquiry.spec.ts
+    member-social-login-contract.spec.ts
+    member-wishlist.spec.ts
 
 concurrency:
-  group: golden-crud-${{ github.event.deployment.sha || github.sha }}
-  cancel-in-progress: true
+  group: golden-crud-localhost-staging
+  cancel-in-progress: false
 
 jobs:
-  crud:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.deployment_status.state == 'success' &&
-       github.event.deployment_status.environment == 'Preview')
+  localhost-write-validation:
+    if: ${{ inputs.allow_localhost_staging_write == true }}
     runs-on: ubuntu-latest
+    env:
+      CI: '1'
+      E2E_BASE_URL: 'http://127.0.0.1:3000'
+      PAYMENTS_PREVIEW_URL: 'http://127.0.0.1:3000'
+      E2E_ADMIN_CRUD: '1'
+      LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'
+      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+      E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+      E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+      E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
+      E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
     steps:
-      # 🚨 prod 도메인 dispatch 가드 — 쓰기(create/update/delete) 스펙이 실수로 production 을
-      # 겨냥하는 것을 어떤 테스트 스텝보다 먼저 차단한다. deployment_status 트리거는 항상
-      # Preview 환경만 통과(위 job if 조건)하므로 workflow_dispatch 의 사람이 입력한 base_url 만 검사.
-      - name: prod 도메인 dispatch 가드
-        if: github.event_name == 'workflow_dispatch'
-        run: |
-          if echo "${{ inputs.base_url }}" | grep -qiE 'baekjo-obj\.vercel\.app|(www\.)?baekjo-objet\.com'; then
-            echo "::error::base_url 이 production(baekjo-obj.vercel.app)을 가리킵니다 — 쓰기 스펙을 prod 에 돌릴 수 없습니다. Preview/staging URL 을 입력하세요."
-            exit 1
-          fi
-          echo "base_url prod 아님 — 계속."
-
-      # 🚨 skip-green 차단 가드 (2026-07-24, grok·codex 교차 리뷰 공통 CRITICAL) — E2E 계정
-      # 시크릿이 비어 있으면 스펙들이 test.skip으로 조용히 빠져 "실행 안 됨"이 초록으로 보인다.
-      # crud 잡이 required check로 승격된 이상(같은 날 적용) 거짓 초록은 곧 거짓 머지 허가다.
-      # 필수 4종(관리자·회원 계정)만 검사한다 — VERCEL_AUTOMATION_BYPASS(프리뷰 보호 꺼짐 시
-      # 불필요)·STAGING_SUPABASE_*(문서화된 선택 검증)는 의도된 선택 시크릿이라 제외.
-      - name: 필수 E2E 시크릿 존재 가드 (부재 = fail, skip-green 차단)
-        env:
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-        run: |
-          missing=""
-          for v in E2E_ADMIN_EMAIL E2E_ADMIN_PASSWORD E2E_MEMBER_EMAIL E2E_MEMBER_PASSWORD; do
-            [ -z "${!v}" ] && missing="$missing $v"
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::필수 E2E 시크릿 미등록:$missing — 스펙이 조용히 skip돼 거짓 초록(skip-green)이 됩니다. GitHub secrets에 등록 후 재실행하세요."
-            exit 1
-          fi
-          echo "필수 E2E 시크릿 4종 존재 — 계속."
-
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.deployment.sha || github.sha }}
-          fetch-depth: 0
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
       - name: Install
         run: npm ci
-
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
-
-      - name: 변경 경로 판단
-        id: changes
+      - name: Fail closed on missing isolated staging configuration
         run: |
-          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.all }}" = "true" ]; then
-            for d in notices reviews concerns home_settings insurance_content kits_partners \
-                     products brands members qna_inquiries survey member_journey \
-                     category_settings insurance order_policy orders partner_inquiries \
-                     qna_config members_signup auth; do
-              echo "$d=true" >> "$GITHUB_OUTPUT"
-            done
-            echo "전체 스윕(workflow_dispatch all=true) — 매핑 무시"
-            exit 0
-          fi
-
-          DEPLOYED_SHA="${{ github.event.deployment.sha }}"
-          # main 브랜치 배포는 병합 커밋 하나만 비교 대상 — 그 직전 부모와 diff한다.
-          # 그 외(PR preview)는 origin/main 과의 diff로 이 배포에 포함된 전체 변경을 본다.
-          if git merge-base --is-ancestor "$DEPLOYED_SHA" origin/main 2>/dev/null && \
-             [ "$(git rev-parse "$DEPLOYED_SHA")" = "$(git rev-parse origin/main)" ]; then
-            DIFF_RANGE="${DEPLOYED_SHA}^..${DEPLOYED_SHA}"
-          else
-            DIFF_RANGE="origin/main...${DEPLOYED_SHA}"
-          fi
-
-          CHANGED=$(git diff --name-only $DIFF_RANGE || echo "")
-          echo "변경 경로:"
-          echo "$CHANGED"
-
-          # 게이트 자신의 변경도 게이트를 통과해야 한다 — 스펙을 고치면 그 스펙이 돈다.
-          # 이 워크플로/설정/공용 헬퍼 자체가 바뀌면 전체 도메인을 실행해 회귀를 잡는다.
-          # (opus 리뷰 HIGH: 이 매핑에 테스트 레이어 경로가 빠져 있으면 이 PR의 프리뷰 실행이
-          # 항상 skip-green으로 떨어져 새 스펙이 CI에서 한 번도 실제로 돌지 않는다.)
-          GATE_SELF='^(tests/golden/(admin-crud|member)-.*\.spec\.ts|tests/golden/all-pages-smoke\.spec\.ts|tests/golden/_lib/|tests/admin/full-surface-crud-coverage\.spec\.ts|playwright\.config\.ts|\.github/workflows/golden-crud\.yml)'
-
-          NOTICES=false
-          REVIEWS=false
-          CONCERNS=false
-          HOME_SETTINGS=false
-          INSURANCE_CONTENT=false
-          KITS_PARTNERS=false
-          PRODUCTS=false
-          BRANDS=false
-          MEMBERS=false
-          QNA_INQUIRIES=false
-          SURVEY=false
-          MEMBER_JOURNEY=false
-          CATEGORY_SETTINGS=false
-          INSURANCE=false
-          ORDER_POLICY=false
-          ORDERS=false
-          PARTNER_INQUIRIES=false
-          QNA_CONFIG=false
-          MEMBERS_SIGNUP=false
-          AUTH=false
-          if echo "$CHANGED" | grep -qE "$GATE_SELF"; then
-            NOTICES=true
-            REVIEWS=true
-            CONCERNS=true
-            HOME_SETTINGS=true
-            INSURANCE_CONTENT=true
-            KITS_PARTNERS=true
-            PRODUCTS=true
-            BRANDS=true
-            MEMBERS=true
-            QNA_INQUIRIES=true
-            SURVEY=true
-            MEMBER_JOURNEY=true
-            CATEGORY_SETTINGS=true
-            INSURANCE=true
-            ORDER_POLICY=true
-            ORDERS=true
-            PARTNER_INQUIRIES=true
-            QNA_CONFIG=true
-            MEMBERS_SIGNUP=true
-            AUTH=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/notices/|src/app/admin/notices/|src/app/notices/|src/app/api/notices/|src/app/api/admin/notices/|src/components/admin/AdminResourcePage\.tsx)'; then
-            NOTICES=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/reviews/|src/app/admin/reviews/|src/app/reviews/|src/app/api/reviews/|src/app/api/admin/reviews/|src/app/api/showcase-reviews/|src/app/api/admin/showcase-reviews/|src/components/admin-new/reviews/|src/components/admin/AdminResourcePage\.tsx)'; then
-            REVIEWS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/concerns/|src/app/admin/concerns/|src/app/concerns/|src/app/api/concerns/|src/app/api/admin/concerns/|src/components/admin/AdminResourcePage\.tsx)'; then
-            CONCERNS=true
-          fi
-          # 홈 문구(사이트 설정)는 AdminResourcePage가 아니라 전용 폼(SiteSettingsProvider)이라
-          # 그 경로만 매핑한다 — homeContent 스키마·HomeClient 렌더(문구 소비부)도 포함.
-          if echo "$CHANGED" | grep -qE '^(src/lib/settings/|src/app/admin/settings/|src/app/api/settings/|src/app/api/admin/settings/|src/data/homeContent\.ts|src/components/providers/SiteSettingsProvider\.tsx|src/components/home/HomeClient\.tsx|src/app/page\.tsx)'; then
-            HOME_SETTINGS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/insuranceContent/|src/app/admin/insurance-content/|src/app/insurance/|src/app/api/insurance-content/|src/app/api/admin/insurance-content/|src/components/admin/AdminResourcePage\.tsx)'; then
-            INSURANCE_CONTENT=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/kits/|src/lib/partners/|src/app/admin/kits/|src/app/admin/partners/|src/app/api/admin/kits/|src/app/api/admin/partners/|src/components/admin/AdminResourcePage\.tsx)'; then
-            KITS_PARTNERS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/products/|src/app/admin/products/|src/app/shop/|src/app/api/products/|src/app/api/admin/products/|src/components/admin-new/products/)'; then
-            PRODUCTS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/brands/|src/app/admin/brands/|src/app/brands/|src/app/api/brands/|src/app/api/admin/brands/|src/components/admin-new/brands/)'; then
-            BRANDS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/members/|src/app/admin/members/|src/app/api/admin/members/|src/components/admin-new/members/)'; then
-            MEMBERS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/inquiries/|src/lib/adapters\.ts|src/app/admin/inquiries/|src/app/api/inquiries/|src/app/api/admin/inquiries/|src/components/shop/ProductTabsClient\.tsx|src/components/inquiries/)'; then
-            QNA_INQUIRIES=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/survey/|src/app/admin/survey/|src/app/diagnosis/|src/app/api/survey/|src/app/api/admin/survey/)'; then
-            SURVEY=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/categorySettings/|src/app/admin/categories/|src/app/api/category-settings/|src/app/api/admin/category-settings/|src/components/providers/CategorySettingsProvider\.tsx|src/components/shop/ShopContent\.tsx)'; then
-            CATEGORY_SETTINGS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/insurance/|src/app/admin/insurance/|src/app/insurance/|src/app/api/insurance/|src/app/api/admin/insurance/|src/components/admin-new/insurance/)'; then
-            INSURANCE=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/orderPolicy/|src/app/admin/order-policy/|src/app/api/admin/order-policy/)'; then
-            ORDER_POLICY=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/orders/|src/lib/payments/|src/app/admin/orders/|src/app/checkout/|src/app/cart/|src/app/api/orders/|src/app/api/admin/orders/|src/components/admin-new/orders/)'; then
-            ORDERS=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/partnerInquiries/|src/app/admin/partner-inquiries/|src/app/api/partner-inquiries/|src/app/api/admin/partner-inquiries/|src/components/care-kit/PartnerInquiryForm\.tsx|src/app/landing/care-kit/)'; then
-            PARTNER_INQUIRIES=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/qna/|src/lib/adapters\.ts|src/app/admin/qna/|src/app/api/qna/|src/app/api/admin/qna/|src/components/admin-new/qna/|src/components/shop/ProductTabsClient\.tsx)'; then
-            QNA_CONFIG=true
-          fi
-          if echo "$CHANGED" | grep -qE '^(src/lib/members/|src/app/admin/members/|src/app/api/admin/members/|src/components/admin-new/members/|src/app/signup/|src/components/signup/|src/app/api/members/business/)'; then
-            MEMBERS_SIGNUP=true
-          fi
-          # 회원 여정(wave6) — 찜하기/카트/체크아웃/마이페이지/진단 등 회원 전용 화면. 이 도메인은
-          # 기존 admin-crud-* 어느 것과도 겹치지 않는 소비자측 경로라 별도 게이트로 뗀다.
-          # src/app/api/members/ 포함(2026-07-23) — 비밀번호 변경·프로필 수정 라우트가 어느 매핑에도 없었다.
-          if echo "$CHANGED" | grep -qE '^(src/app/cart/|src/app/checkout/|src/app/order-complete/|src/app/mypage/|src/components/reviews/|src/components/inquiries/|src/components/common/ProductCard\.tsx|src/components/shop/ProductDetailClient\.tsx|src/lib/storage\.ts|src/lib/cart\.ts|src/app/api/orders/|src/app/api/admin/orders/|src/app/api/members/)'; then
-            MEMBER_JOURNEY=true
-          fi
-          # 인증(auth, 2026-07-23 신설) — 소셜 로그인 계약·세션 가드 경로. 커버리지 전수조사에서
-          # src/lib/auth*·/login·proxy가 어느 도메인 매핑에도 없어 member-social-login-contract가
-          # 영원히 안 도는 상태였다(docs/testing/golden-spec-coverage.md §4-2).
-          if echo "$CHANGED" | grep -qE '^(src/lib/auth|src/app/login/|src/app/signup/|src/app/auth/|src/app/api/auth/|src/proxy\.ts)'; then
-            AUTH=true
-          fi
-
-          echo "notices=$NOTICES" >> "$GITHUB_OUTPUT"
-          echo "reviews=$REVIEWS" >> "$GITHUB_OUTPUT"
-          echo "concerns=$CONCERNS" >> "$GITHUB_OUTPUT"
-          echo "home_settings=$HOME_SETTINGS" >> "$GITHUB_OUTPUT"
-          echo "insurance_content=$INSURANCE_CONTENT" >> "$GITHUB_OUTPUT"
-          echo "kits_partners=$KITS_PARTNERS" >> "$GITHUB_OUTPUT"
-          echo "products=$PRODUCTS" >> "$GITHUB_OUTPUT"
-          echo "brands=$BRANDS" >> "$GITHUB_OUTPUT"
-          echo "members=$MEMBERS" >> "$GITHUB_OUTPUT"
-          echo "qna_inquiries=$QNA_INQUIRIES" >> "$GITHUB_OUTPUT"
-          echo "survey=$SURVEY" >> "$GITHUB_OUTPUT"
-          echo "member_journey=$MEMBER_JOURNEY" >> "$GITHUB_OUTPUT"
-          echo "category_settings=$CATEGORY_SETTINGS" >> "$GITHUB_OUTPUT"
-          echo "insurance=$INSURANCE" >> "$GITHUB_OUTPUT"
-          echo "order_policy=$ORDER_POLICY" >> "$GITHUB_OUTPUT"
-          echo "orders=$ORDERS" >> "$GITHUB_OUTPUT"
-          echo "partner_inquiries=$PARTNER_INQUIRIES" >> "$GITHUB_OUTPUT"
-          echo "qna_config=$QNA_CONFIG" >> "$GITHUB_OUTPUT"
-          echo "members_signup=$MEMBERS_SIGNUP" >> "$GITHUB_OUTPUT"
-          echo "auth=$AUTH" >> "$GITHUB_OUTPUT"
-
-          if [ "$NOTICES" = "false" ] && [ "$REVIEWS" = "false" ] && [ "$CONCERNS" = "false" ] && \
-             [ "$HOME_SETTINGS" = "false" ] && [ "$INSURANCE_CONTENT" = "false" ] && [ "$KITS_PARTNERS" = "false" ] && \
-             [ "$PRODUCTS" = "false" ] && [ "$BRANDS" = "false" ] && [ "$MEMBERS" = "false" ] && \
-             [ "$QNA_INQUIRIES" = "false" ] && [ "$SURVEY" = "false" ] && [ "$MEMBER_JOURNEY" = "false" ] && \
-             [ "$CATEGORY_SETTINGS" = "false" ] && [ "$INSURANCE" = "false" ] && [ "$ORDER_POLICY" = "false" ] && \
-             [ "$ORDERS" = "false" ] && [ "$PARTNER_INQUIRIES" = "false" ] && [ "$QNA_CONFIG" = "false" ] && \
-             [ "$MEMBERS_SIGNUP" = "false" ] && [ "$AUTH" = "false" ]; then
-            echo "변경 경로에 해당 골든플로우 없음 — skip"
-          fi
-
-      - name: 관리자 CRUD — 공지사항
-        if: steps.changes.outputs.notices == 'true'
-        run: npx playwright test tests/golden/admin-crud-notices.spec.ts --project=golden-crud --reporter=line
-        env:
-          # dispatch 이벤트는 deployment_status payload가 없어 environment_url이 빈 문자열이다
-          # (opus 리뷰 MEDIUM) — workflow_dispatch일 때는 사람이 입력한 base_url을 쓴다.
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 전시 후기
-        if: steps.changes.outputs.reviews == 'true'
-        run: npx playwright test tests/golden/admin-crud-showcase-reviews.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 고민별 케어
-        if: steps.changes.outputs.concerns == 'true'
-        run: npx playwright test tests/golden/admin-crud-concerns.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 홈 문구(사이트 설정, 스냅샷/복원)
-        if: steps.changes.outputs.home_settings == 'true'
-        run: npx playwright test tests/golden/admin-crud-home-settings.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 보험 FAQ
-        if: steps.changes.outputs.insurance_content == 'true'
-        run: npx playwright test tests/golden/admin-crud-insurance-content.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 케어 키트·B2B 제휴처(영속성)
-        if: steps.changes.outputs.kits_partners == 'true'
-        run: npx playwright test tests/golden/admin-crud-kits-partners.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 상품
-        if: steps.changes.outputs.products == 'true'
-        run: npx playwright test tests/golden/admin-crud-products.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 브랜드
-        if: steps.changes.outputs.brands == 'true'
-        run: npx playwright test tests/golden/admin-crud-brands.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 회원 상태 관리(member-e2e 전용, 단방향)
-        if: steps.changes.outputs.members == 'true'
-        run: npx playwright test tests/golden/admin-crud-members.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # ⚠️ E2E_MEMBER_EMAIL/E2E_MEMBER_PASSWORD 시크릿이 아직 등록되지 않았다 — 등록 전까지
-      # 스펙 자체의 test.skip 가드로 항상 skip된다(등록은 이 PR 범위 밖, 별도 작업 필요).
-      - name: 관리자 CRUD — 상품문의(ProductInquiry)
-        if: steps.changes.outputs.qna_inquiries == 'true'
-        run: npx playwright test tests/golden/admin-crud-qna-inquiries.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 맞춤 진단 설문(스냅샷/복원)
-        if: steps.changes.outputs.survey == 'true'
-        run: npx playwright test tests/golden/admin-crud-survey.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # 주문 정책은 무통장입금 주문 생성 시점에 읽히는 설정이므로 orders 스텝보다 먼저 둔다.
-      - name: 관리자 CRUD — 주문 정책(무통장입금 자동취소, 스냅샷/복원)
-        if: steps.changes.outputs.order_policy == 'true'
-        run: npx playwright test tests/golden/admin-crud-order-policy.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 주문(안전 전이, 일회용 상품)
-        if: steps.changes.outputs.orders == 'true'
-        run: npx playwright test tests/golden/admin-crud-orders.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # 파일 단위 배선 감사(golden-crud-coverage)가 잡아낸 기존 누락 — #121 배송 묶음의 스펙이
-      # 여기 등록 없이 커밋돼 CI에서 한 번도 자동 실행되지 않고 있었다(2026-07-23 발견).
-      # ⚠️ 임시 격리(2026-07-23, wishlist와 동일 원칙·동일 버그 계열 — mim 승인 원칙 적용) —
-      # 회원측 배송조회 읽기가 송장 등록 후에도 60s 폴링+재시도 내내 "운송장 없음"(런 내 지속
-      # 스테일, admin API 재조회는 정상). memory wishlist-desync-repro-2026-07-23 참조.
-      # 원복 조건: 스테일 읽기 버그 수정 be/* PR 머지 시 이 줄을 제거할 것.
-      - name: 관리자 CRUD — 브랜드별 송장/배송조회(주문·배송 묶음)
-        if: steps.changes.outputs.orders == 'true'
-        continue-on-error: true
-        run: npx playwright test tests/golden/admin-crud-order-shipments.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 카테고리(상품/라이프스타일)
-        if: steps.changes.outputs.category_settings == 'true'
-        run: npx playwright test tests/golden/admin-crud-category-settings.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — B2B 제휴 문의
-        if: steps.changes.outputs.partner_inquiries == 'true'
-        run: npx playwright test tests/golden/admin-crud-partner-inquiries.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 보험 분석 신청(상담 상태 관리)
-        if: steps.changes.outputs.insurance == 'true'
-        run: npx playwright test tests/golden/admin-crud-insurance.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # 게스트 제출이라 회원 시크릿 불필요. STAGING_SUPABASE_* 시크릿이 등록돼 있으면 스펙이
-      # 파기 후 스토리지 잔존까지 직접 확인하고, 없으면 그 블록만 조건부 skip한다(행 소멸+cert
-      # 404가 파기 검증 담당 — opus 리뷰 M1: cert 404는 행 삭제의 결과라 스토리지의 무성
-      # no-op 회귀는 시크릿 없이는 CI가 못 잡는다. 등록 시 완전 검증).
-      - name: 관리자 CRUD — 보험 증권 업로드(업로드→signed URL 열람→PII 파기)
-        if: steps.changes.outputs.insurance == 'true'
-        run: npx playwright test tests/golden/admin-crud-insurance-cert.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
-          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — QnA(qna_config 공개 배선 실증)
-        if: steps.changes.outputs.qna_config == 'true'
-        run: npx playwright test tests/golden/admin-crud-qna-config.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 회원 승인(B2B 신규가입 pending→active)
-        if: steps.changes.outputs.members_signup == 'true'
-        run: npx playwright test tests/golden/admin-crud-members-pending-signup.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # ── wave5 추가 블록(전 필드 왕복 스펙) — wave4 와의 병합 충돌을 줄이려 끝에 별도로 붙인다 ──
-      # products/brands 경로 매핑을 그대로 재사용한다(위 mapping 의 PRODUCTS/BRANDS 출력).
-      # 두 스펙은 tests/golden/admin-crud-*.spec.ts 라 GATE_SELF 정규식에도 이미 걸려, 이 워크플로/
-      # 헬퍼/스펙 자체가 바뀌면 products/brands 출력이 true 로 강제돼 함께 돈다.
-      - name: 관리자 CRUD — 상품 폼 전 필드 왕복
-        if: steps.changes.outputs.products == 'true'
-        run: npx playwright test tests/golden/admin-crud-product-fields.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 상품 갤러리 이미지 삭제
-        if: steps.changes.outputs.products == 'true'
-        run: npx playwright test tests/golden/admin-crud-product-gallery-removal.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 관리자 CRUD — 브랜드 폼 전 필드 왕복(상세 에디터)
-        if: steps.changes.outputs.brands == 'true'
-        run: npx playwright test tests/golden/admin-crud-brand-fields.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # ── wave6 추가 블록(회원 여정 실구동) — wave4/5 와의 병합 충돌을 줄이려 끝에 별도로 붙인다 ──
-      # ⚠️ 임시 격리(2026-07-23, mim 승인) — wishlist desync 실버그(P1)가 이 스펙으로 CI 재현됨:
-      # 해제 POST 200 직후 같은 세션 GET이 20초간 낡은 값을 반환(5xx 없음·CDN MISS — 읽기 경로
-      # 데이터 캐시 용의, Vercel 런타임 로그로 실증). 스펙 결함이 아니라 제품 결함이라 이 스텝이
-      # 죽으면 후속 스텝 전부가 skip되는 것을 막기 위해 continue-on-error로 격리한다.
-      # 원복 조건: wishlist 캐시 버그 수정 be/* PR 머지 시 이 줄을 제거할 것.
-      - name: 회원 여정 — 찜하기(DB 동기화)
-        if: steps.changes.outputs.member_journey == 'true'
-        continue-on-error: true
-        run: npx playwright test tests/golden/member-wishlist.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 구매(무통장) 실구동
-        if: steps.changes.outputs.member_journey == 'true'
-        run: npx playwright test tests/golden/member-order-journey.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 카드결제 위젯 경계
-        if: steps.changes.outputs.member_journey == 'true'
-        run: npx playwright test tests/golden/member-card-payment-boundary.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 구매평·상품문의 라이프사이클
-        if: steps.changes.outputs.member_journey == 'true'
-        run: npx playwright test tests/golden/member-review-inquiry.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 마이페이지 프로필·배송추적
-        if: steps.changes.outputs.member_journey == 'true'
-        run: npx playwright test tests/golden/member-profile.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 관리자 수정의 중간 여정(장바구니·체크아웃) 전파
-        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.products == 'true'
-        run: npx playwright test tests/golden/member-admin-edit-propagation.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 1분 맞춤 진단(읽기 전용, 결정적)
-        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.survey == 'true'
-        run: npx playwright test tests/golden/member-diagnosis.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # 구매평 moderation 실구동(2026-07-23, 커버리지 G1 해소) — 회원 체크아웃→구매확정→구매평
-      # 작성 선행 후 관리자 숨김/재노출/삭제 + 0070 별점 집계를 공개 API 재조회로 검증한다.
-      - name: 관리자 CRUD — 구매평 검수(숨김·재노출·삭제, 별점 집계)
-        if: steps.changes.outputs.reviews == 'true'
-        run: npx playwright test tests/golden/admin-crud-reviews-moderation.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      # ── wave7 추가 블록(2026-07-23 커버리지 전수조사 §4-2) — testMatch에는 걸리지만 실행 스텝이
-      # 없어 CI에서 한 번도 돌지 않던 member 스펙 3개를 배선한다. 파일단위 배선 감사
-      # (tests/admin/golden-crud-coverage.spec.ts)도 같은 PR에서 member-*까지 확장됨.
-      - name: 회원 여정 — 마이페이지 상품문의 수정 저장(회귀)
-        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.qna_inquiries == 'true'
-        run: npx playwright test tests/golden/member-inquiry-edit-save.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 비밀번호 변경
-        if: steps.changes.outputs.member_journey == 'true' || steps.changes.outputs.auth == 'true'
-        run: npx playwright test tests/golden/member-password-change.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_CRUD: '1'
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 회원 여정 — 소셜 로그인 앱 내부 계약(읽기 전용)
-        if: steps.changes.outputs.auth == 'true' || steps.changes.outputs.members_signup == 'true'
-        run: npx playwright test tests/golden/member-social-login-contract.spec.ts --project=golden-crud --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
-      - name: 전 페이지 스모크 검수(읽기 전용, 매핑 무관 항상 실행, 데스크톱+모바일 390x844)
-        run: npx playwright test tests/golden/all-pages-smoke.spec.ts --project=golden-smoke --project=golden-smoke-mobile --reporter=line
-        env:
-          E2E_BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || github.event.deployment_status.environment_url }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_MEMBER_EMAIL: ${{ secrets.E2E_MEMBER_EMAIL }}
-          E2E_MEMBER_PASSWORD: ${{ secrets.E2E_MEMBER_PASSWORD }}
-          VERCEL_AUTOMATION_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS }}
-
+          test -n "$TEST_SUPABASE_PROJECT_REF" || exit 1
+          test -n "$SUPABASE_URL" || exit 1
+          test -n "$SUPABASE_ACCESS_TOKEN" || exit 1
+          test -n "$SUPABASE_SECRET_KEY" || exit 1
+          actual_ref=$(node -e "const u=new URL(process.env.SUPABASE_URL); const m=/^([a-z0-9]{20})\.supabase\.co$/.exec(u.hostname.toLowerCase()); if(!m) process.exit(1); process.stdout.write(m[1])")
+          test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || exit 1
+      - name: Start localhost app
+        run: |
+          npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/local-app.pid"
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/__test__/supabase-ref > "$RUNNER_TEMP/runtime-ref.json"; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      - name: App runtime staging ref preflight
+        run: |
+          runtime_ref=$(node -e "const fs=require('node:fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); if(typeof value.projectRef!=='string') process.exit(1); process.stdout.write(value.projectRef)" "$RUNNER_TEMP/runtime-ref.json")
+          if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]; then exit 1; fi
+      - name: Validate golden coverage manifest
+        run: |
+          test -n "$GOLDEN_CRUD_API_PATHS"
+          test -n "$GOLDEN_CRUD_SPECS"
+      - name: Golden CRUD and storage write validation
+        run: npx playwright test --project=golden-crud --workers=1 --retries=0 --reporter=line
+      - name: Payment order and confirm write validation
+        run: npx playwright test --project=payments tests/payments/payment-routes.spec.ts --workers=1 --retries=0 --reporter=line
       - name: Upload failure artifacts
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: golden-crud-failure
-          path: test-results/
+          name: localhost-write-validation-failure
+          path: |
+            test-results/
+            ${{ runner.temp }}/local-app.log
           retention-days: 7
-
-# ⚠️ 야간(nightly) 전체 스윕 cron은 넣지 않았다 — deployment_status 트리거는 환경 URL을
-# 이벤트 payload에서만 얻으므로, cron으로는 "최신 main preview URL"을 안정적으로 재해석할
-# 방법이 마땅치 않다(update-baselines.yml의 workflow_dispatch base_url 입력처럼 사람이
-# URL을 대야 한다). 필요해지면 update-baselines.yml의 "Resolve preview URL" 스텝(gh api
-# deployments 조회)을 이식해 스케줄 잡을 추가할 것 — 지금은 위 workflow_dispatch(all=true)
-# 수동 dispatch로 대체한다.

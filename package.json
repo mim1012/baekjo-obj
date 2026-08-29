@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "qa:release": "node scripts/qa-release-check.mjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:staging": "node scripts/run-local-staging-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.2",

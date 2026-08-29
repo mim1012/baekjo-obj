@@ -11,6 +11,54 @@ on:
     branches: [main, "integrate/**"]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      auth: ${{ steps.filter.outputs.auth }}
+      payment: ${{ steps.filter.outputs.payment }}
+      shipping: ${{ steps.filter.outputs.shipping }}
+      database: ${{ steps.filter.outputs.database }}
+      ui: ${{ steps.filter.outputs.ui }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            auth:
+              - 'src/app/api/auth/**'
+              - 'src/app/api/members/**'
+              - 'src/app/login/**'
+              - 'src/app/signup/**'
+              - 'src/components/signup/**'
+              - 'src/lib/auth*'
+              - 'src/lib/members/**'
+              - 'tests/golden/credentials-login.spec.ts'
+            payment:
+              - 'src/app/api/payments/**'
+              - 'src/lib/payments/**'
+              - 'tests/payments/**'
+              - 'tests/admin/*refund*'
+            shipping:
+              - 'src/app/api/cron/**'
+              - 'src/app/api/orders/**/shipments/**'
+              - 'src/lib/shipments/**'
+              - 'src/lib/tracking/**'
+              - 'src/app/mypage/components/Tracking*'
+              - 'tests/tracking/**'
+              - 'tests/shipments/**'
+            database:
+              - 'supabase/migrations/**'
+              - 'scripts/apply-migrations.mjs'
+              - 'tests/**/*.db.spec.ts'
+            ui:
+              - 'src/**/*.tsx'
+              - 'src/**/*.css'
+              - 'public/**'
+              - 'DESIGN.md'
+
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -47,6 +95,56 @@ jobs:
       - name: 택배 추적 어댑터 스펙 (순수 함수 — DB/브라우저 불필요)
         run: npx playwright test --project=tracking --reporter=line
 
+  visual:
+    needs: changes
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.auth == 'true' || needs.changes.outputs.shipping == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Local UI tracking contract
+        run: npx playwright test tests/tracking/tracking-ui-seam.spec.ts --project=tracking --workers=1 --retries=0 --reporter=line
+
+  payments-routes:
+    needs: changes
+    if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.auth == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: Payment route write guard
+        run: npx playwright test tests/security/production-cost-safety.spec.ts --project=security --workers=1 --retries=0 --reporter=line
+      - name: Payment route DB-free contract
+        run: npx playwright test tests/payments/payment-routes.spec.ts --project=payments --workers=1 --retries=0 --reporter=line
+
+  crud:
+    needs: changes
+    if: needs.changes.outputs.auth == 'true' || needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || needs.changes.outputs.database == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci --ignore-scripts
+      - name: CRUD coverage manifest
+        run: npx playwright test tests/admin/golden-crud-coverage.spec.ts --project=admin --workers=1 --retries=0 --reporter=line
+      - name: CRUD write safety contract
+        run: npx playwright test tests/security/golden-write-safety.spec.ts --project=security --workers=1 --retries=0 --reporter=line
+
+  # deploy-lane-exception: main push production migration only
   # 마이그레이션 자동 적용 — 빌드가 통과한 실제 push(머지)에서만 실행한다.
   # PR 에는 돌지 않아(머지 전 DB 를 건드리지 않음), 깨진 코드가 DB 스키마를 바꾸지 못한다.
   # 러너(scripts/apply-migrations.mjs)는 public._migrations 로 적용 이력을 추적해 미적용만 돌리고,
@@ -85,7 +183,10 @@ jobs:
   # 상품이 원인이었고, 그건 이제 visual → payments-routes 순차 실행으로 막힌다).
   payments-db-spec:
     runs-on: ubuntu-latest
-    needs: verify
+    needs: [verify, changes]
+    if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || needs.changes.outputs.database == 'true' || github.event_name == 'push'
+    env:
+      STAGING_TEST_REF_GATE: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
     steps:
       - uses: actions/checkout@v4
 
@@ -98,16 +199,20 @@ jobs:
         run: npm ci
 
       - name: 결제 상태기계 DB 스펙 (staging)
+        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
 
       # 배송(shipments) 스펙 — 순수 4개 + staging DB 2개(confirm-guard.db, auto-confirm-payment-gate.db).
       # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
       # (2026-07-23 커버리지 전수조사 전까지 CI 미배선이었음 — golden-spec-coverage.md §4-1)
       - name: 배송 파생·구매확정 가드 스펙 (순수 + staging DB)
+        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=shipments --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}

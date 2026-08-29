@@ -29,6 +29,42 @@ function Get-EnvLabel {
     }
 }
 
+function Get-TestEnvLabel {
+    param([string]$RepoRoot)
+
+    $envPath = Join-Path $RepoRoot ".env.test.local"
+    if (-not (Test-Path $envPath)) {
+        return "not ready (.env.test.local missing)"
+    }
+
+    $values = @{}
+    foreach ($line in Get-Content -LiteralPath $envPath) {
+        if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+            $values[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
+        }
+    }
+
+    $required = @('SUPABASE_URL', 'SUPABASE_ACCESS_TOKEN', 'SUPABASE_SECRET_KEY', 'TEST_SUPABASE_PROJECT_REF')
+    $missing = @($required | Where-Object {
+        -not $values.ContainsKey($_) -or [string]::IsNullOrWhiteSpace([string]$values[$_])
+    })
+    if ($missing.Count -gt 0) {
+        return "not ready (missing $($missing -join ', '))"
+    }
+
+    if ($values['SUPABASE_URL'] -notmatch '^https://([a-z0-9]{20})\.supabase\.co/?$') {
+        return "not ready (invalid SUPABASE_URL)"
+    }
+    $urlRef = $Matches[1]
+    if ($urlRef -eq 'vgeqpbyyggxxaeowtbtj') {
+        return "blocked (production Supabase ref)"
+    }
+    if ($urlRef -ne $values['TEST_SUPABASE_PROJECT_REF']) {
+        return "not ready (URL/test ref mismatch)"
+    }
+    return "staging test config ready"
+}
+
 function Get-DirtySummary {
     param([string]$RepoRoot)
 
@@ -60,6 +96,7 @@ Write-Host "[BAGJO1 Codex preflight]"
 Write-Host "repo:       $RepoRoot"
 Write-Host "branch:     $branch"
 Write-Host "env:        $(Get-EnvLabel -RepoRoot $RepoRoot)"
+Write-Host "test env:   $(Get-TestEnvLabel -RepoRoot $RepoRoot)"
 Write-Host "codex home: $CodexHome"
 Write-Host "git dirty:  $(Get-DirtySummary -RepoRoot $RepoRoot)"
 Write-Host "session:    SESSION.md $sessionAge"
