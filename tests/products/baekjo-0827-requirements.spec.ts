@@ -41,6 +41,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(home).toContain(".slice(0, 3)");
     expect(home).toContain('보호자 후기');
     expect(home).toContain('소식');
+    expect(home).toContain('data-testid="home-soft-open-notice"');
+    expect(home).toContain('가오픈 진행 중');
+    expect(home).toContain('현재 결제는 무통장입금으로 진행됩니다.');
+    expect(home).not.toContain('이용 안내 보기');
   });
 
   test('Audit·보호자 후기·소식 화면이 최신 콘텐츠 정본과 일치한다', () => {

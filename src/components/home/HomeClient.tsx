@@ -107,6 +107,21 @@ export default function HomeClient({
 
   return (
     <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
+      <aside
+        data-testid="home-soft-open-notice"
+        aria-label="가오픈 결제 안내"
+        className="flex min-h-[38px] w-full items-center bg-[#17211D] text-[#FBFAF7] sm:min-h-[34px]"
+      >
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center gap-2 px-2 py-1 sm:px-8 lg:px-12 xl:px-14">
+          <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
+            가오픈 진행 중
+          </span>
+          <p className="min-w-0 whitespace-nowrap text-center text-[10px] font-semibold leading-none tracking-[-0.02em] text-[#FBFAF7] sm:text-[12px] sm:tracking-normal">
+            현재 결제는 무통장입금으로 진행됩니다.
+          </p>
+        </div>
+      </aside>
+
       {/* 1. 메인 히어로 */}
       <section data-testid="home-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
         <div className="relative h-full w-full overflow-hidden">
