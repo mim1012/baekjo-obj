@@ -6,14 +6,14 @@ import {
   parseAdminOrderExportQuery,
   type AdminOrderExportParseError,
 } from '@/lib/orders/adminOrderFilters';
-import { serializeAdminOrdersCsv } from '@/lib/orders/adminOrderExportCsv';
+import { serializeAdminOrdersXlsx } from '@/lib/orders/adminOrderExportXlsx';
 import { listAllBrandsForAdmin } from '@/lib/brands/repo';
 import { listOrdersForAdminExport } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
 
-const CSV_HEADERS = {
-  'Content-Type': 'text/csv; charset=utf-8',
-  'Content-Disposition': 'attachment; filename="admin-orders-export.csv"',
+const XLSX_HEADERS = {
+  'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'Content-Disposition': 'attachment; filename="admin-orders-export.xlsx"',
   'Cache-Control': 'no-store',
 } as const;
 
@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'export-row-limit-exceeded' }, { status: 413 });
     }
 
-    return new NextResponse(serializeAdminOrdersCsv(filteredOrders, brands), {
+    return new NextResponse(await serializeAdminOrdersXlsx(filteredOrders, brands), {
       status: 200,
-      headers: CSV_HEADERS,
+      headers: XLSX_HEADERS,
     });
   } catch (error) {
     logServerError('[GET /api/admin/orders/export] 다운로드 실패', error);
