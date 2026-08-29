@@ -67,5 +67,5 @@ export function assertNoProductionOrPreviewTarget(
 export function resolvePaymentsWriteBaseUrl(environment: SafetyEnvironment = process.env): string {
   const baseUrl = environment.PAYMENTS_PREVIEW_URL;
   if (!baseUrl) return '';
-  return assertNoProductionOrPreviewTarget(baseUrl).toString();
+  return assertNoProductionOrPreviewTarget(baseUrl).toString().replace(/\/+$/u, '');
 }
