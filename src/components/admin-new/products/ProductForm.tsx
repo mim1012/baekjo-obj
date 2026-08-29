@@ -373,6 +373,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                     <option value="both">공용</option>
                     <option value="dog">강아지 전용</option>
                     <option value="cat">고양이 전용</option>
+                    <option value="small">소동물 전용</option>
                   </select>
                 </FormField>
 

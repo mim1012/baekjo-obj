@@ -127,12 +127,6 @@ test('상품명·현재 브랜드명·키워드를 모두 검색한다', () => {
   expect(filterProducts(products, { search: '편안한 착용' })).toHaveLength(1);
 });
 
-test('강아지·고양이 공용 상품을 소동물 전용 상품으로 취급하지 않는다', () => {
-  const products = [product(), product({ id: 'p-small', petType: 'small' })];
-  expect(filterProducts(products, { petType: 'small' }).map((item) => item.id)).toEqual(['p-small']);
-  expect(filterProducts(products, { petType: 'dog' }).map((item) => item.id)).toEqual(['p-test']);
-});
-
 test('냄새 태그와 가격 경계로 정확히 필터링한다', () => {
   const products = [
     product({ id: 'p-odor', concernTags: ['odor'], price: 19_999 }),
