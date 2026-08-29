@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, Check, Leaf, Heart, MessageSquare } from 'lucide-react';
 import ProductCard from '@/components/common/ProductCard';
@@ -15,9 +16,42 @@ import {
 } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
+import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
+
+const brandTitleLogoDimensions: Record<string, { width: number; height: number }> = {
+  b1: { width: 123, height: 27 },
+  b2: { width: 208, height: 48 },
+  b3: { width: 102, height: 42 },
+  b5: { width: 512, height: 107 },
+  b6: { width: 720, height: 108 },
+  b7: { width: 1300, height: 476 },
+  b8: { width: 370, height: 77 },
+  b9: { width: 466, height: 56 },
+};
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const { id } = await params;
+  const brand = await getCachedPublicBrandBySlug(id) ?? await getCachedPublicBrandById(id);
+  if (!brand) return { title: '브랜드를 찾을 수 없습니다', robots: { index: false, follow: false } };
+  const fullBrandName = formatBrandDisplayName(brand.name);
+  const canonicalPath = `/brands/${brand.slug}`;
+
+  return {
+    title: fullBrandName,
+    description: brand.description,
+    alternates: { canonical: canonicalPath },
+    openGraph: {
+      type: 'website',
+      url: canonicalPath,
+      title: fullBrandName,
+      description: brand.description,
+      images: brand.logo ? [{ url: brand.logo, alt: `${fullBrandName} 로고` }] : undefined,
+    },
+  };
+}
 
 export default async function BrandDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,10 +68,10 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     notFound();
   }
 
-  const shortBrandName = brand.name.replace(/\s*\(.*?\)/, '').trim();
-  const wmMatch = brand.name.match(/^(.*?)\s*(\([A-Za-z][A-Za-z0-9 .&-]*\))\s*$/);
-  const wmBase = wmMatch ? wmMatch[1] : brand.name;
-  const wmEnglish = wmMatch ? wmMatch[2] : null;
+  const presentation = getBrandPresentation(brand);
+  const fullBrandName = formatBrandDisplayName(brand.name);
+  const titleLogoSrc = brand.wordmarkImage || brand.logo;
+  const titleLogoDimensions = brandTitleLogoDimensions[brand.id] ?? { width: 360, height: 96 };
   const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
   const representativeProducts = brandProducts.filter((product) =>
     brand.representativeProductIds.includes(product.id),
@@ -55,9 +89,11 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     review.isVisible !== false && brandProducts.some((product) => product.id === review.productId),
   );
   const hasPublishedAudit = Boolean(brand.auditReport);
-  
-  const auditStatusText = hasPublishedAudit ? (brand.auditReport?.status || 'Audit 통과') : '입점 자료 확인 중';
-  const categoryNames = [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
+  const auditStatusText = hasPublishedAudit ? 'Audit Completed' : '입점 자료 확인 중';
+  const categoryNames = presentation.categories
+    || [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
+  const relatedConcernNames = presentation.concerns
+    || relatedConcerns.map((concern) => concern.title).join(' · ');
 
   return (
     <main className="bg-[#F8F6F0] pb-24 md:pb-14">
@@ -74,39 +110,37 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               모든 브랜드 보기
             </Link>
             
-            <div className="mb-3 inline-flex h-[30px] self-start items-center justify-center rounded-full border border-[#E2DACD] bg-[#FFFEFB] px-3 text-[11px] font-semibold text-[#6F756F] md:mb-4 md:h-[32px] md:text-[12px]">
-              {auditStatusText}
-            </div>
+            {auditStatusText && (
+              <div className="mb-3 inline-flex h-[30px] self-start items-center justify-center rounded-full border border-[#E2DACD] bg-[#FFFEFB] px-3 text-[11px] font-semibold text-[#6F756F] md:mb-4 md:h-[32px] md:text-[12px]">
+                {auditStatusText}
+              </div>
+            )}
 
             <h1 className="break-keep text-[28px] font-bold leading-[1.18] tracking-[-0.03em] text-[#17251F] sm:text-[32px] md:text-[36px] lg:text-[40px]">
-              {brand.wordmarkImage ? (
-                <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
-                  {wmBase}
+              <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-2">
+                <span>{presentation.displayName}</span>
+                {titleLogoSrc && (
                   <Image
-                    src={brand.wordmarkImage}
-                    alt={brand.name}
-                    width={102}
-                    height={42}
-                    className="inline-block h-[0.62em] w-auto align-baseline"
+                    src={titleLogoSrc}
+                    alt={`${presentation.displayName} 브랜드 로고`}
+                    width={titleLogoDimensions.width}
+                    height={titleLogoDimensions.height}
+                    className={`inline-block h-[28px] w-[156px] object-contain object-left align-middle sm:h-[30px] sm:w-[168px] md:h-[32px] md:w-[178px] ${
+                      ['b1', 'b2', 'b3'].includes(brand.id) ? 'mix-blend-multiply' : ''
+                    }`}
                   />
-                </span>
-              ) : brand.wordmarkColor && wmEnglish ? (
-                <>
-                  {wmBase} <span style={{ color: brand.wordmarkColor }}>{wmEnglish}</span>
-                </>
-              ) : (
-                brand.name
-              )}
+                )}
+              </span>
             </h1>
             
             <p className="mt-3 max-w-[440px] break-keep text-[14px] leading-[1.75] text-[#6F756F] md:mt-4 md:text-[15px]">
-              {brand.description}
+              {presentation.detailDescription}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              {relatedConcerns.map((concern) => (
-                <span key={concern.slug} className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
-                  {concern.title}
+              {presentation.audienceTags.map((tag) => (
+                <span key={tag} className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
+                  {tag}
                 </span>
               ))}
               <span className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
@@ -121,7 +155,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                {displayProducts[0] ? (
                  <Image src={displayProducts[0].image} alt={displayProducts[0].name} fill className="object-contain p-4 mix-blend-multiply md:p-6" sizes="(max-width: 768px) 100vw, 54vw" priority />
                ) : (
-                 <Image src={getBrandDisplayLogo(brand)} alt={brand.name} fill className="object-contain p-12 mix-blend-multiply" sizes="(max-width: 768px) 100vw, 57vw" priority />
+                 <Image src={getBrandDisplayLogo(brand)} alt={fullBrandName} fill className="object-contain p-12 mix-blend-multiply" sizes="(max-width: 768px) 100vw, 57vw" priority />
                )}
             </div>
           </div>
@@ -152,7 +186,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? (relatedConcerns.map(c => c.title).join(' · ') || '전반적 관리')}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
                   <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote ?? '전반적인 컨디션을 세심하게 케어합니다.'}</div>
                 </div>
               </div>
@@ -170,7 +204,15 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              <div className="flex-1 border-b border-[#E2DACD] p-5 md:p-6 lg:w-[48%] lg:border-r lg:border-b-0 lg:p-8">
                <div className="text-[11px] md:text-[12px] font-bold text-[#6F756F] tracking-wide mb-3">BRAND STORY</div>
                <h2 className="mb-3 break-keep text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:text-[20px]">
-                 {brand.name}의 브랜드 철학
+                 {brand.id === 'b9'
+                   ? '써니사이드업'
+                   : brand.id === 'b2'
+                     ? '오미프로'
+                     : brand.id === 'b7'
+                       ? '메종슈슈'
+                       : brand.id === 'b6'
+                         ? 'RE : 펫'
+                       : `${fullBrandName}의 브랜드 철학`}
                </h2>
                <p className="mb-6 whitespace-pre-line break-keep text-[13px] leading-[1.75] text-[#6F756F] md:text-[14px]">
                  {brand.philosophy || brand.description}
@@ -203,14 +245,14 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              {/* Audit */}
              <div className="flex-1 lg:w-[52%]">
                 <AuditAccordion
-                  title="백조오브제 검토 상태"
+                  title={hasPublishedAudit ? '백조오브제 검토 완료' : '백조오브제 검토 상태'}
                   subtitle="BAEKJO OBJET AUDIT"
                   statusLabel={auditStatusText}
                   theme="light"
                   density="compact"
                 >
                   <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
-                    {hasPublishedAudit ? '아래 항목을 중심으로 꼼꼼히 확인하고 통과했습니다.' : '아래 항목을 중심으로 꼼꼼히 확인하고 있습니다.'}
+                    {hasPublishedAudit ? '아래 항목을 중심으로 검토를 완료하였습니다.' : '아래 항목을 중심으로 꼼꼼히 확인하고 있습니다.'}
                   </p>
 
                   <div className="mb-6 flex flex-col gap-2.5">
@@ -242,7 +284,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
 
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                     <Link href="/audit" className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
-                      검증 기준 자세히 보기 <ArrowRight className="w-3.5 h-3.5" />
+                      Audit 자세히 보기 <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                     {hasPublishedAudit && brand.auditReport && (
                       <Link href="#brand-audit-report" className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
@@ -257,8 +299,10 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         </div>
       </section>
 
-      {/* 3-1. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만. 없으면 위 아코디언의
-          "확인 중" 배지만 남기고 이 패널은 렌더하지 않는다 — 컴포넌트 내장 폴백과 중복 방지) */}
+      {/* 3-1. 브랜드 배송 정책 (값 있을 때만 렌더) */}
+      <BrandShippingInfo brand={brand} />
+
+      {/* 3-2. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만 렌더한다.) */}
       {hasPublishedAudit && (
         <section id="brand-audit-report" className="mb-10 scroll-mt-24 md:mb-12 [&_section]:mt-0">
           <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
@@ -267,16 +311,13 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         </section>
       )}
 
-      {/* 3-2. 브랜드 배송 정책 (값 있을 때만 렌더) */}
-      <BrandShippingInfo brand={brand} />
-
       {/* 4. 대표 상품 */}
       <section className="mb-10 md:mb-12">
         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">이 브랜드에서 먼저 보여드리고 싶은 것들</h2>
-               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{shortBrandName}의 대표 제품을 소개합니다.</p>
+               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}의 대표 제품을 소개합니다.</p>
              </div>
              {brandProducts.length > 0 && (
                <Link href={`/shop?brandId=${brand.id}`} className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
@@ -313,7 +354,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">반려가족 후기</h2>
-               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{shortBrandName}을 사용한 보호자들의 솔직한 후기를 확인해보세요.</p>
+               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}을 사용한 보호자들의 솔직한 후기를 확인해보세요.</p>
              </div>
              {brandReviews.length > 0 && (
                <Link href="/reviews" className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">

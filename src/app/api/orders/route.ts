@@ -12,6 +12,7 @@ import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrder
 import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
 import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
+import { calcDeliveryFee } from '@/lib/orderPolicy';
 import type { OrderItem, Product } from '@/types';
 
 // 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
@@ -25,10 +26,6 @@ const MAX_PRODUCT_ID = 100;
 const MAX_OPTION_ID = 100;
 const MAX_TRACKING = 100;
 const MAX_MEMO = 1000;
-
-// 배송비 정책은 프론트 checkout(page.tsx)과 동일해야 저장 총액이 어긋나지 않는다(§4 drift 방지).
-const FREE_SHIPPING_THRESHOLD = 50000;
-const SHIPPING_FEE = 3000;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -95,7 +92,7 @@ function validate(
   }
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
-  const deliveryFee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD ? SHIPPING_FEE : 0;
+  const deliveryFee = calcDeliveryFee(subtotal);
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
   const isBankTransfer = b.paymentMethod === BANK_TRANSFER_METHOD;
   const paymentStatus = isBankTransfer ? '입금대기' : '결제대기';

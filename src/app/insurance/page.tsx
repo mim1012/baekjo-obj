@@ -233,12 +233,11 @@ export default function InsurancePage() {
                 함께 차근차근 살펴봐요.
               </h1>
               <p className="mt-5 text-sm leading-[1.7] text-[#5F6761] sm:text-[15px]">
-                나이와 건강, 견종, 지금 가입 보험을 함께 살펴<br className="hidden sm:block" />
-                놓치기 쉬운 조건을 이해하기 쉽게 정리해 드려요.
+                같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.
               </p>
               <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                 <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full bg-[#17211D] px-8 text-[15px] font-bold text-[#FBFAF7] transition-all duration-500 ease-out hover:bg-[#202521] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1EDE5]">
-                  보험 분석 신청하기
+                  보험 분석 시작하기
                   <ArrowRight className="ml-2 size-4" aria-hidden="true" />
                 </a>
                 <a href="#insurance-form" className="inline-flex h-[52px] items-center justify-center rounded-full border border-[#D8C4A3] bg-[#FFFEFB] px-8 text-[15px] font-bold text-[#17211D] transition-all duration-500 ease-out hover:bg-[#F8F4EC] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1EDE5]">

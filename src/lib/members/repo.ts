@@ -35,10 +35,11 @@ interface MemberRow {
   reject_reason: string | null;
   signup_data: Record<string, unknown>;
   managed_brand_ids: string[] | null;
+  must_change_password: boolean;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -61,6 +62,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     rejectReason: row.reject_reason ?? undefined,
     signupData: row.signup_data,
     managedBrandIds: row.managed_brand_ids ?? undefined,
+    mustChangePassword: row.must_change_password,
   };
 }
 
@@ -85,6 +87,7 @@ export function toUser(record: MemberRecord): User {
     rejectReason: record.rejectReason,
     signupData: record.signupData,
     managedBrandIds: record.managedBrandIds,
+    mustChangePassword: record.mustChangePassword,
   };
 }
 
@@ -276,10 +279,12 @@ export async function updateMemberProfile(
   return data ? rowToRecord(data as MemberRow) : null;
 }
 
+/** 비밀번호 교체(본인 변경·재설정 공용). 운영자가 발급한 초기 비밀번호를 본인 것으로 바꾼
+ *  시점이므로 must_change_password 유도 플래그도 함께 내린다. */
 export async function updateMemberPassword(id: string, passwordHash: string): Promise<void> {
   const { error } = await getSupabase()
     .from('members')
-    .update({ password_hash: passwordHash })
+    .update({ password_hash: passwordHash, must_change_password: false })
     .eq('id', id);
   if (error) throw error;
 }
