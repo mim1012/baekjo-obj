@@ -42,7 +42,13 @@ export default function LoginPage() {
   const socialError = errorParam
     ? errorParam === 'admin'
       ? '관리자 로그인이 필요합니다.'
-      : '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
+      : errorParam === 'pending-approval'
+        ? '가입 신청 검토 중입니다. 관리자 승인 완료 후 로그인할 수 있어요.'
+        : errorParam === 'member-rejected'
+          ? '가입 신청이 승인되지 않았습니다. 자세한 내용은 고객센터에 문의해 주세요.'
+          : errorParam === 'member-inactive'
+            ? '이용이 중지되었거나 탈퇴한 계정입니다. 고객센터에 문의해 주세요.'
+            : '간편 로그인에 실패했어요. 잠시 후 다시 시도해 주세요.'
     : '';
 
   const handleLogin = async (event: React.FormEvent) => {

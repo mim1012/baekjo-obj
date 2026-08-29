@@ -94,7 +94,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: typeof user.name === 'string' ? user.name : null,
           profileImage: typeof user.image === 'string' ? user.image : null,
         });
-        if (member.status !== 'active') return false;
+        // false를 반환하면 next-auth가 일반 "AccessDenied"로 뭉개버려 이메일 로그인과 달리
+        // pending/rejected/inactive를 구분할 수 없다. 대신 signIn 콜백이 문자열(상대 경로)을
+        // 반환하면 next-auth가 그 URL로 그대로 리다이렉트한다(기본 redirect 콜백, @auth/core
+        // lib/init.js) — 이를 이용해 /login?error=... 에 상태별 코드를 실어 보낸다.
+        if (member.status === 'pending') return '/login?error=pending-approval';
+        if (member.status === 'rejected') return '/login?error=member-rejected';
+        if (member.status !== 'active') return '/login?error=member-inactive';
       }
       return true;
     },
