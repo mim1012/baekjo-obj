@@ -20,6 +20,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     for (const submenu of ['백조오브제 Audit의 검토 기준', '전문가 칼럼', '보호자 후기', '소식']) {
       expect(header).toContain(submenu);
     }
+    for (const removedDescription of [
+      '브랜드를 살펴보는 네 가지 확인 기준',
+      '전문가가 전하는 반려생활 기준',
+      '먼저 경험한 보호자들의 기록',
+      '새로운 서비스와 안내',
+    ]) {
+      expect(header).not.toContain(removedDescription);
+    }
     expect(header).not.toContain('백조 Audit');
     expect(footer).toContain('@BAEKJO OBJET');
     expect(footer).toContain("label: '배송·교환·환불'");
