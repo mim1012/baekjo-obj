@@ -15,8 +15,9 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
   if (!user) return null;
 
   const handleLogout = () => {
-    logout();
-    window.location.href = '/login';
+    void logout().finally(() => {
+      window.location.href = '/login';
+    });
   };
 
   const navGroups = [
