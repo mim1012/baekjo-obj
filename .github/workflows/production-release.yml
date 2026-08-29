@@ -1,0 +1,71 @@
+name: production-release (tag and GitHub Release)
+
+on:
+  deployment_status:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  tag-production:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      github.event.deployment_status.environment == 'Production'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out deployed commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify deployment is the current main commit
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYED_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          set -euo pipefail
+          main_sha=$(gh api "repos/${{ github.repository }}/git/ref/heads/main" --jq '.object.sha')
+          test "$DEPLOYED_SHA" = "$main_sha"
+          echo "sha=$DEPLOYED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Create an idempotent release tag
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ steps.verify.outputs.sha }}
+        run: |
+          set -euo pipefail
+          base_tag="v$(date -u +%Y.%m.%d)"
+          tag="$base_tag"
+          suffix=0
+
+          while true; do
+            if git show-ref --verify --quiet "refs/tags/$tag"; then
+              existing_sha=$(git rev-list -n 1 "$tag")
+              if [ "$existing_sha" = "$RELEASE_SHA" ]; then
+                echo "tag=$tag" >> "$GITHUB_OUTPUT"
+                echo "created=false" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+              suffix=$((suffix + 1))
+              tag="$base_tag.$suffix"
+              continue
+            fi
+            git tag -a "$tag" "$RELEASE_SHA" -m "Production release $tag"
+            git push origin "$tag"
+            echo "tag=$tag" >> "$GITHUB_OUTPUT"
+            echo "created=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          done
+
+      - name: Create GitHub Release with generated notes
+        if: steps.tag.outputs.created == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"

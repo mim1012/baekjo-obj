@@ -29,8 +29,10 @@
 
 ## 브랜치 운영
 
-- 여러 워크스페이스의 변경은 `develop`에 선별 통합한 뒤 전체 테스트한다.
-- 통합 테스트 통과 후에만 `main`에 fast-forward 또는 승인된 병합을 수행한다.
+- UI(`release-ui`)와 API/백엔드(`api/*`, `be/*`)를 포함한 모든 작업 브랜치는 먼저 `develop`에 PR로 통합한다.
+- `develop`에서 UI·API·DB migration을 합친 상태로 전체 테스트한 뒤, `develop → main` 릴리스 PR만 승인·병합한다.
+- `main`에는 작업 브랜치를 직접 push/merge하지 않는다. Production 장애 hotfix만 예외로 하고, hotfix는 `main` 반영 후 `develop`에도 역반영한다.
+- Production 배포가 성공하면 배포된 `main` commit에 자동 릴리스 태그와 GitHub Release를 만든다. 태그는 코드 복구 지점이며 DB 백업을 대체하지 않는다.
 - 백조오브제와 무관한 ZeroRun·플릿 운영 변경은 통합 브랜치에 섞지 않는다.
 - 미커밋·미추적 파일은 자동 병합하지 말고 소유자 확인 후 별도 처리한다.
 
