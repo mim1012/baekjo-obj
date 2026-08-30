@@ -36,7 +36,6 @@ select aliases.brand_id, aliases.alias, aliases.normalized_alias
     ('b8', '챠콜스토리 (Charcoal Story)', '챠콜스토리charcoalstory'),
     ('b9', '써니 사이드업', '써니사이드업'),
     ('b9', 'Sunny Side Up', 'sunnysideup'),
-    ('b9', '써니사이드업', '써니사이드업'),
     ('b9', '써니 사이드업 (Sunny Side Up)', '써니사이드업sunnysideup')
   ) as aliases(brand_id, alias, normalized_alias)
  where exists (select 1 from public.brands where brands.id = aliases.brand_id)
