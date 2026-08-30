@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import BrandMark from '@/components/common/BrandMark';
 import { getSessionUser, setCurrentUser, updateMyProfile } from '@/lib/storage';
 import { normalizeReturnTo } from '@/lib/socialAuth';
 
-export default function CompleteProfilePage() {
+function CompleteProfileForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = normalizeReturnTo(searchParams.get('returnTo'));
@@ -72,5 +72,13 @@ export default function CompleteProfilePage() {
         </form>
       </section>
     </main>
+  );
+}
+
+export default function CompleteProfilePage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-[#F9F8F3]">회원정보를 확인하고 있어요…</div>}>
+      <CompleteProfileForm />
+    </Suspense>
   );
 }
