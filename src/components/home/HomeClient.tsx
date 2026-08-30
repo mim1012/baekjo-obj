@@ -200,7 +200,7 @@ export default function HomeClient({
               <p className="mt-4 max-w-[560px] break-keep text-[14px] leading-[1.7] text-[#68716C] md:text-[15px]">
                 {audit.description}
               </p>
-              <Link href="/audit" className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
+              <Link href="/audit" prefetch={false} className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
                 {audit.linkLabel} <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </div>
@@ -331,17 +331,23 @@ export default function HomeClient({
             </div>
 
             <div className="mt-2 md:mt-0 relative z-20 shrink-0">
-              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
+              <Link href="/insurance" prefetch={false} className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
                 {insuranceBanner.buttonLabel}
               </Link>
             </div>
           </div>
           <div className="absolute inset-0 h-full w-full overflow-hidden">
             <picture>
+              <source type="image/webp" media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.webp" />
+              <source type="image/webp" srcSet="/images/insurance-analysis-banner-mobile.webp" />
               <source media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.png" />
               <img
                 src="/images/insurance-analysis-banner.png"
                 alt="반려동물 보험을 분석하는 보호자와 강아지, 고양이"
+                width={640}
+                height={348}
+                decoding="async"
+                loading="lazy"
                 className="h-full w-full object-cover object-center"
               />
             </picture>
@@ -358,7 +364,7 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
               </div>
-              <Link href="/reviews" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
+              <Link href="/reviews" prefetch={false} className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
@@ -378,13 +384,13 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
               </div>
-              <Link href="/notices" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
+              <Link href="/notices" prefetch={false} className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="flex flex-col">
               {recentNotices.map((notice) => (
-                <Link key={notice.id} href={`/notices/${notice.id}`} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
+                <Link key={notice.id} href={`/notices/${notice.id}`} prefetch={false} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
                   <div className="flex items-center justify-between">
                     <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
                       {notice.title}

@@ -7,7 +7,7 @@ import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
-import { getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
+import { getCurrentUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
@@ -57,7 +57,7 @@ export default function ProductCard({
   const detailHref = `/shop/${product.id}`;
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !getCurrentUser()) return;
     let active = true;
     const syncWishlist = () => {
       getWishlist().then(() => {

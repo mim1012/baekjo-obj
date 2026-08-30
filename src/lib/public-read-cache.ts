@@ -13,6 +13,8 @@ export const PUBLIC_READ_CACHE_TAGS = {
 
 export const EXPIRE_PUBLIC_READ_CACHE = { expire: 0 } as const;
 
+export const PUBLIC_READ_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';
+
 type PublicProductListFilter = Omit<ProductListFilter, 'visibleOnly'>;
 
 const PUBLIC_READ_REVALIDATE_SECONDS = 60;

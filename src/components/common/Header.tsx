@@ -16,8 +16,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
-import { formatBrandDisplayName } from '@/lib/brands/presentation';
-import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
+import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 
 type NavLinkDef = { label: string; href: string; feature?: keyof typeof FEATURES };
@@ -79,17 +78,8 @@ export default function Header() {
   const accountLabel = currentUser?.role === 'partner' ? '파트너 주문 관리' : '마이페이지';
 
   useEffect(() => {
-    getPublicBrands()
-      .then((list) =>
-        setBrandLinks(
-          list
-            .filter((brand) => brand.isVisible !== false)
-            .map((brand) => ({
-              label: formatBrandDisplayName(brand.name),
-              href: `/brands/${brand.slug}`,
-            })),
-        ),
-      )
+    getPublicBrandLinks()
+      .then(setBrandLinks)
       .catch(() => {});
   }, []);
 

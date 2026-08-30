@@ -34,7 +34,6 @@ export const metadata: Metadata = {
   },
 };
 
-import { SiteSettingsProvider } from "@/components/providers/SiteSettingsProvider";
 import { CategorySettingsProvider } from "@/components/providers/CategorySettingsProvider";
 
 export default function RootLayout({
@@ -48,11 +47,9 @@ export default function RootLayout({
         <meta name="google" content="notranslate" />
       </head>
       <body className="flex min-h-full flex-col bg-[#FBFAF7] font-sans text-[#17211D]">
-        <SiteSettingsProvider>
-          <CategorySettingsProvider>
-            <AppShell>{children}</AppShell>
-          </CategorySettingsProvider>
-        </SiteSettingsProvider>
+        <CategorySettingsProvider>
+          <AppShell>{children}</AppShell>
+        </CategorySettingsProvider>
       </body>
     </html>
   );
