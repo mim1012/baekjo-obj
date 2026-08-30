@@ -98,6 +98,11 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
         title="상태 변경 및 관리"
         description="값을 변경하면 화면 하단에 저장바가 나타납니다. 저장하기를 눌러야 실제 DB에 반영됩니다."
       >
+        {order.orderStatus === '취소요청' && (
+          <p className="mb-4 rounded-md border border-[#A65348]/30 bg-[#FBFAF7] px-4 py-3 text-[13px] leading-relaxed text-[#A65348]">
+            고객이 주문 취소를 요청했습니다. 결제완료 주문은 먼저 환불 처리한 뒤 주문 상태를 취소완료로 저장하세요.
+          </p>
+        )}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <FormField
             label="주문 상태"
