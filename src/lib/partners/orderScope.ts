@@ -1,6 +1,16 @@
 import type { OrderItem, Shipment } from '@/types';
 
-export type ScopedOrderLike = { id: string; customerName: string; orderStatus: string; paymentStatus: string; createdAt: string; items: OrderItem[] };
+export type ScopedOrderLike = {
+  id: string;
+  customerName: string;
+  orderStatus: string;
+  paymentStatus: string;
+  createdAt: string;
+  totalPrice: number;
+  deliveryFee: number;
+  paymentMethod: string;
+  items: OrderItem[];
+};
 export type PartnerOrderView = ScopedOrderLike & { shipment: Shipment | null };
 
 export function projectPartnerOrder(order: ScopedOrderLike | null, brandIds: string[], shipments: Shipment[]): PartnerOrderView | null {
