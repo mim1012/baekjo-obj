@@ -3,6 +3,7 @@ import {
   Brand,
   ConfirmedOrderSummary,
   InsuranceApplication,
+  MemberAddress,
   Order,
   PartnerInquiry,
   Product,
@@ -382,6 +383,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       throw new Error('login-required');
     }
     if (response.status === 409) {
+      const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+      if (error === 'profile-incomplete') throw new Error('profile-incomplete');
       throw new Error('out-of-stock');
     }
     throw new Error('order-create-failed');
@@ -1771,6 +1774,43 @@ export async function updateMyProfile(input: {
   } catch {
     return { error: 'network' };
   }
+}
+
+export async function getMyAddresses(): Promise<MemberAddress[]> {
+  const response = await fetch('/api/members/me/addresses', { cache: 'no-store' });
+  if (!response.ok) throw new Error('address-list-failed');
+  const { addresses } = (await response.json()) as { addresses: MemberAddress[] };
+  return addresses;
+}
+
+export async function createMyAddress(input: Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'> & { isDefault?: boolean }): Promise<MemberAddress> {
+  const response = await fetch('/api/members/me/addresses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-create-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function updateMyAddress(
+  id: string,
+  input: Partial<Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt'>>,
+): Promise<MemberAddress> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-update-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function deleteMyAddress(id: string): Promise<void> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('address-delete-failed');
 }
 
 /** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */

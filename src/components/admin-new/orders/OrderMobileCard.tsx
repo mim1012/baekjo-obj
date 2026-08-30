@@ -40,6 +40,8 @@ export default function OrderMobileCard({
       status={<OrderFunnelBadge stage={stage} />}
       details={[
         { label: '주문자', value: `${order.customerName} (${order.phone})` },
+        { label: '배송지', value: order.address || '배송지 미입력' },
+        { label: '배송 메모', value: order.deliveryMemo || '없음' },
         { label: '결제금액', value: formatPrice(finalAmount) },
         { label: '결제수단', value: order.paymentMethod },
       ]}

@@ -61,6 +61,16 @@ export default function OrderDataTable({
       )
     },
     {
+      key: 'address',
+      header: '배송 정보',
+      render: (row) => (
+        <div className="max-w-[220px] text-xs">
+          <div className="truncate text-gray-900" title={row.address}>{row.address || '배송지 미입력'}</div>
+          {row.deliveryMemo && <div className="mt-1 truncate text-[#A8742E]" title={row.deliveryMemo}>메모: {row.deliveryMemo}</div>}
+        </div>
+      ),
+    },
+    {
       key: 'items',
       header: '주문 상품',
       render: (row) => {

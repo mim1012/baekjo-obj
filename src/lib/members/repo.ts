@@ -1,6 +1,7 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
+import { isMemberProfileComplete } from '@/lib/members/profile';
 import type { User } from '@/types';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
@@ -81,6 +82,7 @@ export function toUser(record: MemberRecord): User {
     createdAt: record.createdAt,
     provider: record.provider,
     profileImage: record.profileImage,
+    profileCompleted: isMemberProfileComplete(record),
     emailVerified: record.emailVerified,
     companyName: record.companyName,
     businessNumber: record.businessNumber,

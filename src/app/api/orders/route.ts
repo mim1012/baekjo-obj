@@ -76,7 +76,7 @@ function validate(
 
   if (!isStr(b.customerName, 1, MAX_NAME)) return null;
   if (!isStr(b.phone, 1, MAX_PHONE)) return null;
-  if (!isStr(b.address, 0, MAX_ADDRESS)) return null;
+  if (!isStr(b.address, 1, MAX_ADDRESS)) return null;
   if (!isStr(b.paymentMethod, 1, MAX_PAYMENT_METHOD)) return null;
   if (b.trackingNumber !== undefined && !isStr(b.trackingNumber, 0, MAX_TRACKING)) return null;
   if (b.deliveryMemo !== undefined && !isStr(b.deliveryMemo, 0, MAX_MEMO)) return null;
@@ -162,6 +162,10 @@ export async function POST(request: NextRequest) {
     return activeMember.response;
   }
   const memberId = activeMember.memberId;
+
+  if (!activeMember.member.name.trim() || !activeMember.member.phone.trim()) {
+    return NextResponse.json({ error: 'profile-incomplete' }, { status: 409 });
+  }
 
   // 주문 생성 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 자동화 루프가 재고 차감을
   // 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
