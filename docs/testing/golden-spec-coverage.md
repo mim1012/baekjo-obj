@@ -11,7 +11,7 @@
 | 구분 | 수 |
 |---|---|
 | 스펙 파일 전체 | **135** (golden 49 · admin 51 · products 22 · shipments 6 · payments 3 · tracking 1 · security 3) |
-| CI에서 실제로 도는 스펙 | products 19 + admin 48 (매 PR `verify`) · payments 2 · **shipments 6 + tracking 1 (2026-07-23 배선)** · golden-crud 배선 **33** · visual 2 · smoke 1 |
+| CI에서 실제로 도는 스펙 | products/admin/tracking 소스-계약 프로젝트(`ci.yml` 변경 경로 기반, main push/develop→main 승격은 전체) · payments DB · **shipments (2026-07-23 배선)** · golden-crud 배선 · visual · smoke |
 | **스펙은 있는데 CI에서 안 도는 것** | ~~shipments 6 + tracking 1 + member 3~~ **→ 2026-07-23 전부 배선 수리(§4)**. 남은 것: chromium 골든 11 (§4-3, 의도된 수동 게이트) |
 | 스펙 자체가 없는 기능 | §5 목록 (실메일 루프, 실 카드결제, 실 환불, 스윗트래커 실폴링 등) |
 
@@ -19,13 +19,13 @@
 
 | 계층 | 실행 주체 | 대상 | 트리거 |
 |---|---|---|---|
-| 소스-계약 테스트 | `ci.yml` (`verify` job) | `--project=products` (19개) · `--project=admin` (48개) | **매 PR·매 push** (required check) |
+| 소스-계약 테스트 | `ci.yml` (`products-contract`/`admin-contract`/`tracking-contract`) | `--project=products` · `--project=admin` · `--project=tracking` | 변경 경로 매핑 시 실행, `main` push 또는 `develop→main` 승격 PR은 전체 회귀 |
 | 결제 DB 상태기계 | `ci.yml` (`payments-db-spec` job) | `tests/payments/state-machine.db.spec.ts` | 매 PR |
 | 실구동 CRUD | `golden-crud.yml` (`golden-crud` 프로젝트) | `admin-crud-*` 23개 + `member-*` 7개 (파일 경로 명시 스텝) | Preview 배포 성공 시, **변경-경로 매핑 게이트** (dispatch all=true로 전체 스윕 가능) |
 | 전 페이지 스모크 | `golden-crud.yml` (`golden-smoke`/`-mobile`) | `all-pages-smoke.spec.ts` | Preview 배포마다 **항상** (데스크톱+모바일) |
 | 시각 회귀 | `visual.yml` | `visual.spec.ts` (14장) + `cart-badge-failure-safety` + `payments/payment-routes` | Preview 배포마다 |
 | 베이스라인 갱신 | `update-baselines.yml` | `visual.spec.ts --update-snapshots` | 라벨/수동 dispatch |
-| 배송·추적 소스-계약 | `ci.yml` (tracking→`verify`, shipments 6개→`payments-db-spec` staging env) | `--project=shipments`(6) · `--project=tracking`(1) | 매 PR (2026-07-23 배선) |
+| 배송·추적 소스-계약 | `ci.yml` (tracking→`tracking-contract`, shipments→`payments-db-spec` staging env) | `--project=shipments` · `--project=tracking` | shipping/tracking/CI 변경 시, 전체 회귀 조건에서는 tracking 포함 |
 | Production 비용 안전장치 | 수동/로컬 확인 | `--project=security`(3) | production URL guard, local-first default, AI crawler robots 차단 회귀 |
 | **CI 미배선 (수동 게이트 전용)** | 없음 | chromium 골든 behavioral 11개 | §8-6 게이트에서 수동/에이전트 실행 (의도된 운영) |
 

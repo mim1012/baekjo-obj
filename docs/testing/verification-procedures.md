@@ -15,14 +15,17 @@
 
 | 층 | 무엇을 | 항상 도나 | 파일 |
 |---|---|---|---|
-| 1. 소스-계약 | 순수 함수/타입/파일 존재 검증. 브라우저·DB 불필요 | 매 PR·push (CI `verify` 잡) | `tests/admin/*.spec.ts`, `tests/products/*.spec.ts` |
+| 1. 소스-계약 | 순수 함수/타입/파일 존재 검증. 브라우저·DB 불필요 | 변경 경로 매핑 시 실행, `main` push 또는 `develop→main` 승격 PR은 전체 회귀 | `tests/admin/*.spec.ts`, `tests/products/*.spec.ts`, `tests/tracking/*.spec.ts` |
 | 2. 변경-매핑 실구동 | 실제 Preview에 로그인해 등록→공개반영→수정→삭제→새로고침까지 브라우저로 클릭 | 배포된 커밋이 매핑된 도메인 경로를 건드렸을 때만 | `tests/golden/admin-crud-*.spec.ts` |
 | 3. 전체 스윕 | 매핑 무시하고 전체 스펙 강제 실행 | 수동 dispatch 또는 배포 직전 확인 | 동일 스펙군, `workflow_dispatch(all=true)` |
 
-## 층 1 — 소스-계약 테스트 (`tests/admin/`, 항상 켜짐)
+## 층 1 — 소스-계약 테스트 (`tests/admin/`, 변경 경로 기반)
 
-CI `verify` 잡(`.github/workflows/ci.yml:39-40`)이 `--project=admin`으로 실행한다. 브라우저·DB 없이
-Node에서 파일시스템/타입/문자열 패턴만 검사하므로 초 단위로 끝난다. 대표 3종 — 전부 "새로 추가된
+CI `verify` 잡은 dependency audit/typecheck/lint/build 공통 게이트만 맡고, `ci.yml`의
+`products-contract`/`admin-contract`/`tracking-contract` 잡이 `changes` 출력에 따라 해당
+Playwright 프로젝트만 실행한다. 단, `main` push 또는 `develop→main` 승격 PR은 전체 회귀로 세
+소스-계약 잡을 모두 실행한다. 브라우저·DB 없이 Node에서 파일시스템/타입/문자열 패턴만 검사하므로
+초 단위로 끝난다. 대표 3종 — 전부 "새로 추가된
 것이 감사망에서 빠지면 CI가 실패한다"는 동일 설계:
 
 ### 1-1. `golden-crud-coverage.spec.ts` — admin API 도메인 감사 (21도메인)
