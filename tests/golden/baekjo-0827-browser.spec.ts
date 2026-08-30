@@ -51,7 +51,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const auditHero = page.getByTestId('home-audit-hero');
     const auditImage = page.getByTestId('home-audit-image');
     expect(decodeURIComponent(await auditImage.evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('home-audit-client-photo-extended-v4');
+      .toContain('home-audit-client-photo-extended-v5');
     const [auditHeroBox, auditImageBox] = await Promise.all([auditHero.boundingBox(), auditImage.boundingBox()]);
     expect(auditImageBox?.width).toBeGreaterThanOrEqual((auditHeroBox?.width ?? 0) - 1);
     expect(auditImageBox?.height).toBeGreaterThanOrEqual((auditHeroBox?.height ?? 0) - 1);
@@ -171,7 +171,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     expect(decodeURIComponent(await page.getByTestId('home-hero-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
       .toContain('home-hero-pet-lifestyle-mobile');
     expect(decodeURIComponent(await page.getByTestId('home-audit-image').evaluate((image: HTMLImageElement) => image.currentSrc)))
-      .toContain('home-audit-client-photo-v3');
+      .toContain('home-audit-client-photo-v4');
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile.png'), fullPage: false });
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-full.png'), fullPage: true });
     await page.getByRole('button', { name: '메뉴 열기' }).click();

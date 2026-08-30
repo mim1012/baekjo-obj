@@ -48,7 +48,7 @@ const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
 });
 
 const { props: desktopAuditImageProps } = getImageProps({
-  src: '/images/home-audit-client-photo-extended-v4.png',
+  src: '/images/home-audit-client-photo-extended-v5.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '(max-width: 1280px) 100vw, 1168px',
@@ -56,7 +56,7 @@ const { props: desktopAuditImageProps } = getImageProps({
 });
 
 const { props: { srcSet: mobileAuditSrcSet } } = getImageProps({
-  src: '/images/home-audit-client-photo-v3.png',
+  src: '/images/home-audit-client-photo-v4.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '100vw',
