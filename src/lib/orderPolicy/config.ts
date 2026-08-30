@@ -1,3 +1,5 @@
+import type { BankTransferAccount } from '@/types';
+
 // 주문 정책(무통장입금 자동취소 on/off + 예약 TTL) 타입 + 기본값 + 정규화. 서버(API route·repo)와
 // 클라이언트(관리자 화면) 양쪽에서 안전하게 import 할 수 있도록 'use client' 없는 순수 모듈로 둔다
 // (categorySettings/config.ts 와 동일 이유 — client-reference 프록시 치환 방지).
@@ -12,6 +14,7 @@ export interface OrderPolicyConfig {
   bankTransferAutoCancelEnabled: boolean;
   /** 자동취소 활성 시 무통장입금 주문의 재고 선점 유효시간(시간 단위). 만료되면 reclaim-stock cron 이 취소·재고복원. */
   bankTransferTtlHours: number;
+  bankTransferAccount: BankTransferAccount | null;
 }
 
 // TTL 허용 범위 — 0/음수는 생성 즉시 만료(주문 불능), 과도한 값은 무기한 선점(W2 재고 DoS)과
@@ -25,7 +28,28 @@ export const ORDER_POLICY_TTL_MAX_HOURS = 720;
 export const defaultOrderPolicyConfig: OrderPolicyConfig = {
   bankTransferAutoCancelEnabled: false,
   bankTransferTtlHours: 72,
+  bankTransferAccount: {
+    bankName: '카카오뱅크',
+    accountNumber: '3333360077573',
+    accountHolder: '백조 오브제(Baekjo objet)',
+  },
 };
+
+export function normalizeBankTransferAccount(value: unknown): BankTransferAccount | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (
+    typeof record.bankName !== 'string' ||
+    typeof record.accountNumber !== 'string' ||
+    typeof record.accountHolder !== 'string'
+  ) return null;
+  const bankName = record.bankName.trim();
+  const accountNumber = record.accountNumber.trim();
+  const accountHolder = record.accountHolder.trim();
+  if (!bankName || !accountNumber || !accountHolder || !/^[0-9-]+$/.test(accountNumber)) return null;
+  if (bankName.length > 50 || accountNumber.length > 40 || accountHolder.length > 100) return null;
+  return { bankName, accountNumber, accountHolder };
+}
 
 /**
  * jsonb 저장값(unknown)을 안전한 OrderPolicyConfig 로 정규화한다. 절대 throw 하지 않는다 —
@@ -40,11 +64,12 @@ export function normalizeOrderPolicyConfig(value: unknown): OrderPolicyConfig {
   if (!value || typeof value !== 'object') return { ...defaultOrderPolicyConfig };
   const record = value as Record<string, unknown>;
   const enabled = record.bankTransferAutoCancelEnabled === true;
+  const bankTransferAccount = normalizeBankTransferAccount(record.bankTransferAccount);
   const raw = record.bankTransferTtlHours;
   if (typeof raw !== 'number' || !Number.isFinite(raw)) {
-    return { ...defaultOrderPolicyConfig, bankTransferAutoCancelEnabled: enabled };
+    return { ...defaultOrderPolicyConfig, bankTransferAutoCancelEnabled: enabled, bankTransferAccount };
   }
   const rounded = Math.round(raw);
   const clamped = Math.min(ORDER_POLICY_TTL_MAX_HOURS, Math.max(ORDER_POLICY_TTL_MIN_HOURS, rounded));
-  return { bankTransferAutoCancelEnabled: enabled, bankTransferTtlHours: clamped };
+  return { bankTransferAutoCancelEnabled: enabled, bankTransferTtlHours: clamped, bankTransferAccount };
 }

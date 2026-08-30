@@ -227,6 +227,12 @@ export type InsuranceStatus =
   | '분석완료';
 
 /* ── 주문 ─────────────────────────────────────── */
+export interface BankTransferAccount {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -237,6 +243,7 @@ export interface Order {
   deliveryFee: number;
   deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
   paymentMethod: string;
+  bankTransferAccount?: BankTransferAccount;
   orderStatus: OrderStatus;
   paymentStatus: string;
   deliveryStatus: string;
