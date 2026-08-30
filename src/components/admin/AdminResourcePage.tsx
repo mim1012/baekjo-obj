@@ -16,6 +16,7 @@ interface FormField {
   label: string;
   type?: 'text' | 'number' | 'textarea' | 'select' | 'multiPicker';
   options?: Array<{ value: string; label: string }>;
+  required?: boolean;
   /** type='multiPicker' 일 때 이름 기반 선택 드롭다운에 넣을 항목들. */
   pickerOptions?: AdminIdPickerOption[];
 }
@@ -177,6 +178,13 @@ export default function AdminResourcePage({
 
   const handleCreate = () => {
     if (!onCreateRow) return;
+    const missingField = editableFields.find(
+      (field) => field.required && String(createDraft[field.key] ?? '').trim() === '',
+    );
+    if (missingField) {
+      setSaveMessage(`${missingField.label}을(를) 선택하거나 입력해 주세요.`);
+      return;
+    }
     onCreateRow(createDraft);
     setCreateOpen(false);
     resetCreateDraft();
@@ -184,6 +192,13 @@ export default function AdminResourcePage({
 
   const handleUpdate = () => {
     if (!onUpdateRow || !editingRow) return;
+    const missingField = editableFields.find(
+      (field) => field.required && String(editingDraft[field.key] ?? '').trim() === '',
+    );
+    if (missingField) {
+      setSaveMessage(`${missingField.label}을(를) 선택하거나 입력해 주세요.`);
+      return;
+    }
     onUpdateRow(editingRow.id, editingDraft);
     closeEdit();
   };
@@ -223,6 +238,7 @@ export default function AdminResourcePage({
     if (field.type === 'select') {
       return (
         <select
+          required={field.required}
           className="mt-2 w-full border border-[#D1D0C8] bg-white px-3 py-2.5 text-sm focus:border-[#2F3B34]"
           value={String(value)}
           onChange={(event) => setValue(event.target.value)}

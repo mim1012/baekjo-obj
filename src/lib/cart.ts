@@ -1,4 +1,5 @@
 import { CartItem, Product } from '@/types';
+import { calcDeliveryFee } from '@/lib/orderPolicy';
 
 const CART_KEY = 'baekjo_cart';
 
@@ -137,7 +138,7 @@ export function calculateCartTotal(products: Product[], items: CartItem[] = getC
     const unitPrice = (product.salePrice ?? product.price) + (option?.priceDiff ?? option?.price ?? 0);
     return total + unitPrice * item.quantity;
   }, 0);
-  const deliveryFee = productsTotal > 0 && productsTotal < 50000 ? 3000 : 0;
+  const deliveryFee = calcDeliveryFee(productsTotal);
   return {
     productsTotal,
     deliveryFee,

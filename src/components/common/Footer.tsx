@@ -1,9 +1,8 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { COMPANY } from '@/data/company';
-import BrandMark from './BrandMark';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
-const KAKAO_TALK_URL = 'https://pf.kakao.com/_KYWxon';
 
 const footerLinks = [
   { label: '1:1 문의', href: '/mypage?tab=inquiries' },
@@ -18,8 +17,18 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
     <footer className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
       <div className={isHome ? 'mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8 py-12' : 'site-container-wide py-12'}>
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <Link href="/" aria-label="백조오브제 홈" className="inline-flex text-[#FBFAF7]">
-            <BrandMark inverse hideTagline />
+          <Link
+            href="/"
+            aria-label="백조오브제 홈"
+            className="relative block h-12 w-[156px] shrink-0"
+          >
+            <Image
+              src="/images/baekjo-objet-header-logo-v2.png"
+              alt="Baekjo Objet"
+              fill
+              sizes="156px"
+              className="object-contain brightness-0 invert"
+            />
           </Link>
 
           <div className="flex flex-col gap-5 md:items-end">
@@ -44,7 +53,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
               <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
                 <InstagramIcon />
               </SnsButton>
-              <SnsButton href={KAKAO_TALK_URL} label="카카오톡" tone="kakao" disabled={!KAKAO_TALK_URL}>
+              <SnsButton href={COMPANY.kakaoTalkUrl} label="카카오톡" tone="kakao" disabled={!COMPANY.kakaoTalkUrl}>
                 <KakaoIcon />
               </SnsButton>
               <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">@BAEKJO OBJET</p>

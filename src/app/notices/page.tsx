@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
+import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 export const metadata = {
   title: '공지사항',
@@ -19,7 +20,7 @@ export default async function NoticesPage() {
   // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그와 동일 원인. 목록 페이지도 방치하면 신규 공지가
   // 맨 아래에 묻힌다). date 는 YYYY-MM-DD 문자열이라 localeCompare 로 비교하고, JS sort 는 안정
   // 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
-  const notices = [...items].sort((a, b) => b.date.localeCompare(a.date));
+  const notices = getPublicNotices(items).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">

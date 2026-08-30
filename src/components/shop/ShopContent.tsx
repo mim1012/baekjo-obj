@@ -224,9 +224,9 @@ function ShopInner({ products, brands }: Props) {
     <div className="shop-filter-sidebar pb-8">
       <FilterGroup title="반려동물" defaultOpen>
         <FilterLink onClick={onNavigate} href={makeHref('petType', 'all')} active={!params.petType}>전체</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'dog')} active={params.petType === 'dog'}>강아지</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'cat')} active={params.petType === 'cat'}>고양이</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'small')} active={params.petType === 'small'}>소동물</FilterLink>
+        <FilterLink onClick={onNavigate} href={makeHref('petType', 'dog')} active={params.petType === 'dog'}>강아지</FilterLink>
+        <FilterLink onClick={onNavigate} href={makeHref('petType', 'cat')} active={params.petType === 'cat'}>고양이</FilterLink>
+        <FilterLink onClick={onNavigate} href={makeHref('petType', 'small')} active={params.petType === 'small'}>소동물</FilterLink>
       </FilterGroup>
 
       <FilterGroup title="카테고리" defaultOpen>

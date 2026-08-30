@@ -123,16 +123,15 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
 
 // ── 브랜드 필드 분류 ──────────────────────────────────────────────────────
 //
-// BrandDetailEditor(/admin/brands/[id]) 는 전 필드 에디터라 16개 필드를 모두 노출한다 →
+// BrandDetailEditor(/admin/brands/[id]) 는 현재 관리 필드를 모두 노출한다 →
 // admin-crud-brand-fields.spec.ts 가 전부 채워 왕복(admin 편집 재열람) 또는 공개 /brands/[id] 에서 검증.
-// sourceUrls·shipping·auditGrade·officialUrl 은 공개 상세에 렌더되지 않지만 BrandDetailEditor 에
+// sourceUrls·shipping·officialUrl 은 공개 상세에 렌더되지 않지만 BrandDetailEditor 에
 // 편집 UI가 있어 관리자 왕복으로 검증한다(=VERIFIED, 공개 assertion 없음).
 const BRAND_VERIFIED: readonly string[] = [
   'name',
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'sourceUrls',
   'shipping',
@@ -245,22 +244,15 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'price',
   'image',
   'images',
-  'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
   'brandName',
   'rating',
   'reviewCount',
   'isBest',
   'isRecommended',
-  'stock', // 빈 상태 테스트(재고0 → "잠시 품절" 뱃지)에서 검증
+  'stock', // 빈 상태 테스트(재고0 → 구매 버튼 비활성)에서 검증
   'options',
   'detailBlocks',
   'description',
-  'ingredients',
-  'howToUse',
-  'recommendedFor',
-  'caution',
   'shippingFee',
   'deliveryEstimate',
   'returnNotice',

@@ -8,6 +8,7 @@ import {
   type OrderStatus,
 } from '@/types';
 import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
+import type { AdminOrderDateRange } from '@/lib/orders/adminOrderFilters';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -320,6 +321,19 @@ export async function listAllOrders(): Promise<OrderRecord[]> {
   return (data as OrderRow[]).map(rowToRecord);
 }
 
+export async function listOrdersForAdminExport(
+  range: AdminOrderDateRange,
+  limit: number,
+): Promise<OrderRecord[]> {
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (range.createdFromIso) query = query.gte('created_at', range.createdFromIso);
+  if (range.createdToExclusiveIso) query = query.lt('created_at', range.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
 export const ORDER_REFUNDS_LIST_CAP = 5000;
 
 export async function listOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
@@ -431,6 +445,20 @@ export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate):
   if (error) throw error;
 }
 
+export async function requestOrderCancellation(id: string, memberId: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update({ order_status: '취소요청' })
+    .eq('id', id)
+    .eq('member_id', memberId)
+    .eq('order_status', '주문접수')
+    .in('payment_status', ['결제대기', '입금대기', '결제완료'])
+    .in('delivery_status', ['배송전', '배송준비'])
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 /**
  * 관리자 수동 결제상태 전이(조건부 UPDATE = CAS). setOrderPaid/claimOrderForConfirmation와 같은
  * 패턴으로 WHERE payment_status=<fromStatus> 를 걸어, 우리가 현재 상태를 읽은 시점과 UPDATE 시점
@@ -536,16 +564,20 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
  */
 export async function getOrderPaymentInfo(
   id: string,
-): Promise<{ paymentStatus: string; paymentKey: string | null } | null> {
+): Promise<{ paymentStatus: string; paymentKey: string | null; deliveryStatus: string | null } | null> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .select('payment_status, payment_key')
+    .select('payment_status, payment_key, delivery_status')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as { payment_status: string; payment_key: string | null };
-  return { paymentStatus: row.payment_status, paymentKey: row.payment_key ?? null };
+  const row = data as { payment_status: string; payment_key: string | null; delivery_status: string | null };
+  return {
+    paymentStatus: row.payment_status,
+    paymentKey: row.payment_key ?? null,
+    deliveryStatus: row.delivery_status ?? null,
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import {
   Brand,
   ConfirmedOrderSummary,
   InsuranceApplication,
+  MemberAddress,
   Order,
   PartnerInquiry,
   Product,
@@ -26,6 +27,8 @@ import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -58,6 +61,14 @@ function clearLegacyWishlistStorage(): void {
 function setWishlistCache(productIds: string[]): string[] {
   wishlistCache = productIds;
   return productIds;
+}
+
+function setCachedWishlistState(productId: string, wishlisted: boolean): string[] {
+  const current = wishlistCache ?? [];
+  const next = wishlisted
+    ? Array.from(new Set([...current, productId]))
+    : current.filter((id) => id !== productId);
+  return setWishlistCache(next);
 }
 
 function clearWishlistCache(): void {
@@ -107,7 +118,7 @@ export async function toggleWishlist(productId: string): Promise<boolean> {
   }
 
   const { wishlisted } = (await response.json()) as { wishlisted: boolean };
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, wishlisted);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return wishlisted;
 }
@@ -127,7 +138,7 @@ export async function removeWishlist(productId: string): Promise<boolean> {
     throw new Error('wishlist-remove-failed');
   }
 
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, false);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return false;
 }
@@ -372,6 +383,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       throw new Error('login-required');
     }
     if (response.status === 409) {
+      const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+      if (error === 'profile-incomplete') throw new Error('profile-incomplete');
       throw new Error('out-of-stock');
     }
     throw new Error('order-create-failed');
@@ -411,6 +424,12 @@ export async function getAllOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export function adminOrdersExportHref(filters: AdminOrderFilters): string {
+  const params = adminOrderFiltersToSearchParams(filters);
+  const query = params.toString();
+  return `/api/admin/orders/export${query ? `?${query}` : ''}`;
 }
 
 /**
@@ -476,6 +495,18 @@ export async function updateOrderStatus(
     } catch {
       /* 본문 없음/비JSON — 일반 코드 유지 */
     }
+    throw new Error(code);
+  }
+}
+
+export async function requestOrderCancellation(orderId: string): Promise<void> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/cancel-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    const code = body && typeof body.error === 'string' ? body.error : 'cancel-request-failed';
     throw new Error(code);
   }
 }
@@ -1468,6 +1499,7 @@ export async function saveOrderPolicyConfig(config: OrderPolicyConfig): Promise<
 }
 
 const USER_KEY = 'baekjo_user';
+let sessionUserRequest: Promise<User | null> | null = null;
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -1475,7 +1507,10 @@ export function getCurrentUser(): User | null {
 
 export function setCurrentUser(user: User | null): void {
   if (typeof window === 'undefined') return;
-  clearWishlistCache();
+  const previousUser = getCurrentUser();
+  if (!user || previousUser?.id !== user.id) {
+    clearWishlistCache();
+  }
   if (user) {
     setJSON(USER_KEY, user);
   } else {
@@ -1484,19 +1519,25 @@ export function setCurrentUser(user: User | null): void {
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  try {
-    const response = await fetch('/api/members/me');
-    if (response.status === 401) {
-      setCurrentUser(null);
-      return null;
-    }
-    if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User };
-    setCurrentUser(user);
-    return user;
-  } catch {
-    return null;
-  }
+  if (sessionUserRequest) return sessionUserRequest;
+
+  sessionUserRequest = fetch('/api/members/me')
+    .then(async (response) => {
+      if (response.status === 401) {
+        setCurrentUser(null);
+        return null;
+      }
+      if (!response.ok) return null;
+      const { user } = (await response.json()) as { user: User };
+      setCurrentUser(user);
+      return user;
+    })
+    .catch(() => null)
+    .finally(() => {
+      sessionUserRequest = null;
+    });
+
+  return sessionUserRequest;
 }
 
 /**
@@ -1757,6 +1798,43 @@ export async function updateMyProfile(input: {
   } catch {
     return { error: 'network' };
   }
+}
+
+export async function getMyAddresses(): Promise<MemberAddress[]> {
+  const response = await fetch('/api/members/me/addresses', { cache: 'no-store' });
+  if (!response.ok) throw new Error('address-list-failed');
+  const { addresses } = (await response.json()) as { addresses: MemberAddress[] };
+  return addresses;
+}
+
+export async function createMyAddress(input: Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'> & { isDefault?: boolean }): Promise<MemberAddress> {
+  const response = await fetch('/api/members/me/addresses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-create-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function updateMyAddress(
+  id: string,
+  input: Partial<Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt'>>,
+): Promise<MemberAddress> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-update-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function deleteMyAddress(id: string): Promise<void> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('address-delete-failed');
 }
 
 /** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */

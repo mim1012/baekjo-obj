@@ -25,7 +25,6 @@ export const BRAND_FORM_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'isRecommended',
   'isVisible',
@@ -47,7 +46,6 @@ export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
     logo: formData.logo,
     description: formData.description,
     philosophy: formData.philosophy,
-    auditGrade: formData.auditGrade,
     officialUrl: formData.officialUrl?.trim() ?? '',
     isRecommended: formData.isRecommended ?? false,
     isVisible: formData.isVisible !== false,
@@ -90,6 +88,10 @@ export interface AuditReportFormState {
   summary: string;
   selectionReason: string;
   process: string[];
+  checkpoints?: string[];
+  materialReview?: string[];
+  curatorNote?: string[];
+  auditConclusion?: string[];
 }
 
 /** 빈 auditReport 폼(초기값·리셋용). */
@@ -224,6 +226,10 @@ export function buildAuditReportPayload(form: AuditReportFormState): BrandAuditR
     summary: form.summary.trim(),
     selectionReason: form.selectionReason.trim(),
     process: cleanStringList(form.process),
+    checkpoints: form.checkpoints?.length ? cleanStringList(form.checkpoints) : undefined,
+    materialReview: form.materialReview?.length ? cleanStringList(form.materialReview) : undefined,
+    curatorNote: form.curatorNote?.length ? cleanStringList(form.curatorNote) : undefined,
+    auditConclusion: form.auditConclusion?.length ? cleanStringList(form.auditConclusion) : undefined,
   };
 }
 
@@ -233,7 +239,6 @@ export interface BrandDetailFormState {
   logo?: string;
   description?: string;
   philosophy?: string;
-  auditGrade?: Brand['auditGrade'];
   officialUrl?: string;
   isRecommended?: boolean;
   isVisible?: boolean;
@@ -442,7 +447,6 @@ export const BRAND_DETAIL_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'isRecommended',
   'isVisible',
@@ -472,7 +476,6 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     logo: form.logo,
     description: form.description,
     philosophy: form.philosophy,
-    auditGrade: form.auditGrade,
     officialUrl: form.officialUrl?.trim() ?? '',
     isRecommended: form.isRecommended ?? false,
     isVisible: form.isVisible !== false,
