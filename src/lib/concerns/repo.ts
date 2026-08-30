@@ -1,7 +1,12 @@
 // concerns_config 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 // 고민 config({ items })를 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
-import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
+import {
+  applySourceConcernCardCopy,
+  applySourceConcernFaqCopy,
+  defaultConcernsConfig,
+  type ConcernsConfig,
+} from '@/lib/concerns/config';
 import { logServerError } from '@/lib/logServerError';
 
 const CONFIG_ROW_ID = 'default';
@@ -44,10 +49,12 @@ export async function getConcernsConfig(): Promise<ConcernsConfig | null> {
  */
 export async function getConcernsConfigWithFallback(): Promise<ConcernsConfig> {
   try {
-    return (await getConcernsConfig()) ?? defaultConcernsConfig;
+    return applySourceConcernFaqCopy(
+      applySourceConcernCardCopy((await getConcernsConfig()) ?? defaultConcernsConfig),
+    );
   } catch (error) {
     logServerError('[concerns/repo] 조회 실패 — defaultConcernsConfig 로 폴백', error);
-    return defaultConcernsConfig;
+    return applySourceConcernFaqCopy(applySourceConcernCardCopy(defaultConcernsConfig));
   }
 }
 

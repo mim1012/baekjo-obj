@@ -122,8 +122,10 @@ export interface BrandAuditReport {
   summary: string;
   selectionReason: string;
   process: string[];
+  checkpoints?: string[];
   materialReview?: string[];
   curatorNote?: string[];
+  auditConclusion?: string[];
 }
 
 /* ── 고민 ─────────────────────────────────────── */

@@ -129,11 +129,11 @@ export default async function CareKitLandingPage() {
             <div>
               <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">CARE KIT PARTNER</p>
               <Image
-                src="/brands/penefit-wordmark-green.png"
-                alt="PENEFIT"
+                src="/brands/penefit-official.png"
+                alt="페네핏 로고"
                 width={178}
-                height={32}
-                className="mt-4 h-8 w-auto object-contain object-left"
+                height={43}
+                className="mt-4 h-10 w-[178px] object-contain object-left"
               />
             </div>
             <div>

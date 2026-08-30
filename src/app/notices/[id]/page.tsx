@@ -5,6 +5,7 @@ import { ArrowLeft } from 'lucide-react';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
+import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 // 서버 컴포넌트 — notices repo 를 직접 읽는다(자기 API HTTP 왕복 금지, §10-2 ①경로).
 // 관리자 저장이 즉시 반영돼야 하므로 요청 시점 DB 조회(정적 프리렌더 제외).
@@ -13,7 +14,7 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const { items } = await getNoticesConfigWithFallback();
-  const notice = items.find((item) => item.id === id);
+  const notice = getPublicNotices(items).find((item) => item.id === id);
   if (!notice) return { title: '공지를 찾을 수 없습니다', robots: { index: false, follow: false } };
 
   return {
@@ -26,8 +27,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function NoticeDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = await params;
-  const { items: notices } = await getNoticesConfigWithFallback();
-  const notice = notices.find(n => n.id === resolvedParams.id);
+  const { items } = await getNoticesConfigWithFallback();
+  const notice = getPublicNotices(items).find(n => n.id === resolvedParams.id);
 
   if (!notice) {
     notFound();

@@ -8,7 +8,7 @@ test('홈은 요청된 6개 쇼핑 카테고리 바로가기만 노출한다', a
     { name: '강아지', href: '/shop?petType=dog' },
     { name: '고양이', href: '/shop?petType=cat' },
     { name: '소동물', href: '/shop?petType=small' },
-    { name: '사료·간식', href: '/shop?category=food-nutrition' },
+    { name: '사료·간식', href: '/shop?category=food' },
     { name: '위생·배변', href: '/shop?category=care' },
     { name: '건강관리', href: '/concerns' },
   ];

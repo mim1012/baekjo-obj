@@ -53,6 +53,10 @@ function toAuditReportForm(report: Brand['auditReport']): AuditReportFormState {
     summary: report.summary ?? '',
     selectionReason: report.selectionReason ?? '',
     process: Array.isArray(report.process) ? [...report.process] : [],
+    checkpoints: Array.isArray(report.checkpoints) ? [...report.checkpoints] : undefined,
+    materialReview: Array.isArray(report.materialReview) ? [...report.materialReview] : undefined,
+    curatorNote: Array.isArray(report.curatorNote) ? [...report.curatorNote] : undefined,
+    auditConclusion: Array.isArray(report.auditConclusion) ? [...report.auditConclusion] : undefined,
   };
 }
 

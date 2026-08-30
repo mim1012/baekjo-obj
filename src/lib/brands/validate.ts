@@ -40,6 +40,10 @@ function validateAuditReport(raw: unknown): BrandAuditReport | null | undefined 
   if (!isStr(r.summary, 1, MAX_LONG_TEXT)) return null;
   if (!isStr(r.selectionReason, 1, MAX_LONG_TEXT)) return null;
   if (!isStrArray(r.process, MAX_PROCESS_ITEMS, MAX_TEXT)) return null;
+  if (r.checkpoints !== undefined && !isStrArray(r.checkpoints, MAX_PROCESS_ITEMS, MAX_TEXT)) return null;
+  if (r.materialReview !== undefined && !isStrArray(r.materialReview, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
+  if (r.curatorNote !== undefined && !isStrArray(r.curatorNote, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
+  if (r.auditConclusion !== undefined && !isStrArray(r.auditConclusion, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
   return {
     reportNo: r.reportNo,
     auditedAt: r.auditedAt,
@@ -49,6 +53,10 @@ function validateAuditReport(raw: unknown): BrandAuditReport | null | undefined 
     summary: r.summary,
     selectionReason: r.selectionReason,
     process: r.process,
+    checkpoints: r.checkpoints,
+    materialReview: r.materialReview,
+    curatorNote: r.curatorNote,
+    auditConclusion: r.auditConclusion,
   };
 }
 

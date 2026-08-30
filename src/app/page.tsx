@@ -7,6 +7,8 @@ import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { defaultHomeSettings } from '@/data/homeContent';
 import HomeClient from '@/components/home/HomeClient';
+import { FEATURES } from '@/config/features';
+import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 export const metadata = {
   alternates: { canonical: '/' },
@@ -33,8 +35,14 @@ export default async function Home() {
   // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그. HomeClient 가 notices.slice(0, 4)로 앞 4건만 취해
   // append 순서 그대로면 항상 가장 오래된 4건만 보였다). date 는 YYYY-MM-DD 문자열이라 localeCompare
   // 로 비교하고, JS sort 는 안정 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
-  const sortedNotices = [...noticesConfig.items].sort((a, b) => b.date.localeCompare(a.date));
-  const { solutions, ...visibleHomeSettings } = settings ?? defaultHomeSettings;
+  const sortedNotices = getPublicNotices(noticesConfig.items)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const { solutions, insuranceBanner, ...publicHomeSettings } = settings ?? defaultHomeSettings;
   void solutions;
+  // 보험 기능을 다시 켤 때는 저장된 설정을 그대로 복원한다. 비활성 중에는 클라이언트
+  // props에서도 제외해 화면뿐 아니라 공개 HTML/RSC payload에도 보험 문구가 노출되지 않게 한다.
+  const visibleHomeSettings = FEATURES.insurance
+    ? { ...publicHomeSettings, insuranceBanner }
+    : publicHomeSettings;
   return <HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={visibleHomeSettings} />;
 }

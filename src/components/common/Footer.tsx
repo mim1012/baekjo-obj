@@ -1,6 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { COMPANY } from '@/data/company';
-import BrandMark from './BrandMark';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
 
@@ -17,8 +17,18 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
     <footer className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
       <div className={isHome ? 'mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8 py-12' : 'site-container-wide py-12'}>
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <Link href="/" aria-label="백조오브제 홈" className="inline-flex text-[#FBFAF7]">
-            <BrandMark inverse hideTagline />
+          <Link
+            href="/"
+            aria-label="백조오브제 홈"
+            className="relative block h-12 w-[156px] shrink-0"
+          >
+            <Image
+              src="/images/baekjo-objet-header-logo-v2.png"
+              alt="Baekjo Objet"
+              fill
+              sizes="156px"
+              className="object-contain brightness-0 invert"
+            />
           </Link>
 
           <div className="flex flex-col gap-5 md:items-end">

@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { MainConcernCard, SubConcernCard } from '@/components/common/ConcernCard';
+import { FEATURES } from '@/config/features';
 
 export const metadata = {
   title: '케어 가이드',
@@ -52,7 +53,7 @@ export default async function ConcernsPage() {
               어떤 변화가 보이나요?
             </h1>
             <p className="mt-4 max-w-[480px] break-keep text-[14px] leading-[1.7] text-[#59615B] md:mt-5 md:text-[15px] lg:mt-6 lg:text-[16px]">
-              우리 아이가 보내는 작은 신호부터 살펴보세요.<br className="hidden sm:block" />
+              우리 아이가 보내는 작은 신호부터 살펴보세요.<br />
               일상에서 알아두면 좋은 케어 기준을 정리했습니다.
             </p>
             {/* 클라이언트 요청(2026-07-24) — 'NN CARE' 인덱스는 작게 표기 */}
@@ -87,6 +88,7 @@ export default async function ConcernsPage() {
         </section>
 
         {/* 7. 펫보험 분석 배너 */}
+        {FEATURES.insurance && (
         <section className="mb-[48px] md:mb-[64px]">
           <div className="flex flex-col md:flex-row bg-[#16382D] rounded-[20px] md:rounded-[24px] overflow-hidden h-auto md:h-[220px] lg:h-[260px]">
             <div className="flex flex-col justify-center w-full md:w-[55%] p-[32px] md:p-[42px]">
@@ -112,6 +114,7 @@ export default async function ConcernsPage() {
             </div>
           </div>
         </section>
+        )}
 
         {/* 7. 추가로 살펴볼 생활 케어 — 클라이언트 요청(2026-07-24)으로 페이지 하단 안내 영역으로 이동.
             9번째 이후 고민이 없으면(빈 배열) 제목만 남지 않도록 섹션 자체를 숨긴다. */}
