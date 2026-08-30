@@ -3,6 +3,8 @@ import { SITE_URL } from '@/data/site';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
+import { FEATURES } from '@/config/features';
+import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 const PUBLIC_ROUTES = [
   '',
@@ -10,13 +12,12 @@ const PUBLIC_ROUTES = [
   '/brands',
   '/concerns',
   '/audit',
-  '/experts',
+  ...(FEATURES.experts ? ['/experts'] : []),
   '/reviews',
   '/notices',
-  '/insurance',
+  ...(FEATURES.insurance ? ['/insurance', '/landing/insurance'] : []),
   '/b2b',
   '/landing/care-kit',
-  '/landing/insurance',
   '/terms',
   '/privacy',
   '/refund-policy',
@@ -62,7 +63,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.7,
     })),
-    ...notices.items.map((notice) => ({
+    ...getPublicNotices(notices.items).map((notice) => ({
       url: `${SITE_URL}/notices/${encodeURIComponent(notice.id)}`,
       lastModified: notice.date,
       changeFrequency: 'monthly' as const,

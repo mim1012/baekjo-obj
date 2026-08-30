@@ -89,14 +89,12 @@ export default function BrandShowcaseSlider({ brands }: Props) {
                 href={`/brands/${brand.slug}`}
                 className="group flex min-h-[210px] min-w-0 snap-start flex-col bg-transparent px-6 py-7 transition-colors hover:bg-[#F9F8F5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#B68B4E] focus-visible:ring-inset md:px-8 md:py-8"
               >
-                <div className="mb-3 flex h-[60px] w-full items-center">
+                <div className="mb-4 flex h-14 w-full items-center">
                   <BrandLogo
                     brand={brand}
-                    size="lg"
+                    size="md"
                     surface={false}
-                    fluid
                     uniformScale
-                    className="max-h-11 max-w-[150px] object-contain"
                   />
                 </div>
                 <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">

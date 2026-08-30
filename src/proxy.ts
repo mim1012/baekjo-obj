@@ -13,7 +13,10 @@ function proxy(req: NextAuthRequest) {
   const isAdmin = req.auth?.user?.role === 'admin';
 
   // 미노출 기능 페이지는 링크 공유·북마크로도 진입하지 못하게 메인으로 돌린다(features.ts).
-  if (!FEATURES.insurance && pathname.startsWith('/insurance')) {
+  if (
+    !FEATURES.insurance
+    && (pathname.startsWith('/insurance') || pathname.startsWith('/landing/insurance'))
+  ) {
     return NextResponse.redirect(new URL('/', req.nextUrl.origin));
   }
   if (!FEATURES.experts && pathname.startsWith('/experts')) {
@@ -47,5 +50,12 @@ function proxy(req: NextAuthRequest) {
 export default auth(proxy);
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*', '/mypage/:path*', '/insurance/:path*', '/experts/:path*'],
+  matcher: [
+    '/admin/:path*',
+    '/api/admin/:path*',
+    '/mypage/:path*',
+    '/insurance/:path*',
+    '/landing/insurance/:path*',
+    '/experts/:path*',
+  ],
 };

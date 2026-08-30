@@ -88,6 +88,10 @@ export interface AuditReportFormState {
   summary: string;
   selectionReason: string;
   process: string[];
+  checkpoints?: string[];
+  materialReview?: string[];
+  curatorNote?: string[];
+  auditConclusion?: string[];
 }
 
 /** 빈 auditReport 폼(초기값·리셋용). */
@@ -222,6 +226,10 @@ export function buildAuditReportPayload(form: AuditReportFormState): BrandAuditR
     summary: form.summary.trim(),
     selectionReason: form.selectionReason.trim(),
     process: cleanStringList(form.process),
+    checkpoints: form.checkpoints?.length ? cleanStringList(form.checkpoints) : undefined,
+    materialReview: form.materialReview?.length ? cleanStringList(form.materialReview) : undefined,
+    curatorNote: form.curatorNote?.length ? cleanStringList(form.curatorNote) : undefined,
+    auditConclusion: form.auditConclusion?.length ? cleanStringList(form.auditConclusion) : undefined,
   };
 }
 

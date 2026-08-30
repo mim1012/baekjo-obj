@@ -202,7 +202,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                   <div className="flex-1 md:w-[52%] flex flex-col sm:flex-row gap-4 w-full h-[160px] md:h-[200px]">
                     <div className="w-full h-full flex justify-center items-center bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px]">
                        {spotlightBrand.logo ? (
-                         <BrandLogo brand={spotlightBrand} size="lg" surface uniformScale />
+                         <BrandLogo brand={spotlightBrand} size="md" surface={false} uniformScale />
                        ) : (
                          <span className="text-[#6F756F] text-sm">브랜드 스토리 확인하기</span>
                        )}

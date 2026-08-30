@@ -11,10 +11,16 @@ export interface ShopCategoryFilter {
  */
 export const shopCategoryFilters: ShopCategoryFilter[] = [
   {
-    slug: 'food-nutrition',
-    label: '식품·영양',
-    aliases: ['푸드', '식품', '영양', '사료', '간식', '영양제', '식사와 영양', '건강과 케어', '건강과 관리'],
-    matchSlugs: ['food-nutrition', 'food', 'nutrition', 'dining-and-nourish', 'wellness-and-care'],
+    slug: 'food',
+    label: '푸드',
+    aliases: ['식품', '사료', '간식', '식품·영양', '식사와 영양'],
+    matchSlugs: ['food', 'food-nutrition', 'dining-and-nourish'],
+  },
+  {
+    slug: 'nutrition',
+    label: '영양',
+    aliases: ['영양제', '건강과 케어', '건강과 관리'],
+    matchSlugs: ['nutrition', 'wellness-and-care'],
   },
   {
     slug: 'care',
@@ -81,7 +87,7 @@ export function toShopCategoryOption(value: string): ShopCategoryFilter {
 }
 
 /**
- * 2026-08-27 고객 확정 기본 카테고리 5개는 상품 수와 관계없이 같은 순서로 노출한다.
+ * 고객 확정 기본 카테고리 6개는 상품 수와 관계없이 같은 순서로 노출한다.
  * 기존 운영 데이터와 관리자 사용자 정의 카테고리는 실제 상품에 쓰이는 경우 뒤에 보완해
  * 링크와 저장 데이터의 하위 호환성을 유지한다.
  */

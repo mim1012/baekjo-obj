@@ -11,6 +11,7 @@ import B2BSignupForm from '@/components/signup/B2BSignupForm';
 import InsuranceSignupForm from '@/components/signup/InsuranceSignupForm';
 import PartnerSignupForm from '@/components/signup/PartnerSignupForm';
 import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
+import { FEATURES } from '@/config/features';
 
 const SIGNUP_SOCIAL_LABELS = { kakao: '카카오로 시작하기', naver: '네이버로 시작하기' };
 
@@ -206,7 +207,7 @@ export default function SignupPage() {
             { id: 'user', label: '일반 회원' },
             { id: 'partner', label: '입점 업체' },
             { id: 'b2b', label: 'B2B 업체' },
-            { id: 'insurance', label: '보험사' },
+            ...(FEATURES.insurance ? [{ id: 'insurance', label: '보험사' }] : []),
           ].map((type) => (
             <button
               key={type.id}
