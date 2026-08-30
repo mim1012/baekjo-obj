@@ -48,7 +48,7 @@ const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
 });
 
 const { props: desktopAuditImageProps } = getImageProps({
-  src: '/images/home-audit-client-photo-extended-v4.png',
+  src: '/images/home-audit-client-photo-extended-v5.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '(max-width: 1280px) 100vw, 1168px',
@@ -56,7 +56,7 @@ const { props: desktopAuditImageProps } = getImageProps({
 });
 
 const { props: { srcSet: mobileAuditSrcSet } } = getImageProps({
-  src: '/images/home-audit-client-photo-v3.png',
+  src: '/images/home-audit-client-photo-v4.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '100vw',
@@ -268,9 +268,6 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#18231F] px-5 text-[13px] md:text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
-              {curation.diagnosisLinkLabel}
-            </Link>
             <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
