@@ -10,7 +10,6 @@ import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
-import { getProductPointsRateLabel } from '@/lib/products/points';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 
 interface Props {
@@ -115,7 +114,6 @@ export default function ProductDetailClient({ product }: Props) {
   // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
-  const pointsRateLabel = getProductPointsRateLabel(product);
   const isRepetMadeToOrder = isRepetMadeToOrderProduct(product.brandId);
 
   const handleAddToCart = () => {
@@ -241,12 +239,6 @@ export default function ProductDetailClient({ product }: Props) {
                 : DEFAULT_COMMERCE_POLICY.shippingLabel}
             </span>
           </div>
-          {pointsRateLabel && (
-            <div className="flex">
-              <span className="w-24 text-[#59615B] font-medium">적립금</span>
-              <span className="text-[#59615B]">상품금액 기준 {pointsRateLabel} 적립 설정</span>
-            </div>
-          )}
         </div>
 
         {isRepetMadeToOrder && <RepetMadeToOrderNotice className="mt-8" />}
