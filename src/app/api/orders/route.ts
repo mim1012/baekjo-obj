@@ -15,6 +15,7 @@ import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import type { Brand, OrderItem, Product } from '@/types';
+import { FEATURES } from '@/config/features';
 
 // 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
 const MAX_ITEMS = 100;
@@ -27,6 +28,7 @@ const MAX_PRODUCT_ID = 100;
 const MAX_OPTION_ID = 100;
 const MAX_TRACKING = 100;
 const MAX_MEMO = 1000;
+const CARD_PAYMENT_METHODS = new Set(['카드결제', '신용카드']);
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -155,6 +157,18 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  const requestedPaymentMethod =
+    body && typeof body === 'object' && typeof (body as Record<string, unknown>).paymentMethod === 'string'
+      ? (body as Record<string, unknown>).paymentMethod as string
+      : null;
+  if (requestedPaymentMethod && CARD_PAYMENT_METHODS.has(requestedPaymentMethod) && !FEATURES.cardPayment) {
+    return NextResponse.json({ error: 'card-payment-disabled' }, { status: 403 });
+  }
+  if (requestedPaymentMethod && requestedPaymentMethod !== BANK_TRANSFER_METHOD &&
+      !CARD_PAYMENT_METHODS.has(requestedPaymentMethod)) {
+    return NextResponse.json({ error: 'invalid-payment-method' }, { status: 400 });
   }
 
   const activeMember = await requireActiveMember();
