@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order, type PaymentStatus } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
-import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import { ALLOWED_MANUAL_PAYMENT_TRANSITIONS } from '@/lib/orders/paymentTransition';
 import { orderUpdateErrorMessage } from './orderUpdateErrorMessage';
 import { groupItemsByBrand } from './groupItemsByBrand';
 import FormSection from '@/components/admin-new/common/FormSection';
 import FormField from '@/components/admin-new/common/FormField';
 import SaveBar from '@/components/admin-new/common/SaveBar';
+import CarrierSelect from './CarrierSelect';
 
 interface OrderStatusPanelProps {
   order: Order;
@@ -179,18 +179,10 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
           ) : (
             <>
               <FormField label="택배사" className="md:col-span-1">
-                <select
+                <CarrierSelect
                   value={formData.carrier}
-                  onChange={(e) => handleChange('carrier', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
-                >
-                  <option value="">선택 안 함</option>
-                  {CARRIER_CODES.map((code) => (
-                    <option key={code} value={code}>
-                      {CARRIER_LABELS[code]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => handleChange('carrier', value)}
+                />
               </FormField>
 
               <FormField label="운송장 번호" className="md:col-span-2">

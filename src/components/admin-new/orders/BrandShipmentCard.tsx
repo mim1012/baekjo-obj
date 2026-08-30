@@ -2,11 +2,11 @@
 
 import React, { useState } from 'react';
 import { DELIVERY_STATUSES } from '@/types';
-import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import { updateOrderShipment } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import { shipmentUpdateErrorMessage } from './orderUpdateErrorMessage';
 import type { BrandBundle } from './groupItemsByBrand';
+import CarrierSelect from './CarrierSelect';
 
 interface BrandShipmentCardProps {
   orderId: string;
@@ -116,19 +116,7 @@ export default function BrandShipmentCard({
         <div className="flex flex-col md:flex-row md:items-end gap-3">
           <label className="flex-1 block">
             <span className="block text-[13px] font-medium text-[#17201B] mb-1">택배사</span>
-            <select
-              value={carrier}
-              onChange={(e) => setCarrier(e.target.value)}
-              disabled={isSaving}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:opacity-60"
-            >
-              <option value="">미지정</option>
-              {CARRIER_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {CARRIER_LABELS[code]}
-                </option>
-              ))}
-            </select>
+            <CarrierSelect value={carrier} onChange={setCarrier} disabled={isSaving} />
           </label>
 
           <label className="flex-1 block">
