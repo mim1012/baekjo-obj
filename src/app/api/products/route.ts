@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { listCachedPublicProducts } from '@/lib/public-read-cache';
+import { listCachedPublicProducts, PUBLIC_READ_CACHE_CONTROL } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const products = await listCachedPublicProducts({ categorySlug, brandId, petType });
-    return NextResponse.json({ products }, { status: 200 });
+    return NextResponse.json(
+      { products },
+      { status: 200, headers: { 'Cache-Control': PUBLIC_READ_CACHE_CONTROL } },
+    );
   } catch (error) {
     logServerError('[GET /api/products] 조회 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });

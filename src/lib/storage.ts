@@ -29,6 +29,7 @@ import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
 import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -51,6 +52,41 @@ function setJSON<T>(key: string, value: T): void {
 
 let wishlistCache: string[] | null = null;
 let wishlistRequest: Promise<string[]> | null = null;
+let publicBrandLinksCache: PublicBrandLink[] | null = null;
+let publicBrandLinksRequest: Promise<PublicBrandLink[]> | null = null;
+
+export type PublicBrandLink = {
+  readonly label: string;
+  readonly href: string;
+};
+
+type PublicBrandNavSummary = {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly isVisible?: boolean;
+};
+
+function parsePublicBrandNavSummary(value: unknown): PublicBrandNavSummary | null {
+  if (!isRecord(value)) return null;
+  return typeof value.id === 'string' && typeof value.name === 'string' && typeof value.slug === 'string'
+    ? {
+        id: value.id,
+        name: value.name,
+        slug: value.slug,
+        isVisible: typeof value.isVisible === 'boolean' ? value.isVisible : undefined,
+      }
+    : null;
+}
+
+function parsePublicBrandLinks(payload: unknown): PublicBrandLink[] {
+  if (!isRecord(payload) || !Array.isArray(payload.brands)) return [];
+  return payload.brands.flatMap((brand): PublicBrandLink[] => {
+    const summary = parsePublicBrandNavSummary(brand);
+    if (!summary || summary.isVisible === false) return [];
+    return [{ label: formatBrandDisplayName(summary.name), href: `/brands/${summary.slug}` }];
+  });
+}
 
 function clearLegacyWishlistStorage(): void {
   if (typeof window !== 'undefined') {
@@ -917,6 +953,25 @@ export async function getPublicBrands(): Promise<Brand[]> {
   } catch {
     return [];
   }
+}
+
+export async function getPublicBrandLinks(): Promise<PublicBrandLink[]> {
+  if (publicBrandLinksCache) return publicBrandLinksCache;
+  if (publicBrandLinksRequest) return publicBrandLinksRequest;
+
+  publicBrandLinksRequest = fetch('/api/brands?view=nav')
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const links = parsePublicBrandLinks(await response.json());
+      publicBrandLinksCache = links;
+      return links;
+    })
+    .catch(() => [])
+    .finally(() => {
+      publicBrandLinksRequest = null;
+    });
+
+  return publicBrandLinksRequest;
 }
 
 /** 단건 공개 브랜드. GET /api/brands/[id]. 404·실패는 null. */

@@ -30,6 +30,7 @@ const browserProjects = new Set([
   'golden-crud',
   'golden-smoke',
   'golden-smoke-mobile',
+  'performance',
 ]);
 export function shouldStartLocalWebServer(
   localTarget: boolean,
@@ -204,6 +205,24 @@ export default defineConfig({
       name: 'partners',
       testDir: './tests/partners',
       use: {},
+    },
+    {
+      name: 'performance',
+      testDir: './tests/performance',
+      testMatch: ['**/public-pages-performance.spec.ts'],
+      retries: 0,
+      workers: 1,
+      use: {
+        baseURL,
+        extraHTTPHeaders: protectionBypassHeaders,
+        navigationTimeout: 30_000,
+        actionTimeout: 15_000,
+        trace: 'retain-on-failure',
+        screenshot: 'only-on-failure',
+        video: 'off',
+        ...devices['Desktop Chrome'],
+        ...localBrowserUse,
+      },
     },
   ],
   // 로컬 baseURL 일 때만 dev 서버를 띄운다. 원격 preview 타깃일 땐 기동하지 않는다.
