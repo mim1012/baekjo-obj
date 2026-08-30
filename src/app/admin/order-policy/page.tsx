@@ -22,6 +22,7 @@ export default function AdminOrderPolicyPage() {
   const [autoCancelEnabled, setAutoCancelEnabled] = useState(
     defaultOrderPolicyConfig.bankTransferAutoCancelEnabled,
   );
+  const [bankAccount, setBankAccount] = useState({ bankName: '', accountNumber: '', accountHolder: '' });
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -35,6 +36,7 @@ export default function AdminOrderPolicyPage() {
         setLoadError(false);
         setDraft(String(config.bankTransferTtlHours));
         setAutoCancelEnabled(config.bankTransferAutoCancelEnabled);
+        setBankAccount(config.bankTransferAccount ?? { bankName: '', accountNumber: '', accountHolder: '' });
         setLoaded(true);
       })
       .catch(() => {
@@ -53,11 +55,21 @@ export default function AdminOrderPolicyPage() {
       setFeedback({ ok: false, message: '시간을 숫자로 입력해 주세요.' });
       return;
     }
+    const accountValues = Object.values(bankAccount).map((value) => value.trim());
+    const hasAnyAccountValue = accountValues.some(Boolean);
+    const hasCompleteAccount = accountValues.every(Boolean);
+    if (hasAnyAccountValue && !hasCompleteAccount) {
+      setFeedback({ ok: false, message: '은행명·계좌번호·예금주를 모두 입력하거나 모두 비워 주세요.' });
+      return;
+    }
     // 서버(PUT)도 normalize 하지만, 관리자가 입력한 값과 실제 저장값이 달라지는 것을
     // 화면에서 먼저 보여주기 위해 같은 normalize 를 거친 값으로 저장·표시한다.
     const normalized = normalizeOrderPolicyConfig({
       bankTransferAutoCancelEnabled: autoCancelEnabled,
       bankTransferTtlHours: parsed,
+      bankTransferAccount: hasCompleteAccount
+        ? { bankName: accountValues[0], accountNumber: accountValues[1], accountHolder: accountValues[2] }
+        : null,
     });
     setSaving(true);
     const { ok } = await saveOrderPolicyConfig(normalized);
@@ -65,6 +77,7 @@ export default function AdminOrderPolicyPage() {
     if (ok) {
       setDraft(String(normalized.bankTransferTtlHours));
       setAutoCancelEnabled(normalized.bankTransferAutoCancelEnabled);
+      setBankAccount(normalized.bankTransferAccount ?? { bankName: '', accountNumber: '', accountHolder: '' });
       setFeedback({
         ok: true,
         message: normalized.bankTransferAutoCancelEnabled
@@ -156,6 +169,43 @@ export default function AdminOrderPolicyPage() {
             <Save className="h-4 w-4" />
             {saving ? '저장 중…' : '저장'}
           </button>
+        </div>
+
+        <div className="mt-8 border-t border-[#E7E0D5] pt-6">
+          <h2 className="mb-2 text-lg font-semibold text-[#17211D]">무통장 입금계좌</h2>
+          <p className="mb-5 text-sm leading-7 text-[#6F766F]">
+            새로 생성되는 무통장입금 주문의 완료 화면에 표시됩니다. 이미 생성된 주문에는 주문 당시 계좌가 유지됩니다.
+          </p>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className="text-sm text-[#17211D]">
+              <span className="mb-1.5 block text-xs font-medium text-[#59615B]">은행명</span>
+              <input
+                value={bankAccount.bankName}
+                disabled={!loaded || loadError}
+                onChange={(e) => { setBankAccount((current) => ({ ...current, bankName: e.target.value })); setFeedback(null); }}
+                className="w-full border border-[#D1D0C8] rounded-sm bg-white px-3 py-2 text-sm outline-none focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:bg-[#FAF8F3]"
+              />
+            </label>
+            <label className="text-sm text-[#17211D]">
+              <span className="mb-1.5 block text-xs font-medium text-[#59615B]">계좌번호</span>
+              <input
+                value={bankAccount.accountNumber}
+                disabled={!loaded || loadError}
+                inputMode="numeric"
+                onChange={(e) => { setBankAccount((current) => ({ ...current, accountNumber: e.target.value })); setFeedback(null); }}
+                className="w-full border border-[#D1D0C8] rounded-sm bg-white px-3 py-2 text-sm outline-none focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:bg-[#FAF8F3]"
+              />
+            </label>
+            <label className="text-sm text-[#17211D]">
+              <span className="mb-1.5 block text-xs font-medium text-[#59615B]">예금주</span>
+              <input
+                value={bankAccount.accountHolder}
+                disabled={!loaded || loadError}
+                onChange={(e) => { setBankAccount((current) => ({ ...current, accountHolder: e.target.value })); setFeedback(null); }}
+                className="w-full border border-[#D1D0C8] rounded-sm bg-white px-3 py-2 text-sm outline-none focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:bg-[#FAF8F3]"
+              />
+            </label>
+          </div>
         </div>
 
         {feedback && (

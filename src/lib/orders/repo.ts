@@ -1,6 +1,13 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { ORDER_STATUSES, type DeliveryFeeBreakdown, type Order, type OrderItem, type OrderStatus } from '@/types';
+import {
+  ORDER_STATUSES,
+  type DeliveryFeeBreakdown,
+  type Order,
+  type OrderItem,
+  type OrderStatus,
+} from '@/types';
+import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
 import type { AdminOrderDateRange } from '@/lib/orders/adminOrderFilters';
 import {
   REFUND_STATUSES,
@@ -36,6 +43,7 @@ interface OrderRow {
   delivery_fee: number;
   delivery_fee_breakdown: unknown;
   payment_method: string;
+  bank_transfer_account: unknown;
   order_status: string;
   payment_status: string;
   delivery_status: string;
@@ -52,7 +60,7 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -82,6 +90,7 @@ function parseDeliveryFeeBreakdown(raw: unknown): DeliveryFeeBreakdown[] {
 }
 
 function rowToRecord(row: OrderRow): OrderRecord {
+  const bankTransferAccount = normalizeBankTransferAccount(row.bank_transfer_account);
   return {
     id: row.id,
     memberId: row.member_id,
@@ -93,6 +102,7 @@ function rowToRecord(row: OrderRow): OrderRecord {
     deliveryFee: row.delivery_fee,
     deliveryFeeBreakdown: parseDeliveryFeeBreakdown(row.delivery_fee_breakdown),
     paymentMethod: row.payment_method,
+    ...(bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: normalizeOrderStatus(row.order_status),
     paymentStatus: row.payment_status,
     deliveryStatus: row.delivery_status,
@@ -209,6 +219,7 @@ export type InsertOrderInput = Pick<
   | 'trackingNumber'
   | 'deliveryMemo'
   | 'expiresAt'
+  | 'bankTransferAccount'
 >;
 
 export async function insertOrder(
@@ -227,6 +238,7 @@ export async function insertOrder(
       delivery_fee: input.deliveryFee,
       delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
       payment_method: input.paymentMethod,
+      bank_transfer_account: input.bankTransferAccount ?? null,
       order_status: input.orderStatus,
       payment_status: input.paymentStatus,
       delivery_status: input.deliveryStatus,

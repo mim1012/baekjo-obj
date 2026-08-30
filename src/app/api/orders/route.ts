@@ -11,7 +11,7 @@ import { listBrandsByIds } from '@/lib/brands/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
 import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
-import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
+import { resolveBankTransferSettings } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import type { Brand, OrderItem, Product } from '@/types';
@@ -72,6 +72,7 @@ function validate(
   productMap: Map<string, Product>,
   brands: readonly Brand[],
   bankTransferTtlMs: number | null,
+  bankTransferAccount: InsertOrderInput['bankTransferAccount'] | null,
 ): InsertOrderInput | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
@@ -122,6 +123,7 @@ function validate(
     deliveryFee: deliveryFeeCalculation.deliveryFee,
     deliveryFeeBreakdown: deliveryFeeCalculation.breakdown,
     paymentMethod: b.paymentMethod,
+    ...(isBankTransfer && bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: '주문접수',
     paymentStatus,
     deliveryStatus: '배송전',
@@ -206,9 +208,15 @@ export async function POST(request: NextRequest) {
   const claimsBankTransfer =
     body && typeof body === 'object' &&
     (body as Record<string, unknown>).paymentMethod === BANK_TRANSFER_METHOD;
-  const bankTransferTtlMs = claimsBankTransfer ? await resolveBankTransferTtlMs() : null;
+  const bankTransferSettings = claimsBankTransfer ? await resolveBankTransferSettings() : null;
 
-  const validated = validate(body, productMap, brandList, bankTransferTtlMs);
+  const validated = validate(
+    body,
+    productMap,
+    brandList,
+    bankTransferSettings?.ttlMs ?? null,
+    bankTransferSettings?.account ?? null,
+  );
   if (!validated) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }

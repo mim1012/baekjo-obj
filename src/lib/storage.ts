@@ -1464,12 +1464,24 @@ export async function saveShowcaseReviewsConfig(config: ShowcaseReviewsConfig): 
 export async function getAdminOrderPolicyConfig(): Promise<OrderPolicyConfig> {
   const response = await fetch('/api/admin/order-policy');
   if (!response.ok) throw new Error('order-policy-config-load-failed');
-  const { bankTransferAutoCancelEnabled, bankTransferTtlHours } =
+  const { bankTransferAutoCancelEnabled, bankTransferTtlHours, bankTransferAccount } =
     (await response.json()) as OrderPolicyConfig;
   if (typeof bankTransferTtlHours !== 'number' || !Number.isFinite(bankTransferTtlHours)) {
     throw new Error('order-policy-config-invalid-response');
   }
-  return { bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true, bankTransferTtlHours };
+  if (bankTransferAccount !== null && (
+    typeof bankTransferAccount !== 'object' ||
+    typeof bankTransferAccount.bankName !== 'string' ||
+    typeof bankTransferAccount.accountNumber !== 'string' ||
+    typeof bankTransferAccount.accountHolder !== 'string'
+  )) {
+    throw new Error('order-policy-account-invalid-response');
+  }
+  return {
+    bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true,
+    bankTransferTtlHours,
+    bankTransferAccount,
+  };
 }
 
 /** 주문 정책 config 저장(관리자). PUT /api/admin/order-policy. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
