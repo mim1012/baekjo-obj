@@ -8,7 +8,8 @@ import {
   type OrderStatus,
 } from '@/types';
 import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
-import type { AdminOrderDateRange } from '@/lib/orders/adminOrderFilters';
+import type { OrderDateRange, OrderDateRangeIso } from '@/lib/orders/orderDateFilters';
+import { toOrderDateRangeIso } from '@/lib/orders/orderDateFilters';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -311,18 +312,19 @@ export async function listRecentOrdersByMember(
 /** 관리자 전량 조회 상한. 집계 호출부가 "상한에 닿았다 = 모집단이 잘렸다"를 감지할 수 있게 export한다. */
 export const ORDERS_LIST_CAP = 1000;
 
-export async function listAllOrders(): Promise<OrderRecord[]> {
-  const { data, error } = await getSupabase()
-    .from('orders')
-    .select(SELECT_COLUMNS)
-    .order('created_at', { ascending: false })
-    .limit(ORDERS_LIST_CAP);
+export async function listAllOrders(range?: OrderDateRange): Promise<OrderRecord[]> {
+  const dbRange = range ? toOrderDateRangeIso(range) : {};
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (dbRange.createdFromIso) query = query.gte('created_at', dbRange.createdFromIso);
+  if (dbRange.createdToExclusiveIso) query = query.lt('created_at', dbRange.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(ORDERS_LIST_CAP);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
 }
 
 export async function listOrdersForAdminExport(
-  range: AdminOrderDateRange,
+  range: OrderDateRangeIso,
   limit: number,
 ): Promise<OrderRecord[]> {
   let query = getSupabase().from('orders').select(SELECT_COLUMNS);

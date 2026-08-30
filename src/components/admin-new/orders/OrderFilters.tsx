@@ -3,6 +3,7 @@
 import React from 'react';
 import { Download } from 'lucide-react';
 import FilterBar from '@/components/admin-new/common/FilterBar';
+import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
 import { ALL_ORDER_FILTER_VALUE, type AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
 import {
   DELIVERY_STATUSES,
@@ -32,25 +33,6 @@ function deliveryFilterValue(value: string): DeliveryStatus | typeof ALL_ORDER_F
     : ALL_ORDER_FILTER_VALUE;
 }
 
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-const QUICK_RANGES = [
-  { label: '오늘', days: 1 },
-  { label: '7일', days: 7 },
-  { label: '1개월', days: 30 },
-  { label: '3개월', days: 90 },
-] as const;
-
-function kstDateKey(date: Date): string {
-  return new Date(date.getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
-}
-
-function rangeFromToday(days: number): Pick<AdminOrderFilters, 'createdFrom' | 'createdTo'> {
-  const todayKey = kstDateKey(new Date());
-  const todayTime = new Date(`${todayKey}T00:00:00.000Z`).getTime();
-  const fromKey = new Date(todayTime - (days - 1) * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  return { createdFrom: fromKey, createdTo: todayKey };
-}
-
 /**
  * 주문 목록 검색 바. 상태별 3축 select 는 스마트스토어식 진행 단계 탭(OrderFunnelTabs)이 대체했다 —
  * 탭이 1차 필터, 검색은 그 안에서 주문번호·주문자·연락처·상품명을 좁힌다.
@@ -68,41 +50,11 @@ export default function OrderFilters({
       searchValue={filters.searchTerm}
       onSearch={onSearchChange}
     >
-      <label className="flex items-center gap-2 text-[13px] text-gray-600">
-        <span className="shrink-0">기간</span>
-        <input
-          type="date"
-          value={filters.createdFrom}
-          onChange={(event) => onFilterChange({ createdFrom: event.target.value })}
-          className="h-9 rounded-md border border-gray-300 px-2 text-[13px] focus:border-[#2F3B34] focus:outline-none focus:ring-1 focus:ring-[#2F3B34]"
-        />
-        <span className="text-gray-400">~</span>
-        <input
-          type="date"
-          value={filters.createdTo}
-          onChange={(event) => onFilterChange({ createdTo: event.target.value })}
-          className="h-9 rounded-md border border-gray-300 px-2 text-[13px] focus:border-[#2F3B34] focus:outline-none focus:ring-1 focus:ring-[#2F3B34]"
-        />
-      </label>
-      <div className="flex flex-wrap items-center gap-1.5" aria-label="빠른 기간 선택">
-        {QUICK_RANGES.map((range) => (
-          <button
-            key={range.label}
-            type="button"
-            onClick={() => onFilterChange(rangeFromToday(range.days))}
-            className="h-9 rounded-md border border-gray-300 px-2.5 text-[12px] font-medium text-gray-600 hover:border-[#2F3B34] hover:bg-[#F4F2EC]"
-          >
-            {range.label}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => onFilterChange({ createdFrom: '', createdTo: '' })}
-          className="h-9 rounded-md border border-gray-300 px-2.5 text-[12px] font-medium text-gray-600 hover:border-[#2F3B34] hover:bg-[#F4F2EC]"
-        >
-          전체
-        </button>
-      </div>
+      <OrderDateRangeFilter
+        createdFrom={filters.createdFrom}
+        createdTo={filters.createdTo}
+        onChange={(range) => onFilterChange(range)}
+      />
       <label className="flex items-center gap-2 text-[13px] text-gray-600">
         <span className="shrink-0">브랜드</span>
         <select

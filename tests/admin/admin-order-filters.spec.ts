@@ -7,6 +7,12 @@ import {
   adminOrderFiltersToSearchParams,
   parseAdminOrderExportQuery,
 } from '../../src/lib/orders/adminOrderFilters';
+import {
+  getQuickOrderDateRange,
+  matchesOrderDateRange,
+  parseOrderDateRange,
+  toOrderDateRangeIso,
+} from '../../src/lib/orders/orderDateFilters';
 
 function makeOrder(overrides: Partial<Order>): Order {
   return {
@@ -63,6 +69,75 @@ test.describe('applyAdminOrderFilters', () => {
     const result = applyAdminOrderFilters([older, newer], DEFAULT_ADMIN_ORDER_FILTERS);
 
     expect(result.map((order) => order.id)).toEqual(['newer', 'older']);
+  });
+
+  test('시작일과 종료일 당일을 포함하고 종료일 다음 날은 제외한다', () => {
+    const orders = [
+      makeOrder({ id: 'before', createdAt: '2026-07-09T23:59:59.999Z' }),
+      makeOrder({ id: 'start', createdAt: '2026-07-10T00:00:00.000Z' }),
+      makeOrder({ id: 'end', createdAt: '2026-07-12T23:59:59.999Z' }),
+      makeOrder({ id: 'after', createdAt: '2026-07-13T00:00:00.000Z' }),
+    ];
+
+    const result = applyAdminOrderFilters(orders, {
+      ...DEFAULT_ADMIN_ORDER_FILTERS,
+      createdFrom: '2026-07-10',
+      createdTo: '2026-07-12',
+    });
+
+    expect(result.map((order) => order.id)).toEqual(['end', 'start']);
+  });
+});
+
+test.describe('order date range filters', () => {
+  test('DB 조회 경계는 시작일 이상, 종료일 다음 날 미만으로 변환한다', () => {
+    const range = { createdFrom: '2026-07-10', createdTo: '2026-07-12' };
+
+    expect(toOrderDateRangeIso(range)).toEqual({
+      createdFromIso: '2026-07-10T00:00:00.000Z',
+      createdToExclusiveIso: '2026-07-13T00:00:00.000Z',
+    });
+  });
+
+  test('날짜 형식과 존재하지 않는 달력 날짜를 거부한다', () => {
+    expect(parseOrderDateRange({ createdFrom: '2026-7-01', createdTo: '' })).toEqual({
+      ok: false,
+      error: 'invalid-date',
+    });
+    expect(parseOrderDateRange({ createdFrom: '', createdTo: '2026-02-30' })).toEqual({
+      ok: false,
+      error: 'invalid-date',
+    });
+  });
+
+  test('시작일이 종료일보다 늦으면 거부한다', () => {
+    expect(parseOrderDateRange({ createdFrom: '2026-07-12', createdTo: '2026-07-10' })).toEqual({
+      ok: false,
+      error: 'invalid-date-range',
+    });
+  });
+
+  test('빠른 기간은 KST 기준 오늘을 사용한다', () => {
+    const beforeKstMidnight = new Date('2026-07-10T14:59:59.000Z');
+    const afterKstMidnight = new Date('2026-07-10T15:00:00.000Z');
+
+    expect(getQuickOrderDateRange(1, beforeKstMidnight)).toEqual({
+      createdFrom: '2026-07-10',
+      createdTo: '2026-07-10',
+    });
+    expect(getQuickOrderDateRange(7, afterKstMidnight)).toEqual({
+      createdFrom: '2026-07-05',
+      createdTo: '2026-07-11',
+    });
+    expect(getQuickOrderDateRange('clear', afterKstMidnight)).toEqual({ createdFrom: '', createdTo: '' });
+  });
+
+  test('주문 날짜 매칭은 createdAt 날짜 키로 시작일과 종료일을 포함한다', () => {
+    const range = { createdFrom: '2026-07-10', createdTo: '2026-07-12' };
+
+    expect(matchesOrderDateRange({ createdAt: '2026-07-10T00:00:00.000Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-12T23:59:59.999Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-13T00:00:00.000Z' }, range)).toBe(false);
   });
 });
 

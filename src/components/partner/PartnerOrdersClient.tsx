@@ -5,19 +5,72 @@ import Link from 'next/link';
 import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react';
 import type { PartnerOrderView } from '@/lib/partners/orderScope';
 import PartnerPasswordNoticeModal from '@/components/partner/PartnerPasswordNoticeModal';
+import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
+import { EMPTY_ORDER_DATE_RANGE, type OrderDateRange } from '@/lib/orders/orderDateFilters';
 import { formatDate, formatPrice } from '@/lib/format';
 import { logout } from '@/lib/storage';
 
+type PartnerOrdersResponse = {
+  readonly orders: PartnerOrderView[];
+};
+
+function isPartnerOrdersResponse(value: unknown): value is PartnerOrdersResponse {
+  return typeof value === 'object' && value !== null && 'orders' in value && Array.isArray(value.orders);
+}
+
+export function buildPartnerOrdersRequestPath(range: OrderDateRange): string {
+  const params = new URLSearchParams();
+  if (range.createdFrom) params.set('from', range.createdFrom);
+  if (range.createdTo) params.set('to', range.createdTo);
+  const query = params.toString();
+  return query ? `/api/partner/orders?${query}` : '/api/partner/orders';
+}
+
 export default function PartnerOrdersClient() {
+  const [dateRange, setDateRange] = useState<OrderDateRange>(EMPTY_ORDER_DATE_RANGE);
   const [orders, setOrders] = useState<PartnerOrderView[]>([]);
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    void fetch('/api/partner/orders')
-      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('주문을 불러오지 못했습니다.'))))
-      .then((payload: { orders: PartnerOrderView[] }) => setOrders(payload.orders))
-      .catch((reason: Error) => setError(reason.message));
-  }, []);
+    const controller = new AbortController();
+    let active = true;
+
+    async function loadOrders(): Promise<void> {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(buildPartnerOrdersRequestPath(dateRange), { signal: controller.signal });
+        if (!response.ok) throw new Error('주문을 불러오지 못했습니다.');
+        const payload: unknown = await response.json();
+        if (!isPartnerOrdersResponse(payload)) throw new Error('주문 응답 형식이 올바르지 않습니다.');
+        if (active) setOrders(payload.orders);
+      } catch (reason) {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return;
+        if (active) {
+          setOrders([]);
+          setError(reason instanceof Error ? reason.message : '주문을 불러오지 못했습니다.');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadOrders();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [dateRange]);
+
+  function handleDateRangeChange(range: OrderDateRange): void {
+    setDateRange(range);
+    setExpandedOrderId(null);
+  }
+
+  const hasDateFilter = Boolean(dateRange.createdFrom || dateRange.createdTo);
+
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <PartnerPasswordNoticeModal />
@@ -40,8 +93,23 @@ export default function PartnerOrdersClient() {
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900">내 브랜드 주문</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">관리 중인 브랜드 상품이 포함된 주문만 표시됩니다. 주문을 펼치면 상품별 금액과 배송 상태를 확인할 수 있습니다.</p>
       </header>
+      <section className="mb-4 rounded-md border border-gray-200 bg-white p-3" aria-label="내 브랜드 주문 기간 필터">
+        <div className="flex flex-wrap items-center gap-3">
+          <OrderDateRangeFilter
+            createdFrom={dateRange.createdFrom}
+            createdTo={dateRange.createdTo}
+            onChange={handleDateRangeChange}
+            ariaLabel="내 브랜드 주문 빠른 기간 선택"
+          />
+        </div>
+      </section>
+      {loading ? <p role="status" className="rounded-xl border border-neutral-200 bg-white p-4 text-neutral-600">주문을 불러오는 중입니다.</p> : null}
       {error ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</p> : null}
-      {!error && orders.length === 0 ? <p className="rounded-xl border border-neutral-200 bg-white p-8 text-neutral-600">현재 내 브랜드 주문이 없습니다.</p> : null}
+      {!loading && !error && orders.length === 0 ? (
+        <p className="rounded-xl border border-neutral-200 bg-white p-8 text-neutral-600">
+          {hasDateFilter ? '선택한 기간에 해당하는 내 브랜드 주문이 없습니다.' : '현재 내 브랜드 주문이 없습니다.'}
+        </p>
+      ) : null}
       <section className="grid gap-4 lg:grid-cols-2" aria-label="내 브랜드 주문 목록">
         {orders.map((order) => (
           <article key={order.id} className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
