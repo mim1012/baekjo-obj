@@ -14,7 +14,7 @@ import {
   type BrandDetailFieldErrors,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
-import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
+import { type CarrierCode } from '@/lib/carriers';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const MAX_SOURCE_URLS = 20;
@@ -22,6 +22,7 @@ const MAX_SOURCE_URLS = 20;
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
+import CarrierSelect from '@/components/admin-new/orders/CarrierSelect';
 
 interface Option {
   id: string;
@@ -336,24 +337,12 @@ export default function BrandDetailEditor({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="기본 택배사" htmlFor="ship-carrier">
-              <select
-                id="ship-carrier"
+              <CarrierSelect
                 value={shipping.defaultCarrier ?? ''}
-                onChange={(e) =>
-                  setShippingField(
-                    'defaultCarrier',
-                    e.target.value === '' ? undefined : (e.target.value as CarrierCode),
-                  )
+                onChange={(value) =>
+                  setShippingField('defaultCarrier', value === '' ? undefined : (value as CarrierCode))
                 }
-                className={INPUT_CLASS}
-              >
-                <option value="">선택 안 함</option>
-                {CARRIER_CODES.map((carrier) => (
-                  <option key={carrier} value={carrier}>
-                    {CARRIER_LABELS[carrier]}
-                  </option>
-                ))}
-              </select>
+              />
             </FormField>
 
             <FormField label="표시용 배송사" htmlFor="ship-carrier-label" error={fieldErrors['shipping.carrierLabel']}>
