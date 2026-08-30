@@ -9,6 +9,80 @@ export interface ConcernsConfig {
   items: Concern[];
 }
 
+export const MAIN_CONCERN_CARD_SHORT_DESCRIPTIONS: Record<string, string> = {
+  tear: '눈물 자국이 걱정되시나요?',
+  joint: '걸음걸이가 불편해 보이나요?',
+  skin: '자꾸 긁거나 피부가 붉어지나요?',
+  obesity: '체중 관리가 필요한가요?',
+  stress: '평소보다 불안하거나 예민해졌나요?',
+  oral: '입 냄새나 치석이 신경 쓰이나요?',
+};
+
+export const TEAR_CONCERN_FAQ: Concern['faq'] = [
+  {
+    question: '눈물 자국은 왜 생기나요?',
+    answer: '눈물이 눈 주변 털에 반복적으로 묻으면 눈물에 포함된 포르피린이라는 색소 성분으로 인해 붉거나 갈색의 자국이 남을 수 있습니다. 눈물이 많아지는 데에는 눈의 자극이나 염증, 눈물 배출 상태, 얼굴 구조 등 여러 요인이 영향을 줄 수 있습니다.',
+  },
+  {
+    question: '눈 주변은 어떻게 관리하면 좋나요?',
+    answer: '눈 주변에 눈물이나 분비물이 묻어 있다면 부드럽게 닦아내고, 털과 피부가 계속 젖어 있지 않도록 깨끗하고 건조하게 관리해주세요. 눈 주변 털이 눈을 자극하지 않는지도 살펴보세요. 눈 주변에 사용하는 제품은 용도와 사용 방법을 확인하고, 눈에 직접 들어가지 않도록 주의해주세요. 이상 반응이 있거나 사용이 필요한지 판단하기 어렵다면 수의사와 상담하는 것이 좋습니다.',
+  },
+  {
+    question: '한쪽 눈에서만 눈물이 나는 것도 괜찮나요?',
+    answer: '평소와 달리 한쪽 눈에서만 눈물이 계속 많아진다면 그냥 지나치기보다 눈의 상태를 함께 살펴보는 것이 좋습니다. 눈의 자극이나 이물질, 눈꺼풀·속눈썹 문제, 눈물 배출 이상 등 여러 원인이 있을 수 있으므로 한쪽 눈의 변화가 지속된다면 진료를 통해 원인을 확인해주세요.',
+  },
+  {
+    question: '언제 병원에 가야 하나요?',
+    answer: '평소보다 눈물이 갑자기 많아지거나 변화가 계속되는 경우, 눈을 자주 찡그리거나 비비는 경우, 충혈이나 평소와 다른 분비물이 보이는 경우에는 진료를 받아보세요. 눈을 잘 뜨지 못하거나 통증이 심해 보이는 등 뚜렷한 이상이 있다면 기다리지 말고 빠르게 진료를 받는 것이 좋습니다.',
+  },
+];
+
+export const STRESS_CONCERN_FAQ: Concern['faq'] = [
+  {
+    question: '스트레스를 받는 것 같을 때 무엇부터 살펴봐야 하나요?',
+    answer: '평소와 다른 행동이 보인다면 최근 생활 환경이나 일상에 달라진 점이 있었는지 먼저 살펴보세요. 새로운 공간이나 가족, 소음, 혼자 있는 시간 등 여러 변화가 영향을 줄 수 있습니다.',
+  },
+  {
+    question: '스트레스를 받는 것 같으면 혼자 쉬게 두는 게 좋을까요?',
+    answer: '억지로 다가가거나 만지려고 하기보다, 아이가 원할 때 편하게 쉬거나 거리를 둘 수 있는 공간을 마련해 주세요. 아이마다 편안함을 느끼는 방식이 다르므로 평소 행동과 반응을 함께 살펴보는 것이 좋습니다.',
+  },
+  {
+    question: '산책이나 놀이가 스트레스 관리에 도움이 되나요?',
+    answer: '산책이나 놀이는 아이의 신체 활동과 자연스러운 행동을 돕는 데 도움이 될 수 있습니다. 다만 필요한 활동과 자극은 개체마다 다르므로 나이와 건강 상태, 평소 선호에 맞춰 무리하지 않는 범위에서 진행해 주세요.',
+  },
+  {
+    question: '행동이 달라지면 스트레스 때문이라고 봐도 되나요?',
+    answer: '행동 변화만으로 스트레스가 원인이라고 판단하기는 어렵습니다. 통증이나 질환 등 다른 원인에서도 비슷한 변화가 나타날 수 있어, 갑작스럽거나 지속적인 변화가 보인다면 수의사와 상담해 주세요.',
+  },
+];
+
+/** DB에 이전 카드 문구가 남아 있어도 공개 화면에서는 확정된 01~06 문구만 표시한다. */
+export function applySourceConcernCardCopy(config: ConcernsConfig): ConcernsConfig {
+  return {
+    ...config,
+    items: config.items.map((item) => {
+      const shortDescription = MAIN_CONCERN_CARD_SHORT_DESCRIPTIONS[item.slug];
+      return shortDescription ? { ...item, shortDescription } : item;
+    }),
+  };
+}
+
+/** DB에 이전 FAQ가 남아 있어도 공개 눈물·스트레스 상세에는 각각 확정된 4개를 표시한다. */
+export function applySourceConcernFaqCopy(config: ConcernsConfig): ConcernsConfig {
+  return {
+    ...config,
+    items: config.items.map((item) => {
+      if (item.slug === 'tear') {
+        return { ...item, faq: TEAR_CONCERN_FAQ.map((faq) => ({ ...faq })) };
+      }
+      if (item.slug === 'stress') {
+        return { ...item, faq: STRESS_CONCERN_FAQ.map((faq) => ({ ...faq })) };
+      }
+      return item;
+    }),
+  };
+}
+
 /** DB 행이 없거나 조회 실패 시 공개 케어 가이드·관리자 화면이 폴백하는 기본 고민 목록. */
 export const defaultConcernsConfig: ConcernsConfig = {
   items: [
@@ -36,11 +110,7 @@ export const defaultConcernsConfig: ConcernsConfig = {
       recommendedProductIds: [],
       recommendedBrandIds: ['b1', 'b2'],
       insuranceCta: '눈물 관련 진료비가 부담되시나요? 무료 보험 분석을 통해 보장 범위를 확인해보세요.',
-      faq: [
-        { question: '눈물 자국은 왜 갈색으로 변하나요?', answer: '눈물 속 포르피린이라는 철분 성분이 공기와 만나 산화되면서 갈색으로 변합니다. 이는 자연스러운 현상이지만, 양이 과도하면 건강 문제를 의심할 수 있습니다.' },
-        { question: '사료를 바꾸면 눈물이 줄어드나요?', answer: '식이 알레르기가 원인인 경우 저알레르기 사료로 변경하면 개선될 수 있습니다. 다만 2-4주 이상 꾸준히 급여해야 효과를 확인할 수 있습니다.' },
-        { question: '눈물 자국 제거제는 안전한가요?', answer: '성분을 반드시 확인하세요. 천연 성분 기반 제품을 권장하며, 자극적인 화학 성분이 포함된 제품은 오히려 악화시킬 수 있습니다.' },
-      ],
+      faq: TEAR_CONCERN_FAQ,
     },
     {
       slug: 'joint',
@@ -214,9 +284,7 @@ export const defaultConcernsConfig: ConcernsConfig = {
       // b4(캣코드) 제거(2026-07-16) — 소속 상품이 알로밍(b5)으로 이관돼 b5 로 흡수(중복 제거).
       recommendedBrandIds: ['b5'],
       insuranceCta: '행동 치료 상담비도 보험으로 보장받을 수 있습니다.',
-      faq: [
-        { question: '분리 불안을 어떻게 완화할 수 있나요?', answer: '짧은 외출부터 시작해 서서히 시간을 늘려가세요. 외출 시 특별한 간식이나 장난감을 제공하고, 출퇴근 시 과도한 인사를 삼가는 것이 도움됩니다.' },
-      ],
+      faq: STRESS_CONCERN_FAQ,
     },
     {
       slug: 'senior',

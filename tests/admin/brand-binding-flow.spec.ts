@@ -144,7 +144,7 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(publicCache).toContain('async (id: string) => getBrandById(id)');
 
     expect(detailPage).toContain("import BrandAuditReport from '@/components/common/BrandAuditReport'");
-    expect(detailPage).toContain('<BrandAuditReport brand={brand} />');
+    expect(detailPage).toContain('<BrandAuditReport brand={publicBrand} />');
     expect(detailPage).toContain("import BrandShippingInfo from '@/components/brands/BrandShippingInfo'");
     expect(detailPage).toContain('<BrandShippingInfo brand={brand} />');
     expect(detailPage, '공개 브랜드 상세에는 공식몰 방문 CTA를 렌더하지 않는다').not.toContain('공식몰 방문하기');

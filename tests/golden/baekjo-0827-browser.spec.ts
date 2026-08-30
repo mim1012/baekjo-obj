@@ -72,7 +72,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await expect(page.getByText('백조오브제의 기준으로 살펴보고 선택한 제품을 소개합니다.')).toBeVisible();
     const sidebar = page.getByRole('complementary');
     await expect(sidebar).toContainText('소동물');
-    for (const categoryLabel of ['식품·영양', '케어', '패션', '펫로스', '라이프']) {
+    for (const categoryLabel of ['푸드', '영양', '케어', '패션', '펫로스', '라이프']) {
       await expect(sidebar.getByText(categoryLabel, { exact: true })).toBeAttached();
     }
     for (const priceLabel of ['2만원 미만', '2-5만원', '5-10만원', '10만원 이상']) {

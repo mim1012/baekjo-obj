@@ -157,8 +157,6 @@ export default function ProductTabsClient({ product, children }: ProductTabsClie
 
   const tabs = [
     ['상품 이야기', 'story'],
-    ['성분·사용법', 'details'],
-    ['살펴본 기준', 'standard'],
     [`후기 ${reviews.length}`, 'reviews'],
     [`문의 ${inquiries.length}`, 'qna'],
   ];

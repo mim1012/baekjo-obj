@@ -16,7 +16,9 @@ import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
 
-type HomeClientSettings = Omit<HomeSettings, 'solutions'>;
+type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {
+  insuranceBanner?: HomeSettings['insuranceBanner'];
+};
 
 // 줄바꿈은 마크업이 아니라 구조(string[])로 다룬다(§ homeContent). 각 줄 사이에만 <br /> 를
 // 넣어 하드코딩 시절 DOM 과 동일하게 렌더한다. brClassName 은 반응형 줄바꿈(예: 'hidden sm:block').
@@ -91,7 +93,7 @@ export default function HomeClient({
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
     { icon: Rabbit, href: '/shop?petType=small' },
-    { icon: Utensils, href: '/shop?category=food-nutrition' },
+    { icon: Utensils, href: '/shop?category=food' },
     { icon: Bath, href: '/shop?category=care' },
     { icon: HeartPulse, href: '/concerns' },
   ];
@@ -274,7 +276,7 @@ export default function HomeClient({
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
-          {curationCards.map((card, i) => {
+              {curationCards.map((card) => {
             const title = card.title;
             const desc = card.desc;
             return (
@@ -311,7 +313,7 @@ export default function HomeClient({
       </section>
 
       {/* 9. 펫보험 안내 배너 — 기능 플래그로 미노출(복귀는 features.ts) */}
-      {FEATURES.insurance && (
+      {FEATURES.insurance && insuranceBanner && (
         <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">

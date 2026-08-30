@@ -28,6 +28,9 @@ export default function RepetMadeToOrderNotice({ className = '' }: { className?:
 
       <div className="mt-4 space-y-2 break-keep text-[14px] leading-7 text-[#4F574F]">
         <p>본 상품은 주문 후 제작자와의 확인 과정이 필요한 주문제작 상품입니다.</p>
+        <p className="font-semibold text-[#7A4E1D]">
+          본 상품은 1:1 주문제작 상품으로, 제작이 시작된 이후에는 주문 취소가 어렵습니다. 제작 일정에 따라 최대 3개월까지 소요될 수 있으니 충분히 확인하신 후 주문해주세요.
+        </p>
         <p>
           주문 완료 후 원활한 제작 진행을 위해 <strong className="text-[#17211D]">‘백조오브제 주문제작’ 카카오톡 채널</strong>로
           주문자명과 주문번호를 남겨주세요.
