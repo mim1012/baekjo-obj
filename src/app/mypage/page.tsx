@@ -38,6 +38,7 @@ import ReviewFormModal from '@/components/reviews/ReviewFormModal';
 import InquiryFormModal from '@/components/inquiries/InquiryFormModal';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
+import AddressBookSection from './components/AddressBookSection';
 
 /** 구매평 작성/수정 모달에 전달되는 상품 + 주문 컨텍스트. 신규 작성 시에만 orderId/orderItemId 를 채운다. */
 type ReviewTargetProduct = Product & {
@@ -333,6 +334,8 @@ function MypageContent() {
             {user.provider !== 'kakao' && user.provider !== 'naver' && <PasswordChangeSection />}
           </>
         );
+      case 'addresses':
+        return <AddressBookSection />;
       case 'overview':
       default:
         return (

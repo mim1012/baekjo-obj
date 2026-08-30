@@ -175,6 +175,12 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
                   {order.address}
                 </span>
               </div>
+              <div>
+                <span className="block text-gray-500 mb-1">배송 메모</span>
+                <span className="font-medium text-[#17201B] leading-relaxed block bg-gray-50 p-3 rounded-md border border-gray-100">
+                  {order.deliveryMemo || '없음'}
+                </span>
+              </div>
             </div>
           </FormSection>
 

@@ -383,6 +383,7 @@ export interface User {
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
+  profileCompleted?: boolean;
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
@@ -400,6 +401,19 @@ export interface User {
   /** 운영자가 발급한 초기 비밀번호 사용 중 — 로그인 후 비밀번호 변경을 유도한다(강제 아님) */
   mustChangePassword?: boolean;
   signupData?: Record<string, unknown>;
+}
+
+export interface MemberAddress {
+  id: string;
+  label: string;
+  recipientName: string;
+  phone: string;
+  postalCode: string;
+  addressLine1: string;
+  addressLine2?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

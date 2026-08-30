@@ -82,6 +82,12 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     note: '소셜 로그인 콜백 — 유효한 code 없이 방문하면 completeSocialLogin 이 실패해 /login?error=social 로 이동',
   },
   {
+    route: '/auth/complete-profile',
+    kind: 'static',
+    auth: 'member',
+    note: '소셜 로그인 후 주문용 회원정보 보완',
+  },
+  {
     route: '/diagnosis/result',
     kind: 'static',
     auth: 'redirect',

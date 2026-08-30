@@ -58,12 +58,16 @@ function validateProfilePatch(body: UpdateProfileBody): UpdateMemberProfileInput
   const patch: UpdateMemberProfileInput = {};
 
   if (name !== undefined) {
-    if (typeof name !== 'string' || name.length < 1 || name.length > 50) return null;
-    patch.name = name;
+    if (typeof name !== 'string') return null;
+    const trimmed = name.trim();
+    if (trimmed.length < 1 || trimmed.length > 50) return null;
+    patch.name = trimmed;
   }
   if (phone !== undefined) {
     if (typeof phone !== 'string') return null;
-    patch.phone = phone;
+    const trimmed = phone.trim();
+    if (trimmed.length < 1 || trimmed.length > 40) return null;
+    patch.phone = trimmed;
   }
   if (petType !== undefined) {
     if (typeof petType !== 'string') return null;
