@@ -70,6 +70,9 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
             <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
               사업장주소 {COMPANY.address} · 전화 {COMPANY.tel}
             </p>
+            <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
+              영업시간 {COMPANY.supportHours}
+            </p>
           </div>
         </div>
       </div>
