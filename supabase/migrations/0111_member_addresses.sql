@@ -85,3 +85,10 @@ begin
   return deleted_count = 1;
 end;
 $$;
+
+revoke execute on function public.set_member_default_address(uuid, uuid)
+  from public, anon, authenticated;
+revoke execute on function public.delete_member_address(uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.set_member_default_address(uuid, uuid) to service_role;
+grant execute on function public.delete_member_address(uuid, uuid) to service_role;
