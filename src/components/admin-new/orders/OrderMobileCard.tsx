@@ -60,9 +60,9 @@ export default function OrderMobileCard({
           )}
           <Link
             href={`/admin/orders/${order.id}`}
-            className="text-[#2F3B34] hover:bg-gray-50 font-medium text-[13px] border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block w-full text-center"
+            className={`${order.orderStatus === '취소요청' ? 'text-[#A65348] border-[#A65348] hover:bg-[#FBFAF7]' : 'text-[#2F3B34] border-[#2F3B34] hover:bg-gray-50'} font-medium text-[13px] px-3 py-1.5 rounded-md inline-block w-full text-center`}
           >
-            상세보기
+            {order.orderStatus === '취소요청' ? '취소 요청 확인' : '상세보기'}
           </Link>
         </div>
       }
