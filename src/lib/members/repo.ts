@@ -370,6 +370,21 @@ export async function updateMemberStatus(
   return data ? rowToRecord(data as MemberRow) : null;
 }
 
+export async function approvePartnerMember(
+  id: string,
+  expectedCurrentStatus: 'pending',
+  normalizedBrandAlias: string,
+): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase().rpc('approve_partner_member', {
+    p_member_id: id,
+    p_expected_status: expectedCurrentStatus,
+    p_normalized_brand_alias: normalizedBrandAlias,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ? rowToRecord(row as MemberRow) : null;
+}
+
 /**
  * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터·
  * 비밀번호 해시·소셜 provider_id·b2b 컬럼 — buildWithdrawalPatch 참고).

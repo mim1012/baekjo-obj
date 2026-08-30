@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { findMemberById, toUser, updateMemberStatus } from '@/lib/members/repo';
+import { approvePartnerMember, findMemberById, toUser, updateMemberStatus } from '@/lib/members/repo';
+import { normalizeBrandAlias } from '@/lib/brands/alias';
 import {
   isAllowedMemberStatusTransition,
   type AdminSettableMemberStatus,
@@ -70,7 +71,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const rejectReason = body.status === 'rejected' ? body.rejectReason : undefined;
-    const updated = await updateMemberStatus(id, body.status, rejectReason, currentStatus);
+    const updated =
+      body.status === 'active' && target.role === 'partner' && currentStatus === 'pending'
+        ? await approvePartnerMember(
+            id,
+            currentStatus,
+            normalizeBrandAlias(typeof target.signupData?.brandName === 'string' ? target.signupData.brandName : ''),
+          )
+        : await updateMemberStatus(id, body.status, rejectReason, currentStatus);
     if (!updated) {
       // 위 allowedTargets 체크 이후에도 null이면 동시 요청이 먼저 상태를 바꾼 것 —
       // 조건부 업데이트(.eq('status', target.status))가 막아낸 경쟁 상태다.
