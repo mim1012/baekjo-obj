@@ -499,6 +499,18 @@ export async function updateOrderStatus(
   }
 }
 
+export async function requestOrderCancellation(orderId: string): Promise<void> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/cancel-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    const code = body && typeof body.error === 'string' ? body.error : 'cancel-request-failed';
+    throw new Error(code);
+  }
+}
+
 export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/refunds`, {
     cache: 'no-store',

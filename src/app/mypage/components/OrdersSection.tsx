@@ -5,15 +5,16 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Order, OrderItem, ProductReview, Product, Brand, Shipment } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
-import { buildReviewTargetKey, getPublicBrands } from '@/lib/storage';
+import { buildReviewTargetKey, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
 import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
+import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
-import { ChevronDown, PackageSearch, Truck } from 'lucide-react';
+import { ChevronDown, CircleAlert, PackageSearch, Truck } from 'lucide-react';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -21,12 +22,14 @@ interface OrdersSectionProps {
   reviews: ProductReview[];
   products: Product[];
   onWriteReview: (product: Product, orderId: string, orderItemId?: string, optionName?: string) => void;
+  onOrderUpdated: () => void | Promise<void>;
 }
 
 const ITEMS_PER_PAGE = 20;
 
-export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview }: OrdersSectionProps) {
+export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview, onOrderUpdated }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
@@ -104,6 +107,22 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return shipment?.deliveryStatus || '배송전';
   };
 
+  const handleCancelRequest = async (order: Order) => {
+    if (!window.confirm('주문 취소를 요청하시겠습니까?\n\n관리자가 결제·배송 상태를 확인한 뒤 최종 처리합니다.')) return;
+    setCancellingOrderId(order.id);
+    try {
+      await requestOrderCancellation(order.id);
+      await onOrderUpdated();
+    } catch (error) {
+      const message = error instanceof Error && error.message === 'cancel-request-not-allowed'
+        ? '현재 상태에서는 주문 취소를 요청할 수 없습니다.'
+        : '주문 취소 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
+      window.alert(message);
+    } finally {
+      setCancellingOrderId(null);
+    }
+  };
+
   return (
     <section>
       <div className="mb-6">
@@ -145,6 +164,17 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                     className={`h-4 w-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`}
                   />
                 </button>
+                {isCancellationRequestAllowed(order) && (
+                  <button
+                    type="button"
+                    onClick={() => handleCancelRequest(order)}
+                    disabled={cancellingOrderId === order.id}
+                    className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
+                  >
+                    <CircleAlert className="h-3.5 w-3.5" />
+                    {cancellingOrderId === order.id ? '요청 중...' : '주문 취소 요청'}
+                  </button>
+                )}
               </div>
             </div>
 

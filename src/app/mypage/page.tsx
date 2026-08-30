@@ -295,6 +295,7 @@ function MypageContent() {
             reviews={reviews}
             products={products}
             onWriteReview={handleWriteReview}
+            onOrderUpdated={loadData}
           />
         );
       case 'wishlist':

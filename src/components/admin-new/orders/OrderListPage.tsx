@@ -230,7 +230,7 @@ export default function OrderListPage() {
   const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
   const canceledCount = orders.filter(
-    (o) => o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
+    (o) => o.orderStatus === '취소요청' || o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
   ).length;
 
   return (
