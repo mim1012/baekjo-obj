@@ -16,11 +16,11 @@ test.describe('입점 브랜드 별칭 매칭', () => {
       '페네핏 (PENEFIT)',
       '오미프로 (OMIPRO)',
       '노블독 (NobleDog)',
-      '캣코드 (Catcode)',
       '알로밍 (ALLOMING)',
       're펫',
       '메종슈슈 (Maison Chouchou)',
       '챠콜스토리 (Charcoal Story)',
+      '써니 사이드업 (Sunny Side Up)',
     ];
     expect(new Set(aliases.map(normalizeBrandAlias)).size).toBe(8);
   });

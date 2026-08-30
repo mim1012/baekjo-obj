@@ -7,31 +7,39 @@ create table if not exists public.brand_aliases (
 
 alter table public.brand_aliases enable row level security;
 
-insert into public.brand_aliases (brand_id, alias, normalized_alias) values
-  ('b1', '페네핏', '페네핏'),
-  ('b1', 'PENEFIT', 'penefit'),
-  ('b1', '페네핏 (PENEFIT)', '페네핏penefit'),
-  ('b2', '오미프로', '오미프로'),
-  ('b2', 'OMIPRO', 'omipro'),
-  ('b2', '오미프로 (OMIPRO)', '오미프로omipro'),
-  ('b3', '노블독', '노블독'),
-  ('b3', 'NobleDog', 'nobledog'),
-  ('b3', '노블독 (NobleDog)', '노블독nobledog'),
-  ('b4', '캣코드', '캣코드'),
-  ('b4', 'Catcode', 'catcode'),
-  ('b4', '캣코드 (Catcode)', '캣코드catcode'),
-  ('b5', '알로밍', '알로밍'),
-  ('b5', 'ALLOMING', 'alloming'),
-  ('b5', '알로밍 (ALLOMING)', '알로밍alloming'),
-  ('b6', 're펫', 're펫'),
-  ('b6', 'RePet', 'repet'),
-  ('b6', '리펫', '리펫'),
-  ('b7', '메종슈슈', '메종슈슈'),
-  ('b7', 'Maison Chouchou', 'maisonchouchou'),
-  ('b7', '메종슈슈 (Maison Chouchou)', '메종슈슈maisonchouchou'),
-  ('b8', '챠콜스토리', '챠콜스토리'),
-  ('b8', 'Charcoal Story', 'charcoalstory'),
-  ('b8', '챠콜스토리 (Charcoal Story)', '챠콜스토리charcoalstory')
+insert into public.brand_aliases (brand_id, alias, normalized_alias)
+select aliases.brand_id, aliases.alias, aliases.normalized_alias
+  from (values
+    ('b1', '페네핏', '페네핏'),
+    ('b1', 'PENEFIT', 'penefit'),
+    ('b1', '페네핏 (PENEFIT)', '페네핏penefit'),
+    ('b2', '오미프로', '오미프로'),
+    ('b2', 'OMIPRO', 'omipro'),
+    ('b2', '오미프로 (OMIPRO)', '오미프로omipro'),
+    ('b3', '노블독', '노블독'),
+    ('b3', 'NobleDog', 'nobledog'),
+    ('b3', '노블독 (NobleDog)', '노블독nobledog'),
+    ('b4', '캣코드', '캣코드'),
+    ('b4', 'Catcode', 'catcode'),
+    ('b4', '캣코드 (Catcode)', '캣코드catcode'),
+    ('b5', '알로밍', '알로밍'),
+    ('b5', 'ALLOMING', 'alloming'),
+    ('b5', '알로밍 (ALLOMING)', '알로밍alloming'),
+    ('b6', 're펫', 're펫'),
+    ('b6', 'RePet', 'repet'),
+    ('b6', '리펫', '리펫'),
+    ('b7', '메종슈슈', '메종슈슈'),
+    ('b7', 'Maison Chouchou', 'maisonchouchou'),
+    ('b7', '메종슈슈 (Maison Chouchou)', '메종슈슈maisonchouchou'),
+    ('b8', '챠콜스토리', '챠콜스토리'),
+    ('b8', 'Charcoal Story', 'charcoalstory'),
+    ('b8', '챠콜스토리 (Charcoal Story)', '챠콜스토리charcoalstory'),
+    ('b9', '써니 사이드업', '써니사이드업'),
+    ('b9', 'Sunny Side Up', 'sunnysideup'),
+    ('b9', '써니사이드업', '써니사이드업'),
+    ('b9', '써니 사이드업 (Sunny Side Up)', '써니사이드업sunnysideup')
+  ) as aliases(brand_id, alias, normalized_alias)
+ where exists (select 1 from public.brands where brands.id = aliases.brand_id)
 on conflict (normalized_alias) do update
 set brand_id = excluded.brand_id,
     alias = excluded.alias;
