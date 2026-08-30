@@ -1,11 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react';
 import type { PartnerOrderView } from '@/lib/partners/orderScope';
 import PartnerPasswordNoticeModal from '@/components/partner/PartnerPasswordNoticeModal';
+import { formatDate, formatPrice } from '@/lib/format';
+import { logout } from '@/lib/storage';
 
 export default function PartnerOrdersClient() {
   const [orders, setOrders] = useState<PartnerOrderView[]>([]);
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     void fetch('/api/partner/orders')
@@ -16,10 +21,24 @@ export default function PartnerOrdersClient() {
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
       <PartnerPasswordNoticeModal />
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-[#E7E0D5] pb-4">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-[#59615B] transition-colors hover:text-[#17211D]">
+          <ArrowLeft className="size-4" />
+          쇼핑몰로 돌아가기
+        </Link>
+        <button
+          type="button"
+          onClick={() => { void logout().finally(() => { window.location.href = '/login'; }); }}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[#59615B] transition-colors hover:text-[#17211D]"
+        >
+          <LogOut className="size-4" />
+          로그아웃
+        </button>
+      </div>
       <header className="mb-8">
         <p className="text-sm font-medium text-neutral-500">PARTNER OPERATIONS</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-neutral-900">내 브랜드 주문</h1>
-        <p className="mt-2 text-sm text-neutral-600">관리 중인 브랜드 상품이 포함된 주문만 표시됩니다.</p>
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">관리 중인 브랜드 상품이 포함된 주문만 표시됩니다. 주문을 펼치면 상품별 금액과 배송 상태를 확인할 수 있습니다.</p>
       </header>
       {error ? <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{error}</p> : null}
       {!error && orders.length === 0 ? <p className="rounded-xl border border-neutral-200 bg-white p-8 text-neutral-600">현재 내 브랜드 주문이 없습니다.</p> : null}
@@ -31,10 +50,29 @@ export default function PartnerOrdersClient() {
               <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs text-neutral-700">{order.paymentStatus}</span>
             </div>
             <p className="mt-2 text-sm text-neutral-600">{order.customerName} · {order.orderStatus}</p>
+            <dl className="mt-4 grid grid-cols-2 gap-3 border-y border-neutral-100 py-4 text-sm">
+              <div><dt className="text-neutral-500">주문일</dt><dd className="mt-1 font-medium text-neutral-900">{formatDate(order.createdAt)}</dd></div>
+              <div><dt className="text-neutral-500">결제금액</dt><dd className="mt-1 font-medium text-neutral-900">{formatPrice(order.totalPrice + order.deliveryFee)}</dd></div>
+            </dl>
             <ul className="mt-4 divide-y divide-neutral-100 border-y border-neutral-100">
-              {order.items.map((item) => <li key={`${order.id}-${item.productId}`} className="py-3 text-sm text-neutral-800">{item.productName} × {item.quantity}</li>)}
+              {order.items.map((item) => <li key={`${order.id}-${item.productId}-${item.optionName ?? 'default'}`} className="flex items-center justify-between gap-3 py-3 text-sm text-neutral-800"><span>{item.productName}{item.optionName ? ` · ${item.optionName}` : ''} × {item.quantity}</span><span className="shrink-0 text-neutral-500">{formatPrice(item.price * item.quantity)}</span></li>)}
             </ul>
             {order.shipment ? <p className="mt-4 text-sm text-neutral-600">배송: {order.shipment.deliveryStatus}{order.shipment.trackingNumber ? ` · ${order.shipment.trackingNumber}` : ''}</p> : null}
+            <button
+              type="button"
+              aria-expanded={expandedOrderId === order.id}
+              onClick={() => setExpandedOrderId((current) => current === order.id ? null : order.id)}
+              className="mt-5 inline-flex w-full items-center justify-center gap-2 border-t border-neutral-100 pt-4 text-sm font-semibold text-[#2F3B34] transition-colors hover:text-[#59615B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F3B34] focus-visible:ring-offset-2"
+            >
+              {expandedOrderId === order.id ? '상세 접기' : '주문 상세 보기'}
+              <ChevronDown className={`size-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`} />
+            </button>
+            {expandedOrderId === order.id ? (
+              <div className="mt-4 rounded-xl bg-[#F8F6F0] p-4 text-sm text-neutral-700">
+                <p>결제수단: {order.paymentMethod}</p>
+                <p className="mt-2">배송비: {formatPrice(order.deliveryFee)}</p>
+              </div>
+            ) : null}
           </article>
         ))}
       </section>

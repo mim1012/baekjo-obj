@@ -97,6 +97,10 @@ function MypageContent() {
       return;
     }
     sessionUserIdRef.current = currentUser.id;
+    if (currentUser.role === 'partner') {
+      router.replace('/partner/orders');
+      return;
+    }
     setUser(currentUser);
 
     const seq = ++loadSeqRef.current;
@@ -341,7 +345,9 @@ function MypageContent() {
       default:
         return (
           <>
-            {(!user.provider || user.provider === 'email') && user.emailVerified === false && <EmailVerifyBanner />}
+            {user.role !== 'partner' && (!user.provider || user.provider === 'email') && user.emailVerified === false && (
+              <EmailVerifyBanner />
+            )}
             <OverviewSection stats={stats} />
           </>
         );

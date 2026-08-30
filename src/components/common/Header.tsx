@@ -75,6 +75,8 @@ export default function Header() {
   const [brandLinks, setBrandLinks] = useState<Array<{ label: string; href: string }>>([]);
   const cartCount = useSyncExternalStore(subscribeToCart, getCartCount, () => 0);
   const currentUser = mounted ? getCurrentUser() : null;
+  const accountHref = currentUser?.role === 'partner' ? '/partner/orders' : '/mypage';
+  const accountLabel = currentUser?.role === 'partner' ? '파트너 주문 관리' : '마이페이지';
 
   useEffect(() => {
     getPublicBrands()
@@ -250,8 +252,8 @@ export default function Header() {
             </Link>
           )}
           <Link
-            href="/mypage"
-            aria-label="마이페이지"
+            href={accountHref}
+            aria-label={accountLabel}
             className="hidden rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
           >
             <User className="size-5" />
@@ -339,8 +341,8 @@ export default function Header() {
             )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">
-              <Link href={currentUser ? '/mypage' : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">
-                {currentUser ? '내 정보 보기' : '로그인'}
+              <Link href={currentUser ? accountHref : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">
+                {currentUser ? accountLabel : '로그인'}
               </Link>
               <Link href="/cart" onClick={closeMenu} className="btn-secondary min-h-11 px-4">
                 장바구니 {cartCount > 0 ? `${cartCount}` : ''}
