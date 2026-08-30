@@ -200,7 +200,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
             </>
           )}
 
-          <FormField label="관리자 메모" className="md:col-span-3">
+          <FormField label="배송 메모" description="주문 시 고객이 남긴 배송 요청사항입니다." className="md:col-span-3">
             <textarea
               value={formData.deliveryMemo}
               onChange={(e) => handleChange('deliveryMemo', e.target.value)}

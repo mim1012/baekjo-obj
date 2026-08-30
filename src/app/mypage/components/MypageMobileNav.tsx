@@ -17,6 +17,7 @@ export default function MypageMobileNav({ activeTab, onTabChange }: MypageMobile
     // 펫보험 미노출 기간에는 탭 자체를 숨긴다(features.ts).
     ...(FEATURES.insurance ? [{ id: 'insurance', label: '보험 분석 내역' }] : []),
     { id: 'profile', label: '회원정보 수정' },
+    { id: 'addresses', label: '배송지 관리' },
   ];
 
   return (

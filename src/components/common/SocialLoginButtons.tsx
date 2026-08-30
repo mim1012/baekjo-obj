@@ -28,8 +28,10 @@ function NaverSymbol() {
 
 export default function SocialLoginButtons({
   labels = DEFAULT_LABELS,
+  returnTo = '/',
 }: {
   labels?: Record<SocialProvider, string>;
+  returnTo?: string;
 }) {
   const [pending, setPending] = useState<SocialProvider | null>(null);
   const [notice, setNotice] = useState('');
@@ -42,7 +44,7 @@ export default function SocialLoginButtons({
     }
     // 제공자 페이지로 넘어가기 전까지 버튼을 잠가 중복 시도(PKCE 꼬임)를 막는다.
     setPending(provider);
-    loginWithProvider(provider).catch(() => {
+    loginWithProvider(provider, returnTo).catch(() => {
       // 리다이렉트 전에 실패(네트워크 등)하면 잠금을 풀어 재시도할 수 있게 한다.
       setPending(null);
       setNotice('로그인 연결에 실패했어요. 잠시 후 다시 시도해 주세요.');

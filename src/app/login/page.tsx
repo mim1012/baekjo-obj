@@ -166,7 +166,7 @@ export default function LoginPage() {
 
           <div className="mt-8 border-t border-[#DEDCD5] pt-6">
             <p className="mb-3 text-center text-[11px] text-[#59615B]">간편 로그인</p>
-            <SocialLoginButtons />
+            <SocialLoginButtons returnTo={mounted ? new URLSearchParams(window.location.search).get('redirect') ?? '/' : '/'} />
           </div>
         </div>
       </div>

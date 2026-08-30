@@ -28,6 +28,7 @@ function detailValues(row: AdminOrderReportDetailRow): (string | number)[] {
     row.customerName,
     row.phone,
     row.address,
+    row.deliveryMemo,
     row.orderStatus,
     row.cancelRefundFlag,
     row.trackingNumber,

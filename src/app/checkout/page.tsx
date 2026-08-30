@@ -7,8 +7,8 @@ import Link from 'next/link';
 import { loadTossPayments, ANONYMOUS, type TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getCart, clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
-import { createOrder, cancelReservation, getPublicBrands, getPublicProducts, getSessionUser } from '@/lib/storage';
-import { Brand, CartItem, OrderItem, Product, ProductOption } from '@/types';
+import { createOrder, cancelReservation, getMyAddresses, getPublicBrands, getPublicProducts, getSessionUser } from '@/lib/storage';
+import { Brand, CartItem, MemberAddress, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
@@ -48,6 +48,12 @@ function getCheckoutItems(products: Product[]): CheckoutCartItem[] {
   });
 }
 
+function formatAddress(address: MemberAddress): string {
+  return [address.postalCode && `[${address.postalCode}]`, address.addressLine1, address.addressLine2]
+    .filter(Boolean)
+    .join(' ');
+}
+
 export default function CheckoutPage() {
   return (
     <Suspense fallback={null}>
@@ -68,6 +74,21 @@ function CheckoutForm() {
   const [productsLoading, setProductsLoading] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [canOrder, setCanOrder] = useState(false);
+  const [addresses, setAddresses] = useState<MemberAddress[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [formData, setFormData] = useState({
+    customerName: '',
+    phone: '',
+    address: '',
+    memo: '',
+    paymentMethod: '무통장입금'
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
+  const [widgetReady, setWidgetReady] = useState(false);
+  const [widgetError, setWidgetError] = useState(false);
+  const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
+  const [orderCompleted, setOrderCompleted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,6 +114,30 @@ function CheckoutForm() {
         router.replace('/login?redirect=/checkout');
         return;
       }
+      if (!user.profileCompleted) {
+        router.replace('/auth/complete-profile?returnTo=/checkout');
+        return;
+      }
+      setFormData((current) => ({
+        ...current,
+        customerName: current.customerName || user.name,
+        phone: current.phone || user.phone,
+      }));
+      getMyAddresses().then((items) => {
+        if (cancelled) return;
+        setAddresses(items);
+        const defaultAddress = items.find((address) => address.isDefault) ?? items[0];
+        if (!defaultAddress) return;
+        setSelectedAddressId(defaultAddress.id);
+        setFormData((current) => ({
+          ...current,
+          customerName: defaultAddress.recipientName,
+          phone: defaultAddress.phone,
+          address: formatAddress(defaultAddress),
+        }));
+      }).catch(() => {
+        if (!cancelled) setAddresses([]);
+      });
       setCanOrder(true);
       setSessionChecked(true);
     });
@@ -101,24 +146,10 @@ function CheckoutForm() {
     };
   }, [mounted, router]);
 
-  // Form State
-  const [formData, setFormData] = useState({
-    customerName: '',
-    phone: '',
-    address: '',
-    memo: '',
-    paymentMethod: '무통장입금'
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
-  const [widgetReady, setWidgetReady] = useState(false);
-  const [widgetError, setWidgetError] = useState(false);
-  const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
   // 주문 성공 후 clearCart()로 카트가 비면 cartItems.length===0 이 되어 아래 "빈 카트 → /cart" 리다이렉트
   // 이펙트와 order-complete 이동이 경합한다. 성공이 확정되는 즉시(= clearCart 호출 전) true 로 세워
   // 그 이펙트와 렌더 중단(early return)을 모두 무력화해 실제 이동만 이기게 한다.
   // (setOrderCompleted 와 clearCart 는 같은 핸들러에서 배치되므로 다음 렌더에서 항상 함께 보인다.)
-  const [orderCompleted, setOrderCompleted] = useState(false);
 
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
@@ -270,6 +301,8 @@ function CheckoutForm() {
         router.replace('/login?redirect=/checkout');
       } else if (error instanceof Error && error.message === 'out-of-stock') {
         alert('일부 상품의 재고가 부족합니다. 장바구니를 확인해주세요.');
+      } else if (error instanceof Error && error.message === 'profile-incomplete') {
+        router.replace('/auth/complete-profile?returnTo=/checkout');
       } else {
         alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       }
@@ -334,6 +367,18 @@ function CheckoutForm() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleAddressSelect = (addressId: string) => {
+    setSelectedAddressId(addressId);
+    const selected = addresses.find((address) => address.id === addressId);
+    if (!selected) return;
+    setFormData((current) => ({
+      ...current,
+      customerName: selected.recipientName,
+      phone: selected.phone,
+      address: formatAddress(selected),
+    }));
+  };
+
   return (
     <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
       <div className="site-container">
@@ -347,6 +392,22 @@ function CheckoutForm() {
 
             <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
               <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-4 md:mb-6">배송지 정보</h2>
+              {addresses.length > 0 && (
+                <label className="mb-5 block">
+                  <span className="mb-1 block text-[13px] md:text-sm font-medium text-gray-700">저장된 배송지</span>
+                  <select
+                    value={selectedAddressId}
+                    onChange={(event) => handleAddressSelect(event.target.value)}
+                    className="h-12 w-full rounded-sm border border-gray-300 p-3 text-[16px] focus:border-[#2F3B34] focus:ring-[#2F3B34] md:text-sm"
+                  >
+                    {addresses.map((address) => (
+                      <option key={address.id} value={address.id}>
+                        {address.label} · {address.recipientName} · {address.addressLine1}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               <div className="space-y-3 md:space-y-4">
                 <div>
                   <label className="block text-[13px] md:text-sm font-medium text-gray-700 mb-1">받는 사람 *</label>

@@ -3,7 +3,7 @@ import { ALL_ORDER_FILTER_VALUE } from './adminOrderFilters';
 
 export const ADMIN_ORDER_DETAIL_COLUMNS = [
   '주문번호', '주문일시', '브랜드명', '상품명', '옵션', '판매수량', '상품 판매금액', '배송비',
-  '최종 결제금액', '구매자명', '연락처', '배송지', '주문상태', '취소·환불 여부', '송장번호',
+  '최종 결제금액', '구매자명', '연락처', '배송지', '배송 메모', '주문상태', '취소·환불 여부', '송장번호',
 ] as const;
 
 export const ADMIN_ORDER_BRAND_SUMMARY_COLUMNS = [
@@ -29,6 +29,7 @@ export interface AdminOrderReportDetailRow {
   readonly customerName: string;
   readonly phone: string;
   readonly address: string;
+  readonly deliveryMemo: string;
   readonly orderStatus: string;
   readonly cancelRefundFlag: 'Y' | 'N';
   readonly trackingNumber: string;
@@ -147,6 +148,7 @@ function toDetailRow(order: Order, item: OrderItem, brandName: string, shipping:
     customerName: order.customerName,
     phone: order.phone,
     address: order.address,
+    deliveryMemo: order.deliveryMemo ?? '',
     orderStatus: order.orderStatus,
     cancelRefundFlag: isCanceledOrRefundedOrder(order) ? 'Y' : 'N',
     trackingNumber: order.trackingNumber ?? '',
