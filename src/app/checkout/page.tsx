@@ -12,8 +12,10 @@ import { Brand, CartItem, MemberAddress, OrderItem, Product, ProductOption } fro
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
+import { FEATURES } from '@/config/features';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
+const CARD_PAYMENT_ENABLED = FEATURES.cardPayment;
 // 결제 실패/이탈 시 선점 해제 대상 주문을 기억해두는 세션 키. 결제창은 페이지를 이탈시키므로
 // React state 로는 살아남지 않는다 — sessionStorage 로만 다음 로드에 전달한다.
 const PENDING_ORDER_KEY = 'baekjo_pending_toss_order';
@@ -155,7 +157,7 @@ function CheckoutForm() {
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
   const hasRepetMadeToOrderItem = cartItems.some((item) => isRepetMadeToOrderProduct(item.product.brandId));
-  const isCardPayment = formData.paymentMethod === '카드결제';
+  const isCardPayment = CARD_PAYMENT_ENABLED && formData.paymentMethod === '카드결제';
   const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFeeCalculation = calcBrandDeliveryFee(
     cartItems.map((item) => {
@@ -431,7 +433,7 @@ function CheckoutForm() {
             <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
               <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-4 md:mb-6">결제 수단</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
-                {(['무통장입금', '카드결제'] as const).map(method => {
+                {(['무통장입금', ...(CARD_PAYMENT_ENABLED ? ['카드결제'] : [])] as const).map(method => {
                   const disabled = method === '카드결제' && !TOSS_CLIENT_KEY;
                   return (
                     <label
