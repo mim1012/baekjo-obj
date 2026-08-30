@@ -268,9 +268,6 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#18231F] px-5 text-[13px] md:text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
-              {curation.diagnosisLinkLabel}
-            </Link>
             <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
