@@ -21,7 +21,7 @@ export const COMPANY = {
   /** 사업장 주소(사업자등록증 사업장 소재지 기준) */
   address: '인천광역시 연수구 인천타워대로 185, 5층 539호(송도동, 송도 센트럴비즈 한라)',
   /** 고객센터 전화 */
-  tel: '010-5683-1725',
+  tel: '1544-9883',
   /** 고객센터 이메일 */
   email: 'thebaekjo@naver.com',
   /** 고객 상담 및 주문제작 확인 카카오톡 채널 */
@@ -33,7 +33,7 @@ export const COMPANY = {
   /** 공정거래위원회 통신판매사업자 정보 조회 URL */
   businessLookupUrl: 'https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658',
   /** 고객센터 운영시간 */
-  supportHours: '평일 10:00 – 17:00 (점심 12:00 – 13:00) · 주말/공휴일 휴무',
+  supportHours: '평일 10:00 ~ 17:00 (점심 12:00 ~ 13:00) · 주말/공휴일 휴무',
 } as const;
 
 /**
