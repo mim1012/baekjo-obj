@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = path.resolve(__dirname, '..', '..');
 
 test('저장된 notices_config에서도 미지원 쿠폰 공지를 제거하는 migration이 존재한다', () => {
-  const migrationPath = path.join(root, 'supabase', 'migrations', '0145_remove_unavailable_coupon_notice.sql');
+  const migrationPath = path.join(root, 'supabase', 'migrations', '0146_remove_unavailable_coupon_notice.sql');
   const migration = fs.readFileSync(migrationPath, 'utf8');
 
   expect(migration).toContain('update public.notices_config');
