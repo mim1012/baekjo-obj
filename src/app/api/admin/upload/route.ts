@@ -9,14 +9,19 @@ import { logServerError } from '@/lib/logServerError';
 //   정식: products/<entityId>/<usage>/<uuid>.<ext> | brands/<entityId>/<usage>/<uuid>.<ext> | banners/hero/<uuid>.<ext>
 //   임시: temp/<adminId>/<draftId>/<usage>/<uuid>.<ext>  — 엔티티 생성 전 신규 작성 화면용
 //
-// 가입서류 업로드(/api/members/business/upload)와 같은 하드닝을 적용한다:
-// Content-Length 선차단 · 매직바이트로 형식 재판별(file.type 불신) · upsert:false.
 const BUCKET = 'catalog-assets';
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-const MAX_REQUEST_SIZE = 53_000_000;
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedContentType = (typeof ALLOWED_CONTENT_TYPES)[number];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isAllowedContentType(value: unknown): value is AllowedContentType {
+  return typeof value === 'string' && ALLOWED_CONTENT_TYPES.some((type) => type === value);
+}
 
 const EXTENSION_BY_TYPE: Record<AllowedContentType, string> = {
   'image/jpeg': '.jpg',
@@ -60,48 +65,51 @@ function detectContentType(buffer: Buffer): AllowedContentType | null {
   return null;
 }
 
-/**
- * POST /api/admin/upload — 상품·브랜드·배너 이미지를 catalog-assets(공개 버킷)에 올린다.
- * 관리자만. 파일명은 서버가 UUID로 새로 만들어 클라이언트 파일명이 경로에 섞이지 않게 한다.
- */
 export async function POST(request: NextRequest) {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  const contentLength = Number(request.headers.get('content-length'));
-  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_SIZE) {
-    return NextResponse.json({ error: 'file-too-large' }, { status: 413 });
-  }
-
-  let formData: FormData;
+  let body: unknown;
   try {
-    formData = await request.formData();
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  const file = formData.get('file');
-  const domain = formData.get('domain');
-  const usage = formData.get('usage');
-  const entityIdRaw = formData.get('entityId');
-  const draftIdRaw = formData.get('draftId');
-
-  if (!(file instanceof File) || file.size === 0 || file.size > MAX_FILE_SIZE) {
+  if (!isRecord(body)) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
+  const input = body;
+  const action = input.action;
+  const domain = input.domain;
+  const usage = input.usage;
+  const entityIdRaw = input.entityId;
+  const draftIdRaw = input.draftId;
+  const fileSize = input.fileSize;
+  const contentType = input.contentType;
+  const path = input.path;
+
   if (typeof domain !== 'string' || typeof usage !== 'string') {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
-
-  const allowedUsage = ALLOWED_USAGE[domain];
-  if (!allowedUsage || !allowedUsage.includes(usage)) {
+  const validDomain = domain;
+  const validUsage = usage;
+  if (!ALLOWED_USAGE[validDomain]?.includes(validUsage)) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
-
   const entityId = typeof entityIdRaw === 'string' && entityIdRaw ? entityIdRaw : null;
   const draftId = typeof draftIdRaw === 'string' && draftIdRaw ? draftIdRaw : null;
-
-  if (!entityId && !draftId) {
+  if (action === 'sign') {
+    if (typeof fileSize !== 'number' || !Number.isInteger(fileSize) || fileSize <= 0 || fileSize > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: 'file-too-large' }, { status: 413 });
+    }
+    if (!isAllowedContentType(contentType)) {
+      return NextResponse.json({ error: 'invalid-file-type' }, { status: 400 });
+    }
+    if (!entityId && !draftId) {
+      return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+  } else if (action !== 'complete' || typeof path !== 'string' || !path) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
   if (entityId && !isSafeSegment(entityId)) {
@@ -112,48 +120,46 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const buffer = Buffer.from(await file.arrayBuffer());
+    const supabase = getSupabase();
+    if (action === 'sign') {
+      if (!isAllowedContentType(contentType)) return NextResponse.json({ error: 'invalid-file-type' }, { status: 400 });
+      const extension = EXTENSION_BY_TYPE[contentType];
+      const fileName = `${crypto.randomUUID()}${extension}`;
+      const uploadPath = entityId
+        ? validDomain === 'banner'
+          ? `banners/${validUsage}/${fileName}`
+          : `${PATH_PREFIX_BY_DOMAIN[validDomain]}/${entityId}/${validUsage}/${fileName}`
+        : `temp/${admin.requester.id}/${draftId}/${validUsage}/${fileName}`;
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(uploadPath);
+      if (error || !data) return NextResponse.json({ error: 'server-error' }, { status: 500 });
+      const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(uploadPath).data.publicUrl;
+      return NextResponse.json({ success: true, path: uploadPath, token: data.token, publicUrl, bucket: BUCKET }, { status: 201 });
+    }
 
-    const detectedType = detectContentType(buffer);
+    const ownTempPrefix = `temp/${admin.requester.id}/`;
+    const entityPrefix = entityId
+      ? validDomain === 'banner'
+        ? `banners/${validUsage}/`
+        : `${PATH_PREFIX_BY_DOMAIN[validDomain]}/${entityId}/${validUsage}/`
+      : null;
+    if (typeof path !== 'string' || path.includes('..') || (!path.startsWith(ownTempPrefix) && (!entityPrefix || !path.startsWith(entityPrefix)))) {
+      return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+    }
+    const { data: file, error: downloadError } = await supabase.storage.from(BUCKET).download(path);
+    if (downloadError || !file) return NextResponse.json({ error: 'server-error' }, { status: 500 });
+    if (file.size === 0 || file.size > MAX_FILE_SIZE) {
+      await supabase.storage.from(BUCKET).remove([path]);
+      return NextResponse.json({ error: 'file-too-large' }, { status: 413 });
+    }
+    const detectedType = detectContentType(Buffer.from(await file.arrayBuffer()));
     if (!detectedType) {
+      await supabase.storage.from(BUCKET).remove([path]);
       return NextResponse.json({ error: 'invalid-file-type' }, { status: 400 });
     }
-
-    const fileName = `${crypto.randomUUID()}${EXTENSION_BY_TYPE[detectedType]}`;
-
-    let path: string;
-    if (entityId) {
-      path =
-        domain === 'banner'
-          ? `banners/${usage}/${fileName}`
-          : `${PATH_PREFIX_BY_DOMAIN[domain]}/${entityId}/${usage}/${fileName}`;
-    } else {
-      // draft 업로드는 관리자 본인 temp 폴더에만 — DELETE가 이 접두사로 소유권을 판단한다.
-      const adminId = admin.requester.id;
-      if (!isSafeSegment(adminId)) {
-        return NextResponse.json({ error: 'server-error' }, { status: 500 });
-      }
-      path = `temp/${adminId}/${draftId}/${usage}/${fileName}`;
-    }
-
-    const supabase = getSupabase();
-    const { error } = await supabase.storage
-      .from(BUCKET)
-      .upload(path, buffer, { contentType: detectedType, upsert: false });
-
-    if (error) {
-      logServerError('[POST /api/admin/upload] 업로드 실패', error);
-      return NextResponse.json({ error: 'server-error' }, { status: 500 });
-    }
-
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(path);
-
-    return NextResponse.json(
-      { success: true, path, publicUrl: data.publicUrl, bucket: BUCKET },
-      { status: 201 },
-    );
+    const publicUrl = supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+    return NextResponse.json({ success: true, path, publicUrl, bucket: BUCKET }, { status: 201 });
   } catch (error) {
-    logServerError('[POST /api/admin/upload] 업로드 실패', error);
+    logServerError('[POST /api/admin/upload] 업로드 처리 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
