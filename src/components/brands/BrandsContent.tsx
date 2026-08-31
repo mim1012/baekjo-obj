@@ -15,6 +15,7 @@ import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/prese
 
 interface Props {
   brands: Brand[];
+  productCounts: Record<string, number>;
   initialSpotlightBrand?: Brand;
 }
 
@@ -42,7 +43,7 @@ function getCustomBrandDetails(brand: Brand) {
   };
 }
 
-function BrandsInner({ brands, initialSpotlightBrand }: Props) {
+function BrandsInner({ brands, productCounts, initialSpotlightBrand }: Props) {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
   const sort = searchParams.get('sort') === 'az' ? 'az' : 'default';
@@ -259,7 +260,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
           {displayedBrands.length > 0 ? (
             <div data-testid="brand-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayedBrands.map((brand) => (
-                <BrandCard key={brand.id} brand={brand} variant="brand-page" />
+                <BrandCard key={brand.id} brand={brand} productCount={productCounts[brand.id] ?? 0} variant="brand-page" />
               ))}
             </div>
           ) : (
@@ -313,7 +314,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   );
 }
 
-export default function BrandsContent({ brands, initialSpotlightBrand }: Props) {
+export default function BrandsContent({ brands, productCounts, initialSpotlightBrand }: Props) {
   return (
     <Suspense
       fallback={(
@@ -330,7 +331,7 @@ export default function BrandsContent({ brands, initialSpotlightBrand }: Props) 
         </main>
       )}
     >
-      <BrandsInner brands={brands} initialSpotlightBrand={initialSpotlightBrand} />
+      <BrandsInner brands={brands} productCounts={productCounts} initialSpotlightBrand={initialSpotlightBrand} />
     </Suspense>
   );
 }
