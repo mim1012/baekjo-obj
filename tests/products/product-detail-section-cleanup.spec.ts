@@ -33,7 +33,7 @@ test('제품 상세는 성분 안내와 브랜드 검토 구역 및 연결 탭�
   }
 
   expect(productPage).toContain('id="story"');
-  expect(productPage).toContain('<ProductPurchaseInfo product={product} />');
+  expect(productPage).toContain('<ProductPurchaseInfo brandShipping={brand?.shipping} />');
   expect(productPage).toContain('<ProductTabsClient');
 
   expect(tabsClient).not.toContain("['성분·사용법', 'details']");

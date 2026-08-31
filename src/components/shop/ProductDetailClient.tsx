@@ -4,20 +4,20 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
-import { Product } from '@/types';
+import type { BrandShippingPolicy, Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 import { getProductPointsRateLabel } from '@/lib/products/points';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 
 interface Props {
   product: Product;
+  brandShipping?: BrandShippingPolicy;
 }
 
-export default function ProductDetailClient({ product }: Props) {
+export default function ProductDetailClient({ product, brandShipping }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
@@ -233,14 +233,15 @@ export default function ProductDetailClient({ product }: Props) {
         </div>
 
         <div className="mt-8 space-y-4 text-sm">
-          <div className="flex">
-            <span className="w-24 text-[#59615B] font-medium">배송비</span>
-            <span className="text-[#59615B]">
-              {product.shippingFee !== undefined
-                ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
-                : DEFAULT_COMMERCE_POLICY.shippingLabel}
-            </span>
-          </div>
+          {brandShipping?.shippingFee !== undefined && (
+            <div className="flex">
+              <span className="w-24 text-[#59615B] font-medium">배송비</span>
+              <span className="text-[#59615B]">
+                {brandShipping.shippingFeeLabel ??
+                  (brandShipping.shippingFee === 0 ? '무료배송' : formatPrice(brandShipping.shippingFee))}
+              </span>
+            </div>
+          )}
           {pointsRateLabel && (
             <div className="flex">
               <span className="w-24 text-[#59615B] font-medium">적립금</span>

@@ -59,7 +59,10 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   return (
     <div className="page-canvas pb-16">
       <div className="site-container-wide py-8 lg:py-12">
-        <ProductDetailClient product={{ ...product, brandName: brand?.name ?? product.brandName }} />
+        <ProductDetailClient
+          product={{ ...product, brandName: brand?.name ?? product.brandName }}
+          brandShipping={brand?.shipping}
+        />
 
         <ProductTabsClient product={{ ...product, brandName: brand?.name ?? product.brandName }}>
           <section id="story" className="scroll-mt-36">
@@ -107,7 +110,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             </div>
           </section>
 
-          <ProductPurchaseInfo product={product} />
+          <ProductPurchaseInfo brandShipping={brand?.shipping} />
         </ProductTabsClient>
 
         <div className="mt-20 lg:mt-28">
