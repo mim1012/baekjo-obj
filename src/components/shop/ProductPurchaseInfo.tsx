@@ -1,10 +1,10 @@
-import { RotateCcw, Store, Truck } from 'lucide-react';
+import { Clock, Mail, MapPin, MessageCircle, Phone, RotateCcw, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
-import type { Product } from '@/types';
-import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import type { BrandShippingPolicy } from '@/types';
+import { CARRIER_LABELS } from '@/lib/carriers';
 
 interface ProductPurchaseInfoProps {
-  product: Product;
+  brandShipping?: BrandShippingPolicy;
 }
 
 const nonBlank = (value: string | undefined) => {
@@ -12,33 +12,91 @@ const nonBlank = (value: string | undefined) => {
   return trimmed ? trimmed : undefined;
 };
 
-export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProps) {
-  const deliveryLabel =
-    nonBlank(product.deliveryEstimate) ??
-    nonBlank(product.shippingNotice) ??
-    DEFAULT_COMMERCE_POLICY.deliveryEstimate;
-  const returnLabel = nonBlank(product.returnNotice) ?? DEFAULT_COMMERCE_POLICY.returnNotice;
-  const sellerName = nonBlank(product.sellerName) ?? '백조오브제 셀렉션';
+export default function ProductPurchaseInfo({ brandShipping }: ProductPurchaseInfoProps) {
+  if (!brandShipping) return null;
+
   const shippingLabel =
-    product.shippingFee === 0
-      ? '무료 배송'
-      : product.shippingFee !== undefined
-        ? formatPrice(product.shippingFee)
-        : DEFAULT_COMMERCE_POLICY.shippingLabel;
+    brandShipping.shippingFeeLabel ??
+    (brandShipping.shippingFee === 0
+      ? '무료배송'
+      : brandShipping.shippingFee !== undefined
+        ? formatPrice(brandShipping.shippingFee)
+        : undefined);
+  const dispatchLabel = nonBlank(brandShipping.dispatchEstimate);
+  const freeShippingLabel = brandShipping.freeShippingThreshold !== undefined
+    ? `${formatPrice(brandShipping.freeShippingThreshold)} 이상 구매 시`
+    : undefined;
+  const extraFeeLabel = nonBlank(brandShipping.extraFeeNotice);
+  const returnLabel = nonBlank(brandShipping.returnPolicy);
+  const returnExclusionsLabel = nonBlank(brandShipping.returnExclusions);
+  const returnAddressLabel = nonBlank(brandShipping.returnAddress);
+  const asLabel = nonBlank(brandShipping.asNotice);
+  const carrierLabel = nonBlank(brandShipping.carrierLabel);
+  const defaultCarrierLabel = brandShipping.defaultCarrier
+    ? CARRIER_LABELS[brandShipping.defaultCarrier]
+    : undefined;
+  const supportContactLabel = nonBlank(brandShipping.supportContact);
+  const supportHoursLabel = nonBlank(brandShipping.supportHours);
+  const supportEmailLabel = nonBlank(brandShipping.supportEmail);
+  const supportKakaoLabel = nonBlank(brandShipping.supportKakaoLabel);
+  const hasPolicy = Boolean(
+    shippingLabel ||
+      carrierLabel ||
+      defaultCarrierLabel ||
+      dispatchLabel ||
+      freeShippingLabel ||
+      extraFeeLabel ||
+      returnLabel ||
+      brandShipping.returnShippingFee !== undefined ||
+      brandShipping.exchangeShippingFee !== undefined ||
+      returnExclusionsLabel ||
+      returnAddressLabel ||
+      asLabel ||
+      supportContactLabel ||
+      supportHoursLabel ||
+      supportEmailLabel ||
+      supportKakaoLabel,
+  );
+  if (!hasPolicy) return null;
 
   return (
     <section aria-labelledby="purchase-information-title" className="mt-8 rounded-3xl border border-[#E7E0D5] bg-[#FAF8F3] p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
         <h2 id="purchase-information-title" className="text-base font-bold text-[#17211D]">
-          배송과 구매 안내
+          배송·교환·반품 안내
         </h2>
-        <span className="text-xs text-[#59615B]">주문 전 확인해 주세요</span>
       </div>
       <dl className="grid gap-5 text-sm text-[#17211D] sm:grid-cols-2">
-        <InfoRow icon={Truck} title="배송비" description={shippingLabel} />
-        <InfoRow icon={Truck} title="출고 일정" description={deliveryLabel} />
-        <InfoRow icon={RotateCcw} title="교환·반품" description={returnLabel} />
-        <InfoRow icon={Store} title="판매 주체" description={sellerName} />
+        {shippingLabel && <InfoRow icon={Truck} title="배송비" description={shippingLabel} />}
+        {freeShippingLabel && <InfoRow icon={Truck} title="무료배송 기준" description={freeShippingLabel} />}
+        {extraFeeLabel && <InfoRow icon={Truck} title="지역 추가배송비" description={extraFeeLabel} />}
+        {dispatchLabel && (
+          <InfoRow icon={Truck} title="출고 예정" description={dispatchLabel} />
+        )}
+        {carrierLabel && <InfoRow icon={Truck} title="배송 운영" description={carrierLabel} />}
+        {defaultCarrierLabel && <InfoRow icon={Truck} title="기본 택배사" description={defaultCarrierLabel} />}
+        {brandShipping.returnShippingFee !== undefined && (
+          <InfoRow icon={RotateCcw} title="반품 배송비" description={formatPrice(brandShipping.returnShippingFee)} />
+        )}
+        {brandShipping.exchangeShippingFee !== undefined && (
+          <InfoRow icon={RotateCcw} title="교환 배송비" description={formatPrice(brandShipping.exchangeShippingFee)} />
+        )}
+        {returnAddressLabel && (
+          <InfoRow icon={MapPin} title="반품/교환 주소" description={returnAddressLabel} />
+        )}
+        {returnLabel && (
+          <InfoRow icon={RotateCcw} title="교환/반품 정책" description={returnLabel} />
+        )}
+        {returnExclusionsLabel && (
+          <InfoRow icon={RotateCcw} title="교환/반품 제한" description={returnExclusionsLabel} />
+        )}
+        {asLabel && (
+          <InfoRow icon={RotateCcw} title="A/S 안내" description={asLabel} />
+        )}
+        {supportContactLabel && <InfoRow icon={Phone} title="고객지원 연락처" description={supportContactLabel} />}
+        {supportHoursLabel && <InfoRow icon={Clock} title="고객지원 시간" description={supportHoursLabel} />}
+        {supportEmailLabel && <InfoRow icon={Mail} title="고객지원 이메일" description={supportEmailLabel} />}
+        {supportKakaoLabel && <InfoRow icon={MessageCircle} title="카카오 채널" description={supportKakaoLabel} />}
       </dl>
     </section>
   );

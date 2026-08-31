@@ -219,8 +219,9 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(productForm).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(productForm).toContain('const { categorySettings } = useCategorySettings();');
-    expect(productForm).toContain('categorySettings.productCategories.map((c) => (');
-    expect(productForm).toContain('categorySettings.lifestyleCategories.map((c) => (');
+    expect(productForm).toContain('options={categorySettings.productCategories}');
+    expect(productForm).toContain('options={categorySettings.lifestyleCategories}');
+    expect(productForm).toContain('function SelectionCardGrid');
     expectNoCategoryBypass(productForm);
 
     expect(adminProducts).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");

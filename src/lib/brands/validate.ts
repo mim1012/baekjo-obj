@@ -71,6 +71,8 @@ const SHIPPING_TEXT_FIELDS = [
   'asNotice',
   'supportContact',
   'supportHours',
+  'supportEmail',
+  'supportKakaoLabel',
 ] as const;
 
 const SHIPPING_NUMBER_FIELDS = [

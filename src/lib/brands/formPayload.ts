@@ -150,6 +150,8 @@ export function buildBrandShippingPayload(form: BrandShippingPolicy): BrandShipp
   shipping.asNotice = cleanOptionalText(form.asNotice);
   shipping.supportContact = cleanOptionalText(form.supportContact);
   shipping.supportHours = cleanOptionalText(form.supportHours);
+  shipping.supportEmail = cleanOptionalText(form.supportEmail);
+  shipping.supportKakaoLabel = cleanOptionalText(form.supportKakaoLabel);
 
   return shipping;
 }
@@ -435,6 +437,12 @@ export function validateBrandDetailFormState(
     max: MAX_BRAND_SHIPPING_TEXT,
   });
   setTextError(errors, 'shipping.supportHours', '고객지원 시간', shipping.supportHours, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.supportEmail', '고객지원 이메일', shipping.supportEmail, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.supportKakaoLabel', '카카오 채널', shipping.supportKakaoLabel, {
     max: MAX_BRAND_SHIPPING_TEXT,
   });
 

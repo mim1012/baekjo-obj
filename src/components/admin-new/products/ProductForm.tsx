@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
-import type { Product, Brand } from '@/types';
+import type { Concern, Product, Brand } from '@/types';
 import { createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
   buildProductCreatePayload,
@@ -21,6 +21,7 @@ import ImageUploader from '@/components/admin-new/common/ImageUploader';
 interface ProductFormProps {
   initialData?: Product | null;
   brands: Brand[];
+  concerns: Concern[];
 }
 
 type RequiredField = 'name' | 'brandId' | 'category' | 'lifestyleCategory' | 'image';
@@ -83,6 +84,38 @@ function toUserMessage(err: unknown): string {
 const INPUT_CLASS =
   'w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none';
 
+interface SelectionCardGridProps {
+  options: readonly string[];
+  value: string | undefined;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+}
+
+function SelectionCardGrid({ options, value, onChange, ariaLabel }: SelectionCardGridProps) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label={ariaLabel}>
+      {options.map((option) => {
+        const selected = option === value;
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => onChange(option)}
+            className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
+              selected
+                ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
+                : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
+            }`}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 /** initialData.options(숫자) → 폼 상태(문자열). 편집 중 빈칸/부분입력을 허용하려고 문자열로 든다. */
 function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   return (product?.options ?? []).map((o) => ({
@@ -93,7 +126,7 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   }));
 }
 
-export default function ProductForm({ initialData, brands }: ProductFormProps) {
+export default function ProductForm({ initialData, brands, concerns }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
   const isEdit = !!initialData;
@@ -129,8 +162,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     sellerName: '',
     images: [],
     auditPoints: [],
-    relatedConcernSlugs: [],
-    tags: [],
+    concernTags: [],
     recommendedFor: [],
     caution: [],
     ...initialData,
@@ -185,8 +217,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     images: formData.images ?? [],
     options: optionRows,
     auditPoints: formData.auditPoints ?? [],
-    relatedConcernSlugs: formData.relatedConcernSlugs ?? [],
-    tags: formData.tags ?? [],
+    concernTags: formData.concernTags ?? [],
     ingredients: formData.ingredients,
     howToUse: formData.howToUse,
     recommendedFor: formData.recommendedFor ?? [],
@@ -270,8 +301,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
 
   const images = formData.images ?? [];
   const auditPoints = formData.auditPoints ?? [];
-  const relatedConcernSlugs = formData.relatedConcernSlugs ?? [];
-  const tags = formData.tags ?? [];
+  const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
   const caution = formData.caution ?? [];
 
@@ -344,22 +374,12 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 </FormField>
 
                 <FormField label="스토어 카테고리" htmlFor="product-category" required error={fieldErrors.category}>
-                  <select
-                    id="product-category"
-                    value={formData.category || ''}
-                    onChange={(e) => handleChange('category', e.target.value)}
-                    onBlur={() => handleBlur('category')}
-                    aria-invalid={!!fieldErrors.category}
-                    aria-describedby={fieldErrors.category ? 'product-category-error' : undefined}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="">카테고리 선택</option>
-                    {categorySettings.productCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectionCardGrid
+                    options={categorySettings.productCategories}
+                    value={formData.category}
+                    onChange={(value) => handleChange('category', value)}
+                    ariaLabel="스토어 카테고리 선택"
+                  />
                 </FormField>
               </div>
 
@@ -378,22 +398,12 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 </FormField>
 
                 <FormField label="라이프스타일 분류" htmlFor="product-lifestyle" required error={fieldErrors.lifestyleCategory}>
-                  <select
-                    id="product-lifestyle"
-                    value={formData.lifestyleCategory || ''}
-                    onChange={(e) => handleChange('lifestyleCategory', e.target.value)}
-                    onBlur={() => handleBlur('lifestyleCategory')}
-                    aria-invalid={!!fieldErrors.lifestyleCategory}
-                    aria-describedby={fieldErrors.lifestyleCategory ? 'product-lifestyle-error' : undefined}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="">선택</option>
-                    {categorySettings.lifestyleCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
+                  <SelectionCardGrid
+                    options={categorySettings.lifestyleCategories}
+                    value={formData.lifestyleCategory}
+                    onChange={(value) => handleChange('lifestyleCategory', value)}
+                    ariaLabel="라이프스타일 분류 선택"
+                  />
                 </FormField>
               </div>
 
@@ -527,25 +537,35 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                   maxItems={50}
                 />
               </FormField>
-              <FormField label="관련 고민 슬러그">
-                <ArrayEditor
-                  items={relatedConcernSlugs}
-                  onChange={(next) => handleChange('relatedConcernSlugs', next)}
-                  addLabel="관련 고민 추가"
-                  itemLabel="관련 고민"
-                  placeholder="예: skin, digestion"
-                  maxItems={50}
-                />
-              </FormField>
-              <FormField label="상품 태그">
-                <ArrayEditor
-                  items={tags}
-                  onChange={(next) => handleChange('tags', next)}
-                  addLabel="태그 추가"
-                  itemLabel="태그"
-                  placeholder="예: 저알러지, 시니어"
-                  maxItems={50}
-                />
+              <FormField label="주요 고민">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {concerns.map((concern) => {
+                    const selected = concernTags.includes(concern.slug);
+                    return (
+                      <button
+                        key={concern.slug}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() =>
+                          handleChange(
+                            'concernTags',
+                            selected
+                              ? concernTags.filter((slug) => slug !== concern.slug)
+                              : [...concernTags, concern.slug],
+                          )
+                        }
+                        className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
+                          selected
+                            ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
+                            : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
+                        }`}
+                      >
+                        {concern.title}
+                      </button>
+                    );
+                  })}
+                </div>
+                {concerns.length === 0 && <p className="text-sm text-[#8A918B]">등록된 고민이 없습니다.</p>}
               </FormField>
               <FormField label="성분/원재료">
                 <textarea
