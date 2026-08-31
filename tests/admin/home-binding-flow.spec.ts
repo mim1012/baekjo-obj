@@ -24,7 +24,12 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain('listCachedPublicProducts()');
     expect(pageSource).toContain('listCachedPublicBrands()');
     expect(publicCache).toContain("import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo'");
-    expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
+    const productsRepoImport = publicCache.match(
+      /import\s*\{([\s\S]*?)\}\s*from ['"]@\/lib\/products\/repo['"]/,
+    )?.[1] ?? '';
+    expect(productsRepoImport).toContain('listProducts');
+    expect(productsRepoImport).toContain('getProductById');
+    expect(productsRepoImport).toContain('type ProductListFilter');
     expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
     expect(publicCache).toContain('async () => listBrands(true)');
     // 공지도 DB 정본(notices_config) — 서버 wrapper 가 repo 폴백 조회로 읽어 props 로 주입한다.
