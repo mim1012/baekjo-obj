@@ -88,7 +88,6 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'options',
   'auditPoints',
   'relatedConcernSlugs',
-  'tags',
   'detailBlocks', // ProductDetailEditor(/admin/products/[id]/editor)로 text+image 블록 저장 → #story 순서 검증
   'ingredients',
   'howToUse',
@@ -115,6 +114,8 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
   categoryName: '관리자 UI 없음 — ProductForm 미노출(계약만 개방).',
   concernTags:
     '관리자 UI 없음 — ProductForm 미노출, 생성 시 []로 기본값. (Brand.relatedConcernSlugs 와 혼동 주의)',
+  tags:
+    '관리자 UI 제거 — 카테고리·고민 DB 선택으로 분류 체계를 통일하고 기존 저장값은 read-modify-write로 보존.',
   ageGroup:
     '관리자 UI 없음 — formPayload.ts 가 항상 "all" 로 하드코딩 전송(사용자 편집 불가).',
   brandName:
@@ -217,11 +218,12 @@ test.describe('상품·브랜드 폼 필드 커버리지 감사 — 필드 누�
     assertNoStale('브랜드', brandFields, BRAND_VERIFIED, BRAND_EXCLUDED);
   });
 
-  test('상품 검증 포인트·관련 고민·태그는 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
-    for (const connected of ['auditPoints', 'relatedConcernSlugs', 'tags']) {
+  test('상품 검증 포인트·관련 고민은 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
+    for (const connected of ['auditPoints', 'relatedConcernSlugs']) {
       expect(PRODUCT_VERIFIED).toContain(connected);
       expect(PRODUCT_EXCLUDED[connected], `Product.${connected} 는 EXCLUDED 에 남아 있으면 안 됨`).toBeUndefined();
     }
+    expect(PRODUCT_EXCLUDED.tags).toBeTruthy();
   });
 });
 

@@ -15,9 +15,10 @@ import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/
 interface Props {
   product: Product;
   brandShipping?: BrandShippingPolicy;
+  relatedConcernLabels?: string[];
 }
 
-export default function ProductDetailClient({ product, brandShipping }: Props) {
+export default function ProductDetailClient({ product, brandShipping, relatedConcernLabels = [] }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
@@ -87,6 +88,9 @@ export default function ProductDetailClient({ product, brandShipping }: Props) {
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
+  const categoryLabels = [product.categoryName ?? product.category, product.lifestyleCategory].filter(
+    (label, index, labels): label is string => Boolean(label) && labels.indexOf(label) === index,
+  );
 
 
   // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
@@ -202,6 +206,25 @@ export default function ProductDetailClient({ product, brandShipping }: Props) {
       <div className="w-full lg:w-1/2 flex flex-col pt-2">
         <div className="mb-3 text-sm font-semibold tracking-wide text-[#59615B] uppercase">{brandName}</div>
         <h1 className="text-3xl font-bold text-[#17211D] tracking-tight text-balance leading-tight">{product.name}</h1>
+
+        {categoryLabels.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2" aria-label="상품 카테고리">
+            {categoryLabels.map((label) => (
+              <span key={label} className="rounded-full bg-[#F1EDE5] px-3 py-1 text-xs font-medium text-[#17211D]">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+        {relatedConcernLabels.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="상품 주요 고민">
+            {relatedConcernLabels.map((label) => (
+              <span key={label} className="rounded-full bg-[#EDF0EC] px-3 py-1 text-xs font-medium text-[#17201B]">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
           <Star className="size-4 fill-[#17211D]" />

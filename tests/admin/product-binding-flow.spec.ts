@@ -63,6 +63,32 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(patchFunction).toContain('return NextResponse.json({ product: result.data }, { status: 200 });');
   });
 
+  test('상품 관리자 폼은 DB 고민·카테고리 카드만 사용하고 태그 입력은 제거한다', () => {
+    const newPage = src('src', 'app', 'admin', 'products', 'new', 'page.tsx');
+    const editPage = src('src', 'app', 'admin', 'products', '[id]', 'page.tsx');
+    const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
+
+    expect(newPage).toContain('getConcernsConfigWithFallback()');
+    expect(editPage).toContain('getConcernsConfigWithFallback()');
+    expect(formSource).toContain('concerns: Concern[]');
+    expect(formSource).toContain('function SelectionCardGrid');
+    expect(formSource).toContain('주요 고민');
+    expect(formSource).not.toContain('상품 태그');
+    expect(formSource).not.toContain('placeholder="예: skin, digestion"');
+  });
+
+  test('상품 상세는 카테고리와 고민 제목을 표시하고 내부 slug를 표시하지 않는다', () => {
+    const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
+    const detailClient = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
+
+    expect(detailPage).toContain('getConcernsConfigWithFallback()');
+    expect(detailPage).toContain('concernTitleBySlug');
+    expect(detailPage).toContain('relatedConcernLabels');
+    expect(detailClient).toContain('aria-label="상품 카테고리"');
+    expect(detailClient).toContain('aria-label="상품 주요 고민"');
+    expect(detailClient).not.toContain('product.tags');
+  });
+
   test('repo update 는 DB 행을 includeHidden 으로 읽고 update 결과를 rowToProduct 로 되읽는다', () => {
     const repoSource = src('src', 'lib', 'products', 'repo.ts');
     const updateFunction = sliceBetween(

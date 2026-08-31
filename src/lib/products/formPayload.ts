@@ -28,7 +28,6 @@ export const PRODUCT_FORM_FIELDS = [
   'options',
   'auditPoints',
   'relatedConcernSlugs',
-  'tags',
   'ingredients',
   'howToUse',
   'recommendedFor',
@@ -114,7 +113,6 @@ export interface ProductFormState {
   options: ProductOptionFormState[];
   auditPoints: string[];
   relatedConcernSlugs: string[];
-  tags: string[];
   ingredients?: string;
   howToUse?: string;
   recommendedFor: string[];
@@ -159,7 +157,6 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     options: normalizeOptions(form.options),
     auditPoints: cleanStringList(form.auditPoints),
     relatedConcernSlugs: cleanStringList(form.relatedConcernSlugs),
-    tags: cleanStringList(form.tags),
     ingredients: form.ingredients?.trim() ?? '',
     howToUse: form.howToUse?.trim() ?? '',
     recommendedFor: cleanStringList(form.recommendedFor),

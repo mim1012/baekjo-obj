@@ -34,7 +34,6 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
     ],
     auditPoints: ['상품 검증 포인트'],
     relatedConcernSlugs: ['skin'],
-    tags: ['저알러지'],
     ingredients: '닭고기, 현미',
     howToUse: '하루 2회 급여',
     recommendedFor: ['알러지가 있는 반려견'],
@@ -76,13 +75,12 @@ test('rating·reviewCount·concernTags 는 폼이 담지 않는다(집계·별�
 
 /* ── 봉인 해제 필드가 실제로 담긴다 ── */
 
-test('봉인됐던 필드(images·options·auditPoints·relatedConcernSlugs·tags·ingredients·howToUse·recommendedFor·caution·배송·판매자)가 payload 에 담긴다', () => {
+test('봉인됐던 필드(images·options·auditPoints·relatedConcernSlugs·ingredients·howToUse·recommendedFor·caution·배송·판매자)가 payload 에 담긴다', () => {
   const payload = buildProductUpdatePayload(form(), '지위픽');
   expect(payload.images).toEqual(['/products/p1.webp', '/products/p1-2.webp']);
   expect(payload.options).toHaveLength(2);
   expect(payload.auditPoints).toEqual(['상품 검증 포인트']);
   expect(payload.relatedConcernSlugs).toEqual(['skin']);
-  expect(payload.tags).toEqual(['저알러지']);
   expect(payload.ingredients).toBe('닭고기, 현미');
   expect(payload.howToUse).toBe('하루 2회 급여');
   expect(payload.recommendedFor).toEqual(['알러지가 있는 반려견']);
@@ -103,18 +101,16 @@ test('배열은 입력을 그대로 참조하지 않고 새 배열로 복사한�
   expect(payload.images).not.toBe(src.images);
   expect(payload.auditPoints).not.toBe(src.auditPoints);
   expect(payload.relatedConcernSlugs).not.toBe(src.relatedConcernSlugs);
-  expect(payload.tags).not.toBe(src.tags);
   expect(payload.recommendedFor).not.toBe(src.recommendedFor);
   expect(payload.caution).not.toBe(src.caution);
 });
 
-test('images·auditPoints·relatedConcernSlugs·tags·recommendedFor·caution 의 공백 항목은 제거된다', () => {
+test('images·auditPoints·relatedConcernSlugs·recommendedFor·caution 의 공백 항목은 제거된다', () => {
   const payload = buildProductUpdatePayload(
     form({
       images: ['/products/p1.webp', '   ', ''],
       auditPoints: ['검증', ' '],
       relatedConcernSlugs: ['skin', ''],
-      tags: ['태그', '  '],
       recommendedFor: ['유효', '  '],
       caution: ['', '주의'],
     }),
@@ -123,20 +119,18 @@ test('images·auditPoints·relatedConcernSlugs·tags·recommendedFor·caution �
   expect(payload.images).toEqual(['/products/p1.webp']);
   expect(payload.auditPoints).toEqual(['검증']);
   expect(payload.relatedConcernSlugs).toEqual(['skin']);
-  expect(payload.tags).toEqual(['태그']);
   expect(payload.recommendedFor).toEqual(['유효']);
   expect(payload.caution).toEqual(['주의']);
 });
 
 test('배열이 비면 빈 배열을 담는다(전체 삭제 반영)', () => {
   const payload = buildProductUpdatePayload(
-    form({ images: [], auditPoints: [], relatedConcernSlugs: [], tags: [], recommendedFor: [], caution: [] }),
+    form({ images: [], auditPoints: [], relatedConcernSlugs: [], recommendedFor: [], caution: [] }),
     '지위픽',
   );
   expect(payload.images).toEqual([]);
   expect(payload.auditPoints).toEqual([]);
   expect(payload.relatedConcernSlugs).toEqual([]);
-  expect(payload.tags).toEqual([]);
   expect(payload.recommendedFor).toEqual([]);
   expect(payload.caution).toEqual([]);
 });

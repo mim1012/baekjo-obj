@@ -10,6 +10,7 @@ import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
 import ProductTabsClient from '@/components/shop/ProductTabsClient';
+import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -45,10 +46,15 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = await getCachedPublicProductById(id);
   if (!product) notFound();
 
-  const [brand, allProducts] = await Promise.all([
+  const [brand, allProducts, concernsConfig] = await Promise.all([
     getCachedPublicBrandById(product.brandId),
     listCachedPublicProducts(),
+    getConcernsConfigWithFallback(),
   ]);
+  const concernTitleBySlug = new Map(concernsConfig.items.map((concern) => [concern.slug, concern.title]));
+  const relatedConcernLabels = (product.relatedConcernSlugs ?? [])
+    .map((slug) => concernTitleBySlug.get(slug))
+    .filter((label): label is string => Boolean(label));
   const relatedProducts = allProducts
     .filter((candidate) => candidate.id !== product.id && (
       candidate.category === product.category
@@ -62,6 +68,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
         <ProductDetailClient
           product={{ ...product, brandName: brand?.name ?? product.brandName }}
           brandShipping={brand?.shipping}
+          relatedConcernLabels={relatedConcernLabels}
         />
 
         <ProductTabsClient product={{ ...product, brandName: brand?.name ?? product.brandName }}>
