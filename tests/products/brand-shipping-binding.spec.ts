@@ -35,6 +35,8 @@ test.describe('브랜드 배송정책의 상품 상세 공통 바인딩', () => 
     expect(purchaseInfo).toContain('title="교환/반품 제한"');
     expect(purchaseInfo).toContain('title="고객지원 연락처"');
     expect(purchaseInfo).toContain('title="고객지원 시간"');
+    expect(purchaseInfo).toContain('title="고객지원 이메일"');
+    expect(purchaseInfo).toContain('title="카카오 채널"');
   });
 
   test('브랜드 상세와 상품 상세가 같은 Brand.shipping 소스를 사용한다', () => {

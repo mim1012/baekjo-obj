@@ -515,6 +515,28 @@ export default function BrandDetailEditor({
                   placeholder="예: 평일 10:00~17:00"
                 />
               </FormField>
+
+              <FormField label="고객지원 이메일" htmlFor="ship-support-email" error={fieldErrors['shipping.supportEmail']}>
+                <input
+                  id="ship-support-email"
+                  type="email"
+                  value={shipping.supportEmail ?? ''}
+                  onChange={(e) => setShippingField('supportEmail', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: help@example.com"
+                />
+              </FormField>
+
+              <FormField label="카카오 채널" htmlFor="ship-support-kakao" error={fieldErrors['shipping.supportKakaoLabel']}>
+                <input
+                  id="ship-support-kakao"
+                  type="text"
+                  value={shipping.supportKakaoLabel ?? ''}
+                  onChange={(e) => setShippingField('supportKakaoLabel', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 브랜드명 카카오톡 채널"
+                />
+              </FormField>
             </div>
           </div>
         </section>

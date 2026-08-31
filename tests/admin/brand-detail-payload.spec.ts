@@ -215,6 +215,8 @@ test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화�
         asNotice: '  하자 접수 안내  ',
         supportContact: '  help@example.com  ',
         supportHours: '  평일 10:00~17:00  ',
+        supportEmail: '  support@example.com  ',
+        supportKakaoLabel: '  브랜드 카카오톡  ',
       },
     }),
   );
@@ -235,6 +237,8 @@ test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화�
     asNotice: '하자 접수 안내',
     supportContact: 'help@example.com',
     supportHours: '평일 10:00~17:00',
+    supportEmail: 'support@example.com',
+    supportKakaoLabel: '브랜드 카카오톡',
   });
 });
 
@@ -255,6 +259,8 @@ test('shipping payload 는 빈 텍스트와 미입력 숫자를 제거한다', (
     asNotice: 'A/S 안내',
     supportContact: undefined,
     supportHours: '  ',
+    supportEmail: '  ',
+    supportKakaoLabel: undefined,
   });
 
   expect(shipping).toEqual({

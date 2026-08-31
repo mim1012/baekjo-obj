@@ -133,6 +133,8 @@ test('shipping 정책은 택배사·금액·문구를 검증하고 정규화한�
       asNotice: '  하자 접수 안내  ',
       supportContact: '  help@example.com  ',
       supportHours: '  평일 10:00~17:00  ',
+      supportEmail: '  support@example.com  ',
+      supportKakaoLabel: '  브랜드 카카오톡  ',
     },
   }, false);
 
@@ -153,6 +155,8 @@ test('shipping 정책은 택배사·금액·문구를 검증하고 정규화한�
     asNotice: '하자 접수 안내',
     supportContact: 'help@example.com',
     supportHours: '평일 10:00~17:00',
+    supportEmail: 'support@example.com',
+    supportKakaoLabel: '브랜드 카카오톡',
   });
 });
 

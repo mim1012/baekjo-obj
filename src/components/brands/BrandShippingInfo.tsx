@@ -1,4 +1,4 @@
-import { Clock, MapPin, Phone, RotateCcw, Truck } from 'lucide-react';
+import { Clock, Mail, MapPin, MessageCircle, Phone, RotateCcw, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import { CARRIER_LABELS } from '@/lib/carriers';
 import type { Brand } from '@/types';
@@ -69,6 +69,12 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
   }
   if (shipping.supportHours) {
     rows.push({ icon: Clock, title: '고객지원 시간', description: shipping.supportHours });
+  }
+  if (shipping.supportEmail) {
+    rows.push({ icon: Mail, title: '고객지원 이메일', description: shipping.supportEmail });
+  }
+  if (shipping.supportKakaoLabel) {
+    rows.push({ icon: MessageCircle, title: '카카오 채널', description: shipping.supportKakaoLabel });
   }
 
   if (rows.length === 0) return null;

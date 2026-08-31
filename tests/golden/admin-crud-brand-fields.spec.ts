@@ -56,6 +56,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
   const asNotice = `AS접수안내 ${runId}`;
   const supportContact = `010-0000-0000 ${runId}`;
   const supportHours = `평일 10-17 ${runId}`;
+  const supportEmail = `support-${runId}@example.com`;
+  const supportKakaoLabel = `브랜드 카카오톡 ${runId}`;
   const reportNo = `BOA-${runId}`;
   const auditedAt = '2026-01-15';
   const auditStatus = `검증완료 ${runId}`;
@@ -213,6 +215,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await page.locator('#ship-as-notice').fill(asNotice);
     await page.locator('#ship-support-contact').fill(supportContact);
     await page.locator('#ship-support-hours').fill(supportHours);
+    await page.locator('#ship-support-email').fill(supportEmail);
+    await page.locator('#ship-support-kakao').fill(supportKakaoLabel);
 
     // 감사 보고서(8필드 전부).
     await page.locator('#ar-reportNo').fill(reportNo);
@@ -290,6 +294,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#ship-as-notice')).toHaveValue(asNotice);
     await expect(page.locator('#ship-support-contact')).toHaveValue(supportContact);
     await expect(page.locator('#ship-support-hours')).toHaveValue(supportHours);
+    await expect(page.locator('#ship-support-email')).toHaveValue(supportEmail);
+    await expect(page.locator('#ship-support-kakao')).toHaveValue(supportKakaoLabel);
     // 감사 보고서 8필드.
     await expect(page.locator('#ar-reportNo')).toHaveValue(reportNo);
     await expect(page.locator('#ar-auditedAt')).toHaveValue(auditedAt);

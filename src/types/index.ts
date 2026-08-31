@@ -111,6 +111,8 @@ export interface BrandShippingPolicy {
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;
+  supportEmail?: string;
+  supportKakaoLabel?: string;
 }
 
 export interface BrandAuditReport {

@@ -1,4 +1,4 @@
-import { Clock, MapPin, Phone, RotateCcw, Truck } from 'lucide-react';
+import { Clock, Mail, MapPin, MessageCircle, Phone, RotateCcw, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import type { BrandShippingPolicy } from '@/types';
 import { CARRIER_LABELS } from '@/lib/carriers';
@@ -37,6 +37,8 @@ export default function ProductPurchaseInfo({ brandShipping }: ProductPurchaseIn
     : undefined;
   const supportContactLabel = nonBlank(brandShipping.supportContact);
   const supportHoursLabel = nonBlank(brandShipping.supportHours);
+  const supportEmailLabel = nonBlank(brandShipping.supportEmail);
+  const supportKakaoLabel = nonBlank(brandShipping.supportKakaoLabel);
   const hasPolicy = Boolean(
     shippingLabel ||
       carrierLabel ||
@@ -51,7 +53,9 @@ export default function ProductPurchaseInfo({ brandShipping }: ProductPurchaseIn
       returnAddressLabel ||
       asLabel ||
       supportContactLabel ||
-      supportHoursLabel,
+      supportHoursLabel ||
+      supportEmailLabel ||
+      supportKakaoLabel,
   );
   if (!hasPolicy) return null;
 
@@ -91,6 +95,8 @@ export default function ProductPurchaseInfo({ brandShipping }: ProductPurchaseIn
         )}
         {supportContactLabel && <InfoRow icon={Phone} title="고객지원 연락처" description={supportContactLabel} />}
         {supportHoursLabel && <InfoRow icon={Clock} title="고객지원 시간" description={supportHoursLabel} />}
+        {supportEmailLabel && <InfoRow icon={Mail} title="고객지원 이메일" description={supportEmailLabel} />}
+        {supportKakaoLabel && <InfoRow icon={MessageCircle} title="카카오 채널" description={supportKakaoLabel} />}
       </dl>
     </section>
   );
