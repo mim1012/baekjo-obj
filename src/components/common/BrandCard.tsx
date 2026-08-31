@@ -9,15 +9,16 @@ type BrandCardVariant = 'default' | 'brand-page' | 'care-related';
 
 interface Props {
   brand: Brand;
+  productCount?: number;
   variant?: BrandCardVariant;
 }
 
-export default function BrandCard({ brand, variant = 'default' }: Props) {
+export default function BrandCard({ brand, productCount, variant = 'default' }: Props) {
   const presentation = getBrandPresentation(brand);
   const fullBrandName = formatBrandDisplayName(brand.name);
 
   if (variant === 'brand-page') {
-    const linkedProductCount = brand.representativeProductIds ? brand.representativeProductIds.length : 0;
+    const linkedProductCount = productCount ?? 0;
     const displayTags = brand.displayTags?.length
       ? getBrandDisplayTags(brand)
       : [presentation.cardTags];

@@ -1,4 +1,4 @@
-import { listCachedPublicBrands } from '@/lib/public-read-cache';
+import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache';
 import BrandsContent from '@/components/brands/BrandsContent';
 
 export const metadata = {
@@ -15,5 +15,6 @@ export const dynamic = 'force-dynamic';
 
 export default async function BrandsPage() {
   const brands = await listCachedPublicBrands();
-  return <BrandsContent brands={brands} />;
+  const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));
+  return <BrandsContent brands={brands} productCounts={productCounts} />;
 }

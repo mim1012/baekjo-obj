@@ -122,6 +122,49 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
   return (data as ProductRow[]).map(rowToProduct);
 }
 
+export async function countVisibleProductsByBrand(brandIds: string[]): Promise<Record<string, number>> {
+  const uniqueBrandIds = [...new Set(brandIds)];
+  const entries = await Promise.all(
+    uniqueBrandIds.map(async (brandId) => {
+      const { count, error } = await getSupabase()
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('brand_id', brandId)
+        .eq('is_visible', true);
+      if (error) throw error;
+      return { brandId, count: count ?? 0 };
+    }),
+  );
+  return entries.reduce<Record<string, number>>((counts, entry) => {
+    counts[entry.brandId] = entry.count;
+    return counts;
+  }, {});
+}
+
+export async function listAllVisibleProductsByBrand(brandId: string): Promise<Product[]> {
+  const rows: ProductRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await getSupabase()
+      .from('products')
+      .select(SELECT_COLUMNS)
+      .eq('brand_id', brandId)
+      .eq('is_visible', true)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(offset, offset + PRODUCTS_LIST_CAP - 1);
+    if (error) throw error;
+
+    const page = (data as ProductRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < PRODUCTS_LIST_CAP) break;
+    offset += page.length;
+  }
+
+  return rows.map(rowToProduct);
+}
+
 export async function listProductsByBrand(brandId: string): Promise<Product[]> {
   return listProducts({ brandId });
 }

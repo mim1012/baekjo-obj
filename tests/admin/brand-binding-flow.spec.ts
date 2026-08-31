@@ -126,16 +126,25 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productsClient = src('src', 'components', 'brands', 'BrandProductsClient.tsx');
 
-    expect(brandsPage).toContain("import { listCachedPublicBrands } from '@/lib/public-read-cache'");
+    expect(brandsPage).toContain("import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache'");
     expect(brandsPage).toContain("export const dynamic = 'force-dynamic'");
     expect(brandsPage).toContain('const brands = await listCachedPublicBrands();');
-    expect(brandsPage).toContain('<BrandsContent brands={brands} />');
+    expect(brandsPage).toContain('const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));');
+    expect(brandsPage).toContain('<BrandsContent brands={brands} productCounts={productCounts} />');
     expectPublicBrandSource(brandsPage);
 
     expect(detailPage).toContain('getCachedPublicBrandById,');
-    expect(detailPage).toContain('listCachedPublicProducts,');
+    expect(detailPage).toContain('getCachedPublicProductCountsByBrand,');
+    expect(detailPage).toContain('listCachedPublicProductsByBrand,');
     expect(detailPage).toContain('const brand = await getCachedPublicBrandBySlug(id);');
-    expect(detailPage).toContain('const brandProducts = await listCachedPublicProducts({ brandId: brand.id });');
+    expect(detailPage).toContain('const [brandProducts, productCounts] = await Promise.all([');
+    expect(detailPage).toContain('listCachedPublicProductsByBrand(brand.id),');
+    expect(detailPage).toContain('const publicProductCount = productCounts[brand.id] ?? 0;');
+    expect(detailPage).toContain('상품 {publicProductCount}개');
+    expect(detailPage).toContain('const representativeProduct = brandProducts.find((product) =>');
+    expect(detailPage).toContain('const heroProduct = representativeProduct ?? brandProducts[0];');
+    expect(detailPage).toContain('{brandProducts.map((product) => (');
+    expect(detailPage).not.toContain('const displayProducts = representativeProducts.length > 0 ? representativeProducts : brandProducts;');
     expect(detailPage).not.toMatch(/getBrandById\(\s*id\s*,/);
     expect(detailPage).not.toContain('getBrandById(id, { includeHidden');
     expectPublicBrandSource(detailPage);
@@ -155,8 +164,10 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(shippingInfoSource).toContain('if (!shipping) return null;');
     expect(shippingInfoSource).toContain('if (rows.length === 0) return null;');
 
-    expect(brandsContent).toContain('export default function BrandsContent({ brands, initialSpotlightBrand }: Props)');
+    expect(brandsContent).toContain('export default function BrandsContent({ brands, productCounts, initialSpotlightBrand }: Props)');
+    expect(brandsContent).toContain('productCounts: Record<string, number>;');
     expect(brandsContent).toContain('.filter((brand) => brand.isVisible !== false)');
+    expect(brandsContent).toContain('<BrandCard key={brand.id} brand={brand} productCount={productCounts[brand.id] ?? 0} variant="brand-page" />');
     expectPublicBrandSource(brandsContent);
 
     expectNoMutableBrandImport(productsClient);
@@ -170,5 +181,17 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(productsClient).toContain('{visibleProducts.length > 0 && (');
     expect(productsClient).not.toContain('getPartnerProducts(');
     expect(productsClient).not.toMatch(/\b(?:fetch|getAdminBrands|listBrands|getBrandById)\s*\(/);
+
+    const brandCard = src('src', 'components', 'common', 'BrandCard.tsx');
+    expect(brandCard).toContain('productCount?: number;');
+    expect(brandCard).toContain('const linkedProductCount = productCount ?? 0;');
+    expect(brandCard).not.toContain('brand.representativeProductIds.length');
+
+    expect(publicCache).toContain('countVisibleProductsByBrand');
+    expect(publicCache).toContain('listAllVisibleProductsByBrand');
+    const productRepo = src('src', 'lib', 'products', 'repo.ts');
+    expect(productRepo).toContain("select('id', { count: 'exact', head: true })");
+    expect(productRepo).toContain(".eq('is_visible', true)");
+    expect(productRepo).toContain('listAllVisibleProductsByBrand');
   });
 });

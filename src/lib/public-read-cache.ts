@@ -1,7 +1,13 @@
 import { unstable_cache } from 'next/cache';
 import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo';
 import { getCategorySettings } from '@/lib/categorySettings/repo';
-import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo';
+import {
+  countVisibleProductsByBrand,
+  getProductById,
+  listAllVisibleProductsByBrand,
+  listProducts,
+  type ProductListFilter,
+} from '@/lib/products/repo';
 import { getSiteSettings } from '@/lib/settings/repo';
 
 export const PUBLIC_READ_CACHE_TAGS = {
@@ -29,6 +35,18 @@ const cachedPublicProducts = unstable_cache(
 const cachedPublicProductById = unstable_cache(
   async (id: string) => getProductById(id),
   ['public-product-by-id'],
+  { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.products] },
+);
+
+const cachedPublicProductsByBrand = unstable_cache(
+  async (brandId: string) => listAllVisibleProductsByBrand(brandId),
+  ['public-products-by-brand-v1'],
+  { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.products] },
+);
+
+const cachedPublicProductCountsByBrand = unstable_cache(
+  async (brandIdsKey: string) => countVisibleProductsByBrand(brandIdsKey ? brandIdsKey.split(',') : []),
+  ['public-product-counts-by-brand-v1'],
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.products] },
 );
 
@@ -68,6 +86,15 @@ export function listCachedPublicProducts(filter: PublicProductListFilter = {}) {
 
 export function getCachedPublicProductById(id: string) {
   return cachedPublicProductById(id);
+}
+
+export function listCachedPublicProductsByBrand(brandId: string) {
+  return cachedPublicProductsByBrand(brandId);
+}
+
+export function getCachedPublicProductCountsByBrand(brandIds: string[]) {
+  const key = [...new Set(brandIds)].sort().join(',');
+  return cachedPublicProductCountsByBrand(key);
 }
 
 export function listCachedPublicBrands() {
