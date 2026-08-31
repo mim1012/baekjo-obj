@@ -10,33 +10,28 @@ test.describe('브랜드 배송정책의 상품 상세 공통 바인딩', () => 
     const page = src('src', 'app', 'shop', '[id]', 'page.tsx');
 
     expect(page).toContain('getCachedPublicBrandById(product.brandId)');
-    expect(page).toContain('brandShipping={brand?.shipping}');
-    expect(page).toContain('<ProductPurchaseInfo brandShipping={brand?.shipping} />');
+    expect(page).not.toContain('brandShipping={brand?.shipping}');
+    expect(page).toContain('<ProductPurchaseInfo product={product} />');
   });
 
   test('상품 상세 정책은 공통 기본 문구 없이 브랜드 정책이 없으면 숨긴다', () => {
     const detailClient = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
     const purchaseInfo = src('src', 'components', 'shop', 'ProductPurchaseInfo.tsx');
 
-    expect(detailClient).toContain('brandShipping?.shippingFee');
+    expect(detailClient).toContain('product.shippingFee');
+    expect(detailClient).not.toContain('brandShipping');
     expect(detailClient).not.toContain('DEFAULT_COMMERCE_POLICY');
-    expect(purchaseInfo).toContain('if (!brandShipping) return null;');
+    expect(purchaseInfo).toContain('if (!hasPolicy) return null;');
+    expect(purchaseInfo).not.toContain('brandShipping');
     expect(purchaseInfo).not.toContain('DEFAULT_COMMERCE_POLICY');
-    expect(purchaseInfo).not.toContain('product.deliveryEstimate');
-    expect(purchaseInfo).not.toContain('product.returnNotice');
-    expect(purchaseInfo).toContain('title="배송 운영"');
-    expect(purchaseInfo).toContain('title="기본 택배사"');
-    expect(purchaseInfo).toContain('title="무료배송 기준"');
-    expect(purchaseInfo).toContain('title="지역 추가배송비"');
-    expect(purchaseInfo).toContain('title="반품 배송비"');
-    expect(purchaseInfo).toContain('title="교환 배송비"');
+    expect(purchaseInfo).toContain('product.deliveryEstimate');
+    expect(purchaseInfo).toContain('product.shippingNotice');
+    expect(purchaseInfo).toContain('product.returnNotice');
+    expect(purchaseInfo).toContain('product.sellerName');
+    expect(purchaseInfo).toContain('title="배송 유의사항"');
+    expect(purchaseInfo).toContain('title="판매자"');
     expect(purchaseInfo).toContain('title="출고 예정"');
-    expect(purchaseInfo).toContain('title="교환/반품 정책"');
-    expect(purchaseInfo).toContain('title="교환/반품 제한"');
-    expect(purchaseInfo).toContain('title="고객지원 연락처"');
-    expect(purchaseInfo).toContain('title="고객지원 시간"');
-    expect(purchaseInfo).toContain('title="고객지원 이메일"');
-    expect(purchaseInfo).toContain('title="카카오 채널"');
+    expect(purchaseInfo).toContain('title="교환·반품 안내"');
   });
 
   test('브랜드 상세와 상품 상세가 같은 Brand.shipping 소스를 사용한다', () => {
