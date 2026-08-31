@@ -3,9 +3,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Minus, Plus, Trash2 } from 'lucide-react';
-import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';
-import { getPublicProductsOrNull, getPublicBrands, isLoggedIn } from '@/lib/storage';
+import { clearCart, getCart, pruneCartToVisibleProducts, removeFromCart, updateCartQuantity } from '@/lib/cart';
+import { getPublicProductsOrNull, getPublicBrands, getSessionUser, isLoggedIn } from '@/lib/storage';
 import { formatPrice } from '@/lib/format';
 import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
@@ -13,6 +14,7 @@ import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 
 export default function CartPage() {
+  const router = useRouter();
   const mounted = useMounted();
   const [, refreshCart] = useState(0);
   // 카트 항목은 localStorage(클라이언트) 기준이라 어떤 상품이 필요한지 서버에서
@@ -23,8 +25,26 @@ export default function CartPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    getSessionUser().then((user) => {
+      if (cancelled) return;
+      if (!user) {
+        clearCart();
+        router.replace('/login?redirect=/cart');
+        return;
+      }
+      setSessionChecked(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  useEffect(() => {
+    if (!sessionChecked) return;
     let cancelled = false;
     Promise.all([getPublicProductsOrNull(), getPublicBrands()]).then(([productList, brandList]) => {
       if (cancelled) return;
@@ -49,9 +69,9 @@ export default function CartPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [sessionChecked]);
 
-  if (!mounted || productsLoading) return null;
+  if (!mounted || !sessionChecked || productsLoading) return null;
 
   const cartItems: CartItem[] = getCart();
 

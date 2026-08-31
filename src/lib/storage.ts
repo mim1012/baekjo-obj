@@ -11,6 +11,7 @@ import {
   Shipment,
   User,
 } from '@/types';
+import { clearCart } from '@/lib/cart';
 import type {
   DeliveryStatus,
   OrderShipmentTrackingResponse,
@@ -1565,6 +1566,7 @@ export function setCurrentUser(user: User | null): void {
   const previousUser = getCurrentUser();
   if (!user || previousUser?.id !== user.id) {
     clearWishlistCache();
+    clearCart();
   }
   if (user) {
     setJSON(USER_KEY, user);

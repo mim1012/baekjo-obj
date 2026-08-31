@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { formatPrice } from '@/lib/format';
-import { removeWishlist } from '@/lib/storage';
+import { getSessionUser, removeWishlist } from '@/lib/storage';
 import { addToCart } from '@/lib/cart';
 import Pagination from './Pagination';
 import EmptyState from '@/components/common/EmptyState';
@@ -77,7 +77,12 @@ export default function WishlistSection({ wishlistIds, products, onWishlistChang
 
   // ProductCard.tsx handleCart와 동일한 규칙(hasPrice && stock > 0)을 재사용 — 가격 미확정("가격
   // 협의") 상품은 장바구니에 담을 수 없어 버튼을 비활성화하고 같은 라벨로 안내한다.
-  const handleAddToCart = (productId: string) => {
+  const handleAddToCart = async (productId: string) => {
+    const user = await getSessionUser();
+    if (!user) {
+      alert('로그인 후 장바구니를 이용할 수 있습니다.');
+      return;
+    }
     const product = products.find((p) => p.id === productId);
     if (!product) return;
     const hasPrice = product.price !== null && product.price !== undefined;
@@ -147,7 +152,7 @@ export default function WishlistSection({ wishlistIds, products, onWishlistChang
             )}
             <button
               type="button"
-              onClick={() => handleAddToCart(product.id)}
+              onClick={() => void handleAddToCart(product.id)}
               disabled={!isSellable}
               className="mp-btn-secondary mt-4 w-full gap-2 disabled:cursor-not-allowed disabled:opacity-50"
             >

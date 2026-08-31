@@ -150,8 +150,6 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     isVisible: false,
     isBest: false,
     isRecommended: false,
-    isMembersOnlyPrice: false,
-    pointsEnabled: false,
     summary: '',
     description: '',
     ingredients: '',
@@ -227,12 +225,9 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     shippingNotice: formData.shippingNotice,
     returnNotice: formData.returnNotice,
     sellerName: formData.sellerName,
-    isMembersOnlyPrice: formData.isMembersOnlyPrice,
     isVisible: formData.isVisible,
     isBest: formData.isBest,
     isRecommended: formData.isRecommended,
-    pointsEnabled: formData.pointsEnabled,
-    pointsRate: formData.pointsRate,
   });
 
   const handleSave = async () => {
@@ -471,46 +466,6 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                 />
               </FormField>
             </div>
-            <label className="mt-4 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-              <span className="text-[14px] font-medium text-[#17201B]">회원 전용가 (비회원에게 가격 숨김)</span>
-              <input
-                type="checkbox"
-                checked={formData.isMembersOnlyPrice || false}
-                onChange={(e) => handleChange('isMembersOnlyPrice', e.target.checked)}
-                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-              />
-            </label>
-            <label className="mt-2 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-              <span className="text-[14px] font-medium text-[#17201B]">적립금 지급</span>
-              <input
-                type="checkbox"
-                checked={formData.pointsEnabled || false}
-                // 해제 상태에서는 pointsRate 를 payload 에 싣지 않는다.
-                // 서버 updateProduct 는 pointsEnabled=false 패치를 받으면 기존 detail.pointsRate 를 제거해
-                // "체크는 꺼졌는데 DB에는 5%가 남아 재활성화 때 되살아나는" 불일치를 막는다.
-                onChange={(e) => handleChange('pointsEnabled', e.target.checked)}
-                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-              />
-            </label>
-            {formData.pointsEnabled && (
-              <FormField label="적립률 (%)">
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={0.1}
-                  value={formData.pointsRate ?? ''}
-                  onChange={(e) =>
-                    handleChange('pointsRate', e.target.value === '' ? undefined : Number(e.target.value))
-                  }
-                  className={INPUT_CLASS}
-                  placeholder="상품금액 기준. 배송비 제외"
-                />
-                <p className="mt-1 text-[12px] text-[#9AA39B]">
-                  적립 지급은 구매확정 기능 구현 후 동작합니다(현재는 설정만 저장).
-                </p>
-              </FormField>
-            )}
           </SectionCard>
 
           {/* 상품 옵션 */}
