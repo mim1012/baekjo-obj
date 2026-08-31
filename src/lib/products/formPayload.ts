@@ -7,7 +7,7 @@ import type { CreateProductInput, UpdateProductInput } from '@/lib/storage';
 
 /**
  * ProductForm 이 편집 UI 를 가진 필드 화이트리스트(문서·테스트용).
- * 이 밖의 필드(detailBlocks·rating·reviewCount·concernTags 등)는 폼이 건드리지 않으므로
+ * 이 밖의 필드(detailBlocks·rating·reviewCount 등)는 폼이 건드리지 않으므로
  * payload 에 담지 않는다 → updateProduct 가 read-modify-write 라 기존 값이 보존된다.
  * detailBlocks 는 별도 화면(ProductDetailEditor)이 소유하므로 여기서 절대 재전송하지 않는다.
  */
@@ -27,7 +27,7 @@ export const PRODUCT_FORM_FIELDS = [
   'images',
   'options',
   'auditPoints',
-  'relatedConcernSlugs',
+  'concernTags',
   'ingredients',
   'howToUse',
   'recommendedFor',
@@ -112,7 +112,7 @@ export interface ProductFormState {
   images: string[];
   options: ProductOptionFormState[];
   auditPoints: string[];
-  relatedConcernSlugs: string[];
+  concernTags: string[];
   ingredients?: string;
   howToUse?: string;
   recommendedFor: string[];
@@ -156,7 +156,7 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     images: cleanStringList(form.images),
     options: normalizeOptions(form.options),
     auditPoints: cleanStringList(form.auditPoints),
-    relatedConcernSlugs: cleanStringList(form.relatedConcernSlugs),
+    concernTags: cleanStringList(form.concernTags),
     ingredients: form.ingredients?.trim() ?? '',
     howToUse: form.howToUse?.trim() ?? '',
     recommendedFor: cleanStringList(form.recommendedFor),
@@ -204,7 +204,7 @@ export function buildProductUpdatePayload(
 /**
  * 생성(POST) payload. 서버가 requireAll=true 로 검증하므로 필수 필드를 명시적으로 채운다.
  * ageGroup 은 폼에 입력 UI 가 없지만 서버 필수라 상태 기본값('all')을 포함한다.
- * rating/reviewCount/concernTags 등 폼에 UI 없는 필수 필드는 서버가 requireAll 기본값을 채운다.
+ * rating/reviewCount 등 폼에 UI 없는 필수 필드는 서버가 requireAll 기본값을 채운다.
  */
 export function buildProductCreatePayload(
   form: ProductFormState,

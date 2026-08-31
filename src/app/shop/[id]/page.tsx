@@ -52,7 +52,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
     getConcernsConfigWithFallback(),
   ]);
   const concernTitleBySlug = new Map(concernsConfig.items.map((concern) => [concern.slug, concern.title]));
-  const relatedConcernLabels = (product.relatedConcernSlugs ?? [])
+  const relatedConcernLabels = product.concernTags
     .map((slug) => concernTitleBySlug.get(slug))
     .filter((label): label is string => Boolean(label));
   const relatedProducts = allProducts

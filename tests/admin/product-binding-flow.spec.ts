@@ -73,6 +73,8 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(formSource).toContain('concerns: Concern[]');
     expect(formSource).toContain('function SelectionCardGrid');
     expect(formSource).toContain('주요 고민');
+    expect(formSource).toContain('concernTags');
+    expect(formSource).not.toContain('relatedConcernSlugs');
     expect(formSource).not.toContain('상품 태그');
     expect(formSource).not.toContain('placeholder="예: skin, digestion"');
   });
@@ -83,7 +85,8 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
 
     expect(detailPage).toContain('getConcernsConfigWithFallback()');
     expect(detailPage).toContain('concernTitleBySlug');
-    expect(detailPage).toContain('relatedConcernLabels');
+    expect(detailPage).toContain('product.concernTags');
+    expect(detailPage).not.toContain('product.relatedConcernSlugs');
     expect(detailClient).toContain('aria-label="상품 카테고리"');
     expect(detailClient).toContain('aria-label="상품 주요 고민"');
     expect(detailClient).not.toContain('product.tags');

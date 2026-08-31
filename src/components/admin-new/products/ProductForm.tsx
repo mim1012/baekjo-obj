@@ -162,7 +162,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     sellerName: '',
     images: [],
     auditPoints: [],
-    relatedConcernSlugs: [],
+    concernTags: [],
     recommendedFor: [],
     caution: [],
     ...initialData,
@@ -217,7 +217,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     images: formData.images ?? [],
     options: optionRows,
     auditPoints: formData.auditPoints ?? [],
-    relatedConcernSlugs: formData.relatedConcernSlugs ?? [],
+    concernTags: formData.concernTags ?? [],
     ingredients: formData.ingredients,
     howToUse: formData.howToUse,
     recommendedFor: formData.recommendedFor ?? [],
@@ -301,7 +301,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
 
   const images = formData.images ?? [];
   const auditPoints = formData.auditPoints ?? [];
-  const relatedConcernSlugs = formData.relatedConcernSlugs ?? [];
+  const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
   const caution = formData.caution ?? [];
 
@@ -540,7 +540,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
               <FormField label="주요 고민">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   {concerns.map((concern) => {
-                    const selected = relatedConcernSlugs.includes(concern.slug);
+                    const selected = concernTags.includes(concern.slug);
                     return (
                       <button
                         key={concern.slug}
@@ -548,10 +548,10 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                         aria-pressed={selected}
                         onClick={() =>
                           handleChange(
-                            'relatedConcernSlugs',
+                            'concernTags',
                             selected
-                              ? relatedConcernSlugs.filter((slug) => slug !== concern.slug)
-                              : [...relatedConcernSlugs, concern.slug],
+                              ? concernTags.filter((slug) => slug !== concern.slug)
+                              : [...concernTags, concern.slug],
                           )
                         }
                         className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
