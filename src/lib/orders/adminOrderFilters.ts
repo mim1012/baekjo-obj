@@ -1,6 +1,12 @@
 import type { Order, PaymentStatus, DeliveryStatus } from '@/types';
 import { DELIVERY_STATUSES, PAYMENT_STATUSES } from '@/types';
 import { deriveFunnelStage, type FunnelStage } from '@/lib/orders/orderFunnel';
+import {
+  countOrderDateDaysInclusive,
+  matchesOrderDateRange,
+  parseOrderDateRange,
+  type OrderDateRangeIso,
+} from '@/lib/orders/orderDateFilters';
 import { matchesOrderSearch } from '@/lib/orders/orderSearch';
 
 export const ALL_ORDER_FILTER_VALUE = 'all';
@@ -42,13 +48,8 @@ export type AdminOrderExportParseError =
   | 'invalid-payment-status'
   | 'invalid-delivery-status';
 
-export interface AdminOrderDateRange {
-  readonly createdFromIso?: string;
-  readonly createdToExclusiveIso?: string;
-}
+export type AdminOrderDateRange = OrderDateRangeIso;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const FUNNEL_TABS: readonly AdminOrderFunnelTab[] = [
   '전체',
   '입금대기',
@@ -76,28 +77,6 @@ function isFunnelTab(value: string): value is AdminOrderFunnelTab {
   return (FUNNEL_TABS as readonly string[]).includes(value);
 }
 
-function dateKey(value: string): string | null {
-  if (!DATE_PATTERN.test(value)) return null;
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return parsed.toISOString().slice(0, 10) === value ? value : null;
-}
-
-function addDays(date: string, days: number): string {
-  const time = new Date(`${date}T00:00:00.000Z`).getTime();
-  return new Date(time + days * DAY_MS).toISOString().slice(0, 10);
-}
-
-function daysBetweenInclusive(from: string, to: string): number {
-  const fromTime = new Date(`${from}T00:00:00.000Z`).getTime();
-  const toTime = new Date(`${to}T00:00:00.000Z`).getTime();
-  return Math.floor((toTime - fromTime) / DAY_MS) + 1;
-}
-
-function orderCreatedDateKey(order: Order): string {
-  return order.createdAt.slice(0, 10);
-}
-
 function matchesBrand(order: Order, brandId: string): boolean {
   return order.items.some((item) => item?.brandId === brandId);
 }
@@ -109,8 +88,7 @@ export function applyAdminOrderFilters(orders: readonly Order[], filters: AdminO
     .filter((order) => {
       if (term && !matchesOrderSearch(order, term)) return false;
       if (filters.funnelTab !== '전체' && deriveFunnelStage(order) !== filters.funnelTab) return false;
-      if (filters.createdFrom && orderCreatedDateKey(order) < filters.createdFrom) return false;
-      if (filters.createdTo && orderCreatedDateKey(order) > filters.createdTo) return false;
+      if (!matchesOrderDateRange(order, filters)) return false;
       if (filters.brandId !== ALL_ORDER_FILTER_VALUE && !matchesBrand(order, filters.brandId)) return false;
       if (filters.paymentStatus !== ALL_ORDER_FILTER_VALUE && order.paymentStatus !== filters.paymentStatus) {
         return false;
@@ -151,26 +129,24 @@ export function parseAdminOrderExportQuery(params: URLSearchParams): AdminOrderE
     return { ok: false, error: 'invalid-delivery-status' };
   }
 
-  const fromKey = createdFrom ? dateKey(createdFrom) : null;
-  const toKey = createdTo ? dateKey(createdTo) : null;
-  if ((createdFrom && !fromKey) || (createdTo && !toKey)) return { ok: false, error: 'invalid-date' };
-  if (fromKey && toKey && fromKey > toKey) return { ok: false, error: 'invalid-date-range' };
-  if (fromKey && toKey && daysBetweenInclusive(fromKey, toKey) > MAX_ADMIN_ORDER_EXPORT_DAYS) {
+  const parsedRange = parseOrderDateRange({ createdFrom, createdTo });
+  if (!parsedRange.ok) return { ok: false, error: parsedRange.error };
+  if (
+    parsedRange.range.createdFrom &&
+    parsedRange.range.createdTo &&
+    countOrderDateDaysInclusive(parsedRange.range.createdFrom, parsedRange.range.createdTo) > MAX_ADMIN_ORDER_EXPORT_DAYS
+  ) {
     return { ok: false, error: 'date-range-too-large' };
   }
 
   const filters: AdminOrderFilters = {
     searchTerm,
     funnelTab: funnel,
-    createdFrom: fromKey ?? '',
-    createdTo: toKey ?? '',
+    createdFrom: parsedRange.range.createdFrom,
+    createdTo: parsedRange.range.createdTo,
     brandId,
     paymentStatus,
     deliveryStatus,
   };
-  const dbRange: AdminOrderDateRange = {
-    ...(fromKey ? { createdFromIso: `${fromKey}T00:00:00.000Z` } : {}),
-    ...(toKey ? { createdToExclusiveIso: `${addDays(toKey, 1)}T00:00:00.000Z` } : {}),
-  };
-  return { ok: true, filters, dbRange };
+  return { ok: true, filters, dbRange: parsedRange.dbRange };
 }
