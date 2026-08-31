@@ -20,14 +20,14 @@ test.describe('관리자 업로드 정책 — 이미지 첨부·삭제 미검증
     expect(routeSource).toContain("import { requireAdmin } from '@/lib/admin/requireAdmin'");
     expect(routeSource).toContain('const admin = await requireAdmin();');
     expect(routeSource).toContain('MAX_FILE_SIZE');
-    expect(routeSource).toContain('MAX_REQUEST_SIZE');
     expect(routeSource).toContain('const MAX_FILE_SIZE = 50 * 1024 * 1024');
-    expect(routeSource).toContain('const MAX_REQUEST_SIZE = 53_000_000');
-    expect(routeSource).toContain('detectContentType(buffer)');
+    expect(routeSource).toContain('createSignedUploadUrl');
+    expect(routeSource).toContain('download(path)');
+    expect(routeSource).toContain('detectContentType(Buffer.from(await file.arrayBuffer()))');
     expect(routeSource).toContain("product: ['main', 'gallery', 'detail']");
     expect(routeSource).toContain("brand: ['logo', 'cover']");
     expect(routeSource).toContain("banner: ['hero']");
-    expect(routeSource).toContain('upsert: false');
+    expect(routeSource).toContain('createSignedUploadUrl(uploadPath)');
   });
 
   test('화면 업로더도 서버와 동일한 50MB 파일 제한을 안내한다', () => {
@@ -43,9 +43,10 @@ test.describe('관리자 업로드 정책 — 이미지 첨부·삭제 미검증
     expect(routeSource).toContain("reason: 'temporary-file-deleted'");
   });
 
-  test('storage 콘센트는 multipart 업로드와 DELETE 삭제 응답을 그대로 전달한다', () => {
-    expect(storageSource).toContain("formData.append('file', input.file)");
-    expect(storageSource).toContain("fetch('/api/admin/upload', { method: 'POST', body: formData })");
+  test('storage 콘센트는 signed 업로드와 완료 검증을 연결한다', () => {
+    expect(storageSource).toContain("action: 'sign'");
+    expect(storageSource).toContain('uploadToSignedUrl');
+    expect(storageSource).toContain("action: 'complete'");
     expect(storageSource).toContain('export async function deleteTemporaryAdminImage');
     expect(storageSource).toContain("fetch(`/api/admin/upload?${params.toString()}`, { method: 'DELETE' })");
     expect(storageSource).toContain('return data as { deleted: boolean; reason: string };');

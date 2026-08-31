@@ -2244,21 +2244,33 @@ export interface AdminImageUploadResult {
   bucket: string;
 }
 
-/** 관리자 전용 — 이미지 업로드. POST /api/admin/upload (multipart/form-data). */
 export async function uploadAdminImage(input: AdminImageUploadInput): Promise<AdminImageUploadResult> {
-  const formData = new FormData();
-  formData.append('file', input.file);
-  formData.append('domain', input.domain);
-  formData.append('usage', input.usage);
-  if (input.entityId) formData.append('entityId', input.entityId);
-  if (input.draftId) formData.append('draftId', input.draftId);
-
-  const response = await fetch('/api/admin/upload', { method: 'POST', body: formData });
-  const data = await response.json();
+  const response = await fetch('/api/admin/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'sign', ...input, fileSize: input.file.size, contentType: input.file.type }),
+  });
+  const data = (await response.json()) as { error?: string; path?: string; token?: string; publicUrl?: string; bucket?: string };
   if (!response.ok) {
     throw new Error(data.error || 'upload-failed');
   }
-  return data as AdminImageUploadResult;
+  if (!data.path || !data.token || !data.publicUrl || !data.bucket) throw new Error('upload-signing-failed');
+
+  const { getBrowserSupabase } = await import('@/lib/supabase/browser');
+  const { error: uploadError } = await getBrowserSupabase().storage
+    .from(data.bucket).uploadToSignedUrl(data.path, data.token, input.file, { contentType: input.file.type });
+  if (uploadError) throw new Error('upload-failed');
+
+  const completeResponse = await fetch('/api/admin/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'complete', domain: input.domain, usage: input.usage, entityId: input.entityId, draftId: input.draftId, path: data.path }),
+  });
+  const completeData = (await completeResponse.json()) as { error?: string; path?: string; publicUrl?: string; bucket?: string };
+  if (!completeResponse.ok || !completeData.path || !completeData.publicUrl || !completeData.bucket) {
+    throw new Error(completeData.error || 'upload-verification-failed');
+  }
+  return { success: true, path: completeData.path, publicUrl: completeData.publicUrl, bucket: completeData.bucket };
 }
 
 /** 관리자 전용 — 임시(temp/) 업로드본 폐기. DELETE /api/admin/upload?path=...
