@@ -67,7 +67,6 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
       <div className="site-container-wide py-8 lg:py-12">
         <ProductDetailClient
           product={{ ...product, brandName: brand?.name ?? product.brandName }}
-          brandShipping={brand?.shipping}
           relatedConcernLabels={relatedConcernLabels}
         />
 
@@ -117,7 +116,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
             </div>
           </section>
 
-          <ProductPurchaseInfo brandShipping={brand?.shipping} />
+          <ProductPurchaseInfo product={product} />
         </ProductTabsClient>
 
         <div className="mt-20 lg:mt-28">

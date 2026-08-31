@@ -32,6 +32,7 @@ test.describe('RE:펫 주문제작 안내 계약', () => {
     }
     expect(detail).toContain('isRepetMadeToOrder && <RepetMadeToOrderNotice');
     expect(checkout).toContain('hasRepetMadeToOrderItem && <RepetMadeToOrderNotice');
-    expect(COMPANY.kakaoTalkUrl).toBe('https://pf.kakao.com/_KYWxon');
+    expect(notice).toContain('href={COMPANY.kakaoTalkUrl}');
+    expect(COMPANY.kakaoTalkUrl).toBe('http://pf.kakao.com/_jxnxjxaX');
   });
 });

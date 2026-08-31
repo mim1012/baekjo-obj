@@ -11,14 +11,12 @@ test.describe('상품 상세 브랜드 배송·교환 정책 고지', () => {
     const detailClient = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
 
     expect(purchaseInfo).toContain('const nonBlank = (value: string | undefined) => {');
-    expect(purchaseInfo).toContain('brandShipping.shippingFee');
-    expect(purchaseInfo).toContain('brandShipping.freeShippingThreshold');
-    expect(purchaseInfo).toContain('brandShipping.returnShippingFee');
-    expect(purchaseInfo).toContain('brandShipping.exchangeShippingFee');
-    expect(purchaseInfo).toContain('if (!brandShipping) return null;');
+    expect(purchaseInfo).toContain('if (!hasPolicy) return null;');
+    expect(purchaseInfo).not.toContain('brandShipping');
     expect(purchaseInfo).not.toContain('DEFAULT_COMMERCE_POLICY');
-    expect(purchaseInfo).not.toContain('product.deliveryEstimate');
-    expect(purchaseInfo).not.toContain('product.returnNotice');
+    expect(purchaseInfo).toContain('product.deliveryEstimate');
+    expect(purchaseInfo).toContain('product.shippingNotice');
+    expect(purchaseInfo).toContain('product.returnNotice');
     expect(detailClient).not.toContain("import { DEFAULT_COMMERCE_POLICY } from '@/data/company'");
     expect(detailClient).not.toContain('DEFAULT_COMMERCE_POLICY.shippingLabel');
     expect(detailClient).not.toContain("'공식 판매가 확인 후 안내'");

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
-import type { BrandShippingPolicy, Product } from '@/types';
+import type { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
@@ -13,11 +13,10 @@ import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/
 
 interface Props {
   product: Product;
-  brandShipping?: BrandShippingPolicy;
   relatedConcernLabels?: string[];
 }
 
-export default function ProductDetailClient({ product, brandShipping, relatedConcernLabels = [] }: Props) {
+export default function ProductDetailClient({ product, relatedConcernLabels = [] }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
@@ -254,12 +253,11 @@ export default function ProductDetailClient({ product, brandShipping, relatedCon
         </div>
 
         <div className="mt-8 space-y-4 text-sm">
-          {brandShipping?.shippingFee !== undefined && (
+          {product.shippingFee !== undefined && (
             <div className="flex">
               <span className="w-24 text-[#59615B] font-medium">배송비</span>
               <span className="text-[#59615B]">
-                {brandShipping.shippingFeeLabel ??
-                  (brandShipping.shippingFee === 0 ? '무료배송' : formatPrice(brandShipping.shippingFee))}
+                {formatPrice(product.shippingFee)}
               </span>
             </div>
           )}

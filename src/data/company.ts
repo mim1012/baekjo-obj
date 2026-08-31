@@ -25,7 +25,7 @@ export const COMPANY = {
   /** 고객센터 이메일 */
   email: 'thebaekjo@naver.com',
   /** 고객 상담 및 주문제작 확인 카카오톡 채널 */
-  kakaoTalkUrl: 'https://pf.kakao.com/_KYWxon',
+  kakaoTalkUrl: 'http://pf.kakao.com/_jxnxjxaX',
   /** 개인정보 보호책임자 */
   privacyOfficer: '백보윤',
   /** 호스팅 서비스 제공자 */
