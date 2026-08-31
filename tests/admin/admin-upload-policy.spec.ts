@@ -21,11 +21,18 @@ test.describe('관리자 업로드 정책 — 이미지 첨부·삭제 미검증
     expect(routeSource).toContain('const admin = await requireAdmin();');
     expect(routeSource).toContain('MAX_FILE_SIZE');
     expect(routeSource).toContain('MAX_REQUEST_SIZE');
+    expect(routeSource).toContain('const MAX_FILE_SIZE = 50 * 1024 * 1024');
+    expect(routeSource).toContain('const MAX_REQUEST_SIZE = 53_000_000');
     expect(routeSource).toContain('detectContentType(buffer)');
     expect(routeSource).toContain("product: ['main', 'gallery', 'detail']");
     expect(routeSource).toContain("brand: ['logo', 'cover']");
     expect(routeSource).toContain("banner: ['hero']");
     expect(routeSource).toContain('upsert: false');
+  });
+
+  test('화면 업로더도 서버와 동일한 50MB 파일 제한을 안내한다', () => {
+    expect(uploaderSource).toContain('file.size > 50 * 1024 * 1024');
+    expect(uploaderSource).toContain('이미지 크기는 50MB 이하여야 합니다.');
   });
 
   test('삭제 라우트는 temp 소유 파일만 물리 삭제하고 정식 파일은 보존한다', () => {

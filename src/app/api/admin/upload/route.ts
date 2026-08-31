@@ -12,8 +12,8 @@ import { logServerError } from '@/lib/logServerError';
 // 가입서류 업로드(/api/members/business/upload)와 같은 하드닝을 적용한다:
 // Content-Length 선차단 · 매직바이트로 형식 재판별(file.type 불신) · upsert:false.
 const BUCKET = 'catalog-assets';
-const MAX_FILE_SIZE = 8 * 1024 * 1024; // 8MB
-const MAX_REQUEST_SIZE = 9_000_000; // 멀티파트 오버헤드 감안
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const MAX_REQUEST_SIZE = 53_000_000;
 
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const;
 type AllowedContentType = (typeof ALLOWED_CONTENT_TYPES)[number];

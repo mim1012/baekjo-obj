@@ -17,6 +17,7 @@ interface ImageUploaderProps {
   height?: string; // e.g. "200px"
 }
 
+
 export default function ImageUploader({ 
   value, 
   onChange, 
@@ -38,8 +39,8 @@ export default function ImageUploader({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 8 * 1024 * 1024) {
-      setError('이미지 크기는 8MB 이하여야 합니다.');
+    if (file.size > 50 * 1024 * 1024) {
+      setError('이미지 크기는 50MB 이하여야 합니다.');
       return;
     }
 
@@ -147,4 +148,3 @@ export default function ImageUploader({
     </div>
   );
 }
-
