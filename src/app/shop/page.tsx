@@ -1,6 +1,7 @@
 import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
-import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
-import ShopContent from '@/components/shop/ShopContent';
+import ShopContent, { type ShopPageContent } from '@/components/shop/ShopContent';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { getPublicProductTagsConfig } from '@/lib/productTags/repo';
 
 export const metadata = {
   title: '검증 상품 셀렉션',
@@ -15,10 +16,11 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function ShopPage() {
-  const [products, brands, concernsConfig] = await Promise.all([
+  const [products, brands, productTagsConfig, content] = await Promise.all([
     listCachedPublicProducts(),
     listCachedPublicBrands(),
-    getConcernsConfigWithFallback(),
+    getPublicProductTagsConfig(),
+    getPublishedPageContent<ShopPageContent & Record<string, unknown>>('shop'),
   ]);
-  return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} />;
+  return <ShopContent products={products} brands={brands} productTags={productTagsConfig.items} content={content} />;
 }

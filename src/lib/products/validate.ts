@@ -23,7 +23,7 @@ const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
 const MAX_REVIEW_COUNT = 10_000_000;
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
+const MAX_DISPLAY_ORDER = 100_000;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -250,8 +250,8 @@ export function validateProductFields(
   }
 
   if (b.petType !== undefined) {
-    if (typeof b.petType !== 'string' || !PET_TYPES.has(b.petType)) return null;
-    out.petType = b.petType as Product['petType'];
+    if (!isStr(b.petType, 1, MAX_SHORT_TEXT)) return null;
+    out.petType = b.petType;
   } else if (requireAll) return null;
 
   if (b.ageGroup !== undefined) {
@@ -330,6 +330,11 @@ export function validateProductFields(
     out.brandName = b.brandName;
   }
 
+  if (b.isMembersOnlyPrice !== undefined) {
+    if (!isBool(b.isMembersOnlyPrice)) return null;
+    out.isMembersOnlyPrice = b.isMembersOnlyPrice;
+  }
+
   if (b.auditPoints !== undefined) {
     if (!isStrArray(b.auditPoints, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;
     out.auditPoints = b.auditPoints;
@@ -379,6 +384,21 @@ export function validateProductFields(
     out.isRecommended = b.isRecommended;
   } else if (requireAll) {
     out.isRecommended = false;
+  }
+
+  if (b.homeFeaturedOrder !== undefined) {
+    if (!isNum(b.homeFeaturedOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.homeFeaturedOrder)) return null;
+    out.homeFeaturedOrder = b.homeFeaturedOrder;
+  }
+
+  if (b.shopFeaturedOrder !== undefined) {
+    if (!isNum(b.shopFeaturedOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.shopFeaturedOrder)) return null;
+    out.shopFeaturedOrder = b.shopFeaturedOrder;
+  }
+
+  if (b.catalogOrder !== undefined) {
+    if (!isNum(b.catalogOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.catalogOrder)) return null;
+    out.catalogOrder = b.catalogOrder;
   }
 
   // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는

@@ -3,25 +3,12 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/inquiries → 상품 상세 "문의" 탭(병합 뷰).
 //
-// ⚠️ 도메인 주의 — "QnA"와 "상품문의(inquiries)"는 이 코드베이스에서 서로 다른 두 존재다.
-// - `src/data/qna.ts`(seedQna) — 게시판형 정적 시드. `src/lib/adapters.ts:2`가
-//   `import { qnaList as seedQna } from '@/data/qna'`로 그대로 읽어와 getMergedInquiries에서
-//   병합한다. **DB 이관 안 됨 — admin에 이 seed를 편집하는 경로가 없다.** 후기(showcase_reviews)는
-//   이미 DB config로 이관됐지만 QnA는 아직 정적 파일 그대로다(2026-07-18 프로젝트 메모 확인).
-// - `ProductInquiry`(product_inquiries 테이블) — 로그인 회원이 상품 상세에서 남기는 1:1 문의.
-//   `src/lib/inquiries/repo.ts`가 유일한 DB 접근 계층이고, `/admin/inquiries`가 이걸 관리한다.
-// 이 스펙은 **DB 백엔드가 실제로 있고 admin이 실제로 손댈 수 있는 ProductInquiry 쪽만** CRUD한다.
-// seedQna(정적)는 건드리지 않는다 — 애초에 admin 편집 경로가 없어 CRUD 대상이 될 수 없다.
+// ProductInquiry(product_inquiries 테이블)는 로그인 회원이 상품 상세에서 남기는 실제 문의다.
+// 공개 화면과 연결되지 않았던 수동 Q&A config는 2026-08-31 제거했다. 이 스펙은 고객 등록 →
+// 관리자 답변 → 고객 화면 반영의 실제 경로만 검증한다.
 //
-// ⚠️ 관리자 삭제 버튼 없음(설계 확정, wave-4 스윕 2026-07-19) — `src/app/admin/inquiries/page.tsx`는
-// `AdminResourcePage`에 `onDeleteRow`도 `onSave`도 넘기지 않는다. 2026-07-18엔 이 조합이
-// `canDeleteRows`를 참으로 만들어(구 조건 `onDeleteRow != null || onSave == null`) 삭제 버튼이
-// **보이는데 눌러도 로컬에서만 숨겨지는 가짜(비영속) 삭제**였다. wave-4 스윕에서 그 조건 자체를
-// `onDeleteRow != null`로 고쳐 이 클래스의 버그를 구조적으로 제거했다 — 그 결과 `/admin/inquiries`는
-// 이제 삭제 버튼이 **아예 렌더링되지 않는다**(의도된 상태). 상품 Q&A는 공개 답변 이력이 있는
-// 고객 문의라 관리자가 임의로 지우는 게 도메인상 맞지 않다고 판단해, "삭제 API를 새로 만들어
-// 배선"이 아니라 "버튼을 숨긴다"쪽을 택했다 — 그래서 이 스펙은 여전히 관리자 삭제 버튼을
-// 정리(cleanup) 경로로 쓰지 않는다.
+// 관리자 삭제는 별도의 관리자 전용 API와 실제 DB delete를 사용한다. 테스트 데이터 정리는 회원
+// 본인 삭제도 사용할 수 있지만, 운영 화면의 삭제 버튼은 로컬 숨김이 아니라 서버 저장 경로다.
 //
 // ✅ 실제 정리 경로 = 회원 본인 삭제(`DELETE /api/inquiries/[id]`, `deleteInquiryByOwner`,
 // `src/lib/inquiries/repo.ts:137`) — status 제약이 없어 관리자가 답변완료 처리한 뒤에도 작성자

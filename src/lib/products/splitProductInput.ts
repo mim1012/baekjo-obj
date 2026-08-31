@@ -45,7 +45,5 @@ export function mergeProductForStorage<T extends Product>(
   existing: T,
   patch: Partial<Omit<Product, 'id'>>,
 ): T {
-  const merged = { ...existing, ...patch, id: existing.id } as T;
-
-  return merged;
+  return { ...existing, ...patch, id: existing.id } as T;
 }

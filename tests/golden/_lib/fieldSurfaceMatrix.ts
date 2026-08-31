@@ -167,14 +167,6 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
           '공개 검증하지 않고 관리자 왕복(admin round-trip)으로만 검증한다(admin-only-as-of-now).',
       },
       {
-        field: 'officialUrl',
-        render: '없음(공개 브랜드 상세 렌더 금지)',
-        kind: 'link',
-        assertNow: false,
-        note: 'admin-only — officialUrl 은 관리자 저장/재열람용 데이터다. 공개 브랜드 상세에는 ' +
-          '공식몰 방문 CTA를 렌더하지 않고, 관리자 왕복으로만 검증한다.',
-      },
-      {
         field: 'auditPoints',
         render: 'src/app/brands/[id]/page.tsx:174-180',
         kind: 'text',

@@ -8,10 +8,9 @@ import {
   type ProductOptionFormState,
 } from '@/lib/products/formPayload';
 
-// 상품 폼 "봉인 해제" payload 회귀 스펙 — 순수 함수, 브라우저·DB 불필요.
-// 공개 상세가 렌더하는데 폼이 못 채우던 필드(options·images·ingredients·howToUse·recommendedFor·
-// caution·배송/판매자 안내)를 폼이 담되, 암묵 스프레드가 아니라 명시
-// 화이트리스트로만 담는지 잠근다. 특히 detailBlocks(다른 화면 소유)를 절대 재전송하지 않는지.
+// 상품 폼 payload 회귀 스펙 — 순수 함수, 브라우저·DB 불필요.
+// 현재 공개 화면이 읽는 필드만 담고, 공개 화면과 끊긴 과거 필드는 재전송하지 않는지 잠근다.
+// 특히 detailBlocks(다른 화면 소유)를 절대 재전송하지 않는다.
 
 /** 편집 가능한 전체 필드가 채워진 폼 상태. */
 function form(over: Partial<ProductFormState> = {}): ProductFormState {
@@ -32,20 +31,14 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
       { id: 'opt-a', name: '2kg', price: '32000', stock: '10' },
       { id: 'opt-b', name: '5kg', price: '68000', stock: '5' },
     ],
-    auditPoints: ['상품 검증 포인트'],
-    concernTags: ['skin'],
-    ingredients: '닭고기, 현미',
-    howToUse: '하루 2회 급여',
-    recommendedFor: ['알러지가 있는 반려견'],
-    caution: ['개봉 후 냉장 보관'],
+    concernTags: ['skin', 'digestion'],
+    recommendedFor: ['veterinary'],
     shippingFee: 3000,
     deliveryEstimate: '2~3일 내 출고',
     shippingNotice: '제주/도서 추가비',
     returnNotice: '단순 변심 7일 내',
     sellerName: '백조오브제',
-    isVisible: true,
-    isBest: false,
-    isRecommended: true,
+    isMembersOnlyPrice: false,
     ...over,
   };
 }
@@ -65,25 +58,30 @@ test('detailBlocks 를 절대 재전송하지 않는다(ProductDetailEditor 소�
   expect('detailBlocks' in payload).toBe(false);
 });
 
-test('rating·reviewCount 는 폼이 담지 않는다(집계·별도 소유)', () => {
+test('rating·reviewCount 는 폼이 담지 않는다(집계 소유)', () => {
   const payload = buildProductUpdatePayload(form(), '지위픽') as Record<string, unknown>;
   expect('rating' in payload).toBe(false);
   expect('reviewCount' in payload).toBe(false);
-  expect(payload.concernTags).toEqual(['skin']);
+});
+
+test('수정 payload 는 노출·추천·베스트·진열 순서를 담지 않는다(상품 진열 단일 소유)', () => {
+  const payload = buildProductUpdatePayload(form(), '지위픽') as Record<string, unknown>;
+  expect('isVisible' in payload).toBe(false);
+  expect('isBest' in payload).toBe(false);
+  expect('isRecommended' in payload).toBe(false);
+  expect('homeFeaturedOrder' in payload).toBe(false);
+  expect('shopFeaturedOrder' in payload).toBe(false);
+  expect('catalogOrder' in payload).toBe(false);
 });
 
 /* ── 봉인 해제 필드가 실제로 담긴다 ── */
 
-test('봉인됐던 필드(images·options·auditPoints·concernTags·ingredients·howToUse·recommendedFor·caution·배송·판매자)가 payload 에 담긴다', () => {
+test('공개 화면 연결 필드(images·options·concernTags·recommendedFor·배송·판매자)가 payload 에 담긴다', () => {
   const payload = buildProductUpdatePayload(form(), '지위픽');
   expect(payload.images).toEqual(['/products/p1.webp', '/products/p1-2.webp']);
   expect(payload.options).toHaveLength(2);
-  expect(payload.auditPoints).toEqual(['상품 검증 포인트']);
-  expect(payload.concernTags).toEqual(['skin']);
-  expect(payload.ingredients).toBe('닭고기, 현미');
-  expect(payload.howToUse).toBe('하루 2회 급여');
-  expect(payload.recommendedFor).toEqual(['알러지가 있는 반려견']);
-  expect(payload.caution).toEqual(['개봉 후 냉장 보관']);
+  expect(payload.concernTags).toEqual(['skin', 'digestion']);
+  expect(payload.recommendedFor).toEqual(['veterinary']);
   expect(payload.shippingFee).toBe(3000);
   expect(payload.deliveryEstimate).toBe('2~3일 내 출고');
   expect(payload.shippingNotice).toBe('제주/도서 추가비');
@@ -94,55 +92,45 @@ test('봉인됐던 필드(images·options·auditPoints·concernTags·ingredients
 
 /* ── 배열은 새 배열로 복사(입력 참조 안 함) + 공백 제거 ── */
 
-test('배열은 입력을 그대로 참조하지 않고 새 배열로 복사한다', () => {
+test('공개 연결 배열은 입력을 그대로 참조하지 않고 새 배열로 복사한다', () => {
   const src = form();
   const payload = buildProductUpdatePayload(src, '지위픽');
   expect(payload.images).not.toBe(src.images);
-  expect(payload.auditPoints).not.toBe(src.auditPoints);
   expect(payload.concernTags).not.toBe(src.concernTags);
   expect(payload.recommendedFor).not.toBe(src.recommendedFor);
-  expect(payload.caution).not.toBe(src.caution);
 });
 
-test('images·auditPoints·concernTags·recommendedFor·caution 의 공백 항목은 제거된다', () => {
+test('images·concernTags·recommendedFor 의 공백 항목은 제거된다', () => {
   const payload = buildProductUpdatePayload(
     form({
       images: ['/products/p1.webp', '   ', ''],
-      auditPoints: ['검증', ' '],
-      concernTags: ['skin', ''],
+      concernTags: ['skin', '  '],
       recommendedFor: ['유효', '  '],
-      caution: ['', '주의'],
     }),
     '지위픽',
   );
   expect(payload.images).toEqual(['/products/p1.webp']);
-  expect(payload.auditPoints).toEqual(['검증']);
   expect(payload.concernTags).toEqual(['skin']);
   expect(payload.recommendedFor).toEqual(['유효']);
-  expect(payload.caution).toEqual(['주의']);
 });
 
 test('배열이 비면 빈 배열을 담는다(전체 삭제 반영)', () => {
   const payload = buildProductUpdatePayload(
-    form({ images: [], auditPoints: [], concernTags: [], recommendedFor: [], caution: [] }),
+    form({ images: [], concernTags: [], recommendedFor: [] }),
     '지위픽',
   );
   expect(payload.images).toEqual([]);
-  expect(payload.auditPoints).toEqual([]);
   expect(payload.concernTags).toEqual([]);
   expect(payload.recommendedFor).toEqual([]);
-  expect(payload.caution).toEqual([]);
 });
 
-/* ── 텍스트 지우기: 빈 문자열을 실어 기존 값을 지운다(officialUrl 과 동일) ── */
+/* ── 끊긴 과거 필드는 payload 에 없어 기존 저장값을 건드리지 않는다 ── */
 
-test('ingredients·howToUse·배송 안내는 빈 문자열을 실어 지우기를 지원한다', () => {
-  const payload = buildProductUpdatePayload(
-    form({ ingredients: '', howToUse: '   ', deliveryEstimate: '', returnNotice: '  ' }),
-    '지위픽',
-  );
-  expect(payload.ingredients).toBe('');
-  expect(payload.howToUse).toBe('');
+test('공개 화면과 끊긴 과거 필드는 재전송하지 않고 배송 안내는 지우기를 지원한다', () => {
+  const payload = buildProductUpdatePayload(form({ deliveryEstimate: '', returnNotice: '  ' }), '지위픽');
+  for (const key of ['auditPoints', 'relatedConcernSlugs', 'tags', 'ingredients', 'howToUse', 'caution', 'pointsEnabled', 'pointsRate']) {
+    expect(key in payload, `${key}가 payload에 남음`).toBe(false);
+  }
   expect(payload.deliveryEstimate).toBe('');
   expect(payload.returnNotice).toBe('');
 });
@@ -162,6 +150,13 @@ test('shippingFee 가 숫자면 담고, null/undefined(미입력)면 키를 담�
 test('salePrice 0 은 null 로 정규화한다(할인 없음)', () => {
   expect(buildProductUpdatePayload(form({ salePrice: 0 }), 'x').salePrice).toBeNull();
   expect(buildProductUpdatePayload(form({ salePrice: 25000 }), 'x').salePrice).toBe(25000);
+});
+
+/* ── isMembersOnlyPrice boolean 기본값 ── */
+
+test('isMembersOnlyPrice 는 boolean 으로 항상 담고 미지정 시 false', () => {
+  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: true }), 'x').isMembersOnlyPrice).toBe(true);
+  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: undefined }), 'x').isMembersOnlyPrice).toBe(false);
 });
 
 /* ── normalizeOptions: 빈 행·유효하지 않은 행 제거, id 부여 ── */
@@ -228,12 +223,16 @@ test('normalizeOptions: 신규 행 id 가 기존 보존 id 와 충돌하지 않�
   expect(out[1].id).not.toBe('opt-2');
 });
 
-/* ── 생성 payload: ageGroup 기본값 + 봉인 해제 필드 동반 ── */
+/* ── 생성 payload: ageGroup 기본값 + 공개 연결 필드 동반 ── */
 
-test('create payload 는 ageGroup 기본값을 포함하고 봉인 해제 필드도 담는다', () => {
+test('create payload 는 ageGroup 기본값과 공개 연결 필드를 담는다', () => {
   const payload = buildProductCreatePayload(form({ ageGroup: undefined }), '지위픽');
   expect(payload.ageGroup).toBe('all');
   expect(payload.images).toEqual(['/products/p1.webp', '/products/p1-2.webp']);
   expect(payload.options).toHaveLength(2);
+  expect(payload.concernTags).toEqual(['skin', 'digestion']);
   expect(payload.brandName).toBe('지위픽');
+  expect(payload.isVisible).toBe(false);
+  expect(payload.isBest).toBe(false);
+  expect(payload.isRecommended).toBe(false);
 });

@@ -3,8 +3,8 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
-import type { Concern, Product, Brand } from '@/types';
-import { createProduct, updateProduct, deleteProduct } from '@/lib/storage';
+import type { Product, Brand } from '@/types';
+import { createAdminProductTag, createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
   buildProductCreatePayload,
   buildProductUpdatePayload,
@@ -12,6 +12,7 @@ import {
   type ProductOptionFormState,
 } from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -21,18 +22,16 @@ import ImageUploader from '@/components/admin-new/common/ImageUploader';
 interface ProductFormProps {
   initialData?: Product | null;
   brands: Brand[];
-  concerns: Concern[];
 }
 
-type RequiredField = 'name' | 'brandId' | 'category' | 'lifestyleCategory' | 'image';
+type RequiredField = 'name' | 'brandId' | 'category' | 'image';
 
-const REQUIRED_FIELDS: RequiredField[] = ['name', 'brandId', 'category', 'lifestyleCategory', 'image'];
+const REQUIRED_FIELDS: RequiredField[] = ['name', 'brandId', 'category', 'image'];
 
 const REQUIRED_LABELS: Record<RequiredField, string> = {
   name: '상품명',
   brandId: '브랜드',
   category: '스토어 카테고리',
-  lifestyleCategory: '라이프스타일 분류',
   image: '대표 이미지',
 };
 
@@ -45,7 +44,6 @@ const REQUIRED_MESSAGES: Record<RequiredField, string> = {
   name: '상품명을 입력해주세요.',
   brandId: '브랜드를 선택해주세요.',
   category: '스토어 카테고리를 선택해주세요.',
-  lifestyleCategory: '라이프스타일 분류를 선택해주세요.',
   image: '대표 이미지를 등록해주세요.',
 };
 
@@ -84,38 +82,6 @@ function toUserMessage(err: unknown): string {
 const INPUT_CLASS =
   'w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none';
 
-interface SelectionCardGridProps {
-  options: readonly string[];
-  value: string | undefined;
-  onChange: (value: string) => void;
-  ariaLabel: string;
-}
-
-function SelectionCardGrid({ options, value, onChange, ariaLabel }: SelectionCardGridProps) {
-  return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label={ariaLabel}>
-      {options.map((option) => {
-        const selected = option === value;
-        return (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={selected}
-            onClick={() => onChange(option)}
-            className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
-              selected
-                ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
-                : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
-            }`}
-          >
-            {option}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /** initialData.options(숫자) → 폼 상태(문자열). 편집 중 빈칸/부분입력을 허용하려고 문자열로 든다. */
 function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   return (product?.options ?? []).map((o) => ({
@@ -126,10 +92,17 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   }));
 }
 
-export default function ProductForm({ initialData, brands, concerns }: ProductFormProps) {
+export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
+  const { items: productTags, reload: reloadProductTags } = useProductTagSettings();
+  const productTagSuggestions = productTags
+    .filter((tag) => tag.isVisible)
+    .map((tag) => ({ value: tag.slug, label: tag.label }));
   const isEdit = !!initialData;
+  React.useEffect(() => {
+    void reloadProductTags();
+  }, [reloadProductTags]);
   const [draftId] = useState(() =>
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
@@ -147,22 +120,16 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     salePrice: 0,
     stock: 0,
     image: '',
-    isVisible: false,
-    isBest: false,
-    isRecommended: false,
+    isMembersOnlyPrice: false,
     summary: '',
     description: '',
-    ingredients: '',
-    howToUse: '',
     deliveryEstimate: '',
     shippingNotice: '',
     returnNotice: '',
     sellerName: '',
     images: [],
-    auditPoints: [],
     concernTags: [],
     recommendedFor: [],
-    caution: [],
     ...initialData,
   });
 
@@ -203,7 +170,10 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     name: formData.name,
     brandId: formData.brandId,
     category: formData.category,
-    lifestyleCategory: formData.lifestyleCategory,
+    categorySlug: formData.categorySlug,
+    // lifestyle_category DB 컬럼은 기존 데이터 호환을 위해 유지하되 직원에게 중복 분류를
+    // 요구하지 않는다. 스토어 카테고리 연결값을 같은 내부값으로 자동 저장한다.
+    lifestyleCategory: formData.categorySlug || formData.category,
     petType: formData.petType,
     ageGroup: formData.ageGroup,
     summary: formData.summary,
@@ -214,20 +184,14 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     image: formData.image,
     images: formData.images ?? [],
     options: optionRows,
-    auditPoints: formData.auditPoints ?? [],
     concernTags: formData.concernTags ?? [],
-    ingredients: formData.ingredients,
-    howToUse: formData.howToUse,
     recommendedFor: formData.recommendedFor ?? [],
-    caution: formData.caution ?? [],
     shippingFee: formData.shippingFee ?? null,
     deliveryEstimate: formData.deliveryEstimate,
     shippingNotice: formData.shippingNotice,
     returnNotice: formData.returnNotice,
     sellerName: formData.sellerName,
-    isVisible: formData.isVisible,
-    isBest: formData.isBest,
-    isRecommended: formData.isRecommended,
+    isMembersOnlyPrice: formData.isMembersOnlyPrice,
   });
 
   const handleSave = async () => {
@@ -295,10 +259,38 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
   };
 
   const images = formData.images ?? [];
-  const auditPoints = formData.auditPoints ?? [];
   const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
-  const caution = formData.caution ?? [];
+
+  const handleCreateConcernTag = async (label: string): Promise<string> => {
+    const result = await createAdminProductTag(label);
+    if (!result.ok || !result.tag) {
+      if (result.error === 'persistence-not-ready') {
+        throw new Error('태그 저장용 DB가 아직 적용되지 않았습니다. DB 적용 후 바로 등록할 수 있습니다.');
+      }
+      if (result.error === 'invalid-input') {
+        throw new Error('태그 이름은 1자 이상 50자 이하로 입력해 주세요.');
+      }
+      if (result.error === 'unauthorized' || result.error === 'forbidden') {
+        throw new Error('관리자 권한을 확인한 뒤 다시 시도해 주세요.');
+      }
+      throw new Error('태그를 등록하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    }
+
+    const alreadySelected = concernTags.includes(result.tag.slug);
+    await reloadProductTags();
+    if (!alreadySelected) {
+      handleChange(
+        'concernTags',
+        Array.from(new Set([...concernTags.filter((item) => item.trim()), result.tag.slug])),
+      );
+    }
+
+    if (alreadySelected) return `‘${result.tag.label}’ 태그는 이미 이 상품에 선택되어 있습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`;
+    return result.created
+      ? `‘${result.tag.label}’ 태그를 공용 목록에 등록하고 이 상품에 선택했습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`
+      : `이미 등록된 ‘${result.tag.label}’ 태그를 이 상품에 선택했습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`;
+  };
 
   return (
     <div className="space-y-6 pb-24">
@@ -306,8 +298,8 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
         title={isEdit ? '상품 수정' : '새 상품 등록'}
         description={
           isEdit
-            ? '기본 정보·가격·옵션·상세 정보·배송 안내까지 상세페이지에 노출되는 모든 항목을 수정합니다.'
-            : '새 상품의 기본 정보와 상세페이지 노출 항목을 등록합니다.'
+            ? '기본 정보·가격·옵션·상세 정보·배송 안내를 수정합니다. 노출·추천·베스트는 상품 진열에서만 관리합니다.'
+            : '새 상품 정보를 등록합니다. 등록 직후에는 숨김 상태이며, 검수 후 상품 진열에서 노출합니다.'
         }
       >
         <button
@@ -332,7 +324,10 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* 기본 정보 */}
-          <SectionCard title="기본 정보">
+          <SectionCard
+            title="기본 정보"
+            description="각 입력칸 아래에서 고객 화면의 정확한 반영 위치를 확인할 수 있습니다. 고객 화면에 표시되지 않는 내부 입력칸은 두지 않습니다."
+          >
             <div className="space-y-4">
               <FormField label="상품명" htmlFor="product-name" required error={fieldErrors.name}>
                 <input
@@ -369,56 +364,65 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                 </FormField>
 
                 <FormField label="스토어 카테고리" htmlFor="product-category" required error={fieldErrors.category}>
-                  <SelectionCardGrid
-                    options={categorySettings.productCategories}
-                    value={formData.category}
-                    onChange={(value) => handleChange('category', value)}
-                    ariaLabel="스토어 카테고리 선택"
-                  />
+                  <select
+                    id="product-category"
+                    value={formData.categorySlug || formData.category || ''}
+                    onChange={(e) => {
+                      handleChange('category', e.target.value);
+                      handleChange('categorySlug', e.target.value);
+                      handleChange('lifestyleCategory', e.target.value);
+                    }}
+                    onBlur={() => handleBlur('category')}
+                    aria-invalid={!!fieldErrors.category}
+                    aria-describedby={fieldErrors.category ? 'product-category-error' : undefined}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="">카테고리 선택</option>
+                    {categorySettings.productCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
                 </FormField>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="반려동물">
+              <div>
+                <FormField label="반려동물" htmlFor="product-pet-type" description="상품 카테고리 관리 → 반려동물 필터에서 항목을 추가하거나 순서를 바꿀 수 있습니다.">
                   <select
+                    id="product-pet-type"
                     value={formData.petType || 'both'}
                     onChange={(e) => handleChange('petType', e.target.value)}
                     className={INPUT_CLASS}
                   >
-                    <option value="both">공용</option>
-                    <option value="dog">강아지 전용</option>
-                    <option value="cat">고양이 전용</option>
-                    <option value="small">소동물 전용</option>
+                    <option value="both">강아지·고양이 공용</option>
+                    {categorySettings.petTypes.map((petType) => (
+                      <option key={petType.id} value={petType.id}>{petType.label} 전용</option>
+                    ))}
                   </select>
-                </FormField>
-
-                <FormField label="라이프스타일 분류" htmlFor="product-lifestyle" required error={fieldErrors.lifestyleCategory}>
-                  <SelectionCardGrid
-                    options={categorySettings.lifestyleCategories}
-                    value={formData.lifestyleCategory}
-                    onChange={(value) => handleChange('lifestyleCategory', value)}
-                    ariaLabel="라이프스타일 분류 선택"
-                  />
                 </FormField>
               </div>
 
-              <FormField label="한 줄 설명">
-                <input
-                  type="text"
-                  value={formData.summary || ''}
-                  onChange={(e) => handleChange('summary', e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="상품 카드에 노출될 짧은 설명"
-                />
-              </FormField>
-
-              <FormField label="간단 텍스트 상세">
+              <FormField
+                label="상품 상세 → 상품 이야기 첫 설명"
+                description="표시 위치: 고객 상품 상세 → 상품 정보 탭 → ‘상품 이야기’ → ‘일상에서 이렇게 만나보세요.’ 제목 바로 아래입니다. 상품 카드에는 표시되지 않습니다."
+              >
                 <textarea
                   value={formData.description || ''}
                   onChange={(e) => handleChange('description', e.target.value)}
                   className={`${INPUT_CLASS} h-24 resize-none`}
-                  placeholder="간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)"
+                  placeholder="예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다."
                 />
+                {isEdit && initialData?.id && (
+                  <a
+                    href={`/shop/${initialData.id}#story`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex min-h-10 items-center border border-[#D1D0C8] bg-white px-3 text-xs font-semibold text-[#2F3B34] hover:bg-[#F3EEE6]"
+                  >
+                    고객 화면에서 이 위치 확인
+                  </a>
+                )}
               </FormField>
             </div>
           </SectionCard>
@@ -466,6 +470,15 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                 />
               </FormField>
             </div>
+            <label className="mt-4 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+              <span className="text-[14px] font-medium text-[#17201B]">회원 전용가 (비회원에게 가격 숨김)</span>
+              <input
+                type="checkbox"
+                checked={formData.isMembersOnlyPrice || false}
+                onChange={(e) => handleChange('isMembersOnlyPrice', e.target.checked)}
+                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
+              />
+            </label>
           </SectionCard>
 
           {/* 상품 옵션 */}
@@ -476,87 +489,66 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
             <OptionEditor rows={optionRows} onChange={setOptionRows} />
           </SectionCard>
 
-          {/* 상세 정보 */}
+          {/* 공개 화면 연결 */}
           <SectionCard
-            title="상세 정보"
-            description="상품 상세페이지의 정보 카드에 노출됩니다. 비워두면 기본 안내 문구가 대신 표시됩니다."
+            title="공개 화면 연결"
+            description="실제 고객 화면에 연결되는 항목만 관리합니다."
           >
             <div className="space-y-4">
-              <FormField label="상품 검증 포인트">
+              <FormField
+                label="상품 카드에 보이는 고민 태그"
+                description="홈·스토어·브랜드의 상품 카드에서 가격 아래 둥근 배지로 보입니다. 배변·생활·피부 같은 단어를 선택합니다. 기존 태그는 빠른 선택으로 고르고, 목록에 없으면 바로 아래에서 새 태그를 등록하면 이 상품에도 자동 선택됩니다."
+              >
                 <ArrayEditor
-                  items={auditPoints}
-                  onChange={(next) => handleChange('auditPoints', next)}
-                  addLabel="검증 포인트 추가"
-                  itemLabel="검증 포인트"
-                  placeholder="예: 원료 출처와 제조 정보를 확인했어요"
+                  items={concernTags}
+                  onChange={(next) => handleChange('concernTags', next)}
+                  addLabel="태그 선택칸 추가"
+                  itemLabel="고민 태그"
+                  placeholder="아래 빠른 선택에서 고르거나 직접 입력"
+                  suggestions={productTagSuggestions}
+                  onCreateSuggestion={handleCreateConcernTag}
                   maxItems={50}
                 />
+                <a
+                  href="/admin/products/tags"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex min-h-10 items-center border border-[#D1D0C8] bg-white px-3 text-xs font-semibold text-[#2F3B34] hover:bg-[#F3EEE6]"
+                >
+                  전체 태그 이름 수정·삭제·순서 변경
+                </a>
               </FormField>
-              <FormField label="주요 고민">
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {concerns.map((concern) => {
-                    const selected = concernTags.includes(concern.slug);
-                    return (
-                      <button
-                        key={concern.slug}
-                        type="button"
-                        aria-pressed={selected}
-                        onClick={() =>
+              <FormField
+                label="전문가 콘텐츠 연결"
+                description="‘전체 화면 공통 영역’에서 전문가 칼럼을 켜고 게시한 경우에만 고객 화면에 사용됩니다. 이 상품을 보여줄 관점을 선택하며, 상품 자체의 공개 여부와 추천 상태는 ‘상품 진열’에서 따로 켜야 합니다."
+              >
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {([
+                    ['veterinary', '수의사 관점'],
+                    ['nutrition', '영양 관점'],
+                    ['lifestyle', '행동·생활 관점'],
+                  ] as const).map(([value, label]) => (
+                    <label key={value} className="flex items-start gap-3 rounded border border-gray-200 bg-white p-4 text-[14px] text-[#17201B]">
+                      <input
+                        type="checkbox"
+                        checked={recommendedFor.includes(value)}
+                        onChange={(event) =>
                           handleChange(
-                            'concernTags',
-                            selected
-                              ? concernTags.filter((slug) => slug !== concern.slug)
-                              : [...concernTags, concern.slug],
+                            'recommendedFor',
+                            event.target.checked
+                              ? Array.from(new Set([...recommendedFor, value]))
+                              : recommendedFor.filter((item) => item !== value),
                           )
                         }
-                        className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
-                          selected
-                            ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
-                            : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
-                        }`}
-                      >
-                        {concern.title}
-                      </button>
-                    );
-                  })}
+                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#17201B] focus:ring-[#17201B]"
+                      />
+                      <span>
+                        <span className="block font-medium">{label}</span>
+                        <span className="mt-1 block text-[12px] leading-5 text-[#68756D]">연결 화면: /experts</span>
+                      </span>
+                    </label>
+                  ))}
                 </div>
-                {concerns.length === 0 && <p className="text-sm text-[#8A918B]">등록된 고민이 없습니다.</p>}
-              </FormField>
-              <FormField label="성분/원재료">
-                <textarea
-                  value={formData.ingredients || ''}
-                  onChange={(e) => handleChange('ingredients', e.target.value)}
-                  className={`${INPUT_CLASS} h-20 resize-none`}
-                  placeholder="예: 닭고기 40%, 현미, 연어오일…"
-                />
-              </FormField>
-              <FormField label="급여/사용 방법">
-                <textarea
-                  value={formData.howToUse || ''}
-                  onChange={(e) => handleChange('howToUse', e.target.value)}
-                  className={`${INPUT_CLASS} h-20 resize-none`}
-                  placeholder="예: 체중 5kg 기준 하루 60g, 2회 나눠 급여"
-                />
-              </FormField>
-              <FormField label="이런 반려동물에게 추천">
-                <ArrayEditor
-                  items={recommendedFor}
-                  onChange={(next) => handleChange('recommendedFor', next)}
-                  addLabel="추천 대상 추가"
-                  itemLabel="추천 대상"
-                  placeholder="예: 알러지가 있는 반려견"
-                  maxItems={50}
-                />
-              </FormField>
-              <FormField label="주의사항">
-                <ArrayEditor
-                  items={caution}
-                  onChange={(next) => handleChange('caution', next)}
-                  addLabel="주의사항 추가"
-                  itemLabel="주의사항"
-                  placeholder="예: 개봉 후 냉장 보관, 2주 이내 급여"
-                  maxItems={50}
-                />
               </FormField>
             </div>
           </SectionCard>
@@ -605,27 +597,6 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
         </div>
 
         <div className="space-y-6">
-          {/* 노출 상태 */}
-          <SectionCard title="노출 상태">
-            <div className="space-y-4">
-              <ToggleRow
-                label="스토어 노출"
-                checked={formData.isVisible || false}
-                onChange={(v) => handleChange('isVisible', v)}
-              />
-              <ToggleRow
-                label="추천 상품 (MD)"
-                checked={formData.isRecommended || false}
-                onChange={(v) => handleChange('isRecommended', v)}
-              />
-              <ToggleRow
-                label="베스트 상품"
-                checked={formData.isBest || false}
-                onChange={(v) => handleChange('isBest', v)}
-              />
-            </div>
-          </SectionCard>
-
           {/* 대표 이미지 */}
           <SectionCard title="대표 이미지">
             <ImageUploader
@@ -668,8 +639,8 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
             <div className="bg-white border border-red-200 rounded-md p-6">
               <h3 className="text-[15px] font-semibold text-red-600 mb-2">위험 영역</h3>
               <p className="text-[12px] text-gray-500 mb-4">
-                상품을 삭제하면 복구할 수 없으며 주문 내역 등에서 문제가 발생할 수 있습니다. 대신 노출 상태를
-                변경하는 것을 권장합니다.
+                상품을 삭제하면 복구할 수 없으며 주문 내역 등에서 문제가 발생할 수 있습니다. 삭제 대신 상품
+                진열에서 스토어 노출을 숨김 처리하는 것을 권장합니다.
               </p>
               <button
                 onClick={handleDelete}
@@ -718,29 +689,7 @@ function SectionCard({
   );
 }
 
-function ToggleRow({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <label className="flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-      <span className="text-[14px] font-medium text-[#17201B]">{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-      />
-    </label>
-  );
-}
-
-/** 문자열 목록 편집기(추천 대상·주의사항). append/remove만, 재정렬 없음(인덱스 key 안정). */
+/** 상품 카드 고민 태그 목록 편집기. append/remove만, 재정렬 없음(인덱스 key 안정). */
 function ArrayEditor({
   items,
   onChange,
@@ -748,6 +697,8 @@ function ArrayEditor({
   addLabel,
   itemLabel,
   maxItems,
+  suggestions,
+  onCreateSuggestion,
 }: {
   items: string[];
   onChange: (next: string[]) => void;
@@ -755,7 +706,12 @@ function ArrayEditor({
   addLabel: string;
   itemLabel?: string;
   maxItems?: number;
+  suggestions?: ReadonlyArray<{ value: string; label: string }>;
+  onCreateSuggestion?: (label: string) => Promise<string>;
 }) {
+  const [newSuggestionLabel, setNewSuggestionLabel] = useState('');
+  const [isCreatingSuggestion, setIsCreatingSuggestion] = useState(false);
+  const [suggestionFeedback, setSuggestionFeedback] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const update = (idx: number, value: string) => {
     onChange(items.map((item, i) => (i === idx ? value : item)));
   };
@@ -766,18 +722,133 @@ function ArrayEditor({
   const lastEmpty = items.length > 0 && items[items.length - 1].trim() === '';
   const addDisabled = atMax || lastEmpty;
 
+  const createSuggestion = async () => {
+    const label = newSuggestionLabel.trim();
+    if (!label) {
+      setSuggestionFeedback({ kind: 'error', text: '새 태그 이름을 입력해 주세요.' });
+      return;
+    }
+    if (!onCreateSuggestion || isCreatingSuggestion || atMax) return;
+
+    setIsCreatingSuggestion(true);
+    setSuggestionFeedback(null);
+    try {
+      const message = await onCreateSuggestion(label);
+      setNewSuggestionLabel('');
+      setSuggestionFeedback({ kind: 'success', text: message });
+    } catch (error) {
+      setSuggestionFeedback({
+        kind: 'error',
+        text: error instanceof Error ? error.message : '태그를 등록하지 못했습니다.',
+      });
+    } finally {
+      setIsCreatingSuggestion(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
+      {suggestions?.length ? (
+        <div className="rounded border border-[#D7DCD7] bg-[#F7F8F5] p-3">
+          <p className="mb-2 text-[12px] font-medium text-[#59615B]">빠른 선택</p>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion) => {
+              const selected = items.includes(suggestion.value);
+              return (
+                <button
+                  key={suggestion.value}
+                  type="button"
+                  disabled={selected || atMax}
+                  onClick={() => onChange([...items.filter((item) => item.trim()), suggestion.value])}
+                  className={`min-h-10 rounded-full border px-3 text-[12px] font-medium transition-colors ${
+                    selected
+                      ? 'border-[#17201B] bg-[#17201B] text-white'
+                      : 'border-[#C9CEC9] bg-white text-[#3F4942] hover:border-[#17201B]'
+                  } disabled:cursor-default`}
+                >
+                  {selected ? '✓ ' : '+ '}{suggestion.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+      {onCreateSuggestion ? (
+        <div className="rounded border border-[#D7DCD7] bg-white p-4">
+          <label htmlFor="new-product-tag" className="block text-[13px] font-semibold text-[#17201B]">
+            목록에 없는 새 태그 등록
+          </label>
+          <p className="mt-1 text-[12px] leading-5 text-[#68756D]">
+            고객에게 보일 이름만 입력하세요. 등록하면 공용 태그 목록에 저장되고 이 상품에도 바로 선택됩니다.
+          </p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <input
+              id="new-product-tag"
+              type="text"
+              maxLength={50}
+              value={newSuggestionLabel}
+              onChange={(event) => {
+                setNewSuggestionLabel(event.target.value);
+                if (suggestionFeedback) setSuggestionFeedback(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void createSuggestion();
+                }
+              }}
+              className={INPUT_CLASS}
+              placeholder="예: 알레르기"
+              aria-describedby="new-product-tag-help"
+            />
+            <button
+              type="button"
+              onClick={() => void createSuggestion()}
+              disabled={isCreatingSuggestion || atMax || !newSuggestionLabel.trim()}
+              className="min-h-10 shrink-0 rounded bg-[#17201B] px-4 text-[13px] font-semibold text-white hover:bg-[#2A3630] disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              {isCreatingSuggestion ? '등록 중…' : '등록하고 이 상품에 선택'}
+            </button>
+          </div>
+          <p id="new-product-tag-help" className="mt-2 text-[12px] text-[#68756D]">
+            새 태그는 공용 목록에 즉시 저장됩니다. 이 상품과의 연결은 화면 아래 상품 저장 버튼을 눌러야 확정됩니다. 스토어 필터 노출 여부는 아래 전체 태그 관리에서 정합니다.
+          </p>
+          {suggestionFeedback && (
+            <p
+              role={suggestionFeedback.kind === 'error' ? 'alert' : 'status'}
+              className={`mt-2 text-[12px] font-medium ${
+                suggestionFeedback.kind === 'error' ? 'text-red-600' : 'text-emerald-700'
+              }`}
+            >
+              {suggestionFeedback.text}
+            </p>
+          )}
+        </div>
+      ) : null}
       {items.map((item, idx) => (
         <div key={idx} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={item}
-            onChange={(e) => update(idx, e.target.value)}
-            className={INPUT_CLASS}
-            placeholder={placeholder}
-            aria-label={itemLabel ? `${itemLabel} ${idx + 1}` : undefined}
-          />
+          {suggestions?.length ? (
+            <select
+              value={item}
+              onChange={(event) => update(idx, event.target.value)}
+              className={INPUT_CLASS}
+              aria-label={itemLabel ? `${itemLabel} ${idx + 1}` : undefined}
+            >
+              <option value="">고민을 선택해 주세요</option>
+              {suggestions.map((suggestion) => (
+                <option key={suggestion.value} value={suggestion.value}>{suggestion.label}</option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              value={item}
+              onChange={(e) => update(idx, e.target.value)}
+              className={INPUT_CLASS}
+              placeholder={placeholder}
+              aria-label={itemLabel ? `${itemLabel} ${idx + 1}` : undefined}
+            />
+          )}
           <button
             type="button"
             onClick={() => remove(idx)}

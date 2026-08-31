@@ -75,14 +75,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await loginAsAdmin(page);
     await page.goto('/admin/notices');
 
-    // 1) 등록 — onCreateRow만 있고 onSave는 없는 화면이라 저장 버튼 라벨은 '저장'(AdminResourcePage.tsx).
+    // 1) 등록 — 마지막 버튼 한 번으로 목록·상세·홈 소식에 반영한다.
     // ⚠️ getByLabel은 기본 substring 매칭이라 '제목'/'본문'/'작성자'는 검색창의
     // aria-label("제목, 본문, 작성자 검색")과 겹쳐 strict-mode violation이 난다(실측) — exact:true로 고정.
     await page.getByRole('button', { name: '공지 등록' }).click();
     await page.getByLabel('제목', { exact: true }).fill(title);
     await page.getByLabel('유형').selectOption('event');
     await page.getByLabel('본문', { exact: true }).fill(content);
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '등록하고 고객 화면에 반영' }).click();
 
     // 2) 관리자 목록 — 입력 필드(유형·제목) + 자동값(작성자 '관리자'·오늘 날짜)이 행 단위로 반영됐는지 확인.
     const adminRow = page.locator('tr', { hasText: title });
@@ -121,7 +121,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 공지사항', (
     await expect(page.getByRole('button', { name: '수정' })).toHaveCount(1);
     await page.getByRole('button', { name: '수정' }).click();
     await page.getByLabel('제목', { exact: true }).fill(editedTitle);
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '수정하고 고객 화면에 반영' }).click();
     await expect(page.locator('table')).toContainText(editedTitle, { timeout: 15_000 });
 
     // 6) 공개 화면에 수정 반영 확인

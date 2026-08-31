@@ -26,9 +26,8 @@ env:
     src/app/api/admin/order-policy/
     src/app/api/admin/orders/
     src/app/api/admin/partner-inquiries/
-    src/app/api/admin/partners/
     src/app/api/admin/products/
-    src/app/api/admin/qna/
+    src/app/api/admin/product-tags/
     src/app/api/admin/reviews/
     src/app/api/admin/settings/
     src/app/api/admin/showcase-reviews/
@@ -42,7 +41,7 @@ env:
     admin-crud-insurance.spec.ts
     admin-crud-insurance-cert.spec.ts
     admin-crud-insurance-content.spec.ts
-    admin-crud-kits-partners.spec.ts
+    admin-crud-kits.spec.ts
     admin-crud-members.spec.ts
     admin-crud-members-pending-signup.spec.ts
     admin-crud-notices.spec.ts
@@ -53,7 +52,7 @@ env:
     admin-crud-product-fields.spec.ts
     admin-crud-product-gallery-removal.spec.ts
     admin-crud-products.spec.ts
-    admin-crud-qna-config.spec.ts
+    admin-crud-product-tags.spec.ts
     admin-crud-qna-inquiries.spec.ts
     admin-crud-reviews-moderation.spec.ts
     admin-crud-showcase-reviews.spec.ts

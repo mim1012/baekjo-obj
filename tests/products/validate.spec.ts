@@ -346,6 +346,33 @@ test.describe('폼 부분수정 계약 (ProductForm 화이트리스트 회귀 �
   });
 });
 
+test('지원하지 않는 적립금 입력은 상품 저장값에 포함하지 않는다', () => {
+  const result = validateProductFields({ pointsEnabled: true, pointsRate: 5 }, false) as Record<string, unknown>;
+  expect('pointsEnabled' in result).toBe(false);
+  expect('pointsRate' in result).toBe(false);
+});
+
+test.describe('고객 화면별 상품 진열 순서', () => {
+  test('홈 추천·스토어 추천·스토어 전체 순번을 각각 허용한다', () => {
+    const result = validateProductFields({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 3,
+      catalogOrder: 20,
+    }, false);
+    expect(result).toMatchObject({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 3,
+      catalogOrder: 20,
+    });
+  });
+
+  test('음수·소수·문자열 순번은 거부한다', () => {
+    expect(validateProductFields({ homeFeaturedOrder: -1 }, false)).toBeNull();
+    expect(validateProductFields({ shopFeaturedOrder: 1.5 }, false)).toBeNull();
+    expect(validateProductFields({ catalogOrder: '1' }, false)).toBeNull();
+  });
+});
+
 test.describe('기존 계약 회귀 방지', () => {
   test('salePrice가 price보다 크면 거부된다', () => {
     const result = validateProductFields({ price: 1000, salePrice: 2000 }, false);

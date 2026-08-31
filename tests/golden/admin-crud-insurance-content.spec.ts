@@ -79,12 +79,12 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 보험 FAQ', () 
 
     const section = faqSection(page);
 
-    // 1) 등록 — onCreateRow만 있고 onSave는 없는 화면이라 저장 버튼 라벨은 '저장'(AdminResourcePage.tsx).
+    // 1) 등록 — 마지막 버튼 한 번으로 보험 화면 FAQ에 반영한다.
     // ⚠️ '질문'은 FAQ 섹션 검색창 aria-label("질문 검색")과 substring이 겹쳐 exact:true가 필요하다.
     await section.getByRole('button', { name: 'FAQ 등록' }).click();
     await section.getByLabel('질문', { exact: true }).fill(question);
     await section.getByLabel('답변', { exact: true }).fill(answer);
-    await section.getByRole('button', { name: '저장' }).click();
+    await section.getByRole('button', { name: '등록하고 고객 화면에 반영' }).click();
 
     // 2) 관리자 목록(FAQ 섹션만) — 질문·답변 요약이 반영됐는지 확인.
     const adminRow = section.locator('tr', { hasText: question });

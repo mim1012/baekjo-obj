@@ -4,8 +4,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/settings → 공개 홈(/) CMS 문구 파이프라인.
 //
 // 이 도메인은 notices/reviews/concerns와 성격이 다르다 — 항목을 append/delete하는 목록이
-// 아니라 site_settings 싱글턴 행 하나를 통째로 PUT하는 편집 화면이다(SiteSettingsProvider.tsx:
-// GET /api/settings 로 읽고, PUT /api/admin/settings 로 전체 객체를 덮어쓴다). staging DB의
+// 아니라 cms_pages(home)의 draft/published를 분리하는 편집 화면이다. PATCH로 임시저장한 뒤
+// POST로 게시하며, GET /api/settings는 게시본만 읽는다. staging DB의
 // 실제 운영 문구를 건드리므로 원본을 스냅샷 → 편집 → 검증 → **반드시 원복**한다. 홈 화면은
 // tests/golden/visual.spec.ts의 시각 회귀 대상이기도 해서, 복원에 실패하면 이 스펙과 무관한
 // 다른 PR의 시각 회귀가 오탐으로 깨진다 — afterAll의 원복은 테스트 실패 여부와 무관하게 항상
@@ -69,28 +69,20 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
   });
 
   test('히어로 eyebrow 편집 → 공개 홈에 반영 → 원본으로 복원', async ({ page }) => {
-    // ⚠️ admin/settings/page.tsx의 handleSave()는 성공/실패를 DOM 텍스트가 아니라 네이티브
-    // window.alert()로 알린다('설정이 저장되었습니다.' / '설정 저장에 실패했습니다...') — getByText로는
-    // 절대 못 잡는다(실측: alert는 Playwright가 리스너 없으면 자동으로 닫아버려 그냥 타임아웃 난다).
-    // 클릭과 동시에 dialog 이벤트를 기다려 메시지를 읽고 accept한다.
-    async function saveAndExpectSuccessAlert() {
-      const [dialog] = await Promise.all([
-        page.waitForEvent('dialog', { timeout: 15_000 }),
-        page.getByRole('button', { name: '변경사항 저장' }).click(),
-      ]);
-      expect(dialog.message()).toContain('설정이 저장되었습니다');
-      await dialog.accept();
+    async function saveAndPublish() {
+      const publishResponsePromise = page.waitForResponse(
+        (res) => res.url().includes('/api/admin/settings') && res.request().method() === 'POST',
+      );
+      await page.getByRole('button', { name: '홈에 게시' }).first().click();
+      const publishResponse = await publishResponsePromise;
+      expect(publishResponse.ok()).toBe(true);
+      await expect(page.getByText(/홈 편집본 v\d+을 공개했습니다/)).toBeVisible();
     }
 
     await loginAsAdmin(page);
-    // ⚠️ #149 로드게이트 — SiteSettingsProvider의 GET /api/settings가 resolve(loaded=true)되기
-    // 전에는 updateDraft/handleSave가 조용히 no-op한다(draft가 아직 defaultHomeSettings 시드일 때
-    // 저장하면 안 보이는 다른 섹션까지 기본값으로 실 DB를 덮어쓰는 걸 막기 위한 의도된 가드,
-    // fix(admin) #149). fill()이 그 창을 비집고 들어가면 겉보기엔 입력된 것처럼 보여도 다음
-    // 리렌더에서 원래 값으로 되돌아갈 수 있다 — GET을 명시적으로 기다려 결정론적으로 만든다
-    // (concerns/insurance-content 스펙에서 겪은 것과 같은 종류의 로드 경쟁).
+    // 관리자 편집본(draft) GET이 resolve되기 전에는 편집·저장·게시를 막는다.
     await Promise.all([
-      page.waitForResponse((res) => res.url().includes('/api/settings') && res.request().method() === 'GET'),
+      page.waitForResponse((res) => res.url().includes('/api/admin/settings') && res.request().method() === 'GET'),
       page.goto('/admin/settings'),
     ]);
 
@@ -101,7 +93,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     const eyebrowField = page.locator('div.mb-4', { hasText: '상단 영문 뱃지 (eyebrow)' }).locator('input');
     await expect(eyebrowField).toBeVisible({ timeout: 15_000 });
     await eyebrowField.fill(eyebrow);
-    await saveAndExpectSuccessAlert();
+    await saveAndPublish();
 
     // 공개 홈에 반영되는지 확인 — HomeClient.tsx:102 `{hero.eyebrow}`.
     await page.goto('/');
@@ -113,7 +105,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     await expect(restoreField).toHaveValue(eyebrow, { timeout: 15_000 });
     const originalEyebrow = (originalSettings as { hero: { eyebrow: string } }).hero.eyebrow;
     await restoreField.fill(originalEyebrow);
-    await saveAndExpectSuccessAlert();
+    await saveAndPublish();
 
     // 공개 홈에서도 원본 문구로 되돌아왔는지 확인 — 이 스펙이 공유 staging 상태를 깨지 않았다는 증거.
     await page.goto('/');

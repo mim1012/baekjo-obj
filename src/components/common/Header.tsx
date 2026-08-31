@@ -1,6 +1,5 @@
 'use client';
 
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -14,38 +13,14 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
-import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
 import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-
-type NavLinkDef = { label: string; href: string; feature?: keyof typeof FEATURES };
-
-const ALL_MAIN_LINKS: NavLinkDef[] = [
-  { label: '브랜드', href: '/brands' },
-  { label: '케어', href: '/concerns' },
-  { label: '펫보험', href: '/insurance', feature: 'insurance' },
-  { label: 'B2B', href: '/b2b' },
-];
-
-// 미노출 기능은 GNB 자체에서 제외 — 배열이 정적이라 조건부 렌더가 아니라 필터로 처리.
-const MAIN_LINKS = ALL_MAIN_LINKS.filter(
-  (link) => !link.feature || FEATURES[link.feature],
-);
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
+import BrandMark from './BrandMark';
 
 const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
-
-const ALL_STORY_LINKS: NavLinkDef[] = [
-  { label: '백조오브제 Audit의 검토 기준', href: '/audit' },
-  { label: '전문가 칼럼', href: '/experts', feature: 'experts' },
-  { label: '보호자 후기', href: '/reviews' },
-  { label: '소식', href: '/notices' },
-];
-
-const STORY_LINKS = ALL_STORY_LINKS.filter(
-  (link) => !link.feature || FEATURES[link.feature],
-);
 
 const SHOP_LINKS = {
   categories: shopCategoryFilters.map((category) => ({
@@ -66,6 +41,7 @@ const subscribeToCart = (callback: () => void) => {
 type MobilePanel = 'shop' | 'story' | null;
 
 export default function Header() {
+  const siteContent = usePublicSiteContent();
   const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const mounted = useMounted();
@@ -76,6 +52,16 @@ export default function Header() {
   const currentUser = mounted ? getCurrentUser() : null;
   const accountHref = currentUser?.role === 'partner' ? '/partner/orders' : '/mypage';
   const accountLabel = currentUser?.role === 'partner' ? '파트너 주문 관리' : '마이페이지';
+  const mainLinks = siteContent.navigation.mainLinks.filter((link) => {
+    if (!link.visible) return false;
+    if (link.href.startsWith('/insurance')) return siteContent.features.insurance;
+    return true;
+  });
+  const storyLinks = siteContent.navigation.storyLinks.filter((link) => {
+    if (!link.visible) return false;
+    if (link.href.startsWith('/experts')) return siteContent.features.experts;
+    return true;
+  });
 
   useEffect(() => {
     getPublicBrandLinks()
@@ -84,7 +70,7 @@ export default function Header() {
   }, []);
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
-  const storyActive = STORY_LINKS.some((link) => isActive(link.href));
+  const storyActive = storyLinks.some((link) => isActive(link.href));
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -121,17 +107,13 @@ export default function Header() {
         <Link
           href="/"
           aria-label="백조오브제 홈"
-          className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
+          className="block shrink-0"
           onClick={closeMenu}
         >
-          <Image
-            src="/images/baekjo-objet-header-logo-v2.png"
-            alt="Baekjo Objet"
-            fill
-            sizes="(min-width: 1024px) 156px, 143px"
+          <BrandMark
+            className="h-11 w-[143px] lg:h-12 lg:w-[156px]"
             priority
-            className="object-contain"
-            data-testid="site-header-logo"
+            testId="site-header-logo"
           />
         </Link>
 
@@ -164,7 +146,7 @@ export default function Header() {
             </div>
           </div>
 
-          {MAIN_LINKS.slice(0, 3).map((link) => (
+          {mainLinks.map((link) => (
             <NavLink key={link.href} {...link} active={isActive(link.href)} />
           ))}
 
@@ -182,7 +164,7 @@ export default function Header() {
               <ChevronDown className="size-3.5 transition-transform duration-500 group-hover:rotate-180 group-focus-within:rotate-180" />
             </button>
             <div className="absolute right-0 top-full z-40 hidden w-80 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white p-3 shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
-              {STORY_LINKS.map((link) => (
+              {storyLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -194,10 +176,6 @@ export default function Header() {
             </div>
           </div>
 
-          {/* 기능 플래그로 펫보험이 빠질 수 있어 4번째 링크가 없을 수 있다 — 가드 렌더. */}
-          {MAIN_LINKS[3] && (
-            <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
-          )}
         </nav>
 
         <div className="flex items-center gap-1">
@@ -307,7 +285,7 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS.slice(0, 3).map((link) => (
+            {mainLinks.map((link) => (
               <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
             ))}
 
@@ -318,17 +296,13 @@ export default function Header() {
               onToggle={() => setMobilePanel((panel) => (panel === 'story' ? null : 'story'))}
             >
               <div className="space-y-3">
-                {STORY_LINKS.map((link) => (
+                {storyLinks.map((link) => (
                   <Link key={link.href} href={link.href} onClick={closeMenu} className="flex min-h-11 flex-col justify-center">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
                   </Link>
                 ))}
               </div>
             </MobileAccordion>
-
-            {MAIN_LINKS[3] && (
-              <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
-            )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">
               <Link href={currentUser ? accountHref : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">

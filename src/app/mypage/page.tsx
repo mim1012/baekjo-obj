@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FEATURES } from '@/config/features';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 import { User, Order, InsuranceApplication, Product, ProductReview, ProductInquiry, Shipment } from '@/types';
 import {
   getSessionUser,
@@ -47,16 +47,17 @@ type ReviewTargetProduct = Product & {
   optionName?: string;
 };
 
-function normalizeMypageTab(tab: string | null): string {
-  if (tab === 'insurance' && !FEATURES.insurance) return 'overview';
+function normalizeMypageTab(tab: string | null, insuranceVisible: boolean): string {
+  if (tab === 'insurance' && !insuranceVisible) return 'overview';
   return tab || 'overview';
 }
 
 function MypageContent() {
+  const siteContent = usePublicSiteContent();
   const router = useRouter();
   const searchParams = useSearchParams();
   // URL(?tab=)로 보험 탭 직접 접근도 차단 — 미노출 기간엔 요약 탭으로 되돌린다(features.ts).
-  const requestedTab = normalizeMypageTab(searchParams.get('tab'));
+  const requestedTab = normalizeMypageTab(searchParams.get('tab'), siteContent.features.insurance);
   const [tabState, setTabState] = useState({ activeTab: requestedTab, requestedTab });
   const tab = tabState.requestedTab === requestedTab ? tabState.activeTab : requestedTab;
 
@@ -145,13 +146,13 @@ function MypageContent() {
   }, [router]);
 
   const handleTabChange = useCallback((nextTab: string) => {
-    const normalizedTab = normalizeMypageTab(nextTab);
+    const normalizedTab = normalizeMypageTab(nextTab, siteContent.features.insurance);
     setTabState({ activeTab: normalizedTab, requestedTab });
     if (typeof window !== 'undefined') {
       const nextUrl = normalizedTab === 'overview' ? '/mypage' : `/mypage?tab=${normalizedTab}`;
       window.history.replaceState(null, '', nextUrl);
     }
-  }, [requestedTab]);
+  }, [requestedTab, siteContent.features.insurance]);
 
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,

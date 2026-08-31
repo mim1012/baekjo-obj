@@ -1,5 +1,6 @@
 import { Product } from '@/types';
 import { normalizeShopCategory } from '@/data/shopFilters';
+import { hasManagedProductOrder, sortByManagedProductOrder } from '@/lib/products/displayOrder';
 
 export function filterProducts(
   products: Product[],
@@ -21,7 +22,7 @@ export function filterProducts(
       filters.petType &&
       filters.petType !== 'all' &&
       p.petType !== filters.petType &&
-      !(filters.petType !== 'small' && p.petType === 'both')
+      !(p.petType === 'both' && (filters.petType === 'dog' || filters.petType === 'cat'))
     ) return false;
     if (
       filters.category &&
@@ -76,6 +77,9 @@ export function sortProducts(products: Product[], sort: SortOption): Product[] {
       return sorted.sort((a, b) => (b.salePrice ?? b.price ?? 0) - (a.salePrice ?? a.price ?? 0));
     case 'recommended':
     default:
+      if (hasManagedProductOrder(sorted, 'catalogOrder')) {
+        return sortByManagedProductOrder(sorted, 'catalogOrder');
+      }
       return sorted.sort((a, b) => (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0));
   }
 }

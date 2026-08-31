@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { defaultKitsConfig, type KitsConfig } from '@/lib/kits/config';
+import { resolvePublicKitsConfig, type KitsConfig } from '@/lib/kits/config';
 import { getKitsConfig, saveKitsConfig } from '@/lib/kits/repo';
 import type { CareKit } from '@/types';
 import { logServerError } from '@/lib/logServerError';
@@ -24,11 +24,8 @@ function isCareKit(item: unknown): item is CareKit {
     isString(kit.type) &&
     KIT_TYPES.includes(kit.type as CareKit['type']) &&
     isString(kit.target) &&
-    isString(kit.location) &&
     isStringArray(kit.items) &&
     isString(kit.purpose) &&
-    (kit.partnerId == null || isString(kit.partnerId)) &&
-    (kit.stock == null || typeof kit.stock === 'number') &&
     typeof kit.isVisible === 'boolean' &&
     (kit.description == null || isString(kit.description))
   );
@@ -48,17 +45,17 @@ function isKitsConfig(body: unknown): body is KitsConfig {
 }
 
 /**
- * GET /api/admin/kits — 관리자 케어 키트 목록. 공개 소비자가 없어 관리자 전용이다.
- * 저장된 행이 있으면 그 값을, 없으면 defaultKitsConfig 를 반환한다. 조회 실패는 500 으로 드러낸다.
+ * GET /api/admin/kits — 공개 케어키트와 완전히 같은 목록을 관리자에게 반환한다.
+ * 과거 기본 자료가 남아 있어도 공개 화면과 같은 보정 결과를 보여 준다. 조회 실패는 500 으로 드러낸다.
  */
 export async function GET() {
   const admin = await requireAdmin();
   if (!admin.ok) return admin.response;
 
-  let config: KitsConfig = defaultKitsConfig;
+  let config: KitsConfig;
   try {
     const saved = await getKitsConfig();
-    if (saved) config = saved;
+    config = resolvePublicKitsConfig(saved);
   } catch (error) {
     logServerError('[GET /api/admin/kits] 조회 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });

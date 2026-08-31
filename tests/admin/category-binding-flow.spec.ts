@@ -25,7 +25,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
   test('관리자 카테고리 화면은 provider 콘센트의 updateCategorySettings 로만 저장한다', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
     // 즉시저장 전환(2026-07-18): 일괄 handleSave/SaveBar 가 사라지고 commit 이 유일한 저장 경로다.
-    const saveFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
+    const saveFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const updateLocal = ');
 
     expect(adminPage).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(adminPage).toContain('const { categorySettings, updateCategorySettings, loaded, loadError } = useCategorySettings();');
@@ -36,9 +36,10 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(saveFunction).not.toContain('saveCategorySettings');
     expect(saveFunction).not.toContain('getSupabase');
     expect(adminPage).not.toContain('@/lib/categorySettings/repo');
-    expect(adminPage).toContain("field: 'productCategories' | 'lifestyleCategories'");
-    expect(adminPage).toContain("'productCategories'");
-    expect(adminPage).toContain("'lifestyleCategories'");
+    expect(adminPage).toContain("type SimpleField = 'productCategories' | 'petTypes';");
+    expect(adminPage).toContain("type OrderedField = SimpleField | 'priceRanges' | 'ratingRanges';");
+    expect(adminPage).toContain("renderSimpleEditor('petTypes'");
+    expect(adminPage).toContain("renderSimpleEditor('productCategories'");
     // 일괄 저장 UI 재도입 방지 — 저장은 commit(즉시) 하나뿐이어야 한다.
     expect(adminPage).not.toContain('SaveBar');
     expect(adminPage).not.toContain('handleSave');
@@ -48,22 +49,20 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
     // commit 이 모든 저장 경로(추가·삭제·순서변경·이름 blur 커밋)의 유일한 관문이므로 여기 하나만
     // 가드하면 된다 — addItem/removeItem/moveItem/commitItemName 이 전부 commit 을 거친다.
-    const commitFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const renderStringListEditor = (');
-    expect(commitFunction).toContain('if (!loaded || loadError) return;');
-    expect(commitFunction).toContain('if (busyRef.current) return;');
+    const commitFunction = sliceBetween(adminPage, 'const commit = async (next: CategorySettings) => {', 'const updateLocal = ');
+    expect(commitFunction).toContain('if (!loaded || loadError || busy) return false;');
 
     // 타이핑(updateItemLocal)도 loaded 이전엔 막는다 — 그래야 dirty 락이 걸려 늦게 도착한 실제
     // GET 값의 resync(`if (!dirty)`)를 영구히 막는 레이스가 생기지 않는다.
-    const updateItemLocalFunction = sliceBetween(adminPage, 'const updateItemLocal = (index: number, val: string) => {', 'const commitItemName = ');
+    const updateItemLocalFunction = sliceBetween(adminPage, 'const updateLocal = ', 'const commitLocal = ');
     expect(updateItemLocalFunction).toContain('if (!loaded) return;');
   });
 
   test('loadError 는 PageHeader 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
-    expect(adminPage).toContain(
-      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
-    );
+    expect(adminPage).toContain("? '스토어 필터 설정을 불러오지 못해 저장을 막았습니다. 새로고침 후 다시 시도해 주세요.'");
+    expect(adminPage).toContain("고객 스토어 왼쪽 필터에 보이는 항목과 순서를 관리합니다.");
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
@@ -129,10 +128,8 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(adminRoute).toContain(
       "import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';",
     );
-    expect(adminRoute).toContain("import type { CategorySettings } from '@/lib/categorySettings/config';");
-    expect(adminRoute).toContain('Array.isArray(b.productCategories)');
-    expect(adminRoute).toContain('Array.isArray(b.lifestyleCategories)');
-    expect(adminRoute).toContain('Array.isArray(b.brandFilters)');
+    expect(adminRoute).toContain("import { isValidCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';");
+    expect(adminRoute).toContain('return isValidCategorySettings(body);');
     expect(putFunction).toContain('const session = await auth();');
     expect(putFunction).toContain('const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;');
     expect(putFunction).toContain('await saveCategorySettings(body);');
@@ -190,7 +187,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(getFunction).toContain(".select('value')");
     expect(getFunction).toContain(".eq('id', SETTINGS_ROW_ID)");
     expect(getFunction).toContain('.maybeSingle()');
-    expect(getFunction).toContain('normalizeStoredCategorySettings(data.value as CategorySettings)');
+    expect(getFunction).toContain('normalizeStoredCategorySettings(data.value)');
     expect(saveFunction).toContain(".from('category_settings')");
     expect(saveFunction).toContain('upsert({ id: SETTINGS_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
@@ -201,6 +198,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productForm = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
     const adminProducts = src('src', 'components', 'admin-new', 'products', 'AdminProductsClient.tsx');
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
     expect(layoutSource).toContain("import { CategorySettingsProvider } from \"@/components/providers/CategorySettingsProvider\";");
     expect(layoutSource).toContain('<CategorySettingsProvider>');
@@ -209,6 +207,9 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(shopContent).toContain('const { categorySettings } = useCategorySettings();');
     expect(shopContent).toContain('getDataBackedShopCategoryOptions(');
     expect(shopContent).toContain('product.categorySlug ?? product.category');
+    expect(shopContent).toContain('categorySettings.petTypes.map((petType) => (');
+    expect(shopContent).toContain('categorySettings.priceRanges.find((option) => option.id === priceRange)');
+    expect(shopContent).toContain('categorySettings.ratingRanges.find((option) => option.id === params.rating)');
     expect(shopContent).not.toContain('shopCategoryFilters');
     expectNoCategoryBypass(shopContent);
 
@@ -219,14 +220,18 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(productForm).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(productForm).toContain('const { categorySettings } = useCategorySettings();');
-    expect(productForm).toContain('options={categorySettings.productCategories}');
-    expect(productForm).toContain('options={categorySettings.lifestyleCategories}');
-    expect(productForm).toContain('function SelectionCardGrid');
+    expect(productForm).toContain('categorySettings.productCategories.map((c) => (');
+    expect(productForm).toContain('categorySettings.petTypes.map((petType) => (');
+    expect(productForm).toContain("lifestyleCategory: formData.categorySlug || formData.category");
     expectNoCategoryBypass(productForm);
 
     expect(adminProducts).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(adminProducts).toContain('const { categorySettings } = useCategorySettings();');
     expect(adminProducts).toContain('categorySettings.productCategories.map(c => (');
     expectNoCategoryBypass(adminProducts);
+
+    expect(adminPage).toContain('href="/admin/brands"');
+    expect(adminPage).toContain('href="/admin/products/tags"');
+    expect(adminPage).toContain('상품이 ${count}개라 삭제할 수 없습니다.');
   });
 });

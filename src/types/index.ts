@@ -21,7 +21,8 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  petType: 'dog' | 'cat' | 'small' | 'both';
+  /** 상품 카테고리 관리의 반려동물 연결값. 'both'는 강아지·고양이 공용 시스템 값이다. */
+  petType: string;
   ageGroup: string;
   image: string;
   images?: string[];
@@ -36,6 +37,7 @@ export interface Product {
   sellerName?: string;
   tags?: string[];
   brandName?: string;
+  isMembersOnlyPrice?: boolean;
   auditPoints?: string[];
   recommendedFor?: string[];
   caution?: string[];
@@ -45,6 +47,12 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
+  /** 홈의 베스트·추천 상품 영역 순서. 미설정이면 기존 인기순을 그대로 사용한다. */
+  homeFeaturedOrder?: number;
+  /** 스토어 상단 추천 상품 영역 순서. 미설정이면 기존 상품 조회순을 그대로 사용한다. */
+  shopFeaturedOrder?: number;
+  /** 스토어 전체 상품·브랜드 상품의 기본 순서. 미설정이면 기존 추천/조회순을 그대로 사용한다. */
+  catalogOrder?: number;
 }
 
 export interface ProductOption {
@@ -106,8 +114,6 @@ export interface BrandShippingPolicy {
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;
-  supportEmail?: string;
-  supportKakaoLabel?: string;
 }
 
 export interface BrandAuditReport {
@@ -138,6 +144,36 @@ export interface Concern {
   recommendedBrandIds: string[];
   insuranceCta: string;
   faq: FAQ[];
+  heroTitle?: string;
+  heroDescription?: string;
+  heroImage?: string;
+  heroImagePosition?: string;
+  backLabel?: string;
+  badgeSuffix?: string;
+  quickGuideItems?: ConcernQuickGuideItem[];
+  hospitalSigns?: string[];
+  signalsTitle?: string;
+  hospitalTitle?: string;
+  hospitalDescription?: string;
+  productsTitle?: string;
+  productsLinkLabel?: string;
+  productsEmptyText?: string;
+  insuranceTitle?: string;
+  insuranceDescription?: string;
+  insuranceButtonLabel?: string;
+  insuranceButtonHref?: string;
+  insuranceImage?: string;
+  insuranceImageAlt?: string;
+  reviewsTitle?: string;
+  reviewsLinkLabel?: string;
+  faqTitle?: string;
+}
+
+export interface ConcernQuickGuideItem {
+  title: string;
+  description: string;
+  href: string;
+  icon: 'search' | 'home' | 'hospital';
 }
 
 export interface FAQ {
@@ -222,12 +258,6 @@ export type InsuranceStatus =
   | '분석완료';
 
 /* ── 주문 ─────────────────────────────────────── */
-export interface BankTransferAccount {
-  bankName: string;
-  accountNumber: string;
-  accountHolder: string;
-}
-
 export interface Order {
   id: string;
   customerName: string;
@@ -238,7 +268,6 @@ export interface Order {
   deliveryFee: number;
   deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
   paymentMethod: string;
-  bankTransferAccount?: BankTransferAccount;
   orderStatus: OrderStatus;
   paymentStatus: string;
   deliveryStatus: string;
@@ -389,7 +418,6 @@ export interface User {
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
-  profileCompleted?: boolean;
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
@@ -420,21 +448,6 @@ export interface MemberAddress {
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
-}
-
-/* ── Q&A ─────────────────────────────────────── */
-export interface QnA {
-  id: string;
-  productId: string;
-  productName: string;
-  question: string;
-  answer?: string;
-  status: '답변대기' | '답변완료';
-  isSecret: boolean;
-  writerName: string;
-  createdAt: string;
-  answeredAt?: string;
-  isVisible?: boolean;
 }
 
 /* ── 사용자 작성 구매평 ───────────────────────── */
@@ -561,6 +574,11 @@ export interface SurveyQuestion {
 export interface SurveyResultRule {
   id: string;
   condition: {
+    /** 관리자가 질문과 답을 직접 연결하는 현재 규칙. 이전 고정 필드는 하위 호환용으로 유지한다. */
+    answers?: Array<{
+      questionId: string;
+      optionValue: string;
+    }>;
     petType?: string;
     ageGroup?: string;
     concern?: string;
@@ -582,33 +600,16 @@ export interface CareKit {
   name: string;
   type: 'hospital' | 'vitality' | 'funeral' | 'welcome' | 'sample';
   target: string;
-  location: string;
   items: string[];
   purpose: string;
-  partnerId?: string;
-  stock?: number;
   isVisible: boolean;
   description?: string;
 }
 
-/* ── B2B 협력처 ──────────────────────────────── */
-export interface Partner {
-  id: string;
-  name: string;
-  type: 'hospital' | 'funeral' | 'brand' | 'hotel' | 'etc';
-  contactPerson: string;
-  phone: string;
-  address: string;
-  cooperationType: string;
-  providedKits: string[];
-  status: '문의' | '상담중' | '제안서 발송' | '계약 검토' | '계약 완료' | '납품 준비' | '운영중' | '보류' | '종료';
-  memo?: string;
-  isContracted: boolean;
-  isDelivered: boolean;
-}
+export type PartnerType = 'hospital' | 'funeral' | 'brand' | 'hotel' | 'etc';
 
 /* ── B2B 제휴 문의(공개 폼 제출 → 관리자 접수함) ─────────────────────────
- * admin/partners(제휴처 마스터 config)와는 별개의 "제출 레코드 누적" 도메인.
+ * /landing/care-kit 공개 폼에서 접수되는 "제출 레코드 누적" 도메인.
  * status 는 배열을 SSOT 로 두고 타입을 파생한다(ORDER_STATUSES 관용구, §10-9). */
 export const PARTNER_INQUIRY_STATUSES = ['접수', '상담중', '완료', '보류'] as const;
 
@@ -620,7 +621,7 @@ export interface PartnerInquiry {
   contactPerson: string;
   phone: string;
   email: string;
-  partnerType: Partner['type'];
+  partnerType: PartnerType;
   message: string;
   status: PartnerInquiryStatus;
   memo?: string;
@@ -692,7 +693,6 @@ export interface AdminDashboardBrandStatsMeta {
 
 export interface AdminDashboardSummary {
   recentOrders: AdminDashboardRecentOrder[];
-  recentInsurances: InsuranceApplication[];
   /** 가입 승인 대기(B2B/보험사/입점업체) 회원 — 별도 신청서 테이블이 없어 members를 role/status로 좁혀 구성. */
   recentApplications: AdminDashboardPendingApplication[];
   /** 브랜드별 통계(가산 optional — 집계 실패 시 생략되고 나머지 요약은 그대로 내려간다). */

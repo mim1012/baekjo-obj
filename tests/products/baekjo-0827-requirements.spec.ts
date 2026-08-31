@@ -21,11 +21,12 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('헤더와 푸터 메뉴가 정본 순서와 구성으로 유지된다', () => {
     const header = read('src/components/common/Header.tsx');
     const footer = read('src/components/common/Footer.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
-      expect(header, `${label} 메뉴`).toContain(label);
+      expect(`${header}\n${cmsDefaults}`, `${label} 메뉴`).toContain(label);
     }
     for (const submenu of ['백조오브제 Audit의 검토 기준', '전문가 칼럼', '보호자 후기', '소식']) {
-      expect(header).toContain(submenu);
+      expect(cmsDefaults).toContain(submenu);
     }
     for (const removedDescription of [
       '브랜드를 살펴보는 네 가지 확인 기준',
@@ -36,13 +37,15 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       expect(header).not.toContain(removedDescription);
     }
     expect(header).not.toContain('백조 Audit');
-    expect(footer).toContain('@BAEKJO OBJET');
-    expect(footer).toContain("label: '배송·교환·환불'");
+    expect(cmsDefaults).toContain('@BAEKJO OBJET');
+    expect(cmsDefaults).toContain("label: '배송·교환·환불'");
     expect(footer).not.toContain('PET LIFE CURATION');
   });
 
   test('홈 핵심 카피와 추천 상품 상한이 정본과 일치한다', () => {
     const home = read('src/components/home/HomeClient.tsx');
+    const homeContent = read('src/data/homeContent.ts');
+    const homeAdmin = read('src/app/admin/settings/page.tsx');
     expect(defaultHomeSettings.hero.eyebrow).toBe('Curated Pet Brands');
     expect(defaultHomeSettings.hero.titleLines.join(' ')).toBe('좋은 브랜드를 찾고 계셨나요?');
     expect(defaultHomeSettings.hero.descriptionLines).toEqual([
@@ -56,10 +59,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(home).toContain(".slice(0, 3)");
     expect(home).toContain('보호자 후기');
     expect(home).toContain('소식');
+    for (const removedBadgeCopy of ['Audit Passed', '검증 기준 통과', 'badgeTitle', 'badgeSubtitle']) {
+      expect(`${home}\n${homeContent}\n${homeAdmin}`).not.toContain(removedBadgeCopy);
+    }
   });
 
   test('Audit·보호자 후기·소식 화면이 최신 콘텐츠 정본과 일치한다', () => {
     const audit = read('src/app/audit/page.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const reviews = read('src/app/reviews/page.tsx');
     const notices = read('src/app/notices/page.tsx');
     const reviewsAdmin = read('src/app/admin/reviews/page.tsx');
@@ -74,24 +81,26 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '화면에서는 이렇게 표시됩니다.',
       '확인한 기준은 선택으로 이어집니다.',
     ]) {
-      expect(audit).toContain(copy);
+      expect(`${audit}\n${cmsDefaults}`).toContain(copy);
     }
     expect(audit).not.toContain('100 to 5');
     expect(audit).not.toContain('검증 브랜드 보기');
     expect(audit).not.toContain('검토 기준 살펴보기');
 
-    for (const copy of ['REAL EXPERIENCES', '보호자 후기', "['small', '소동물']", "['other', '기타']"]) {
-      expect(reviews).toContain(copy);
+    for (const copy of ['REAL EXPERIENCES', '보호자 후기']) {
+      expect(`${reviews}\n${cmsDefaults}`).toContain(copy);
     }
+    expect(cmsDefaults).toContain("{ value: 'small', label: '소동물', visible: true }");
+    expect(cmsDefaults).toContain("{ value: 'other', label: '기타', visible: true }");
     expect(reviews).toContain('return review.petType === filter;');
     expect(reviews).not.toContain('반려가족의 리얼 후기');
     expect(reviews).not.toContain('reviewConcernTagsByProductId');
-    expect(reviewsAdmin).toContain("label: '반려동물 종류 (필수)'");
+    expect(reviewsAdmin).toContain("label: '반려동물 종류'");
     expect(reviewsAdmin).toContain('required: true');
     expect(reviewsAdmin).toContain("{ value: '', label: '종류를 선택해 주세요' }");
 
-    expect(notices).toContain('NEWS &amp; NOTICE');
-    expect(notices).toContain('백조오브제의 새로운 소식과 안내');
+    expect(`${notices}\n${cmsDefaults}`).toContain('NEWS & NOTICE');
+    expect(`${notices}\n${cmsDefaults}`).toContain('백조오브제의 새로운 소식과 안내');
     for (const hiddenColumn of ['<div>글쓴이</div>', '<div>조회수</div>', '<div>좋아요</div>']) {
       expect(notices).not.toContain(hiddenColumn);
     }
@@ -99,6 +108,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
 
   test('케어키트 프로젝트와 협업 문의 문구가 최신 시안과 일치한다', () => {
     const careKit = read('src/app/landing/care-kit/page.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const inquiryForm = read('src/components/care-kit/PartnerInquiryForm.tsx');
     const migration = read('supabase/migrations/0110_care_kit_project_content.sql');
 
@@ -112,12 +122,13 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '현재 상세 구성 및 디자인 이미지는 공개하지 않습니다.',
       '협업·제휴 문의',
     ]) {
-      expect(careKit).toContain(copy);
+      expect(`${careKit}\n${cmsDefaults}`).toContain(copy);
     }
-    expect(careKit).toContain('src="/brands/penefit-official.png"');
-    expect(careKit).toContain('alt="페네핏 로고"');
-    expect(careKit).not.toContain('src="/brands/penefit-wordmark-green.png"');
-    expect(careKit).toContain("legacyDefaultKitNames");
+    expect(cmsDefaults).toContain("partnerLogo: '/brands/penefit-official.png'");
+    expect(cmsDefaults).toContain("partnerLogoAlt: '페네핏 로고'");
+    expect(`${careKit}\n${cmsDefaults}`).not.toContain('/brands/penefit-wordmark-green.png');
+    expect(read('src/lib/kits/config.ts')).toContain("legacyDefaultKitNames");
+    expect(careKit).toContain('resolvePublicKitsConfig(saved)');
     expect(inquiryForm).toContain('협업·제휴 문의하기');
     expect(defaultKitsConfig.items.map((kit) => kit.name)).toEqual([
       '웰컴 케어',
@@ -145,21 +156,24 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
 
   test('셀렉션 필터, 배지, 빈 상태가 0827 계약과 일치한다', () => {
     const shop = read('src/components/shop/ShopContent.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
+    const productTags = read('src/lib/productTags/config.ts');
+    const shopContract = `${shop}\n${cmsDefaults}\n${productTags}`;
     expect(shopCategoryFilters.map((category) => category.label)).toEqual([
       '푸드', '영양', '케어', '패션', '펫로스', '라이프',
     ]);
     for (const label of ['전체', '2만원 미만', '2-5만원', '5-10만원', '10만원 이상']) {
-      expect(shop).toContain(label);
+      expect(shopContract).toContain(label);
     }
     for (const label of ['피부', '관절', '체중', '구강', '냄새']) {
-      expect(shop).toContain(`title: '${label}'`);
+      expect(productTags).toContain(`label: '${label}'`);
     }
-    expect(shop).toContain('소동물');
+    expect(shopContract).toContain('소동물');
     expect(shop).not.toContain('title="연령"');
-    expect(shop).toContain('DAILY PICK');
+    expect(shopContract).toContain('DAILY PICK');
     expect(shop).not.toContain('지금 백조오브제가 가장 주목하는 제품');
     expect(shop).not.toContain('조건을 조금 넓혀 다시 살펴볼까요?');
-    expect(shop).toContain('필터 초기화');
+    expect(shopContract).toContain('필터 초기화');
     expect(shop).not.toContain('선택한 조건 모두 지우기');
     // ProductCard.tsx(SELECTED/잠시 품절/reviewCount 배지) 관련 단언은 옵션재고 묶음 B에서
     // 함께 바뀌는 파일이라 A묶음에서는 제외했다 — bundle B에서 ProductCard와 함께 복원한다.
@@ -168,12 +182,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('눈물 케어 문구와 신호 목록이 정본과 일치한다', () => {
     const overview = read('src/app/concerns/page.tsx');
     const detail = read('src/app/concerns/[slug]/page.tsx');
+    const concernDefaults = read('src/lib/concerns/config.ts');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const tear = defaultConcernsConfig.items.find((concern) => concern.slug === 'tear');
-    expect(overview).toContain('/images/care-guide-hero-pet-family.png');
+    expect(`${overview}\n${cmsDefaults}`).toContain('/images/care-guide-hero-pet-family.png');
     expect(overview).toContain('h-[640px]');
     expect(overview).toContain('md:h-[480px]');
     for (const slug of ['tear', 'joint', 'skin', 'obesity', 'stress', 'oral']) {
-      expect(detail).toContain(`/images/care-detail-hero-${slug}.png`);
+      expect(concernDefaults).toContain(`/images/care-detail-hero-${slug}.png`);
     }
     expect(detail).toContain('data-testid="concern-detail-hero"');
     expect(detail).toContain('data-testid="concern-detail-hero-image"');
@@ -183,13 +199,13 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '눈 주위 털이 계속 축축하게 젖어 있음', '노란 눈곱이 생기거나 눈곱 양이 많아짐',
       '눈을 평소보다 자주 비비거나 긁음', '한쪽 눈의 눈물만 유독 많아짐',
     ]);
-    expect(detail).toContain('눈물 자국, 닦아주는 것만으로 충분할까요?');
-    expect(detail).toContain('매일 닦아도 반복된다면, 관리 방법부터 다시 살펴볼 필요가 있어요.');
+    expect(concernDefaults).toContain('눈물 자국, 닦아주는 것만으로 충분할까요?');
+    expect(concernDefaults).toContain('매일 닦아도 반복된다면, 관리 방법부터 다시 살펴볼 필요가 있어요.');
     for (const sign of [
       '눈이 심하게 붉어지거나 부어오름', '노란색·녹색 눈곱이 계속 생김', '눈을 잘 뜨지 못하거나 계속 찡그림',
       '눈을 반복해서 심하게 비비거나 긁음', '눈이 평소보다 뿌옇게 보임', '눈 또는 눈꺼풀에 상처가 보임',
     ]) {
-      expect(detail).toContain(sign);
+      expect(concernDefaults).toContain(sign);
     }
 
     expect(tear?.faq).toEqual(TEAR_CONCERN_FAQ);
@@ -214,12 +230,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('피부 케어 문구와 추천·FAQ 구성이 정본과 일치한다', () => {
     const overview = read('src/app/concerns/page.tsx');
     const detail = read('src/app/concerns/[slug]/page.tsx');
+    const concernDefaults = read('src/lib/concerns/config.ts');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const skin = defaultConcernsConfig.items.find((concern) => concern.slug === 'skin');
     const stress = defaultConcernsConfig.items.find((concern) => concern.slug === 'stress');
 
-    expect(overview).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.');
-    expect(overview).toContain('일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
-    expect(overview).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.<br />');
+    expect(cmsDefaults).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.');
+    expect(cmsDefaults).toContain('일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
+    expect(overview).toContain('whitespace-pre-line');
     expect(overview).not.toContain('<br className="hidden sm:block" />');
     expect(overview).not.toContain('/* 4. 핵심 정보 요약 바 */');
     expect(stress?.shortDescription).toBe('평소보다 불안하거나 예민해졌나요?');
@@ -242,8 +260,8 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     }
     expect(normalized.items.find((item) => item.slug === 'picky')?.shortDescription).toBe('picky 이전 문구');
 
-    expect(detail).toContain("title: '자꾸 긁는 우리 아이,\\n피부부터 살펴보세요'");
-    expect(detail).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요. 일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
+    expect(concernDefaults).toContain("title: '자꾸 긁는 우리 아이,\\n피부부터 살펴보세요'");
+    expect(concernDefaults).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요. 일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
     expect(detail).not.toContain('최근 달라진 식사나 생활 환경은 없는지 살펴보세요.');
     expect(skin?.symptoms).toEqual([
       '몸을 자주 긁거나 핥음',
@@ -266,7 +284,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '이 정보만으로 건강 상태를 판단해도 되나요?',
       '이 내용은 보호자가 일상에서 변화를 알아차리는 데 도움을 주기 위한 참고 정보입니다. 같은 변화도 원인이 다를 수 있으므로 특정 질환을 판단하거나 진단하는 기준으로 사용하지 않습니다.',
     ]) {
-      expect(overview).toContain(faq);
+      expect(cmsDefaults).toContain(faq);
     }
     for (const text of [
       "title: '원인 살펴보기'",
@@ -278,9 +296,9 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '피부 변화와 함께 식욕이나 활동량이 평소와 달라짐',
       '우리 아이에게 필요한 보장은 무엇일까요?',
       '후기 전체 보기',
-      '{concern.title} 관련 상품 보기',
+      'concern.productsLinkLabel',
     ]) {
-      expect(detail).toContain(text);
+      expect(`${detail}\n${concernDefaults}`).toContain(text);
     }
     expect(detail).not.toContain('MessageCircleQuestion');
     expect(detail).not.toContain('더 궁금한 점이 있으신가요?');
@@ -293,6 +311,8 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('체중·구강·관절·행동 상세 문구와 추천 노출 규칙이 최신 시안과 일치한다', () => {
     const overview = read('src/app/concerns/page.tsx');
     const detail = read('src/app/concerns/[slug]/page.tsx');
+    const concernDefaults = read('src/lib/concerns/config.ts');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const bySlug = (slug: string) => defaultConcernsConfig.items.find((concern) => concern.slug === slug);
     const obesity = bySlug('obesity');
     const oral = bySlug('oral');
@@ -306,16 +326,16 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(overview).not.toContain('더 궁금한 점이 있으신가요?');
     expect(overview).not.toContain('1:1 문의하기');
     expect(overview).not.toContain('사랑하는 아이를 위한 든든한 준비');
-    expect(overview).toContain('우리 아이에게 필요한 보장은 무엇일까요?');
-    expect(overview).toContain('나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.');
-    expect(overview).toContain('보험 분석하기');
-    expect(overview).toContain('<Link href="/insurance"');
+    expect(cmsDefaults).toContain('우리 아이에게 필요한 보장은 무엇일까요?');
+    expect(cmsDefaults).toContain('나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.');
+    expect(cmsDefaults).toContain('보험 분석하기');
+    expect(overview).toContain("content.insurance.buttonHref || '/insurance'");
     expect(overview).not.toContain('href="/insurance/recommend"');
 
-    expect(detail).toContain("title: '우리 아이의 체중,\\n괜찮은 걸까요?'");
-    expect(detail).toContain("title: '구강, 어디서부터 살펴볼까요?'");
-    expect(detail).toContain("title: '걸음걸이가 예전과 달라졌나요?'");
-    expect(detail).toContain("title: '평소와 다른 행동이 자주 보이나요?'");
+    expect(concernDefaults).toContain("title: '우리 아이의 체중,\\n괜찮은 걸까요?'");
+    expect(concernDefaults).toContain("title: '구강, 어디서부터 살펴볼까요?'");
+    expect(concernDefaults).toContain("title: '걸음걸이가 예전과 달라졌나요?'");
+    expect(concernDefaults).toContain("title: '평소와 다른 행동이 자주 보이나요?'");
     for (const copy of [
       '식사량·활동량·생활 습관 등 체중 증가에 영향을 줄 수 있는 원인',
       '식사와 활동량 등 일상에서 챙겨야 할 체중 관리 방법',
@@ -327,22 +347,22 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '체중 관리와 적절한 활동 등 일상에서 챙겨야 할 관리 방법',
       '걸음걸이와 움직임의 변화로 구분하는 진료가 필요한 신호',
     ]) {
-      expect(detail).toContain(copy);
+      expect(concernDefaults).toContain(copy);
     }
-    expect(detail).toContain('const quickGuideItems = concernQuickGuideItems[concern.slug] ?? defaultQuickGuideItems;');
+    expect(detail).toContain('const quickGuideItems = concern.quickGuideItems ?? [];');
     expect(detail).not.toContain('href="#management"');
-    expect(detail).toContain("href: '#signals'");
+    expect(concernDefaults).toContain("href: '#signals'");
     expect(detail).toContain('href={item.href}');
     expect(detail).not.toContain('recommendedBrands.length > 0 &&');
     expect(detail).not.toContain('모든 브랜드 보기');
     expect(detail).not.toContain('{recommendedProducts.length > 0 && (');
     expect(detail).toContain('recommendedProducts.length > 0 ? (');
     expect(detail).toContain('data-testid="concern-products-empty"');
-    expect(detail).toContain('관련 상품을 준비하고 있습니다.');
+    expect(detail).toContain('concern.productsEmptyText');
     expect(detail).toContain('relatedReviews.length > 0 &&');
-    expect(detail).toContain('보험 분석하기');
+    expect(detail).toContain('concern.insuranceButtonLabel');
     expect(detail).not.toContain('보험 보장 범위 분석하기');
-    expect(detail).toContain('href="/insurance"');
+    expect(detail).toContain("concern.insuranceButtonHref ?? '/insurance'");
     expect(detail).not.toContain('href="/insurance/recommend"');
     expect(detail).not.toContain('더 궁금한 점이 있으신가요?');
 
@@ -380,7 +400,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       expect(stressFaqMigration).toContain(faq.answer);
     }
     expect(stressFaqMigration).not.toContain('분리 불안을 어떻게 완화할 수 있나요?');
-    expect(detail).toContain('불안하거나 두려워하는 행동으로 일상생활이 어려워 보임');
+    expect(concernDefaults).toContain('불안하거나 두려워하는 행동으로 일상생활이 어려워 보임');
   });
 
 
@@ -393,8 +413,9 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
 
   test('브랜드 8개 표시 문구를 이름 변형과 무관하게 정규화한다', () => {
     const brandsPage = read('src/components/brands/BrandsContent.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const brandCard = read('src/components/common/BrandCard.tsx');
-    expect(brandsPage).toContain('/images/brands-hero-cat-architectural.png');
+    expect(`${brandsPage}\n${cmsDefaults}`).toContain('/images/brands-hero-cat-architectural.png');
     expect(brandCard).toContain('{presentation.displayName}');
     expect(brandCard).toContain('min-h-[24px]');
     const cases = [
@@ -603,13 +624,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(conclusionRemoval).toContain("- 'auditConclusion'");
   });
 
-  test('오미프로 상세 제목은 제공된 가로 로고를 원본 비율로 표시한다', () => {
+  test('오미프로는 전체 화면에서 흰 배경 없는 영문 워드마크를 표시한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
-    const migration = read('supabase/migrations/0087_omipro_wordmark_image.sql');
+    const brandLogo = read('src/components/common/BrandLogo.tsx');
     expect(detail).toContain('size="md"');
     expect(detail).toContain('srcOverride={titleLogoSrc}');
     expect(detail).toContain("scaleOverride={brand.id === 'b2' ? 1 : undefined}");
-    expect(migration).toContain("'/brands/omipro-wordmark-red.png'");
+    expect(brandLogo).toContain("b2: '/brands/omipro-wordmark-transparent-exact.png'");
+    expect(brandLogo).toContain('displayLogoMap[brand.id] ?? brand.wordmarkImage ?? brand.logo');
   });
 
   test('오미프로 브랜드 스토리는 연구와 직접 섭취 검증 내용을 표시한다', () => {
@@ -652,13 +674,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(migration).toContain("- 'auditConclusion'");
   });
 
-  test('페네핏 상세 제목은 영문 텍스트 대신 제공된 초록색 로고를 표시한다', () => {
+  test('페네핏은 전체 화면에서 심볼과 흰 배경 없는 영문 워드마크를 표시한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
-    const migration = read('supabase/migrations/0089_penefit_wordmark_image.sql');
+    const brandLogo = read('src/components/common/BrandLogo.tsx');
     expect(detail).toContain('{presentation.displayName}</span>');
     expect(detail).toContain('getBrandTitleDisplayLogo(brand)');
     expect(detail).toContain('uniformScale');
-    expect(migration).toContain("'/brands/penefit-wordmark-green.png'");
+    expect(brandLogo).toContain("b1: '/brands/penefit-wordmark-transparent.png'");
+    expect(brandLogo).toContain('displayLogoMap[brand.id] ?? brand.wordmarkImage ?? brand.logo');
   });
 
   test('메종슈슈 브랜드 스토리는 착용감과 패턴 설계 내용을 표시한다', () => {
@@ -666,7 +689,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const migration = read('supabase/migrations/0090_maison_chouchou_brand_story.sql');
     const source = getSourceBrandContent({ id: 'b7', philosophy: '', highlights: [], auditPoints: [] });
     expect(detail).toContain('{presentation.displayName}');
-    expect(detail).toContain('sourceContent.summaryCategoryLabel ?? brand.summaryCategoryLabel');
+    expect(detail).toContain('brand.summaryCategoryLabel ?? sourceContent.summaryCategoryLabel');
     expect(source.summaryCategoryLabel).toBe('패션 · 라이프');
     expect(source.summaryCategoryNote).toBe('체형과 움직임을 고려해 직접 디자인한 반려견 의류를 소개합니다.');
     expect(source.summaryConcernLabel).toBe('체형 · 착용감');
@@ -744,21 +767,20 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('B2B·보험 CTA와 RE:펫 결정 문서 연결이 정본과 일치한다', () => {
-    const b2b = read('src/app/b2b/page.tsx');
+    const cmsDefaults = read('src/lib/cms/pageDefinitions.ts');
     const brands = read('src/components/brands/BrandsContent.tsx');
     const insurance = read('src/app/insurance/page.tsx');
     const matrix = read('docs/baekjo-0827/source-matrix.md');
-    expect(b2b).toContain('BAEKJO OBJET FOR BUSINESS');
-    expect(b2b).toContain('백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.');
-    expect(b2b).toContain('목적에 따라 협업의 방식도 달라집니다.');
-    expect(b2b).toContain('필요에 맞는 협업 방식을 제안합니다.');
-    expect(b2b).toContain('프로젝트는 충분한 협의와 준비를 거쳐 공개하며');
-    expect(b2b).toContain('협업은 이렇게 진행됩니다.');
-    expect(b2b).toContain('진행 중인 프로젝트와 검토 일정에 따라 기획 및 제안까지');
-    expect(b2b).toContain('필요한 순간과 목적을 들려주세요.');
-    expect(b2b).toContain('서로의 가치를 지키며 함께 성장할 수 있는 관계를 만들어갑니다.');
-    expect(b2b).toContain('B2B 문의하기');
-    expect(b2b).not.toContain('파트너십 문의하기');
+    expect(cmsDefaults).toContain('BAEKJO OBJET FOR BUSINESS');
+    expect(cmsDefaults).toContain('백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.');
+    expect(cmsDefaults).toContain('목적에 따라 협업의 방식도 달라집니다.');
+    expect(cmsDefaults).toContain('필요에 맞는 협업 방식을 제안합니다.');
+    expect(cmsDefaults).toContain('프로젝트는 충분한 협의와 준비를 거쳐 공개하며');
+    expect(cmsDefaults).toContain('협업은 이렇게 진행됩니다.');
+    expect(cmsDefaults).toContain('진행 중인 프로젝트와 검토 일정에 따라 기획 및 제안까지');
+    expect(cmsDefaults).toContain('필요한 순간과 목적을 들려주세요.');
+    expect(cmsDefaults).toContain('서로의 가치를 지키며 함께 성장할 수 있는 관계를 만들어갑니다.');
+    expect(cmsDefaults).toContain('B2B 문의하기');
     expect(brands).toContain('self-center items-center justify-center whitespace-nowrap');
     expect(brands).toContain('md:self-start');
     expect(insurance).toContain('보험 분석 시작하기');

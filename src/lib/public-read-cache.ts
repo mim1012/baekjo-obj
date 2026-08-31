@@ -15,6 +15,7 @@ export const PUBLIC_READ_CACHE_TAGS = {
   brands: 'public-brands',
   categorySettings: 'public-category-settings',
   siteSettings: 'public-site-settings',
+  cmsPages: 'public-cms-pages',
 } as const;
 
 export const EXPIRE_PUBLIC_READ_CACHE = { expire: 0 } as const;

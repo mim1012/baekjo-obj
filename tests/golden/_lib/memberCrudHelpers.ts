@@ -62,7 +62,7 @@ const PNG_1PX_BASE64 =
 
 /**
  * 회원 여정 스펙 전용 스로어웨이(throwaway) 상품을 admin UI로 생성한다
- * (admin-crud-products.spec.ts와 동일 패턴 — REQUIRED_FIELDS 5개 + 판매가/재고/노출 토글).
+ * (admin-crud-products.spec.ts와 동일 패턴 — REQUIRED_FIELDS 5개 + 판매가/재고).
  * 재고를 넉넉히(999) 줘서 수량 변경 테스트에서 재고 부족으로 막히지 않게 한다.
  * 삭제 API가 없고 취소 경로도 금지이므로(§wave6 안전 설계) 이 상품/주문은 정리하지 않고
  * E2E- 접두사로 영구 잔존을 허용한다(문서화된 결정) — 상품만은 cleanupThrowawayProducts로
@@ -89,7 +89,9 @@ export async function createThrowawayProduct(
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('both');
-    await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(`${namePrefix} 테스트 상품`);
+    await page
+      .getByPlaceholder('예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다.')
+      .fill(`${namePrefix} 테스트 상품의 고객용 상품 이야기입니다.`);
 
     const numberInputs = page.locator('input[type="number"]');
     await numberInputs.nth(0).fill(String(priceWon)); // 판매가
@@ -97,8 +99,6 @@ export async function createThrowawayProduct(
 
     await page.locator('input[type="file"]').setInputFiles(imageFilePath);
     await expect(page.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
-
-    await page.getByLabel('스토어 노출').check();
 
     await page.getByRole('button', { name: /등록|저장/ }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 15_000 });

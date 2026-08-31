@@ -38,15 +38,17 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     );
   });
 
-  test('관리자 사이트 설정 화면은 loaded 이전엔 편집·저장을 막고 저장 버튼을 비활성화한다', () => {
+  test('관리자 사이트 설정 화면은 CMS draft 로드 전 편집·저장·게시를 막는다', () => {
     const pageSource = src('src', 'app', 'admin', 'settings', 'page.tsx');
 
-    expect(pageSource).toContain("import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';");
-    expect(pageSource).toContain('const { settings, updateSettings, loaded, loadError } = useSiteSettings();');
+    expect(pageSource).toContain("fetch('/api/admin/settings', { cache: 'no-store' })");
+    expect(pageSource).toContain('const [loaded, setLoaded] = useState(false);');
+    expect(pageSource).toContain('const [draftRevision, setDraftRevision] = useState<number | null>(null);');
 
-    const saveFunction = sliceBetween(pageSource, 'const handleSave = async () => {', 'const updateDraft = ');
-    expect(saveFunction).toContain('if (!loaded) return;');
-    expect(saveFunction).toContain('const ok = await updateSettings(draft);');
+    const saveFunction = sliceBetween(pageSource, 'const saveDraft = async ()', 'const handleSave = ');
+    expect(saveFunction).toContain('if (!loaded || draftRevision === null) return null;');
+    expect(saveFunction).toContain("method: 'PATCH'");
+    expect(pageSource).toContain("method: 'POST'");
 
     const updateDraftFunction = sliceBetween(pageSource, 'const updateDraft = (section:', 'const updateArrayField = ');
     expect(updateDraftFunction).toContain('if (!loaded) return;');
@@ -54,15 +56,15 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     const updateArrayFieldFunction = sliceBetween(pageSource, 'const updateArrayField = (section:', 'const renderInput = ');
     expect(updateArrayFieldFunction).toContain('if (!loaded) return;');
 
-    // 헤더 저장 버튼과 미리보기 모달의 저장 버튼 둘 다 loaded 로 비활성화된다.
-    expect((pageSource.match(/disabled=\{!loaded\}/g) ?? []).length).toBe(2);
+    // 헤더와 미리보기 모달의 임시저장·게시 버튼이 모두 loaded 상태를 소비한다.
+    expect((pageSource.match(/disabled=\{!loaded \|\|/g) ?? []).length).toBe(4);
   });
 
   test('loadError 는 헤더 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
     const pageSource = src('src', 'app', 'admin', 'settings', 'page.tsx');
 
     expect(pageSource).toContain(
-      "description={loadError ? '설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다.'}",
+      "description={loadError ? '편집본을 불러오지 못했습니다. 저장과 게시를 차단했습니다 — 새로고침 후 다시 시도해 주세요.' : '홈 화면을 편집해 임시저장하고, PC·모바일 미리보기에서 확인한 뒤 게시합니다.'}",
     );
   });
 });
@@ -79,6 +81,6 @@ test.describe('진단 설문 저장 방어(전수조사 A-3)', () => {
 
     expect(pageSource).toContain('if (loading) {');
     expect(saveFunction).toContain('if (loading) return;');
-    expect(saveFunction).toContain('saveSurveyConfig({ questions, rules })');
+    expect(saveFunction).toContain('saveSurveyConfig({ questions, rules, resultContent })');
   });
 });

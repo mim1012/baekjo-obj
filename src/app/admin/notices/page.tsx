@@ -117,7 +117,7 @@ export default function AdminNoticesPage() {
   // MEDIUM-1 의 연장). 성공 시에만 draft(items)·persisted 를 함께 갱신해 계속 서로 일치시킨다.
   // busyRef 로 등록·수정·삭제 세 액션을 전부 상호배제한다(codex 2차 리뷰 HIGH).
   const handleCreate = async (draft: Record<string, string | number>) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const newNotice = draftToNotice(draft);
     const nextItems = [...persistedItemsRef.current, newNotice];
     busyRef.current = true;
@@ -126,8 +126,10 @@ export default function AdminNoticesPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -135,7 +137,7 @@ export default function AdminNoticesPage() {
   };
 
   const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const nextItems = persistedItemsRef.current.map((notice) =>
       notice.id === id ? draftToNotice(draft, notice) : notice,
     );
@@ -145,8 +147,10 @@ export default function AdminNoticesPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -154,11 +158,11 @@ export default function AdminNoticesPage() {
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const nextItems = persistedItemsRef.current.filter((notice) => notice.id !== id);
     if (nextItems.length === 0) {
       window.alert('공지는 최소 1건 남아 있어야 합니다. 마지막 공지는 삭제할 수 없습니다.');
-      return;
+      return false;
     }
     busyRef.current = true;
     try {
@@ -166,8 +170,10 @@ export default function AdminNoticesPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems((prev) => prev.filter((notice) => notice.id !== id));
+        return true;
       } else {
         window.alert('삭제 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -179,6 +185,8 @@ export default function AdminNoticesPage() {
       title="공지사항 관리"
       description={loadError ? '공지 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공지, 이벤트, 브랜드 소식을 등록하고 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
       actionLabel="공지 등록"
+      affectedScreen="소식 목록(/notices) · 소식 상세 · 홈의 새 소식 영역"
+      formIntro="소식 제목·유형·본문을 입력합니다. 저장하면 소식 목록과 상세 화면이 함께 만들어지며, 최신 공개 소식은 홈에도 표시됩니다."
       searchPlaceholder="제목, 본문, 작성자 검색"
       columns={[
         { key: 'typeLabel', label: '유형' },
@@ -201,14 +209,15 @@ export default function AdminNoticesPage() {
         dateLabel: formatDate(notice.date),
       }))}
       formFields={[
-        { key: 'title', label: '제목' },
+        { key: 'title', label: '제목', group: '고객에게 보이는 소식', required: true },
         {
           key: 'category',
           label: '유형',
           type: 'select',
+          group: '고객에게 보이는 소식',
           options: CATEGORY_VALUES.map((value) => ({ value, label: CATEGORY_LABELS[value] })),
         },
-        { key: 'content', label: '본문', type: 'textarea' },
+        { key: 'content', label: '본문', type: 'textarea', group: '고객에게 보이는 소식', required: true, description: '줄바꿈을 포함해 고객 상세 화면에 그대로 표시됩니다.' },
       ]}
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}

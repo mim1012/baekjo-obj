@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Package, Truck, Heart, Star, MessageCircle, Shield } from 'lucide-react';
-import { FEATURES } from '@/config/features';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 
 interface OverviewSectionProps {
   stats: {
@@ -16,6 +16,7 @@ interface OverviewSectionProps {
 }
 
 export default function OverviewSection({ stats }: OverviewSectionProps) {
+  const siteContent = usePublicSiteContent();
   const cards = [
     {
       id: 'orders',
@@ -52,7 +53,7 @@ export default function OverviewSection({ stats }: OverviewSectionProps) {
       href: '/mypage?tab=inquiries',
       icon: MessageCircle,
     },
-    ...(FEATURES.insurance
+    ...(siteContent.features.insurance
       ? [
           {
             id: 'insurance',

@@ -23,4 +23,18 @@ test.describe('splitProductInput — brand_id 정규화', () => {
     expect(columns.is_visible).toBe(false);
     expect('brand_id' in columns).toBe(false);
   });
+
+  test('화면별 진열 순서는 별도 DB 변경 없이 상품 detail에 저장된다', () => {
+    const { columns, detail } = splitProductInput({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 1,
+      catalogOrder: 2,
+    });
+    expect(columns).toEqual({});
+    expect(detail).toEqual({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 1,
+      catalogOrder: 2,
+    });
+  });
 });

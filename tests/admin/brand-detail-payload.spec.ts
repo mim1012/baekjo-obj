@@ -14,8 +14,8 @@ import {
   type BrandDetailFormState,
 } from '@/lib/brands/formPayload';
 
-// 브랜드 "상세 편집"(전 필드) payload 회귀 스펙 — 순수 함수, 브라우저·DB 불필요.
-// 모달(BRAND_FORM_FIELDS)과 달리 대형 필드(auditReport·멀티셀렉트·배열)까지 담되,
+// 브랜드 "상세 편집"(공개 화면 연결 필드) payload 회귀 스펙 — 순수 함수, 브라우저·DB 불필요.
+// 모달(BRAND_FORM_FIELDS)과 달리 대형 필드(auditReport·멀티셀렉트·배열·배송)까지 담되,
 // 암묵 스프레드가 아니라 명시 화이트리스트로만 담는지 잠근다.
 
 /** 완전히 채워진 auditReport 폼. */
@@ -40,7 +40,6 @@ function form(over: Partial<BrandDetailFormState> = {}): BrandDetailFormState {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    officialUrl: 'https://example.com',
     isRecommended: true,
     isVisible: true,
     isNew: false,
@@ -49,7 +48,6 @@ function form(over: Partial<BrandDetailFormState> = {}): BrandDetailFormState {
     representativeProductIds: ['p1', 'p2'],
     relatedConcernSlugs: ['tear'],
     auditPoints: ['무방부제'],
-    sourceUrls: ['https://src.com'],
     ...over,
   };
 }
@@ -167,7 +165,6 @@ test('payload 는 상세 폼이 편집하는 대형 필드를 담는다(모달�
   expect(payload.representativeProductIds).toEqual(['p1', 'p2']);
   expect(payload.relatedConcernSlugs).toEqual(['tear']);
   expect(payload.auditPoints).toEqual(['무방부제']);
-  expect(payload.sourceUrls).toEqual(['https://src.com']);
   expect(payload.auditReport?.reportNo).toBe('BOA-2026-001');
 });
 
@@ -180,20 +177,16 @@ test('입력을 그대로 참조하지 않는다 — 멀티셀렉트/배열은 �
 
 test('멀티셀렉트/배열이 비면 빈 배열을 담는다(선택 해제 반영)', () => {
   const payload = buildBrandDetailPayload(
-    form({ representativeProductIds: [], relatedConcernSlugs: [], auditPoints: [], sourceUrls: [] }),
+    form({ representativeProductIds: [], relatedConcernSlugs: [], auditPoints: [] }),
   );
   expect(payload.representativeProductIds).toEqual([]);
   expect(payload.relatedConcernSlugs).toEqual([]);
   expect(payload.auditPoints).toEqual([]);
-  expect(payload.sourceUrls).toEqual([]);
 });
 
-test('auditPoints·sourceUrls 의 공백 항목은 payload 에서 제거된다', () => {
-  const payload = buildBrandDetailPayload(
-    form({ auditPoints: ['유효', '  ', ''], sourceUrls: ['https://a.com', '   '] }),
-  );
+test('auditPoints 의 공백 항목은 payload 에서 제거된다', () => {
+  const payload = buildBrandDetailPayload(form({ auditPoints: ['유효', '  ', ''] }));
   expect(payload.auditPoints).toEqual(['유효']);
-  expect(payload.sourceUrls).toEqual(['https://a.com']);
 });
 
 test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화한다', () => {
@@ -291,10 +284,10 @@ test('Audit 원문 확장 섹션은 다른 브랜드 필드를 저장해도 보�
   });
 });
 
-test('officialUrl 빈 문자열/공백은 지우기로 정규화(모달과 동일 규칙)', () => {
-  expect(buildBrandDetailPayload(form({ officialUrl: '' })).officialUrl).toBe('');
-  expect(buildBrandDetailPayload(form({ officialUrl: '   ' })).officialUrl).toBe('');
-  expect(buildBrandDetailPayload(form({ officialUrl: '  https://x.com  ' })).officialUrl).toBe('https://x.com');
+test('공개 화면과 끊긴 officialUrl·sourceUrls는 상세 payload에 담지 않는다', () => {
+  const payload = buildBrandDetailPayload(form()) as Record<string, unknown>;
+  expect('officialUrl' in payload).toBe(false);
+  expect('sourceUrls' in payload).toBe(false);
 });
 
 test('displayOrder 미입력(undefined)이면 키를 담지 않는다(기존/기본값 유지)', () => {
@@ -348,15 +341,4 @@ test('상세 폼 검증은 부분 감사보고서를 섹션 에러와 필드별 
 
   expect(errors.auditReport).toContain('감사 보고서');
   expect(errors['auditReport.summary']).toContain('이 항목을 채워주세요');
-});
-
-test('상세 폼 검증은 출처 URL 개수와 항목 길이를 저장 전에 막는다', () => {
-  const tooMany = validateBrandDetailFormState(
-    form({ sourceUrls: Array.from({ length: 21 }, (_, i) => `https://example.com/${i}`) }),
-    true,
-  );
-  const tooLong = validateBrandDetailFormState(form({ sourceUrls: ['x'.repeat(501)] }), true);
-
-  expect(tooMany.sourceUrls).toContain('최대 20개');
-  expect(tooLong.sourceUrls).toContain('500자 이하');
 });

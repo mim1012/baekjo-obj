@@ -1,39 +1,30 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { getSessionUser, getAdminInquiries, answerProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
+import { getSessionUser, getAdminInquiries, answerProductInquiry, deleteAdminProductInquiry, getAdminProducts, getPublicProducts, STORAGE_EVENTS } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import type { User, ProductInquiry, Product } from '@/types';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
-/**
- * 이 화면은 레거시 QnA 뷰(question/writerName/editable)와 같은 모양으로 문의를 렌더한다.
- * ProductInquiry 자체엔 없는 필드라 선택 필드로만 확장(값 없으면 undefined, 기존 동작 그대로).
- * _tempAnswer 는 답변 textarea 임시값을 위한 로컬 전용 필드(스토리지에 저장되지 않음).
- */
-type AdminInquiryRow = ProductInquiry & {
-  question?: string;
-  writerName?: string;
-  editable?: boolean;
-  _tempAnswer?: string;
-};
-
 export default function AdminInquiriesPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [inquiries, setInquiries] = useState<AdminInquiryRow[]>([]);
+  const [inquiries, setInquiries] = useState<ProductInquiry[]>([]);
   // 정적 @/data/products 직접 import 대신 콘센트(getAdminProducts)로 로드(§4 drift 방지, 비노출 상품 포함).
   const [products, setProducts] = useState<Product[]>([]);
   const [isMounted, setIsMounted] = useState(false);
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [editingAnswerId, setEditingAnswerId] = useState<string | null>(null);
+  const [answerSavingId, setAnswerSavingId] = useState<string | null>(null);
 
   // loadData 는 mount·STORAGE_EVENTS 리스너에서 독립적으로 재호출된다(단일 useEffect cleanup으로는
   // 못 잡는 범위) — 마지막 호출 번호만 신뢰해 먼저 시작했지만 늦게 응답한 요청이 최신 상태를
   // 덮어쓰지 않게 한다(last-response-wins 레이스 방지).
   const loadSeqRef = useRef(0);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     const currentUser = await getSessionUser();
     if (!currentUser || !['admin', 'partner'].includes(currentUser.role)) {
       router.replace('/');
@@ -58,7 +49,7 @@ export default function AdminInquiriesPage() {
       );
       setInquiries(sorted);
     });
-  };
+  }, [router]);
 
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
@@ -73,20 +64,43 @@ export default function AdminInquiriesPage() {
     return () => {
       window.removeEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleStorageChange);
     };
-  }, [router]);
+  }, [loadData]);
 
   if (!isMounted || !user) return null;
 
   const handleAnswerSubmit = async (inquiryId: string, answer: string) => {
     if (!answer.trim()) {
       alert('답변을 입력해주세요.');
-      return;
+      return false;
     }
+    setAnswerSavingId(inquiryId);
     try {
       await answerProductInquiry(inquiryId, answer);
+      setInquiries((current) => current.map((inquiry) => (
+        inquiry.id === inquiryId
+          ? { ...inquiry, answer: answer.trim(), status: 'answered', answeredAt: new Date().toISOString() }
+          : inquiry
+      )));
+      setAnswerDrafts((current) => ({ ...current, [inquiryId]: answer.trim() }));
+      setEditingAnswerId(null);
       alert('답변이 등록되었습니다.');
+      return true;
     } catch (e) {
       alert(e instanceof Error ? e.message : '답변 등록에 실패했습니다.');
+      return false;
+    } finally {
+      setAnswerSavingId(null);
+    }
+  };
+
+  const handleDelete = async (id: string | number) => {
+    try {
+      await deleteAdminProductInquiry(String(id));
+      setInquiries((current) => current.filter((inquiry) => inquiry.id !== String(id)));
+      return true;
+    } catch {
+      alert('문의 삭제에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      return false;
     }
   };
 
@@ -97,8 +111,8 @@ export default function AdminInquiriesPage() {
       id: inq.id,
       brand: product?.brandName ? formatBrandDisplayName(product.brandName) : '알 수 없음',
       productName: product?.name || '알 수 없음',
-      title: inq.title || inq.question || '',
-      writer: inq.userId || inq.writerName || 'Unknown',
+      title: inq.title,
+      writer: inq.userId,
       date: formatDate(inq.createdAt),
       status: inq.status === 'answered' ? '답변완료' : '답변대기',
     };
@@ -108,8 +122,9 @@ export default function AdminInquiriesPage() {
     <div className="p-6">
       <AdminResourcePage
         title="상품문의 관리"
-        description="입점업체 및 관리자가 고객의 상품문의를 확인하고 답변합니다."
+        description="고객이 상품상세에서 등록한 문의가 이곳에 모입니다. 답변 등록·수정·삭제는 저장 즉시 고객 화면에 반영됩니다."
         actionLabel=""
+        affectedScreen="상품상세(/shop/상품번호)의 문의 탭과 고객 마이페이지"
         searchPlaceholder="문의 내역 검색..."
         filters={['전체 상태', '답변대기', '답변완료']}
         columns={[
@@ -121,6 +136,7 @@ export default function AdminInquiriesPage() {
           { key: 'status', label: '상태' },
         ]}
         rows={rows}
+        onDeleteRow={handleDelete}
         renderExpandedRow={(row) => {
           const inq = inquiries.find(i => i.id === row.id);
           if (!inq) return null;
@@ -133,8 +149,8 @@ export default function AdminInquiriesPage() {
                   Q
                 </div>
                 <div className="flex-1">
-                  <h4 className="font-semibold text-[#18231F]">{inq.title || inq.question}</h4>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#68716C]">{inq.content || inq.question}</p>
+                  <h4 className="font-semibold text-[#18231F]">{inq.title}</h4>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-[#68716C]">{inq.content}</p>
                 </div>
               </div>
 
@@ -146,42 +162,56 @@ export default function AdminInquiriesPage() {
                   A
                 </div>
                 <div className="flex-1">
-                  {inq.status === 'answered' ? (
+                  {inq.status === 'answered' && editingAnswerId !== inq.id ? (
                     <div>
                       <div className="mb-2 flex items-center gap-2">
                         <span className="font-semibold text-[#18231F]">{inq.answeredBy || '백조오브제'}</span>
                         <span className="text-xs text-gray-500">{formatDate(inq.answeredAt || inq.createdAt)}</span>
                       </div>
                       <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#68716C]">{inq.answer}</p>
-                      {inq.editable !== false && (
-                        <button
-                          onClick={() => {
-                            const newAnswer = prompt('답변을 수정하시겠습니까?', inq.answer);
-                            if (newAnswer !== null && newAnswer.trim() !== '') {
-                              handleAnswerSubmit(inq.id, newAnswer);
-                            }
-                          }}
-                          className="mt-4 rounded border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
-                        >
-                          답변 수정하기
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setAnswerDrafts((current) => ({ ...current, [inq.id]: inq.answer ?? '' }));
+                          setEditingAnswerId(inq.id);
+                        }}
+                        className="mt-4 min-h-11 rounded border border-gray-300 px-4 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                      >
+                        답변 수정하기
+                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
+                      <p className="text-xs font-semibold text-[#59615B]">
+                        {inq.status === 'answered' ? '수정할 답변' : '등록할 답변'}
+                      </p>
                       <textarea
-                        defaultValue={inq.answer || ''}
-                        onChange={(e) => inq._tempAnswer = e.target.value}
+                        aria-label={`${inq.title || '상품문의'} 답변`}
+                        value={answerDrafts[inq.id] ?? inq.answer ?? ''}
+                        onChange={(event) => setAnswerDrafts((current) => ({ ...current, [inq.id]: event.target.value }))}
                         placeholder="고객의 문의에 친절하게 답변해주세요."
                         rows={4}
                         className="w-full resize-none rounded border border-gray-300 p-3 text-sm focus:border-[#18231F] focus:outline-none"
                       />
-                      <button
-                        onClick={() => handleAnswerSubmit(inq.id, inq._tempAnswer || '')}
-                        className="self-end rounded bg-[#18231F] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-                      >
-                        답변 등록하기
-                      </button>
+                      <p className="text-xs text-[#7B827C]">저장하면 고객의 상품문의 내역에 바로 표시됩니다.</p>
+                      <div className="flex justify-end gap-2">
+                        {inq.status === 'answered' && (
+                          <button
+                            type="button"
+                            onClick={() => setEditingAnswerId(null)}
+                            className="min-h-11 rounded border border-gray-300 px-4 text-sm font-semibold text-gray-700 hover:bg-gray-100"
+                          >
+                            취소
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          disabled={answerSavingId === inq.id}
+                          onClick={() => handleAnswerSubmit(inq.id, answerDrafts[inq.id] ?? inq.answer ?? '')}
+                          className="min-h-11 rounded bg-[#18231F] px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                        >
+                          {answerSavingId === inq.id ? '저장 중…' : inq.status === 'answered' ? '수정 답변 저장' : '답변 등록하고 고객에게 반영'}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

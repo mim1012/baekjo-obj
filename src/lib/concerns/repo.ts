@@ -2,8 +2,7 @@
 // 고민 config({ items })를 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
 import {
-  applySourceConcernCardCopy,
-  applySourceConcernFaqCopy,
+  applyConcernPresentationDefaults,
   defaultConcernsConfig,
   type ConcernsConfig,
 } from '@/lib/concerns/config';
@@ -49,12 +48,10 @@ export async function getConcernsConfig(): Promise<ConcernsConfig | null> {
  */
 export async function getConcernsConfigWithFallback(): Promise<ConcernsConfig> {
   try {
-    return applySourceConcernFaqCopy(
-      applySourceConcernCardCopy((await getConcernsConfig()) ?? defaultConcernsConfig),
-    );
+    return applyConcernPresentationDefaults((await getConcernsConfig()) ?? defaultConcernsConfig);
   } catch (error) {
     logServerError('[concerns/repo] 조회 실패 — defaultConcernsConfig 로 폴백', error);
-    return applySourceConcernFaqCopy(applySourceConcernCardCopy(defaultConcernsConfig));
+    return applyConcernPresentationDefaults(defaultConcernsConfig);
   }
 }
 

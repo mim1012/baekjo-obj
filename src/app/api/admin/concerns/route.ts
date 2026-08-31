@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
+import { applyConcernPresentationDefaults, defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 import { getConcernsConfig, saveConcernsConfig } from '@/lib/concerns/repo';
 import type { Concern, FAQ } from '@/types';
 import { logServerError } from '@/lib/logServerError';
@@ -23,6 +23,19 @@ function isFaq(item: unknown): item is FAQ {
   return isNonEmptyString(faq.question) && isNonEmptyString(faq.answer);
 }
 
+function isQuickGuide(item: unknown): boolean {
+  if (!item || typeof item !== 'object') return false;
+  const guide = item as Record<string, unknown>;
+  return isNonEmptyString(guide.title)
+    && isNonEmptyString(guide.description)
+    && isNonEmptyString(guide.href)
+    && (guide.icon === 'search' || guide.icon === 'home' || guide.icon === 'hospital');
+}
+
+function isOptionalString(value: unknown): boolean {
+  return value === undefined || isString(value);
+}
+
 function isConcern(item: unknown): item is Concern {
   if (!item || typeof item !== 'object') return false;
   const concern = item as Partial<Record<keyof Concern, unknown>>;
@@ -38,7 +51,30 @@ function isConcern(item: unknown): item is Concern {
     isStringArray(concern.recommendedBrandIds) &&
     isNonEmptyString(concern.insuranceCta) &&
     Array.isArray(concern.faq) &&
-    concern.faq.every(isFaq)
+    concern.faq.every(isFaq) &&
+    isOptionalString(concern.heroTitle) &&
+    isOptionalString(concern.heroDescription) &&
+    isOptionalString(concern.heroImage) &&
+    isOptionalString(concern.heroImagePosition) &&
+    isOptionalString(concern.backLabel) &&
+    isOptionalString(concern.badgeSuffix) &&
+    isOptionalString(concern.signalsTitle) &&
+    isOptionalString(concern.hospitalTitle) &&
+    isOptionalString(concern.hospitalDescription) &&
+    isOptionalString(concern.productsTitle) &&
+    isOptionalString(concern.productsLinkLabel) &&
+    isOptionalString(concern.productsEmptyText) &&
+    isOptionalString(concern.insuranceTitle) &&
+    isOptionalString(concern.insuranceDescription) &&
+    isOptionalString(concern.insuranceButtonLabel) &&
+    isOptionalString(concern.insuranceButtonHref) &&
+    isOptionalString(concern.insuranceImage) &&
+    isOptionalString(concern.insuranceImageAlt) &&
+    isOptionalString(concern.reviewsTitle) &&
+    isOptionalString(concern.reviewsLinkLabel) &&
+    isOptionalString(concern.faqTitle) &&
+    (concern.hospitalSigns === undefined || isStringArray(concern.hospitalSigns)) &&
+    (concern.quickGuideItems === undefined || (Array.isArray(concern.quickGuideItems) && concern.quickGuideItems.every(isQuickGuide)))
   );
 }
 
@@ -71,7 +107,7 @@ export async function GET() {
     logServerError('[GET /api/admin/concerns] 조회 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
-  return NextResponse.json({ items: config.items }, { status: 200 });
+  return NextResponse.json({ items: applyConcernPresentationDefaults(config).items }, { status: 200 });
 }
 
 /** PUT /api/admin/concerns — 관리자 고민 config 저장. requireAdmin 이 role+DB 이중 가드. */

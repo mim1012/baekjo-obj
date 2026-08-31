@@ -18,10 +18,13 @@ import type {
   TrackingLevel,
   TrackingStep,
 } from '@/types';
-import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
+import { defaultSurveyConfig, resolveSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import type { KitsConfig } from '@/lib/kits/config';
-import type { PartnersConfig } from '@/lib/partners/config';
-import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
+import type {
+  AdminProductTagsConfig,
+  ProductTagDefinition,
+  ProductTagsConfig,
+} from '@/lib/productTags/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
@@ -1228,12 +1231,23 @@ export async function getSurveyConfig(): Promise<SurveyConfig> {
   try {
     const response = await fetch('/api/survey');
     if (!response.ok) return defaultSurveyConfig;
-    const { questions, rules } = (await response.json()) as SurveyConfig;
+    const { questions, rules, resultContent } = (await response.json()) as SurveyConfig;
     if (!Array.isArray(questions) || !Array.isArray(rules)) return defaultSurveyConfig;
-    return { questions, rules };
+    return resolveSurveyConfig({ questions, rules, resultContent });
   } catch {
     return defaultSurveyConfig;
   }
+}
+
+/** 관리자 전용 설문 조회. 공개 폴백을 사용하지 않아 로드 실패 뒤 기본값 덮어쓰기를 막는다. */
+export async function getAdminSurveyConfig(): Promise<Required<SurveyConfig>> {
+  const response = await fetch('/api/admin/survey', { cache: 'no-store' });
+  if (!response.ok) throw new Error('survey-config-load-failed');
+  const config = (await response.json()) as SurveyConfig;
+  if (!Array.isArray(config.questions) || !Array.isArray(config.rules)) {
+    throw new Error('survey-config-invalid-response');
+  }
+  return resolveSurveyConfig(config);
 }
 
 /** 설문 config 저장(관리자). PUT /api/admin/survey. 성공/실패를 boolean 으로 돌려 화면이 알림을 띄운다. */
@@ -1250,13 +1264,8 @@ export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: bool
   }
 }
 
-/* ── 케어 키트 / B2B 제휴처 / Q&A (관리자 싱글턴 config) ───────
- * 세 화면 모두 예전엔 page.tsx 인라인 mock 또는 정적 @/data 라 관리자가 편집해도 저장되지 않았다
- * (drift). 이제 각각 싱글턴 config 로 DB 에 담고, 관리자 화면은 아래 콘센트로 읽고(get*) 통째로
- * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
- *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
- *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
- * 공개 조회는 실패·미저장을 default* 로 접지만, 관리자 kits/partners 는 실패를 throw 해 저장을 막는다.
+/* ── 케어 키트(관리자 싱글턴 config) ────────────────────────
+ * 공개 /landing/care-kit 카드와 연결된 실제 항목만 아래 콘센트로 읽고 저장한다.
  */
 
 /** 관리자 케어 키트 config. GET /api/admin/kits. 실패·깨진 응답은 throw 해서 저장을 막는다. */
@@ -1282,19 +1291,21 @@ export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean 
   }
 }
 
-/** 관리자 제휴처 config. GET /api/admin/partners. 실패·깨진 응답은 throw 해서 저장을 막는다. */
-export async function getPartnersConfig(): Promise<PartnersConfig> {
-  const response = await fetch('/api/admin/partners');
-  if (!response.ok) throw new Error('partners-config-load-failed');
-  const { items } = (await response.json()) as PartnersConfig;
-  if (!Array.isArray(items)) throw new Error('partners-config-invalid-response');
-  return { items };
+/* ── 상품 카드 태그·스토어 고민 필터 ────────────────────── */
+
+export async function getAdminProductTagsConfig(): Promise<AdminProductTagsConfig> {
+  const response = await fetch('/api/admin/product-tags', { cache: 'no-store' });
+  if (!response.ok) throw new Error('product-tags-config-load-failed');
+  const config = await response.json() as AdminProductTagsConfig;
+  if (!Array.isArray(config.items) || !Array.isArray(config.hiddenSlugs)) {
+    throw new Error('product-tags-config-invalid-response');
+  }
+  return { ...config, persistenceReady: config.persistenceReady === true };
 }
 
-/** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
-export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: boolean }> {
+export async function saveAdminProductTagsConfig(config: ProductTagsConfig): Promise<{ ok: boolean }> {
   try {
-    const response = await fetch('/api/admin/partners', {
+    const response = await fetch('/api/admin/product-tags', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -1305,30 +1316,28 @@ export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: 
   }
 }
 
-/** 공개 Q&A config. GET /api/qna. 실패·미저장 시 defaultQnaConfig 로 폴백(상품상세 Q&A 탭이 안 깨진다). */
-export async function getQnaConfig(): Promise<QnaConfig> {
+export async function createAdminProductTag(label: string): Promise<{
+  ok: boolean;
+  tag?: ProductTagDefinition;
+  created?: boolean;
+  error?: string;
+}> {
   try {
-    const response = await fetch('/api/qna');
-    if (!response.ok) return defaultQnaConfig;
-    const { items } = (await response.json()) as QnaConfig;
-    if (!Array.isArray(items)) return defaultQnaConfig;
-    return { items };
-  } catch {
-    return defaultQnaConfig;
-  }
-}
-
-/** Q&A config 저장(관리자). PUT /api/admin/qna. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
-export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
-  try {
-    const response = await fetch('/api/admin/qna', {
-      method: 'PUT',
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
+      body: JSON.stringify({ label }),
     });
-    return { ok: response.ok };
+    const body = await response.json().catch(() => ({})) as {
+      tag?: ProductTagDefinition;
+      created?: boolean;
+      error?: string;
+    };
+    return response.ok && body.tag
+      ? { ok: true, tag: body.tag, created: body.created === true }
+      : { ok: false, error: body.error ?? 'server-error' };
   } catch {
-    return { ok: false };
+    return { ok: false, error: 'network-error' };
   }
 }
 
@@ -2204,6 +2213,18 @@ export async function deleteProductInquiry(id: string, _userId: string): Promise
   const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store' });
   if (!response.ok) {
     throw new Error('inquiry-delete-failed');
+  }
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+}
+
+/** 관리자 상품문의 삭제. DELETE /api/admin/inquiries/[id]. */
+export async function deleteAdminProductInquiry(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error('admin-inquiry-delete-failed');
   }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }

@@ -7,12 +7,9 @@ import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitP
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
-
-/** DB pet_type 은 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 'both'로 정규화해
- *  admin select/필터가 조용히 깨지지 않게 한다. */
+/** DB pet_type 은 관리자에서 추가할 수 있는 자유 text다. 빈 값만 공용으로 보정한다. */
 function normalizePetType(raw: string): Product['petType'] {
-  return PET_TYPES.has(raw) ? (raw as Product['petType']) : 'both';
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : 'both';
 }
 
 interface ProductRow {
@@ -86,6 +83,9 @@ function rowToProduct(row: ProductRow): Product {
     isVisible: row.is_visible,
     isBest: row.is_best,
     isRecommended: row.is_recommended,
+    homeFeaturedOrder: typeof d.homeFeaturedOrder === 'number' ? d.homeFeaturedOrder : undefined,
+    shopFeaturedOrder: typeof d.shopFeaturedOrder === 'number' ? d.shopFeaturedOrder : undefined,
+    catalogOrder: typeof d.catalogOrder === 'number' ? d.catalogOrder : undefined,
   };
 }
 

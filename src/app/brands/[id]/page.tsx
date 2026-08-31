@@ -19,6 +19,7 @@ import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
+import { sortByManagedProductOrder } from '@/lib/products/displayOrder';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -62,10 +63,11 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const presentation = getBrandPresentation(brand);
   const fullBrandName = formatBrandDisplayName(brand.name);
   const titleLogoSrc = getBrandTitleDisplayLogo(brand);
-  const [brandProducts, productCounts] = await Promise.all([
+  const [unsortedBrandProducts, productCounts] = await Promise.all([
     listCachedPublicProductsByBrand(brand.id),
     getCachedPublicProductCountsByBrand([brand.id]),
   ]);
+  const brandProducts = sortByManagedProductOrder(unsortedBrandProducts, 'catalogOrder');
   const publicProductCount = productCounts[brand.id] ?? 0;
   const representativeProduct = brandProducts.find((product) =>
     brand.representativeProductIds.includes(product.id),
@@ -81,14 +83,16 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     review.isVisible !== false && brandProducts.some((product) => product.id === review.productId),
   );
   const sourceContent = getSourceBrandContent(brand);
-  const sourceAuditReport = getSourceAuditReport(brand);
-  const hasCompletedAudit = sourceContent.auditPoints.length > 0;
-  const hasDetailedAudit = Boolean(sourceAuditReport);
+  // 관리자에서 입력한 DB 값을 정본으로 사용하고, 아직 비어 있는 기존 브랜드만 코드 시드로
+  // 폴백한다. 이전에는 코드 시드가 항상 우선해 관리자가 수정해도 공개 화면이 바뀌지 않았다.
+  const auditReport = brand.auditReport ?? getSourceAuditReport(brand);
+  const storyBody = brand.philosophy?.trim() || sourceContent.philosophy;
+  const storyHighlights = brand.highlights?.length ? brand.highlights : sourceContent.highlights;
+  const auditPoints = brand.auditPoints?.length ? brand.auditPoints : sourceContent.auditPoints;
+  const hasCompletedAudit = auditPoints.length > 0;
+  const hasDetailedAudit = Boolean(auditReport);
   const auditStatusText = hasCompletedAudit ? 'Audit Completed' : '';
-  const storyBody = sourceContent.philosophy;
-  const storyHighlights = sourceContent.highlights;
-  const auditPoints = sourceContent.auditPoints;
-  const publicBrand = { ...brand, auditPoints, auditReport: sourceAuditReport };
+  const publicBrand = { ...brand, auditPoints, auditReport };
   const categoryNames = presentation.categories
     || [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
   const relatedConcernNames = presentation.concerns
@@ -174,9 +178,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">카테고리</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryCategoryLabel ?? brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
-                  {(sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote) && (
-                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryCategoryLabel ?? sourceContent.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
+                  {(brand.summaryCategoryNote ?? sourceContent.summaryCategoryNote) && (
+                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote ?? sourceContent.summaryCategoryNote}</div>
                   )}
                 </div>
               </div>
@@ -188,9 +192,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryConcernLabel ?? brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
-                  {(sourceContent.summaryConcernNote ?? brand.summaryConcernNote) && (
-                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryConcernNote ?? brand.summaryConcernNote}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? sourceContent.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
+                  {(brand.summaryConcernNote ?? sourceContent.summaryConcernNote) && (
+                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote ?? sourceContent.summaryConcernNote}</div>
                   )}
                 </div>
               </div>

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { User } from '@/types';
 import { LogOut, User as UserIcon, Package, Heart, Star, MessageCircle, Shield, Settings, MapPin } from 'lucide-react';
-import { FEATURES } from '@/config/features';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 import { logout } from '@/lib/storage';
 
 interface MypageSidebarProps {
@@ -12,6 +12,7 @@ interface MypageSidebarProps {
 }
 
 export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
+  const siteContent = usePublicSiteContent();
   if (!user) return null;
 
   const handleLogout = () => {
@@ -38,7 +39,7 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
     {
       title: '케어 서비스',
       // 펫보험 미노출 기간에는 보험 분석 내역 탭 자체를 숨긴다(features.ts).
-      items: FEATURES.insurance
+      items: siteContent.features.insurance
         ? [{ id: 'insurance', label: '보험 분석 내역', icon: Shield }]
         : [],
     },

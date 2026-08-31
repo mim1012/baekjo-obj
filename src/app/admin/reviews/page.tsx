@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AdminResourcePage from '@/components/admin/AdminResourcePage';
 import PurchaseReviewsPanel from '@/components/admin-new/reviews/PurchaseReviewsPanel';
-import { getAdminShowcaseReviewsConfig, saveShowcaseReviewsConfig } from '@/lib/storage';
+import { getAdminProducts, getAdminShowcaseReviewsConfig, saveShowcaseReviewsConfig } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
 import type { Review } from '@/types';
 
@@ -114,6 +114,23 @@ function ShowcaseReviewsTab() {
   // 뒤늦게 도착한 저장 PUT 이 방금 지운 항목을 되살릴 수 있었다 — busyRef 로 저장·삭제·삭제-삭제
   // 세 경우 모두 상호배제한다.
   const busyRef = useRef(false);
+  const [productOptions, setProductOptions] = useState([{ value: '', label: '상품을 선택해 주세요' }]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getAdminProducts()
+      .then((products) => {
+        if (cancelled) return;
+        setProductOptions([
+          { value: '', label: '상품을 선택해 주세요' },
+          ...products.map((product) => ({ value: product.id, label: product.name })),
+        ]);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -146,7 +163,7 @@ function ShowcaseReviewsTab() {
   // notices 와 달리 전시 후기는 빈 목록을 허용하므로 마지막 1건 삭제를 막지 않는다. busyRef 로
   // 등록·수정·삭제 세 액션을 전부 상호배제한다(codex 2차 리뷰 HIGH).
   const handleCreate = async (draft: Record<string, string | number>) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const newReview = draftToReview(draft);
     const nextItems = [...persistedItemsRef.current, newReview];
     busyRef.current = true;
@@ -155,8 +172,10 @@ function ShowcaseReviewsTab() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -164,7 +183,7 @@ function ShowcaseReviewsTab() {
   };
 
   const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const nextItems = persistedItemsRef.current.map((review) =>
       review.id === id ? draftToReview(draft, review) : review,
     );
@@ -174,8 +193,10 @@ function ShowcaseReviewsTab() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -183,7 +204,7 @@ function ShowcaseReviewsTab() {
   };
 
   const handleDelete = async (id: string | number) => {
-    if (!loaded || loadError || busyRef.current) return;
+    if (!loaded || loadError || busyRef.current) return false;
     const nextItems = persistedItemsRef.current.filter((review) => review.id !== id);
     busyRef.current = true;
     try {
@@ -191,9 +212,30 @@ function ShowcaseReviewsTab() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems((prev) => prev.filter((review) => review.id !== id));
+        return true;
       } else {
         window.alert('삭제 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+        return false;
       }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleMove = async (id: string | number, direction: 'up' | 'down') => {
+    if (!loaded || loadError || busyRef.current) return false;
+    const currentIndex = persistedItemsRef.current.findIndex((review) => review.id === id);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= persistedItemsRef.current.length) return false;
+    const nextItems = [...persistedItemsRef.current];
+    [nextItems[currentIndex], nextItems[targetIndex]] = [nextItems[targetIndex], nextItems[currentIndex]];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveShowcaseReviewsConfig({ items: nextItems });
+      if (!ok) return false;
+      persistedItemsRef.current = nextItems;
+      setItems(nextItems);
+      return true;
     } finally {
       busyRef.current = false;
     }
@@ -204,6 +246,8 @@ function ShowcaseReviewsTab() {
       title="후기 관리"
       description={loadError ? '후기 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '사진과 별점, 후기 내용을 확인하고 노출 및 베스트 상태를 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
       actionLabel="후기 등록"
+      affectedScreen="보호자 후기(/reviews) · 홈 · 관련 상품·고민 상세의 후기 영역"
+      formIntro="후기가 연결될 상품을 이름으로 선택하고, 고객에게 보이는 후기 내용과 노출 상태를 입력합니다. 저장하면 연결된 모든 후기 영역에 반영됩니다."
       searchPlaceholder="상품명, 견종, 후기 내용 검색"
       columns={[
         { key: 'product', label: '상품' },
@@ -216,7 +260,7 @@ function ShowcaseReviewsTab() {
       ]}
       rows={items.map((review) => ({
         id: review.id,
-        product: review.productId,
+        product: productOptions.find((option) => option.value === review.productId)?.label ?? review.productId,
         pet: `${review.breed} / ${review.age}`,
         rating: review.rating,
         photo: review.isPhotoReview ? '있음' : '없음',
@@ -237,27 +281,29 @@ function ShowcaseReviewsTab() {
         isBest: review.isBest ? 'true' : 'false',
       }))}
       formFields={[
-        { key: 'productId', label: '상품 ID(p1 형식)' },
+        { key: 'productId', label: '연결 상품', type: 'select', options: productOptions, group: '연결할 상품', required: true, description: '후기를 표시할 상품을 이름으로 선택합니다.' },
         {
           key: 'petType',
-          label: '반려동물 종류 (필수)',
+          label: '반려동물 종류',
           type: 'select',
           required: true,
+          group: '후기 내용',
           options: [
             { value: '', label: '종류를 선택해 주세요' },
             ...PET_TYPE_VALUES.map((value) => ({ value, label: PET_TYPE_LABELS[value] })),
           ],
         },
-        { key: 'breed', label: '품종' },
-        { key: 'age', label: '나이' },
-        { key: 'usePeriod', label: '사용 기간' },
-        { key: 'rating', label: '별점(1~5)', type: 'number' },
-        { key: 'content', label: '후기 내용', type: 'textarea' },
-        { key: 'image', label: '사진 경로(선택, /reviews/… 형식)' },
+        { key: 'breed', label: '품종', group: '후기 내용' },
+        { key: 'age', label: '나이', group: '후기 내용' },
+        { key: 'usePeriod', label: '사용 기간', group: '후기 내용' },
+        { key: 'rating', label: '별점', type: 'select', group: '후기 내용', options: [5, 4, 3, 2, 1].map((value) => ({ value: String(value), label: `${value}점` })) },
+        { key: 'content', label: '후기 내용', type: 'textarea', group: '후기 내용', required: true },
+        { key: 'image', label: '후기 사진', type: 'image', group: '후기 내용' },
         {
           key: 'isPhotoReview',
           label: '사진 후기 여부',
           type: 'select',
+          group: '고객 화면 노출 설정',
           options: [
             { value: 'true', label: '사진 후기' },
             { value: 'false', label: '일반 후기' },
@@ -267,6 +313,7 @@ function ShowcaseReviewsTab() {
           key: 'isVisible',
           label: '노출 상태',
           type: 'select',
+          group: '고객 화면 노출 설정',
           options: [
             { value: 'true', label: '노출' },
             { value: 'false', label: '숨김' },
@@ -276,6 +323,7 @@ function ShowcaseReviewsTab() {
           key: 'isBest',
           label: 'BEST 여부',
           type: 'select',
+          group: '고객 화면 노출 설정',
           options: [
             { value: 'true', label: 'BEST' },
             { value: 'false', label: '일반' },
@@ -285,6 +333,7 @@ function ShowcaseReviewsTab() {
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
+      onMoveRow={ready ? handleMove : undefined}
     />
   );
 }

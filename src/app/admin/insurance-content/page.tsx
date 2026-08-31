@@ -110,8 +110,8 @@ export default function AdminInsuranceContentPage() {
   // 싱글턴 config 를 공유하므로 각 핸들러는 persisted 기준에서 자기 섹션만 바꾸고 다른 섹션은 그대로
   // 전달한다 — 상대 섹션의 미저장 드래프트를 절대 함께 커밋하지 않는다.
   const handleCreateConsent = async (draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextConsents = [...persistedRef.current.consents, draftToConsent(draft)];
@@ -119,8 +119,10 @@ export default function AdminInsuranceContentPage() {
       if (ok) {
         persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
         setConsents(nextConsents);
+        return true;
       } else {
         window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -128,8 +130,8 @@ export default function AdminInsuranceContentPage() {
   };
 
   const handleUpdateConsent = async (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextConsents = persistedRef.current.consents.map((consent) =>
@@ -139,8 +141,10 @@ export default function AdminInsuranceContentPage() {
       if (ok) {
         persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
         setConsents(nextConsents);
+        return true;
       } else {
         window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -148,8 +152,8 @@ export default function AdminInsuranceContentPage() {
   };
 
   const handleCreateFaq = async (draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextFaqs = [...persistedRef.current.faqs, draftToFaq(draft)];
@@ -157,8 +161,10 @@ export default function AdminInsuranceContentPage() {
       if (ok) {
         persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
         setFaqs(nextFaqs);
+        return true;
       } else {
         window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -166,8 +172,8 @@ export default function AdminInsuranceContentPage() {
   };
 
   const handleUpdateFaq = async (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextFaqs = persistedRef.current.faqs.map((faq) => (faq.id === id ? draftToFaq(draft, faq) : faq));
@@ -175,8 +181,10 @@ export default function AdminInsuranceContentPage() {
       if (ok) {
         persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
         setFaqs(nextFaqs);
+        return true;
       } else {
         window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -187,25 +195,27 @@ export default function AdminInsuranceContentPage() {
   // ('privacy'/'analysis') 삭제는 서버 왕복 없이 클라이언트에서 먼저 막아 정직한 메시지를 보여준다
   // (opus 리뷰 LOW-2).
   const handleDeleteConsent = async (id: string | number) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       if ((REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)) {
         window.alert('필수(법정) 동의 문서는 삭제할 수 없습니다.');
-        return;
+        return false;
       }
       const nextConsents = persistedRef.current.consents.filter((consent) => consent.id !== id);
       if (nextConsents.length === 0) {
         window.alert('동의 문서는 최소 1건 남아 있어야 합니다. 마지막 항목은 삭제할 수 없습니다.');
-        return;
+        return false;
       }
       const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });
       if (ok) {
         persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
         setConsents((prev) => prev.filter((consent) => consent.id !== id));
+        return true;
       } else {
         window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -214,8 +224,8 @@ export default function AdminInsuranceContentPage() {
 
   // faqs 는 관리자 PUT 라우트가 빈 배열을 허용하므로 마지막 항목 차단은 없다.
   const handleDeleteFaq = async (id: string | number) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextFaqs = persistedRef.current.faqs.filter((faq) => faq.id !== id);
@@ -223,9 +233,49 @@ export default function AdminInsuranceContentPage() {
       if (ok) {
         persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
         setFaqs((prev) => prev.filter((faq) => faq.id !== id));
+        return true;
       } else {
         window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleMoveConsent = async (id: string | number, direction: 'up' | 'down') => {
+    if (!loaded || loadError || busyRef.current) return false;
+    const currentIndex = persistedRef.current.consents.findIndex((consent) => consent.id === id);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= persistedRef.current.consents.length) return false;
+    const nextConsents = [...persistedRef.current.consents];
+    [nextConsents[currentIndex], nextConsents[targetIndex]] = [nextConsents[targetIndex], nextConsents[currentIndex]];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveInsuranceContentConfig({ consents: nextConsents, faqs: persistedRef.current.faqs });
+      if (!ok) return false;
+      persistedRef.current = { consents: nextConsents, faqs: persistedRef.current.faqs };
+      setConsents(nextConsents);
+      return true;
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleMoveFaq = async (id: string | number, direction: 'up' | 'down') => {
+    if (!loaded || loadError || busyRef.current) return false;
+    const currentIndex = persistedRef.current.faqs.findIndex((faq) => faq.id === id);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= persistedRef.current.faqs.length) return false;
+    const nextFaqs = [...persistedRef.current.faqs];
+    [nextFaqs[currentIndex], nextFaqs[targetIndex]] = [nextFaqs[targetIndex], nextFaqs[currentIndex]];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveInsuranceContentConfig({ consents: persistedRef.current.consents, faqs: nextFaqs });
+      if (!ok) return false;
+      persistedRef.current = { consents: persistedRef.current.consents, faqs: nextFaqs };
+      setFaqs(nextFaqs);
+      return true;
     } finally {
       busyRef.current = false;
     }
@@ -242,6 +292,8 @@ export default function AdminInsuranceContentPage() {
         title="보험 동의 문서"
         description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 신청 폼(/insurance)의 동의 체크박스와 전문 모달을 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다(동의 문서·FAQ 는 같은 콘텐츠를 공유합니다).'}
         actionLabel="동의 문서 등록"
+        affectedScreen="보험 분석 화면(/insurance)의 신청 동의 체크와 전문 보기"
+        formIntro="고객이 신청 전에 확인하는 동의 제목과 전문입니다. ‘필수’를 선택하면 고객이 체크하지 않고는 신청할 수 없습니다. 법정 필수 문서는 삭제할 수 없습니다."
         searchPlaceholder="동의 문서 제목 검색"
         columns={[
           { key: 'title', label: '제목' },
@@ -257,19 +309,22 @@ export default function AdminInsuranceContentPage() {
           bodySummary: summarize(consent.body),
         }))}
         formFields={[
-          { key: 'title', label: '제목' },
-          { key: 'required', label: '필수 여부', type: 'select', options: booleanOptions },
-          { key: 'body', label: '전문(줄바꿈 유지)', type: 'textarea' },
+          { key: 'title', label: '동의 제목', group: '고객에게 보이는 동의 문서', required: true },
+          { key: 'required', label: '신청할 때 반드시 체크해야 하는지', type: 'select', options: booleanOptions, group: '고객에게 보이는 동의 문서' },
+          { key: 'body', label: '전문 내용', type: 'textarea', group: '고객에게 보이는 동의 문서', required: true, description: '줄바꿈을 포함해 ‘전문 보기’ 창에 그대로 표시됩니다.' },
         ]}
         onCreateRow={ready ? handleCreateConsent : undefined}
         onUpdateRow={ready ? handleUpdateConsent : undefined}
         onDeleteRow={ready ? handleDeleteConsent : undefined}
+        onMoveRow={ready ? handleMoveConsent : undefined}
       />
 
       <AdminResourcePage
         title="보험 자주 묻는 질문"
         description={loadError ? '콘텐츠를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '공개 보험 페이지(/insurance) 하단의 FAQ 아코디언을 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다(동의 문서·FAQ 는 같은 콘텐츠를 공유합니다).'}
         actionLabel="FAQ 등록"
+        affectedScreen="보험 분석 화면(/insurance) 하단의 자주 묻는 질문"
+        formIntro="고객 화면에서 질문을 누르면 답변이 열립니다. 질문과 답변을 각각 입력하고 저장하면 바로 반영됩니다."
         searchPlaceholder="질문 검색"
         columns={[
           { key: 'q', label: '질문' },
@@ -282,12 +337,13 @@ export default function AdminInsuranceContentPage() {
           aSummary: summarize(faq.a),
         }))}
         formFields={[
-          { key: 'q', label: '질문' },
-          { key: 'a', label: '답변', type: 'textarea' },
+          { key: 'q', label: '질문', group: '자주 묻는 질문', required: true },
+          { key: 'a', label: '답변', type: 'textarea', group: '자주 묻는 질문', required: true },
         ]}
         onCreateRow={ready ? handleCreateFaq : undefined}
         onUpdateRow={ready ? handleUpdateFaq : undefined}
         onDeleteRow={ready ? handleDeleteFaq : undefined}
+        onMoveRow={ready ? handleMoveFaq : undefined}
       />
     </div>
   );

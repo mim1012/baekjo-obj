@@ -6,7 +6,7 @@ import type { Product, ProductOption } from '@/types';
 import type { CreateProductInput, UpdateProductInput } from '@/lib/storage';
 
 /**
- * ProductForm 이 편집 UI 를 가진 필드 화이트리스트(문서·테스트용).
+ * ProductForm 이 저장하는 필드 화이트리스트(문서·테스트용).
  * 이 밖의 필드(detailBlocks·rating·reviewCount 등)는 폼이 건드리지 않으므로
  * payload 에 담지 않는다 → updateProduct 가 read-modify-write 라 기존 값이 보존된다.
  * detailBlocks 는 별도 화면(ProductDetailEditor)이 소유하므로 여기서 절대 재전송하지 않는다.
@@ -16,6 +16,7 @@ export const PRODUCT_FORM_FIELDS = [
   'brandId',
   'brandName',
   'category',
+  'categorySlug',
   'lifestyleCategory',
   'petType',
   'summary',
@@ -26,17 +27,14 @@ export const PRODUCT_FORM_FIELDS = [
   'image',
   'images',
   'options',
-  'auditPoints',
   'concernTags',
-  'ingredients',
-  'howToUse',
   'recommendedFor',
-  'caution',
   'shippingFee',
   'deliveryEstimate',
   'shippingNotice',
   'returnNotice',
   'sellerName',
+  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
@@ -97,6 +95,7 @@ export interface ProductFormState {
   name?: string;
   brandId?: string;
   category?: string;
+  categorySlug?: string;
   lifestyleCategory?: string;
   petType?: Product['petType'];
   ageGroup?: string;
@@ -108,36 +107,32 @@ export interface ProductFormState {
   image?: string;
   images: string[];
   options: ProductOptionFormState[];
-  auditPoints: string[];
   concernTags: string[];
-  ingredients?: string;
-  howToUse?: string;
   recommendedFor: string[];
-  caution: string[];
   shippingFee?: number | null;
   deliveryEstimate?: string;
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
-  isVisible?: boolean;
-  isBest?: boolean;
-  isRecommended?: boolean;
+  isMembersOnlyPrice?: boolean;
 }
 
 /**
  * 폼 상태에서 편집 가능한 봉인 해제 필드만 공통으로 담는다(create/update 공유).
- * - 배열(images·recommendedFor·caution)은 새 배열로 복사하고 공백 항목을 제거한다.
+ * - 배열(images·concernTags·recommendedFor)은 새 배열로 복사하고 공백 항목을 제거한다.
  * - options 는 normalizeOptions 로 유효 행만 남긴다.
- * - 텍스트(ingredients·howToUse·배송/판매자 안내)는 trim 해 담되 빈 문자열도 그대로 실어
- *   **지우기**를 지원한다(BrandForm officialUrl 과 동일 규칙). 서버 validate 가 빈 문자열을
+ * - 배송/판매자 안내 텍스트는 trim 해 담되 빈 문자열도 그대로 실어
+ *   **지우기**를 지원한다. 서버 validate 가 빈 문자열을
  *   허용하고 splitProductInput 이 ''(≠undefined)를 detail 에 써 기존 값을 덮으므로 실제로 지워진다.
  * - salePrice 0 은 null 로(할인 없음). shippingFee 는 값이 유효할 때만 담는다(미입력=기존값 보존).
+ * - isMembersOnlyPrice 는 boolean 으로 항상 담는다.
  */
 function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
     name: form.name,
     brandId: form.brandId,
     category: form.category,
+    categorySlug: form.categorySlug,
     lifestyleCategory: form.lifestyleCategory,
     petType: form.petType,
     summary: form.summary,
@@ -148,19 +143,13 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     image: form.image,
     images: cleanStringList(form.images),
     options: normalizeOptions(form.options),
-    auditPoints: cleanStringList(form.auditPoints),
     concernTags: cleanStringList(form.concernTags),
-    ingredients: form.ingredients?.trim() ?? '',
-    howToUse: form.howToUse?.trim() ?? '',
     recommendedFor: cleanStringList(form.recommendedFor),
-    caution: cleanStringList(form.caution),
     deliveryEstimate: form.deliveryEstimate?.trim() ?? '',
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
     sellerName: form.sellerName?.trim() ?? '',
-    isVisible: form.isVisible ?? false,
-    isBest: form.isBest ?? false,
-    isRecommended: form.isRecommended ?? false,
+    isMembersOnlyPrice: form.isMembersOnlyPrice ?? false,
   };
 
   // shippingFee 는 숫자일 때만 담는다. null/undefined(미입력)면 키를 빼 기존/기본값을 보존한다
@@ -199,5 +188,10 @@ export function buildProductCreatePayload(
     ...buildEditableFields(form),
     brandName,
     ageGroup: form.ageGroup ?? 'all',
+    // 신규 상품은 검수 전 공개되지 않는다. 등록 후 상품 진열 한 곳에서만
+    // 노출·추천·베스트를 지정해 중복 편집 경로를 만들지 않는다.
+    isVisible: false,
+    isBest: false,
+    isRecommended: false,
   } as CreateProductInput;
 }

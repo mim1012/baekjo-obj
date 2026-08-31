@@ -2,7 +2,14 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+  setProductDisplaySetting,
+} from './_lib/adminCrudHelpers';
 import { getSurface } from './_lib/fieldSurfaceMatrix';
 
 // 골든플로우 #7 — 브랜드 폼 "전 필드 왕복" 실구동(BrandDetailEditor 기준).
@@ -48,7 +55,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
   // 모달 생성(BrandForm) 필드.
   const description = `E2E브랜드소개 ${runId}`;
   const philosophy = `E2E브랜드철학스토리 ${runId}`;
-  const officialUrl = `https://example.com/e2e-brand-${runId}`;
 
   // BrandDetailEditor 전용(대형) 필드 값.
   const dispatchEstimate = `결제후1~2영업일 ${runId}`;
@@ -147,7 +153,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
 
     await loginAsAdmin(page);
 
-    // ── 1) 모달(BrandForm)로 브랜드 생성 — 필수 5필드 + officialUrl + displayOrder=0 + isNew ──
+    // ── 1) 모달(BrandForm)로 브랜드 생성 — 공개 화면 필수값 + displayOrder=0 + isNew ──
     await page.goto('/admin/brands');
     await page.getByRole('button', { name: '새 브랜드 등록' }).click();
     const modal = page.locator('form#brand-form');
@@ -158,7 +164,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await modal
       .locator('textarea[placeholder="상세한 브랜드 스토리와 철학을 입력하세요."]')
       .fill(philosophy);
-    await modal.locator('input[type="url"]').fill(officialUrl);
     await modal.getByLabel('신규 브랜드 뱃지').check();
     await modal.getByLabel('진열 순서').fill('0');
     // "브랜드 등록"은 헤더 트리거 "새 브랜드 등록"의 substring 이라 exact:true 필수(wave-3 함정).
@@ -195,9 +200,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
     await page.locator('input[type="file"]').setInputFiles(prodImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });
-    await page.getByLabel('스토어 노출').check();
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
+    await setProductDisplaySetting(page, prodName, 'visible', true);
 
     // ── 3) BrandDetailEditor(/admin/brands/[id]) 전 필드 입력 ──
     await page.goto(`/admin/brands/${brandId}`);
@@ -281,7 +286,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#bd-name')).toHaveValue(brandName, { timeout: 15_000 });
     await expect(page.locator('#bd-desc')).toHaveValue(description);
     await expect(page.locator('#bd-philosophy')).toHaveValue(philosophy);
-    await expect(page.locator('#bd-official')).toHaveValue(officialUrl);
     await expect(page.locator('#bd-order')).toHaveValue('0');
     // 배송정책.
     await expect(page.locator('#ship-carrier')).toHaveValue(carrierValue);

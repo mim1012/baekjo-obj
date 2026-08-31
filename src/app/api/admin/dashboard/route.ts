@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { listAllOrderRefunds, listAllOrders, ORDERS_LIST_CAP } from '@/lib/orders/repo';
-import { listInsuranceApplications } from '@/lib/insurance/repo';
 import { listMembers } from '@/lib/members/repo';
 import { listAllBrandsForAdmin, BRANDS_LIST_CAP } from '@/lib/brands/repo';
 import { listAllProductsForAdmin, PRODUCTS_LIST_CAP } from '@/lib/products/repo';
@@ -138,7 +137,7 @@ async function loadBrandStats(
 }
 
 /**
- * GET /api/admin/dashboard — 관리자 대시보드 요약(최근 주문·보험 신청·가입 승인 대기 + 브랜드별 통계).
+ * GET /api/admin/dashboard — 관리자 대시보드 요약(최근 주문·가입 승인 대기 + 브랜드별 통계).
  * requireAdmin()이 DB 재조회로 role/active를 다시 확인한다(admin/orders·admin/insurance와 동일 방어).
  *
  * ⚠️ 성능/정확도: 지금은 orders·products·inquiries를 **repo 상한(LIST_CAP)까지 조회 → 서버 집계**한다.
@@ -152,9 +151,8 @@ export async function GET() {
   try {
     const ordersPromise = listAllOrders();
     const refundsPromise = listAllOrderRefunds();
-    const [orders, insurances, members, brandStatsPayload] = await Promise.all([
+    const [orders, members, brandStatsPayload] = await Promise.all([
       ordersPromise,
-      listInsuranceApplications(),
       listMembers(),
       // 브랜드 통계는 가산 필드다 — 실패해도 대시보드 본체(최근 주문·보험·승인 대기)는 살아야 한다.
       loadBrandStats(ordersPromise, refundsPromise),
@@ -170,8 +168,6 @@ export async function GET() {
         totalAmount: order.totalPrice,
         status: order.orderStatus,
       }));
-
-    const recentInsurances = [...insurances].sort(byCreatedAtDesc).slice(0, RECENT_LIMIT);
 
     // 가입 승인 대기: B2B/보험사/입점업체 회원 중 pending 상태. 별도 "신청서" 테이블은 아직 없어
     // members를 role/status로 좁혀 구성한다(§4 가산 — 기존 members 계약 무변경).
@@ -193,7 +189,6 @@ export async function GET() {
 
     const summary: AdminDashboardSummary = {
       recentOrders,
-      recentInsurances,
       recentApplications,
       // 집계 실패 시 undefined → JSON에서 필드 자체가 빠진다(기존 응답 계약 무영향).
       ...(brandStatsPayload ?? {}),

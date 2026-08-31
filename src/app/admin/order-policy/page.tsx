@@ -92,7 +92,7 @@ export default function AdminOrderPolicyPage() {
   return (
     <div className="flex flex-col gap-8">
       <AdminPageHeader
-        title="주문 정책"
+        title="무통장입금 자동취소"
         description={
           loadError
             ? '설정을 불러오지 못했습니다. 저장을 막았습니다. 새로고침 후 다시 시도해 주세요.'

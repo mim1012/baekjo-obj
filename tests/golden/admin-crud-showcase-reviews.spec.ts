@@ -87,23 +87,23 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 전시 후기', 
     await loginAsAdmin(page);
     await page.goto('/admin/reviews');
 
-    // 1) 등록 — onCreateRow만 있고 onSave는 없는 화면이라 저장 버튼 라벨은 '저장'(AdminResourcePage.tsx).
+    // 1) 등록 — 상품 ID 직접 입력 대신 상품명 선택형 편집기를 사용한다.
     // isPhotoReview/isBest의 select 기본값은 둘 다 options[0]='true' 라 명시적으로 'false'를 골라야
     // "사진 없음·BEST 아님"이라는 필드값이 실제로 반영되는지 검증할 수 있다.
     await page.getByRole('button', { name: '후기 등록' }).click();
-    await page.getByLabel('상품 ID').fill(PRODUCT_ID);
-    await page.getByLabel('반려동물').selectOption('dog');
-    await page.getByLabel('견종/묘종').fill(breed);
+    await page.getByLabel('연결 상품').selectOption(PRODUCT_ID);
+    await page.getByLabel('반려동물 종류').selectOption('dog');
+    await page.getByLabel('품종').fill(breed);
     await page.getByLabel('나이').fill(age);
     await page.getByLabel('사용 기간').fill(usePeriod);
-    await page.getByLabel('별점').fill(String(rating));
+    await page.getByLabel('별점').selectOption(String(rating));
     // ⚠️ getByLabel은 기본 substring 매칭이라 '후기 내용'은 검색창의
     // aria-label("상품명, 견종, 후기 내용 검색")과 겹쳐 strict-mode violation이 난다(실측) — exact:true로 고정.
     await page.getByLabel('후기 내용', { exact: true }).fill(content);
     await page.getByLabel('사진 후기 여부').selectOption('false');
     await page.getByLabel('노출 상태').selectOption('true');
     await page.getByLabel('BEST 여부').selectOption('false');
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '등록하고 고객 화면에 반영' }).click();
 
     // 2) 관리자 목록 — 등록한 필드 전부(상품·반려동물·별점·사진·후기내용·노출상태)가 행 단위로 반영됐는지 확인.
     const adminRow = page.locator('tr', { hasText: content });
@@ -146,7 +146,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 전시 후기', 
     await expect(page.getByRole('button', { name: '수정' })).toHaveCount(1);
     await page.getByRole('button', { name: '수정' }).click();
     await page.getByLabel('노출 상태').selectOption('false');
-    await page.getByRole('button', { name: '저장' }).click();
+    await page.getByRole('button', { name: '수정하고 고객 화면에 반영' }).click();
     await expect(page.locator('table')).toContainText('숨김', { timeout: 15_000 });
 
     // 8) 숨김이 모든 공개 화면(서버가 isVisible!==false로 필터링)에서 사라졌는지 확인 —

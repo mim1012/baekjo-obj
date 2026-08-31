@@ -13,10 +13,8 @@ test.describe('B2B partner type policy', () => {
     const activeSources = [
       ['src', 'types', 'index.ts'],
       ['src', 'components', 'care-kit', 'PartnerInquiryForm.tsx'],
-      ['src', 'app', 'admin', 'partners', 'page.tsx'],
       ['src', 'app', 'admin', 'partner-inquiries', 'page.tsx'],
       ['src', 'app', 'api', 'partner-inquiries', 'route.ts'],
-      ['src', 'app', 'api', 'admin', 'partners', 'route.ts'],
     ];
 
     for (const segments of activeSources) {
@@ -26,12 +24,14 @@ test.describe('B2B partner type policy', () => {
     }
   });
 
-  test('legacy saved partner type values are normalized to etc on read', () => {
-    const repoSource = src('src', 'lib', 'partners', 'repo.ts');
+  test('공개 제휴 문의는 화면 선택지와 서버 허용 유형이 동일하다', () => {
+    const formSource = src('src', 'components', 'care-kit', 'PartnerInquiryForm.tsx');
+    const routeSource = src('src', 'app', 'api', 'partner-inquiries', 'route.ts');
 
-    expect(repoSource).toContain('function normalizePartnerType');
-    expect(repoSource).toContain("return typeof type === 'string' && PARTNER_TYPES.includes(type as Partner['type'])");
-    expect(repoSource).toContain(": 'etc';");
-    expect(repoSource).toContain('return data ? normalizePartnersConfig(data.value as PartnersConfig) : null;');
+    for (const value of ['hospital', 'funeral', 'brand', 'hotel', 'etc']) {
+      expect(formSource).toContain(`value: '${value}'`);
+      expect(routeSource).toContain(`'${value}'`);
+    }
+    expect(routeSource).toContain("PARTNER_TYPES.includes(b.partnerType as PartnerInquiry['partnerType'])");
   });
 });

@@ -40,11 +40,11 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain('getShowcaseReviewsConfigWithFallback()');
     // 공지 config 는 append 순서로 저장된다 — 홈 소식(notices.slice(0,4))이 항상 최신 4건을 보이도록
     // 서버 wrapper 에서 최신순으로 정렬한 뒤 넘긴다(2026-07-18: 신규 공지가 홈에 안 뜨던 버그 수정).
-    expect(pageSource).toContain('const sortedNotices = getPublicNotices(noticesConfig.items)');
+    expect(pageSource).toContain('const sortedNotices = getPublicNotices(noticesConfig.items, shell.features.insurance)');
     expect(pageSource).toContain('.sort((a, b) => b.date.localeCompare(a.date));');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('const { solutions, insuranceBanner, ...publicHomeSettings } = settings ?? defaultHomeSettings;');
-    expect(pageSource).toContain('const visibleHomeSettings = FEATURES.insurance');
+    expect(pageSource).toContain('const { insuranceBanner, ...publicHomeSettings } = settings ?? defaultHomeSettings;');
+    expect(pageSource).toContain('const visibleHomeSettings = shell.features.insurance');
     expect(pageSource).toContain('settings={visibleHomeSettings}');
     expectNoMutableDataBypass(pageSource);
   });
@@ -54,7 +54,7 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
 
     // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
     expect(clientSource).toContain('export default function HomeClient({');
-    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {");
+    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'insuranceBanner'> & {");
     expect(clientSource).toContain('products: Product[];');
     expect(clientSource).toContain('brands: Brand[];');
     expect(clientSource).toContain('notices: Notice[];');

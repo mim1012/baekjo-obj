@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus, Edit, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
+import { Plus, Edit, Trash2, LayoutTemplate, Tags } from 'lucide-react';
 
 import { useProductList } from '@/hooks/admin-new/useProductList';
 import PageHeader from '@/components/admin-new/common/PageHeader';
@@ -25,24 +25,19 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
   const { categorySettings } = useCategorySettings();
   
   const {
-    products,
     brands,
     loading,
-    error,
     filters,
     setFilters,
     currentPage,
     setCurrentPage,
     totalPages,
     paginatedProducts,
-    totalFiltered,
     selectedIds,
     toggleSelection,
     toggleSelectAll,
     clearSelection,
-    refreshData,
     performBulkDelete,
-    performBulkUpdate,
   } = useProductList(20, { products: initialProducts, brands: initialBrands });
 
   // URL 쿼리 파라미터 초기화 연동
@@ -154,6 +149,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
         <div className="flex justify-end gap-2">
           <button 
             onClick={(e) => { e.stopPropagation(); handleEditDetails(p.id); }}
+            aria-label={`${p.name} 상세페이지 편집`}
             className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="상세페이지 편집"
           >
@@ -161,6 +157,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); handleEdit(p.id); }}
+            aria-label={`${p.name} 상품 정보 수정`}
             className="p-1.5 text-gray-400 hover:text-[#17201B] hover:bg-gray-100 rounded"
             title="상품 수정"
           >
@@ -175,14 +172,21 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
     <div className="space-y-6">
       <PageHeader
         title="상품 관리"
-        description="전체 상품 목록을 확인하고, 수정하거나 새 상품을 등록합니다."
+        description="상품 정보를 등록·수정하고 상태를 확인합니다. 노출·추천·베스트 변경은 상품 진열 한 곳에서만 합니다."
       >
+        <button
+          onClick={() => router.push('/admin/products/tags')}
+          className="flex items-center gap-2 border border-[#E7E0D5] bg-white text-gray-700 hover:bg-[#F3EEE6] px-4 py-2 rounded text-[13px] font-medium transition-colors"
+        >
+          <Tags size={16} />
+          상품 태그 관리
+        </button>
         <button 
           onClick={() => router.push('/admin/products/display')}
           className="flex items-center gap-2 border border-[#E7E0D5] bg-white text-gray-700 hover:bg-[#F3EEE6] px-4 py-2 rounded text-[13px] font-medium transition-colors"
         >
           <LayoutTemplate size={16} />
-          진열 관리
+          상품 진열
         </button>
         <button 
           onClick={handleCreate}
@@ -205,7 +209,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
         >
           <option value="">카테고리 (전체)</option>
           {categorySettings.productCategories.map(c => (
-            <option key={c} value={c}>{c}</option>
+            <option key={c.id} value={c.id}>{c.label}</option>
           ))}
         </select>
         
@@ -297,33 +301,13 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px] transition-all duration-300">
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px]">
           <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
             <div className="text-[14px] font-medium text-gray-600 hidden sm:block flex-1">
               {selectedIds.length}개 상품 선택됨
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 숨김 처리하시겠습니까?`)) return;
-                  await performBulkUpdate(selectedIds, { isVisible: false });
-                }}
-                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
-              >
-                <EyeOff size={14} /> 숨김 처리
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!confirm(`선택한 ${selectedIds.length}개 상품을 노출 처리하시겠습니까?`)) return;
-                  await performBulkUpdate(selectedIds, { isVisible: true });
-                }}
-                className="px-3 py-1.5 text-[13px] font-medium text-white bg-gray-600 hover:bg-gray-700 rounded border border-transparent flex items-center gap-1.5"
-              >
-                <Eye size={14} /> 노출 처리
-              </button>
               <button
                 type="button"
                 onClick={async () => {

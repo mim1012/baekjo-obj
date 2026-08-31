@@ -35,6 +35,7 @@ export const metadata: Metadata = {
 };
 
 import { CategorySettingsProvider } from "@/components/providers/CategorySettingsProvider";
+import { ProductTagSettingsProvider } from "@/components/providers/ProductTagSettingsProvider";
 
 export default function RootLayout({
   children,
@@ -48,7 +49,9 @@ export default function RootLayout({
       </head>
       <body className="flex min-h-full flex-col bg-[#FBFAF7] font-sans text-[#17211D]">
         <CategorySettingsProvider>
-          <AppShell>{children}</AppShell>
+          <ProductTagSettingsProvider>
+            <AppShell>{children}</AppShell>
+          </ProductTagSettingsProvider>
         </CategorySettingsProvider>
       </body>
     </html>

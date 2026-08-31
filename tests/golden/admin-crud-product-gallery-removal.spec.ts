@@ -79,7 +79,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 갤러리
     await page.getByRole('button', { name: '이미지 추가' }).click();
     await page.locator('input[type="file"]').last().setInputFiles(galleryImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(2, { timeout: 20_000 });
-    await page.getByLabel('스토어 노출').check();
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
 

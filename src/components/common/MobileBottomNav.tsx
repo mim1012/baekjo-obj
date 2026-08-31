@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HeartPulse, Home, ShoppingBag, ShieldCheck, User } from 'lucide-react';
-import { FEATURES } from '@/config/features';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 
 const ALL_NAV_ITEMS = [
   { label: '홈', href: '/', icon: Home },
@@ -13,13 +13,12 @@ const ALL_NAV_ITEMS = [
   { label: '마이', href: '/mypage', icon: User },
 ];
 
-// 미노출 기능은 하단 네비에서 제외한다(4개 항목은 justify-around로 자연 배치).
-const NAV_ITEMS = ALL_NAV_ITEMS.filter(
-  (item) => item.href !== '/insurance' || FEATURES.insurance,
-);
-
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const siteContent = usePublicSiteContent();
+  const navItems = ALL_NAV_ITEMS.filter(
+    (item) => item.href !== '/insurance' || siteContent.features.insurance,
+  );
 
   const hiddenOnFocusedFlow = [
     '/admin',
@@ -40,7 +39,7 @@ export default function MobileBottomNav() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E0D5] bg-[#FBFAF7]/95 pb-safe backdrop-blur-xl md:hidden">
       <nav aria-label="하단 메뉴" className="flex h-16 items-center justify-around px-1">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
 

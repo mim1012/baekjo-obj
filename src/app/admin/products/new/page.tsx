@@ -13,7 +13,7 @@ export default async function NewProductPage() {
   ]);
 
   return (
-    <ProductForm 
+    <ProductForm
       brands={brands}
       concerns={concernsConfig.items}
       initialData={null}

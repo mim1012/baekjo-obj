@@ -7,6 +7,7 @@ import ProductCard from '@/components/common/ProductCard';
 import { SectionHeading } from '@/components/common/EditorialHeading';
 import { getSessionUser, createPartnerProduct, updatePartnerProduct, deletePartnerProduct } from '@/lib/storage';
 import { Product, Brand, User } from '@/types';
+import { sortByManagedProductOrder } from '@/lib/products/displayOrder';
 
 interface BrandProductsClientProps {
   brand: Brand;
@@ -30,7 +31,10 @@ export default function BrandProductsClient({ brand, initialProducts, shortBrand
 
   const hasAdminRights = user?.role === 'admin' || (user?.role === 'partner' && user.managedBrandIds?.includes(brand.id));
 
-  const visibleProducts = products.filter((product) => product.isVisible !== false);
+  const visibleProducts = sortByManagedProductOrder(
+    products.filter((product) => product.isVisible !== false),
+    'catalogOrder',
+  );
   const representativeProducts = visibleProducts.filter((p) => brand.representativeProductIds.includes(p.id));
   const additionalProducts = visibleProducts.filter((p) => !brand.representativeProductIds.includes(p.id));
 

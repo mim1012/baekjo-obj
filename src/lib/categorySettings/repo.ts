@@ -16,7 +16,7 @@ export async function getCategorySettings(): Promise<CategorySettings | null> {
     .eq('id', SETTINGS_ROW_ID)
     .maybeSingle();
   if (error) throw error;
-  return data ? normalizeStoredCategorySettings(data.value as CategorySettings) : null;
+  return data ? normalizeStoredCategorySettings(data.value) : null;
 }
 
 /** 카테고리 설정을 통째로 upsert(id='default') 한다. 없으면 생성, 있으면 덮어쓴다. */

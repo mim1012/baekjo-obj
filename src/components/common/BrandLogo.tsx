@@ -17,6 +17,8 @@ interface Props {
 type LogoSize = NonNullable<Props['size']>;
 
 const displayLogoMap: Record<string, string> = {
+  b1: '/brands/penefit-wordmark-transparent.png',
+  b2: '/brands/omipro-wordmark-transparent-exact.png',
   b3: '/brands/nobledog-wordmark-pink-v2.png',
   b5: '/brands/alloming-wordmark-orange-v2.png',
   b6: '/brands/repet-clean.png',
@@ -43,7 +45,7 @@ const fluidSizeClasses = {
 
 const logoScaleMap: Record<string, number> = {
   b1: 1,
-  b2: 1.6,
+  b2: 1,
   b3: 1,
   b5: 1,
   b6: 1,
@@ -56,7 +58,7 @@ const logoScaleMap: Record<string, number> = {
 // 셀렉션 레일에서는 실제 로고 획의 높이가 비슷하게 보이도록 시각 배율을 보정한다.
 const mediumUniformLogoScaleMap: Record<string, number> = {
   b1: 0.9,
-  b2: 1.8,
+  b2: 1,
   b3: 1.1,
   b4: 0.95,
   b5: 1.15,
@@ -69,7 +71,7 @@ const mediumUniformLogoScaleMap: Record<string, number> = {
 // 상세 패널의 큰 로고도 동일한 시각 면적을 사용하도록 별도 배율을 적용한다.
 const largeUniformLogoScaleMap: Record<string, number> = {
   b1: 0.86,
-  b2: 1.75,
+  b2: 1,
   b3: 1.1,
   b4: 0.95,
   b5: 1.15,

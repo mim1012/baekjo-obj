@@ -4,6 +4,8 @@ import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
 import { getPublicNotices } from '@/lib/notices/publicVisibility';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import type { SiteShellContent } from '@/components/providers/PublicSiteContentProvider';
 
 export const metadata = {
   title: '공지사항',
@@ -14,37 +16,53 @@ export const metadata = {
 // 관리자 저장이 즉시 반영돼야 하므로 요청 시점 DB 조회(정적 프리렌더 제외).
 export const dynamic = 'force-dynamic';
 
+interface NoticesPageContent extends Record<string, unknown> {
+  hero: { eyebrow: string; title: string; description: string; countSuffix: string };
+  table: { numberLabel: string; categoryLabel: string; titleLabel: string; dateLabel: string };
+  empty: { title: string; description: string };
+}
+
 export default async function NoticesPage() {
-  const { items } = await getNoticesConfigWithFallback();
+  const [{ items }, shell, content] = await Promise.all([
+    getNoticesConfigWithFallback(),
+    getPublishedPageContent<SiteShellContent & Record<string, unknown>>('site-shell'),
+    getPublishedPageContent<NoticesPageContent>('notices'),
+  ]);
   // 공지 config 는 append 순서로 저장된다 — 공개 화면은 최신순 정렬(2026-07-18 CRUD e2e 구축 중
   // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그와 동일 원인. 목록 페이지도 방치하면 신규 공지가
   // 맨 아래에 묻힌다). date 는 YYYY-MM-DD 문자열이라 localeCompare 로 비교하고, JS sort 는 안정
   // 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
-  const notices = getPublicNotices(items).sort((a, b) => b.date.localeCompare(a.date));
+  const notices = getPublicNotices(items, shell.features.insurance).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-editorial text-[13px] italic text-[#A8742E]">NEWS &amp; NOTICE</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">공지사항</h1>
-            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제의 새로운 소식과 안내</p>
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">{content.hero.eyebrow}</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">{content.hero.title}</h1>
+            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">{content.hero.description}</p>
           </div>
           <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
             <Bell className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
-            {notices.length}개의 소식
+            {notices.length}{content.hero.countSuffix}
           </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E7E0D5] bg-white">
           <div className="hidden h-[52px] items-center bg-[#FAF8F3] px-4 text-[12px] font-bold text-[#59615B] lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
-            <div>No</div>
-            <div>분류</div>
-            <div className="text-left">제목</div>
-            <div>작성시간</div>
+            <div>{content.table.numberLabel}</div>
+            <div>{content.table.categoryLabel}</div>
+            <div className="text-left">{content.table.titleLabel}</div>
+            <div>{content.table.dateLabel}</div>
           </div>
           
           <ul className="divide-y divide-[#E1DDD4]">
+            {notices.length === 0 && (
+              <li className="px-6 py-16 text-center">
+                <p className="font-semibold text-[#17211D]">{content.empty.title}</p>
+                <p className="mt-2 text-sm text-[#6F766F]">{content.empty.description}</p>
+              </li>
+            )}
             {notices.map((notice, index) => (
               <li key={notice.id}>
                 <Link href={`/notices/${notice.id}`} title={notice.title} className="group block px-4 py-4 transition-colors hover:bg-[#FAF8F3] lg:px-4 lg:py-0">

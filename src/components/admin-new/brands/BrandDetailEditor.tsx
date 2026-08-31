@@ -17,8 +17,6 @@ import {
 import { type CarrierCode } from '@/lib/carriers';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
-const MAX_SOURCE_URLS = 20;
-
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
@@ -72,12 +70,11 @@ export default function BrandDetailEditor({
 }: BrandDetailEditorProps) {
   const router = useRouter();
 
-  // 기본 필드(모달과 동일 범위) — 상세는 전 필드 에디터라 이것도 편집한다.
+  // 기존 브랜드의 기본 필드부터 대형 필드까지 이 화면 하나가 모두 소유한다.
   const [name, setName] = useState(initialBrand.name ?? '');
   const [logo, setLogo] = useState(initialBrand.logo ?? '');
   const [description, setDescription] = useState(initialBrand.description ?? '');
   const [philosophy, setPhilosophy] = useState(initialBrand.philosophy ?? '');
-  const [officialUrl, setOfficialUrl] = useState(initialBrand.officialUrl ?? '');
   const [isRecommended, setIsRecommended] = useState(initialBrand.isRecommended ?? false);
   const [isVisible, setIsVisible] = useState(initialBrand.isVisible !== false);
   const [isNew, setIsNew] = useState(initialBrand.isNew ?? false);
@@ -95,7 +92,6 @@ export default function BrandDetailEditor({
     initialBrand.relatedConcernSlugs ?? [],
   );
   const [auditPoints, setAuditPoints] = useState<string[]>(initialBrand.auditPoints ?? []);
-  const [sourceUrls, setSourceUrls] = useState<string[]>(initialBrand.sourceUrls ?? []);
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -144,7 +140,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        officialUrl,
         isRecommended,
         isVisible,
         isNew,
@@ -153,7 +148,6 @@ export default function BrandDetailEditor({
         representativeProductIds,
         relatedConcernSlugs,
         auditPoints,
-        sourceUrls,
         shipping,
       },
       !!initialBrand.auditReport,
@@ -173,7 +167,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        officialUrl,
         isRecommended,
         isVisible,
         isNew,
@@ -182,7 +175,6 @@ export default function BrandDetailEditor({
         representativeProductIds,
         relatedConcernSlugs,
         auditPoints,
-        sourceUrls,
         shipping,
       });
 
@@ -204,7 +196,7 @@ export default function BrandDetailEditor({
     <div className="space-y-6 pb-24">
       <PageHeader
         title={`${formatBrandDisplayName(initialBrand.name)} · 상세 편집`}
-        description="감사 보고서·대표상품·연관 고민 등 전 필드를 편집합니다. 빠른 편집은 목록의 수정 아이콘(모달)을 이용하세요."
+        description="기본 정보·노출 상태·감사 보고서·대표상품·연관 고민 등 기존 브랜드의 모든 내용을 이 화면 한 곳에서 수정합니다."
       >
         <button
           type="button"
@@ -259,16 +251,6 @@ export default function BrandDetailEditor({
                 />
               </FormField>
 
-              <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
-                <input
-                  id="bd-official"
-                  type="url"
-                  value={officialUrl}
-                  onChange={(e) => setOfficialUrl(e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="https://"
-                />
-              </FormField>
             </div>
           </div>
 
@@ -644,8 +626,8 @@ export default function BrandDetailEditor({
           </div>
         </section>
 
-        {/* ── 검증 포인트 · 근거 출처 ── */}
-        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6 space-y-6">
+        {/* ── 공개 브랜드 상세의 검증 포인트 ── */}
+        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6">
           <div>
             <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">검증 포인트</h2>
             <p className="text-[13px] text-gray-500 mb-4">브랜드 검증에서 강조할 항목(빈 항목은 저장 시 자동 제거).</p>
@@ -656,19 +638,6 @@ export default function BrandDetailEditor({
               addLabel="포인트 추가"
               itemLabel="검증 포인트"
               error={fieldErrors.auditPoints}
-            />
-          </div>
-          <div>
-            <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">근거 출처 URL</h2>
-            <p className="text-[13px] text-gray-500 mb-4">검증 근거가 되는 링크(최대 {MAX_SOURCE_URLS}개, 빈 항목은 자동 제거).</p>
-            <ArrayEditor
-              items={sourceUrls}
-              onChange={setSourceUrls}
-              placeholder="https://"
-              addLabel="출처 추가"
-              itemLabel="근거 출처"
-              maxItems={MAX_SOURCE_URLS}
-              error={fieldErrors.sourceUrls}
             />
           </div>
         </section>

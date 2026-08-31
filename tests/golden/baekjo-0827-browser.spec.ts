@@ -25,6 +25,25 @@ async function openHealthy(page: Page, route: string) {
 }
 
 test.describe('0827 고객 요구사항 실제 화면', () => {
+  test('브라우저를 크게 축소해도 홈 이미지가 빈 공간 없이 전체 폭을 채운다', async ({ page }) => {
+    await page.setViewportSize({ width: 5120, height: 1000 });
+    const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
+    expect(response?.status()).toBeLessThan(500);
+
+    const hero = page.getByTestId('home-hero');
+    const image = page.getByTestId('home-hero-image');
+    const [heroBox, imageBox] = await Promise.all([hero.boundingBox(), image.boundingBox()]);
+
+    expect(heroBox).not.toBeNull();
+    expect(imageBox).not.toBeNull();
+    expect(imageBox!.x).toBeLessThanOrEqual(heroBox!.x + 1);
+    expect(imageBox!.x + imageBox!.width).toBeGreaterThanOrEqual(heroBox!.x + heroBox!.width - 1);
+    expect(imageBox!.y).toBeLessThanOrEqual(heroBox!.y + 1);
+    expect(imageBox!.y + imageBox!.height).toBeGreaterThanOrEqual(heroBox!.y + heroBox!.height - 1);
+    await expect(page.getByRole('heading', { name: '좋은 브랜드를 찾고 계셨나요?' })).toBeVisible();
+    await expect(page.getByText('Audit Passed', { exact: true })).toHaveCount(0);
+  });
+
   test('PC 홈·셀렉션·케어 화면을 1:1 확인한다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openHealthy(page, '/');

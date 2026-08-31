@@ -1,33 +1,31 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { FEATURES } from '@/config/features';
 import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 
-test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
-  test('보험은 데이터와 화면 코드를 보존한 채 모든 공개 진입점에서 비노출된다', () => {
-    expect(FEATURES.insurance).toBe(false);
-
-    const proxy = read('src/proxy.ts');
-    expect(proxy).toContain("pathname.startsWith('/insurance')");
-    expect(proxy).toContain("pathname.startsWith('/landing/insurance')");
+test.describe('공개 콘텐츠 CMS 노출 및 브랜드 정본 계약', () => {
+  test('보험·전문가 노출은 배포 코드가 아니라 사이트 공통 CMS 설정을 따른다', () => {
+    const definitions = read('src/lib/cms/pageDefinitions.ts');
+    expect(definitions).toContain("features: { insurance: false, experts: false }");
 
     const home = read('src/app/page.tsx');
-    expect(home).toContain('FEATURES.insurance');
-    expect(home).toContain(': publicHomeSettings');
+    expect(home).toContain('shell.features.insurance');
 
     const sitemap = read('src/app/sitemap.ts');
-    expect(sitemap).toContain("FEATURES.insurance ? ['/insurance', '/landing/insurance'] : []");
+    expect(sitemap).toContain("shell.features.insurance ? ['/insurance', '/landing/insurance'] : []");
 
     const publicNotices = read('src/lib/notices/publicVisibility.ts');
-    expect(publicNotices).toContain('if (FEATURES.insurance) return items;');
+    expect(publicNotices).toContain('if (insuranceVisible) return items;');
     expect(publicNotices).toContain("/보험|insurance/i");
+
+    const insuranceLayout = read('src/app/insurance/layout.tsx');
+    expect(insuranceLayout).toContain('if (!shell.features.insurance) redirect');
   });
 
-  test('8개 브랜드 공개 문구는 제공받은 정본 모듈만 사용한다', () => {
+  test('8개 브랜드 공개 문구는 관리자 DB 값을 우선하고 제공 문서를 초기 폴백으로 사용한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const source = read('src/lib/brands/sourceContent.ts');
     const migration = read('supabase/migrations/0113_penefit_brand_story_audit_source_copy.sql');
@@ -53,6 +51,8 @@ test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
       expect(source).toContain(`${brandId}: {`);
     }
     expect(detail).toContain("hasDetailedAudit ? '#brand-audit-report' : '/audit'");
+    expect(detail).toContain('const auditReport = brand.auditReport ?? getSourceAuditReport(brand);');
+    expect(detail).toContain('brand.philosophy?.trim() || sourceContent.philosophy');
     expect(detail).not.toContain('꼼꼼한 원료 선별');
     expect(detail).not.toContain('안전한 제조 공정');
     expect(detail).not.toContain('반려가족 중심 설계');

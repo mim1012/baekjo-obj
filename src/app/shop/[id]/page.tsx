@@ -11,6 +11,7 @@ import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
 import ProductTabsClient from '@/components/shop/ProductTabsClient';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
+import { sortByManagedProductOrder } from '@/lib/products/displayOrder';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -55,12 +56,13 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const relatedConcernLabels = product.concernTags
     .map((slug) => concernTitleBySlug.get(slug))
     .filter((label): label is string => Boolean(label));
-  const relatedProducts = allProducts
-    .filter((candidate) => candidate.id !== product.id && (
+  const relatedProducts = sortByManagedProductOrder(
+    allProducts.filter((candidate) => candidate.id !== product.id && (
       candidate.category === product.category
       || candidate.concernTags.some((tag) => product.concernTags.includes(tag))
-    ))
-    .slice(0, 4);
+    )),
+    'catalogOrder',
+  ).slice(0, 4);
 
   return (
     <div className="page-canvas pb-16">

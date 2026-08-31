@@ -243,7 +243,7 @@ test('payload 는 화이트리스트 필드만 담는다', () => {
   const payload = buildBrandPayload(loadedFormData());
   const allowed = new Set([
     'name', 'logo', 'description', 'philosophy',
-    'officialUrl', 'isRecommended', 'isVisible', 'isNew', 'displayOrder',
+    'isRecommended', 'isVisible', 'isNew', 'displayOrder',
   ]);
   for (const key of Object.keys(payload)) {
     expect(allowed.has(key)).toBe(true);
@@ -252,15 +252,9 @@ test('payload 는 화이트리스트 필드만 담는다', () => {
   expect('auditGrade' in payload).toBe(false);
 });
 
-test('payload: officialUrl 빈 문자열은 그대로 실어 지우기를 지원한다', () => {
-  // 값이 있던 브랜드의 URL을 지우려면 payload에 ''가 실려야 한다. 제외하면(안 보내면)
-  // read-modify-write가 기존 URL을 보존해 영영 못 지운다 — 그게 회귀였다.
-  const cleared = buildBrandPayload(loadedFormData({ officialUrl: '' }));
-  expect(cleared.officialUrl).toBe('');
-  const blank = buildBrandPayload(loadedFormData({ officialUrl: '   ' }));
-  expect(blank.officialUrl, '공백만 입력해도 지우기로 정규화').toBe('');
-  const trimmed = buildBrandPayload(loadedFormData({ officialUrl: '  https://x.com  ' }));
-  expect(trimmed.officialUrl).toBe('https://x.com');
+test('payload: 공개 화면과 끊긴 officialUrl은 재전송하지 않는다', () => {
+  const payload = buildBrandPayload(loadedFormData());
+  expect('officialUrl' in payload).toBe(false);
 });
 
 test('payload: displayOrder 미입력(undefined)이면 키를 담지 않는다(기존/기본값 유지)', () => {

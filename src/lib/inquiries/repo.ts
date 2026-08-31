@@ -145,6 +145,17 @@ export async function deleteInquiryByOwner(id: string, memberId: string): Promis
   return (data?.length ?? 0) > 0;
 }
 
+/** 관리자 전용 문의 삭제. 고객 화면·마이페이지에서도 즉시 사라지도록 실제 DB 행을 삭제한다. */
+export async function deleteInquiryByAdmin(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('product_inquiries')
+    .delete()
+    .eq('id', id)
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 /** 관리자·브랜드 담당자 — 답변 작성/수정. 대상 없으면 null. */
 export async function answerInquiry(
   id: string,

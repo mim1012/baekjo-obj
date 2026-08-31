@@ -11,6 +11,7 @@ import { getCurrentUser, getSessionUser, getWishlist, isWishlisted, STORAGE_EVEN
 import { useMounted } from '@/lib/useMounted';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
+import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 
 interface ProductCardProps {
   product: Product;
@@ -32,6 +33,7 @@ const concernLabels: Record<string, string> = {
   oral: '구강',
   grooming: '그루밍',
   living: '생활',
+  odor: '냄새',
 };
 
 export default function ProductCard({
@@ -40,6 +42,7 @@ export default function ProductCard({
   density = 'default',
   mobileLayout = 'vertical',
 }: ProductCardProps) {
+  const { labelBySlug, knownSlugs, visibleSlugs, hiddenSlugs } = useProductTagSettings();
   const router = useRouter();
   const mounted = useMounted();
   const [wishlisted, setWishlisted] = useState(false);
@@ -48,13 +51,16 @@ export default function ProductCard({
   const brandName = formatBrandDisplayName(product.brandName ?? product.brandId);
   const hasPrice = product.price !== null && product.price !== undefined;
   const isSellable = hasPrice && product.stock > 0;
-  const isShopCard = variant === 'shop';
   const isHomeCard = variant === 'home';
   const isBrandDetailHorizontal = variant === 'brand-detail-horizontal';
   const isCompact = density === 'compact';
   const isMobileHorizontal = mobileLayout === 'horizontal';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const detailHref = `/shop/${product.id}`;
+  const visibleConcernTags = (product.concernTags ?? []).filter((tag) => {
+    if (hiddenSlugs.has(tag)) return false;
+    return knownSlugs.has(tag) ? visibleSlugs.has(tag) : true;
+  });
 
   useEffect(() => {
     if (!mounted || !getCurrentUser()) return;
@@ -201,11 +207,11 @@ export default function ProductCard({
               </div>
             )}
 
-            {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
+            {visibleConcernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
-                {product.concernTags.slice(0, isHomeCard ? 2 : product.concernTags.length).map((tag) => (
+                {visibleConcernTags.slice(0, isHomeCard ? 2 : 3).map((tag) => (
                   <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#59615B] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
-                    {concernLabels[tag] ?? tag}
+                    {labelBySlug[tag] ?? concernLabels[tag] ?? tag}
                   </span>
                 ))}
               </div>

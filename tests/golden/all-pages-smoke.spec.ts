@@ -144,18 +144,16 @@ const ADMIN_STATIC_HEADINGS: Record<string, string> = {
   '/admin/kits': '케어 키트 관리',
   '/admin/members': '회원 관리',
   '/admin/notices': '공지사항 관리',
-  '/admin/order-policy': '주문 정책',
+  '/admin/order-policy': '무통장입금 자동취소',
   '/admin/orders': '주문 관리',
   '/admin/partner-inquiries': '제휴 문의 접수',
-  '/admin/partners': 'B2B 제휴 관리',
   '/admin/products': '상품 관리',
   '/admin/products/display': '진열 관리',
   '/admin/products/new': '새 상품 등록',
-  '/admin/qna': '상품 및 일반 문의 관리',
   '/admin/reviews': '후기 관리',
   '/admin/settings': '사이트 콘텐츠 설정',
+  '/admin/pages': '페이지 관리',
   '/admin/survey': '맞춤 진단 설계',
-  '/admin/survey-results': '진단 참여 내역',
 };
 
 // ── 동적 라우트 표본 파라미터 해석 ─────────────────────────────────────────
@@ -203,6 +201,7 @@ const ADMIN_DYNAMIC_ANCHORS: Record<string, (page: Page, sample: ResolvedSample)
     await h1Visible(page, '주문 상세');
     await textVisible(page, sample.id);
   },
+  '/admin/pages/[pageKey]': (page) => h1Visible(page),
   '/admin/products/[id]': (page) => textVisible(page, '상품 수정'),
   '/admin/products/[id]/editor': (page, sample) => textVisible(page, `${sample.label ?? ''} 상세페이지 편집`),
 };

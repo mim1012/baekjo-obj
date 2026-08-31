@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
+import { defaultSurveyConfig, resolveSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { getSurveyConfig } from '@/lib/survey/repo';
 import { logServerError } from '@/lib/logServerError';
 
@@ -16,5 +16,5 @@ export async function GET() {
   } catch (error) {
     logServerError('[GET /api/survey] 조회 실패 — defaultSurveyConfig 로 폴백', error);
   }
-  return NextResponse.json({ questions: config.questions, rules: config.rules }, { status: 200 });
+  return NextResponse.json(resolveSurveyConfig(config), { status: 200 });
 }

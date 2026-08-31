@@ -5,6 +5,7 @@ import {
 } from '../../src/lib/categorySettings/config';
 import {
   getShopCategorySlugs,
+  getDataBackedShopCategoryOptions,
   normalizeShopCategory,
   resolveShopCategory,
 } from '../../src/data/shopFilters';
@@ -13,13 +14,11 @@ import type { Product } from '../../src/types';
 
 test.describe('공개 쇼핑 분류', () => {
   test('전체를 제외한 공개 상품 분류는 확정된 6개 문구다', () => {
-    expect(defaultCategorySettings.productCategories).toEqual([
-      '푸드',
-      '영양',
-      '케어',
-      '패션',
-      '펫로스',
-      '라이프',
+    expect(defaultCategorySettings.productCategories.map((category) => category.label)).toEqual([
+      '푸드', '영양', '케어', '패션', '펫로스', '라이프',
+    ]);
+    expect(defaultCategorySettings.productCategories.map((category) => category.id)).toEqual([
+      'food', 'nutrition', 'care', 'fashion', 'pet-loss', 'life',
     ]);
   });
 
@@ -64,14 +63,7 @@ test.describe('공개 쇼핑 분류', () => {
       productCategories: ['사료', '간식', '영양제', '위생용품', '생활용품', '장난감', '산책용품', '미용용품'],
     };
 
-    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual([
-      '푸드',
-      '영양',
-      '케어',
-      '패션',
-      '펫로스',
-      '라이프',
-    ]);
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(defaultCategorySettings.productCategories);
   });
 
   test('통합 저장 분류는 공개 6개 분류로 정규화한다', () => {
@@ -80,14 +72,7 @@ test.describe('공개 쇼핑 분류', () => {
       productCategories: ['식품·영양', '케어', '패션', '펫로스', '라이프'],
     };
 
-    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual([
-      '푸드',
-      '영양',
-      '케어',
-      '패션',
-      '펫로스',
-      '라이프',
-    ]);
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(defaultCategorySettings.productCategories);
   });
 
   test('관리자가 저장한 비레거시 분류는 그대로 유지한다', () => {
@@ -96,7 +81,20 @@ test.describe('공개 쇼핑 분류', () => {
       productCategories: ['푸드', '커스텀'],
     };
 
-    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(['푸드', '커스텀']);
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual([
+      { id: 'food', label: '푸드' },
+      { id: 'category-2', label: '커스텀' },
+    ]);
+  });
+
+  test('관리자 카테고리 이름과 순서를 고객 스토어에 그대로 표시한다', () => {
+    expect(getDataBackedShopCategoryOptions([
+      { id: 'care', label: '관리 용품' },
+      { id: 'food', label: '먹거리' },
+    ], [])).toEqual([
+      { slug: 'care', label: '관리 용품' },
+      { slug: 'food', label: '먹거리' },
+    ]);
   });
 });
 
@@ -150,4 +148,13 @@ test('푸드와 영양을 서로 다른 공개 분류로 필터링한다', () =>
 
   expect(filterProducts(products, { category: 'food' }).map((item) => item.id)).toEqual(['p-food']);
   expect(filterProducts(products, { category: 'nutrition' }).map((item) => item.id)).toEqual(['p-nutrition']);
+});
+
+test('관리자가 추가한 반려동물 연결값은 같은 상품만 필터링하고 공용 상품을 섞지 않는다', () => {
+  const products = [
+    product({ id: 'bird', petType: 'pet-bird' }),
+    product({ id: 'both', petType: 'both' }),
+    product({ id: 'dog', petType: 'dog' }),
+  ];
+  expect(filterProducts(products, { petType: 'pet-bird' }).map((item) => item.id)).toEqual(['bird']);
 });

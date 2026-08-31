@@ -43,6 +43,7 @@
 | 홈 문구 배선 계약 | admin/home-binding-flow.spec.ts · site-settings-binding-flow.spec.ts | 🟡 |
 | 공지 CRUD→공개 | golden/admin-crud-notices.spec.ts / admin/notice-binding-flow.spec.ts | 🟢 / 🟡 |
 | 고민케어 CRUD→공개 | golden/admin-crud-concerns.spec.ts / admin/concern-binding-flow.spec.ts | 🟢 / 🟡 |
+| 상품 태그 CRUD→상품 카드·스토어 필터 | golden/admin-crud-product-tags.spec.ts / admin/concern-tag-end-to-end-linkage.spec.ts | 🟢 / 🟡 |
 | 쇼케이스 리뷰 CRUD→공개 | golden/admin-crud-showcase-reviews.spec.ts / admin/showcase-review-binding-flow.spec.ts | 🟢 / 🟡 |
 | 정적 콘텐츠 배선 | admin/content-binding-flow.spec.ts | 🟡 |
 | 법무 페이지 표기 의무 | products/legal-readiness.spec.ts | 🟡 |
@@ -82,7 +83,7 @@
 | Toss 취소 헬퍼 | admin/toss-cancel-helpers.spec.ts | 🟡 |
 | 카드결제 위젯 경계 | golden/member-card-payment-boundary.spec.ts | 🟢 (위젯 로드까지 — 실승인 아님) |
 | 무통장 기한 만료 재고 회수 | products/order-reservation-expiry.spec.ts | 🟡 |
-| 주문 정책 설정 | golden/admin-crud-order-policy.spec.ts / products/order-policy-config.spec.ts | 🟢 / 🟡 |
+| 무통장 자동취소 설정 | golden/admin-crud-order-policy.spec.ts / products/order-policy-config.spec.ts | 🟢 / 🟡 |
 
 ### 2-5. 배송 (2026-07-23 CI 배선 수리 완료)
 | 유스케이스 | 스펙 | 계층 |
@@ -116,7 +117,7 @@
 | 유스케이스 | 스펙 | 계층 |
 |---|---|---|
 | 랜딩 렌더·폼 | golden/care-kit.spec.ts | 🔵 |
-| 키트·제휴처 CRUD(영속성) | golden/admin-crud-kits-partners.spec.ts / admin/partner-binding-flow · partner-type-policy | 🟢 / 🟡 |
+| 키트 CRUD(영속성) | golden/admin-crud-kits.spec.ts / admin/partner-binding-flow | 🟢 / 🟡 |
 | 제휴 문의 제출→관리 | golden/admin-crud-partner-inquiries.spec.ts / admin/partner-inquiry-binding-flow.spec.ts | 🟢 / 🟡 |
 
 ### 2-9. 회원
@@ -138,7 +139,7 @@
 | 유스케이스 | 스펙 | 계층 |
 |---|---|---|
 | 상품문의 실구동(회원 제출→관리자 답변) | golden/admin-crud-qna-inquiries.spec.ts | 🟢 (E2E_MEMBER_* 시크릿 없으면 skip — yml 주석 2026-07-18 기준 미등록, 확인 필요) |
-| QnA config CRUD→공개 배선 | golden/admin-crud-qna-config.spec.ts / admin/qna-public-wire-binding-flow.spec.ts | 🟢 / 🟡 |
+| 실제 상품문의 답변·삭제→공개 배선 | golden/admin-crud-qna-inquiries.spec.ts / admin/inquiry-admin-delete-flow · qna-public-wire-binding-flow | 🟢 / 🟡 |
 
 ### 2-11. 관리자 콘솔 공통
 | 유스케이스 | 스펙 | 계층 |
@@ -147,6 +148,7 @@
 | 네비게이션 | admin/admin-nav.spec.ts | 🟡 |
 | 대시보드 통계 | admin/dashboard-stats.spec.ts | 🟡 |
 | 상품 CRUD·전 필드 왕복·갤러리 삭제 | golden/admin-crud-products · -product-fields · -product-gallery-removal | 🟢 ×3 |
+| 상품 태그 등록·수정·삭제·공개 반영 | golden/admin-crud-product-tags / admin/concern-tag-end-to-end-linkage | 🟢 / 🟡 |
 | 상품 폼 페이로드·검증·분할 | products/form-payload · validate · split-product-input · form-modal-reset-deps · detail-editor-ux · admin-product-edit-visibility · product-points · product-policy-fallback · no-html-sink · next-image-supabase-host | 🟡 ×10 |
 | 상품 바인딩·일괄 처리 | admin/product-binding-flow · product-bulk-actions · product-brand-field-coverage | 🟡 |
 | 주문 관리(검색·목록·전이·에러) | golden/admin-crud-orders / admin/order-search · order-funnel · order-list-status-controls · order-update-error-message · apply-order-updates | 🟢 / 🟡 |

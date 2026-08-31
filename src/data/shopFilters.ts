@@ -92,7 +92,7 @@ export function toShopCategoryOption(value: string): ShopCategoryFilter {
  * 링크와 저장 데이터의 하위 호환성을 유지한다.
  */
 export function getDataBackedShopCategoryOptions(
-  configuredValues: string[],
+  configuredValues: Array<string | StoreFilterOption>,
   productCategoryValues: string[],
 ): ShopCategoryFilter[] {
   const availableOptions = productCategoryValues
@@ -100,15 +100,18 @@ export function getDataBackedShopCategoryOptions(
     .map(toShopCategoryOption);
   const availableSlugs = new Set(availableOptions.map((option) => option.slug));
 
-  const candidates = [
-    ...shopCategoryFilters,
-    ...configuredValues.map(toShopCategoryOption),
-    ...availableOptions,
-  ];
+  const configuredOptions = configuredValues.map((value) =>
+    typeof value === 'string'
+      ? toShopCategoryOption(value)
+      : { slug: value.id, label: value.label },
+  );
+  const candidates = [...configuredOptions, ...availableOptions];
+  const configuredSlugs = new Set(configuredOptions.map((option) => option.slug));
 
   return candidates.filter(
     (option, index, self) =>
-      (shopCategoryFilters.some((category) => category.slug === option.slug) || availableSlugs.has(option.slug)) &&
+      (configuredSlugs.has(option.slug) || availableSlugs.has(option.slug)) &&
       index === self.findIndex((candidate) => candidate.slug === option.slug),
   );
 }
+import type { StoreFilterOption } from '@/lib/categorySettings/config';

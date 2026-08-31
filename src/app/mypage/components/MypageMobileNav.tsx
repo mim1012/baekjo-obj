@@ -1,6 +1,6 @@
 'use client';
 
-import { FEATURES } from '@/config/features';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 
 interface MypageMobileNavProps {
   activeTab: string;
@@ -8,6 +8,7 @@ interface MypageMobileNavProps {
 }
 
 export default function MypageMobileNav({ activeTab, onTabChange }: MypageMobileNavProps) {
+  const siteContent = usePublicSiteContent();
   const tabs = [
     { id: 'overview', label: '마이페이지' },
     { id: 'orders', label: '주문내역' },
@@ -15,7 +16,7 @@ export default function MypageMobileNav({ activeTab, onTabChange }: MypageMobile
     { id: 'reviews', label: '구매평 관리' },
     { id: 'inquiries', label: '상품문의 관리' },
     // 펫보험 미노출 기간에는 탭 자체를 숨긴다(features.ts).
-    ...(FEATURES.insurance ? [{ id: 'insurance', label: '보험 분석 내역' }] : []),
+    ...(siteContent.features.insurance ? [{ id: 'insurance', label: '보험 분석 내역' }] : []),
     { id: 'profile', label: '회원정보 수정' },
     { id: 'addresses', label: '배송지 관리' },
   ];
