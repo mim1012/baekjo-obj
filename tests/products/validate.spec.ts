@@ -346,29 +346,6 @@ test.describe('폼 부분수정 계약 (ProductForm 화이트리스트 회귀 �
   });
 });
 
-test.describe('적립금 설정 (pointsEnabled/pointsRate)', () => {
-  test('pointsRate 경계값 0, 100 은 통과한다', () => {
-    expect(validateProductFields({ pointsRate: 0 }, false)!.pointsRate).toBe(0);
-    expect(validateProductFields({ pointsRate: 100 }, false)!.pointsRate).toBe(100);
-  });
-
-  test('pointsRate 가 -1, 101, 문자열이면 거부된다', () => {
-    expect(validateProductFields({ pointsRate: -1 }, false)).toBeNull();
-    expect(validateProductFields({ pointsRate: 101 }, false)).toBeNull();
-    expect(validateProductFields({ pointsRate: 'abc' }, false)).toBeNull();
-  });
-
-  test('pointsEnabled 가 boolean 이 아니면 거부된다', () => {
-    expect(validateProductFields({ pointsEnabled: 'yes' }, false)).toBeNull();
-    expect(validateProductFields({ pointsEnabled: 1 }, false)).toBeNull();
-  });
-
-  test('pointsEnabled 가 boolean 이면 통과한다', () => {
-    expect(validateProductFields({ pointsEnabled: true }, false)!.pointsEnabled).toBe(true);
-    expect(validateProductFields({ pointsEnabled: false }, false)!.pointsEnabled).toBe(false);
-  });
-});
-
 test.describe('기존 계약 회귀 방지', () => {
   test('salePrice가 price보다 크면 거부된다', () => {
     const result = validateProductFields({ price: 1000, salePrice: 2000 }, false);

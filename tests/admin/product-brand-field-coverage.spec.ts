@@ -98,12 +98,9 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ];
 
 // EXCLUDED = 의도적으로 라이브 왕복 스펙에서 다루지 않는 필드 + 사유.
@@ -259,7 +256,6 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'deliveryEstimate',
   'returnNotice',
   'sellerName',
-  'pointsRate',
 ]);
 
 // 브랜드: brand-card + brand-detail 표면이 공개 렌더하고 라이브 스펙이 검증하는 필드.

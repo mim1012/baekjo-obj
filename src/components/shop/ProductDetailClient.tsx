@@ -105,11 +105,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
-  const unavailableTitle = isAdminViewer
-    ? '판매가 미입력'
-    : product.isMembersOnlyPrice
-      ? '회원 전용가 등록 대기'
-      : '판매가 등록 대기';
+  const unavailableTitle = isAdminViewer ? '판매가 미입력' : '판매가 등록 대기';
   const unavailableDescription = isAdminViewer
     ? '관리자 상품 편집에서 판매가와 재고를 입력하면 장바구니와 바로구매가 활성화됩니다.'
     : '판매가가 확정되면 장바구니와 바로구매를 이용할 수 있습니다.';
@@ -119,7 +115,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   const currentImage = gallery[safeIndex];
   const isRepetMadeToOrder = isRepetMadeToOrderProduct(product.brandId);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -127,6 +123,11 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
       return;
     }
     addToCart({
@@ -137,7 +138,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     alert('장바구니에 담겼습니다.');
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -145,6 +146,11 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
       return;
     }
     addToCart({
@@ -341,7 +347,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
             <>
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={() => void handleAddToCart()}
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -349,7 +355,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
               </button>
               <button
                 type="button"
-                onClick={handleBuyNow}
+                onClick={() => void handleBuyNow()}
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-[14px] md:text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >

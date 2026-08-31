@@ -330,11 +330,6 @@ export function validateProductFields(
     out.brandName = b.brandName;
   }
 
-  if (b.isMembersOnlyPrice !== undefined) {
-    if (!isBool(b.isMembersOnlyPrice)) return null;
-    out.isMembersOnlyPrice = b.isMembersOnlyPrice;
-  }
-
   if (b.auditPoints !== undefined) {
     if (!isStrArray(b.auditPoints, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;
     out.auditPoints = b.auditPoints;
@@ -384,16 +379,6 @@ export function validateProductFields(
     out.isRecommended = b.isRecommended;
   } else if (requireAll) {
     out.isRecommended = false;
-  }
-
-  if (b.pointsEnabled !== undefined) {
-    if (!isBool(b.pointsEnabled)) return null;
-    out.pointsEnabled = b.pointsEnabled;
-  }
-
-  if (b.pointsRate !== undefined) {
-    if (!isNum(b.pointsRate, 0, 100)) return null;
-    out.pointsRate = b.pointsRate;
   }
 
   // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는
