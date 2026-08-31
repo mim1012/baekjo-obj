@@ -151,3 +151,22 @@ test('푸드와 영양을 서로 다른 공개 분류로 필터링한다', () =>
   expect(filterProducts(products, { category: 'food' }).map((item) => item.id)).toEqual(['p-food']);
   expect(filterProducts(products, { category: 'nutrition' }).map((item) => item.id)).toEqual(['p-nutrition']);
 });
+
+test('라이프스타일 필터는 상품 카테고리 slug가 있어도 lifestyleCategory를 기준으로 필터링한다', () => {
+  const products = [
+    product({
+      id: 'p-home',
+      category: '푸드',
+      categorySlug: 'food',
+      lifestyleCategory: '주거와 미학',
+    }),
+    product({
+      id: 'p-play',
+      category: '푸드',
+      categorySlug: 'food',
+      lifestyleCategory: '놀이와 활동',
+    }),
+  ];
+
+  expect(filterProducts(products, { lifestyleCategory: '주거와 미학' }).map((item) => item.id)).toEqual(['p-home']);
+});

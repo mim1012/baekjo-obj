@@ -40,6 +40,8 @@ jobs:
           RELEASE_SHA: ${{ steps.verify.outputs.sha }}
         run: |
           set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           base_tag="v$(date -u +%Y.%m.%d)"
           tag="$base_tag"
           suffix=0
@@ -64,8 +66,10 @@ jobs:
           done
 
       - name: Create GitHub Release with generated notes
-        if: steps.tag.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
-        run: gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"

@@ -23,11 +23,11 @@ const displayLogoMap: Record<string, string> = {
 };
 
 export const getBrandDisplayLogo = (brand: Pick<Brand, 'id' | 'logo'>) =>
-  displayLogoMap[brand.id] ?? brand.logo;
+  brand.logo || displayLogoMap[brand.id];
 
 export const getBrandTitleDisplayLogo = (
   brand: Pick<Brand, 'id' | 'logo' | 'wordmarkImage'>,
-) => displayLogoMap[brand.id] ?? brand.wordmarkImage ?? brand.logo;
+) => brand.wordmarkImage || brand.logo || displayLogoMap[brand.id];
 
 const sizeClasses = {
   sm: 'h-5 w-[84px]',
@@ -115,7 +115,8 @@ export default function BrandLogo({
 }: Props) {
   const fallbackName = formatBrandDisplayName(brand.name);
   const logoSrc = srcOverride ?? getBrandDisplayLogo(brand);
-  const hasTransparentDisplayLogo = Boolean(displayLogoMap[brand.id]);
+  const fallbackDisplayLogo = displayLogoMap[brand.id];
+  const hasTransparentDisplayLogo = Boolean(fallbackDisplayLogo && logoSrc === fallbackDisplayLogo);
   const imageFit = uniformScale ? 'contain' : (fit ?? 'contain');
   const surfaceClass = surface ? 'rounded-xl bg-white' : '';
   const surfaceImageClass = surface && !uniformScale && !hasTransparentDisplayLogo ? 'p-2' : '';

@@ -151,7 +151,7 @@ export default function CategoryManagerPage() {
           않으면 버튼만 이유 없이 계속 비활성화된 것처럼 보인다). notices/concerns 화면과 같은 톤. */}
       <PageHeader
         title="카테고리 관리"
-        description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}
+        description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '상품 분류와 스토어 필터에 쓰이는 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start h-full pb-10">
@@ -164,7 +164,7 @@ export default function CategoryManagerPage() {
 
         {renderStringListEditor(
           '라이프스타일 카테고리',
-          '고객 맞춤 진단 시 매칭되는 라이프스타일 분류입니다.',
+          '스토어 라이프스타일 필터와 상품 등록의 라이프스타일 분류에 사용됩니다.',
           'lifestyleCategories',
           <Tag size={18} className="text-[#A8742E]" />
         )}

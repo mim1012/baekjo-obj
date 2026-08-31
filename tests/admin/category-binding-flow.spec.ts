@@ -62,8 +62,10 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
     expect(adminPage).toContain(
-      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
+      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '상품 분류와 스토어 필터에 쓰이는 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
     );
+    expect(adminPage).not.toContain('고객 맞춤 진단 시 매칭되는 라이프스타일 분류입니다.');
+    expect(adminPage).toContain('스토어 라이프스타일 필터와 상품 등록의 라이프스타일 분류에 사용됩니다.');
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
@@ -209,6 +211,11 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(shopContent).toContain('const { categorySettings } = useCategorySettings();');
     expect(shopContent).toContain('getDataBackedShopCategoryOptions(');
     expect(shopContent).toContain('product.categorySlug ?? product.category');
+    expect(shopContent).toContain('const lifestyleOptions = getLifestyleFilterOptions(');
+    expect(shopContent).toContain('categorySettings.lifestyleCategories');
+    expect(shopContent).toContain('product.lifestyleCategory');
+    expect(shopContent).toContain('makeHref(\'lifestyle\', lifestyle.slug)');
+    expect(shopContent).toContain('active={params.lifestyle === lifestyle.slug}');
     expect(shopContent).not.toContain('shopCategoryFilters');
     expectNoCategoryBypass(shopContent);
 

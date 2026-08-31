@@ -38,6 +38,11 @@ const sortOptions: Array<{ id: SortOption; label: string }> = [
   { id: 'price-high', label: '높은 가격순' },
 ];
 
+type LifestyleFilterOption = {
+  slug: string;
+  label: string;
+};
+
 interface Props {
   products: Product[];
   brands: Brand[];
@@ -182,6 +187,10 @@ function ShopInner({ products, brands }: Props) {
     categorySettings.productCategories,
     productsWithBrandNames.map((product) => product.categorySlug ?? product.category),
   );
+  const lifestyleOptions = getLifestyleFilterOptions(
+    categorySettings.lifestyleCategories,
+    productsWithBrandNames.map((product) => product.lifestyleCategory),
+  );
 
   const activeFilterCount = [
     params.petType,
@@ -239,6 +248,20 @@ function ShopInner({ products, brands }: Props) {
             active={normalizeShopCategory(params.category) === category.slug}
           >
             {category.label}
+          </FilterLink>
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title="라이프스타일" defaultOpen>
+        <FilterLink onClick={onNavigate} href={makeHref('lifestyle', 'all')} active={!params.lifestyle}>전체</FilterLink>
+        {lifestyleOptions.map((lifestyle) => (
+          <FilterLink
+            key={lifestyle.slug}
+            onClick={onNavigate}
+            href={makeHref('lifestyle', lifestyle.slug)}
+            active={params.lifestyle === lifestyle.slug}
+          >
+            {lifestyle.label}
           </FilterLink>
         ))}
       </FilterGroup>
@@ -527,4 +550,19 @@ function FilterLink({
       {children}
     </Link>
   );
+}
+
+function getLifestyleFilterOptions(
+  configuredValues: readonly string[],
+  productValues: readonly string[],
+): LifestyleFilterOption[] {
+  const options = new Map<string, LifestyleFilterOption>();
+
+  for (const value of [...configuredValues, ...productValues]) {
+    const label = value.trim();
+    if (!label || options.has(label)) continue;
+    options.set(label, { slug: label, label });
+  }
+
+  return [...options.values()];
 }

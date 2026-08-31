@@ -106,4 +106,28 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(dbJob).not.toContain("github.ref == 'refs/heads/main'");
     expect(ci).toContain('deploy-lane-exception: main push production migration only');
   });
+
+  test('production release creates annotated tags with runner-local Git identity and keeps idempotent reuse', () => {
+    const release = readWorkflow('production-release.yml');
+    const tagStep = release.slice(release.indexOf('Create an idempotent release tag'));
+    const releaseStep = release.slice(release.indexOf('Create GitHub Release'));
+    const nameConfig = tagStep.indexOf('git config user.name "github-actions[bot]"');
+    const emailConfig = tagStep.indexOf(
+      'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
+    );
+    const tagCreate = tagStep.indexOf('git tag -a "$tag" "$RELEASE_SHA"');
+
+    expect(nameConfig).toBeGreaterThanOrEqual(0);
+    expect(emailConfig).toBeGreaterThanOrEqual(0);
+    expect(tagCreate).toBeGreaterThanOrEqual(0);
+    expect(nameConfig).toBeLessThan(tagCreate);
+    expect(emailConfig).toBeLessThan(tagCreate);
+    expect(tagStep).toContain('existing_sha=$(git rev-list -n 1 "$tag")');
+    expect(tagStep).toContain('echo "created=false" >> "$GITHUB_OUTPUT"');
+    expect(tagStep).toContain('suffix=$((suffix + 1))');
+    expect(tagStep).toContain('git push origin "$tag"');
+    expect(releaseStep).not.toContain("steps.tag.outputs.created == 'true'");
+    expect(releaseStep).toContain('gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0');
+    expect(releaseStep).toContain('gh release create "$RELEASE_TAG"');
+  });
 });
