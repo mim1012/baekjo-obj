@@ -7,7 +7,7 @@ import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
-import { getCurrentUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
+import { getCurrentUser, getSessionUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
@@ -87,8 +87,13 @@ export default function ProductCard({
     }
   };
 
-  const handleCart = () => {
+  const handleCart = async () => {
     if (!isSellable) return;
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(detailHref)}`);
+      return;
+    }
     addToCart({
       productId: product.id,
       optionId: product.options?.[0]?.id,
@@ -224,7 +229,7 @@ export default function ProductCard({
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                handleCart();
+                void handleCart();
               }}
               disabled={!isSellable}
               className={`flex min-w-0 flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}

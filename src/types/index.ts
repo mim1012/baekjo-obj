@@ -36,7 +36,6 @@ export interface Product {
   sellerName?: string;
   tags?: string[];
   brandName?: string;
-  isMembersOnlyPrice?: boolean;
   auditPoints?: string[];
   recommendedFor?: string[];
   caution?: string[];
@@ -46,10 +45,6 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
-  /** 적립금 지급 여부. */
-  pointsEnabled?: boolean;
-  /** 적립률(%). 지급 로직은 구매확정 구현 후. */
-  pointsRate?: number;
 }
 
 export interface ProductOption {

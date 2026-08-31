@@ -47,11 +47,5 @@ export function mergeProductForStorage<T extends Product>(
 ): T {
   const merged = { ...existing, ...patch, id: existing.id } as T;
 
-  // 적립 비활성화는 pointsRate 제거까지 포함하는 계약이다. detail jsonb 는 전체 재작성되므로
-  // undefined 로 정규화하면 splitProductInput 이 키를 생략하고 기존 detail.pointsRate 가 사라진다.
-  if (patch.pointsEnabled === false) {
-    merged.pointsRate = undefined;
-  }
-
   return merged;
 }

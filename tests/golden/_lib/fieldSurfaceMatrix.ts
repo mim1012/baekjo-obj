@@ -113,7 +113,6 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       { field: 'deliveryEstimate', render: 'src/components/shop/ProductPurchaseInfo.tsx:16-39', kind: 'text', note: '"출고 일정"(빈값 시 shippingNotice→정책 폴백).' },
       { field: 'returnNotice', render: 'src/components/shop/ProductPurchaseInfo.tsx:20-40', kind: 'text', note: '"교환·반품".' },
       { field: 'sellerName', render: 'src/components/shop/ProductPurchaseInfo.tsx:21-41', kind: 'text', note: '"판매 주체"(폴백 "백조오브제 셀렉션").' },
-      { field: 'pointsRate', render: 'src/components/shop/ProductDetailClient.tsx:202-207', kind: 'text', note: 'pointsEnabled+rate>0 일 때 "…{rate}% 적립 설정".' },
       { field: 'rating', render: 'src/components/shop/ProductDetailClient.tsx:166', kind: 'derived' },
       { field: 'reviewCount', render: 'src/components/shop/ProductDetailClient.tsx:167', kind: 'derived', note: '"구매평 {n}개".' },
       { field: 'brandName', render: 'src/components/shop/ProductDetailClient.tsx:46,161', kind: 'text', note: 'h1 위 대문자 라벨(brandName ?? brandId).' },

@@ -37,12 +37,9 @@ export const PRODUCT_FORM_FIELDS = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ] as const;
 
 /** 옵션 하위 폼 상태. 값은 문자열(입력 그대로)로 들고 payload 단계에서 정규화한다.
@@ -122,12 +119,9 @@ export interface ProductFormState {
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
-  isMembersOnlyPrice?: boolean;
   isVisible?: boolean;
   isBest?: boolean;
   isRecommended?: boolean;
-  pointsEnabled?: boolean;
-  pointsRate?: number;
 }
 
 /**
@@ -138,7 +132,6 @@ export interface ProductFormState {
  *   **지우기**를 지원한다(BrandForm officialUrl 과 동일 규칙). 서버 validate 가 빈 문자열을
  *   허용하고 splitProductInput 이 ''(≠undefined)를 detail 에 써 기존 값을 덮으므로 실제로 지워진다.
  * - salePrice 0 은 null 로(할인 없음). shippingFee 는 값이 유효할 때만 담는다(미입력=기존값 보존).
- * - isMembersOnlyPrice 는 boolean 으로 항상 담는다.
  */
 function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
@@ -165,23 +158,15 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
     sellerName: form.sellerName?.trim() ?? '',
-    isMembersOnlyPrice: form.isMembersOnlyPrice ?? false,
     isVisible: form.isVisible ?? false,
     isBest: form.isBest ?? false,
     isRecommended: form.isRecommended ?? false,
-    pointsEnabled: form.pointsEnabled ?? false,
   };
 
   // shippingFee 는 숫자일 때만 담는다. null/undefined(미입력)면 키를 빼 기존/기본값을 보존한다
   // (validate 가 shippingFee 를 non-null number 로만 받으므로 null 을 실으면 400 이 된다).
   if (typeof form.shippingFee === 'number' && Number.isFinite(form.shippingFee)) {
     fields.shippingFee = form.shippingFee;
-  }
-
-  // pointsRate 는 적립금 지급이 켜져 있고 숫자일 때만 담는다.
-  // 체크 해제 상태에서는 rate 를 재전송하지 않아 서버가 기존 detail.pointsRate 를 제거할 수 있게 한다.
-  if (form.pointsEnabled === true && typeof form.pointsRate === 'number' && Number.isFinite(form.pointsRate)) {
-    fields.pointsRate = form.pointsRate;
   }
 
   return fields;
