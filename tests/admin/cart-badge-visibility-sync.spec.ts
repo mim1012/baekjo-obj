@@ -30,7 +30,7 @@ test.describe('장바구니 뱃지 ↔ 화면 노출상품 자가치유 동기�
     const pageSource = src('src', 'app', 'cart', 'page.tsx');
 
     expect(pageSource).toContain(
-      "import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';",
+      "import { clearCart, getCart, pruneCartToVisibleProducts, removeFromCart, updateCartQuantity } from '@/lib/cart';",
     );
     const storageImport = pageSource.match(/import \{([^}]+)\} from '@\/lib\/storage';/);
     expect(storageImport?.[1]).toContain('getPublicProductsOrNull');
