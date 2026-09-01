@@ -210,11 +210,8 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(shopContent).toContain('categorySettings.petTypes.map((petType) => (');
     expect(shopContent).toContain('categorySettings.priceRanges.find((option) => option.id === priceRange)');
     expect(shopContent).toContain('categorySettings.ratingRanges.find((option) => option.id === params.rating)');
-    expect(shopContent).toContain('const lifestyleOptions = getLifestyleFilterOptions(');
-    expect(shopContent).toContain('categorySettings.lifestyleCategories');
-    expect(shopContent).toContain('product.lifestyleCategory');
-    expect(shopContent).toContain("makeHref('lifestyle', lifestyle.slug)");
-    expect(shopContent).toContain('active={params.lifestyle === lifestyle.slug}');
+    expect(shopContent).not.toContain('lifestyleOptions');
+    expect(shopContent).not.toContain('getLifestyleFilterOptions');
     expect(shopContent).not.toContain('shopCategoryFilters');
     expectNoCategoryBypass(shopContent);
 

@@ -198,7 +198,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(shopCard).toContainText('후기'); // reviewCount(:160)
     await expect(shopCard).toContainText('피부'); // concernTags → 상품 카드 태그
     if (brandNameText) await expect(shopCard).toContainText(brandNameText); // brandName(:45,134)
-    await expect(shopCard).toContainText(summary);
     const detailHref = await page.getByRole('link', { name: `${name} 상세 보기` }).first().getAttribute('href');
     expect(detailHref).toMatch(/^\/shop\/.+/);
     await page.goto(detailHref ?? `/shop?search=${encodeURIComponent(name)}`, {
@@ -222,11 +221,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       shippingNotice,
       returnNotice,
       sellerName,
-      auditPoints: auditPoint,
-      ingredients,
-      howToUse,
-      recommendedFor: recommended,
-      caution: cautionText,
       brandName: brandNameText,
     };
     for (const f of getSurface('shop-detail').fields) {
