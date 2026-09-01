@@ -36,6 +36,7 @@ env:
     admin-crud-brand-fields.spec.ts
     admin-crud-brands.spec.ts
     admin-crud-category-settings.spec.ts
+    admin-crud-cms-page-publish.spec.ts
     admin-crud-concerns.spec.ts
     admin-crud-home-settings.spec.ts
     admin-crud-insurance.spec.ts
@@ -108,6 +109,8 @@ jobs:
           test -n "$SUPABASE_SECRET_KEY" || exit 1
           actual_ref=$(node -e "const u=new URL(process.env.SUPABASE_URL); const m=/^([a-z0-9]{20})\.supabase\.co$/.exec(u.hostname.toLowerCase()); if(!m) process.exit(1); process.stdout.write(m[1])")
           test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || exit 1
+      - name: Apply migrations to isolated staging and verify CMS connection
+        run: node scripts/apply-migrations.mjs
       - name: Start localhost app
         run: |
           npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &
