@@ -287,6 +287,7 @@ export interface OrderItem {
   brandId?: string;
 }
 
+
 /**
  * 입점업체(브랜드)별 배송 정보 — 한 주문이 여러 브랜드 상품을 포함할 때 업체마다 독립된
  * 송장을 붙일 수 있게 한다(0034 마이그레이션). Order 자체의 carrier/trackingNumber/

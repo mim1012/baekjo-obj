@@ -14,6 +14,7 @@ import FormSection from '@/components/admin-new/common/FormSection';
 import OrderStatusPanel from './OrderStatusPanel';
 import OrderShipmentsPanel from './OrderShipmentsPanel';
 import OrderRefundPanel from './OrderRefundPanel';
+import OrderActionRequestsPanel from './OrderActionRequestsPanel';
 
 interface OrderDetailPageProps {
   id: string;
@@ -234,6 +235,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           </FormSection>
 
           <OrderRefundPanel order={order} onUpdate={loadOrder} />
+          <OrderActionRequestsPanel order={order} />
 
           <OrderStatusPanel
             key={`${order.id}:${order.orderStatus}:${order.paymentStatus}:${order.deliveryStatus}:${order.trackingNumber ?? ''}:${order.carrier ?? ''}:${order.deliveryMemo ?? ''}`}

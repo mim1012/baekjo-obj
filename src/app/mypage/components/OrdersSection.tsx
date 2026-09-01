@@ -5,11 +5,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Order, OrderItem, ProductReview, Product, Brand, Shipment } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
-import { buildReviewTargetKey, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
+import { buildReviewTargetKey, createOrderActionRequest, getOrderActionRequests, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
 import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
+import type { OrderActionRequestRecord } from '@/lib/orders/actionRequests';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
@@ -29,7 +30,8 @@ const ITEMS_PER_PAGE = 20;
 
 export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview, onOrderUpdated }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [actionRequestKey, setActionRequestKey] = useState<string | null>(null);
+  const [actionRequests, setActionRequests] = useState<Record<string, OrderActionRequestRecord>>({});
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
@@ -42,6 +44,25 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   useEffect(() => {
     getPublicBrands().then(setBrands);
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all(orders.map(async (order) => {
+      try {
+        return await getOrderActionRequests(order.id);
+      } catch {
+        return [];
+      }
+    })).then((requestGroups) => {
+      if (!active) return;
+      const next: Record<string, OrderActionRequestRecord> = {};
+      for (const requests of requestGroups) {
+        for (const request of requests) next[`${request.orderId}:${request.brandId}:${request.requestType}`] = request;
+      }
+      setActionRequests(next);
+    });
+    return () => { active = false; };
+  }, [orders]);
 
   // 주문 역순 정렬 (최신순)
   const sortedOrders = [...orders].sort(
@@ -107,19 +128,38 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return shipment?.deliveryStatus || '배송전';
   };
 
-  const handleCancelRequest = async (order: Order) => {
+  const handleActionRequest = async (order: Order, brandId: string, requestType: 'CANCEL' | 'REFUND', brandName: string) => {
+    const reason = window.prompt(`${brandName} ${requestType === 'CANCEL' ? '취소' : '환불'} 사유를 입력해주세요.`, '고객 요청');
+    if (reason === null || reason.trim() === '') return;
+    const key = `${order.id}:${brandId}:${requestType}`;
+    if (!window.confirm(`${brandName} 상품 ${requestType === 'CANCEL' ? '취소' : '환불'}을 요청하시겠습니까?`)) return;
+    setActionRequestKey(key);
+    try {
+      const created = await createOrderActionRequest(order.id, { requestType, brandId, reason: reason.trim() });
+      setActionRequests((current) => ({ ...current, [key]: created }));
+      await onOrderUpdated();
+    } catch (error) {
+      const message = error instanceof Error && error.message === 'action-request-already-exists'
+        ? '같은 브랜드의 요청이 이미 접수되어 있습니다.'
+        : error instanceof Error && error.message === 'action-request-order-closed'
+          ? '이미 종료된 주문에는 요청할 수 없습니다.'
+          : '브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
+      window.alert(message);
+    } finally {
+      setActionRequestKey(null);
+    }
+  };
+
+  const handleLegacyCancelRequest = async (order: Order) => {
     if (!window.confirm('주문 취소를 요청하시겠습니까?\n\n관리자가 결제·배송 상태를 확인한 뒤 최종 처리합니다.')) return;
-    setCancellingOrderId(order.id);
+    setActionRequestKey(order.id);
     try {
       await requestOrderCancellation(order.id);
       await onOrderUpdated();
     } catch (error) {
-      const message = error instanceof Error && error.message === 'cancel-request-not-allowed'
-        ? '현재 상태에서는 주문 취소를 요청할 수 없습니다.'
-        : '주문 취소 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
-      window.alert(message);
+      window.alert(error instanceof Error && error.message === 'cancel-request-not-allowed' ? '현재 상태에서는 주문 취소를 요청할 수 없습니다.' : '주문 취소 요청에 실패했습니다.');
     } finally {
-      setCancellingOrderId(null);
+      setActionRequestKey(null);
     }
   };
 
@@ -164,17 +204,6 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                     className={`h-4 w-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`}
                   />
                 </button>
-                {isCancellationRequestAllowed(order) && (
-                  <button
-                    type="button"
-                    onClick={() => handleCancelRequest(order)}
-                    disabled={cancellingOrderId === order.id}
-                    className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
-                  >
-                    <CircleAlert className="h-3.5 w-3.5" />
-                    {cancellingOrderId === order.id ? '요청 중...' : '주문 취소 요청'}
-                  </button>
-                )}
               </div>
             </div>
 
@@ -274,6 +303,9 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
               {bundles.map((bundle) => {
                 const brand = bundle.brandId ? brands.find((b) => b.id === bundle.brandId) : null;
                 const label = brand?.name ?? (bundle.brandId ? '배송 정보' : '배송조회');
+                const cancelKey = `${order.id}:${bundle.brandId}:CANCEL`;
+                const refundKey = `${order.id}:${bundle.brandId}:REFUND`;
+                const brandId = bundle.brandId;
                 return (
                   <div
                     key={bundle.brandId ?? '__legacy__'}
@@ -283,13 +315,16 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       {label}
                       <span className="ml-1 text-xs text-[#A29E93]">· {bundle.items.length}개 상품</span>
                     </span>
-                    <button
-                      onClick={() => setTracking({ order, bundle })}
-                      className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
-                    >
-                      <Truck className="h-3.5 w-3.5" />
-                      배송조회
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button onClick={() => setTracking({ order, bundle })} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><Truck className="h-3.5 w-3.5" />배송조회</button>
+                      {!brandId && isCancellationRequestAllowed(order) && <button onClick={() => void handleLegacyCancelRequest(order)} disabled={Boolean(actionRequestKey)} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequestKey === order.id ? '요청 중...' : '주문 취소 요청'}</button>}
+                      {brandId && (
+                        <>
+                          <button onClick={() => void handleActionRequest(order, brandId, 'CANCEL', label)} disabled={Boolean(actionRequestKey) || Boolean(actionRequests[cancelKey])} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequests[cancelKey] ? '취소 접수됨' : actionRequestKey === cancelKey ? '요청 중...' : '브랜드 취소'}</button>
+                          <button onClick={() => void handleActionRequest(order, brandId, 'REFUND', label)} disabled={Boolean(actionRequestKey) || Boolean(actionRequests[refundKey])} className="mp-btn-secondary h-9 gap-1 px-3 text-xs">{actionRequests[refundKey] ? '환불 접수됨' : actionRequestKey === refundKey ? '요청 중...' : '브랜드 환불'}</button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 );
               })}
