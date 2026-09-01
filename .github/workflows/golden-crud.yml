@@ -113,7 +113,10 @@ jobs:
       - name: Apply migrations to isolated staging and verify CMS connection
         run: node scripts/apply-migrations.mjs
       - name: Prepare isolated localhost auth secret
-        run: node -e "process.stdout.write('AUTH_SECRET='+require('node:crypto').randomBytes(32).toString('base64url'))" >> "$GITHUB_ENV"
+        run: |
+          auth_secret=$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")
+          echo "::add-mask::$auth_secret"
+          echo "AUTH_SECRET=$auth_secret" >> "$GITHUB_ENV"
       - name: Start localhost app
         run: |
           npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &

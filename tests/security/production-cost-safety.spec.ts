@@ -293,6 +293,7 @@ test.describe('Production 비용 안전 경계', () => {
     expect(targetSafetySource).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain("'x-vercel-protection-bypass'");
     expect(source).toContain('selectedProjects.some((project) => browserProjects.has(project))');
+    expect(read('next.config.ts')).toContain("allowedDevOrigins: ['127.0.0.1']");
     expect(source).not.toContain('process.env.ALLOW_PRODUCTION_QA =');
   });
 
