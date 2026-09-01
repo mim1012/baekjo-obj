@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/admin/requireAdmin';
 import {
   defaultOrderPolicyConfig,
   normalizeOrderPolicyConfig,
+  normalizeBankTransferAccount,
   type OrderPolicyConfig,
 } from '@/lib/orderPolicy/config';
 import { getOrderPolicyConfig, saveOrderPolicyConfig } from '@/lib/orderPolicy/repo';
@@ -19,7 +20,9 @@ import { logServerError } from '@/lib/logServerError';
 function isOrderPolicyShape(body: unknown): body is OrderPolicyConfig {
   if (!body || typeof body !== 'object') return false;
   const raw = (body as Record<string, unknown>).bankTransferTtlHours;
-  return typeof raw === 'number' && Number.isFinite(raw);
+  const account = (body as Record<string, unknown>).bankTransferAccount;
+  const normalizedAccount = account === null ? null : normalizeBankTransferAccount(account);
+  return typeof raw === 'number' && Number.isFinite(raw) && (account === null || normalizedAccount !== null);
 }
 
 /**

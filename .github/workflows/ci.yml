@@ -1,14 +1,13 @@
 name: CI (drift gate)
 
-# 모든 PR과 main push에서 자동 실행됩니다.
 # 어떤 IDE(Antigravity / Claude Code / Codex)로 짰든 GitHub에서 동일하게 걸립니다.
 # typecheck / build / lint 중 하나라도 실패하면 머지가 막혀 drift가 프로덕션에 새지 않습니다.
 
 on:
   pull_request:
-    branches: [main, develop, "integrate/**"]
+    branches: [main]
   push:
-    branches: [main, develop, "integrate/**"]
+    branches: [main]
 
 jobs:
   changes:
@@ -22,6 +21,7 @@ jobs:
       products: ${{ steps.filter.outputs.products }}
       admin: ${{ steps.filter.outputs.admin }}
       tracking: ${{ steps.filter.outputs.tracking }}
+      partners: ${{ steps.filter.outputs.partners }}
       ci: ${{ steps.filter.outputs.ci }}
       full_regression: ${{ steps.scope.outputs.full_regression }}
     steps:
@@ -81,6 +81,13 @@ jobs:
               - 'src/app/mypage/components/Tracking*'
               - 'src/lib/tracking/**'
               - 'tests/tracking/**'
+            partners:
+              - 'src/app/api/partner/**'
+              - 'src/components/partner/**'
+              - 'src/components/orders/OrderDateRangeFilter.tsx'
+              - 'src/lib/partners/**'
+              - 'src/lib/orders/**'
+              - 'tests/partners/**'
             ci:
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -98,7 +105,7 @@ jobs:
           if [[ "$EVENT_NAME" == "push" && "$REF_NAME" == "refs/heads/main" ]]; then
             full_regression=true
           fi
-          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" && "$HEAD_REF" == "develop" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" && "$BASE_REF" == "main" ]]; then
             full_regression=true
           fi
           echo "full_regression=${full_regression}" >> "$GITHUB_OUTPUT"
@@ -184,6 +191,24 @@ jobs:
       - name: 택배 추적 어댑터 스펙 (순수 함수 — DB/브라우저 불필요)
         run: npx playwright test --project=tracking --reporter=line
 
+  partners-contract:
+    needs: changes
+    if: needs.changes.outputs.full_regression == 'true' || needs.changes.outputs.partners == 'true' || needs.changes.outputs.admin == 'true' || needs.changes.outputs.products == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: 입점업체 주문 날짜·권한 스펙 (순수 함수·소스 계약)
+        run: npx playwright test --project=partners --reporter=line
+
   visual:
     needs: changes
     if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.auth == 'true' || needs.changes.outputs.shipping == 'true'
@@ -240,7 +265,7 @@ jobs:
   # 끝에 주요 테이블 존재를 검증한다. 어떤 IDE로 짰든 GitHub 에서 동일하게 적용·검증된다.
   migrate:
     runs-on: ubuntu-latest
-    needs: [verify, products-contract, admin-contract, tracking-contract]
+    needs: [verify, products-contract, admin-contract, tracking-contract, partners-contract]
     if: always() && github.event_name == 'push' && !cancelled() && !failure()
     steps:
       - uses: actions/checkout@v4
@@ -249,12 +274,10 @@ jobs:
         with:
           node-version: 22
 
-      # 환경 체계(2026-07-12): main push → prod DB, 그 외(integrate/**) push → staging DB.
-      # Vercel 도 동일 매핑: main=Production(prod DB) / Preview=staging DB.
       - name: Apply migrations (미적용만) + 검증
         run: node scripts/apply-migrations.mjs
         env:
-          SUPABASE_URL: ${{ github.ref == 'refs/heads/main' && secrets.SUPABASE_URL || secrets.SUPABASE_URL_STAGING }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
   # 결제 상태기계 DB 스펙(tests/payments/state-machine.db.spec.ts) — staging 전용, prod는 절대 사용하지 않는다.
@@ -275,7 +298,8 @@ jobs:
     needs: [verify, changes]
     if: needs.changes.outputs.payment == 'true' || needs.changes.outputs.shipping == 'true' || (github.event_name == 'push' && needs.changes.outputs.database == 'false')
     env:
-      STAGING_TEST_REF_GATE: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+      STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
     steps:
       - uses: actions/checkout@v4
 
@@ -287,8 +311,19 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Fail closed on mandatory staging DB configuration
+        run: |
+          test -n "$TEST_SUPABASE_PROJECT_REF" || exit 1
+          test -n "$STAGING_SUPABASE_SECRET_KEY" || exit 1
+          test -n "$PRODUCTION_SUPABASE_URL" || exit 1
+          actual_ref=$(node -e "const u=new URL(process.env.SUPABASE_URL); const m=/^([a-z0-9]{20})\\.supabase\\.co$/.exec(u.hostname.toLowerCase()); if(!m) process.exit(1); process.stdout.write(m[1])")
+          test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || { echo 'SUPABASE_URL does not match TEST_SUPABASE_PROJECT_REF'; exit 1; }
+          test "$SUPABASE_URL" != "$PRODUCTION_SUPABASE_URL" || { echo 'staging DB tests cannot target the production Supabase project'; exit 1; }
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
+          TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+
       - name: 결제 상태기계 DB 스펙 (staging)
-        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=payments tests/payments/state-machine.db.spec.ts --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
@@ -299,9 +334,26 @@ jobs:
       # DB 스펙이 payments와 같은 staging env를 쓰므로 이 잡에서 6개를 한 번에 돌린다.
       # (2026-07-23 커버리지 전수조사 전까지 CI 미배선이었음 — golden-spec-coverage.md §4-1)
       - name: 배송 파생·구매확정 가드 스펙 (순수 + staging DB)
-        if: ${{ env.STAGING_TEST_REF_GATE != '' }}
         run: npx playwright test --project=shipments --reporter=line
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
+
+  release-contract:
+    needs: changes
+    if: needs.changes.outputs.full_regression == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: Production release workflow contract
+        run: npx playwright test tests/security/workflow-preview-safety.spec.ts --project=security --workers=1 --retries=0 --reporter=line

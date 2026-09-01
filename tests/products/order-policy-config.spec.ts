@@ -14,6 +14,30 @@ import {
 test('기본값은 자동취소 비활성 + 72시간(재활성화 대비 보존값)이다', () => {
   expect(defaultOrderPolicyConfig.bankTransferAutoCancelEnabled).toBe(false);
   expect(defaultOrderPolicyConfig.bankTransferTtlHours).toBe(72);
+  expect(defaultOrderPolicyConfig.bankTransferAccount).toEqual({
+    bankName: '카카오뱅크',
+    accountNumber: '3333360077573',
+    accountHolder: '백조 오브제(Baekjo objet)',
+  });
+});
+
+test('입금계좌는 공백을 제거하고 유효하지 않은 계좌번호는 저장하지 않는다', () => {
+  expect(normalizeOrderPolicyConfig({
+    bankTransferTtlHours: 72,
+    bankTransferAccount: {
+      bankName: ' 카카오뱅크 ',
+      accountNumber: ' 3333-3600-77573 ',
+      accountHolder: ' 백조 오브제(Baekjo objet) ',
+    },
+  }).bankTransferAccount).toEqual({
+    bankName: '카카오뱅크',
+    accountNumber: '3333-3600-77573',
+    accountHolder: '백조 오브제(Baekjo objet)',
+  });
+  expect(normalizeOrderPolicyConfig({
+    bankTransferTtlHours: 72,
+    bankTransferAccount: { bankName: '은행', accountNumber: '1234 ABC', accountHolder: '예금주' },
+  }).bankTransferAccount).toBeNull();
 });
 
 test('bankTransferAutoCancelEnabled 는 저장값이 === true 일 때만 true 다', () => {

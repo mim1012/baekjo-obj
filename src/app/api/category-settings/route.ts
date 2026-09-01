@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';
 import { getCachedCategorySettings } from '@/lib/public-read-cache';
+import { PUBLIC_READ_CACHE_CONTROL } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
 /**
@@ -16,5 +17,8 @@ export async function GET() {
   } catch (error) {
     logServerError('[GET /api/category-settings] 조회 실패 — defaultCategorySettings 로 폴백', error);
   }
-  return NextResponse.json({ settings }, { status: 200 });
+  return NextResponse.json(
+    { settings },
+    { status: 200, headers: { 'Cache-Control': PUBLIC_READ_CACHE_CONTROL } },
+  );
 }

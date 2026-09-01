@@ -53,7 +53,7 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
     spec: 'admin-crud-insurance-content.spec.ts',
     pathNeedle: 'src/app/api/admin/insurance-content/',
   },
-  kits: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/kits/' },
+  kits: { spec: 'admin-crud-kits.spec.ts', pathNeedle: 'src/app/api/admin/kits/' },
   members: { spec: 'admin-crud-members.spec.ts', pathNeedle: 'src/app/api/admin/members/' },
   notices: { spec: 'admin-crud-notices.spec.ts', pathNeedle: 'src/app/api/admin/notices/' },
   'order-policy': { spec: 'admin-crud-order-policy.spec.ts', pathNeedle: 'src/app/api/admin/order-policy/' },
@@ -62,9 +62,11 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
     spec: 'admin-crud-partner-inquiries.spec.ts',
     pathNeedle: 'src/app/api/admin/partner-inquiries/',
   },
-  partners: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/partners/' },
   products: { spec: 'admin-crud-products.spec.ts', pathNeedle: 'src/app/api/admin/products/' },
-  qna: { spec: 'admin-crud-qna-config.spec.ts', pathNeedle: 'src/app/api/admin/qna/' },
+  'product-tags': {
+    spec: 'admin-crud-product-tags.spec.ts',
+    pathNeedle: 'src/app/api/admin/product-tags/',
+  },
   reviews: {
     spec: 'admin-crud-reviews-moderation.spec.ts',
     pathNeedle: 'src/app/api/admin/reviews/',
@@ -80,6 +82,7 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
 /** 실구동 스펙이 의도적으로 없는 도메인 — 사유를 반드시 적는다. */
 const EXCLUDED: Record<string, string> = {
   dashboard: '조회 전용 통계 집계 — GET만 존재, 쓰기 동작 없음.',
+  tracking: 'SweetTracker 택배사 조회 프록시 — 외부 목록 조회 전용이며 관리자 CRUD 리소스가 아님.',
   upload:
     '업로드 유틸리티(ImageUploader가 쓰는 공용 엔드포인트) — 그 자체가 CRUD 리소스가 아니며, ' +
     'brands/products 실구동 스펙의 이미지 업로드 스텝에서 이미 간접적으로 실행된다.',

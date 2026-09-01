@@ -5,8 +5,8 @@ import type { SurveyResultRule } from '@/types';
 /**
  * 응답(answers)과 룰 목록(rules)으로 가장 잘 맞는 결과 룰 하나를 고른다.
  * 스코어링(behavior-identical, Golden Flow #1):
- *   - concern 룰: answers['q3'](다중 선택 배열)에 룰의 concern 이 포함되면 +3
- *   - ageGroup 룰: answers['q2'] 가 룰의 ageGroup 과 같으면 +2
+ *   - 현재 규칙(condition.answers): 관리자가 고른 질문의 응답이 지정 답과 같으면 항목당 +3
+ *   - 이전 concern/ageGroup 룰은 기존 저장 데이터 호환을 위해 q3/q2로 동일하게 계산
  * 기본 폴백 = 마지막 룰(정적 데이터에서 concern:'none'). rules 가 비면 undefined 를 반환하므로
  * 호출부는 null 체크로 방어한다.
  */
@@ -22,14 +22,22 @@ export function getSurveyResult(
   for (const rule of rules) {
     let score = 0;
 
-    if (rule.condition.concern) {
+    for (const condition of rule.condition.answers ?? []) {
+      const answer = answers[condition.questionId];
+      const matched = Array.isArray(answer)
+        ? answer.includes(condition.optionValue)
+        : answer === condition.optionValue;
+      if (matched) score += 3;
+    }
+
+    if (!rule.condition.answers?.length && rule.condition.concern) {
       const concerns = (answers['q3'] || []) as string[];
       if (concerns.includes(rule.condition.concern)) {
         score += 3; // 고민이 일치하면 높은 점수
       }
     }
 
-    if (rule.condition.ageGroup && answers['q2'] === rule.condition.ageGroup) {
+    if (!rule.condition.answers?.length && rule.condition.ageGroup && answers['q2'] === rule.condition.ageGroup) {
       score += 2;
     }
 

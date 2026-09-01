@@ -8,6 +8,7 @@ import {
   CRUD_ENABLED,
   bypassHeaders,
   loginAsAdmin,
+  setProductDisplaySetting,
 } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/products/new → /shop, /shop/[id].
@@ -23,15 +24,14 @@ import {
 // ⚠️ 대표 이미지는 필수이고 실제 파일 업로드다(ImageUploader.tsx — 숨겨진 input[type=file]).
 // setInputFiles로 1x1 PNG를 넣고 업로드 완료(썸네일 <img alt="Uploaded"> 렌더)를 기다린다.
 //
-// ⚠️ 신규 상품은 isVisible 기본값이 **false**다(ProductForm.tsx:117) — "스토어 노출" 토글을 켜지
-// 않으면 /shop에 안 보인다. 등록 직후 토글을 켜서 공개 화면 검증이 가능하게 한다.
+// ⚠️ 신규 상품은 isVisible 기본값이 **false**다. 등록 후 단일 소유 화면인 `상품 진열`에서
+// 스토어 노출을 적용해야 /shop에 보인다.
 //
 // ⚠️ category/lifestyleCategory는 관리자가 설정하는 동적 목록(categorySettings)이라 특정 값을
 // 하드코딩하지 않고 플레이스홀더 다음 첫 옵션(index 1)을 선택한다.
 //
-// ⚠️ 관리자 목록에는 행별 삭제 버튼이 없다 — 체크박스로 선택 후 하단에 뜨는 일괄 작업 바
-// (숨김 처리/노출 처리/삭제)만 있다(AdminProductsClient.tsx:297-345). 삭제·숨김 전환 둘 다
-// window.confirm을 띄운다. 리뷰/문의가 달린 상품은 삭제 대신 숨김을 유도하는 안내가 뜨지만,
+// ⚠️ 관리자 목록에는 행별 삭제 버튼이 없다 — 체크박스로 선택 후 하단에 뜨는 삭제 작업을 쓴다.
+// 노출 변경은 `상품 진열`에서만 한다. 리뷰/문의가 달린 상품은 삭제 대신 숨김을 유도하지만,
 // 이 스펙의 신규 상품은 리뷰/문의가 전혀 없으므로 정상 삭제된다.
 //
 // 🚨 쓰기(write) 스펙 — 실제 DB(+스토리지)에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로
@@ -50,7 +50,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
   const SEARCH_PREFIX = 'E2E-상품-';
   const name = `${SEARCH_PREFIX}${runId}`;
   const editedPrice = 15_000;
-  const summary = `E2E 한줄설명 ${runId}`;
   const PRODUCTS_SEARCH_PLACEHOLDER = '상품명 또는 상품코드 검색...';
 
   const PNG_1PX_BASE64 =
@@ -114,7 +113,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     await loginAsAdmin(page);
     await page.goto('/admin/products/new');
 
-    // 1) 등록 — 필수 5필드 + 판매가/재고/한줄설명/반려동물(필드 검증용으로 명시 선택).
+    // 1) 등록 — 필수 5필드 + 판매가/재고/반려동물(필드 검증용으로 명시 선택).
     const nameInput = page.locator('#product-name');
     await nameInput.fill(name);
     await page.locator('#product-brand').selectOption('b1');
@@ -123,7 +122,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     // 반려동물 select는 htmlFor 없이 라벨만 있다 — option value="both" 를 가진 유일한 select로 특정한다.
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('dog');
-    await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(summary);
 
     const priceInput = page.locator('input[type="number"]').first();
     await priceInput.fill('10000');
@@ -131,17 +129,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     await page.locator('input[type="file"]').setInputFiles(imageFilePath);
     await expect(page.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
 
-    // 신규 상품은 isVisible 기본 false — 토글을 켜야 공개 화면에서 검증할 수 있다.
-    // ToggleRow의 <label>이 체크박스를 직접 감싸므로 getByLabel이 정상 동작한다(브랜드/설정 폼과
-    // 다른 패턴 — ProductForm.tsx:706-716 참고).
-    await page.getByLabel('스토어 노출').check();
-
     // 저장 성공 시 개별 상품 페이지가 아니라 목록으로 이동한다(ProductForm.tsx:235 router.push
     // ('/admin/products')) — 실측 전에는 개별 페이지로 갈 거라 잘못 가정했다.
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 15_000 });
+    await setProductDisplaySetting(page, name, 'visible', true);
 
     // 2) 관리자 목록 — 이름·가격·노출 상태가 반영됐는지 확인.
+    await page.goto('/admin/products');
     await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(name);
     await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(name);
     const adminRow = page.locator('tr', { hasText: name });
@@ -167,7 +162,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     await expect(page).toHaveURL(/\/shop\/.+/);
     const productId = new URL(page.url()).pathname.split('/').pop()!;
 
-    // 4) 공개 상세 — 이름·가격·한줄설명이 필드 단위로 반영되는지 확인.
+    // 4) 공개 상세 — 이름·가격이 필드 단위로 반영되는지 확인.
     await expect(page.locator('h1')).toContainText(name);
     await expect(page.locator('body')).toContainText('10,000');
 
@@ -191,11 +186,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
       await expect(page.locator('body')).toContainText('15,000');
     }).toPass({ timeout: 20_000 });
 
-    // 7) 비노출 전환 — 관리자 목록에서 체크박스 선택 후 일괄 "숨김 처리".
+    // 7) 비노출 전환 — 상품 진열의 스토어 노출 탭 한 곳에서 해제한다.
+    await setProductDisplaySetting(page, name, 'visible', false);
     await page.goto('/admin/products');
-    await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(name);
-    await page.locator('tr', { hasText: name }).locator('input[type="checkbox"]').check();
-    await page.getByRole('button', { name: '숨김 처리' }).click();
     await page.getByPlaceholder(PRODUCTS_SEARCH_PLACEHOLDER).fill(name);
     await expect(page.locator('tr', { hasText: name })).toContainText('숨김', { timeout: 15_000 });
 

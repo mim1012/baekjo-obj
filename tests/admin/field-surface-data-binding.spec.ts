@@ -15,6 +15,34 @@ function sliceBetween(source: string, startNeedle: string, endNeedle: string): s
 }
 
 test.describe('필드 표면 데이터 바인딩 계약', () => {
+  test('상품 카드와 상세 표면은 관리자 상품 상세 필드를 공개 Product 데이터에서 렌더한다', () => {
+    const productCard = src('src', 'components', 'common', 'ProductCard.tsx');
+    const productPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
+    const publicDetails = src('src', 'components', 'shop', 'ProductPublicDetails.tsx');
+    const purchaseInfo = src('src', 'components', 'shop', 'ProductPurchaseInfo.tsx');
+    const shopCardSurface = getSurface('shop-card');
+    const shopDetailSurface = getSurface('shop-detail');
+
+    expect(shopCardSurface.fields.map((field) => field.field)).toContain('summary');
+    expect(shopDetailSurface.fields.map((field) => field.field)).toEqual(expect.arrayContaining([
+      'shippingNotice',
+      'auditPoints',
+      'ingredients',
+      'howToUse',
+      'recommendedFor',
+      'caution',
+    ]));
+
+    expect(productCard).toContain('const summary = product.summary?.trim();');
+    expect(productCard).toContain('{summary && (');
+    expect(productPage).toContain("import ProductPublicDetails from '@/components/shop/ProductPublicDetails';");
+    expect(productPage).toContain('<ProductPublicDetails product={product} />');
+    expect(publicDetails).toContain("'auditPoints' | 'ingredients' | 'howToUse' | 'recommendedFor' | 'caution'");
+    expect(publicDetails).toContain('if (textRows.length === 0 && listRows.length === 0) return null;');
+    expect(purchaseInfo).toContain("'shippingFee' | 'deliveryEstimate' | 'shippingNotice' | 'returnNotice' | 'sellerName'");
+    expect(productPage).not.toContain('BrandShippingInfo');
+  });
+
   test('장바구니 표면은 브랜드명·상품명·옵션·수량·금액을 라이브 상품/브랜드 조인에서 렌더한다', () => {
     const cartPage = src('src', 'app', 'cart', 'page.tsx');
     const cartSurface = getSurface('cart-item');

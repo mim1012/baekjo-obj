@@ -2,19 +2,20 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// 상품 목록 선택 바는 즉시 실행형 bulk action 전용이다.
+// 상품 목록 선택 바는 삭제 전용이다. 노출·추천·베스트는 상품 진열이 단독 소유한다.
 // 저장되지 않는 '저장' 버튼을 끼워 넣으면 PR-00의 non-persistent affordance 금지에 걸린다.
 test.describe('상품 목록 bulk action bar', () => {
   const pagePath = path.resolve(__dirname, '..', '..', 'src', 'components', 'admin-new', 'products', 'AdminProductsClient.tsx');
   const saveBarPath = path.resolve(__dirname, '..', '..', 'src', 'components', 'admin-new', 'common', 'SaveBar.tsx');
 
-  test('선택 바는 no-op 저장 버튼 없이 실제 bulk action만 노출한다', () => {
+  test('선택 바는 중복 노출 설정 없이 삭제와 선택 해제만 제공한다', () => {
     const source = fs.readFileSync(pagePath, 'utf8');
 
     expect(source).not.toContain("import SaveBar from '@/components/admin-new/common/SaveBar'");
     expect(source).not.toContain('<SaveBar');
-    expect(source).toContain('performBulkUpdate(selectedIds, { isVisible: false })');
-    expect(source).toContain('performBulkUpdate(selectedIds, { isVisible: true })');
+    expect(source).not.toContain('performBulkUpdate');
+    expect(source).not.toContain('<EyeOff');
+    expect(source).not.toContain('<Eye size=');
     expect(source).toContain('performBulkDelete(selectedIds)');
     expect(source).toContain('선택 해제');
     expect(source).not.toContain('onSave={() => {}}');

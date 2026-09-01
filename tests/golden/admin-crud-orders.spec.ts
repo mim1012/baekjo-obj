@@ -2,7 +2,14 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+  setProductDisplaySetting,
+} from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /shop/[id](장바구니)→/checkout(무통장입금)→/admin/orders
 // (입금확인·상태 전이)→/mypage(회원 반영).
@@ -101,7 +108,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
       .locator('select')
       .filter({ has: adminPage.locator('option[value="both"]') });
     await petTypeSelect.selectOption('dog');
-    await adminPage.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill('E2E 주문 테스트용 일회용 상품');
+    await adminPage
+      .getByPlaceholder('예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다.')
+      .fill('E2E 주문 테스트용 일회용 상품의 고객용 상품 이야기입니다.');
 
     // 재고 넉넉히(주문 생성 시 즉시 1 차감돼도 여유가 크게 남도록) — ProductForm.tsx:414-440,
     // number input 순서가 판매가(0)·할인가(1)·재고(2)로 고정이다(FormField가 htmlFor 없이 라벨을
@@ -113,10 +122,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     await adminPage.locator('input[type="file"]').setInputFiles(imageFilePath);
     await expect(adminPage.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
 
-    await adminPage.getByLabel('스토어 노출').check();
-
     await adminPage.getByRole('button', { name: '등록 완료' }).click();
     await adminPage.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
+    await setProductDisplaySetting(adminPage, productName, 'visible', true);
 
     // 등록된 상품 id를 admin API로 확인(화면 흐름만 신뢰하지 않는다).
     const productsRes = await adminPage.request.get('/api/admin/products');

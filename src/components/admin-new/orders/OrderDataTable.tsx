@@ -61,6 +61,16 @@ export default function OrderDataTable({
       )
     },
     {
+      key: 'address',
+      header: '배송 정보',
+      render: (row) => (
+        <div className="max-w-[220px] text-xs">
+          <div className="truncate text-gray-900" title={row.address}>{row.address || '배송지 미입력'}</div>
+          {row.deliveryMemo && <div className="mt-1 truncate text-[#A8742E]" title={row.deliveryMemo}>메모: {row.deliveryMemo}</div>}
+        </div>
+      ),
+    },
+    {
       key: 'items',
       header: '주문 상품',
       render: (row) => {
@@ -113,9 +123,9 @@ export default function OrderDataTable({
             )}
             <Link
               href={`/admin/orders/${row.id}`}
-              className="text-[#2F3B34] hover:underline font-medium text-xs border border-[#2F3B34] px-3 py-1.5 rounded-md inline-block"
+              className={`${row.orderStatus === '취소요청' ? 'text-[#A65348] border-[#A65348] hover:bg-[#FBFAF7]' : 'text-[#2F3B34] border-[#2F3B34] hover:underline'} font-medium text-xs px-3 py-1.5 rounded-md inline-block`}
             >
-              상세보기
+              {row.orderStatus === '취소요청' ? '취소 요청 확인' : '상세보기'}
             </Link>
           </div>
         );

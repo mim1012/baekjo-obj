@@ -74,6 +74,51 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 }
 
+export type ProductDisplaySetting = 'best' | 'recommended' | 'visible';
+
+const PRODUCT_DISPLAY_TAB: Record<ProductDisplaySetting, string> = {
+  best: '베스트 상품',
+  recommended: '추천 상품 (MD)',
+  visible: '스토어 노출 상태',
+};
+
+/**
+ * 상품의 베스트·추천·스토어 노출은 /admin/products/display 한 곳만 수정한다.
+ * 골든 CRUD도 일반 상품 폼이나 목록의 제거된 중복 버튼을 되살리지 않도록 이 경로를 쓴다.
+ */
+export async function setProductDisplaySetting(
+  page: Page,
+  productName: string,
+  setting: ProductDisplaySetting,
+  enabled: boolean,
+): Promise<void> {
+  await assertGoldenWritePreflight();
+  await page.goto('/admin/products/display');
+  await page.getByRole('button', { name: PRODUCT_DISPLAY_TAB[setting], exact: true }).click();
+  await page.getByPlaceholder('상품명으로 검색...').fill(productName);
+
+  const actionName = enabled ? '적용' : '해제';
+  const productCard = page
+    .locator('[data-testid="display-state-product"]')
+    .filter({ hasText: productName })
+    .filter({ has: page.getByRole('button', { name: actionName, exact: true }) })
+    .first();
+  await expect(productCard).toBeVisible({ timeout: 15_000 });
+  await productCard.getByRole('button', { name: actionName, exact: true }).click();
+
+  const saveButton = page.getByRole('button', { name: '변경사항 적용', exact: true });
+  await expect(saveButton).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/admin/products/') && response.request().method() === 'PATCH',
+      { timeout: 20_000 },
+    ),
+    saveButton.click(),
+  ]);
+  await expect(saveButton).toBeHidden({ timeout: 15_000 });
+}
+
 /**
  * 관리자 목록 화면에서 검색어에 매칭되는 모든 행을 삭제한다 — 이전 실행이 남긴 잔여
  * E2E 테스트 데이터를 치우는 정리 가드(beforeAll/afterAll 양쪽에서 호출).

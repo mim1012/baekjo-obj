@@ -1,5 +1,6 @@
-import { listCachedPublicBrands } from '@/lib/public-read-cache';
-import BrandsContent from '@/components/brands/BrandsContent';
+import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache';
+import BrandsContent, { type BrandsPageContent } from '@/components/brands/BrandsContent';
+import { getPublishedPageContent } from '@/lib/cms/content';
 
 export const metadata = {
   title: '검증 브랜드',
@@ -14,6 +15,10 @@ export const metadata = {
 export const dynamic = 'force-dynamic';
 
 export default async function BrandsPage() {
-  const brands = await listCachedPublicBrands();
-  return <BrandsContent brands={brands} />;
+  const [brands, content] = await Promise.all([
+    listCachedPublicBrands(),
+    getPublishedPageContent<BrandsPageContent & Record<string, unknown>>('brands'),
+  ]);
+  const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));
+  return <BrandsContent brands={brands} productCounts={productCounts} content={content} />;
 }

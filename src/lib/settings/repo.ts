@@ -2,6 +2,8 @@
 // 홈 CMS(HomeSettings)를 한 행(id='home')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
 import { normalizeHomeSettings, type HomeSettings } from '@/data/homeContent';
+import { getPublishedCmsPage, isCmsSchemaUnavailable } from '@/lib/cms/repo';
+import { HOME_CMS_PAGE_KEY } from '@/lib/cms/home';
 
 const SETTINGS_ROW_ID = 'home';
 
@@ -11,6 +13,14 @@ const SETTINGS_ROW_ID = 'home';
  * 현재 스키마 모양으로 안전하게 되돌린 뒤 돌려준다 — 없는 필드는 default 로 채워진다.
  */
 export async function getSiteSettings(): Promise<HomeSettings | null> {
+  try {
+    const published = await getPublishedCmsPage<unknown>(HOME_CMS_PAGE_KEY);
+    if (published) return normalizeHomeSettings(published);
+  } catch (error) {
+    // 0148 적용 전 배포와의 무중단 호환. 테이블이 존재한 뒤의 오류는 숨기지 않는다.
+    if (!isCmsSchemaUnavailable(error)) throw error;
+  }
+
   const { data, error } = await getSupabase()
     .from('site_settings')
     .select('value')

@@ -9,7 +9,7 @@ export default async function NewProductPage() {
   const brands = await listAllBrandsForAdmin();
 
   return (
-    <ProductForm 
+    <ProductForm
       brands={brands}
       initialData={null}
     />

@@ -1,5 +1,5 @@
 import { ReviewViewItem, InquiryViewItem } from '@/types';
-import { getProductReviewsByProduct, getProductInquiriesByProduct, getShowcaseReviews, getQnaConfig } from './storage';
+import { getProductReviewsByProduct, getProductInquiriesByProduct, getShowcaseReviews } from './storage';
 
 /**
  * 특정 상품의 통합 구매평 (전시용 후기 + 사용자 작성) 반환
@@ -48,32 +48,11 @@ export async function getMergedReviews(productId: string): Promise<ReviewViewIte
 }
 
 /**
- * 특정 상품의 통합 문의 (시드 + 사용자 작성) 반환
+ * 특정 상품의 실제 사용자 문의 반환.
+ * 예전 qna_config 전시 문의는 고객이 작성한 것처럼 보이는 수기 데이터라 운영 화면과 함께 제거했다.
  */
 export async function getMergedInquiries(productId: string): Promise<InquiryViewItem[]> {
-  // 1. 전시 문의(qna_config — DB 정본, 관리자 /admin/qna 가 편집). InquiryViewItem.source 는
-  // 'seed' | 'user' 유니온을 그대로 쓴다 — 'seed' 는 이제 정적 파일이 아니라 DB config 기반
-  // 전시 문의를 뜻한다(구매 기반 사용자 문의와 구분하는 태그로 재해석, getMergedReviews 미러 —
-  // #140 전시후기 전환과 동일 패턴, 커버리지 감사 발견 — 이전엔 관리자 편집이 화면에 반영되지 않았다).
-  const { items: seedQna } = await getQnaConfig();
-  const seed = seedQna
-    .filter((q) => q.productId === productId && q.isVisible !== false)
-    .map((q): InquiryViewItem => ({
-      id: q.id,
-      source: 'seed',
-      productId: q.productId,
-      question: q.question,
-      content: q.question, // 시드에는 content가 없으므로 question으로 대체
-      answer: q.answer,
-      status: q.status === '답변완료' ? 'answered' : 'waiting',
-      isSecret: q.isSecret,
-      writerName: q.writerName,
-      createdAt: q.createdAt,
-      answeredAt: q.answeredAt,
-      editable: false,
-    }));
-
-  // 2. 사용자 작성 데이터(DB — 비밀글 content/answer 는 서버가 열람 권한에 따라 이미 redaction)
+  // 사용자 작성 데이터(DB — 비밀글 content/answer 는 서버가 열람 권한에 따라 이미 redaction)
   const userInquiries = (await getProductInquiriesByProduct(productId))
     .map((i): InquiryViewItem => ({
       id: i.id,
@@ -92,7 +71,7 @@ export async function getMergedInquiries(productId: string): Promise<InquiryView
       editable: true,
     }));
 
-  return [...userInquiries, ...seed].sort(
+  return userInquiries.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }

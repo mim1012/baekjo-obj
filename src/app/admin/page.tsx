@@ -3,11 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, AlertCircle, ShoppingCart, ShieldCheck, FileText, ChevronRight, BadgeCheck } from 'lucide-react';
+import { Package, ShoppingCart, FileText, ChevronRight, BadgeCheck, PanelsTopLeft, Home } from 'lucide-react';
 import { 
   getAdminDashboardSummary, 
-  getAdminProducts, 
-  type AdminDashboardResult 
+  getAdminProducts,
 } from '@/lib/storage';
 import type { AdminDashboardSummary, Product } from '@/types';
 import PageHeader from '@/components/admin-new/common/PageHeader';
@@ -153,8 +152,28 @@ export default function AdminDashboard() {
     <div className="space-y-6">
       <PageHeader 
         title="대시보드" 
-        description="전체 상품 현황과 오늘의 주요 운영 업무를 확인하세요." 
+        description="홈페이지 수정은 전체 화면 관리에서 시작하고, 아래에서는 오늘 처리할 주문·상품·회원 업무를 확인합니다."
       />
+
+      <section className="grid gap-px border border-[#D8C4A3] bg-[#D8C4A3] md:grid-cols-[1.25fr_0.75fr]">
+        <div className="bg-[#17211D] p-6 text-white sm:p-8">
+          <p className="text-xs font-bold tracking-[0.16em] text-[#D8C4A3]">홈페이지를 바꾸려면</p>
+          <h2 className="mt-3 text-2xl font-bold">고객 화면 이름부터 찾으세요.</h2>
+          <p className="mt-3 max-w-2xl break-keep text-sm leading-6 text-white/75">
+            전체 화면 관리에는 보험을 제외한 실제 고객 화면과 각 화면의 등록·수정·삭제 위치가 연결되어 있습니다.
+          </p>
+          <Link href="/admin/pages" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded bg-white px-5 text-sm font-bold text-[#17211D] hover:bg-[#F3EEE6]">
+            <PanelsTopLeft className="size-4" /> 전체 화면 관리 열기
+          </Link>
+        </div>
+        <div className="flex flex-col justify-center bg-[#FAF8F3] p-6 sm:p-8">
+          <p className="text-xs font-bold text-[#6F766F]">홈 첫 화면만 바로 수정</p>
+          <p className="mt-2 break-keep text-sm leading-6 text-[#59615B]">대표 배너·바로가기·추천 영역을 편집하고 게시합니다.</p>
+          <Link href="/admin/settings" className="mt-5 inline-flex min-h-11 items-center justify-center gap-2 border border-[#D8D6CE] bg-white px-4 text-sm font-bold text-[#17211D] hover:border-[#A8742E]">
+            <Home className="size-4" /> 홈 화면 편집
+          </Link>
+        </div>
+      </section>
 
       {/* 상단 Summary Strip */}
       <SummaryStrip 
@@ -261,49 +280,6 @@ export default function AdminDashboard() {
                       <p className={`text-[12px] mt-0.5 ${order.status.includes('완료') ? 'text-green-600' : 'text-orange-500'}`}>
                         {order.status}
                       </p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-
-        {/* 보험 분석 신청 */}
-        <div className="bg-white border border-gray-200 rounded-md overflow-hidden flex flex-col">
-          <div className="px-5 py-4 border-b border-gray-200 flex justify-between items-center bg-[#F7F8F6]">
-            <h3 className="text-[15px] font-semibold text-[#17201B] flex items-center gap-2">
-              <ShieldCheck size={18} className="text-[#2F3B34]" />
-              보험 분석 신청
-            </h3>
-            <Link 
-              href="/admin/insurance" 
-              className="text-[13px] text-gray-500 hover:text-[#17201B] flex items-center"
-            >
-              전체보기 <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div className="p-0 flex-1">
-            {summary.recentInsurances.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-gray-500 text-[13px]">
-                최근 보험 분석 신청이 없습니다.
-              </div>
-            ) : (
-              <ul className="divide-y divide-gray-100">
-                {summary.recentInsurances.slice(0, 5).map(app => (
-                  <li key={app.id} className="p-4 hover:bg-gray-50 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[14px] font-medium text-[#17201B] truncate">반려동물: {app.petName}</p>
-                      <p className="text-[12px] text-gray-500 truncate mt-0.5">보호자: {app.ownerName}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                        app.status.includes('대기') || app.status.includes('접수') 
-                          ? 'bg-orange-100 text-orange-700 border border-orange-200' 
-                          : 'bg-green-100 text-green-700 border border-green-200'
-                      }`}>
-                        {app.status}
-                      </span>
                     </div>
                   </li>
                 ))}

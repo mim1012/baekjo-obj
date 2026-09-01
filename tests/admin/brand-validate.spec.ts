@@ -13,7 +13,6 @@ function base(over: Record<string, unknown> = {}): Record<string, unknown> {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     ...over,
   };
 }
@@ -35,6 +34,11 @@ test('officialUrl 빈 문자열도 허용된다(폼에서 지우기 가능)', ()
 test('officialUrl 이 500자를 넘으면 거부한다', () => {
   const out = validateBrandFields({ officialUrl: 'h'.repeat(501) }, false);
   expect(out).toBeNull();
+});
+
+test('폐기된 브랜드 등급 필드는 입력돼도 저장 결과에서 제거한다', () => {
+  const out = validateBrandFields({ auditGrade: 'A+' }, false);
+  expect(out).toEqual({});
 });
 
 /* ── sourceUrls (계약만 개방 — 폼 UI는 후속) ── */
@@ -129,6 +133,8 @@ test('shipping 정책은 택배사·금액·문구를 검증하고 정규화한�
       asNotice: '  하자 접수 안내  ',
       supportContact: '  help@example.com  ',
       supportHours: '  평일 10:00~17:00  ',
+      supportEmail: '  support@example.com  ',
+      supportKakaoLabel: '  브랜드 카카오톡  ',
     },
   }, false);
 
@@ -149,6 +155,8 @@ test('shipping 정책은 택배사·금액·문구를 검증하고 정규화한�
     asNotice: '하자 접수 안내',
     supportContact: 'help@example.com',
     supportHours: '평일 10:00~17:00',
+    supportEmail: 'support@example.com',
+    supportKakaoLabel: '브랜드 카카오톡',
   });
 });
 
@@ -198,7 +206,6 @@ function loadedFormData(over: Partial<Brand> = {}): Partial<Brand> {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     officialUrl: 'https://example.com',
     isRecommended: true,
     isVisible: true,
@@ -235,25 +242,19 @@ test('payload 는 폼이 편집하지 않는 auditReport·멀티셀렉트·sourc
 test('payload 는 화이트리스트 필드만 담는다', () => {
   const payload = buildBrandPayload(loadedFormData());
   const allowed = new Set([
-    'name', 'logo', 'description', 'philosophy', 'auditGrade',
-    'officialUrl', 'isRecommended', 'isVisible', 'isNew', 'displayOrder',
+    'name', 'logo', 'description', 'philosophy',
+    'isRecommended', 'isVisible', 'isNew', 'displayOrder',
   ]);
   for (const key of Object.keys(payload)) {
     expect(allowed.has(key)).toBe(true);
   }
   expect(payload.name).toBe('지위픽');
-  expect(payload.auditGrade).toBe('A+');
+  expect('auditGrade' in payload).toBe(false);
 });
 
-test('payload: officialUrl 빈 문자열은 그대로 실어 지우기를 지원한다', () => {
-  // 값이 있던 브랜드의 URL을 지우려면 payload에 ''가 실려야 한다. 제외하면(안 보내면)
-  // read-modify-write가 기존 URL을 보존해 영영 못 지운다 — 그게 회귀였다.
-  const cleared = buildBrandPayload(loadedFormData({ officialUrl: '' }));
-  expect(cleared.officialUrl).toBe('');
-  const blank = buildBrandPayload(loadedFormData({ officialUrl: '   ' }));
-  expect(blank.officialUrl, '공백만 입력해도 지우기로 정규화').toBe('');
-  const trimmed = buildBrandPayload(loadedFormData({ officialUrl: '  https://x.com  ' }));
-  expect(trimmed.officialUrl).toBe('https://x.com');
+test('payload: 공개 화면과 끊긴 officialUrl은 재전송하지 않는다', () => {
+  const payload = buildBrandPayload(loadedFormData());
+  expect('officialUrl' in payload).toBe(false);
 });
 
 test('payload: displayOrder 미입력(undefined)이면 키를 담지 않는다(기존/기본값 유지)', () => {

@@ -3,8 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   ADMIN_MAIN_NAV,
-  ADMIN_CS_NAV,
-  ADMIN_ETC_NAV,
+  ADMIN_SITE_NAV,
+  ADMIN_OPERATIONS_NAV,
+  ADMIN_INSURANCE_NAV,
   ADMIN_BREADCRUMB_ONLY,
   resolveActiveHref,
 } from '@/components/admin-new/layout/adminNav';
@@ -16,65 +17,74 @@ import {
 test.describe('메뉴 스냅샷', () => {
   // 메뉴를 의도적으로 바꿨다면 이 기대값도 같이 고쳐라 — 그 순간이 유실을 자각하는 지점이다.
   const EXPECTED_HREFS = [
-    // main (7)
+    // 시작 (3)
     '/admin',
+    '/admin/pages',
+    '/admin/guide',
+    // 홈페이지 내용 (11)
+    '/admin/settings',
     '/admin/products',
+    '/admin/products/tags',
     '/admin/products/display',
     '/admin/categories',
     '/admin/brands',
+    '/admin/concerns',
+    '/admin/survey',
+    '/admin/reviews',
+    '/admin/notices',
+    '/admin/kits',
+    // 주문·고객 처리 (5)
     '/admin/orders',
     '/admin/members',
-    // cs (7)
-    '/admin/insurance',
-    '/admin/survey',
-    '/admin/survey-results',
-    '/admin/qna',
     '/admin/inquiries',
-    '/admin/reviews',
-    '/admin/insurance-content',
-    // etc (7)
-    '/admin/concerns',
-    '/admin/partners',
-    '/admin/kits',
     '/admin/partner-inquiries',
-    '/admin/notices',
     '/admin/order-policy',
-    '/admin/settings',
+    // 보험 별도 (2)
+    '/admin/insurance',
+    '/admin/insurance-content',
   ];
 
   test('전체 사이드바 href 목록이 21개이고 순서까지 일치한다', () => {
-    const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
+    const all = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV];
     expect(all).toHaveLength(21);
     expect(all.map((i) => i.href)).toEqual(EXPECTED_HREFS);
   });
 
-  test('그룹별 개수 — main=7, cs=7, etc=7', () => {
-    expect(ADMIN_MAIN_NAV).toHaveLength(7);
-    expect(ADMIN_CS_NAV).toHaveLength(7);
-    expect(ADMIN_ETC_NAV).toHaveLength(7);
+  test('그룹별 개수 — 시작=3, 홈페이지=11, 운영=5, 보험=2', () => {
+    expect(ADMIN_MAIN_NAV).toHaveLength(3);
+    expect(ADMIN_SITE_NAV).toHaveLength(11);
+    expect(ADMIN_OPERATIONS_NAV).toHaveLength(5);
+    expect(ADMIN_INSURANCE_NAV).toHaveLength(2);
   });
 
   test('사이드바 3배열의 모든 항목에 icon이 존재한다', () => {
-    const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
+    const all = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV];
     for (const item of all) {
       expect(item.icon, `${item.href} icon`).toBeDefined();
     }
   });
 
+  test('첫 직원이 범위를 알 수 있도록 모든 메뉴에 한 줄 설명이 있다', () => {
+    const all = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV];
+    for (const item of all) {
+      expect(item.description.trim(), `${item.href} description`).not.toBe('');
+    }
+  });
+
   test('브레드크럼 매핑이 사이드바 전체 href를 빠짐없이 커버한다', () => {
-    const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY];
+    const all = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV, ...ADMIN_BREADCRUMB_ONLY];
     const routeNames: Record<string, string> = Object.fromEntries(
       all.map((item) => [item.href, item.name]),
     );
 
-    for (const item of [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV]) {
+    for (const item of [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV]) {
       expect(routeNames[item.href], item.href).toBeDefined();
     }
     expect(routeNames['/admin/products/new']).toBeDefined();
   });
 
   test('href 중복이 없다', () => {
-    const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY];
+    const all = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV, ...ADMIN_BREADCRUMB_ONLY];
     const hrefs = all.map((i) => i.href);
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
@@ -91,26 +101,33 @@ test.describe('관리자 브랜드 로고 홈 링크', () => {
       'utf8',
     );
 
-    expect(sidebar).toContain('href="/" className="font-bold text-[18px] text-[#17201B] truncate"');
-    expect(sidebar).toContain('href="/" className="mx-auto font-bold text-[18px] text-[#17201B]"');
-    expect(mobile).toContain('href="/" className="font-bold text-[18px] text-[#17201B]" onClick={onClose}');
-    expect(sidebar).not.toContain('href="/admin" className="font-bold text-[18px] text-[#17201B] truncate"');
-    expect(mobile).not.toContain('href="/admin" className="font-bold text-[18px] text-[#17201B]" onClick={onClose}');
+    expect(sidebar).toContain('href="/" className="block shrink-0"');
+    expect(sidebar).toContain('href="/" className="mx-auto block shrink-0"');
+    expect(mobile).toContain('href="/" className="block shrink-0" onClick={onClose}');
+    expect(sidebar).toContain('<BrandMark className="h-10 w-[146px]" />');
+    expect(sidebar).toContain('<BrandMark compact />');
+    expect(mobile).toContain('<BrandMark className="h-10 w-[146px]" />');
+    expect(sidebar).not.toContain('href="/admin"');
+    expect(mobile).not.toContain('href="/admin"');
   });
 });
 
 test.describe('resolveActiveHref', () => {
-  const allNavItems = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
+  const allNavItems = [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV];
 
   const cases: Array<[string, string | undefined]> = [
     ['/admin', '/admin'],
+    ['/admin/pages', '/admin/pages'],
+    ['/admin/pages/audit', '/admin/pages'],
+    ['/admin/guide', '/admin/guide'],
     ['/admin/products', '/admin/products'],
+    ['/admin/products/tags', '/admin/products/tags'],
     ['/admin/products/display', '/admin/products/display'],
     ['/admin/products/p1', '/admin/products'],
     ['/admin/products/new', '/admin/products'],
     ['/admin/orders/xyz', '/admin/orders'],
-    ['/admin/survey-results', '/admin/survey-results'],
     ['/admin/survey', '/admin/survey'],
+    ['/admin/inquiries', '/admin/inquiries'],
     ['/admin/zzz', undefined],
     // trailingSlash 방어: next.config.ts에서 trailingSlash:true로 바뀌면 pathname이
     // '/admin/'처럼 들어온다 — 정규화 없이는 대시보드 항목만 조용히 영영 비활성화된다.
@@ -157,7 +174,7 @@ test.describe('고아 라우트 가드', () => {
     const staticRoutes = pageFiles.map(toRoute).filter((route) => !route.includes('['));
 
     const reachable = new Set(
-      [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY].map(
+      [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV, ...ADMIN_BREADCRUMB_ONLY].map(
         (i) => i.href,
       ),
     );

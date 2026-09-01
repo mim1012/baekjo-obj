@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowRight, Star } from 'lucide-react';
 import { Brand, Product } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface Props {
   brand: Brand;
@@ -8,6 +9,8 @@ interface Props {
 }
 
 export default function BrandShowroomCard({ brand, products = [] }: Props) {
+  const fullBrandName = formatBrandDisplayName(brand.name);
+
   return (
     <div className="flex flex-col lg:flex-row gap-8 lg:gap-12 rounded-[24px] bg-white border border-[rgba(15,23,42,0.06)] p-6 lg:p-10 transition-all hover:shadow-[0_12px_40px_rgba(15,23,42,0.04)] group">
       {/* 1. Brand Visual Placeholder */}
@@ -30,7 +33,7 @@ export default function BrandShowroomCard({ brand, products = [] }: Props) {
           </div>
           
           <h3 className="text-3xl lg:text-4xl font-editorial text-[#17211D] tracking-tight mb-4">
-            {brand.name}
+            {fullBrandName}
           </h3>
           
           <p className="mb-6 break-keep text-sm leading-[1.6] text-[#6F766F] lg:pr-8 lg:text-base">

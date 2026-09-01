@@ -95,13 +95,20 @@ export function validateAdminShipmentPatch(body: unknown): AdminShipmentPatchInp
   }
   if (b.trackingNumber !== undefined) {
     if (typeof b.trackingNumber !== 'string' || b.trackingNumber.length > MAX_TRACKING) return null;
-    patch.trackingNumber = b.trackingNumber;
+    // 공백만 있거나 앞뒤 공백이 섞인 운송장은 트림 후 저장한다 — 트림하지 않으면 스마트택배
+    // 조회 링크가 깨진다.
+    patch.trackingNumber = b.trackingNumber.trim();
   }
   if (b.deliveryStatus !== undefined) {
     if (typeof b.deliveryStatus !== 'string') return null;
     if (!DELIVERY_STATUSES.includes(b.deliveryStatus as DeliveryStatus)) return null;
     patch.deliveryStatus = b.deliveryStatus;
   }
+
+  // 택배사 없이 운송장만 저장되는 걸 서버에서도 막는다(클라이언트 검사 우회 대비) — 운송장이
+  // 비어있지 않은데 이 patch의 carrier가 없거나 ''(해제)면 400. BrandShipmentCard는 항상
+  // carrier/trackingNumber를 함께 보내므로 정상 경로에는 영향이 없다.
+  if (patch.trackingNumber && !patch.carrier) return null;
 
   if (Object.keys(patch).length === 0) return null;
   return patch;

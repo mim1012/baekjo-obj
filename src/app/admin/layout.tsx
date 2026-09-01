@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import AdminShell from '@/components/admin-new/layout/AdminShell';
+import { SiteSettingsProvider } from '@/components/providers/SiteSettingsProvider';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -14,8 +15,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <AdminShell user={{ name: session.user.name, role: session.user.role }}>
-      {children}
-    </AdminShell>
+    <SiteSettingsProvider>
+      <AdminShell user={{ name: session.user.name, role: session.user.role }}>
+        {children}
+      </AdminShell>
+    </SiteSettingsProvider>
   );
 }

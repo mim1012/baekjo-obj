@@ -78,7 +78,7 @@ function slug(input) {
 
 function isToolingNoise(text) {
   return (
-    /favicon|React DevTools|Failed to load resource.*(404|401)/i.test(text) ||
+    /favicon|React DevTools|Failed to load resource.*404/i.test(text) ||
     (/hydrated but some attributes/i.test(text) && /caret-color:\\"transparent\\"|caret-color:"transparent"/i.test(text))
   );
 }

@@ -3,20 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import type { Brand } from '@/types';
-import { createBrand, updateBrand, type UpdateBrandInput, type CreateBrandInput } from '@/lib/storage';
+import { createBrand, type CreateBrandInput } from '@/lib/storage';
 import { buildBrandPayload, validateDisplayOrder } from '@/lib/brands/formPayload';
 
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
 
 interface BrandFormProps {
-  initialData?: Brand | null;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function BrandForm({ initialData, onClose, onSuccess }: BrandFormProps) {
-  const isEdit = !!initialData;
+export default function BrandForm({ onClose, onSuccess }: BrandFormProps) {
   const [draftId] = useState(() => 
     typeof crypto !== 'undefined' && crypto.randomUUID 
       ? crypto.randomUUID() 
@@ -28,11 +26,8 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     logo: '',
     description: '',
     philosophy: '',
-    auditGrade: 'A+',
-    officialUrl: '',
     isRecommended: false,
     isVisible: true,
-    ...initialData
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -54,7 +49,9 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     e.preventDefault();
     
     if (!formData.name?.trim()) return setError('브랜드명을 입력해주세요.');
+    if (!formData.logo?.trim()) return setError('브랜드 로고를 등록해주세요.');
     if (!formData.description?.trim()) return setError('브랜드 소개를 입력해주세요.');
+    if (!formData.philosophy?.trim()) return setError('브랜드 철학 및 스토리를 입력해주세요.');
 
     // 진열 순서 클라이언트 검증(음수·소수 → 필드 에러). 없으면 서버가 400 후 통짜 에러만 낸다.
     const orderError = validateDisplayOrder(formData.displayOrder);
@@ -64,19 +61,11 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
     setError(null);
 
     try {
-      // 폼은 자기가 편집하는 화이트리스트 필드만 patch한다(BRAND_FORM_FIELDS). formData 전체를
-      // 스프레드로 되보내면 상세 페이지·시드가 소유한 auditReport·멀티셀렉트 값을 stale하게
-      // 덮어쓴다(S1 ProductForm 교훈). updateBrand가 read-modify-write라 안 보내면 기존 값 보존.
+      // 이 모달은 신규 등록 전용이다. 기존 브랜드 수정은 BrandDetailEditor 한 곳에서만 한다.
+      // 생성도 화이트리스트만 보내며, 서버 validate(requireAll)가 누락 배열을 []로 채운다.
       const payload = buildBrandPayload(formData);
-      if (isEdit && initialData.id) {
-        const { error: updateError } = await updateBrand(initialData.id, payload as UpdateBrandInput);
-        if (updateError) throw new Error(updateError);
-      } else {
-        // 생성도 같은 화이트리스트만 보낸다. auditPoints/representativeProductIds/
-        // relatedConcernSlugs 는 서버 validate(requireAll)가 누락 시 []로 기본을 채운다.
-        const { error: createError } = await createBrand(payload as CreateBrandInput);
-        if (createError) throw new Error(createError);
-      }
+      const { error: createError } = await createBrand(payload as CreateBrandInput);
+      if (createError) throw new Error(createError);
 
       onSuccess();
     } catch (err) {
@@ -91,15 +80,17 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
         className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90dvh]"
         role="dialog"
         aria-modal="true"
-        aria-label={isEdit ? '브랜드 정보 수정' : '새 브랜드 등록'}
+        aria-label="새 브랜드 등록"
         onClick={e => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50">
           <h2 className="text-[16px] font-semibold text-[#17201B]">
-            {isEdit ? '브랜드 정보 수정' : '새 브랜드 등록'}
+            새 브랜드 등록
           </h2>
           <button 
+            type="button"
             onClick={onClose}
+            aria-label="브랜드 등록 창 닫기"
             className="text-gray-400 hover:text-gray-600 transition-colors"
           >
             <X size={20} />
@@ -116,14 +107,13 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
           <form id="brand-form" onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="sm:col-span-1">
-                <FormField label="브랜드 로고">
+                <FormField label="브랜드 로고" required>
                   <ImageUploader 
                     value={formData.logo || ''}
                     onChange={(url) => handleChange('logo', url)}
                     domain="brand"
                     usage="logo"
-                    entityId={isEdit ? initialData.id : undefined}
-                    draftId={!isEdit ? draftId : undefined}
+                    draftId={draftId}
                     aspectRatio="1/1"
                     height="160px"
                   />
@@ -141,30 +131,6 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
                   />
                 </FormField>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField label="검증 등급">
-                    <select
-                      value={formData.auditGrade || 'A+'}
-                      onChange={e => handleChange('auditGrade', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
-                    >
-                      <option value="A+">A+ 등급</option>
-                      <option value="A">A 등급</option>
-                      <option value="B+">B+ 등급</option>
-                      <option value="B">B 등급</option>
-                    </select>
-                  </FormField>
-                  
-                  <FormField label="공식몰 URL">
-                    <input 
-                      type="url" 
-                      value={formData.officialUrl || ''} 
-                      onChange={e => handleChange('officialUrl', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-[14px] focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B] outline-none"
-                      placeholder="https://"
-                    />
-                  </FormField>
-                </div>
               </div>
             </div>
 
@@ -177,7 +143,7 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
               />
             </FormField>
 
-            <FormField label="브랜드 철학 및 스토리">
+            <FormField label="브랜드 철학 및 스토리" required>
               <textarea 
                 value={formData.philosophy || ''} 
                 onChange={e => handleChange('philosophy', e.target.value)}
@@ -259,7 +225,7 @@ export default function BrandForm({ initialData, onClose, onSuccess }: BrandForm
             className="px-6 py-2 bg-[#17201B] text-white text-[13px] font-medium rounded hover:bg-[#2F3B34] disabled:opacity-50 flex items-center gap-2"
           >
             {isSaving && <Loader2 size={14} className="animate-spin" />}
-            {isEdit ? '수정 완료' : '브랜드 등록'}
+            브랜드 등록
           </button>
         </div>
       </div>

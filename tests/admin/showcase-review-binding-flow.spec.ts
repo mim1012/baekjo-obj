@@ -9,7 +9,7 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
   test('관리자 후기 화면은 storage 콘센트와 CRUD 콜백을 모두 연결한다', () => {
     const pageSource = src('src', 'app', 'admin', 'reviews', 'page.tsx');
 
-    expect(pageSource).toContain("import { getAdminShowcaseReviewsConfig, saveShowcaseReviewsConfig } from '@/lib/storage';");
+    expect(pageSource).toMatch(/import \{[^}]*\bgetAdminShowcaseReviewsConfig\b[^}]*\bsaveShowcaseReviewsConfig\b[^}]*\} from '@\/lib\/storage';/);
     expect(pageSource).toContain('getAdminShowcaseReviewsConfig()');
     expect(pageSource).toContain('onCreateRow={ready ? handleCreate : undefined}');
     expect(pageSource).toContain('onUpdateRow={ready ? handleUpdate : undefined}');
@@ -29,8 +29,8 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
     expect(pageSource).toContain('const nextItems = [...persistedItemsRef.current, newReview];');
     expect(pageSource).toContain('const nextItems = persistedItemsRef.current.map((review) =>');
     expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((review) => review.id !== id);');
-    expect((pageSource.match(/saveShowcaseReviewsConfig\(\{ items: nextItems \}\)/g) ?? []).length).toBe(3);
-    expect((pageSource.match(/persistedItemsRef\.current = nextItems;/g) ?? []).length).toBe(3);
+    expect((pageSource.match(/saveShowcaseReviewsConfig\(\{ items: nextItems \}\)/g) ?? []).length).toBe(4);
+    expect((pageSource.match(/persistedItemsRef\.current = nextItems;/g) ?? []).length).toBe(4);
     expect(pageSource).toContain('setItems(nextItems);');
     expect(pageSource).toContain('setItems((prev) => prev.filter((review) => review.id !== id));');
     // notices 와 달리 전시 후기는 빈 목록을 허용 — 마지막 1건 삭제를 막는 가드를 두지 않는다.
@@ -39,9 +39,9 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
     expect(pageSource).toContain("window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');");
     // 등록·수정·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스를 막는다(codex 2차 리뷰 HIGH).
     expect(pageSource).toContain('const busyRef = useRef(false);');
-    expect((pageSource.match(/if \(!loaded \|\| loadError \|\| busyRef\.current\) return;/g) ?? []).length).toBe(3);
-    expect((pageSource.match(/busyRef\.current = true;/g) ?? []).length).toBe(3);
-    expect((pageSource.match(/busyRef\.current = false;/g) ?? []).length).toBe(3);
+    expect((pageSource.match(/if \(!loaded \|\| loadError \|\| busyRef\.current\) return false;/g) ?? []).length).toBe(4);
+    expect((pageSource.match(/busyRef\.current = true;/g) ?? []).length).toBe(4);
+    expect((pageSource.match(/busyRef\.current = false;/g) ?? []).length).toBe(4);
     expect(pageSource).not.toContain('deletingRef');
   });
 
@@ -80,7 +80,7 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
     // rating 은 1~5 범위의 유한한 숫자만 허용한다.
     expect(validateSource).toContain('export function isRating(value: unknown): value is number');
     expect(validateSource).toContain('value >= 1 && value <= 5');
-    expect(validateSource).toContain("export const REVIEW_PET_TYPES = ['dog', 'cat'] as const;");
+    expect(validateSource).toContain("export const REVIEW_PET_TYPES = ['dog', 'cat', 'small', 'other'] as const;");
     // null → undefined 정규화(반환·저장 전 항상 거친다).
     expect(validateSource).toContain('export function normalizeShowcaseReview');
     expect(validateSource).toContain('image: review.image ?? undefined');

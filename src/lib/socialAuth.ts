@@ -4,14 +4,19 @@ import type { User } from '@/types';
 
 const SOCIAL_COMPLETE_PATH = '/auth/complete';
 
+export function normalizeReturnTo(value: string | null | undefined): string {
+  return value && value.startsWith('/') && !value.startsWith('//') ? value : '/';
+}
+
 /** 로그인 화면의 소셜 버튼 노출 여부. 키가 준비된 환경에서만 1로 켠다. */
 export function isSocialLoginEnabled(): boolean {
   return process.env.NEXT_PUBLIC_SOCIAL_LOGIN === '1';
 }
 
 /** 소셜 OAuth 시작. 인증 후 브릿지 페이지(/auth/complete)로 리다이렉트된다. */
-export async function loginWithProvider(provider: 'kakao' | 'naver'): Promise<void> {
-  await signIn(provider, { redirectTo: SOCIAL_COMPLETE_PATH });
+export async function loginWithProvider(provider: 'kakao' | 'naver', returnTo = '/'): Promise<void> {
+  const params = new URLSearchParams({ returnTo: normalizeReturnTo(returnTo) });
+  await signIn(provider, { redirectTo: `${SOCIAL_COMPLETE_PATH}?${params.toString()}` });
 }
 
 /**

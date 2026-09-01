@@ -19,12 +19,7 @@ const root = path.resolve(__dirname, '..', '..');
 const ADMIN_APP_DIR = path.join(root, 'src/app/admin');
 
 /** 삭제 버튼이 의도적으로 없는 화면. 새로 추가하려면 "왜 안전한지"를 반드시 적는다. */
-const NO_DELETE_ALLOWLIST: Record<string, string> = {
-  'inquiries/page.tsx':
-    '상품 Q&A(ProductInquiry)는 공개 답변 이력이 남는 고객 문의라 관리자가 임의 삭제하는 게 ' +
-    '도메인상 맞지 않다고 판단(wave-4 스윕 결정). 실제 삭제 경로는 회원 본인 삭제' +
-    '(DELETE /api/inquiries/[id], deleteInquiryByOwner) 하나뿐 — /mypage?tab=inquiries에서만 가능.',
-};
+const NO_DELETE_ALLOWLIST: Record<string, string> = {};
 
 function findAdminResourcePagesRecursively(dir: string): string[] {
   const results: string[] = [];

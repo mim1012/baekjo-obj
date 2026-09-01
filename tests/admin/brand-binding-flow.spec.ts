@@ -27,24 +27,32 @@ function expectPublicBrandSource(source: string): void {
 }
 
 test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로', () => {
-  test('관리자 브랜드 목록과 폼 저장은 storage 콘센트를 통해 흐른다', () => {
+  test('목록은 조회·삭제, 등록 폼은 생성, 상세 편집기는 기존 브랜드 수정만 담당한다', () => {
     const adminPage = src('src', 'app', 'admin', 'brands', 'page.tsx');
     const formSource = src('src', 'components', 'admin-new', 'brands', 'BrandForm.tsx');
+    const detailSource = src('src', 'components', 'admin-new', 'brands', 'BrandDetailEditor.tsx');
 
     const fetchData = sliceBetween(adminPage, 'const fetchData = async', 'useEffect(() => {');
-    const toggleVisible = sliceBetween(adminPage, 'const handleToggleVisible = async', 'const filteredBrands = brands.filter');
 
-    expect(adminPage).toMatch(/import\s+\{[\s\S]*\bgetAdminBrands\b[\s\S]*\bupdateBrand\b[\s\S]*\}\s+from '@\/lib\/storage';/);
+    expect(adminPage).toMatch(/import\s+\{[\s\S]*\bgetAdminBrands\b[\s\S]*\bdeleteBrand\b[\s\S]*\}\s+from '@\/lib\/storage';/);
+    expect(adminPage).not.toContain('updateBrand');
+    expect(adminPage).not.toContain('handleToggleVisible');
+    expect(adminPage).not.toContain('빠른 수정');
+    expect(adminPage).toContain('전체 수정');
     expect(fetchData).toContain('const [brandList, productList] = await Promise.all([');
     expect(fetchData).toContain('getAdminBrands(),');
     expect(fetchData).toContain('getAdminProducts()');
-    expect(toggleVisible).toContain('const { error } = await updateBrand(brand.id, { isVisible: next });');
     expect(adminPage).toMatch(/onSuccess=\{\(\) => \{\s+setIsFormOpen\(false\);\s+fetchData\(\);\s+\}\}/);
 
-    expect(formSource).toMatch(/import\s+\{[\s\S]*\bcreateBrand\b[\s\S]*\bupdateBrand\b[\s\S]*\}\s+from '@\/lib\/storage';/);
+    expect(formSource).toContain("import { createBrand, type CreateBrandInput } from '@/lib/storage';");
+    expect(formSource).not.toContain('updateBrand');
+    expect(formSource).not.toContain('initialData');
     expect(formSource).toContain('const payload = buildBrandPayload(formData);');
-    expect(formSource).toContain('await updateBrand(initialData.id, payload as UpdateBrandInput);');
     expect(formSource).toContain('await createBrand(payload as CreateBrandInput);');
+
+    expect(detailSource).toContain("import { updateBrand, type UpdateBrandInput } from '@/lib/storage';");
+    expect(detailSource).toContain('const { error: updateError } = await updateBrand(');
+    expect(detailSource).toContain('기존 브랜드의 모든 내용을 이 화면 한 곳에서 수정합니다.');
   });
 
   test('storage 브랜드 함수는 관리자 API 에 JSON 요청하고 반환 brands/brand 를 전달한다', () => {
@@ -126,16 +134,27 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productsClient = src('src', 'components', 'brands', 'BrandProductsClient.tsx');
 
-    expect(brandsPage).toContain("import { listCachedPublicBrands } from '@/lib/public-read-cache'");
+    expect(brandsPage).toContain("import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache'");
     expect(brandsPage).toContain("export const dynamic = 'force-dynamic'");
-    expect(brandsPage).toContain('const brands = await listCachedPublicBrands();');
-    expect(brandsPage).toContain('<BrandsContent brands={brands} />');
+    expect(brandsPage).toContain('listCachedPublicBrands(),');
+    expect(brandsPage).toContain("getPublishedPageContent<BrandsPageContent & Record<string, unknown>>('brands')");
+    expect(brandsPage).toContain('const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));');
+    expect(brandsPage).toContain('<BrandsContent brands={brands} productCounts={productCounts} content={content} />');
     expectPublicBrandSource(brandsPage);
 
     expect(detailPage).toContain('getCachedPublicBrandById,');
-    expect(detailPage).toContain('listCachedPublicProducts,');
+    expect(detailPage).toContain('getCachedPublicProductCountsByBrand,');
+    expect(detailPage).toContain('listCachedPublicProductsByBrand,');
     expect(detailPage).toContain('const brand = await getCachedPublicBrandBySlug(id);');
-    expect(detailPage).toContain('const brandProducts = await listCachedPublicProducts({ brandId: brand.id });');
+    expect(detailPage).toContain('const [unsortedBrandProducts, productCounts] = await Promise.all([');
+    expect(detailPage).toContain('listCachedPublicProductsByBrand(brand.id),');
+    expect(detailPage).toContain("sortByManagedProductOrder(unsortedBrandProducts, 'catalogOrder')");
+    expect(detailPage).toContain('const publicProductCount = productCounts[brand.id] ?? 0;');
+    expect(detailPage).toContain('상품 {publicProductCount}개');
+    expect(detailPage).toContain('const representativeProduct = brandProducts.find((product) =>');
+    expect(detailPage).toContain('const heroProduct = representativeProduct ?? brandProducts[0];');
+    expect(detailPage).toContain('{brandProducts.map((product) => (');
+    expect(detailPage).not.toContain('const displayProducts = representativeProducts.length > 0 ? representativeProducts : brandProducts;');
     expect(detailPage).not.toMatch(/getBrandById\(\s*id\s*,/);
     expect(detailPage).not.toContain('getBrandById(id, { includeHidden');
     expectPublicBrandSource(detailPage);
@@ -144,19 +163,21 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(publicCache).toContain('async (id: string) => getBrandById(id)');
 
     expect(detailPage).toContain("import BrandAuditReport from '@/components/common/BrandAuditReport'");
-    expect(detailPage).toContain('<BrandAuditReport brand={brand} />');
+    expect(detailPage).toContain('<BrandAuditReport brand={publicBrand} />');
     expect(detailPage).toContain("import BrandShippingInfo from '@/components/brands/BrandShippingInfo'");
     expect(detailPage).toContain('<BrandShippingInfo brand={brand} />');
     expect(detailPage, '공개 브랜드 상세에는 공식몰 방문 CTA를 렌더하지 않는다').not.toContain('공식몰 방문하기');
-    expect(detailPage, 'officialUrl 은 관리자 저장/재열람용이고 공개 상세에서 직접 읽지 않는다').not.toContain('brand.officialUrl');
+    expect(detailPage, '이전 officialUrl 값은 공개 상세에서 직접 읽지 않는다').not.toContain('brand.officialUrl');
 
     const shippingInfoSource = src('src', 'components', 'brands', 'BrandShippingInfo.tsx');
     expect(shippingInfoSource).toContain('const shipping = brand.shipping;');
     expect(shippingInfoSource).toContain('if (!shipping) return null;');
     expect(shippingInfoSource).toContain('if (rows.length === 0) return null;');
 
-    expect(brandsContent).toContain('export default function BrandsContent({ brands, initialSpotlightBrand }: Props)');
+    expect(brandsContent).toContain('export default function BrandsContent({ brands, productCounts, initialSpotlightBrand, content }: Props)');
+    expect(brandsContent).toContain('productCounts: Record<string, number>;');
     expect(brandsContent).toContain('.filter((brand) => brand.isVisible !== false)');
+    expect(brandsContent).toContain('<BrandCard key={brand.id} brand={brand} productCount={productCounts[brand.id] ?? 0} variant="brand-page" />');
     expectPublicBrandSource(brandsContent);
 
     expectNoMutableBrandImport(productsClient);
@@ -164,11 +185,25 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(productsClient).toContain('initialProducts: Product[];');
     expect(productsClient).toContain('export default function BrandProductsClient({ brand, initialProducts, shortBrandName }: BrandProductsClientProps)');
     expect(productsClient).toContain('const [products, setProducts] = useState<Product[]>(initialProducts);');
-    expect(productsClient).toContain('const visibleProducts = products.filter((product) => product.isVisible !== false);');
+    expect(productsClient).toContain('const visibleProducts = sortByManagedProductOrder(');
+    expect(productsClient).toContain('products.filter((product) => product.isVisible !== false),');
+    expect(productsClient).toContain("'catalogOrder'");
     expect(productsClient).toContain('const representativeProducts = visibleProducts.filter((p) => brand.representativeProductIds.includes(p.id));');
     expect(productsClient).toContain('const additionalProducts = visibleProducts.filter((p) => !brand.representativeProductIds.includes(p.id));');
     expect(productsClient).toContain('{visibleProducts.length > 0 && (');
     expect(productsClient).not.toContain('getPartnerProducts(');
     expect(productsClient).not.toMatch(/\b(?:fetch|getAdminBrands|listBrands|getBrandById)\s*\(/);
+
+    const brandCard = src('src', 'components', 'common', 'BrandCard.tsx');
+    expect(brandCard).toContain('productCount?: number;');
+    expect(brandCard).toContain('const linkedProductCount = productCount ?? 0;');
+    expect(brandCard).not.toContain('brand.representativeProductIds.length');
+
+    expect(publicCache).toContain('countVisibleProductsByBrand');
+    expect(publicCache).toContain('listAllVisibleProductsByBrand');
+    const productRepo = src('src', 'lib', 'products', 'repo.ts');
+    expect(productRepo).toContain("select('id', { count: 'exact', head: true })");
+    expect(productRepo).toContain(".eq('is_visible', true)");
+    expect(productRepo).toContain('listAllVisibleProductsByBrand');
   });
 });

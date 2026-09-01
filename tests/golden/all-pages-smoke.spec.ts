@@ -71,19 +71,12 @@ function attachErrorCapture(page: Page): ErrorCapture {
   return capture;
 }
 
-/** pageerror(미처리 예외)와 hydration 관련 console 에러는 하드 실패. 나머지 console 에러는 소프트 리포트. */
+/** 런칭 게이트에서는 pageerror와 allowlist 밖 console.error를 모두 하드 실패한다. */
 function assertNoBlockingErrors(capture: ErrorCapture, route: string): void {
   expect(capture.pageErrors, `${route} 에서 캡처된 미처리 예외(pageerror)`).toEqual([]);
 
-  const hydrationIssues = capture.consoleErrors.filter((e) => /hydration/i.test(e));
-  expect(hydrationIssues, `${route} 에서 캡처된 hydration 불일치 console 에러`).toEqual([]);
-
   const nonNoise = capture.consoleErrors.filter((e) => !isNoise(e));
-  if (nonNoise.length > 0) {
-    // 소프트 리포트 — 테스트를 실패시키지 않는다. 반복 발생 시 사람이 판단해 NOISE_ALLOWLIST 로
-    // 옮기거나 진짜 버그로 승격(하드 실패 목록에 패턴 추가)할 것.
-    console.warn(`[all-pages-smoke] ${route} 콘솔 에러(비차단, 리포트 전용): ${nonNoise.join(' || ')}`);
-  }
+  expect(nonNoise, `${route} 에서 캡처된 console.error`).toEqual([]);
 }
 
 /** Next.js 기본 에러 바운더리/오버레이가 뜨지 않았는지 body 텍스트로 방어적으로 확인한다. */
@@ -113,7 +106,7 @@ const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/': (page) => h1Visible(page),
   '/audit': (page) => h1Visible(page),
   '/b2b': (page) => h1Visible(page),
-  '/brands': (page) => h1Visible(page, '우리 아이를 생각한다면,'),
+  '/brands': (page) => h1Visible(page, /우리 아이를 생각한다면/),
   '/cart': (page) => h1Visible(page, '장바구니'),
   '/concerns': (page) => h1Visible(page, /어떤 변화가 보이나요/),
   '/diagnosis': (page) => h1Visible(page),
@@ -130,8 +123,8 @@ const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/order-complete': (page) => h1Visible(page, '주문이 완료되었습니다'),
   '/privacy': (page) => h1Visible(page, '개인정보처리방침'),
   '/refund-policy': (page) => h1Visible(page, '배송·교환·환불 안내'),
-  '/reviews': (page) => h1Visible(page, '반려가족의 리얼 후기'),
-  '/shop': (page) => h1Visible(page, '우리 아이를 위한 셀렉션'),
+  '/reviews': (page) => h1Visible(page, '보호자 후기'),
+  '/shop': (page) => h1Visible(page, '우리 아이를 위한 좋은 선택'),
   '/signup': (page) => h1Visible(page, '회원가입'),
   '/terms': (page) => h1Visible(page, '이용약관'),
   // 토큰 없는 cold visit — 각 페이지의 "링크가 올바르지 않다" 계열 문구가 정상 상태다.
@@ -151,18 +144,16 @@ const ADMIN_STATIC_HEADINGS: Record<string, string> = {
   '/admin/kits': '케어 키트 관리',
   '/admin/members': '회원 관리',
   '/admin/notices': '공지사항 관리',
-  '/admin/order-policy': '주문 정책',
+  '/admin/order-policy': '무통장입금 자동취소',
   '/admin/orders': '주문 관리',
   '/admin/partner-inquiries': '제휴 문의 접수',
-  '/admin/partners': 'B2B 제휴 관리',
   '/admin/products': '상품 관리',
   '/admin/products/display': '진열 관리',
   '/admin/products/new': '새 상품 등록',
-  '/admin/qna': '상품 및 일반 문의 관리',
   '/admin/reviews': '후기 관리',
   '/admin/settings': '사이트 콘텐츠 설정',
+  '/admin/pages': '페이지 관리',
   '/admin/survey': '맞춤 진단 설계',
-  '/admin/survey-results': '진단 참여 내역',
 };
 
 // ── 동적 라우트 표본 파라미터 해석 ─────────────────────────────────────────
@@ -210,6 +201,7 @@ const ADMIN_DYNAMIC_ANCHORS: Record<string, (page: Page, sample: ResolvedSample)
     await h1Visible(page, '주문 상세');
     await textVisible(page, sample.id);
   },
+  '/admin/pages/[pageKey]': (page) => h1Visible(page),
   '/admin/products/[id]': (page) => textVisible(page, '상품 수정'),
   '/admin/products/[id]/editor': (page, sample) => textVisible(page, `${sample.label ?? ''} 상세페이지 편집`),
 };

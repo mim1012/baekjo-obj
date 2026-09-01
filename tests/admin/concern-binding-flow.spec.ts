@@ -47,8 +47,8 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain('수정 저장에 실패했습니다.');
 
     expect(pageSource).toContain('const handleDelete = async (id: string | number) => {');
-    expect(pageSource).toContain('if (!loaded || loadError) return;');
-    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('if (!loaded || loadError) return false;');
+    expect(pageSource).toContain('if (busyRef.current) return false;');
     expect(pageSource).toContain('busyRef.current = true;');
     expect(pageSource).toContain('const nextItems = persistedItemsRef.current.filter((concern) => concern.slug !== id);');
     expect(pageSource).toContain('const { ok } = await saveConcernsConfig({ items: nextItems });');
@@ -72,11 +72,11 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
     expect(pageSource).toContain('onDeleteRow={ready ? handleDelete : undefined}');
   });
 
-  test('설명 문구가 공개 노출 규칙(상위 8·9~12·13+ 미노출)과 초과 경고를 안내한다(wave-2 e2e 발견)', () => {
+  test('설명 문구가 실제 공개 노출 규칙(1~6·7~12·13+ 미노출)과 정확히 일치한다', () => {
     const pageSource = src('src', 'app', 'admin', 'concerns', 'page.tsx');
 
     expect(pageSource).toContain(
-      "const exposureRuleNote = '목록 순서가 곧 공개 노출 순서입니다 — 상위 8개는 메인 카드, 9~12번째는 서브 목록, 13번째부터는 공개 목록에 노출되지 않습니다.';",
+      "const exposureRuleNote = '목록 순서가 곧 공개 노출 순서입니다 — 1~6번째는 메인 카드, 7~12번째는 추가 생활 케어, 13번째부터는 공개 목록에 노출되지 않습니다.';",
     );
     expect(pageSource).toContain(
       "items.length > 12 ? ` 현재 ${items.length}개 — 13번째 이후 고민은 공개 목록에 노출되지 않습니다.` : ''",
@@ -151,11 +151,14 @@ test.describe('고민별 케어(concerns) 관리자 저장 → 공개 화면 바
       ['src', 'app', 'concerns', 'page.tsx'],
       ['src', 'app', 'concerns', '[slug]', 'page.tsx'],
       ['src', 'app', 'brands', '[id]', 'page.tsx'],
-      ['src', 'app', 'shop', 'page.tsx'],
       ['src', 'app', 'admin', 'brands', '[id]', 'page.tsx'],
     ]) {
       expect(src(...segments)).toContain("import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';");
     }
+    // 스토어의 '고민' 필터는 케어 가이드가 아니라 현재 상품 카드 태그와 같은 별도 사전을 쓴다.
+    expect(src('src', 'app', 'shop', 'page.tsx')).toContain(
+      "import { getPublicProductTagsConfig } from '@/lib/productTags/repo';",
+    );
     // 클라이언트 화면 — storage 콘센트 경유(§4).
     expect(src('src', 'app', 'signup', 'page.tsx')).toContain('getConcernsConfig');
     expect(src('src', 'app', 'signup', 'page.tsx')).toContain("from '@/lib/storage'");

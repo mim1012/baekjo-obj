@@ -19,6 +19,23 @@ function minimalRequiredBody(): Record<string, unknown> {
   };
 }
 
+test.describe('상품 카테고리 정합성', () => {
+  test('서로 다른 공개 카테고리를 가리키는 category/categorySlug 조합은 거부된다', () => {
+    const result = validateProductFields({ category: '영양', categorySlug: 'food' }, false);
+    expect(result).toBeNull();
+  });
+
+  test('기존 별칭과 canonical slug가 같은 공개 카테고리를 가리키면 통과한다', () => {
+    const result = validateProductFields({ category: '영양', categorySlug: 'wellness-and-care' }, false);
+    expect(result).not.toBeNull();
+  });
+
+  test('관리자 커스텀 카테고리는 정적 매핑이 없어도 통과한다', () => {
+    const result = validateProductFields({ category: '커스텀', categorySlug: 'category-2' }, false);
+    expect(result).not.toBeNull();
+  });
+});
+
 test.describe('detailBlocks (핵심 회귀)', () => {
   test('text+image 블록이 있으면 통과하고 detailBlocks가 결과에 담긴다', () => {
     const result = validateProductFields(
@@ -346,26 +363,30 @@ test.describe('폼 부분수정 계약 (ProductForm 화이트리스트 회귀 �
   });
 });
 
-test.describe('적립금 설정 (pointsEnabled/pointsRate)', () => {
-  test('pointsRate 경계값 0, 100 은 통과한다', () => {
-    expect(validateProductFields({ pointsRate: 0 }, false)!.pointsRate).toBe(0);
-    expect(validateProductFields({ pointsRate: 100 }, false)!.pointsRate).toBe(100);
+test('지원하지 않는 적립금 입력은 상품 저장값에 포함하지 않는다', () => {
+  const result = validateProductFields({ pointsEnabled: true, pointsRate: 5 }, false) as Record<string, unknown>;
+  expect('pointsEnabled' in result).toBe(false);
+  expect('pointsRate' in result).toBe(false);
+});
+
+test.describe('고객 화면별 상품 진열 순서', () => {
+  test('홈 추천·스토어 추천·스토어 전체 순번을 각각 허용한다', () => {
+    const result = validateProductFields({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 3,
+      catalogOrder: 20,
+    }, false);
+    expect(result).toMatchObject({
+      homeFeaturedOrder: 0,
+      shopFeaturedOrder: 3,
+      catalogOrder: 20,
+    });
   });
 
-  test('pointsRate 가 -1, 101, 문자열이면 거부된다', () => {
-    expect(validateProductFields({ pointsRate: -1 }, false)).toBeNull();
-    expect(validateProductFields({ pointsRate: 101 }, false)).toBeNull();
-    expect(validateProductFields({ pointsRate: 'abc' }, false)).toBeNull();
-  });
-
-  test('pointsEnabled 가 boolean 이 아니면 거부된다', () => {
-    expect(validateProductFields({ pointsEnabled: 'yes' }, false)).toBeNull();
-    expect(validateProductFields({ pointsEnabled: 1 }, false)).toBeNull();
-  });
-
-  test('pointsEnabled 가 boolean 이면 통과한다', () => {
-    expect(validateProductFields({ pointsEnabled: true }, false)!.pointsEnabled).toBe(true);
-    expect(validateProductFields({ pointsEnabled: false }, false)!.pointsEnabled).toBe(false);
+  test('음수·소수·문자열 순번은 거부한다', () => {
+    expect(validateProductFields({ homeFeaturedOrder: -1 }, false)).toBeNull();
+    expect(validateProductFields({ shopFeaturedOrder: 1.5 }, false)).toBeNull();
+    expect(validateProductFields({ catalogOrder: '1' }, false)).toBeNull();
   });
 });
 

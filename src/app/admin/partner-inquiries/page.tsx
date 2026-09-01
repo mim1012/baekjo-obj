@@ -46,9 +46,9 @@ export default function AdminPartnerInquiriesPage() {
   }, []);
 
   const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
     const status = String(draft.status ?? '') as PartnerInquiryStatus;
-    if (!PARTNER_INQUIRY_STATUSES.includes(status)) return;
+    if (!PARTNER_INQUIRY_STATUSES.includes(status)) return false;
     const memo = String(draft.memo ?? '');
     busyRef.current = true;
     try {
@@ -59,22 +59,26 @@ export default function AdminPartnerInquiriesPage() {
           inquiry.id === String(id) ? { ...inquiry, status, memo } : inquiry,
         ),
       );
+      return true;
     } catch {
       window.alert('상태 저장에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+      return false;
     } finally {
       busyRef.current = false;
     }
   };
 
   const handleDelete = async (id: string | number) => {
-    if (busyRef.current) return;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       // 콘센트 계약: 실패는 throw — 성공했을 때만 로컬 목록에서 제거한다(handleUpdate와 동일 계약).
       await deletePartnerInquiry(String(id));
       setInquiries((current) => current.filter((inquiry) => inquiry.id !== String(id)));
+      return true;
     } catch {
       window.alert('삭제에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
+      return false;
     } finally {
       busyRef.current = false;
     }
@@ -96,6 +100,7 @@ export default function AdminPartnerInquiriesPage() {
       <AdminResourcePage
         title="제휴 문의 접수"
         description="케어키트 랜딩에서 접수된 B2B 제휴 문의를 확인하고 상담 상태를 관리합니다. 수정 내용은 저장 즉시 반영됩니다."
+        formIntro="고객이 보낸 원문은 아래 목록의 행을 눌러 확인합니다. 수정창에서는 상담 진행 상태와 직원용 메모만 관리합니다."
         searchPlaceholder="업체명·담당자·문의 내용 검색..."
         filters={['전체 상태', ...PARTNER_INQUIRY_STATUSES]}
         columns={[
@@ -112,9 +117,10 @@ export default function AdminPartnerInquiriesPage() {
             key: 'status',
             label: '상태',
             type: 'select',
+            group: '상담 처리',
             options: PARTNER_INQUIRY_STATUSES.map((status) => ({ value: status, label: status })),
           },
-          { key: 'memo', label: '메모', type: 'textarea' },
+          { key: 'memo', label: '직원용 메모', type: 'textarea', group: '상담 처리', description: '고객 화면에는 보이지 않는 내부 메모입니다.' },
         ]}
         onUpdateRow={handleUpdate}
         onDeleteRow={handleDelete}

@@ -11,6 +11,7 @@ import B2BSignupForm from '@/components/signup/B2BSignupForm';
 import InsuranceSignupForm from '@/components/signup/InsuranceSignupForm';
 import PartnerSignupForm from '@/components/signup/PartnerSignupForm';
 import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/emailAvailability';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 
 const SIGNUP_SOCIAL_LABELS = { kakao: '카카오로 시작하기', naver: '네이버로 시작하기' };
 
@@ -19,6 +20,7 @@ type BusinessRole = 'b2b' | 'insurance' | 'partner';
 type BusinessResult = 'success' | 'duplicate' | 'error' | null;
 
 export default function SignupPage() {
+  const siteContent = usePublicSiteContent();
   const router = useRouter();
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
@@ -206,7 +208,7 @@ export default function SignupPage() {
             { id: 'user', label: '일반 회원' },
             { id: 'partner', label: '입점 업체' },
             { id: 'b2b', label: 'B2B 업체' },
-            { id: 'insurance', label: '보험사' },
+            ...(siteContent.features.insurance ? [{ id: 'insurance', label: '보험사' }] : []),
           ].map((type) => (
             <button
               key={type.id}

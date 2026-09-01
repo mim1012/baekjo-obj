@@ -24,6 +24,9 @@ function extractNumber(filename: string): string | null {
 }
 
 const LEGACY_ALLOWLIST: Record<string, string[]> = {
+  '0111': ['0111_member_addresses.sql', '0111_selection_category_six_groups.sql'],
+  '0112': ['0112_customer_refresh_pet_and_category_alignment.sql', '0112_sunny_side_up_audit_source_copy.sql'],
+  '0113': ['0113_brand_alias_auto_assignment.sql', '0113_penefit_brand_story_audit_source_copy.sql'],
   // 0004: 최초 스키마 + 시드 분리 — 문자 접미사(b) 관례의 원조 사례.
   '0004': ['0004_products_brands.sql', '0004b_seed_products_brands.sql'],
   // 0034: 카테고리 이관 SQL과 배송 스키마가 같은 번호로 독립 작성됨(병합 시 미발견, historical).

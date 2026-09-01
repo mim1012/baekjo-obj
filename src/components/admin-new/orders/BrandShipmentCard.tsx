@@ -2,10 +2,11 @@
 
 import React, { useState } from 'react';
 import { DELIVERY_STATUSES } from '@/types';
-import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import { updateOrderShipment } from '@/lib/storage';
 import { formatDate } from '@/lib/format';
+import { shipmentUpdateErrorMessage } from './orderUpdateErrorMessage';
 import type { BrandBundle } from './groupItemsByBrand';
+import CarrierSelect from './CarrierSelect';
 
 interface BrandShipmentCardProps {
   orderId: string;
@@ -63,17 +64,24 @@ export default function BrandShipmentCard({
     .join(', ');
 
   const handleSave = async () => {
+    // 운송장은 공백을 트림해 저장하고, 택배사 없이 운송장만 저장되는 걸 막는다 — 택배사가 없으면
+    // 고객 조회 화면의 추적 링크를 만들 수 없어 조회가 깨진다('' = 택배사 해제는 그대로 허용).
+    const trimmedTracking = trackingNumber.trim();
+    if (trimmedTracking && !carrier) {
+      alert('운송장 번호를 입력하려면 택배사를 먼저 선택해주세요.');
+      return;
+    }
     try {
       setIsSaving(true);
       await updateOrderShipment(orderId, bundle.brandId, {
         carrier,
-        trackingNumber,
+        trackingNumber: trimmedTracking,
         deliveryStatus,
       });
       await onSaved(); // 성공 시 송장/주문 재조회로 카드·주문 단위 상태 갱신
-    } catch {
-      // 실패 시 낙관적 갱신을 하지 않았으므로 안내만 — 기존 admin 패턴(alert) 따름.
-      alert('배송 정보 저장에 실패했습니다.');
+    } catch (error) {
+      // 실패 시 낙관적 갱신을 하지 않았으므로 안내만 — 서버 코드별로 구체 문구를 구분한다.
+      alert(shipmentUpdateErrorMessage(error));
     } finally {
       setIsSaving(false);
     }
@@ -108,19 +116,7 @@ export default function BrandShipmentCard({
         <div className="flex flex-col md:flex-row md:items-end gap-3">
           <label className="flex-1 block">
             <span className="block text-[13px] font-medium text-[#17201B] mb-1">택배사</span>
-            <select
-              value={carrier}
-              onChange={(e) => setCarrier(e.target.value)}
-              disabled={isSaving}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:opacity-60"
-            >
-              <option value="">미지정</option>
-              {CARRIER_CODES.map((code) => (
-                <option key={code} value={code}>
-                  {CARRIER_LABELS[code]}
-                </option>
-              ))}
-            </select>
+            <CarrierSelect value={carrier} onChange={setCarrier} disabled={isSaving} />
           </label>
 
           <label className="flex-1 block">

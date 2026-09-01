@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, LogOut } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import BrandMark from '@/components/common/BrandMark';
 import {
   ADMIN_MAIN_NAV,
-  ADMIN_CS_NAV,
-  ADMIN_ETC_NAV,
+  ADMIN_SITE_NAV,
+  ADMIN_OPERATIONS_NAV,
+  ADMIN_INSURANCE_NAV,
   ADMIN_ALL_NAV,
   resolveActiveHref,
   type AdminSidebarItem,
@@ -16,8 +18,9 @@ import {
 
 // AdminSidebar와 메뉴 구조를 adminNav.ts(SSOT)로 공유한다.
 const mainNavItems = ADMIN_MAIN_NAV;
-const csNavItems = ADMIN_CS_NAV;
-const etcNavItems = ADMIN_ETC_NAV;
+const siteNavItems = ADMIN_SITE_NAV;
+const operationsNavItems = ADMIN_OPERATIONS_NAV;
+const insuranceNavItems = ADMIN_INSURANCE_NAV;
 
 interface AdminMobileNavProps {
   isOpen: boolean;
@@ -59,7 +62,12 @@ function NavGroup({
               }`}
             >
               <item.icon className="mr-3 size-5 shrink-0" />
-              <span className="text-[15px]">{item.name}</span>
+              <span className="min-w-0">
+                <span className="block text-[15px]">{item.name}</span>
+                <span className={`mt-0.5 block text-[11px] font-normal ${active ? 'text-white/70' : 'text-[#8B928C]'}`}>
+                  {item.description}
+                </span>
+              </span>
             </Link>
           );
         })}
@@ -103,11 +111,13 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
         }`}
       >
         <div className="h-[60px] flex items-center justify-between px-4 border-b border-gray-200 shrink-0 bg-white">
-          <Link href="/" className="font-bold text-[18px] text-[#17201B]" onClick={onClose} aria-label="백조오브제 홈">
-            백조오브제
+          <Link href="/" className="block shrink-0" onClick={onClose} aria-label="백조오브제 홈">
+            <BrandMark className="h-10 w-[146px]" />
           </Link>
           <button 
+            type="button"
             onClick={onClose}
+            aria-label="관리자 메뉴 닫기"
             className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-md"
           >
             <X size={20} />
@@ -116,8 +126,9 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
 
         <div className="flex-1 overflow-y-auto py-6">
           <NavGroup items={mainNavItems} isActive={isActive} onNavigate={onClose} />
-          <NavGroup items={csNavItems} title="고객지원" isActive={isActive} onNavigate={onClose} />
-          <NavGroup items={etcNavItems} title="기타" isActive={isActive} onNavigate={onClose} />
+          <NavGroup items={siteNavItems} title="홈페이지 내용" isActive={isActive} onNavigate={onClose} />
+          <NavGroup items={operationsNavItems} title="주문·고객 처리" isActive={isActive} onNavigate={onClose} />
+          <NavGroup items={insuranceNavItems} title="보험(별도)" isActive={isActive} onNavigate={onClose} />
         </div>
 
         <div className="p-4 border-t border-gray-200 bg-white shrink-0">
@@ -127,7 +138,9 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
               <p className="text-[12px] text-gray-500 truncate">{user.role}</p>
             </div>
             <button
+              type="button"
               onClick={() => signOut({ callbackUrl: '/' })}
+              aria-label="관리자 로그아웃"
               className="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-red-600 transition-colors"
             >
               <LogOut size={18} />
