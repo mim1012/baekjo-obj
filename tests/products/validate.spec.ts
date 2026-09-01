@@ -19,6 +19,23 @@ function minimalRequiredBody(): Record<string, unknown> {
   };
 }
 
+test.describe('상품 카테고리 정합성', () => {
+  test('서로 다른 공개 카테고리를 가리키는 category/categorySlug 조합은 거부된다', () => {
+    const result = validateProductFields({ category: '영양', categorySlug: 'food' }, false);
+    expect(result).toBeNull();
+  });
+
+  test('기존 별칭과 canonical slug가 같은 공개 카테고리를 가리키면 통과한다', () => {
+    const result = validateProductFields({ category: '영양', categorySlug: 'wellness-and-care' }, false);
+    expect(result).not.toBeNull();
+  });
+
+  test('관리자 커스텀 카테고리는 정적 매핑이 없어도 통과한다', () => {
+    const result = validateProductFields({ category: '커스텀', categorySlug: 'category-2' }, false);
+    expect(result).not.toBeNull();
+  });
+});
+
 test.describe('detailBlocks (핵심 회귀)', () => {
   test('text+image 블록이 있으면 통과하고 detailBlocks가 결과에 담긴다', () => {
     const result = validateProductFields(

@@ -38,3 +38,11 @@ test.describe('splitProductInput — brand_id 정규화', () => {
     });
   });
 });
+
+test.describe('splitProductInput — category_slug 컬럼 저장', () => {
+  test('categorySlug는 detail이 아니라 category_slug 컬럼에 저장된다', () => {
+    const { columns, detail } = splitProductInput({ categorySlug: 'nutrition' });
+    expect(columns.category_slug).toBe('nutrition');
+    expect('categorySlug' in detail).toBe(false);
+  });
+});
