@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Brand } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface Props {
   brand: Brand;
@@ -8,18 +9,25 @@ interface Props {
   fit?: 'contain' | 'cover';
   fluid?: boolean;
   uniformScale?: boolean;
+  scaleOverride?: number;
+  srcOverride?: string;
   className?: string;
 }
 
 type LogoSize = NonNullable<Props['size']>;
 
 const displayLogoMap: Record<string, string> = {
-  b5: '/brands/alloming-official.png',
-  b6: '/brands/repet-official.png',
+  b3: '/brands/nobledog-wordmark-pink-v2.png',
+  b5: '/brands/alloming-wordmark-orange-v2.png',
+  b6: '/brands/repet-clean.png',
 };
 
 export const getBrandDisplayLogo = (brand: Pick<Brand, 'id' | 'logo'>) =>
-  displayLogoMap[brand.id] ?? brand.logo;
+  brand.logo || displayLogoMap[brand.id];
+
+export const getBrandTitleDisplayLogo = (
+  brand: Pick<Brand, 'id' | 'logo' | 'wordmarkImage'>,
+) => brand.wordmarkImage || brand.logo || displayLogoMap[brand.id];
 
 const sizeClasses = {
   sm: 'h-5 w-[84px]',
@@ -49,9 +57,9 @@ const logoScaleMap: Record<string, number> = {
 const mediumUniformLogoScaleMap: Record<string, number> = {
   b1: 0.9,
   b2: 1.8,
-  b3: 0.9,
+  b3: 1.1,
   b4: 0.95,
-  b5: 1,
+  b5: 1.15,
   b6: 0.95,
   b7: 1,
   b8: 2,
@@ -62,9 +70,9 @@ const mediumUniformLogoScaleMap: Record<string, number> = {
 const largeUniformLogoScaleMap: Record<string, number> = {
   b1: 0.86,
   b2: 1.75,
-  b3: 0.88,
+  b3: 1.1,
   b4: 0.95,
-  b5: 1,
+  b5: 1.15,
   b6: 0.95,
   b7: 0.95,
   b8: 2,
@@ -76,7 +84,16 @@ const uniformLogoOffsetMap: Record<string, string> = {
   b8: '16%',
 };
 
-const getLogoTransform = (brandId: string, size: LogoSize, uniformScale: boolean) => {
+const getLogoTransform = (
+  brandId: string,
+  size: LogoSize,
+  uniformScale: boolean,
+  scaleOverride?: number,
+) => {
+  if (scaleOverride !== undefined) {
+    return `translateX(${uniformLogoOffsetMap[brandId] ?? '0%'}) scale(${scaleOverride})`;
+  }
+
   if (uniformScale && size !== 'sm') {
     const scaleMap = size === 'lg' ? largeUniformLogoScaleMap : mediumUniformLogoScaleMap;
     return `translateX(${uniformLogoOffsetMap[brandId] ?? '0%'}) scale(${scaleMap[brandId] ?? 1})`;
@@ -92,17 +109,21 @@ export default function BrandLogo({
   fit,
   fluid = false,
   uniformScale = false,
+  scaleOverride,
+  srcOverride,
   className = '',
 }: Props) {
-  const fallbackName = brand.name.replace(/\s*\(.*?\)/, '').trim();
-  const logoSrc = getBrandDisplayLogo(brand);
-  const hasTransparentDisplayLogo = Boolean(displayLogoMap[brand.id]);
+  const fallbackName = formatBrandDisplayName(brand.name);
+  const logoSrc = srcOverride ?? getBrandDisplayLogo(brand);
+  const fallbackDisplayLogo = displayLogoMap[brand.id];
+  const hasTransparentDisplayLogo = Boolean(fallbackDisplayLogo && logoSrc === fallbackDisplayLogo);
   const imageFit = uniformScale ? 'contain' : (fit ?? 'contain');
   const surfaceClass = surface ? 'rounded-xl bg-white' : '';
   const surfaceImageClass = surface && !uniformScale && !hasTransparentDisplayLogo ? 'p-2' : '';
+  const backgroundBlendClass = brand.id === 'b8' ? 'mix-blend-multiply' : '';
   const imageClass = imageFit === 'cover'
-    ? `object-cover object-center ${surfaceImageClass}`
-    : `object-contain object-center ${surfaceImageClass}`;
+    ? `object-cover object-center ${surfaceImageClass} ${backgroundBlendClass}`
+    : `object-contain object-center ${surfaceImageClass} ${backgroundBlendClass}`;
   const containerSizeClass = fluid ? fluidSizeClasses[size] : sizeClasses[size];
 
   return (
@@ -118,7 +139,7 @@ export default function BrandLogo({
           unoptimized
           className={imageClass}
           style={{
-            transform: getLogoTransform(brand.id, size, uniformScale),
+            transform: getLogoTransform(brand.id, size, uniformScale, scaleOverride),
             transformOrigin: 'center'
           }}
         />

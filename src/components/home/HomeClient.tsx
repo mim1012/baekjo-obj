@@ -11,11 +11,14 @@ import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import { FEATURES } from '@/config/features';
 import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
 
-type HomeClientSettings = Omit<HomeSettings, 'solutions'>;
+type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {
+  insuranceBanner?: HomeSettings['insuranceBanner'];
+};
 
 // 줄바꿈은 마크업이 아니라 구조(string[])로 다룬다(§ homeContent). 각 줄 사이에만 <br /> 를
 // 넣어 하드코딩 시절 DOM 과 동일하게 렌더한다. brClassName 은 반응형 줄바꿈(예: 'hidden sm:block').
@@ -47,7 +50,7 @@ const { props: { srcSet: mobileHeroSrcSet } } = getImageProps({
 });
 
 const { props: desktopAuditImageProps } = getImageProps({
-  src: '/images/home-audit-client-photo-extended-v4.png',
+  src: '/images/home-audit-client-photo-extended-v5.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '(max-width: 1280px) 100vw, 1168px',
@@ -55,7 +58,7 @@ const { props: desktopAuditImageProps } = getImageProps({
 });
 
 const { props: { srcSet: mobileAuditSrcSet } } = getImageProps({
-  src: '/images/home-audit-client-photo-v3.png',
+  src: '/images/home-audit-client-photo-v4.png',
   alt: '백조오브제 브랜드 패키지 오브제',
   fill: true,
   sizes: '100vw',
@@ -90,7 +93,7 @@ export default function HomeClient({
     { icon: Dog, href: '/shop?petType=dog' },
     { icon: Cat, href: '/shop?petType=cat' },
     { icon: Rabbit, href: '/shop?petType=small' },
-    { icon: Utensils, href: '/shop?category=food-nutrition' },
+    { icon: Utensils, href: '/shop?category=food' },
     { icon: Bath, href: '/shop?category=care' },
     { icon: HeartPulse, href: '/concerns' },
   ];
@@ -106,6 +109,21 @@ export default function HomeClient({
 
   return (
     <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
+      <aside
+        data-testid="home-soft-open-notice"
+        aria-label="가오픈 결제 안내"
+        className="flex min-h-[38px] w-full items-center bg-[#17211D] text-[#FBFAF7] sm:min-h-[34px]"
+      >
+        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center gap-2 px-2 py-1 sm:px-8 lg:px-12 xl:px-14">
+          <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
+            가오픈 진행 중
+          </span>
+          <p className="min-w-0 break-keep text-left text-[10px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#FBFAF7] sm:whitespace-nowrap sm:text-[12px] sm:leading-none sm:tracking-normal">
+            | 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
+          </p>
+        </div>
+      </aside>
+
       {/* 1. 메인 히어로 */}
       <section data-testid="home-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
         <div className="relative h-full w-full overflow-hidden">
@@ -159,22 +177,22 @@ export default function HomeClient({
 
       <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
-          <div data-testid="home-audit-hero" className="relative isolate min-h-[390px] overflow-hidden md:min-h-[360px] lg:min-h-[380px]">
-            <picture>
+          <div data-testid="home-audit-hero" className="relative isolate flex min-h-0 flex-col overflow-hidden md:block md:min-h-[360px] lg:min-h-[380px]">
+            <picture className="order-2 relative block h-[214px] shrink-0 md:absolute md:inset-0 md:h-auto">
               <source media="(max-width: 767px)" sizes="100vw" srcSet={mobileAuditSrcSet} />
               <img
                 {...desktopAuditImageProps}
                 alt="백조오브제 브랜드 패키지 오브제"
-                className="object-contain object-bottom md:object-cover md:object-[center_39%]"
+                className="object-cover object-[center_58%] md:object-cover md:object-[center_39%]"
                 data-testid="home-audit-image"
               />
             </picture>
             <div
               aria-hidden="true"
-              className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.62)_0%,rgba(248,246,240,0.42)_60%,rgba(248,246,240,0.16)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)]"
+              className="pointer-events-none absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(248,246,240,0.72)_0%,rgba(248,246,240,0.52)_47%,rgba(248,246,240,0.12)_68%,rgba(248,246,240,0)_100%)] md:block"
             />
 
-            <div className="relative z-10 flex min-h-[390px] max-w-[680px] flex-col justify-center p-6 md:min-h-[360px] md:p-8 lg:min-h-[380px] lg:p-10">
+            <div className="relative z-10 order-1 flex min-h-0 max-w-[680px] flex-col justify-center bg-[#F6F3ED] p-6 md:min-h-[360px] md:bg-transparent md:p-8 lg:min-h-[380px] lg:p-10">
               <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
@@ -182,7 +200,7 @@ export default function HomeClient({
               <p className="mt-4 max-w-[560px] break-keep text-[14px] leading-[1.7] text-[#68716C] md:text-[15px]">
                 {audit.description}
               </p>
-              <Link href="/audit" className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
+              <Link href="/audit" prefetch={false} className="mt-6 inline-flex h-11 w-fit items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
                 {audit.linkLabel} <ArrowRight className="ml-1.5 size-4" />
               </Link>
             </div>
@@ -252,16 +270,13 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#18231F] px-5 text-[13px] md:text-[14px] font-bold text-white transition-colors hover:bg-[#2F3B34]">
-              {curation.diagnosisLinkLabel}
-            </Link>
             <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-4">
-          {curationCards.map((card, i) => {
+              {curationCards.map((card) => {
             const title = card.title;
             const desc = card.desc;
             return (
@@ -297,8 +312,9 @@ export default function HomeClient({
         <BrandShowcaseSlider brands={displayBrands} />
       </section>
 
-      {/* 9. 펫보험 안내 배너 */}
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+      {/* 9. 펫보험 안내 배너 — 기능 플래그로 미노출(복귀는 features.ts) */}
+      {FEATURES.insurance && insuranceBanner && (
+        <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
             <div className="flex max-w-[480px] flex-col items-start text-[#17231E]">
@@ -315,23 +331,30 @@ export default function HomeClient({
             </div>
 
             <div className="mt-2 md:mt-0 relative z-20 shrink-0">
-              <Link href="/insurance" className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
+              <Link href="/insurance" prefetch={false} className="flex h-[48px] items-center justify-center rounded-xl border border-[#173C32]/20 bg-[#173C32]/90 px-8 text-[14px] font-bold text-white shadow-sm backdrop-blur-sm transition-colors hover:bg-[#173C32]">
                 {insuranceBanner.buttonLabel}
               </Link>
             </div>
           </div>
           <div className="absolute inset-0 h-full w-full overflow-hidden">
             <picture>
+              <source type="image/webp" media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.webp" />
+              <source type="image/webp" srcSet="/images/insurance-analysis-banner-mobile.webp" />
               <source media="(min-width: 768px)" srcSet="/images/insurance-analysis-banner-wide.png" />
               <img
                 src="/images/insurance-analysis-banner.png"
                 alt="반려동물 보험을 분석하는 보호자와 강아지, 고양이"
+                width={640}
+                height={348}
+                decoding="async"
+                loading="lazy"
                 className="h-full w-full object-cover object-center"
               />
             </picture>
           </div>
         </div>
       </section>
+      )}
 
       {/* 10. 반려가족 후기와 백조오브제 소식 */}
       <section className="mx-auto mb-12 w-full max-w-[1280px] rounded-[24px] bg-[#F2EEE5] px-5 py-8 md:mb-16 md:px-7 md:py-10 lg:px-10 xl:px-14">
@@ -341,7 +364,7 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.reviewsTitle}</h2>
               </div>
-              <Link href="/reviews" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
+              <Link href="/reviews" prefetch={false} className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.reviewsLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
@@ -361,23 +384,27 @@ export default function HomeClient({
               <div>
                 <h2 className="text-[20px] font-bold tracking-tight text-[#18231F]">{trustBoard.noticesTitle}</h2>
               </div>
-              <Link href="/notices" className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
+              <Link href="/notices" prefetch={false} className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-[#59615B] hover:text-[#7A4E1D] transition-colors md:min-h-0">
                 {trustBoard.noticesLinkLabel} <ArrowRight className="ml-1 size-3" />
               </Link>
             </div>
             <div className="flex flex-col">
-              {recentNotices.map((notice) => (
-                <Link key={notice.id} href={`/notices/${notice.id}`} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
-                  <div className="flex items-center justify-between">
-                    <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
-                      {notice.title}
-                    </p>
-                    <time className="shrink-0 font-editorial text-[13px] italic text-[#59615B]">
-                      {formatDate(notice.date)}
-                    </time>
-                  </div>
-                </Link>
-              ))}
+              {recentNotices.length === 0 ? (
+                <p className="border-b border-[#F2EFE9] py-5 text-[15px] text-[#6F766F]">등록된 공지사항이 없습니다.</p>
+              ) : (
+                recentNotices.map((notice) => (
+                  <Link key={notice.id} href={`/notices/${notice.id}`} prefetch={false} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
+                    <div className="flex items-center justify-between">
+                      <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
+                        {notice.title}
+                      </p>
+                      <time className="shrink-0 font-editorial text-[13px] italic text-[#59615B]">
+                        {formatDate(notice.date)}
+                      </time>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           </div>
         </div>

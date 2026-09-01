@@ -202,7 +202,7 @@ export default function InsuranceSignupForm({
       <section className="space-y-5 border-t border-[#D1D0C8] pt-6">
         <h2 className="text-xl font-bold text-[#202521] mb-2">3. 개인정보 수집 및 이용 동의</h2>
         <div className="bg-white p-4 border border-[#D1D0C8] text-sm text-[#5F6761] mb-3">
-          제출한 자료는 백조 오브제의 보험설계사 자격 확인 및 승인 절차를 위한 용도로만 활용됩니다.<br />
+          제출한 자료는 백조오브제의 보험설계사 자격 확인 및 승인 절차를 위한 용도로만 활용됩니다.<br />
           외부 공개 또는 제3자 제공은 별도 협의 없이 진행되지 않습니다.
         </div>
         <Checkbox label="[필수] 위 내용에 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />

@@ -13,67 +13,67 @@ import { PageIntro, SectionHeading } from '@/components/common/EditorialHeading'
 
 export const metadata = {
   title: 'B2B 파트너십',
-  description: '동물병원, 반려생활 기관, 기업과 브랜드를 위한 케어키트, 대량 구매, 입점 및 공동 기획 파트너십을 안내합니다.',
+  description: '기관과 브랜드의 목적에 맞춘 상품, 콘텐츠, 케어키트, 대량 구매 및 공동 기획 파트너십을 안내합니다.',
 };
 
 const partnerTypes = [
   {
     icon: Building2,
-    title: '동물병원·전문기관',
-    description: '진료와 회복, 첫 방문과 이별 등 보호자에게 안내가 필요한 순간에 맞춘 케어 구성을 제안합니다.',
+    title: '동물병원',
+    description: '보호자와 반려동물이 필요한 상황에 맞춰 상품과 구성을 제안합니다.',
   },
   {
     icon: BriefcaseBusiness,
     title: '기업·단체',
-    description: '임직원 복지, 고객 선물, 캠페인 목적에 맞춰 상품과 가이드가 함께 담긴 구성을 설계합니다.',
+    description: '임직원 복지, 고객 선물, 캠페인 등 목적에 맞춰 상품과 구성을 제안합니다.',
   },
   {
     icon: Store,
     title: '반려생활 공간',
-    description: '호텔, 유치원, 장례 및 커뮤니티 공간의 고객 경험에 맞는 상품 공급과 케어 콘텐츠를 연결합니다.',
+    description: '호텔, 유치원, 장례식장·추모 공간 등 공간의 성격과 이용 목적에 맞는 구성을 제안합니다.',
   },
   {
     icon: Handshake,
     title: '브랜드 파트너',
-    description: '입점 검토부터 공동 큐레이션, 콘텐츠와 체험 캠페인까지 브랜드의 강점이 정확히 전달되도록 협업합니다.',
+    description: '입점부터 공동 기획까지 브랜드의 방향과 목적에 맞는 협업 방식을 함께 찾습니다.',
   },
 ];
 
 const programs = [
   {
     icon: PackageCheck,
-    eyebrow: 'Care kit',
+    eyebrow: 'CARE KIT',
     title: '상황별 케어키트',
-    description: '병원, 웰컴, 활력, 위로 등 보호자에게 필요한 순간을 기준으로 상품과 안내 콘텐츠를 함께 구성합니다.',
-    features: ['기관 목적에 맞춘 구성', '수량·예산별 제안', '보호자용 안내 콘텐츠'],
+    description: '웰컴, 위로 등 필요한 순간과 목적에 맞춰 상품과 안내 구성을 제안합니다.',
+    features: ['목적에 맞는 상품 구성', '수량·예산에 따른 제안', '필요한 안내 구성'],
     href: '/landing/care-kit',
-    cta: '케어키트 자세히 보기',
+    cta: '케어키트 안내',
   },
   {
     icon: ShoppingCart,
-    eyebrow: 'Business order',
+    eyebrow: 'SUPPLY',
     title: '대량 구매·정기 공급',
-    description: '기업 선물과 기관 운영에 필요한 검증 상품을 예산과 일정, 납품 조건에 맞춰 제안합니다.',
-    features: ['대량 구매 견적', '정기 공급 협의', '구성 및 납품 일정 조율'],
+    description: '기업과 기관에 필요한 상품을 수량, 예산, 일정에 맞춰 제안합니다.',
+    features: ['대량 구매 협의', '정기 공급 협의', '구성 및 납품 일정 조율'],
     href: '/signup',
-    cta: 'B2B 회원 시작하기',
+    cta: 'B2B 회원가입',
   },
   {
     icon: Handshake,
-    eyebrow: 'Brand partnership',
+    eyebrow: 'PARTNERSHIP',
     title: '입점·공동 기획',
-    description: '브랜드의 운영 방향과 상품 자료를 확인하고 백조오브제 고객에게 맞는 소개 방식과 협업을 설계합니다.',
-    features: ['입점 자료 검토', '콘텐츠 공동 기획', '체험·캠페인 협의'],
+    description: '브랜드의 방향과 제품을 살펴보고, 입점부터 필요한 협업 방식을 함께 논의합니다.',
+    features: ['입점 및 운영 협의', '브랜드·제품에 맞는 협업 검토', '필요 시 공동 기획 진행'],
     href: '/signup',
-    cta: '파트너 등록하기',
+    cta: '브랜드 회원가입',
   },
 ];
 
 const process = [
-  { title: '문의 접수', description: '기관 유형, 필요한 수량과 일정, 협업 목적을 남겨주세요.' },
-  { title: '담당자 상담', description: '요청 내용을 확인한 뒤 필요한 조건과 운영 환경을 함께 정리합니다.' },
-  { title: '맞춤 제안', description: '상품 구성, 단가, 일정과 안내 콘텐츠를 포함한 제안 내용을 전달합니다.' },
-  { title: '실행과 운영', description: '확정된 조건에 따라 제작·납품하고 이후 운영과 추가 요청을 지원합니다.' },
+  { title: '문의 접수', description: '기관·브랜드 유형과 원하는 협업 내용을 남겨주세요.' },
+  { title: '내용 확인', description: '문의 내용을 바탕으로 필요한 사항과 협업 방향을 확인합니다.' },
+  { title: '제안 및 협의', description: '협업 범위와 세부 내용, 일정 등을 정리해 함께 협의합니다.' },
+  { title: '진행', description: '협의된 내용과 일정에 따라 협업을 진행합니다.' },
 ];
 
 export default function B2BPage() {
@@ -83,12 +83,11 @@ export default function B2BPage() {
         <div className="site-container-wide grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-16">
           <PageIntro
             className="lg:col-span-6"
-            eyebrow="Baekjo Objet for business"
+            eyebrow="BAEKJO OBJET FOR BUSINESS"
             title={<>반려가족과 만나는 순간을<br />함께 설계합니다.</>}
             description={
               <p>
-                백조오브제 B2B는 단순한 상품 공급이 아니라 기관과 브랜드가 보호자에게 전하고 싶은 경험을
-                검증된 상품, 케어 콘텐츠, 운영 방식으로 연결합니다.
+                백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.
               </p>
             }
             action={
@@ -122,9 +121,9 @@ export default function B2BPage() {
       <section className="page-section">
         <div className="site-container-wide">
           <SectionHeading
-            eyebrow="For partners"
-            title="이런 파트너와 함께합니다."
-            description={<p>공간과 고객, 운영 목적이 달라도 필요한 순간을 함께 정의한 뒤 가장 적합한 방식을 찾습니다.</p>}
+            eyebrow="FOR PARTNERS"
+            title="목적에 따라 협업의 방식도 달라집니다."
+            description={<p>기관과 브랜드의 목적에 맞춰 필요한 협업 방식을 함께 찾습니다.</p>}
           />
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-4">
@@ -145,10 +144,15 @@ export default function B2BPage() {
       <section id="programs" className="page-section-muted scroll-mt-24 border-y border-[#E7E0D5]">
         <div className="site-container-wide">
           <SectionHeading
-            eyebrow="Partnership programs"
-            title="필요에 맞는 협업 방식을 선택하세요."
-            description={<p>상품 공급부터 케어키트, 입점과 공동 기획까지 목적에 필요한 범위만 조합할 수 있습니다.</p>}
+            eyebrow="PARTNERSHIP PROGRAMS"
+            title="필요에 맞는 협업 방식을 제안합니다."
+            description={<p>상품 공급부터 케어키트, 입점과 공동 기획까지 목적에 맞는 방식으로 협업합니다.</p>}
           />
+
+          <p className="mt-5 max-w-4xl break-keep text-[14px] leading-[1.8] text-[#6F766F]">
+            ※ 프로젝트는 충분한 협의와 준비를 거쳐 공개하며, 기획·진행 단계의 내용은 노출을 지양합니다.
+            일부 프로젝트는 파트너사와의 협의에 따라 공개되지 않을 수 있습니다.
+          </p>
 
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {programs.map((program) => {
@@ -184,34 +188,40 @@ export default function B2BPage() {
       <section className="page-section">
         <div className="site-container-wide grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
           <SectionHeading
-            eyebrow="How it works"
-            title="문의부터 운영까지 차근차근 진행합니다."
-            description={<p>아직 구성과 수량이 정해지지 않아도 괜찮습니다. 목적과 일정부터 함께 정리해 드립니다.</p>}
+            eyebrow="HOW IT WORKS"
+            title="협업은 이렇게 진행됩니다."
+            description={<p>구체적인 협업 내용이 정해지기 전에도 문의할 수 있습니다. 협업 목적을 확인한 뒤 필요한 범위와 일정을 함께 정리합니다.</p>}
           />
 
-          <ol className="border-t border-[#D8C4A3]">
-            {process.map((step, index) => (
-              <li key={step.title} className="grid gap-3 border-b border-[#E7E0D5] py-5 sm:grid-cols-[64px_1fr] sm:py-6">
-                <span className="font-editorial text-xl italic text-[#A8742E]">0{index + 1}</span>
-                <div>
-                  <h3 className="text-[18px] font-bold text-[#17211D]">{step.title}</h3>
-                  <p className="mt-2 break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">{step.description}</p>
-                </div>
-              </li>
-            ))}
-          </ol>
+          <div>
+            <ol className="border-t border-[#D8C4A3]">
+              {process.map((step, index) => (
+                <li key={step.title} className="grid gap-3 border-b border-[#E7E0D5] py-5 sm:grid-cols-[64px_1fr] sm:py-6">
+                  <span className="font-editorial text-xl italic text-[#A8742E]">0{index + 1}</span>
+                  <div>
+                    <h3 className="text-[18px] font-bold text-[#17211D]">{step.title}</h3>
+                    <p className="mt-2 break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">{step.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+            <p className="mt-5 break-keep text-[14px] leading-[1.8] text-[#6F766F]">
+              ※ 진행 중인 프로젝트와 검토 일정에 따라 기획 및 제안까지 다소 시간이 소요될 수 있습니다.
+              충분한 검토가 필요한 협업은 일정에 여유를 두고 문의해 주세요.
+            </p>
+          </div>
         </div>
       </section>
 
       <section className="bg-[#202521] py-14 text-[#FBFAF7] lg:py-16">
         <div className="site-container-wide flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">
-            <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">Start a partnership</p>
-            <h2 className="mt-3 text-[26px] font-bold leading-[1.25] text-[#FBFAF7] sm:text-[32px]">기준이 같다면, 함께 만들어갑니다.</h2>
-            <p className="mt-4 max-w-3xl break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다. 신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</p>
+            <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">START A PARTNERSHIP</p>
+            <h2 className="mt-3 text-[26px] font-bold leading-[1.25] text-[#FBFAF7] sm:text-[32px]">필요한 순간과 목적을 들려주세요.</h2>
+            <p className="mt-4 max-w-3xl break-keep text-[16px] leading-[1.8] text-[#FBFAF7]/75 sm:text-[15px] sm:leading-[1.7]">서로의 가치를 지키며 함께 성장할 수 있는 관계를 만들어갑니다.</p>
           </div>
           <div className="grid w-full gap-3 sm:flex sm:w-auto">
-            <EditorialActionLink href="/landing/care-kit#partner" variant="inverse">파트너십 문의하기</EditorialActionLink>
+            <EditorialActionLink href="/landing/care-kit#partner" variant="inverse">B2B 문의하기</EditorialActionLink>
             <EditorialActionLink href="/signup" variant="inverse-outline">파트너 회원가입</EditorialActionLink>
           </div>
         </div>

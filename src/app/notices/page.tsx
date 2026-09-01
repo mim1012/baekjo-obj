@@ -3,6 +3,7 @@ import { Bell } from 'lucide-react';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
+import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 export const metadata = {
   title: '공지사항',
@@ -19,7 +20,7 @@ export default async function NoticesPage() {
   // 발견: 새 공지가 홈 소식에 절대 안 뜨던 버그와 동일 원인. 목록 페이지도 방치하면 신규 공지가
   // 맨 아래에 묻힌다). date 는 YYYY-MM-DD 문자열이라 localeCompare 로 비교하고, JS sort 는 안정
   // 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
-  const notices = [...items].sort((a, b) => b.date.localeCompare(a.date));
+  const notices = getPublicNotices(items).sort((a, b) => b.date.localeCompare(a.date));
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
@@ -44,43 +45,49 @@ export default async function NoticesPage() {
           </div>
           
           <ul className="divide-y divide-[#E1DDD4]">
-            {notices.map((notice, index) => (
-              <li key={notice.id}>
-                <Link href={`/notices/${notice.id}`} title={notice.title} className="group block px-4 py-4 transition-colors hover:bg-[#FAF8F3] lg:px-4 lg:py-0">
-                  <div className="lg:hidden">
-                    <div className="flex items-center justify-between gap-3">
-                      <NoticeCategoryBadge category={notice.category} />
+            {notices.length === 0 ? (
+              <li className="px-4 py-16 text-center text-[15px] text-[#6F766F]">등록된 공지사항이 없습니다.</li>
+            ) : (
+              notices.map((notice, index) => (
+                <li key={notice.id}>
+                  <Link href={`/notices/${notice.id}`} title={notice.title} className="group block px-4 py-4 transition-colors hover:bg-[#FAF8F3] lg:px-4 lg:py-0">
+                    <div className="lg:hidden">
+                      <div className="flex items-center justify-between gap-3">
+                        <NoticeCategoryBadge category={notice.category} />
+                        <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
+                      </div>
+                      <h2 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
+                        {notice.title}
+                      </h2>
+                      <div className="mt-3 flex items-center text-[12px] text-[#59615B]">
+                        <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">No. {notices.length - index}</span>
+                      </div>
+                    </div>
+
+                    <div className="hidden min-h-[68px] items-center lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
+                      <div className="text-[13px] tabular-nums text-[#59615B]">
+                        {notices.length - index}
+                      </div>
+                      <div className="flex justify-center">
+                        <NoticeCategoryBadge category={notice.category} />
+                      </div>
+                      <div className="min-w-0 truncate pr-5 text-left text-[15px] font-medium text-[#17211D] group-hover:text-[#A8742E]">
+                        {notice.title}
+                      </div>
                       <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
                     </div>
-                    <h2 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
-                      {notice.title}
-                    </h2>
-                    <div className="mt-3 flex items-center text-[12px] text-[#59615B]">
-                      <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">No. {notices.length - index}</span>
-                    </div>
-                  </div>
-
-                  <div className="hidden min-h-[68px] items-center lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
-                    <div className="text-[13px] tabular-nums text-[#59615B]">
-                      {notices.length - index}
-                    </div>
-                    <div className="flex justify-center">
-                      <NoticeCategoryBadge category={notice.category} />
-                    </div>
-                    <div className="min-w-0 truncate pr-5 text-left text-[15px] font-medium text-[#17211D] group-hover:text-[#A8742E]">
-                      {notice.title}
-                    </div>
-                    <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                  </Link>
+                </li>
+              ))
+            )}
           </ul>
         </div>
 
-        <div className="mt-6 flex justify-center gap-2">
-          <button type="button" aria-current="page" className="flex size-11 items-center justify-center rounded-md border border-[#17211D] bg-[#17211D] text-sm font-semibold text-[#FBFAF7]">1</button>
-        </div>
+        {notices.length > 0 && (
+          <div className="mt-6 flex justify-center gap-2">
+            <button type="button" aria-current="page" className="flex size-11 items-center justify-center rounded-md border border-[#17211D] bg-[#17211D] text-sm font-semibold text-[#FBFAF7]">1</button>
+          </div>
+        )}
 
       </div>
     </div>

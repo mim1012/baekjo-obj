@@ -4,10 +4,11 @@
  * 이 값을 참조한다. 노출 복귀는 해당 값을 true로 바꿔 배포하면 된다.
  */
 export const FEATURES = {
+  cardPayment: process.env.NEXT_PUBLIC_CARD_PAYMENT_ENABLED === 'true',
   /**
    * 펫보험 서비스 노출 여부.
-   * false: GNB·하단 네비·메인 배너·진단 결과 링크·마이페이지 '보험 분석 내역' 탭 미노출,
-   *        /insurance 직접 접근은 미들웨어에서 / 로 리다이렉트.
+   * false: 모든 공개 메뉴·배너·진단 결과·공지·보험사 가입·마이페이지 탭·사이트맵에서 미노출,
+   *        /insurance 및 /landing/insurance 직접 접근은 미들웨어에서 / 로 리다이렉트.
    */
   insurance: false,
   /**

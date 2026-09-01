@@ -14,13 +14,15 @@ import {
   type BrandDetailFieldErrors,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
-import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
+import { type CarrierCode } from '@/lib/carriers';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const MAX_SOURCE_URLS = 20;
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
+import CarrierSelect from '@/components/admin-new/orders/CarrierSelect';
 
 interface Option {
   id: string;
@@ -52,6 +54,10 @@ function toAuditReportForm(report: Brand['auditReport']): AuditReportFormState {
     summary: report.summary ?? '',
     selectionReason: report.selectionReason ?? '',
     process: Array.isArray(report.process) ? [...report.process] : [],
+    checkpoints: Array.isArray(report.checkpoints) ? [...report.checkpoints] : undefined,
+    materialReview: Array.isArray(report.materialReview) ? [...report.materialReview] : undefined,
+    curatorNote: Array.isArray(report.curatorNote) ? [...report.curatorNote] : undefined,
+    auditConclusion: Array.isArray(report.auditConclusion) ? [...report.auditConclusion] : undefined,
   };
 }
 
@@ -71,7 +77,6 @@ export default function BrandDetailEditor({
   const [logo, setLogo] = useState(initialBrand.logo ?? '');
   const [description, setDescription] = useState(initialBrand.description ?? '');
   const [philosophy, setPhilosophy] = useState(initialBrand.philosophy ?? '');
-  const [auditGrade, setAuditGrade] = useState<Brand['auditGrade']>(initialBrand.auditGrade ?? 'A+');
   const [officialUrl, setOfficialUrl] = useState(initialBrand.officialUrl ?? '');
   const [isRecommended, setIsRecommended] = useState(initialBrand.isRecommended ?? false);
   const [isVisible, setIsVisible] = useState(initialBrand.isVisible !== false);
@@ -139,7 +144,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
         officialUrl,
         isRecommended,
         isVisible,
@@ -169,7 +173,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
         officialUrl,
         isRecommended,
         isVisible,
@@ -200,7 +203,7 @@ export default function BrandDetailEditor({
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
-        title={`${initialBrand.name} · 상세 편집`}
+        title={`${formatBrandDisplayName(initialBrand.name)} · 상세 편집`}
         description="감사 보고서·대표상품·연관 고민 등 전 필드를 편집합니다. 빠른 편집은 목록의 수정 아이콘(모달)을 이용하세요."
       >
         <button
@@ -256,32 +259,16 @@ export default function BrandDetailEditor({
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="검증 등급" htmlFor="bd-grade">
-                  <select
-                    id="bd-grade"
-                    value={auditGrade ?? 'A+'}
-                    onChange={(e) => setAuditGrade(e.target.value as Brand['auditGrade'])}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="A+">A+ 등급</option>
-                    <option value="A">A 등급</option>
-                    <option value="B+">B+ 등급</option>
-                    <option value="B">B 등급</option>
-                  </select>
-                </FormField>
-
-                <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
-                  <input
-                    id="bd-official"
-                    type="url"
-                    value={officialUrl}
-                    onChange={(e) => setOfficialUrl(e.target.value)}
-                    className={INPUT_CLASS}
-                    placeholder="https://"
-                  />
-                </FormField>
-              </div>
+              <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
+                <input
+                  id="bd-official"
+                  type="url"
+                  value={officialUrl}
+                  onChange={(e) => setOfficialUrl(e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="https://"
+                />
+              </FormField>
             </div>
           </div>
 
@@ -354,24 +341,12 @@ export default function BrandDetailEditor({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="기본 택배사" htmlFor="ship-carrier">
-              <select
-                id="ship-carrier"
+              <CarrierSelect
                 value={shipping.defaultCarrier ?? ''}
-                onChange={(e) =>
-                  setShippingField(
-                    'defaultCarrier',
-                    e.target.value === '' ? undefined : (e.target.value as CarrierCode),
-                  )
+                onChange={(value) =>
+                  setShippingField('defaultCarrier', value === '' ? undefined : (value as CarrierCode))
                 }
-                className={INPUT_CLASS}
-              >
-                <option value="">선택 안 함</option>
-                {CARRIER_CODES.map((carrier) => (
-                  <option key={carrier} value={carrier}>
-                    {CARRIER_LABELS[carrier]}
-                  </option>
-                ))}
-              </select>
+              />
             </FormField>
 
             <FormField label="표시용 배송사" htmlFor="ship-carrier-label" error={fieldErrors['shipping.carrierLabel']}>
@@ -538,6 +513,28 @@ export default function BrandDetailEditor({
                   onChange={(e) => setShippingField('supportHours', e.target.value)}
                   className={INPUT_CLASS}
                   placeholder="예: 평일 10:00~17:00"
+                />
+              </FormField>
+
+              <FormField label="고객지원 이메일" htmlFor="ship-support-email" error={fieldErrors['shipping.supportEmail']}>
+                <input
+                  id="ship-support-email"
+                  type="email"
+                  value={shipping.supportEmail ?? ''}
+                  onChange={(e) => setShippingField('supportEmail', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: help@example.com"
+                />
+              </FormField>
+
+              <FormField label="카카오 채널" htmlFor="ship-support-kakao" error={fieldErrors['shipping.supportKakaoLabel']}>
+                <input
+                  id="ship-support-kakao"
+                  type="text"
+                  value={shipping.supportKakaoLabel ?? ''}
+                  onChange={(e) => setShippingField('supportKakaoLabel', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 브랜드명 카카오톡 채널"
                 />
               </FormField>
             </div>

@@ -62,8 +62,10 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
     expect(adminPage).toContain(
-      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '전체 사이트에서 사용되는 분류 체계와 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
+      "description={loadError ? '카테고리 설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '상품 분류와 스토어 필터에 쓰이는 카테고리를 관리합니다. 추가·삭제·순서 변경은 즉시 저장되고, 이름 수정은 입력칸을 벗어나는 순간 저장됩니다.'}",
     );
+    expect(adminPage).not.toContain('고객 맞춤 진단 시 매칭되는 라이프스타일 분류입니다.');
+    expect(adminPage).toContain('스토어 라이프스타일 필터와 상품 등록의 라이프스타일 분류에 사용됩니다.');
   });
 
   test('CategorySettingsProvider 는 공개 GET 으로 하이드레이트하고 관리자 PUT JSON 저장을 담당한다', () => {
@@ -104,6 +106,8 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
   test('카테고리 API 는 공개 readback 과 관리자 저장을 repo 계층으로 위임한다', () => {
     const publicRoute = src('src', 'app', 'api', 'category-settings', 'route.ts');
+    const brandsRoute = src('src', 'app', 'api', 'brands', 'route.ts');
+    const productsRoute = src('src', 'app', 'api', 'products', 'route.ts');
     const adminRoute = src('src', 'app', 'api', 'admin', 'category-settings', 'route.ts');
     const publicCache = src('src', 'lib', 'public-read-cache.ts');
     const putFunction = adminRoute.slice(adminRoute.indexOf('export async function PUT('));
@@ -113,9 +117,15 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(publicRoute).toContain('let settings: CategorySettings = defaultCategorySettings;');
     expect(publicRoute).toContain('const saved = await getCachedCategorySettings();');
     expect(publicRoute).toContain('if (saved) settings = saved;');
-    expect(publicRoute).toContain('return NextResponse.json({ settings }, { status: 200 });');
+    expect(publicRoute).toContain('return NextResponse.json(');
+    expect(publicRoute).toContain("'Cache-Control': PUBLIC_READ_CACHE_CONTROL");
     expect(publicCache).toContain("import { getCategorySettings } from '@/lib/categorySettings/repo';");
     expect(publicCache).toContain('async () => getCategorySettings()');
+    expect(publicCache).toContain(
+      "export const PUBLIC_READ_CACHE_CONTROL = 'public, max-age=60, stale-while-revalidate=300';",
+    );
+    expect(brandsRoute).toContain("'Cache-Control': PUBLIC_READ_CACHE_CONTROL");
+    expect(productsRoute).toContain("'Cache-Control': PUBLIC_READ_CACHE_CONTROL");
 
     expect(adminRoute).toContain("import { saveCategorySettings } from '@/lib/categorySettings/repo';");
     expect(adminRoute).toContain(
@@ -130,6 +140,47 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(putFunction).toContain('await saveCategorySettings(body);');
     expect(putFunction).toContain('revalidateTag(PUBLIC_READ_CACHE_TAGS.categorySettings, EXPIRE_PUBLIC_READ_CACHE);');
     expect(putFunction).toContain('return NextResponse.json({ ok: true }, { status: 200 });');
+  });
+
+  test('브랜드 API 는 Header 전용 nav 요약 응답을 전체 응답과 분리한다', () => {
+    const brandsRoute = src('src', 'app', 'api', 'brands', 'route.ts');
+    const storageSource = src('src', 'lib', 'storage.ts');
+    const headerSource = src('src', 'components', 'common', 'Header.tsx');
+    const navFunction = sliceBetween(
+      brandsRoute,
+      'function toPublicBrandNavSummary(brand: Brand): PublicBrandNavSummary {',
+      '/** GET /api/brands',
+    );
+    const brandLinksFunction = sliceBetween(
+      storageSource,
+      'export async function getPublicBrandLinks(): Promise<PublicBrandLink[]> {',
+      '/** 단건 공개 브랜드.',
+    );
+    const headerEffect = sliceBetween(headerSource, 'useEffect(() => {', '}, []);');
+
+    expect(brandsRoute).toContain("type PublicBrandNavSummary = Pick<Brand, 'id' | 'name' | 'slug' | 'isVisible'>;");
+    expect(navFunction).toContain('id: brand.id');
+    expect(navFunction).toContain('name: brand.name');
+    expect(navFunction).toContain('slug: brand.slug');
+    expect(navFunction).toContain('isVisible: brand.isVisible');
+    expect(brandsRoute).toContain("request.nextUrl.searchParams.get('view') === 'nav'");
+    expect(brandsRoute).toContain('brands.map(toPublicBrandNavSummary)');
+    expect(brandsRoute).toContain("'Cache-Control': PUBLIC_READ_CACHE_CONTROL");
+
+    expect(storageSource).toContain('export type PublicBrandLink = {');
+    expect(storageSource).toContain('function parsePublicBrandLinks(payload: unknown): PublicBrandLink[]');
+    expect(brandLinksFunction).toContain("fetch('/api/brands?view=nav')");
+    expect(brandLinksFunction).toContain('if (publicBrandLinksCache) return publicBrandLinksCache;');
+    expect(brandLinksFunction).toContain('if (publicBrandLinksRequest) return publicBrandLinksRequest;');
+    expect(brandLinksFunction).toContain('const links = parsePublicBrandLinks(await response.json());');
+    expect(storageSource).toContain('formatBrandDisplayName(summary.name)');
+    expect(storageSource).toContain('href: `/brands/${summary.slug}`');
+
+    expect(headerSource).toContain("import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';");
+    expect(headerSource).not.toContain('getPublicBrands');
+    expect(headerSource).not.toContain('formatBrandDisplayName');
+    expect(headerEffect).toContain('getPublicBrandLinks()');
+    expect(headerEffect).toContain('.then(setBrandLinks)');
   });
 
   test('categorySettings repo 는 category_settings 단일 행의 value jsonb 를 읽고 upsert 한다', () => {
@@ -160,6 +211,11 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(shopContent).toContain('const { categorySettings } = useCategorySettings();');
     expect(shopContent).toContain('getDataBackedShopCategoryOptions(');
     expect(shopContent).toContain('product.categorySlug ?? product.category');
+    expect(shopContent).toContain('const lifestyleOptions = getLifestyleFilterOptions(');
+    expect(shopContent).toContain('categorySettings.lifestyleCategories');
+    expect(shopContent).toContain('product.lifestyleCategory');
+    expect(shopContent).toContain('makeHref(\'lifestyle\', lifestyle.slug)');
+    expect(shopContent).toContain('active={params.lifestyle === lifestyle.slug}');
     expect(shopContent).not.toContain('shopCategoryFilters');
     expectNoCategoryBypass(shopContent);
 
@@ -170,8 +226,9 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(productForm).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
     expect(productForm).toContain('const { categorySettings } = useCategorySettings();');
-    expect(productForm).toContain('categorySettings.productCategories.map((c) => (');
-    expect(productForm).toContain('categorySettings.lifestyleCategories.map((c) => (');
+    expect(productForm).toContain('options={categorySettings.productCategories}');
+    expect(productForm).toContain('options={categorySettings.lifestyleCategories}');
+    expect(productForm).toContain('function SelectionCardGrid');
     expectNoCategoryBypass(productForm);
 
     expect(adminProducts).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");

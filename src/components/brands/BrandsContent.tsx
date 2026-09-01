@@ -15,6 +15,7 @@ import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/prese
 
 interface Props {
   brands: Brand[];
+  productCounts: Record<string, number>;
   initialSpotlightBrand?: Brand;
 }
 
@@ -34,14 +35,6 @@ const filterLabels: Record<string, string> = {
   new: '새로 만난 브랜드',
 };
 
-const brandCategoryAliases: Record<string, string[]> = {
-  '식품·영양': ['식품·영양', '푸드', '영양'],
-  케어: ['케어'],
-  패션: ['패션'],
-  펫로스: ['펫로스'],
-  라이프: ['라이프'],
-};
-
 function getCustomBrandDetails(brand: Brand) {
   const presentation = getBrandPresentation(brand);
   return {
@@ -50,7 +43,7 @@ function getCustomBrandDetails(brand: Brand) {
   };
 }
 
-function BrandsInner({ brands, initialSpotlightBrand }: Props) {
+function BrandsInner({ brands, productCounts, initialSpotlightBrand }: Props) {
   const searchParams = useSearchParams();
   const filter = searchParams.get('filter') || 'all';
   const sort = searchParams.get('sort') === 'az' ? 'az' : 'default';
@@ -67,13 +60,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   const filteredBrands = visibleBrands.filter((brand) => {
     if (filter === 'recommended') return brand.isRecommended;
     if (filter === 'new') return brand.isNew;
-    const category = categorySettings.productCategories.find((value) => value === filter);
-    if (category) {
-      const presentation = getBrandPresentation(brand);
-      return (brandCategoryAliases[category] ?? [category]).some((label) =>
-        presentation.categories.includes(label),
-      );
-    }
     return true;
   }).sort((a, b) => (sort === 'az' ? a.name.localeCompare(b.name, 'ko') : 0));
 
@@ -202,7 +188,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                     <span className="text-[12px] font-semibold text-[#B48A4A] mb-4">스포트라이트 브랜드</span>
                     <div className="flex flex-col gap-1 mb-5">
                       <h3 className="text-[24px] md:text-[28px] font-bold text-[#17251F] tracking-tight flex items-center gap-2">
-                        {spotlightCustomDetails?.finalName || spotlightBrand.name}
+                        {spotlightCustomDetails?.finalName || spotlightBrand.name} 
                       </h3>
                     </div>
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
@@ -217,7 +203,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                   <div className="flex-1 md:w-[52%] flex flex-col sm:flex-row gap-4 w-full h-[160px] md:h-[200px]">
                     <div className="w-full h-full flex justify-center items-center bg-[#FFFEFB] border border-[#E4DDD1] rounded-[16px]">
                        {spotlightBrand.logo ? (
-                         <BrandLogo brand={spotlightBrand} size="lg" surface uniformScale />
+                         <BrandLogo brand={spotlightBrand} size="md" surface={false} uniformScale />
                        ) : (
                          <span className="text-[#6F756F] text-sm">브랜드 스토리 확인하기</span>
                        )}
@@ -254,24 +240,6 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
                   </Link>
                 );
               })}
-              {categorySettings.productCategories.map((category) => {
-                const active = filter === category;
-                return (
-                  <Link
-                    key={`category-${category}`}
-                    href={makeHref(category)}
-                    scroll={false}
-                    aria-current={active ? 'page' : undefined}
-                    className={`flex h-[38px] items-center rounded-full border px-[18px] text-[13px] font-semibold transition-colors duration-300 md:h-[42px] md:text-[14px] ${
-                      active
-                        ? 'border-[#17382D] bg-[#17382D] text-white'
-                        : 'border-[#E4DDD1] bg-[#FFFEFB] text-[#6F756F] hover:bg-[#F7F4ED]'
-                    }`}
-                  >
-                    {category}
-                  </Link>
-                );
-              })}
             </nav>
           </div>
           <Link
@@ -292,7 +260,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
           {displayedBrands.length > 0 ? (
             <div data-testid="brand-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayedBrands.map((brand) => (
-                <BrandCard key={brand.id} brand={brand} variant="brand-page" />
+                <BrandCard key={brand.id} brand={brand} productCount={productCounts[brand.id] ?? 0} variant="brand-page" />
               ))}
             </div>
           ) : (
@@ -346,7 +314,7 @@ function BrandsInner({ brands, initialSpotlightBrand }: Props) {
   );
 }
 
-export default function BrandsContent({ brands, initialSpotlightBrand }: Props) {
+export default function BrandsContent({ brands, productCounts, initialSpotlightBrand }: Props) {
   return (
     <Suspense
       fallback={(
@@ -363,7 +331,7 @@ export default function BrandsContent({ brands, initialSpotlightBrand }: Props) 
         </main>
       )}
     >
-      <BrandsInner brands={brands} initialSpotlightBrand={initialSpotlightBrand} />
+      <BrandsInner brands={brands} productCounts={productCounts} initialSpotlightBrand={initialSpotlightBrand} />
     </Suspense>
   );
 }

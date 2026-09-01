@@ -5,6 +5,11 @@ import {
   FIELD_SURFACE_MATRIX,
   domainSurfaceFields,
 } from '../golden/_lib/fieldSurfaceMatrix';
+import {
+  getBrandDisplayLogo,
+  getBrandTitleDisplayLogo,
+} from '../../src/components/common/BrandLogo';
+import type { Brand } from '../../src/types';
 
 // 필드 단위 커버리지 감사 — golden-crud-coverage.spec.ts(도메인 단위)의 자매편.
 //
@@ -87,8 +92,7 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'images',
   'options',
   'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
+  'concernTags',
   'detailBlocks', // ProductDetailEditor(/admin/products/[id]/editor)로 text+image 블록 저장 → #story 순서 검증
   'ingredients',
   'howToUse',
@@ -99,12 +103,9 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ];
 
 // EXCLUDED = 의도적으로 라이브 왕복 스펙에서 다루지 않는 필드 + 사유.
@@ -113,8 +114,10 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
   reviewCount: '파생값(구매평 수) — ProductForm 입력 없음, 생성 시 서버가 0으로 채움.',
   categorySlug: '관리자 UI 없음 — category 설정에서 서버가 파생. ProductForm 미노출.',
   categoryName: '관리자 UI 없음 — ProductForm 미노출(계약만 개방).',
-  concernTags:
-    '관리자 UI 없음 — ProductForm 미노출, 생성 시 []로 기본값. (Brand.relatedConcernSlugs 와 혼동 주의)',
+  relatedConcernSlugs:
+    '레거시 내부 필드 — ProductForm은 기존 운영 데이터의 concernTags를 사용하며 이 필드는 직접 편집하지 않는다.',
+  tags:
+    '관리자 UI 제거 — 카테고리·고민 DB 선택으로 분류 체계를 통일하고 기존 저장값은 read-modify-write로 보존.',
   ageGroup:
     '관리자 UI 없음 — formPayload.ts 가 항상 "all" 로 하드코딩 전송(사용자 편집 불가).',
   brandName:
@@ -123,16 +126,15 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
 
 // ── 브랜드 필드 분류 ──────────────────────────────────────────────────────
 //
-// BrandDetailEditor(/admin/brands/[id]) 는 전 필드 에디터라 16개 필드를 모두 노출한다 →
+// BrandDetailEditor(/admin/brands/[id]) 는 현재 관리 필드를 모두 노출한다 →
 // admin-crud-brand-fields.spec.ts 가 전부 채워 왕복(admin 편집 재열람) 또는 공개 /brands/[id] 에서 검증.
-// sourceUrls·shipping·auditGrade·officialUrl 은 공개 상세에 렌더되지 않지만 BrandDetailEditor 에
+// sourceUrls·shipping·officialUrl 은 공개 상세에 렌더되지 않지만 BrandDetailEditor 에
 // 편집 UI가 있어 관리자 왕복으로 검증한다(=VERIFIED, 공개 assertion 없음).
 const BRAND_VERIFIED: readonly string[] = [
   'name',
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
   'officialUrl',
   'sourceUrls',
   'shipping',
@@ -218,11 +220,12 @@ test.describe('상품·브랜드 폼 필드 커버리지 감사 — 필드 누�
     assertNoStale('브랜드', brandFields, BRAND_VERIFIED, BRAND_EXCLUDED);
   });
 
-  test('상품 검증 포인트·관련 고민·태그는 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
-    for (const connected of ['auditPoints', 'relatedConcernSlugs', 'tags']) {
+  test('상품 검증 포인트·관련 고민은 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
+    for (const connected of ['auditPoints', 'concernTags']) {
       expect(PRODUCT_VERIFIED).toContain(connected);
       expect(PRODUCT_EXCLUDED[connected], `Product.${connected} 는 EXCLUDED 에 남아 있으면 안 됨`).toBeUndefined();
     }
+    expect(PRODUCT_EXCLUDED.tags).toBeTruthy();
   });
 });
 
@@ -245,27 +248,26 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'price',
   'image',
   'images',
-  'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
   'brandName',
+  'summary',
   'rating',
   'reviewCount',
   'isBest',
   'isRecommended',
-  'stock', // 빈 상태 테스트(재고0 → "잠시 품절" 뱃지)에서 검증
+  'stock', // 빈 상태 테스트(재고0 → 구매 버튼 비활성)에서 검증
   'options',
   'detailBlocks',
   'description',
+  'shippingFee',
+  'deliveryEstimate',
+  'shippingNotice',
+  'returnNotice',
+  'sellerName',
+  'auditPoints',
   'ingredients',
   'howToUse',
   'recommendedFor',
   'caution',
-  'shippingFee',
-  'deliveryEstimate',
-  'returnNotice',
-  'sellerName',
-  'pointsRate',
 ]);
 
 // 브랜드: brand-card + brand-detail 표면이 공개 렌더하고 라이브 스펙이 검증하는 필드.
@@ -348,5 +350,33 @@ test.describe('필드-표면 매트릭스 완전성 — 공개 화면 필드 누
       stale,
       `fieldSurfaceMatrix 의 브랜드 필드 [${stale.join(', ')}] 이 validateBrandFields 허용 목록에 없습니다.`,
     ).toEqual([]);
+  });
+});
+
+function logoBrand(
+  id: string,
+  logo: string,
+  wordmarkImage?: string,
+): Pick<Brand, 'id' | 'logo' | 'wordmarkImage'> {
+  return wordmarkImage === undefined
+    ? { id, logo }
+    : { id, logo, wordmarkImage };
+}
+
+test.describe('브랜드 로고 공개 표시 우선순위', () => {
+  test('고정 전시 로고 fallback 대상 브랜드도 관리자 logo 값이 있으면 그 값을 목록 로고 src로 사용한다', () => {
+    for (const brand of [
+      logoBrand('b3', '/uploads/admin-nobledog-logo.png'),
+      logoBrand('b5', '/uploads/admin-alloming-logo.png'),
+      logoBrand('b6', '/uploads/admin-repet-logo.png'),
+    ]) {
+      expect(getBrandDisplayLogo(brand)).toBe(brand.logo);
+    }
+  });
+
+  test('브랜드 상세 제목 로고는 관리자 wordmarkImage, 관리자 logo, 고정 fallback 순서로 선택한다', () => {
+    expect(getBrandTitleDisplayLogo(logoBrand('b3', '/uploads/admin-nobledog-logo.png', '/uploads/admin-nobledog-wordmark.png'))).toBe('/uploads/admin-nobledog-wordmark.png');
+    expect(getBrandTitleDisplayLogo(logoBrand('b5', '/uploads/admin-alloming-logo.png'))).toBe('/uploads/admin-alloming-logo.png');
+    expect(getBrandTitleDisplayLogo(logoBrand('b6', ''))).toBe('/brands/repet-clean.png');
   });
 });

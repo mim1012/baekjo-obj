@@ -124,15 +124,9 @@ export default function AuditPage() {
         </div>
       </section>
 
-      <section id="pillars" className="page-section scroll-mt-24">
+      <section id="pillars" className="page-section scroll-mt-24 !pt-8 md:!pt-10 xl:!pt-12">
         <div className="site-container-wide">
-          <SectionHeading
-            eyebrow="FOUR STANDARDS"
-            title="백조오브제가 살펴보는 네 가지 기준"
-            description={<p>한 가지 장점만으로 판단하지 않고, 브랜드와 상품이 반려생활에 들어오는 전 과정을 함께 봅니다.</p>}
-          />
-
-          <div className="mt-10 max-w-3xl">
+          <div className="max-w-3xl">
             <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">AUDIT CHECKPOINTS</p>
             <h2 className="mt-3 text-[24px] font-bold tracking-tight text-[#17211D] sm:text-[30px]">브랜드를 바라보는 기준</h2>
             <p className="mt-3 break-keep text-[15px] leading-[1.8] text-[#6F766F]">

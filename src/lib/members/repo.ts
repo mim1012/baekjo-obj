@@ -1,6 +1,7 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
+import { isMemberProfileComplete } from '@/lib/members/profile';
 import type { User } from '@/types';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
@@ -35,10 +36,11 @@ interface MemberRow {
   reject_reason: string | null;
   signup_data: Record<string, unknown>;
   managed_brand_ids: string[] | null;
+  must_change_password: boolean;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -61,6 +63,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     rejectReason: row.reject_reason ?? undefined,
     signupData: row.signup_data,
     managedBrandIds: row.managed_brand_ids ?? undefined,
+    mustChangePassword: row.must_change_password,
   };
 }
 
@@ -79,12 +82,14 @@ export function toUser(record: MemberRecord): User {
     createdAt: record.createdAt,
     provider: record.provider,
     profileImage: record.profileImage,
+    profileCompleted: isMemberProfileComplete(record),
     emailVerified: record.emailVerified,
     companyName: record.companyName,
     businessNumber: record.businessNumber,
     rejectReason: record.rejectReason,
     signupData: record.signupData,
     managedBrandIds: record.managedBrandIds,
+    mustChangePassword: record.mustChangePassword,
   };
 }
 
@@ -216,7 +221,7 @@ export async function upsertSocialMember(input: UpsertSocialMemberInput): Promis
     .from('members')
     .insert({
       email: fallbackEmail,
-      name: input.name ?? '백조회원',
+      name: input.name ?? '백조오브제 회원',
       phone: '',
       provider: input.provider,
       provider_id: input.providerId,
@@ -276,10 +281,12 @@ export async function updateMemberProfile(
   return data ? rowToRecord(data as MemberRow) : null;
 }
 
+/** 비밀번호 교체(본인 변경·재설정 공용). 운영자가 발급한 초기 비밀번호를 본인 것으로 바꾼
+ *  시점이므로 must_change_password 유도 플래그도 함께 내린다. */
 export async function updateMemberPassword(id: string, passwordHash: string): Promise<void> {
   const { error } = await getSupabase()
     .from('members')
-    .update({ password_hash: passwordHash })
+    .update({ password_hash: passwordHash, must_change_password: false })
     .eq('id', id);
   if (error) throw error;
 }
@@ -361,6 +368,21 @@ export async function updateMemberStatus(
     .maybeSingle();
   if (error) throw error;
   return data ? rowToRecord(data as MemberRow) : null;
+}
+
+export async function approvePartnerMember(
+  id: string,
+  expectedCurrentStatus: 'pending',
+  normalizedBrandAlias: string,
+): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase().rpc('approve_partner_member', {
+    p_member_id: id,
+    p_expected_status: expectedCurrentStatus,
+    p_normalized_brand_alias: normalizedBrandAlias,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ? rowToRecord(row as MemberRow) : null;
 }
 
 /**

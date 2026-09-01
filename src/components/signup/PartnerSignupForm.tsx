@@ -6,6 +6,16 @@ import { useEmailAvailability, EmailCheckMessage } from '@/components/signup/ema
 const fieldClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white';
 const textareaClass = 'w-full border border-[#C9C8C0] px-4 py-3.5 text-sm focus:border-[#2F3B34] bg-white resize-y min-h-24';
 
+// 서버(POST /api/members/business/upload)가 매직 바이트로 허용하는 형식은 PDF/PNG/JPG뿐이다.
+// ZIP은 서버에서 항상 400(invalid-file-type)이 나므로, 업로드를 보내기 전에 클라이언트에서
+// 먼저 걸러 "업로드에 실패했습니다"라는 모호한 메시지 대신 원인을 바로 안내한다.
+const ALLOWED_FILE_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png'];
+
+function hasAllowedExtension(fileName: string): boolean {
+  const lower = fileName.toLowerCase();
+  return ALLOWED_FILE_EXTENSIONS.some((ext) => lower.endsWith(ext));
+}
+
 /** 입점 심사 첨부서류 카테고리 — 관리자 화면에서도 동일한 이름으로 노출된다. */
 const ATTACHMENT_CATEGORIES = [
   '사업자등록증',
@@ -138,6 +148,13 @@ export default function PartnerSignupForm({
       return next;
     });
 
+    if (!hasAllowedExtension(file.name)) {
+      setUploadErrors((prev) => ({ ...prev, [category]: '지원하지 않는 파일 형식입니다. PDF/PNG/JPG 파일만 업로드할 수 있어요.' }));
+      setUploadingCategory(null);
+      e.target.value = '';
+      return;
+    }
+
     try {
       const body = new FormData();
       body.append('file', file);
@@ -166,6 +183,11 @@ export default function PartnerSignupForm({
     }
     if (emailStatus === 'duplicate') {
       setFormError('이미 가입된 이메일입니다. 가입하신 계정으로 로그인해 주세요.');
+      scrollToFormError();
+      return;
+    }
+    if (uploadedFiles.length === 0) {
+      setFormError('첨부 서류를 1개 이상 업로드해주세요.');
       scrollToFormError();
       return;
     }
@@ -210,7 +232,7 @@ export default function PartnerSignupForm({
         <Field label="브랜드를 시작하게 된 계기가 무엇인가요? *">
           <textarea required name="startMotivation" value={formData.startMotivation} onChange={handleChange} className={textareaClass} />
         </Field>
-        <Field label="백조 오브제와 함께하고 싶은 이유를 알려주세요. *">
+        <Field label="백조오브제와 함께하고 싶은 이유를 알려주세요. *">
           <textarea required name="joinReason" value={formData.joinReason} onChange={handleChange} className={textareaClass} />
         </Field>
       </section>
@@ -267,7 +289,7 @@ export default function PartnerSignupForm({
       {/* 6. 첨부 자료 */}
       <section className="space-y-5">
         <h2 className="text-xl font-bold text-[#202521] border-b border-[#D1D0C8] pb-3">6. 첨부 자료</h2>
-        <p className="text-sm text-[#747B75] mb-2">항목별로 파일을 선택하면 즉시 업로드됩니다. (PDF/PNG/JPG/ZIP, 최대 10MB)</p>
+        <p className="text-sm text-[#747B75] mb-2">항목별로 파일을 선택하면 즉시 업로드됩니다. (PDF/PNG/JPG, 최대 10MB)</p>
         <div className="grid gap-4 sm:grid-cols-2">
           {ATTACHMENT_CATEGORIES.map((category) => {
             const uploaded = uploadedFiles.find((f) => f.category === category);
@@ -277,7 +299,7 @@ export default function PartnerSignupForm({
                 <input
                   type="file"
                   className={fieldClass}
-                  accept=".pdf,.jpg,.jpeg,.png,.zip"
+                  accept=".pdf,.jpg,.jpeg,.png"
                   disabled={isUploading}
                   onChange={(e) => handleFileSelect(category, e)}
                 />
@@ -312,7 +334,7 @@ export default function PartnerSignupForm({
       <section className="space-y-5 border-t border-[#D1D0C8] pt-6">
         <h2 className="text-xl font-bold text-[#202521] mb-2">9. 개인정보 및 자료 활용 동의</h2>
         <div className="bg-white p-4 border border-[#D1D0C8] text-sm text-[#5F6761] mb-3">
-          제출한 자료는 백조 오브제의 입점 심사 및 Audit 검토를 위한 용도로만 활용됩니다.<br />
+          제출한 자료는 백조오브제의 입점 심사 및 Audit 검토를 위한 용도로만 활용됩니다.<br />
           외부 공개 또는 제3자 제공은 별도 협의 없이 진행되지 않습니다.
         </div>
         <Checkbox label="[필수] 동의합니다." name="privacyAgreement" checked={formData.privacyAgreement} onChange={handleChange} required />

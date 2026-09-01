@@ -38,6 +38,7 @@ import ReviewFormModal from '@/components/reviews/ReviewFormModal';
 import InquiryFormModal from '@/components/inquiries/InquiryFormModal';
 import PasswordChangeSection from '@/components/mypage/PasswordChangeSection';
 import EmailVerifyBanner from '@/components/mypage/EmailVerifyBanner';
+import AddressBookSection from './components/AddressBookSection';
 
 /** 구매평 작성/수정 모달에 전달되는 상품 + 주문 컨텍스트. 신규 작성 시에만 orderId/orderItemId 를 채운다. */
 type ReviewTargetProduct = Product & {
@@ -46,12 +47,18 @@ type ReviewTargetProduct = Product & {
   optionName?: string;
 };
 
+function normalizeMypageTab(tab: string | null): string {
+  if (tab === 'insurance' && !FEATURES.insurance) return 'overview';
+  return tab || 'overview';
+}
+
 function MypageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   // URL(?tab=)로 보험 탭 직접 접근도 차단 — 미노출 기간엔 요약 탭으로 되돌린다(features.ts).
-  const requestedTab = searchParams.get('tab') || 'overview';
-  const tab = requestedTab === 'insurance' && !FEATURES.insurance ? 'overview' : requestedTab;
+  const requestedTab = normalizeMypageTab(searchParams.get('tab'));
+  const [tabState, setTabState] = useState({ activeTab: requestedTab, requestedTab });
+  const tab = tabState.requestedTab === requestedTab ? tabState.activeTab : requestedTab;
 
   const [user, setUser] = useState<User | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -90,6 +97,10 @@ function MypageContent() {
       return;
     }
     sessionUserIdRef.current = currentUser.id;
+    if (currentUser.role === 'partner') {
+      router.replace('/partner/orders');
+      return;
+    }
     setUser(currentUser);
 
     const seq = ++loadSeqRef.current;
@@ -133,6 +144,15 @@ function MypageContent() {
     });
   }, [router]);
 
+  const handleTabChange = useCallback((nextTab: string) => {
+    const normalizedTab = normalizeMypageTab(nextTab);
+    setTabState({ activeTab: normalizedTab, requestedTab });
+    if (typeof window !== 'undefined') {
+      const nextUrl = normalizedTab === 'overview' ? '/mypage' : `/mypage?tab=${normalizedTab}`;
+      window.history.replaceState(null, '', nextUrl);
+    }
+  }, [requestedTab]);
+
   useEffect(() => {
     // mount 감지 + 클라이언트 전용 스토리지 로딩(SSR-hydration 불일치 방지) — dad 동작 보존,
     // DB 전환 PR에서 마운트 판정 로직 자체를 재작업할 예정.
@@ -168,7 +188,7 @@ function MypageContent() {
       };
       const newTab = hashMap[window.location.hash];
       if (newTab) {
-        router.replace(`/mypage?tab=${newTab}`);
+        handleTabChange(newTab);
       }
     }
 
@@ -176,7 +196,7 @@ function MypageContent() {
       window.removeEventListener(STORAGE_EVENTS.REVIEWS_CHANGED, handleReviewsChanged);
       window.removeEventListener(STORAGE_EVENTS.INQUIRIES_CHANGED, handleInquiriesChanged);
     };
-  }, [router, loadData]);
+  }, [loadData, handleTabChange]);
 
   if (!isMounted || !user) return null;
 
@@ -275,6 +295,7 @@ function MypageContent() {
             reviews={reviews}
             products={products}
             onWriteReview={handleWriteReview}
+            onOrderUpdated={loadData}
           />
         );
       case 'wishlist':
@@ -318,11 +339,15 @@ function MypageContent() {
             {user.provider !== 'kakao' && user.provider !== 'naver' && <PasswordChangeSection />}
           </>
         );
+      case 'addresses':
+        return <AddressBookSection />;
       case 'overview':
       default:
         return (
           <>
-            {(!user.provider || user.provider === 'email') && user.emailVerified === false && <EmailVerifyBanner />}
+            {user.role !== 'partner' && (!user.provider || user.provider === 'email') && user.emailVerified === false && (
+              <EmailVerifyBanner />
+            )}
             <OverviewSection stats={stats} />
           </>
         );
@@ -335,7 +360,7 @@ function MypageContent() {
         <MypageSidebar user={user} activeTab={tab} />
 
         <main className="mypage-content">
-          <MypageMobileNav activeTab={tab} />
+          <MypageMobileNav activeTab={tab} onTabChange={handleTabChange} />
           {renderContent()}
         </main>
       </div>

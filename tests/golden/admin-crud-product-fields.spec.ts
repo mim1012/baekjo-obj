@@ -63,7 +63,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   const salePrice = 9000;
   const stock = 50;
   const shippingFee = 3000;
-  const pointsRate = 5;
   const detailText = `E2E상세본문텍스트블록 ${runId}`;
   const detailImageAlt = `E2E상세이미지 ${runId}`;
 
@@ -157,11 +156,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await spin.nth(2).fill(String(stock));
     await spin.nth(3).fill(String(shippingFee));
 
-    // ── 3) 적립금 지급 + 적립률 ──
-    await page.getByText('적립금 지급').click();
-    await page.getByPlaceholder('상품금액 기준. 배송비 제외').fill(String(pointsRate));
-
-    // ── 4) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
+    // ── 3) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
     await page.getByRole('button', { name: '옵션 추가' }).click();
     await page.getByLabel('옵션 1 이름').fill(opt1Name);
     await page.getByLabel('옵션 1 가격').fill('20000');
@@ -210,9 +205,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     const shopCard = page.locator('article', { hasText: name }).first();
     await expect(shopCard).toBeVisible({ timeout: 15_000 });
     await expect(shopCard).toContainText('BEST'); // isBest 뱃지(shop-card:86-90)
-    await expect(shopCard).toContainText('SELECTED'); // isRecommended 뱃지(:91-95)
+    await expect(shopCard).not.toContainText('SELECTED');
+    await expect(page.locator('section', { hasText: 'DAILY PICK' })).toContainText(name);
     await expect(shopCard).toContainText('후기'); // reviewCount(:160)
     if (brandNameText) await expect(shopCard).toContainText(brandNameText); // brandName(:45,134)
+    await expect(shopCard).toContainText(summary);
     const detailHref = await page.getByRole('link', { name: `${name} 상세 보기` }).first().getAttribute('href');
     expect(detailHref).toMatch(/^\/shop\/.+/);
     await page.goto(detailHref ?? `/shop?search=${encodeURIComponent(name)}`, {
@@ -231,18 +228,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       salePrice: '9,000',
       price: '12,000',
       description,
+      shippingFee: '3,000',
+      deliveryEstimate,
+      shippingNotice,
+      returnNotice,
+      sellerName,
       auditPoints: auditPoint,
-      relatedConcernSlugs: relatedConcernSlug,
-      tags: tagText,
       ingredients,
       howToUse,
       recommendedFor: recommended,
       caution: cautionText,
-      shippingFee: '3,000',
-      deliveryEstimate,
-      returnNotice,
-      sellerName,
-      pointsRate: `${pointsRate}%`, // "…{rate}% 적립 설정"
       brandName: brandNameText,
     };
     for (const f of getSurface('shop-detail').fields) {
@@ -310,7 +305,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(editSpin.nth(1)).toHaveValue(String(salePrice));
     await expect(editSpin.nth(2)).toHaveValue(String(stock));
     await expect(editSpin.nth(3)).toHaveValue(String(shippingFee));
-    await expect(page.getByPlaceholder('상품금액 기준. 배송비 제외')).toHaveValue(String(pointsRate));
     await expect(page.getByLabel('옵션 1 이름')).toHaveValue(opt1Name);
     await expect(page.getByLabel('옵션 1 가격')).toHaveValue('20000');
     await expect(page.getByLabel('옵션 2 이름')).toHaveValue(opt2Name);
@@ -382,7 +376,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   //    이미지 없는 상품은 레거시 시드 데이터로만 존재 → 카드/상세 placeholder 렌더는 코드 분기
   //    (ProductCard.tsx:124 "상품 이미지 준비 중", ProductDetailClient.tsx:148-156)로만 커버되며
   //    이 스펙 범위 밖(폼 경계). 나머지 빈 상태(재고0·옵션無·detailBlocks無)는 폼으로 재현·검증한다.
-  test('빈 상태 변형 — 재고0 품절 뱃지·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
+  test('빈 상태 변형 — 재고0 구매 비활성·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
     assertNotProd();
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(page);
@@ -402,11 +396,12 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
 
-    // 카드: 재고0 → "잠시 품절" 뱃지(shop-card stock 계약), 리터럴 undefined 없음.
+    // 카드: 재고0 → 고객 요청에 따라 "잠시 품절" 문구 없이 구매만 비활성화한다.
     await page.goto(`/shop?search=${encodeURIComponent(emptyName)}`);
     const card = page.locator('article', { hasText: emptyName }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card).toContainText('잠시 품절'); // ProductCard.tsx:70,96-100
+    await expect(card).not.toContainText('잠시 품절');
+    await expect(card.getByRole('button', { name: /구매 불가/ })).toBeDisabled();
     await expect(card).not.toContainText('undefined');
     const emptyDetailHref = await page.getByRole('link', { name: `${emptyName} 상세 보기` }).first().getAttribute('href');
     expect(emptyDetailHref).toMatch(/^\/shop\/.+/);
@@ -422,6 +417,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.getByRole('button', { name: '품절' }).first()).toBeVisible(); // :289/:297
     await expect(page.locator('body')).not.toContainText('undefined');
     await expect(page.locator(`img[alt="${emptyName}"]`).first()).toBeVisible(); // 이미지 폴백 그레이스풀
+    await expect(page.locator('#product-public-details-title')).toHaveCount(0);
 
     // 정리 — 이 상품만.
     await page.goto('/admin/products');

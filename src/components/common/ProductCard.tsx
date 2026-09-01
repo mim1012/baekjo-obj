@@ -7,8 +7,9 @@ import { Heart, ShoppingBag, Star, Package } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { addToCart } from '@/lib/cart';
 import { calcDiscount, formatPrice } from '@/lib/format';
-import { getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
+import { getCurrentUser, getSessionUser, getWishlist, isWishlisted, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -44,7 +45,7 @@ export default function ProductCard({
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
-  const brandName = product.brandName ?? product.brandId;
+  const brandName = formatBrandDisplayName(product.brandName ?? product.brandId);
   const hasPrice = product.price !== null && product.price !== undefined;
   const isSellable = hasPrice && product.stock > 0;
   const isShopCard = variant === 'shop';
@@ -54,9 +55,10 @@ export default function ProductCard({
   const isMobileHorizontal = mobileLayout === 'horizontal';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const detailHref = `/shop/${product.id}`;
+  const summary = product.summary?.trim();
 
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !getCurrentUser()) return;
     let active = true;
     const syncWishlist = () => {
       getWishlist().then(() => {
@@ -86,8 +88,13 @@ export default function ProductCard({
     }
   };
 
-  const handleCart = () => {
+  const handleCart = async () => {
     if (!isSellable) return;
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(detailHref)}`);
+      return;
+    }
     addToCart({
       productId: product.id,
       optionId: product.options?.[0]?.id,
@@ -120,11 +127,6 @@ export default function ProductCard({
           {product.isBest && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
               BEST
-            </span>
-          )}
-          {product.isRecommended && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#F3EEE6] px-1.5 py-1 text-[9px] font-bold leading-none text-[#17211D] md:px-2.5 md:text-[11px]">
-              SELECTED
             </span>
           )}
           {availabilityLabel && (
@@ -173,6 +175,11 @@ export default function ProductCard({
           <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isHomeCard ? 'line-clamp-2 mt-[6px] text-[15px] lg:text-[16px]' : isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
             {product.name}
           </h3>
+          {summary && (
+            <p className={`mt-2 break-keep text-[#59615B] ${isHomeCard ? 'line-clamp-2 text-[12px] leading-[1.55]' : isCompact ? 'line-clamp-1 text-[11px] leading-[1.5]' : 'line-clamp-2 text-[11px] leading-[1.55] md:text-[12px]'}`}>
+              {summary}
+            </p>
+          )}
 
           <div className={`mt-auto ${isHomeCard ? 'pt-[10px]' : isCompact ? 'pt-3' : 'pt-3 md:pt-[18px]'}`}>
             <div className={`flex flex-wrap items-baseline gap-y-1 ${isHomeCard ? 'gap-x-[8px]' : 'gap-x-1.5 md:gap-x-2'}`}>
@@ -191,12 +198,14 @@ export default function ProductCard({
               )}
             </div>
 
-            <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
-              <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
-              <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
-              <span className="mx-1.5">·</span>
-              <span className="tabular-nums">후기 {product.reviewCount}</span>
-            </div>
+            {product.reviewCount > 0 && (
+              <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
+                <Star className="size-2.5 md:size-3 fill-[#D8C4A3] text-[#D8C4A3]" aria-hidden="true" />
+                <span className="ml-1 font-medium tabular-nums">{product.rating}</span>
+                <span className="mx-1.5">·</span>
+                <span className="tabular-nums">후기 {product.reviewCount}</span>
+              </div>
+            )}
 
             {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
@@ -221,17 +230,17 @@ export default function ProductCard({
               {cartMessage}
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <button
               type="button"
               onClick={(e) => {
                 e.preventDefault();
-                handleCart();
+                void handleCart();
               }}
               disabled={!isSellable}
-              className={`flex min-w-0 flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
+              className={`flex min-w-[72px] flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
             >
-              <ShoppingBag className="size-3.5 shrink-0 sm:size-4" />
+              <ShoppingBag className="hidden size-3.5 shrink-0 min-[361px]:block sm:size-4" />
               <span className="whitespace-nowrap">{isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}</span>
             </button>
             <button

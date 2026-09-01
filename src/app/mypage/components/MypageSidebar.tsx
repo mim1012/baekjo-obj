@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { User } from '@/types';
-import { LogOut, User as UserIcon, Package, Heart, Star, MessageCircle, Shield, Settings } from 'lucide-react';
+import { LogOut, User as UserIcon, Package, Heart, Star, MessageCircle, Shield, Settings, MapPin } from 'lucide-react';
 import { FEATURES } from '@/config/features';
 import { logout } from '@/lib/storage';
 
@@ -46,6 +46,7 @@ export default function MypageSidebar({ user, activeTab }: MypageSidebarProps) {
       title: '회원 관리',
       items: [
         { id: 'profile', label: '회원정보 수정', icon: Settings },
+        { id: 'addresses', label: '배송지 관리', icon: MapPin },
       ],
     },
   ];

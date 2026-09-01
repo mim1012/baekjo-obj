@@ -82,6 +82,12 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     note: '소셜 로그인 콜백 — 유효한 code 없이 방문하면 completeSocialLogin 이 실패해 /login?error=social 로 이동',
   },
   {
+    route: '/auth/complete-profile',
+    kind: 'static',
+    auth: 'member',
+    note: '소셜 로그인 후 주문용 회원정보 보완',
+  },
+  {
     route: '/diagnosis/result',
     kind: 'static',
     auth: 'redirect',
@@ -128,6 +134,12 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
 
   // ── 회원 전용 ────────────────────────────────────────────────
   { route: '/mypage', kind: 'static', auth: 'member', note: '마이페이지(개요 탭)' },
+  {
+    route: '/partner/orders',
+    kind: 'static',
+    auth: 'member',
+    note: '입점업체 주문 목록 — 비로그인은 서버가 /login 으로, partner/admin 외 role 은 / 로 redirect',
+  },
 
   // ── 관리자 정적 ──────────────────────────────────────────────
   { route: '/admin', kind: 'static', auth: 'admin', note: '관리자 대시보드' },

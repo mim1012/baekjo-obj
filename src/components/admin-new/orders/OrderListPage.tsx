@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { FileText, CreditCard, Truck, RefreshCcw, Wallet, X } from 'lucide-react';
-import { getAllOrders, updateOrderStatus, getAdminBrands } from '@/lib/storage';
+import { getAllOrders, updateOrderStatus, getAdminBrands, adminOrdersExportHref } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
@@ -13,11 +13,17 @@ import OrderFilters from './OrderFilters';
 import OrderFunnelTabs, { type FunnelTab } from './OrderFunnelTabs';
 import OrderDataTable from './OrderDataTable';
 import OrderMobileCard from './OrderMobileCard';
-import { deriveFunnelStage, stageCounts } from './orderFunnel';
+import OrderSalesSummaryPanel from './OrderSalesSummaryPanel';
+import { stageCounts } from './orderFunnel';
 import { DEPOSIT_CONFIRM_UPDATE, type OrderStatusUpdate } from './DepositConfirmButton';
 import { orderUpdateErrorMessage, summarizeBulkFailures } from './orderUpdateErrorMessage';
-import { matchesOrderSearch } from './orderSearch';
 import type { Brand, Order } from '@/types';
+import {
+  applyAdminOrderFilters,
+  DEFAULT_ADMIN_ORDER_FILTERS,
+  type AdminOrderFilters,
+} from '@/lib/orders/adminOrderFilters';
+import { buildAdminOrderReport } from '@/lib/orders/adminOrderReporting';
 
 export default function OrderListPage() {
   const mounted = useMounted();
@@ -27,8 +33,7 @@ export default function OrderListPage() {
   const [error, setError] = useState<Error | null>(null);
   const [savingOrderIds, setSavingOrderIds] = useState<Set<string>>(new Set());
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<FunnelTab>('전체');
+  const [filters, setFilters] = useState<AdminOrderFilters>(DEFAULT_ADMIN_ORDER_FILTERS);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkRunning, setBulkRunning] = useState(false);
 
@@ -90,23 +95,25 @@ export default function OrderListPage() {
 
   // 검색만 먼저 적용(탭 카운트는 검색 범위 기준으로 센다).
   const searchedOrders = useMemo(() => {
-    let result = [...orders].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter((o) => matchesOrderSearch(o, term));
-    }
-    return result;
-  }, [orders, searchTerm]);
+    return applyAdminOrderFilters(orders, { ...filters, funnelTab: '전체' });
+  }, [orders, filters]);
 
   const counts = useMemo(() => stageCounts(searchedOrders), [searchedOrders]);
 
   // 탭(진행 단계)이 1차 필터.
   const filteredOrders = useMemo(() => {
-    if (activeTab === '전체') return searchedOrders;
-    return searchedOrders.filter((o) => deriveFunnelStage(o) === activeTab);
-  }, [searchedOrders, activeTab]);
+    return applyAdminOrderFilters(orders, filters);
+  }, [orders, filters]);
+
+  const report = useMemo(() => {
+    return buildAdminOrderReport({
+      orders: filteredOrders,
+      brands: Object.values(brandMap),
+      brandId: filters.brandId,
+    });
+  }, [brandMap, filteredOrders, filters.brandId]);
+
+  const exportHref = useMemo(() => adminOrdersExportHref(filters), [filters]);
 
   const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
   const paginatedOrders = useMemo(() => {
@@ -114,7 +121,7 @@ export default function OrderListPage() {
   }, [filteredOrders, currentPage, ITEMS_PER_PAGE]);
 
   // 일괄 입금확인은 입금대기 탭에서만 제공한다(발송대기는 송장이 주문별 입력이라 일괄 불가 → 선택 자체를 끈다).
-  const selectable = activeTab === '입금대기';
+  const selectable = filters.funnelTab === '입금대기';
 
   const resetSelectionAndPage = useCallback(() => {
     setSelectedIds([]);
@@ -122,12 +129,17 @@ export default function OrderListPage() {
   }, []);
 
   const handleSearchChange = useCallback((val: string) => {
-    setSearchTerm(val);
+    setFilters((prev) => ({ ...prev, searchTerm: val }));
     resetSelectionAndPage();
   }, [resetSelectionAndPage]);
 
   const handleTabChange = useCallback((tab: FunnelTab) => {
-    setActiveTab(tab);
+    setFilters((prev) => ({ ...prev, funnelTab: tab }));
+    resetSelectionAndPage();
+  }, [resetSelectionAndPage]);
+
+  const handleFilterChange = useCallback((patch: Partial<AdminOrderFilters>) => {
+    setFilters((prev) => ({ ...prev, ...patch }));
     resetSelectionAndPage();
   }, [resetSelectionAndPage]);
 
@@ -185,8 +197,7 @@ export default function OrderListPage() {
   }, [selectedIds, loadOrders]);
 
   const handleDepositPendingClick = useCallback(() => {
-    setSearchTerm('');
-    setActiveTab('입금대기');
+    setFilters((prev) => ({ ...prev, searchTerm: '', funnelTab: '입금대기' }));
     resetSelectionAndPage();
   }, [resetSelectionAndPage]);
 
@@ -219,7 +230,7 @@ export default function OrderListPage() {
   const depositPendingCount = orders.filter((o) => o.paymentStatus === '입금대기').length;
   const shippingCount = orders.filter((o) => o.deliveryStatus === '배송중').length;
   const canceledCount = orders.filter(
-    (o) => o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
+    (o) => o.orderStatus === '취소요청' || o.orderStatus === '취소완료' || o.paymentStatus === '환불완료',
   ).length;
 
   return (
@@ -241,13 +252,21 @@ export default function OrderListPage() {
 
       <div className="space-y-4">
         <OrderFunnelTabs
-          active={activeTab}
+          active={filters.funnelTab}
           counts={counts}
           totalCount={searchedOrders.length}
           onChange={handleTabChange}
         />
 
-        <OrderFilters searchTerm={searchTerm} onSearchChange={handleSearchChange} />
+        <OrderFilters
+          filters={filters}
+          brands={Object.values(brandMap)}
+          exportHref={exportHref}
+          onFilterChange={handleFilterChange}
+          onSearchChange={handleSearchChange}
+        />
+
+        <OrderSalesSummaryPanel overall={report.overall} brands={report.brands} />
 
         {/* 일괄 입금확인 바 — 입금대기 탭에서 1건 이상 선택 시 노출. */}
         {selectable && selectedIds.length > 0 && (

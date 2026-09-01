@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { completeSocialLogin } from '@/lib/socialAuth';
+import { completeSocialLogin, normalizeReturnTo } from '@/lib/socialAuth';
 
 export default function AuthCompletePage() {
   const router = useRouter();
@@ -13,10 +13,15 @@ export default function AuthCompletePage() {
     if (handledRef.current) return;
     handledRef.current = true;
 
+    const returnTo = normalizeReturnTo(new URLSearchParams(window.location.search).get('returnTo'));
     completeSocialLogin()
       .then((user) => {
         // 실패 시 로그인 화면이 이유를 안내할 수 있도록 error 파라미터를 붙인다.
-        router.replace(user ? '/' : '/login?error=social');
+        if (!user) {
+          router.replace('/login?error=social');
+          return;
+        }
+        router.replace(user.profileCompleted ? returnTo : `/auth/complete-profile?returnTo=${encodeURIComponent(returnTo)}`);
       })
       .catch(() => {
         router.replace('/login?error=social');

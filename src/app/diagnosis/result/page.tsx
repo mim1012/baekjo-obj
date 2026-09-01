@@ -9,6 +9,7 @@ import BrandCard from '@/components/common/BrandCard';
 import ProductCard from '@/components/common/ProductCard';
 import { ArrowRight, CheckCircle2, ShieldCheck, HeartHandshake } from 'lucide-react';
 import type { Brand, Product, SurveyResultRule } from '@/types';
+import { FEATURES } from '@/config/features';
 
 export default function DiagnosisResultPage() {
   const router = useRouter();
@@ -77,6 +78,8 @@ export default function DiagnosisResultPage() {
 
   const recommendedBrands = brands.filter(b => result.recommendation.brandIds.includes(b.id));
   const recommendedProducts = products.filter(p => result.recommendation.productIds.includes(p.id));
+  const showInsuranceRecommendation = FEATURES.insurance && result.recommendation.needInsuranceAnalysis;
+  const showCareRecommendations = showInsuranceRecommendation || result.recommendation.recommendKit;
 
   return (
     <div className="bg-[#FAF9F5] min-h-dvh pb-24">
@@ -115,7 +118,7 @@ export default function DiagnosisResultPage() {
               맞춤 상품
             </button>
           )}
-          {(result.recommendation.needInsuranceAnalysis || result.recommendation.recommendKit) && (
+          {showCareRecommendations && (
             <button
               onClick={() => setActiveTab('care')}
               className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${activeTab === 'care' ? 'border-[#202521] text-[#202521]' : 'border-transparent text-[#8A918B]'}`}
@@ -161,9 +164,9 @@ export default function DiagnosisResultPage() {
           )}
 
           {/* Insurance & Kit */}
-          {(result.recommendation.needInsuranceAnalysis || result.recommendation.recommendKit) && (
+          {showCareRecommendations && (
             <section className={`${activeTab === 'care' ? 'flex' : 'hidden'} md:flex md:grid md:grid-cols-2 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4 mt-0 md:mt-16`}>
-              {result.recommendation.needInsuranceAnalysis && (
+              {showInsuranceRecommendation && (
                 <div className="bg-[#EAE8E1] p-6 md:p-8 rounded-sm border border-[#D8D6CE] w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-start h-auto flex flex-col">
                   <ShieldCheck className="size-8 text-[#5E6C62] mb-4" />
                   <h3 className="text-[18px] md:text-xl font-bold text-[#202521] mb-2">펫보험 보장 점검 필요</h3>

@@ -39,6 +39,10 @@ const allowedAdvisories = new Map([
     'PostCSS is nested under Next.js; application source does not parse or stringify user-controlled CSS.',
   ],
   [
+    'https://github.com/advisories/GHSA-w5hq-g745-h8pq',
+    'ExcelJS transitively includes uuid; the vulnerable uuid buffer APIs are not called by this server-side workbook export, which supplies only validated order data. Re-review on the exception expiry date.',
+  ],
+  [
     // 2026-07-24 신규 공개 — arbitrary file read during CSS parsing. next 16.2.11(최신)이 아직
     // 패치판 postcss를 동봉하지 않아 업그레이드 경로 부재. qx2v와 동일 도달성 논거: postcss는
     // Next 빌드 체인 내부에서만 실행되고 사용자 제어 CSS를 파싱하지 않는다. next 패치 릴리즈

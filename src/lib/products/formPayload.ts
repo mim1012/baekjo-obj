@@ -7,7 +7,7 @@ import type { CreateProductInput, UpdateProductInput } from '@/lib/storage';
 
 /**
  * ProductForm 이 편집 UI 를 가진 필드 화이트리스트(문서·테스트용).
- * 이 밖의 필드(detailBlocks·rating·reviewCount·concernTags 등)는 폼이 건드리지 않으므로
+ * 이 밖의 필드(detailBlocks·rating·reviewCount 등)는 폼이 건드리지 않으므로
  * payload 에 담지 않는다 → updateProduct 가 read-modify-write 라 기존 값이 보존된다.
  * detailBlocks 는 별도 화면(ProductDetailEditor)이 소유하므로 여기서 절대 재전송하지 않는다.
  */
@@ -27,8 +27,7 @@ export const PRODUCT_FORM_FIELDS = [
   'images',
   'options',
   'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
+  'concernTags',
   'ingredients',
   'howToUse',
   'recommendedFor',
@@ -38,12 +37,9 @@ export const PRODUCT_FORM_FIELDS = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ] as const;
 
 /** 옵션 하위 폼 상태. 값은 문자열(입력 그대로)로 들고 payload 단계에서 정규화한다.
@@ -113,8 +109,7 @@ export interface ProductFormState {
   images: string[];
   options: ProductOptionFormState[];
   auditPoints: string[];
-  relatedConcernSlugs: string[];
-  tags: string[];
+  concernTags: string[];
   ingredients?: string;
   howToUse?: string;
   recommendedFor: string[];
@@ -124,12 +119,9 @@ export interface ProductFormState {
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
-  isMembersOnlyPrice?: boolean;
   isVisible?: boolean;
   isBest?: boolean;
   isRecommended?: boolean;
-  pointsEnabled?: boolean;
-  pointsRate?: number;
 }
 
 /**
@@ -140,7 +132,6 @@ export interface ProductFormState {
  *   **지우기**를 지원한다(BrandForm officialUrl 과 동일 규칙). 서버 validate 가 빈 문자열을
  *   허용하고 splitProductInput 이 ''(≠undefined)를 detail 에 써 기존 값을 덮으므로 실제로 지워진다.
  * - salePrice 0 은 null 로(할인 없음). shippingFee 는 값이 유효할 때만 담는다(미입력=기존값 보존).
- * - isMembersOnlyPrice 는 boolean 으로 항상 담는다.
  */
 function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
@@ -158,8 +149,7 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     images: cleanStringList(form.images),
     options: normalizeOptions(form.options),
     auditPoints: cleanStringList(form.auditPoints),
-    relatedConcernSlugs: cleanStringList(form.relatedConcernSlugs),
-    tags: cleanStringList(form.tags),
+    concernTags: cleanStringList(form.concernTags),
     ingredients: form.ingredients?.trim() ?? '',
     howToUse: form.howToUse?.trim() ?? '',
     recommendedFor: cleanStringList(form.recommendedFor),
@@ -168,23 +158,15 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
     sellerName: form.sellerName?.trim() ?? '',
-    isMembersOnlyPrice: form.isMembersOnlyPrice ?? false,
     isVisible: form.isVisible ?? false,
     isBest: form.isBest ?? false,
     isRecommended: form.isRecommended ?? false,
-    pointsEnabled: form.pointsEnabled ?? false,
   };
 
   // shippingFee 는 숫자일 때만 담는다. null/undefined(미입력)면 키를 빼 기존/기본값을 보존한다
   // (validate 가 shippingFee 를 non-null number 로만 받으므로 null 을 실으면 400 이 된다).
   if (typeof form.shippingFee === 'number' && Number.isFinite(form.shippingFee)) {
     fields.shippingFee = form.shippingFee;
-  }
-
-  // pointsRate 는 적립금 지급이 켜져 있고 숫자일 때만 담는다.
-  // 체크 해제 상태에서는 rate 를 재전송하지 않아 서버가 기존 detail.pointsRate 를 제거할 수 있게 한다.
-  if (form.pointsEnabled === true && typeof form.pointsRate === 'number' && Number.isFinite(form.pointsRate)) {
-    fields.pointsRate = form.pointsRate;
   }
 
   return fields;
@@ -207,7 +189,7 @@ export function buildProductUpdatePayload(
 /**
  * 생성(POST) payload. 서버가 requireAll=true 로 검증하므로 필수 필드를 명시적으로 채운다.
  * ageGroup 은 폼에 입력 UI 가 없지만 서버 필수라 상태 기본값('all')을 포함한다.
- * rating/reviewCount/concernTags 등 폼에 UI 없는 필수 필드는 서버가 requireAll 기본값을 채운다.
+ * rating/reviewCount 등 폼에 UI 없는 필수 필드는 서버가 requireAll 기본값을 채운다.
  */
 export function buildProductCreatePayload(
   form: ProductFormState,

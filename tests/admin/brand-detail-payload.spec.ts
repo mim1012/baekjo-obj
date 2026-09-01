@@ -40,7 +40,6 @@ function form(over: Partial<BrandDetailFormState> = {}): BrandDetailFormState {
     logo: '/brands/b1.webp',
     description: '한 줄 소개',
     philosophy: '브랜드 철학',
-    auditGrade: 'A+',
     officialUrl: 'https://example.com',
     isRecommended: true,
     isVisible: true,
@@ -216,6 +215,8 @@ test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화�
         asNotice: '  하자 접수 안내  ',
         supportContact: '  help@example.com  ',
         supportHours: '  평일 10:00~17:00  ',
+        supportEmail: '  support@example.com  ',
+        supportKakaoLabel: '  브랜드 카카오톡  ',
       },
     }),
   );
@@ -236,6 +237,8 @@ test('shipping payload 는 기본 택배사·금액·정책 문구를 정규화�
     asNotice: '하자 접수 안내',
     supportContact: 'help@example.com',
     supportHours: '평일 10:00~17:00',
+    supportEmail: 'support@example.com',
+    supportKakaoLabel: '브랜드 카카오톡',
   });
 });
 
@@ -256,6 +259,8 @@ test('shipping payload 는 빈 텍스트와 미입력 숫자를 제거한다', (
     asNotice: 'A/S 안내',
     supportContact: undefined,
     supportHours: '  ',
+    supportEmail: '  ',
+    supportKakaoLabel: undefined,
   });
 
   expect(shipping).toEqual({
@@ -267,6 +272,23 @@ test('shipping payload 는 빈 텍스트와 미입력 숫자를 제거한다', (
 test('auditReport 전무면 payload.auditReport 는 undefined(플레이스백)', () => {
   const payload = buildBrandDetailPayload(form({ auditReport: emptyAuditReportForm() }));
   expect(payload.auditReport).toBeUndefined();
+});
+
+test('Audit 원문 확장 섹션은 다른 브랜드 필드를 저장해도 보존한다', () => {
+  const auditReport = fullReport({
+    checkpoints: ['체크포인트'],
+    materialReview: ['소재와 품질'],
+    curatorNote: ['큐레이터 노트'],
+    auditConclusion: ['Audit 결론'],
+  });
+  const payload = buildBrandDetailPayload(form({ auditReport }));
+
+  expect(payload.auditReport).toMatchObject({
+    checkpoints: ['체크포인트'],
+    materialReview: ['소재와 품질'],
+    curatorNote: ['큐레이터 노트'],
+    auditConclusion: ['Audit 결론'],
+  });
 });
 
 test('officialUrl 빈 문자열/공백은 지우기로 정규화(모달과 동일 규칙)', () => {

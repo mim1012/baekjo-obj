@@ -6,6 +6,7 @@ import {
   normalizeOrderPolicyConfig,
   type OrderPolicyConfig,
 } from '@/lib/orderPolicy/config';
+import type { BankTransferAccount } from '@/types';
 import { logServerError } from '@/lib/logServerError';
 
 const SETTINGS_ROW_ID = 'default';
@@ -47,11 +48,22 @@ function toTtlMs(config: OrderPolicyConfig): number | null {
  * 번지면 안 되기 때문이다. 실패는 로그로만 드러낸다.
  */
 export async function resolveBankTransferTtlMs(): Promise<number | null> {
+  return (await resolveBankTransferSettings()).ttlMs;
+}
+
+export async function resolveBankTransferSettings(): Promise<{
+  ttlMs: number | null;
+  account: BankTransferAccount | null;
+}> {
   try {
     const config = await getOrderPolicyConfig();
-    return toTtlMs(config ?? defaultOrderPolicyConfig);
+    const resolved = config ?? defaultOrderPolicyConfig;
+    return { ttlMs: toTtlMs(resolved), account: resolved.bankTransferAccount };
   } catch (error) {
     logServerError('[orderPolicy] 주문 정책 조회 실패 — 기본값(자동취소 비활성) 폴백', error);
-    return toTtlMs(defaultOrderPolicyConfig);
+    return {
+      ttlMs: toTtlMs(defaultOrderPolicyConfig),
+      account: defaultOrderPolicyConfig.bankTransferAccount,
+    };
   }
 }

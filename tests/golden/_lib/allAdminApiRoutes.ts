@@ -32,6 +32,7 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/order-policy',
   '/api/admin/orders',
   '/api/admin/orders/[id]',
+  '/api/admin/orders/export',
   '/api/admin/orders/[id]/refunds',
   '/api/admin/orders/[id]/shipments',
   '/api/admin/orders/[id]/shipments/[brandId]',
@@ -46,6 +47,7 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/settings',
   '/api/admin/showcase-reviews',
   '/api/admin/survey',
+  '/api/admin/tracking/companies',
   '/api/admin/upload',
 ];
 

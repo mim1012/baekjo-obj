@@ -56,6 +56,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
   const asNotice = `AS접수안내 ${runId}`;
   const supportContact = `010-0000-0000 ${runId}`;
   const supportHours = `평일 10-17 ${runId}`;
+  const supportEmail = `support-${runId}@example.com`;
+  const supportKakaoLabel = `브랜드 카카오톡 ${runId}`;
   const reportNo = `BOA-${runId}`;
   const auditedAt = '2026-01-15';
   const auditStatus = `검증완료 ${runId}`;
@@ -152,7 +154,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await modal.locator('input[type="file"]').setInputFiles(logoPath);
     await expect(modal.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
     await modal.locator('input[placeholder="예: 지위픽"]').fill(brandName);
-    await modal.locator('select').selectOption('B+');
     await modal.locator('textarea[placeholder="브랜드관에 표시할 간단한 소개"]').fill(description);
     await modal
       .locator('textarea[placeholder="상세한 브랜드 스토리와 철학을 입력하세요."]')
@@ -214,6 +215,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await page.locator('#ship-as-notice').fill(asNotice);
     await page.locator('#ship-support-contact').fill(supportContact);
     await page.locator('#ship-support-hours').fill(supportHours);
+    await page.locator('#ship-support-email').fill(supportEmail);
+    await page.locator('#ship-support-kakao').fill(supportKakaoLabel);
 
     // 감사 보고서(8필드 전부).
     await page.locator('#ar-reportNo').fill(reportNo);
@@ -279,7 +282,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#bd-desc')).toHaveValue(description);
     await expect(page.locator('#bd-philosophy')).toHaveValue(philosophy);
     await expect(page.locator('#bd-official')).toHaveValue(officialUrl);
-    await expect(page.locator('#bd-grade')).toHaveValue('B+');
     await expect(page.locator('#bd-order')).toHaveValue('0');
     // 배송정책.
     await expect(page.locator('#ship-carrier')).toHaveValue(carrierValue);
@@ -292,6 +294,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#ship-as-notice')).toHaveValue(asNotice);
     await expect(page.locator('#ship-support-contact')).toHaveValue(supportContact);
     await expect(page.locator('#ship-support-hours')).toHaveValue(supportHours);
+    await expect(page.locator('#ship-support-email')).toHaveValue(supportEmail);
+    await expect(page.locator('#ship-support-kakao')).toHaveValue(supportKakaoLabel);
     // 감사 보고서 8필드.
     await expect(page.locator('#ar-reportNo')).toHaveValue(reportNo);
     await expect(page.locator('#ar-auditedAt')).toHaveValue(auditedAt);
@@ -335,7 +339,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await page.getByRole('button', { name: '새 브랜드 등록' }).click();
 
     const negBrand = `${BRAND_PREFIX}neg-${runId}`;
-    // 이름만 채우고 로고·소개·철학·등급 없이 제출 → 클라 검증(BrandForm.tsx:48-49 name·description)
+    // 이름만 채우고 로고·소개·철학 없이 제출 → 클라 검증(BrandForm name·description)
     // 또는 서버 400(logo min 1자)으로 거부. 어느 경로든 행이 생기면 안 된다.
     await page.locator('form#brand-form').locator('input[placeholder="예: 지위픽"]').fill(negBrand);
     await page.getByRole('button', { name: '브랜드 등록', exact: true }).click();

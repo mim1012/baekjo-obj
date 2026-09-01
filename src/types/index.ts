@@ -36,7 +36,6 @@ export interface Product {
   sellerName?: string;
   tags?: string[];
   brandName?: string;
-  isMembersOnlyPrice?: boolean;
   auditPoints?: string[];
   recommendedFor?: string[];
   caution?: string[];
@@ -46,10 +45,6 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
-  /** 적립금 지급 여부. */
-  pointsEnabled?: boolean;
-  /** 적립률(%). 지급 로직은 구매확정 구현 후. */
-  pointsRate?: number;
 }
 
 export interface ProductOption {
@@ -83,10 +78,6 @@ export interface Brand {
   summaryCategoryLabel?: string;
   summaryConcernLabel?: string;
   summaryConcernNote?: string;
-  // 데이터/백엔드 전용 필드. 사용자 화면의 등급 배지는 제거되었으나 repo/validate/admin
-  // (src/lib/brands/repo.ts, validate.ts, admin/brands)가 이 값을 계속 읽고 관리한다.
-  // 정적 목데이터(data/brands.ts)에는 값이 없을 수 있어 선택적. DB repo 는 누락 시 'B' 로 보정.
-  auditGrade?: 'A+' | 'A' | 'B+' | 'B';
   auditPoints: string[];
   auditReport?: BrandAuditReport;
   representativeProductIds: string[];
@@ -115,6 +106,8 @@ export interface BrandShippingPolicy {
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;
+  supportEmail?: string;
+  supportKakaoLabel?: string;
 }
 
 export interface BrandAuditReport {
@@ -126,8 +119,10 @@ export interface BrandAuditReport {
   summary: string;
   selectionReason: string;
   process: string[];
+  checkpoints?: string[];
   materialReview?: string[];
   curatorNote?: string[];
+  auditConclusion?: string[];
 }
 
 /* ── 고민 ─────────────────────────────────────── */
@@ -154,7 +149,7 @@ export interface FAQ {
 export interface Review {
   id: string;
   productId: string;
-  petType: 'dog' | 'cat';
+  petType: 'dog' | 'cat' | 'small' | 'other';
   breed: string;
   age: string;
   usePeriod: string;
@@ -227,6 +222,12 @@ export type InsuranceStatus =
   | '분석완료';
 
 /* ── 주문 ─────────────────────────────────────── */
+export interface BankTransferAccount {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -237,6 +238,7 @@ export interface Order {
   deliveryFee: number;
   deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
   paymentMethod: string;
+  bankTransferAccount?: BankTransferAccount;
   orderStatus: OrderStatus;
   paymentStatus: string;
   deliveryStatus: string;
@@ -387,6 +389,7 @@ export interface User {
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
+  profileCompleted?: boolean;
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
@@ -401,7 +404,22 @@ export interface User {
   partnerData?: Record<string, unknown>;
   /** 입점업체(partner)가 관리하는 브랜드 ID 목록 */
   managedBrandIds?: string[];
+  /** 운영자가 발급한 초기 비밀번호 사용 중 — 로그인 후 비밀번호 변경을 유도한다(강제 아님) */
+  mustChangePassword?: boolean;
   signupData?: Record<string, unknown>;
+}
+
+export interface MemberAddress {
+  id: string;
+  label: string;
+  recipientName: string;
+  phone: string;
+  postalCode: string;
+  addressLine1: string;
+  addressLine2?: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /* ── Q&A ─────────────────────────────────────── */

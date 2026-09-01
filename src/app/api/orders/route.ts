@@ -11,10 +11,11 @@ import { listBrandsByIds } from '@/lib/brands/repo';
 import { logServerError } from '@/lib/logServerError';
 import { resolveOrderItem, type OrderItemShape } from '@/lib/orders/resolveOrderItem';
 import { reservationExpiryIso, BANK_TRANSFER_METHOD } from '@/lib/orders/reservationExpiry';
-import { resolveBankTransferTtlMs } from '@/lib/orderPolicy/repo';
+import { resolveBankTransferSettings } from '@/lib/orderPolicy/repo';
 import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import type { Brand, OrderItem, Product } from '@/types';
+import { FEATURES } from '@/config/features';
 
 // 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
 const MAX_ITEMS = 100;
@@ -27,6 +28,7 @@ const MAX_PRODUCT_ID = 100;
 const MAX_OPTION_ID = 100;
 const MAX_TRACKING = 100;
 const MAX_MEMO = 1000;
+const CARD_PAYMENT_METHODS = new Set(['카드결제', '신용카드']);
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -70,13 +72,14 @@ function validate(
   productMap: Map<string, Product>,
   brands: readonly Brand[],
   bankTransferTtlMs: number | null,
+  bankTransferAccount: InsertOrderInput['bankTransferAccount'] | null,
 ): InsertOrderInput | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
 
   if (!isStr(b.customerName, 1, MAX_NAME)) return null;
   if (!isStr(b.phone, 1, MAX_PHONE)) return null;
-  if (!isStr(b.address, 0, MAX_ADDRESS)) return null;
+  if (!isStr(b.address, 1, MAX_ADDRESS)) return null;
   if (!isStr(b.paymentMethod, 1, MAX_PAYMENT_METHOD)) return null;
   if (b.trackingNumber !== undefined && !isStr(b.trackingNumber, 0, MAX_TRACKING)) return null;
   if (b.deliveryMemo !== undefined && !isStr(b.deliveryMemo, 0, MAX_MEMO)) return null;
@@ -120,6 +123,7 @@ function validate(
     deliveryFee: deliveryFeeCalculation.deliveryFee,
     deliveryFeeBreakdown: deliveryFeeCalculation.breakdown,
     paymentMethod: b.paymentMethod,
+    ...(isBankTransfer && bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: '주문접수',
     paymentStatus,
     deliveryStatus: '배송전',
@@ -157,11 +161,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
+  const requestedPaymentMethod =
+    body && typeof body === 'object' && typeof (body as Record<string, unknown>).paymentMethod === 'string'
+      ? (body as Record<string, unknown>).paymentMethod as string
+      : null;
+  if (requestedPaymentMethod && CARD_PAYMENT_METHODS.has(requestedPaymentMethod) && !FEATURES.cardPayment) {
+    return NextResponse.json({ error: 'card-payment-disabled' }, { status: 403 });
+  }
+  if (requestedPaymentMethod && requestedPaymentMethod !== BANK_TRANSFER_METHOD &&
+      !CARD_PAYMENT_METHODS.has(requestedPaymentMethod)) {
+    return NextResponse.json({ error: 'invalid-payment-method' }, { status: 400 });
+  }
+
   const activeMember = await requireActiveMember();
   if (!activeMember.ok) {
     return activeMember.response;
   }
   const memberId = activeMember.memberId;
+
+  if (!activeMember.member.name.trim() || !activeMember.member.phone.trim()) {
+    return NextResponse.json({ error: 'profile-incomplete' }, { status: 409 });
+  }
 
   // 주문 생성 남용 완화용 레이트리밋을 DB 조회 전에 적용한다 — 자동화 루프가 재고 차감을
   // 반복해 재고를 고갈시키는 걸 늦춘다(정밀 제한 아님, rateLimit.ts 주석 참고).
@@ -188,9 +208,15 @@ export async function POST(request: NextRequest) {
   const claimsBankTransfer =
     body && typeof body === 'object' &&
     (body as Record<string, unknown>).paymentMethod === BANK_TRANSFER_METHOD;
-  const bankTransferTtlMs = claimsBankTransfer ? await resolveBankTransferTtlMs() : null;
+  const bankTransferSettings = claimsBankTransfer ? await resolveBankTransferSettings() : null;
 
-  const validated = validate(body, productMap, brandList, bankTransferTtlMs);
+  const validated = validate(
+    body,
+    productMap,
+    brandList,
+    bankTransferSettings?.ttlMs ?? null,
+    bankTransferSettings?.account ?? null,
+  );
   if (!validated) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }

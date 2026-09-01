@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -11,15 +12,14 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
 import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
-import { getCurrentUser, getPublicBrands, logout } from '@/lib/storage';
+import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import BrandMark from './BrandMark';
 
-type NavLinkDef = { label: string; href: string; description?: string; feature?: keyof typeof FEATURES };
+type NavLinkDef = { label: string; href: string; feature?: keyof typeof FEATURES };
 
 const ALL_MAIN_LINKS: NavLinkDef[] = [
   { label: '브랜드', href: '/brands' },
@@ -37,10 +37,10 @@ const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
 const ALL_STORY_LINKS: NavLinkDef[] = [
-  { label: '검증 기준', description: '백조 Audit의 네 가지 확인 기준', href: '/audit' },
-  { label: '전문가 칼럼', description: '전문가가 전하는 반려생활 기준', href: '/experts', feature: 'experts' },
-  { label: '보호자 후기', description: '먼저 경험한 보호자들의 기록', href: '/reviews' },
-  { label: '소식', description: '새로운 서비스와 안내', href: '/notices' },
+  { label: '백조오브제 Audit의 검토 기준', href: '/audit' },
+  { label: '전문가 칼럼', href: '/experts', feature: 'experts' },
+  { label: '보호자 후기', href: '/reviews' },
+  { label: '소식', href: '/notices' },
 ];
 
 const STORY_LINKS = ALL_STORY_LINKS.filter(
@@ -66,6 +66,7 @@ const subscribeToCart = (callback: () => void) => {
 type MobilePanel = 'shop' | 'story' | null;
 
 export default function Header() {
+  const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const mounted = useMounted();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -73,19 +74,12 @@ export default function Header() {
   const [brandLinks, setBrandLinks] = useState<Array<{ label: string; href: string }>>([]);
   const cartCount = useSyncExternalStore(subscribeToCart, getCartCount, () => 0);
   const currentUser = mounted ? getCurrentUser() : null;
+  const accountHref = currentUser?.role === 'partner' ? '/partner/orders' : '/mypage';
+  const accountLabel = currentUser?.role === 'partner' ? '파트너 주문 관리' : '마이페이지';
 
   useEffect(() => {
-    getPublicBrands()
-      .then((list) =>
-        setBrandLinks(
-          list
-            .filter((brand) => brand.isVisible !== false)
-            .map((brand) => ({
-              label: brand.name.split(' (')[0],
-              href: `/brands/${brand.slug}`,
-            })),
-        ),
-      )
+    getPublicBrandLinks()
+      .then(setBrandLinks)
       .catch(() => {});
   }, []);
 
@@ -97,11 +91,48 @@ export default function Header() {
     setMobilePanel(null);
   };
 
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!headerRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setMobilePanel(null);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [menuOpen]);
+
   return (
-    <header className="sticky top-0 z-30 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
-      <div className="site-container-wide flex h-16 items-center justify-between lg:h-[72px]">
-        <Link href="/" aria-label="백조오브제 홈" className="text-[#17211D]" onClick={closeMenu}>
-          <BrandMark />
+    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
+      <div className="site-container-wide relative z-10 flex h-16 items-center justify-between lg:h-[72px]">
+        <Link
+          href="/"
+          aria-label="백조오브제 홈"
+          className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
+          onClick={closeMenu}
+        >
+          <Image
+            src="/images/baekjo-objet-header-logo-v2.png"
+            alt="Baekjo Objet"
+            fill
+            sizes="(min-width: 1024px) 156px, 143px"
+            priority
+            className="object-contain"
+            data-testid="site-header-logo"
+          />
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">
@@ -140,14 +171,14 @@ export default function Header() {
           <div className="group relative flex h-full items-center">
             <button
               type="button"
-              aria-label="백조 오브제 메뉴"
+              aria-label="백조오브제 메뉴"
               className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
                 storyActive
                   ? 'border-[#A8742E]'
                   : 'border-transparent'
               }`}
             >
-              백조 오브제
+              백조오브제
               <ChevronDown className="size-3.5 transition-transform duration-500 group-hover:rotate-180 group-focus-within:rotate-180" />
             </button>
             <div className="absolute right-0 top-full z-40 hidden w-80 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white p-3 shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
@@ -158,7 +189,6 @@ export default function Header() {
                   className="block rounded-2xl px-4 py-3 transition-colors duration-500 hover:bg-[#FAF8F3]"
                 >
                   <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#59615B]">{link.description}</span>
                 </Link>
               ))}
             </div>
@@ -193,7 +223,7 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   void logout().finally(() => {
-                    window.location.reload();
+                    window.location.href = '/login';
                   });
                 }}
                 aria-label="로그아웃"
@@ -212,8 +242,8 @@ export default function Header() {
             </Link>
           )}
           <Link
-            href="/mypage"
-            aria-label="마이페이지"
+            href={accountHref}
+            aria-label={accountLabel}
             className="hidden rounded-full p-2.5 text-[#59615B] transition-colors duration-500 hover:bg-[#F3EEE6] hover:text-[#17211D] md:block"
           >
             <User className="size-5" />
@@ -244,10 +274,19 @@ export default function Header() {
       </div>
 
       {menuOpen && (
+        <button
+          type="button"
+          aria-label="메뉴 바깥 영역 닫기"
+          onClick={closeMenu}
+          className="fixed inset-0 top-16 z-0 cursor-default bg-[#17211D]/10 lg:hidden"
+        />
+      )}
+
+      {menuOpen && (
         <nav
           id="mobile-menu"
           aria-label="전체 메뉴"
-          className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
+          className="relative z-10 max-h-[calc(100dvh-12rem)] overflow-y-auto border-t border-[#E7E0D5] bg-[#FBFAF7] px-4 pb-8 pt-4 lg:hidden"
         >
           <div className="mx-auto flex max-w-lg flex-col">
             <MobileAccordion
@@ -273,16 +312,15 @@ export default function Header() {
             ))}
 
             <MobileAccordion
-              title="백조 오브제"
+              title="백조오브제"
               open={mobilePanel === 'story'}
               active={storyActive}
               onToggle={() => setMobilePanel((panel) => (panel === 'story' ? null : 'story'))}
             >
               <div className="space-y-3">
                 {STORY_LINKS.map((link) => (
-                  <Link key={link.href} href={link.href} onClick={closeMenu} className="block">
+                  <Link key={link.href} href={link.href} onClick={closeMenu} className="flex min-h-11 flex-col justify-center">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
-                    <span className="mt-0.5 block text-xs text-[#59615B]">{link.description}</span>
                   </Link>
                 ))}
               </div>
@@ -293,8 +331,8 @@ export default function Header() {
             )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">
-              <Link href={currentUser ? '/mypage' : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">
-                {currentUser ? '내 정보 보기' : '로그인'}
+              <Link href={currentUser ? accountHref : '/login'} onClick={closeMenu} className="btn-secondary min-h-11 px-4">
+                {currentUser ? accountLabel : '로그인'}
               </Link>
               <Link href="/cart" onClick={closeMenu} className="btn-secondary min-h-11 px-4">
                 장바구니 {cartCount > 0 ? `${cartCount}` : ''}
@@ -307,7 +345,7 @@ export default function Header() {
                   onClick={() => {
                     closeMenu();
                     void logout().finally(() => {
-                      window.location.reload();
+                      window.location.href = '/login';
                     });
                   }}
                   className="btn-secondary col-span-2 min-h-11 px-4"
