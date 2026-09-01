@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, RefreshCw, Trash2, Plus, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, RefreshCw, Trash2, Plus, X } from 'lucide-react';
 import type { Product, Brand } from '@/types';
 import { createAdminProductTag, createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
@@ -14,6 +14,12 @@ import {
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 import { parseProductPetTypes, serializeProductPetTypes } from '@/lib/products/petTypes';
+import {
+  moveProductImage,
+  promoteProductImage,
+  toOrderedProductImages,
+  toProductImageFields,
+} from '@/lib/products/imageOrder';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -285,8 +291,21 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
   };
 
   const images = formData.images ?? [];
+  const orderedImages = toOrderedProductImages(formData.image, images);
   const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
+
+  const handleOrderedImagesChange = (next: string[]) => {
+    const imageFields = toProductImageFields(next);
+    setFormData((prev) => ({ ...prev, ...imageFields }));
+    if (fieldErrors.image && imageFields.image.trim()) {
+      setFieldErrors((prev) => {
+        const nextErrors = { ...prev };
+        delete nextErrors.image;
+        return nextErrors;
+      });
+    }
+  };
 
   const handleCreateConcernTag = async (label: string): Promise<string> => {
     const result = await createAdminProductTag(label);
@@ -659,29 +678,14 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
         </div>
 
         <div className="space-y-6">
-          {/* 대표 이미지 */}
-          <SectionCard title="대표 이미지">
-            <ImageUploader
-              value={formData.image || ''}
-              onChange={(url) => handleChange('image', url)}
-              domain="product"
-              usage="main"
-              entityId={isEdit ? initialData.id : undefined}
-              draftId={!isEdit ? draftId : undefined}
-              aspectRatio="1/1"
-              height="240px"
-              description="정사각형(1:1) 비율, 최소 600x600px 권장"
-            />
-          </SectionCard>
-
-          {/* 추가 이미지 갤러리 */}
+          {/* 상품 이미지 순서 — 1번이 공개 상품 카드와 상세 첫 화면의 대표 이미지 */}
           <SectionCard
-            title="추가 이미지 갤러리"
-            description="상세 상단 갤러리용 이미지입니다. 이미지와 텍스트를 섞은 본문은 상세페이지 편집에서 구성합니다."
+            title="상품 이미지 순서"
+            description="1번 사진이 상품 카드와 상품 상세 첫 화면의 대표 이미지입니다. 위·아래 버튼으로 순서를 바꾸거나 원하는 사진을 바로 대표로 지정할 수 있습니다."
           >
-            <GalleryEditor
-              images={images}
-              onChange={(next) => handleChange('images', next)}
+            <ProductImageOrderEditor
+              images={orderedImages}
+              onChange={handleOrderedImagesChange}
               entityId={isEdit ? initialData.id : undefined}
               draftId={!isEdit ? draftId : undefined}
             />
@@ -1000,8 +1004,8 @@ function OptionEditor({
   );
 }
 
-/** 추가 이미지 갤러리 편집기. 슬롯마다 ImageUploader, 빈 URL 은 저장 단계에서 버려진다. */
-function GalleryEditor({
+/** 1번을 대표 이미지로 저장하는 통합 상품 이미지 순서 편집기. */
+function ProductImageOrderEditor({
   images,
   onChange,
   entityId,
@@ -1017,32 +1021,75 @@ function GalleryEditor({
   };
   const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
   const add = () => onChange([...images, '']);
+  const move = (idx: number, direction: -1 | 1) => onChange(moveProductImage(images, idx, direction));
+  const promote = (idx: number) => onChange(promoteProductImage(images, idx));
 
   const lastEmpty = images.length > 0 && images[images.length - 1].trim() === '';
 
   return (
     <div className="space-y-3">
       {images.map((img, idx) => (
-        <div key={idx} className="flex items-start gap-2">
-          <div className="flex-1">
+        <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-gray-800">{idx + 1}번 사진</span>
+              {idx === 0 && (
+                <span className="rounded-full bg-[#173C32] px-2.5 py-1 text-[11px] font-semibold text-white">
+                  대표 이미지
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {idx > 0 && img.trim() && (
+                <button
+                  type="button"
+                  onClick={() => promote(idx)}
+                  className="mr-1 min-h-9 rounded border border-[#173C32] bg-white px-3 text-[12px] font-semibold text-[#173C32] hover:bg-[#F1F5F3]"
+                >
+                  대표로 지정
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => move(idx, -1)}
+                disabled={idx === 0 || !img.trim() || !images[idx - 1]?.trim()}
+                aria-label={`${idx + 1}번 이미지 위로 이동`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
+              >
+                <ArrowUp size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => move(idx, 1)}
+                disabled={idx === images.length - 1 || !img.trim() || !images[idx + 1]?.trim()}
+                aria-label={`${idx + 1}번 이미지 아래로 이동`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
+              >
+                <ArrowDown size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                aria-label={idx === 0 ? '대표 이미지 삭제' : `갤러리 이미지 ${idx} 삭제`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+          <div>
             <ImageUploader
               value={img}
               onChange={(url) => update(idx, url)}
               domain="product"
-              usage="detail"
+              usage={idx === 0 ? 'main' : 'detail'}
               entityId={entityId}
               draftId={draftId}
-              height="140px"
+              aspectRatio="1/1"
+              height={idx === 0 ? '240px' : '140px'}
+              description={idx === 0 ? '정사각형(1:1) 비율, 최소 600x600px 권장' : undefined}
             />
           </div>
-          <button
-            type="button"
-            onClick={() => remove(idx)}
-            aria-label={`갤러리 이미지 ${idx + 1} 삭제`}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
-          >
-            <X size={16} />
-          </button>
         </div>
       ))}
       <button

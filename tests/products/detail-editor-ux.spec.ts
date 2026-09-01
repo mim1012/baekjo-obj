@@ -20,5 +20,6 @@ test('product detail editor exposes clear block insertion and multi-image upload
   expect(editor).toContain('`텍스트 ${counts.text + 1}`');
   expect(editor).toContain('`이미지 ${counts.image + 1}`');
   expect(form).toContain('상세페이지 본문 편집하기');
-  expect(form).toContain('상세 상단 갤러리용 이미지입니다.');
+  expect(form).toContain('1번 사진이 상품 카드와 상품 상세 첫 화면의 대표 이미지입니다.');
+  expect(form).toContain('대표로 지정');
 });
