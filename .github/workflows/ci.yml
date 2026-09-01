@@ -21,6 +21,7 @@ jobs:
       products: ${{ steps.filter.outputs.products }}
       admin: ${{ steps.filter.outputs.admin }}
       tracking: ${{ steps.filter.outputs.tracking }}
+      partners: ${{ steps.filter.outputs.partners }}
       ci: ${{ steps.filter.outputs.ci }}
       full_regression: ${{ steps.scope.outputs.full_regression }}
     steps:
@@ -80,6 +81,13 @@ jobs:
               - 'src/app/mypage/components/Tracking*'
               - 'src/lib/tracking/**'
               - 'tests/tracking/**'
+            partners:
+              - 'src/app/api/partner/**'
+              - 'src/components/partner/**'
+              - 'src/components/orders/OrderDateRangeFilter.tsx'
+              - 'src/lib/partners/**'
+              - 'src/lib/orders/**'
+              - 'tests/partners/**'
             ci:
               - '.github/workflows/ci.yml'
               - 'package.json'
@@ -183,6 +191,24 @@ jobs:
       - name: 택배 추적 어댑터 스펙 (순수 함수 — DB/브라우저 불필요)
         run: npx playwright test --project=tracking --reporter=line
 
+  partners-contract:
+    needs: changes
+    if: needs.changes.outputs.full_regression == 'true' || needs.changes.outputs.partners == 'true' || needs.changes.outputs.admin == 'true' || needs.changes.outputs.products == 'true' || needs.changes.outputs.ci == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --ignore-scripts
+
+      - name: 입점업체 주문 날짜·권한 스펙 (순수 함수·소스 계약)
+        run: npx playwright test --project=partners --reporter=line
+
   visual:
     needs: changes
     if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.auth == 'true' || needs.changes.outputs.shipping == 'true'
@@ -239,7 +265,7 @@ jobs:
   # 끝에 주요 테이블 존재를 검증한다. 어떤 IDE로 짰든 GitHub 에서 동일하게 적용·검증된다.
   migrate:
     runs-on: ubuntu-latest
-    needs: [verify, products-contract, admin-contract, tracking-contract]
+    needs: [verify, products-contract, admin-contract, tracking-contract, partners-contract]
     if: always() && github.event_name == 'push' && !cancelled() && !failure()
     steps:
       - uses: actions/checkout@v4
