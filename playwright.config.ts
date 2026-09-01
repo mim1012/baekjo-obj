@@ -55,6 +55,12 @@ export function shouldStartLocalWebServer(
   );
 }
 
+export function shouldReuseLocalWebServer(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): boolean {
+  return !environment.CI || environment.PLAYWRIGHT_REUSE_EXISTING_SERVER === '1';
+}
+
 const shouldStartLocalServer = shouldStartLocalWebServer(isLocal, process.argv);
 const protectionBypassHeaders = process.env.VERCEL_AUTOMATION_BYPASS
   ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS }
@@ -232,7 +238,7 @@ export default defineConfig({
           command: 'npm run dev',
           env: { LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1', PORT: localWebServerPort },
           url: new URL('/api/members/me', baseURL).toString(),
-          reuseExistingServer: !process.env.CI,
+          reuseExistingServer: shouldReuseLocalWebServer(),
           timeout: 120_000,
         },
       }
