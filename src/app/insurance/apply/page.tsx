@@ -39,7 +39,6 @@ function InsuranceApplyForm() {
     petAge: '',
     hasCurrentInsurance: searchParams.get('hasCurrentInsurance') === 'yes' ? 'yes' : 'no',
     currentInsuranceName: searchParams.get('currentInsuranceName') ?? '',
-    medicalHistory: '',
     targetPremium: '',
     neutered: 'yes',
     gender: 'male',
@@ -110,7 +109,6 @@ function InsuranceApplyForm() {
         thirdPartyAgree: formData.thirdPartyAgree,
         hasCurrentInsurance: formData.hasCurrentInsurance === 'yes',
         currentInsuranceName: formData.currentInsuranceName,
-        medicalHistory: formData.medicalHistory,
         targetPremium: formData.targetPremium,
         neutered: formData.neutered === 'yes',
         gender: formData.gender,
@@ -175,11 +173,6 @@ function InsuranceApplyForm() {
                     </select>
                   </Field>
                 </div>
-              </div>
-              <div className="mt-5">
-                <Field label="병력 특이사항">
-                  <input name="medicalHistory" value={formData.medicalHistory} onChange={handleChange} className={fieldClass} placeholder="최근 병원 진료 기록이나 지병이 있다면 적어주세요 (선택)" />
-                </Field>
               </div>
             </section>
 

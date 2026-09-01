@@ -124,9 +124,14 @@ test.describe('탈퇴 시 member_tokens 정리 (소스 계약)', () => {
     const fnStart = repoSource.indexOf('export async function withdrawMember(');
     expect(fnStart).toBeGreaterThanOrEqual(0);
     const fn = repoSource.slice(fnStart, repoSource.indexOf('\n}', fnStart));
-    expect(fn).toContain("from('member_tokens')");
-    expect(fn).toContain('.delete()');
-    expect(fn).toContain(".eq('member_id', id)");
+    expect(fn).toContain("rpc('withdraw_member'");
+
+    const migrationSource = fs.readFileSync(
+      path.resolve(__dirname, '..', '..', 'supabase', 'migrations', '0055_atomic_member_withdrawal.sql'),
+      'utf8',
+    );
+    expect(migrationSource).toContain('delete from public.member_tokens');
+    expect(migrationSource).toContain('where member_id = p_member_id');
   });
 });
 

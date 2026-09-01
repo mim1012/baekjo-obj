@@ -30,6 +30,8 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
         petType: 'dog',
         breed: '테스트견',
         mainConcern: 'skin',
+        termsAgree: true,
+        privacyAgree: true,
       },
     });
     expect(signupResponse.status()).toBe(201);
