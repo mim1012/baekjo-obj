@@ -42,6 +42,13 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          version="$(node -p "require('./package.json').version")"
+          if [[ ! "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "package.json version must be stable semver MAJOR.MINOR.PATCH: $version" >&2
+            exit 1
+          fi
+          base_tag="v$version"
+          release_title="$base_tag · 업데이트 및 버그 수정"
           existing_tag=""
           while read -r candidate; do
             existing_sha=$(git rev-list -n 1 "$candidate")
@@ -52,37 +59,27 @@ jobs:
           done < <(git for-each-ref --format='%(refname:strip=2)' refs/tags)
           if [ -n "$existing_tag" ]; then
             echo "tag=$existing_tag" >> "$GITHUB_OUTPUT"
+            echo "title=$existing_tag · 업데이트 및 버그 수정" >> "$GITHUB_OUTPUT"
             echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          base_tag="v$(date -u +%Y.%m.%d)"
-          tag="$base_tag"
-          suffix=0
-
-          while true; do
-            if git show-ref --verify --quiet "refs/tags/$tag"; then
-              existing_sha=$(git rev-list -n 1 "$tag")
-              if [ "$existing_sha" = "$RELEASE_SHA" ]; then
-                echo "tag=$tag" >> "$GITHUB_OUTPUT"
-                echo "created=false" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-              suffix=$((suffix + 1))
-              tag="$base_tag.$suffix"
-              continue
-            fi
-            git tag -a "$tag" "$RELEASE_SHA" -m "Production release $tag"
-            git push origin "$tag"
-            echo "tag=$tag" >> "$GITHUB_OUTPUT"
-            echo "created=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          done
+          if git show-ref --verify --quiet "refs/tags/$base_tag"; then
+            existing_sha=$(git rev-list -n 1 "$base_tag")
+            echo "Release tag $base_tag already points to $existing_sha; bump package.json version before deploying $RELEASE_SHA." >&2
+            exit 1
+          fi
+          git tag -a "$base_tag" "$RELEASE_SHA" -m "Production release $base_tag"
+          git push origin "$base_tag"
+          echo "tag=$base_tag" >> "$GITHUB_OUTPUT"
+          echo "title=$release_title" >> "$GITHUB_OUTPUT"
+          echo "created=true" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release with generated notes
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          RELEASE_TITLE: ${{ steps.tag.outputs.title }}
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0
-          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE" --generate-notes --target "${{ steps.verify.outputs.sha }}"

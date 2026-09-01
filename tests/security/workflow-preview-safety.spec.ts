@@ -115,23 +115,30 @@ test.describe('Preview workflow fail-closed policy', () => {
     const emailConfig = tagStep.indexOf(
       'git config user.email "41898282+github-actions[bot]@users.noreply.github.com"',
     );
-    const tagCreate = tagStep.indexOf('git tag -a "$tag" "$RELEASE_SHA"');
+    const tagCreate = tagStep.indexOf('git tag -a "$base_tag" "$RELEASE_SHA"');
 
     expect(nameConfig).toBeGreaterThanOrEqual(0);
     expect(emailConfig).toBeGreaterThanOrEqual(0);
     expect(tagCreate).toBeGreaterThanOrEqual(0);
     expect(nameConfig).toBeLessThan(tagCreate);
     expect(emailConfig).toBeLessThan(tagCreate);
-    expect(tagStep).toContain('existing_sha=$(git rev-list -n 1 "$tag")');
+    expect(tagStep).toContain('version="$(node -p "require(\'./package.json\').version")"');
+    expect(tagStep).toContain('package.json version must be stable semver MAJOR.MINOR.PATCH');
+    expect(tagStep).toContain('base_tag="v$version"');
+    expect(tagStep).toContain('release_title="$base_tag · 업데이트 및 버그 수정"');
+    expect(tagStep).not.toContain('date -u +%Y.%m.%d');
+    expect(tagStep).not.toContain('suffix=$((suffix + 1))');
+    expect(tagStep).toContain('existing_sha=$(git rev-list -n 1 "$base_tag")');
     expect(tagStep).toContain("git for-each-ref --format='%(refname:strip=2)' refs/tags");
     expect(tagStep).toContain('git rev-list -n 1 "$candidate"');
     expect(tagStep).toContain('existing_tag=');
     expect(tagStep).toContain('echo "created=false" >> "$GITHUB_OUTPUT"');
-    expect(tagStep).toContain('suffix=$((suffix + 1))');
-    expect(tagStep).toContain('git push origin "$tag"');
+    expect(tagStep).toContain('Release tag $base_tag already points to');
+    expect(tagStep).toContain('git push origin "$base_tag"');
     expect(releaseStep).not.toContain("steps.tag.outputs.created == 'true'");
+    expect(releaseStep).toContain('RELEASE_TITLE: ${{ steps.tag.outputs.title }}');
     expect(releaseStep).toContain('gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0');
-    expect(releaseStep).toContain('gh release create "$RELEASE_TAG"');
+    expect(releaseStep).toContain('gh release create "$RELEASE_TAG" --title "$RELEASE_TITLE"');
   });
 
   test('CI는 production release contract를 실행한다', () => {
