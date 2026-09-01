@@ -7,6 +7,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, ExternalLink, History, Plus, RotateCcw, 
 import { AdminPageHeader, AdminStatusBadge } from '@/components/admin/AdminUi';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
 import { getCmsPageDefinition, type CmsFieldDefinition, type CmsLinkItem, type CmsPageDefinition } from '@/lib/cms/pageDefinitions';
+import BrandManager from '@/app/admin/brands/page';
 
 type Content = Record<string, unknown>;
 
@@ -78,7 +79,12 @@ export default function AdminPageEditor() {
         setPublishedRevision(result.publishedRevision);
         setHasUnpublishedChanges(result.hasUnpublishedChanges);
         setVersions(result.versions ?? []);
-        setActiveSection(result.definition.sections[0]?.id ?? '');
+        const requestedSection = window.location.hash.replace(/^#/, '');
+        setActiveSection(
+          result.definition.sections.some((item) => item.id === requestedSection)
+            ? requestedSection
+            : result.definition.sections[0]?.id ?? '',
+        );
       })
       .catch((reason: unknown) => {
         if (!cancelled) setError(reason instanceof Error ? reason.message : '편집 화면을 불러오지 못했습니다.');
@@ -217,6 +223,15 @@ export default function AdminPageEditor() {
           )}
           {error && <p className="sr-only">{error}</p>}
         </div>
+        {pageKey === 'brands' && (
+          <section className="border border-[#E7E0D5] bg-white p-5 sm:p-7">
+            <div className="mb-6 border-b border-[#E7E0D5] pb-5">
+              <h2 className="text-lg font-semibold text-[#17211D]">5. 브랜드 카드·상세</h2>
+              <p className="mt-1 text-sm leading-6 text-[#6F766F]">이 영역은 기존 브랜드 DB를 사용하므로 여기서 바로 등록·수정·삭제·노출 관리할 수 있습니다.</p>
+            </div>
+            <BrandManager />
+          </section>
+        )}
       </div>
     );
   }
@@ -287,6 +302,11 @@ export default function AdminPageEditor() {
               <FieldEditor key={field.path} field={field} value={getAtPath(content, field.path)} onChange={(value) => change(field.path, value)} pageKey={pageKey} />
             ))}
           </div>
+          {pageKey === 'brands' && activeSection === 'brandRecords' && (
+            <div className="border-t border-[#E7E0D5] p-5 sm:p-7">
+              <BrandManager />
+            </div>
+          )}
         </section>
       </div>
     </div>

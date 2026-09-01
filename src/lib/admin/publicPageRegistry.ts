@@ -179,8 +179,8 @@ export const PUBLIC_PAGE_REGISTRY: PublicPageRegistryEntry[] = [
     description: '브랜드 소개 첫 화면, 선정 기준과 브랜드 카드 목록입니다.',
     editableAreas: ['첫 화면 문구·이미지', '선정 기준 카드', '스포트라이트 문구', '입점 안내', '브랜드 카드·순서·노출'],
     actions: [
-      content('브랜드 목록 문구', 'brands', '브랜드관의 첫 화면·기준·안내 문구를 수정합니다.'),
-      manager('브랜드 등록·수정', '/admin/brands', '브랜드 카드와 노출 순서를 등록·수정·삭제합니다.'),
+      content('브랜드 홈페이지 전체 관리', 'brands', '첫 화면부터 브랜드 카드·상세와 입점 안내까지 실제 홈페이지 순서대로 관리합니다.'),
+      manager('브랜드 카드·상세 바로가기', '/admin/pages/brands#brandRecords', '같은 브랜드 홈페이지 관리 화면의 5번째 영역에서 등록·수정·삭제·노출 순서를 처리합니다.'),
     ],
   },
   {

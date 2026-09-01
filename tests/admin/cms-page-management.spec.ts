@@ -100,6 +100,34 @@ test.describe('비개발자용 페이지 관리 CMS', () => {
     }
   });
 
+  test('브랜드 홈페이지는 실제 6개 영역과 브랜드 CRUD를 한 편집 화면에 포함한다', () => {
+    const brands = getCmsPageDefinition('brands');
+    const editor = read('src', 'app', 'admin', 'pages', '[pageKey]', 'page.tsx');
+    const registry = read('src', 'lib', 'admin', 'publicPageRegistry.ts');
+
+    expect(brands?.title).toBe('브랜드 홈페이지 전체 관리');
+    expect(brands?.sections.map((section) => section.id)).toEqual([
+      'hero',
+      'standards',
+      'spotlight',
+      'catalog',
+      'brandRecords',
+      'partnership',
+    ]);
+    expect(brands?.sections.map((section) => section.label)).toEqual([
+      '1. 브랜드관 첫 화면',
+      '2. 브랜드 선정 기준',
+      '3. 스포트라이트',
+      '4. 필터·정렬',
+      '5. 브랜드 카드·상세',
+      '6. 브랜드 입점 안내',
+    ]);
+    expect(editor).toContain("import BrandManager from '@/app/admin/brands/page'");
+    expect(editor).toContain("activeSection === 'brandRecords'");
+    expect(editor).toContain('<BrandManager />');
+    expect(registry).toContain("'/admin/pages/brands#brandRecords'");
+  });
+
   test('화면 전용 입력칸이 다른 화면에 섞여 생기지 않는다', () => {
     const expertHero = getCmsPageDefinition('experts')!.sections[0].fields.map((field) => field.path);
     const careKitHero = getCmsPageDefinition('care-kit')!.sections[0].fields.map((field) => field.path);

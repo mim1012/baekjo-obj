@@ -84,8 +84,8 @@
 | 상품 분류·필터·노출 | 반려동물·카테고리·가격·평점, 베스트·추천·스토어 노출 | `/admin/categories`, `/admin/products/display` |
 | 상품 상세 `/shop/[id]` | 가격·재고·옵션·사진·`상품 이야기` 첫 설명·본문·배송·판매자 | `/admin/products`, 해당 상품의 `상세페이지 편집` |
 | 상품 상세 후기·문의 | 후기와 실제 고객 질문·답변 | `/admin/reviews`, `/admin/inquiries` |
-| 브랜드 목록 `/brands` | 첫 화면·선정 기준·스포트라이트·입점 안내 | `/admin/pages/brands` |
-| 브랜드 카드·상세 `/brands/[id]` | 소개·철학·이미지·Audit·배송·교환·대표상품·연관 고민 | `/admin/brands`의 해당 브랜드 `전체 수정` |
+| 브랜드 목록 `/brands` | 첫 화면·선정 기준·스포트라이트·필터·브랜드 카드·입점 안내 | `/admin/pages/brands`의 1~6번 영역 |
+| 브랜드 카드·상세 `/brands/[id]` | 소개·철학·이미지·Audit·배송·교환·대표상품·연관 고민 | `/admin/pages/brands`의 `5. 브랜드 카드·상세`에서 해당 브랜드 `전체 수정` |
 | 후기 목록 `/reviews` | 첫 화면·통계 이름·필터·빈 결과 | `/admin/pages/reviews` |
 | 후기 카드 | 실제 공개 후기 | `/admin/reviews` |
 
@@ -200,7 +200,7 @@
 중복 정본도 한 곳으로 통일했다.
 
 - 상품의 `스토어 노출`, `추천`, `베스트`는 `/admin/products/display`에서만 바꾼다.
-- 기존 브랜드의 내용·노출·추천·순서는 `/admin/brands/[id]`의 `전체 수정`에서만 바꾼다.
+- 브랜드 홈페이지는 `/admin/pages/brands` 한 화면에서 1. 첫 화면 → 2. 선정 기준 → 3. 스포트라이트 → 4. 필터·정렬 → 5. 브랜드 카드·상세 → 6. 입점 안내 순서로 관리한다. 5번 영역의 `전체 수정`이 기존 `/admin/brands/[id]` 상세 편집으로 연결된다.
 - 상품 카드 태그 정의는 `/admin/products/tags`, 상품별 선택은 `/admin/products/[id]`로 역할을 나눈다.
 - 브랜드 배송비는 `/admin/brands`, 무통장 자동취소는 `/admin/order-policy`, 고객 안내 문서는 `/admin/pages/refund-policy`로 분리한다.
 

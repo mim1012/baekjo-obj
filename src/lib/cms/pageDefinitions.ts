@@ -733,10 +733,10 @@ const shopIndex: CmsPageDefinition = {
 
 const brandsIndex: CmsPageDefinition = {
   key: 'brands',
-  title: '브랜드 목록 문구',
+  title: '브랜드 홈페이지 전체 관리',
   route: '/brands',
   group: '소개·콘텐츠',
-  description: '브랜드관 첫 화면, 선정 기준, 스포트라이트와 입점 안내를 관리합니다.',
+  description: '브랜드 홈페이지의 첫 화면부터 브랜드 카드·상세와 입점 안내까지 실제 표시 순서대로 관리합니다.',
   defaultContent: {
     hero: {
       eyebrow: 'BRAND CURATION',
@@ -774,34 +774,41 @@ const brandsIndex: CmsPageDefinition = {
   sections: [
     {
       id: 'hero',
-      label: '브랜드관 첫 화면',
+      label: '1. 브랜드관 첫 화면',
       description: '첫 화면의 이미지와 제목·설명·브랜드 수 앞 이름입니다.',
       fields: [text('hero.eyebrow', '작은 영문 제목'), textarea('hero.title', '큰 제목'), textarea('hero.description', '설명'), image('hero.image', '대표 이미지'), text('hero.imageAlt', '이미지 설명'), text('hero.countLabel', '브랜드 수 설명'), text('hero.countSuffix', '브랜드 수 뒤 단위')],
     },
     {
       id: 'standards',
-      label: '브랜드 선정 기준',
+      label: '2. 브랜드 선정 기준',
       description: '선정 기준 카드를 등록·수정·삭제하고 순서를 바꿉니다.',
       fields: [toggle('standards.visible', '영역 표시'), text('standards.title', '영역 제목'), items('standards.items', '기준 카드', titleDescriptionItemFields)],
     },
     {
       id: 'spotlight',
-      label: '스포트라이트',
+      label: '3. 스포트라이트',
       description: '추천 브랜드 위에 표시되는 이름과 버튼입니다.',
       fields: [toggle('spotlight.visible', '영역 표시'), text('spotlight.label', '작은 제목'), text('spotlight.buttonLabel', '버튼 이름'), text('spotlight.fallbackText', '로고가 없을 때 안내')],
     },
     {
       id: 'catalog',
-      label: '목록 조작 이름',
-      description: '정렬 버튼과 더 보기 버튼에 고객에게 표시되는 이름입니다.',
+      label: '4. 필터·정렬',
+      description: '브랜드 필터 아래의 정렬 버튼과 더 보기 버튼에 고객에게 표시되는 이름입니다.',
       fields: [text('catalog.sortDefaultLabel', '기본 정렬 이름'), text('catalog.sortAzLabel', '가나다순 정렬 이름'), text('catalog.loadMoreLabel', '더 보기 버튼 이름')],
     },
     {
-      id: 'ending',
-      label: '빈 목록·파트너십 안내',
-      description: '검색 결과가 없을 때와 화면 맨 아래 입점 안내입니다.',
+      id: 'brandRecords',
+      label: '5. 브랜드 카드·상세',
+      description: '고객 브랜드 카드와 상세페이지에 연결되는 브랜드를 등록·수정·삭제하고 노출 순서를 관리합니다.',
       fields: [
-        text('empty.title', '빈 목록 제목'), textarea('empty.description', '빈 목록 설명'), text('empty.buttonLabel', '빈 목록 버튼'),
+        text('empty.title', '브랜드가 없을 때 제목'), textarea('empty.description', '브랜드가 없을 때 설명'), text('empty.buttonLabel', '전체 브랜드 보기 버튼'),
+      ],
+    },
+    {
+      id: 'partnership',
+      label: '6. 브랜드 입점 안내',
+      description: '브랜드 홈페이지 맨 아래의 파트너십·입점 안내입니다.',
+      fields: [
         toggle('partnership.visible', '파트너십 안내 표시'), text('partnership.title', '파트너십 제목'), textarea('partnership.description', '파트너십 설명'), image('partnership.image', '파트너십 이미지'), text('partnership.imageAlt', '이미지 설명'), text('partnership.buttonLabel', '버튼 이름'), url('partnership.buttonHref', '버튼 연결 주소'),
       ],
     },

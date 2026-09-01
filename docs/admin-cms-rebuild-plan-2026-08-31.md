@@ -72,7 +72,7 @@
 | 값 | 한 곳만 사용하는 관리자 화면 |
 |---|---|
 | 상품 스토어 노출·추천·베스트 | `/admin/products/display` |
-| 기존 브랜드 전체 내용·노출·추천·순서 | `/admin/brands/[id]` |
+| 브랜드 홈페이지 6개 영역·브랜드 내용·노출·추천·순서 | `/admin/pages/brands` → `5. 브랜드 카드·상세` → 해당 브랜드 `전체 수정` |
 | 상품 태그 이름·필터 노출·순서 | `/admin/products/tags` |
 | 상품별 태그 선택 | `/admin/products/[id]` |
 | 고민 상세 추천 상품 | `/admin/concerns` |
