@@ -27,7 +27,7 @@ import type {
 } from '@/lib/productTags/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
-import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
+import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
@@ -1432,20 +1432,20 @@ export async function saveConcernsConfig(config: ConcernsConfig): Promise<{ ok: 
 /* ── 공지사항(notices) ─────────────────────────────────────
  * 공개 클라이언트 화면은 GET /api/notices 로 공지 config 를 읽고,
  * 관리자 화면(/admin/notices)은 PUT /api/admin/notices 로 통째로 저장한다.
- * 공개 조회는 실패·빈응답을 defaultNoticesConfig 로 접어 화면이 절대 빈 목록으로 깨지지 않게 한다.
+ * 공개 조회는 실패·빈응답을 빈 config 로 접어 화면이 명시적인 빈 상태를 렌더하게 한다.
  * 서버 컴포넌트는 이 콘센트가 아니라 lib/notices/repo 를 직접 읽는다(자기 API HTTP 왕복 금지).
  */
 
-/** 공개 공지 config. GET /api/notices. 실패·미저장 시 defaultNoticesConfig 로 폴백. */
+/** 공개 공지 config. GET /api/notices. 실패·미저장 시 빈 config 로 폴백. */
 export async function getNoticesConfig(): Promise<NoticesConfig> {
   try {
     const response = await fetch('/api/notices');
-    if (!response.ok) return defaultNoticesConfig;
+    if (!response.ok) return emptyNoticesConfig;
     const { items } = (await response.json()) as NoticesConfig;
-    if (!Array.isArray(items) || items.length === 0) return defaultNoticesConfig;
+    if (!Array.isArray(items)) return emptyNoticesConfig;
     return { items };
   } catch {
-    return defaultNoticesConfig;
+    return emptyNoticesConfig;
   }
 }
 

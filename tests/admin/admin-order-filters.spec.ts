@@ -73,9 +73,9 @@ test.describe('applyAdminOrderFilters', () => {
 
   test('시작일과 종료일 당일을 포함하고 종료일 다음 날은 제외한다', () => {
     const orders = [
-      makeOrder({ id: 'before', createdAt: '2026-07-09T23:59:59.999Z' }),
+      makeOrder({ id: 'before', createdAt: '2026-07-09T14:59:59.999Z' }),
       makeOrder({ id: 'start', createdAt: '2026-07-10T00:00:00.000Z' }),
-      makeOrder({ id: 'end', createdAt: '2026-07-12T23:59:59.999Z' }),
+      makeOrder({ id: 'end', createdAt: '2026-07-12T14:59:59.999Z' }),
       makeOrder({ id: 'after', createdAt: '2026-07-13T00:00:00.000Z' }),
     ];
 
@@ -94,8 +94,8 @@ test.describe('order date range filters', () => {
     const range = { createdFrom: '2026-07-10', createdTo: '2026-07-12' };
 
     expect(toOrderDateRangeIso(range)).toEqual({
-      createdFromIso: '2026-07-10T00:00:00.000Z',
-      createdToExclusiveIso: '2026-07-13T00:00:00.000Z',
+      createdFromIso: '2026-07-09T15:00:00.000Z',
+      createdToExclusiveIso: '2026-07-12T15:00:00.000Z',
     });
   });
 
@@ -135,9 +135,10 @@ test.describe('order date range filters', () => {
   test('주문 날짜 매칭은 createdAt 날짜 키로 시작일과 종료일을 포함한다', () => {
     const range = { createdFrom: '2026-07-10', createdTo: '2026-07-12' };
 
-    expect(matchesOrderDateRange({ createdAt: '2026-07-10T00:00:00.000Z' }, range)).toBe(true);
-    expect(matchesOrderDateRange({ createdAt: '2026-07-12T23:59:59.999Z' }, range)).toBe(true);
-    expect(matchesOrderDateRange({ createdAt: '2026-07-13T00:00:00.000Z' }, range)).toBe(false);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-09T14:59:59.999Z' }, range)).toBe(false);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-09T15:00:00.000Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-12T14:59:59.999Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-12T15:00:00.000Z' }, range)).toBe(false);
   });
 });
 

@@ -358,18 +358,22 @@ export default function HomeClient({
               </Link>
             </div>
             <div className="flex flex-col">
-              {recentNotices.map((notice) => (
-                <Link key={notice.id} href={`/notices/${notice.id}`} prefetch={false} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
-                  <div className="flex items-center justify-between">
-                    <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
-                      {notice.title}
-                    </p>
-                    <time className="shrink-0 font-editorial text-[13px] italic text-[#59615B]">
-                      {formatDate(notice.date)}
-                    </time>
-                  </div>
-                </Link>
-              ))}
+              {recentNotices.length === 0 ? (
+                <p className="border-b border-[#F2EFE9] py-5 text-[15px] text-[#6F766F]">등록된 공지사항이 없습니다.</p>
+              ) : (
+                recentNotices.map((notice) => (
+                  <Link key={notice.id} href={`/notices/${notice.id}`} prefetch={false} className="group flex flex-col gap-2 border-b border-[#F2EFE9] py-5 transition-colors hover:bg-white/50 first:pt-0">
+                    <div className="flex items-center justify-between">
+                      <p className="min-w-0 break-keep pr-4 text-[15px] font-medium text-[#18231F] transition-colors group-hover:text-[#B99562]">
+                        {notice.title}
+                      </p>
+                      <time className="shrink-0 font-editorial text-[13px] italic text-[#59615B]">
+                        {formatDate(notice.date)}
+                      </time>
+                    </div>
+                  </Link>
+                ))
+              )}
             </div>
           </div>
         </div>

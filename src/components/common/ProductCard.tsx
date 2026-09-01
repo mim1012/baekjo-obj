@@ -61,6 +61,7 @@ export default function ProductCard({
     if (hiddenSlugs.has(tag)) return false;
     return knownSlugs.has(tag) ? visibleSlugs.has(tag) : true;
   });
+  const summary = product.summary?.trim();
 
   useEffect(() => {
     if (!mounted || !getCurrentUser()) return;
@@ -180,6 +181,11 @@ export default function ProductCard({
           <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isHomeCard ? 'line-clamp-2 mt-[6px] text-[15px] lg:text-[16px]' : isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
             {product.name}
           </h3>
+          {summary && (
+            <p className={`mt-2 break-keep text-[#59615B] ${isHomeCard ? 'line-clamp-2 text-[12px] leading-[1.55]' : isCompact ? 'line-clamp-1 text-[11px] leading-[1.5]' : 'line-clamp-2 text-[11px] leading-[1.55] md:text-[12px]'}`}>
+              {summary}
+            </p>
+          )}
 
           <div className={`mt-auto ${isHomeCard ? 'pt-[10px]' : isCompact ? 'pt-3' : 'pt-3 md:pt-[18px]'}`}>
             <div className={`flex flex-wrap items-baseline gap-y-1 ${isHomeCard ? 'gap-x-[8px]' : 'gap-x-1.5 md:gap-x-2'}`}>
@@ -230,7 +236,7 @@ export default function ProductCard({
               {cartMessage}
             </div>
           )}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <button
               type="button"
               onClick={(e) => {
@@ -238,9 +244,9 @@ export default function ProductCard({
                 void handleCart();
               }}
               disabled={!isSellable}
-              className={`flex min-w-0 flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
+              className={`flex min-w-[72px] flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
             >
-              <ShoppingBag className="size-3.5 shrink-0 sm:size-4" />
+              <ShoppingBag className="hidden size-3.5 shrink-0 min-[361px]:block sm:size-4" />
               <span className="whitespace-nowrap">{isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}</span>
             </button>
             <button

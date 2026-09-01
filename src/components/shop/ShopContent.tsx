@@ -15,6 +15,35 @@ import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const PRODUCTS_PER_PAGE = 20;
 
+const priceOptions = [
+  { id: 'all', label: '전체' },
+  { id: 'under-20000', label: '2만원 미만' },
+  { id: '20000-50000', label: '2-5만원' },
+  { id: '50000-100000', label: '5-10만원' },
+  { id: '100000-plus', label: '10만원 이상' },
+];
+
+const concernOptions = [
+  { slug: 'skin', title: '피부' },
+  { slug: 'joint', title: '관절' },
+  { slug: 'obesity', title: '체중' },
+  { slug: 'oral', title: '구강' },
+  { slug: 'odor', title: '냄새' },
+];
+
+const sortOptions: Array<{ id: SortOption; label: string }> = [
+  { id: 'recommended', label: '기본순' },
+  { id: 'popular', label: '인기순' },
+  { id: 'newest', label: '최신순' },
+  { id: 'reviews', label: '후기 많은 순' },
+  { id: 'price-low', label: '낮은 가격순' },
+  { id: 'price-high', label: '높은 가격순' },
+];
+
+type LifestyleFilterOption = {
+  slug: string;
+  label: string;
+};
 interface Props {
   products: Product[];
   brands: Brand[];
@@ -65,6 +94,7 @@ function ShopInner({ products, brands, productTags, content }: Props) {
     sort: searchParams.get('sort') || undefined,
     petType: searchParams.get('petType') || undefined,
     category: searchParams.get('category') || undefined,
+    lifestyle: searchParams.get('lifestyle') || undefined,
     concern: searchParams.get('concern') || undefined,
     brandId: searchParams.get('brandId') || undefined,
     price: searchParams.get('price') || undefined,
@@ -135,6 +165,7 @@ function ShopInner({ products, brands, productTags, content }: Props) {
     filterProducts(productsWithBrandNames, {
       petType: params.petType,
       category: params.category,
+      lifestyleCategory: params.lifestyle,
       concern: params.concern,
       brandId: params.brandId,
       minPrice: selectedPriceRange?.minPrice,
@@ -177,10 +208,15 @@ function ShopInner({ products, brands, productTags, content }: Props) {
     categorySettings.productCategories,
     productsWithBrandNames.map((product) => product.categorySlug ?? product.category),
   );
+  const lifestyleOptions = getLifestyleFilterOptions(
+    categorySettings.lifestyleCategories,
+    productsWithBrandNames.map((product) => product.lifestyleCategory),
+  );
 
   const activeFilterCount = [
     params.petType,
     params.category,
+    params.lifestyle,
     params.concern,
     params.brandId,
     params.price,
@@ -239,8 +275,22 @@ function ShopInner({ products, brands, productTags, content }: Props) {
         ))}
       </FilterGroup>
 
-      <FilterGroup title={content.filters.brandTitle}>
-        <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>{content.filters.allOptionLabel}</FilterLink>
+      <FilterGroup title="라이프스타일" defaultOpen>
+        <FilterLink onClick={onNavigate} href={makeHref('lifestyle', 'all')} active={!params.lifestyle}>전체</FilterLink>
+        {lifestyleOptions.map((lifestyle) => (
+          <FilterLink
+            key={lifestyle.slug}
+            onClick={onNavigate}
+            href={makeHref('lifestyle', lifestyle.slug)}
+            active={params.lifestyle === lifestyle.slug}
+          >
+            {lifestyle.label}
+          </FilterLink>
+        ))}
+      </FilterGroup>
+
+      <FilterGroup title="브랜드">
+        <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>전체</FilterLink>
         {brands.map((brand) => (
           <FilterLink onClick={onNavigate} key={brand.id} href={makeHref('brandId', brand.id)} active={params.brandId === brand.id}>
             {formatBrandDisplayName(brand.name)}
@@ -526,4 +576,19 @@ function FilterLink({
       {children}
     </Link>
   );
+}
+
+function getLifestyleFilterOptions(
+  configuredValues: readonly string[],
+  productValues: readonly string[],
+): LifestyleFilterOption[] {
+  const options = new Map<string, LifestyleFilterOption>();
+
+  for (const value of [...configuredValues, ...productValues]) {
+    const label = value.trim();
+    if (!label || options.has(label)) continue;
+    options.set(label, { slug: label, label });
+  }
+
+  return [...options.values()];
 }

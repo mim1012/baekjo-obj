@@ -103,6 +103,39 @@ async function expectTouchTarget(locator: ReturnType<Page['getByRole']>, label: 
   expect(box?.height, label).toBeGreaterThanOrEqual(44);
 }
 
+async function expectProductCardCartLabelReadable(page: Page, label: string): Promise<void> {
+  const button = page
+    .locator('article', { has: page.getByRole('button', { name: /장바구니|구매 불가|판매 준비 중|잠시 품절/ }) })
+    .first()
+    .getByRole('button', { name: /장바구니|구매 불가|판매 준비 중|잠시 품절/ })
+    .first();
+  await expect(button, label).toBeVisible();
+  const metrics = await button.evaluate((element) => {
+    const text = element.querySelector('span');
+    if (!text) return null;
+    const buttonRect = element.getBoundingClientRect();
+    const textRect = text.getBoundingClientRect();
+    return {
+      buttonLeft: buttonRect.left,
+      buttonRight: buttonRect.right,
+      buttonWidth: buttonRect.width,
+      textLeft: textRect.left,
+      textRight: textRect.right,
+      textWidth: textRect.width,
+      scrollWidth: element.scrollWidth,
+      clientWidth: element.clientWidth,
+      text: text.textContent?.trim() ?? '',
+    };
+  });
+  expect(metrics, label).not.toBeNull();
+  if (!metrics) return;
+  expect(metrics.text, label).not.toBe('');
+  expect(metrics.textLeft, JSON.stringify(metrics)).toBeGreaterThanOrEqual(metrics.buttonLeft - 0.5);
+  expect(metrics.textRight, JSON.stringify(metrics)).toBeLessThanOrEqual(metrics.buttonRight + 0.5);
+  expect(metrics.scrollWidth, JSON.stringify(metrics)).toBeLessThanOrEqual(metrics.clientWidth + 1);
+  expect(metrics.buttonWidth, JSON.stringify(metrics)).toBeGreaterThanOrEqual(metrics.textWidth);
+}
+
 test.describe('release UI 모바일 반응형 검증', () => {
   for (const width of VIEWPORTS) {
     test.describe(`${width}px`, () => {
@@ -152,6 +185,18 @@ test.describe('release UI 모바일 반응형 검증', () => {
         await expect(page.getByRole('button', { name: `${productName} 찜 해제` })).toBeVisible();
         await page.screenshot({ path: testInfo.outputPath(`${width}-wishlist.png`), fullPage: false });
       });
+    });
+  }
+});
+
+test.describe('ProductCard 장바구니 라벨 반응형 회귀', () => {
+  for (const width of [320, 1280] as const) {
+    test(`${width}px shop 상품 카드 장바구니 라벨은 버튼 안에서 완전히 읽힌다`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto('/shop');
+      await expect(page.locator('main').first()).toBeVisible({ timeout: 15_000 });
+      await expectNoHorizontalOverflow(page);
+      await expectProductCardCartLabelReadable(page, `${width}px shop 상품 카드 장바구니 라벨`);
     });
   }
 });
