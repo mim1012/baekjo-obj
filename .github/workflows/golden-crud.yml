@@ -112,6 +112,8 @@ jobs:
           test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || exit 1
       - name: Apply migrations to isolated staging and verify CMS connection
         run: node scripts/apply-migrations.mjs
+      - name: Prepare isolated localhost auth secret
+        run: node -e "process.stdout.write('AUTH_SECRET='+require('node:crypto').randomBytes(32).toString('base64url'))" >> "$GITHUB_ENV"
       - name: Start localhost app
         run: |
           npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &

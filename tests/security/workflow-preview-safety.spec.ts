@@ -49,6 +49,8 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
     expect(golden).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
     expect(golden).toContain("PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'");
+    expect(golden).toContain("process.stdout.write('AUTH_SECRET='");
+    expect(golden).toContain('randomBytes(32)');
     expect(golden).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
     expect(golden).toContain('if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]');
     expect(golden).toContain(
