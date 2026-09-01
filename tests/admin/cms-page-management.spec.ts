@@ -54,6 +54,17 @@ test.describe('비개발자용 페이지 관리 CMS', () => {
     expect(editor).toContain('항목 삭제');
   });
 
+  test('DB 적용 상태와 관계없이 관리 버튼으로 편집 위치를 확인할 수 있다', () => {
+    const pageList = read('src', 'app', 'admin', 'pages', 'page.tsx');
+    const editor = read('src', 'app', 'admin', 'pages', '[pageKey]', 'page.tsx');
+
+    expect(pageList).not.toContain('aria-disabled={unavailable}');
+    expect(pageList).not.toContain("'pointer-events-none opacity-40'");
+    expect(pageList).toContain('href={action.adminRoute}');
+    expect(editor).toContain('지금은 이 화면을 수정할 수 없습니다');
+    expect(editor).toContain('DB 적용 후 수정할 영역');
+  });
+
   test('공개 화면은 CMS 게시본을 읽고, 마이그레이션은 전체 카탈로그를 초기 등록한다', () => {
     const migration = [
       read('supabase', 'migrations', '0149_cms_page_catalog.sql'),

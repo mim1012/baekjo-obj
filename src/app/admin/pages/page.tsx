@@ -253,7 +253,6 @@ export default function AdminPagesPage() {
                       <div className="divide-y divide-[#E7E0D5]">
                         {page.actions.map((action) => {
                           const state = action.cmsPageKey ? stateByKey.get(action.cmsPageKey) : undefined;
-                          const unavailable = Boolean(action.cmsPageKey && !state?.available);
                           return (
                             <div key={`${page.key}-${action.adminRoute}-${action.label}`} className="py-4">
                               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -267,8 +266,7 @@ export default function AdminPagesPage() {
                                 </div>
                                 <Link
                                   href={action.adminRoute}
-                                  aria-disabled={unavailable}
-                                  className={`btn-primary min-h-10 shrink-0 gap-2 px-3 text-xs ${unavailable ? 'pointer-events-none opacity-40' : ''}`}
+                                  className="btn-primary min-h-10 shrink-0 gap-2 px-3 text-xs"
                                 >
                                   {action.saveMode === '고객 행동으로 생성' ? <Settings2 className="size-4" /> : <FilePenLine className="size-4" />}
                                   관리하기
