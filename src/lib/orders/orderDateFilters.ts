@@ -32,6 +32,15 @@ function parseDateKey(value: string): string | null {
   return parsed.toISOString().slice(0, 10) === value ? value : null;
 }
 
+function kstStartToUtcIso(date: string): string {
+  const utcTime = new Date(`${date}T00:00:00.000Z`).getTime() - KST_OFFSET_MS;
+  return new Date(utcTime).toISOString();
+}
+
+function kstDateKey(value: string): string {
+  return new Date(new Date(value).getTime() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
 export function addOrderDateDays(date: string, days: number): string {
   const time = new Date(`${date}T00:00:00.000Z`).getTime();
   return new Date(time + days * DAY_MS).toISOString().slice(0, 10);
@@ -45,8 +54,8 @@ export function countOrderDateDaysInclusive(from: string, to: string): number {
 
 export function toOrderDateRangeIso(range: OrderDateRange): OrderDateRangeIso {
   return {
-    ...(range.createdFrom ? { createdFromIso: `${range.createdFrom}T00:00:00.000Z` } : {}),
-    ...(range.createdTo ? { createdToExclusiveIso: `${addOrderDateDays(range.createdTo, 1)}T00:00:00.000Z` } : {}),
+    ...(range.createdFrom ? { createdFromIso: kstStartToUtcIso(range.createdFrom) } : {}),
+    ...(range.createdTo ? { createdToExclusiveIso: kstStartToUtcIso(addOrderDateDays(range.createdTo, 1)) } : {}),
   };
 }
 
@@ -76,7 +85,7 @@ export function getQuickOrderDateRange(days: OrderQuickDateRange, now: Date = ne
 }
 
 export function matchesOrderDateRange(order: { readonly createdAt: string }, range: OrderDateRange): boolean {
-  const createdDateKey = order.createdAt.slice(0, 10);
+  const createdDateKey = kstDateKey(order.createdAt);
   if (range.createdFrom && createdDateKey < range.createdFrom) return false;
   if (range.createdTo && createdDateKey > range.createdTo) return false;
   return true;
