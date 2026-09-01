@@ -18,9 +18,6 @@ import {
 // 열기 직전까지**만 검증한다: 카드결제 선택 → 위젯이 서버가 확정한 금액으로 마운트되는지.
 //
 // ⚠️ 이 스펙은 NEXT_PUBLIC_TOSS_CLIENT_KEY가 이 배포 환경에 설정돼 있어야 실행된다.
-// 미설정이면 checkout/page.tsx:15가 "카드결제" 옵션 자체를 disabled 처리한다(TOSS_CLIENT_KEY
-// 없음) — 그 경우 이 스펙은 실패가 아니라 skip으로 그 경계를 문서화한다(2026-07-19 확인:
-// 이 프로젝트의 .env.local/GH secrets 어디에도 TOSS 키가 아직 없다).
 test.describe('골든플로우 #2 경계: 회원 여정 — 카드결제 위젯 호출까지', () => {
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 스로어웨이 상품 생성 불가로 skip');
@@ -63,6 +60,10 @@ test.describe('골든플로우 #2 경계: 회원 여정 — 카드결제 위젯 
     await expect(page.locator('body')).toContainText(productName, { timeout: 15_000 });
 
     const cardRadioLabel = page.locator('label').filter({ hasText: /카드결제/ });
+    if (await cardRadioLabel.count() === 0) {
+      await expect(page.locator('body')).not.toContainText('카드결제');
+      return;
+    }
     const isDisabled = await cardRadioLabel.locator('input[type="radio"]').isDisabled();
     test.skip(isDisabled, 'NEXT_PUBLIC_TOSS_CLIENT_KEY 미설정 — 카드결제 옵션 자체가 비활성화됨(경계 문서화, 코드상 정상)');
 

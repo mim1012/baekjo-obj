@@ -82,6 +82,12 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     note: '소셜 로그인 콜백 — 유효한 code 없이 방문하면 completeSocialLogin 이 실패해 /login?error=social 로 이동',
   },
   {
+    route: '/auth/complete-profile',
+    kind: 'static',
+    auth: 'member',
+    note: '소셜 로그인 후 주문용 회원정보 보완',
+  },
+  {
     route: '/diagnosis/result',
     kind: 'static',
     auth: 'redirect',
@@ -128,30 +134,36 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
 
   // ── 회원 전용 ────────────────────────────────────────────────
   { route: '/mypage', kind: 'static', auth: 'member', note: '마이페이지(개요 탭)' },
+  {
+    route: '/partner/orders',
+    kind: 'static',
+    auth: 'member',
+    note: '입점업체 주문 목록 — 비로그인은 서버가 /login 으로, partner/admin 외 role 은 / 로 redirect',
+  },
 
   // ── 관리자 정적 ──────────────────────────────────────────────
   { route: '/admin', kind: 'static', auth: 'admin', note: '관리자 대시보드' },
   { route: '/admin/brands', kind: 'static', auth: 'admin', note: '브랜드 관리 목록' },
   { route: '/admin/categories', kind: 'static', auth: 'admin', note: '카테고리 관리' },
   { route: '/admin/concerns', kind: 'static', auth: 'admin', note: '고민 관리' },
+  { route: '/admin/guide', kind: 'static', auth: 'admin', note: '첫 직원용 관리자 사용 안내' },
   { route: '/admin/inquiries', kind: 'static', auth: 'admin', note: '상품문의 관리' },
   { route: '/admin/insurance', kind: 'static', auth: 'admin', note: '펫보험 상담 관리 목록' },
   { route: '/admin/insurance-content', kind: 'static', auth: 'admin', note: '보험 동의문서·FAQ 관리' },
   { route: '/admin/kits', kind: 'static', auth: 'admin', note: '케어 키트 관리' },
   { route: '/admin/members', kind: 'static', auth: 'admin', note: '회원 관리 목록' },
   { route: '/admin/notices', kind: 'static', auth: 'admin', note: '공지사항 관리' },
-  { route: '/admin/order-policy', kind: 'static', auth: 'admin', note: '주문 정책 관리' },
+  { route: '/admin/order-policy', kind: 'static', auth: 'admin', note: '무통장입금 자동취소 관리' },
   { route: '/admin/orders', kind: 'static', auth: 'admin', note: '주문 관리 목록' },
+  { route: '/admin/pages', kind: 'static', auth: 'admin', note: '전체 페이지 콘텐츠 관리' },
   { route: '/admin/partner-inquiries', kind: 'static', auth: 'admin', note: '제휴 문의 접수함' },
-  { route: '/admin/partners', kind: 'static', auth: 'admin', note: 'B2B 제휴 관리' },
   { route: '/admin/products', kind: 'static', auth: 'admin', note: '상품 관리 목록' },
+  { route: '/admin/products/tags', kind: 'static', auth: 'admin', note: '상품 카드 태그·스토어 고민 필터 관리' },
   { route: '/admin/products/display', kind: 'static', auth: 'admin', note: '상품 진열 관리' },
   { route: '/admin/products/new', kind: 'static', auth: 'admin', note: '신규 상품 등록 폼' },
-  { route: '/admin/qna', kind: 'static', auth: 'admin', note: 'QnA 게시판 관리' },
   { route: '/admin/reviews', kind: 'static', auth: 'admin', note: '전시 후기 관리' },
   { route: '/admin/settings', kind: 'static', auth: 'admin', note: '사이트 콘텐츠 설정' },
   { route: '/admin/survey', kind: 'static', auth: 'admin', note: '맞춤 진단 설계' },
-  { route: '/admin/survey-results', kind: 'static', auth: 'admin', note: '진단 참여 내역' },
 
   // ── 관리자 동적(관리자 API 로 표본 id 해석) ────────────────────────
   {
@@ -181,6 +193,13 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     auth: 'admin',
     paramSource: { from: 'admin-api', endpoint: '/api/admin/orders', listKey: 'orders', idKey: 'id' },
     note: '주문 상세',
+  },
+  {
+    route: '/admin/pages/[pageKey]',
+    kind: 'dynamic',
+    auth: 'admin',
+    paramSource: { from: 'admin-api', endpoint: '/api/admin/settings/pages', listKey: 'pages', idKey: 'key' },
+    note: '페이지별 콘텐츠 편집',
   },
   {
     route: '/admin/products/[id]',

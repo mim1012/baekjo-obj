@@ -3,7 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { auth } from '@/lib/auth';
 import { findMemberById } from '@/lib/members/repo';
 import { saveCategorySettings } from '@/lib/categorySettings/repo';
-import type { CategorySettings } from '@/lib/categorySettings/config';
+import { isValidCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';
 import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
@@ -13,13 +13,7 @@ import { logServerError } from '@/lib/logServerError';
  * 깨진 페이로드가 저장돼 화면이 조용히 깨지는 것을 막는다(§4).
  */
 function isCategorySettings(body: unknown): body is CategorySettings {
-  if (!body || typeof body !== 'object') return false;
-  const b = body as Record<string, unknown>;
-  return (
-    Array.isArray(b.productCategories) &&
-    Array.isArray(b.lifestyleCategories) &&
-    Array.isArray(b.brandFilters)
-  );
+  return isValidCategorySettings(body);
 }
 
 /**

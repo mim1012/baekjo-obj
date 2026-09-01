@@ -1,38 +1,38 @@
+'use client';
+
+import Image from 'next/image';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
+
 interface BrandMarkProps {
   inverse?: boolean;
   compact?: boolean;
-  hideTagline?: boolean;
+  className?: string;
+  priority?: boolean;
+  testId?: string;
 }
 
-export default function BrandMark({ inverse = false, compact = false, hideTagline = false }: BrandMarkProps) {
-  const ink = inverse ? "#FBFAF7" : "#17211D";
-  const muted = inverse ? "#FBFAF7" : "#6F766F";
-  const tagline = inverse ? "#F4F6F2" : "#59615B";
+export default function BrandMark({
+  inverse = false,
+  compact = false,
+  className = '',
+  priority = false,
+  testId,
+}: BrandMarkProps) {
+  const siteContent = usePublicSiteContent();
 
   return (
-    <span className="inline-flex items-center gap-3">
-      <svg
-        aria-hidden="true"
-        className="size-9 shrink-0"
-        viewBox="0 0 44 44"
-        fill="none"
-      >
-        <circle cx="22" cy="22" r="21.5" stroke={muted} strokeOpacity=".42" />
-        <path
-          d="M12.5 28.5c4.1 2.6 11.9 2.7 16.7-.4 2.7-1.7 3.1-4.8 1.2-6.8-2.4-2.5-6.6-1.4-8 1.5-1.7-4.3-.3-8.2 4.2-11.3-5.3 1.4-8.4 5.1-8.3 10.2-2.2-1.1-4.7-.8-6.6.5"
-          stroke={ink}
-          strokeWidth="1.1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="m28.9 12.5 3.2-1.8-2 3" stroke={ink} strokeWidth="1.1" strokeLinecap="round" />
-      </svg>
-      {!compact && (
-        <span className="flex flex-col">
-          <span className="font-editorial text-xl italic leading-none text-current">Baekjo Objet</span>
-
-        </span>
-      )}
+    <span
+      className={`relative block shrink-0 ${className || (compact ? 'h-10 w-12' : 'h-12 w-[156px]')}`}
+    >
+      <Image
+        src={siteContent.branding.headerLogo}
+        alt={siteContent.branding.logoAlt}
+        fill
+        sizes={compact ? '48px' : '156px'}
+        priority={priority}
+        className={`object-contain ${inverse ? 'brightness-0 invert' : ''}`}
+        data-testid={testId}
+      />
     </span>
   );
 }

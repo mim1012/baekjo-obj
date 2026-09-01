@@ -9,7 +9,6 @@ const MAX_BRAND_TEXT = 300;
 const MAX_BRAND_LONG_TEXT = 5000;
 const MAX_BRAND_URL = 500;
 const MAX_BRAND_ARRAY_ITEMS = 50;
-const MAX_BRAND_SOURCE_URLS = 20;
 const MAX_BRAND_DISPLAY_ORDER = 100_000;
 const MAX_BRAND_SHIPPING_TEXT = 500;
 
@@ -17,7 +16,7 @@ const MAX_BRAND_SHIPPING_TEXT = 500;
  * BrandForm 화이트리스트 — 이 폼이 편집 UI를 가진 필드만 나열한다.
  * 폼은 자기가 편집하는 필드만 patch한다. `...formData`로 로드 시점 스냅샷을 통째로
  * 되보내면 상세 페이지·시드가 그 사이 저장한 auditReport·멀티셀렉트(representativeProductIds·
- * relatedConcernSlugs·auditPoints)·sourceUrls 값을 stale하게 덮어쓴다(S1 ProductForm 교훈).
+ * relatedConcernSlugs·auditPoints) 값을 stale하게 덮어쓴다(S1 ProductForm 교훈).
  * updateBrand가 read-modify-write라, 화이트리스트 밖 필드를 안 보내면 기존 값이 그대로 보존된다.
  */
 export const BRAND_FORM_FIELDS = [
@@ -25,8 +24,6 @@ export const BRAND_FORM_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
-  'officialUrl',
   'isRecommended',
   'isVisible',
   'isNew',
@@ -36,9 +33,6 @@ export const BRAND_FORM_FIELDS = [
 /**
  * 폼 상태에서 화이트리스트 필드만 골라 명시적으로 payload를 구성한다(암묵적 스프레드 금지).
  * - create/update 둘 다 이 payload만 보낸다(create는 서버 validate가 requireAll로 필수를 확인).
- * - officialUrl은 빈 문자열을 그대로 실어 **지우기**를 지원한다. 서버 validate가 빈 문자열을
- *   허용하고(지우기 경로) read-modify-write가 기존 값을 ''로 덮어 URL이 실제로 삭제된다.
- *   빈 문자열을 payload에서 빼면 안 보내져 기존 URL이 보존돼 영영 못 지운다(그게 회귀였다).
  * - displayOrder는 값이 있을 때만 보낸다(미입력 = 서버 기본/기존값 유지).
  */
 export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
@@ -47,8 +41,6 @@ export function buildBrandPayload(formData: Partial<Brand>): Partial<Brand> {
     logo: formData.logo,
     description: formData.description,
     philosophy: formData.philosophy,
-    auditGrade: formData.auditGrade,
-    officialUrl: formData.officialUrl?.trim() ?? '',
     isRecommended: formData.isRecommended ?? false,
     isVisible: formData.isVisible !== false,
     isNew: formData.isNew ?? false,
@@ -90,6 +82,10 @@ export interface AuditReportFormState {
   summary: string;
   selectionReason: string;
   process: string[];
+  checkpoints?: string[];
+  materialReview?: string[];
+  curatorNote?: string[];
+  auditConclusion?: string[];
 }
 
 /** 빈 auditReport 폼(초기값·리셋용). */
@@ -148,6 +144,8 @@ export function buildBrandShippingPayload(form: BrandShippingPolicy): BrandShipp
   shipping.asNotice = cleanOptionalText(form.asNotice);
   shipping.supportContact = cleanOptionalText(form.supportContact);
   shipping.supportHours = cleanOptionalText(form.supportHours);
+  shipping.supportEmail = cleanOptionalText(form.supportEmail);
+  shipping.supportKakaoLabel = cleanOptionalText(form.supportKakaoLabel);
 
   return shipping;
 }
@@ -224,17 +222,19 @@ export function buildAuditReportPayload(form: AuditReportFormState): BrandAuditR
     summary: form.summary.trim(),
     selectionReason: form.selectionReason.trim(),
     process: cleanStringList(form.process),
+    checkpoints: form.checkpoints?.length ? cleanStringList(form.checkpoints) : undefined,
+    materialReview: form.materialReview?.length ? cleanStringList(form.materialReview) : undefined,
+    curatorNote: form.curatorNote?.length ? cleanStringList(form.curatorNote) : undefined,
+    auditConclusion: form.auditConclusion?.length ? cleanStringList(form.auditConclusion) : undefined,
   };
 }
 
-/** 상세 에디터의 전체 폼 상태(대형 필드 포함). */
+/** 상세 에디터의 전체 폼 상태(현재 공개 브랜드 화면에 연결되는 필드만 포함). */
 export interface BrandDetailFormState {
   name?: string;
   logo?: string;
   description?: string;
   philosophy?: string;
-  auditGrade?: Brand['auditGrade'];
-  officialUrl?: string;
   isRecommended?: boolean;
   isVisible?: boolean;
   isNew?: boolean;
@@ -243,7 +243,6 @@ export interface BrandDetailFormState {
   representativeProductIds: string[];
   relatedConcernSlugs: string[];
   auditPoints: string[];
-  sourceUrls: string[];
   shipping?: BrandShippingPolicy;
 }
 
@@ -253,11 +252,9 @@ export type BrandDetailFieldErrors = Partial<
     | 'logo'
     | 'description'
     | 'philosophy'
-    | 'officialUrl'
     | 'displayOrder'
     | 'auditReport'
     | 'auditPoints'
-    | 'sourceUrls'
     | 'representativeProductIds'
     | 'relatedConcernSlugs'
     | `auditReport.${keyof AuditReportFormState}`
@@ -327,7 +324,6 @@ export function validateBrandDetailFormState(
     required: true,
     max: MAX_BRAND_LONG_TEXT,
   });
-  setTextError(errors, 'officialUrl', '공식몰 URL', form.officialUrl, { max: MAX_BRAND_URL });
 
   const orderError = validateDisplayOrder(form.displayOrder);
   if (orderError) errors.displayOrder = orderError;
@@ -349,7 +345,6 @@ export function validateBrandDetailFormState(
     MAX_BRAND_SHORT_TEXT,
   );
   setStringListError(errors, 'auditPoints', '검증 포인트', form.auditPoints, MAX_BRAND_ARRAY_ITEMS, MAX_BRAND_TEXT);
-  setStringListError(errors, 'sourceUrls', '근거 출처 URL', form.sourceUrls, MAX_BRAND_SOURCE_URLS, MAX_BRAND_URL);
 
   const reportError = validateAuditReportForm(form.auditReport);
   if (reportError) errors.auditReport = reportError;
@@ -432,6 +427,12 @@ export function validateBrandDetailFormState(
   setTextError(errors, 'shipping.supportHours', '고객지원 시간', shipping.supportHours, {
     max: MAX_BRAND_SHIPPING_TEXT,
   });
+  setTextError(errors, 'shipping.supportEmail', '고객지원 이메일', shipping.supportEmail, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
+  setTextError(errors, 'shipping.supportKakaoLabel', '카카오 채널', shipping.supportKakaoLabel, {
+    max: MAX_BRAND_SHIPPING_TEXT,
+  });
 
   return errors;
 }
@@ -442,8 +443,6 @@ export const BRAND_DETAIL_FIELDS = [
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
-  'officialUrl',
   'isRecommended',
   'isVisible',
   'isNew',
@@ -452,14 +451,13 @@ export const BRAND_DETAIL_FIELDS = [
   'representativeProductIds',
   'relatedConcernSlugs',
   'auditPoints',
-  'sourceUrls',
   'shipping',
 ] as const;
 
 /**
  * 상세 폼 상태 → 서버 payload(전 필드 명시 화이트리스트). `...formData` 금지.
- * - 기본 필드는 모달과 동일 규칙(officialUrl 은 빈 문자열 실어 지우기 지원, displayOrder 는 값 있을 때만).
- * - 멀티셀렉트·배열은 새 배열로 복사해 담고, auditPoints·sourceUrls 는 공백 항목을 제거한다.
+ * - 기본 필드는 모달과 동일 규칙(displayOrder 는 값 있을 때만).
+ * - 멀티셀렉트·배열은 새 배열로 복사해 담고, auditPoints 는 공백 항목을 제거한다.
  * - auditReport 는 항상 키를 담되 값은 buildAuditReportPayload 결과(완전=객체 / 전무=undefined).
  *   ⚠️ 계약 한계: undefined 는 JSON 직렬화에서 빠지고 서버는 read-modify-write 라 "안 보냄=보존".
  *   즉 없던 브랜드에 채우기·부분입력 차단은 완전 동작하나, 이미 있는 보고서를 비워
@@ -472,15 +470,12 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     logo: form.logo,
     description: form.description,
     philosophy: form.philosophy,
-    auditGrade: form.auditGrade,
-    officialUrl: form.officialUrl?.trim() ?? '',
     isRecommended: form.isRecommended ?? false,
     isVisible: form.isVisible !== false,
     isNew: form.isNew ?? false,
     representativeProductIds: [...form.representativeProductIds],
     relatedConcernSlugs: [...form.relatedConcernSlugs],
     auditPoints: cleanStringList(form.auditPoints),
-    sourceUrls: cleanStringList(form.sourceUrls),
     shipping: buildBrandShippingPayload(form.shipping ?? {}),
     auditReport: buildAuditReportPayload(form.auditReport),
   };

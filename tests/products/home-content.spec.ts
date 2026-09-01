@@ -92,9 +92,9 @@ test.describe('홈 쇼핑 카테고리 설정', () => {
     ]);
   });
 
-  test('2026-08-14 HWPX의 홈 문구를 기본 설정에 반영한다', () => {
+  test('2026-08-27 고객 정본의 홈 문구를 기본 설정에 반영한다', () => {
     expect(defaultHomeSettings.hero.descriptionLines).toEqual([
-      '좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.',
+      '좋은 브랜드는 결과입니다. 백조오브제는 과정까지 확인합니다.',
     ]);
     expect(defaultHomeSettings.hero.trustNote).toBe('백조오브제 Audit을 통과한 브랜드만 소개합니다.');
     expect(defaultHomeSettings.curation.title).toBe('우리 아이 고민에 맞는 케어 가이드');
@@ -107,7 +107,7 @@ test.describe('홈 쇼핑 카테고리 설정', () => {
       { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
       { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
     ]);
-    expect(defaultHomeSettings.solutions.cards[2]?.linkLabel).toBe('보험 분석 시작하기');
+    expect(defaultHomeSettings).not.toHaveProperty('solutions');
     expect(defaultHomeSettings.insuranceBanner.buttonLabel).toBe('보험 분석 시작하기');
   });
 });

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Product, Brand } from '@/types';
-import { getAdminProducts, getAdminBrands, deleteProduct, updateProduct } from '@/lib/storage';
+import { getAdminProducts, getAdminBrands, deleteProduct } from '@/lib/storage';
+import { normalizeShopCategory } from '@/data/shopFilters';
+import { productSupportsPetType } from '@/lib/products/petTypes';
 
 export type ProductFilterState = {
   keyword: string;
@@ -78,9 +80,9 @@ export function useProductList(
       }
       // Exact matches
       if (filters.brandId && p.brandId !== filters.brandId) return false;
-      if (filters.category && p.category !== filters.category) return false;
+      if (filters.category && normalizeShopCategory(p.categorySlug ?? p.category) !== normalizeShopCategory(filters.category)) return false;
       if (filters.lifestyleCategory && p.lifestyleCategory !== filters.lifestyleCategory) return false;
-      if (filters.petType && p.petType !== filters.petType) return false;
+      if (filters.petType && !productSupportsPetType(p.petType, filters.petType)) return false;
       
       // Booleans
       if (filters.isVisible !== 'all') {
@@ -157,7 +159,7 @@ export function useProductList(
         const success = await actionFn(id);
         if (success) successIds.push(id);
         else failedItems.push(id);
-      } catch (e) {
+      } catch {
         failedItems.push(id);
       }
     }
@@ -183,14 +185,6 @@ export function useProductList(
     return { ...result, hasHistoryConflict };
   };
 
-  const performBulkUpdate = async (ids: string[], updates: Partial<Product>) => {
-    return executeBulkAction(ids, async (id) => {
-      const res = await updateProduct(id, updates);
-      if (res.error) throw new Error(res.error);
-      return true;
-    });
-  };
-
   return {
     products,
     brands,
@@ -209,6 +203,5 @@ export function useProductList(
     clearSelection,
     refreshData: fetchInitialData,
     performBulkDelete,
-    performBulkUpdate,
   };
 }

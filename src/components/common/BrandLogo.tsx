@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { Brand } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 interface Props {
   brand: Brand;
@@ -8,18 +9,27 @@ interface Props {
   fit?: 'contain' | 'cover';
   fluid?: boolean;
   uniformScale?: boolean;
+  scaleOverride?: number;
+  srcOverride?: string;
   className?: string;
 }
 
 type LogoSize = NonNullable<Props['size']>;
 
 const displayLogoMap: Record<string, string> = {
-  b5: '/brands/alloming-official.png',
-  b6: '/brands/repet-official.png',
+  b1: '/brands/penefit-wordmark-transparent.png',
+  b2: '/brands/omipro-wordmark-transparent-exact.png',
+  b3: '/brands/nobledog-wordmark-pink-v2.png',
+  b5: '/brands/alloming-wordmark-orange-v2.png',
+  b6: '/brands/repet-clean.png',
 };
 
 export const getBrandDisplayLogo = (brand: Pick<Brand, 'id' | 'logo'>) =>
   displayLogoMap[brand.id] ?? brand.logo;
+
+export const getBrandTitleDisplayLogo = (
+  brand: Pick<Brand, 'id' | 'logo' | 'wordmarkImage'>,
+) => displayLogoMap[brand.id] ?? brand.wordmarkImage ?? brand.logo;
 
 const sizeClasses = {
   sm: 'h-5 w-[84px]',
@@ -35,7 +45,7 @@ const fluidSizeClasses = {
 
 const logoScaleMap: Record<string, number> = {
   b1: 1,
-  b2: 1.6,
+  b2: 1,
   b3: 1,
   b5: 1,
   b6: 1,
@@ -48,10 +58,10 @@ const logoScaleMap: Record<string, number> = {
 // 셀렉션 레일에서는 실제 로고 획의 높이가 비슷하게 보이도록 시각 배율을 보정한다.
 const mediumUniformLogoScaleMap: Record<string, number> = {
   b1: 0.9,
-  b2: 1.8,
-  b3: 0.9,
+  b2: 1,
+  b3: 1.1,
   b4: 0.95,
-  b5: 1,
+  b5: 1.15,
   b6: 0.95,
   b7: 1,
   b8: 2,
@@ -61,10 +71,10 @@ const mediumUniformLogoScaleMap: Record<string, number> = {
 // 상세 패널의 큰 로고도 동일한 시각 면적을 사용하도록 별도 배율을 적용한다.
 const largeUniformLogoScaleMap: Record<string, number> = {
   b1: 0.86,
-  b2: 1.75,
-  b3: 0.88,
+  b2: 1,
+  b3: 1.1,
   b4: 0.95,
-  b5: 1,
+  b5: 1.15,
   b6: 0.95,
   b7: 0.95,
   b8: 2,
@@ -76,7 +86,16 @@ const uniformLogoOffsetMap: Record<string, string> = {
   b8: '16%',
 };
 
-const getLogoTransform = (brandId: string, size: LogoSize, uniformScale: boolean) => {
+const getLogoTransform = (
+  brandId: string,
+  size: LogoSize,
+  uniformScale: boolean,
+  scaleOverride?: number,
+) => {
+  if (scaleOverride !== undefined) {
+    return `translateX(${uniformLogoOffsetMap[brandId] ?? '0%'}) scale(${scaleOverride})`;
+  }
+
   if (uniformScale && size !== 'sm') {
     const scaleMap = size === 'lg' ? largeUniformLogoScaleMap : mediumUniformLogoScaleMap;
     return `translateX(${uniformLogoOffsetMap[brandId] ?? '0%'}) scale(${scaleMap[brandId] ?? 1})`;
@@ -92,17 +111,20 @@ export default function BrandLogo({
   fit,
   fluid = false,
   uniformScale = false,
+  scaleOverride,
+  srcOverride,
   className = '',
 }: Props) {
-  const fallbackName = brand.name.replace(/\s*\(.*?\)/, '').trim();
-  const logoSrc = getBrandDisplayLogo(brand);
+  const fallbackName = formatBrandDisplayName(brand.name);
+  const logoSrc = srcOverride ?? getBrandDisplayLogo(brand);
   const hasTransparentDisplayLogo = Boolean(displayLogoMap[brand.id]);
   const imageFit = uniformScale ? 'contain' : (fit ?? 'contain');
   const surfaceClass = surface ? 'rounded-xl bg-white' : '';
   const surfaceImageClass = surface && !uniformScale && !hasTransparentDisplayLogo ? 'p-2' : '';
+  const backgroundBlendClass = brand.id === 'b8' ? 'mix-blend-multiply' : '';
   const imageClass = imageFit === 'cover'
-    ? `object-cover object-center ${surfaceImageClass}`
-    : `object-contain object-center ${surfaceImageClass}`;
+    ? `object-cover object-center ${surfaceImageClass} ${backgroundBlendClass}`
+    : `object-contain object-center ${surfaceImageClass} ${backgroundBlendClass}`;
   const containerSizeClass = fluid ? fluidSizeClasses[size] : sizeClasses[size];
 
   return (
@@ -118,7 +140,7 @@ export default function BrandLogo({
           unoptimized
           className={imageClass}
           style={{
-            transform: getLogoTransform(brand.id, size, uniformScale),
+            transform: getLogoTransform(brand.id, size, uniformScale, scaleOverride),
             transformOrigin: 'center'
           }}
         />

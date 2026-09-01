@@ -6,18 +6,21 @@ import { usePathname } from 'next/navigation';
 import { useMounted } from '@/lib/useMounted';
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import BrandMark from '@/components/common/BrandMark';
 import {
   ADMIN_MAIN_NAV,
-  ADMIN_CS_NAV,
-  ADMIN_ETC_NAV,
+  ADMIN_SITE_NAV,
+  ADMIN_OPERATIONS_NAV,
+  ADMIN_INSURANCE_NAV,
   ADMIN_ALL_NAV,
   resolveActiveHref,
   type AdminSidebarItem,
 } from './adminNav';
 
 const mainNavItems = ADMIN_MAIN_NAV;
-const csNavItems = ADMIN_CS_NAV;
-const etcNavItems = ADMIN_ETC_NAV;
+const siteNavItems = ADMIN_SITE_NAV;
+const operationsNavItems = ADMIN_OPERATIONS_NAV;
+const insuranceNavItems = ADMIN_INSURANCE_NAV;
 
 interface AdminSidebarProps {
   user: { name?: string | null; role?: string | null };
@@ -59,7 +62,14 @@ function NavGroup({
               title={collapsed ? item.name : undefined}
             >
               <item.icon className={`shrink-0 ${collapsed ? 'mx-auto size-5' : 'mr-3 size-5'}`} />
-              {!collapsed && <span className="text-[14px] truncate">{item.name}</span>}
+              {!collapsed && (
+                <span className="min-w-0">
+                  <span className="block truncate text-[14px]">{item.name}</span>
+                  <span className={`mt-0.5 block truncate text-[10px] font-normal ${active ? 'text-white/70' : 'text-[#8B928C]'}`}>
+                    {item.description}
+                  </span>
+                </span>
+              )}
             </Link>
           );
         })}
@@ -85,13 +95,13 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
     >
       <div className="h-[60px] flex items-center justify-between px-4 border-b border-gray-200">
         {!collapsed && (
-          <Link href="/" className="font-bold text-[18px] text-[#17201B] truncate" aria-label="백조오브제 홈">
-            백조오브제
+          <Link href="/" className="block shrink-0" aria-label="백조오브제 홈">
+            <BrandMark className="h-10 w-[146px]" />
           </Link>
         )}
         {collapsed && (
-          <Link href="/" className="mx-auto font-bold text-[18px] text-[#17201B]" aria-label="백조오브제 홈">
-            B
+          <Link href="/" className="mx-auto block shrink-0" aria-label="백조오브제 홈">
+            <BrandMark compact />
           </Link>
         )}
         <button
@@ -107,8 +117,9 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
 
       <div className="flex-1 overflow-y-auto py-6 scrollbar-hide">
         <NavGroup items={mainNavItems} collapsed={collapsed} isActive={isActive} />
-        <NavGroup items={csNavItems} title="고객지원" collapsed={collapsed} isActive={isActive} />
-        <NavGroup items={etcNavItems} title="기타" collapsed={collapsed} isActive={isActive} />
+        <NavGroup items={siteNavItems} title="홈페이지 내용" collapsed={collapsed} isActive={isActive} />
+        <NavGroup items={operationsNavItems} title="주문·고객 처리" collapsed={collapsed} isActive={isActive} />
+        <NavGroup items={insuranceNavItems} title="보험(별도)" collapsed={collapsed} isActive={isActive} />
       </div>
 
       <div className="p-4 border-t border-gray-200 bg-[#F7F8F6]">
@@ -120,7 +131,9 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
             </div>
           )}
           <button
+            type="button"
             onClick={() => signOut({ callbackUrl: '/' })}
+            aria-label="관리자 로그아웃"
             className={`p-2 rounded-md text-gray-500 hover:bg-gray-200 hover:text-red-600 transition-colors`}
             title={collapsed ? '로그아웃' : undefined}
           >

@@ -1,6 +1,15 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { ORDER_STATUSES, type DeliveryFeeBreakdown, type Order, type OrderItem, type OrderStatus } from '@/types';
+import {
+  ORDER_STATUSES,
+  type DeliveryFeeBreakdown,
+  type Order,
+  type OrderItem,
+  type OrderStatus,
+} from '@/types';
+import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
+import type { OrderDateRange, OrderDateRangeIso } from '@/lib/orders/orderDateFilters';
+import { toOrderDateRangeIso } from '@/lib/orders/orderDateFilters';
 import {
   REFUND_STATUSES,
   type NormalizedRefundRequest,
@@ -35,6 +44,7 @@ interface OrderRow {
   delivery_fee: number;
   delivery_fee_breakdown: unknown;
   payment_method: string;
+  bank_transfer_account: unknown;
   order_status: string;
   payment_status: string;
   delivery_status: string;
@@ -51,7 +61,7 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -81,6 +91,7 @@ function parseDeliveryFeeBreakdown(raw: unknown): DeliveryFeeBreakdown[] {
 }
 
 function rowToRecord(row: OrderRow): OrderRecord {
+  const bankTransferAccount = normalizeBankTransferAccount(row.bank_transfer_account);
   return {
     id: row.id,
     memberId: row.member_id,
@@ -92,6 +103,7 @@ function rowToRecord(row: OrderRow): OrderRecord {
     deliveryFee: row.delivery_fee,
     deliveryFeeBreakdown: parseDeliveryFeeBreakdown(row.delivery_fee_breakdown),
     paymentMethod: row.payment_method,
+    ...(bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: normalizeOrderStatus(row.order_status),
     paymentStatus: row.payment_status,
     deliveryStatus: row.delivery_status,
@@ -208,6 +220,7 @@ export type InsertOrderInput = Pick<
   | 'trackingNumber'
   | 'deliveryMemo'
   | 'expiresAt'
+  | 'bankTransferAccount'
 >;
 
 export async function insertOrder(
@@ -226,6 +239,7 @@ export async function insertOrder(
       delivery_fee: input.deliveryFee,
       delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
       payment_method: input.paymentMethod,
+      bank_transfer_account: input.bankTransferAccount ?? null,
       order_status: input.orderStatus,
       payment_status: input.paymentStatus,
       delivery_status: input.deliveryStatus,
@@ -298,12 +312,26 @@ export async function listRecentOrdersByMember(
 /** 관리자 전량 조회 상한. 집계 호출부가 "상한에 닿았다 = 모집단이 잘렸다"를 감지할 수 있게 export한다. */
 export const ORDERS_LIST_CAP = 1000;
 
-export async function listAllOrders(): Promise<OrderRecord[]> {
-  const { data, error } = await getSupabase()
-    .from('orders')
-    .select(SELECT_COLUMNS)
-    .order('created_at', { ascending: false })
-    .limit(ORDERS_LIST_CAP);
+export async function listAllOrders(range?: OrderDateRange): Promise<OrderRecord[]> {
+  const dbRange = range ? toOrderDateRangeIso(range) : {};
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (dbRange.createdFromIso) query = query.gte('created_at', dbRange.createdFromIso);
+  if (dbRange.createdToExclusiveIso) query = query.lt('created_at', dbRange.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(ORDERS_LIST_CAP);
+  if (error) throw error;
+  return (data as OrderRow[]).map(rowToRecord);
+}
+
+export async function listOrdersForAdminExport(
+  range: OrderDateRangeIso,
+  limit: number,
+): Promise<OrderRecord[]> {
+  let query = getSupabase().from('orders').select(SELECT_COLUMNS);
+  if (range.createdFromIso) query = query.gte('created_at', range.createdFromIso);
+  if (range.createdToExclusiveIso) query = query.lt('created_at', range.createdToExclusiveIso);
+
+  const { data, error } = await query.order('created_at', { ascending: false }).limit(limit);
   if (error) throw error;
   return (data as OrderRow[]).map(rowToRecord);
 }
@@ -419,6 +447,20 @@ export async function updateOrderStatus(id: string, updates: OrderFieldsUpdate):
   if (error) throw error;
 }
 
+export async function requestOrderCancellation(id: string, memberId: string): Promise<boolean> {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .update({ order_status: '취소요청' })
+    .eq('id', id)
+    .eq('member_id', memberId)
+    .eq('order_status', '주문접수')
+    .in('payment_status', ['결제대기', '입금대기', '결제완료'])
+    .in('delivery_status', ['배송전', '배송준비'])
+    .select('id');
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 /**
  * 관리자 수동 결제상태 전이(조건부 UPDATE = CAS). setOrderPaid/claimOrderForConfirmation와 같은
  * 패턴으로 WHERE payment_status=<fromStatus> 를 걸어, 우리가 현재 상태를 읽은 시점과 UPDATE 시점
@@ -524,16 +566,20 @@ export async function cancelConfirmingAndRestore(id: string, paymentKey: string)
  */
 export async function getOrderPaymentInfo(
   id: string,
-): Promise<{ paymentStatus: string; paymentKey: string | null } | null> {
+): Promise<{ paymentStatus: string; paymentKey: string | null; deliveryStatus: string | null } | null> {
   const { data, error } = await getSupabase()
     .from('orders')
-    .select('payment_status, payment_key')
+    .select('payment_status, payment_key, delivery_status')
     .eq('id', id)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  const row = data as { payment_status: string; payment_key: string | null };
-  return { paymentStatus: row.payment_status, paymentKey: row.payment_key ?? null };
+  const row = data as { payment_status: string; payment_key: string | null; delivery_status: string | null };
+  return {
+    paymentStatus: row.payment_status,
+    paymentKey: row.payment_key ?? null,
+    deliveryStatus: row.delivery_status ?? null,
+  };
 }
 
 /**

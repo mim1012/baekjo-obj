@@ -2,15 +2,23 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+  setProductDisplaySetting,
+} from './_lib/adminCrudHelpers';
 import { getSurface } from './_lib/fieldSurfaceMatrix';
 
 // 골든플로우 #7 — 상품 폼 "전 필드 왕복" 실구동.
 //
 // admin-crud-products.spec.ts(라이프사이클: 등록→노출→가격수정→비노출→삭제)의 자매편.
-// 그 스펙이 핵심 lifecycle 을 검증한다면, 이 스펙은 ProductForm 의 *모든 필드*를 한 번에 채워
+// 그 스펙이 핵심 lifecycle 을 검증한다면, 이 스펙은 ProductForm 의 모든 정보 필드와 단일
+// ProductDisplayManager의 노출·추천·베스트 설정을 채워
 //   (1) 저장 → 관리자 편집 폼 재열람에서 필드별 왕복(round-trip) 검증,
-//   (2) 공개 /shop/[id] 에서 공개 렌더되는 필드 검증(옵션 셀렉터·구매정보·적립·성분/사용법 등),
+//   (2) 공개 /shop/[id] 에서 공개 렌더되는 필드 검증(옵션 셀렉터·구매정보·적립·카드 태그 등),
 //   (3) ProductDetailEditor(/admin/products/[id]/editor)로 detailBlocks(text+image) 저장 →
 //       공개 #story 에 순서대로 렌더 검증,
 //   (4) 같은 상품에 경계값/특수문자(XSS)/price=0 수정 패스 → 크래시·미이스케이프 렌더 없음 확인.
@@ -19,7 +27,7 @@ import { getSurface } from './_lib/fieldSurfaceMatrix';
 //
 // ⚠️ 필수 5필드는 name·brandId·category·lifestyleCategory·image(ProductForm REQUIRED_FIELDS).
 //    나머지는 선택이지만 이 스펙은 ProductForm 이 노출하는 전 필드를 채운다.
-// ⚠️ 신규 상품 isVisible 기본 false — "스토어 노출" 토글을 켜야 공개 검증이 가능하다.
+// ⚠️ 신규 상품 isVisible 기본 false — 등록 후 `상품 진열`에서 노출을 적용해야 공개 검증이 가능하다.
 // ⚠️ 대표 이미지는 실제 파일 업로드(ImageUploader, 숨겨진 input[type=file]) — 1x1 PNG setInputFiles.
 // ⚠️ detailBlocks 이미지 블록 src 는 Supabase storage publicUrl 이라, 검증기(validate.isAllowedBlockImageSrc)
 //    가 NEXT_PUBLIC_SUPABASE_URL 또는 서버 SUPABASE_URL 오리진만 통과시킨다. 로컬 실행 시엔
@@ -44,26 +52,17 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   const PRODUCTS_SEARCH_PLACEHOLDER = '상품명 또는 상품코드 검색...';
 
   // 필드별 고유 값(runId 포함 — 공개 화면 substring 검증 시 다른 상품과 충돌하지 않게).
-  const summary = `E2E한줄설명 ${runId}`;
   const description = `E2E상세설명 ${runId}`;
-  const ingredients = `닭고기40% 현미 연어오일 ${runId}`;
-  const howToUse = `하루60g 2회급여 ${runId}`;
-  const recommended = `알러지반려견 ${runId}`;
-  const cautionText = `개봉후냉장보관 ${runId}`;
   const deliveryEstimate = `오후2시이전당일출고 ${runId}`;
   const shippingNotice = `제주추가배송비 ${runId}`;
   const returnNotice = `수령후7일이내 ${runId}`;
   const sellerName = `백조오브제셀렉션 ${runId}`;
-  const auditPoint = `상품검증포인트 ${runId}`;
-  const relatedConcernSlug = `skin-${runId}`;
-  const tagText = `저알러지태그 ${runId}`;
   const opt1Name = `2kg-${runId}`;
   const opt2Name = `5kg-${runId}`;
   const price = 12000;
   const salePrice = 9000;
   const stock = 50;
   const shippingFee = 3000;
-  const pointsRate = 5;
   const detailText = `E2E상세본문텍스트블록 ${runId}`;
   const detailImageAlt = `E2E상세이미지 ${runId}`;
 
@@ -145,9 +144,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     // 반려동물 select 는 htmlFor 없이 라벨만 — option value="both" 를 가진 유일한 select 로 특정.
     const petSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petSelect.selectOption('dog');
-    await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(summary);
     await page
-      .getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)')
+      .getByPlaceholder('예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다.')
       .fill(description);
 
     // ── 2) 가격·재고·배송비 (spinbutton 문서순서: price·salePrice·stock·shippingFee) ──
@@ -157,11 +155,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await spin.nth(2).fill(String(stock));
     await spin.nth(3).fill(String(shippingFee));
 
-    // ── 3) 적립금 지급 + 적립률 ──
-    await page.getByText('적립금 지급').click();
-    await page.getByPlaceholder('상품금액 기준. 배송비 제외').fill(String(pointsRate));
-
-    // ── 4) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
+    // ── 3) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
     await page.getByRole('button', { name: '옵션 추가' }).click();
     await page.getByLabel('옵션 1 이름').fill(opt1Name);
     await page.getByLabel('옵션 1 가격').fill('20000');
@@ -169,19 +163,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.getByLabel('옵션 2 이름').fill(opt2Name);
     await page.getByLabel('옵션 2 가격').fill('45000');
 
-    // ── 5) 상세 정보(성분/사용법/추천/주의) ──
-    await page.getByRole('button', { name: '검증 포인트 추가' }).click();
-    await page.getByLabel('검증 포인트 1', { exact: true }).fill(auditPoint);
-    await page.getByRole('button', { name: '관련 고민 추가' }).click();
-    await page.getByLabel('관련 고민 1', { exact: true }).fill(relatedConcernSlug);
-    await page.getByRole('button', { name: '태그 추가' }).click();
-    await page.getByLabel('태그 1', { exact: true }).fill(tagText);
-    await page.getByPlaceholder('예: 닭고기 40%, 현미, 연어오일…').fill(ingredients);
-    await page.getByPlaceholder('예: 체중 5kg 기준 하루 60g, 2회 나눠 급여').fill(howToUse);
-    await page.getByRole('button', { name: '추천 대상 추가' }).click();
-    await page.getByLabel('추천 대상 1', { exact: true }).fill(recommended);
-    await page.getByRole('button', { name: '주의사항 추가' }).click();
-    await page.getByLabel('주의사항 1', { exact: true }).fill(cautionText);
+    // ── 5) 실제 고객 화면 연결 — 상품 카드 태그 + 전문가 관점 ──
+    await page.getByRole('button', { name: '+ 피부', exact: true }).click();
+    await page.getByRole('checkbox', { name: /수의사 관점/ }).check();
 
     // ── 6) 배송·판매자 안내 ──
     await page.getByPlaceholder('예: 오후 2시 이전 주문 시 당일 출고').fill(deliveryEstimate);
@@ -196,22 +180,23 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.locator('input[type="file"]').last().setInputFiles(galleryImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(2, { timeout: 20_000 });
 
-    // ── 8) 노출 토글(스토어 노출/추천/베스트) — ToggleRow 는 label 이 input 을 감싸 getByLabel 동작 ──
-    await page.getByLabel('스토어 노출').check();
-    await page.getByLabel('추천 상품 (MD)').check();
-    await page.getByLabel('베스트 상품').check();
-
     // 저장 → 목록으로 이동(ProductForm.tsx router.push('/admin/products')).
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
+    // ── 8) 중복 편집이 없는 단일 `상품 진열` 화면에서 세 상태를 각각 적용 ──
+    await setProductDisplaySetting(page, name, 'visible', true);
+    await setProductDisplaySetting(page, name, 'recommended', true);
+    await setProductDisplaySetting(page, name, 'best', true);
 
     // ── 9) 공개 /shop 카드 — shop-card 표면 계약(뱃지·brandName·후기수) 검증 ──
     await page.goto(`/shop?search=${encodeURIComponent(name)}`);
     const shopCard = page.locator('article', { hasText: name }).first();
     await expect(shopCard).toBeVisible({ timeout: 15_000 });
     await expect(shopCard).toContainText('BEST'); // isBest 뱃지(shop-card:86-90)
-    await expect(shopCard).toContainText('SELECTED'); // isRecommended 뱃지(:91-95)
+    await expect(shopCard).not.toContainText('SELECTED');
+    await expect(page.locator('section', { hasText: 'DAILY PICK' })).toContainText(name);
     await expect(shopCard).toContainText('후기'); // reviewCount(:160)
+    await expect(shopCard).toContainText('피부'); // concernTags → 상품 카드 태그
     if (brandNameText) await expect(shopCard).toContainText(brandNameText); // brandName(:45,134)
     const detailHref = await page.getByRole('link', { name: `${name} 상세 보기` }).first().getAttribute('href');
     expect(detailHref).toMatch(/^\/shop\/.+/);
@@ -231,18 +216,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       salePrice: '9,000',
       price: '12,000',
       description,
-      auditPoints: auditPoint,
-      relatedConcernSlugs: relatedConcernSlug,
-      tags: tagText,
-      ingredients,
-      howToUse,
-      recommendedFor: recommended,
-      caution: cautionText,
       shippingFee: '3,000',
       deliveryEstimate,
       returnNotice,
       sellerName,
-      pointsRate: `${pointsRate}%`, // "…{rate}% 적립 설정"
       brandName: brandNameText,
     };
     for (const f of getSurface('shop-detail').fields) {
@@ -301,34 +278,24 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.locator('#product-category')).toHaveValue(categoryValue);
     await expect(page.locator('#product-lifestyle')).toHaveValue(lifestyleValue);
     await expect(page.locator('select').filter({ has: page.locator('option[value="both"]') })).toHaveValue('dog');
-    await expect(page.getByPlaceholder('상품 카드에 노출될 짧은 설명')).toHaveValue(summary);
     await expect(
-      page.getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)'),
+      page.getByPlaceholder('예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다.'),
     ).toHaveValue(description);
     const editSpin = page.getByRole('spinbutton');
     await expect(editSpin.nth(0)).toHaveValue(String(price));
     await expect(editSpin.nth(1)).toHaveValue(String(salePrice));
     await expect(editSpin.nth(2)).toHaveValue(String(stock));
     await expect(editSpin.nth(3)).toHaveValue(String(shippingFee));
-    await expect(page.getByPlaceholder('상품금액 기준. 배송비 제외')).toHaveValue(String(pointsRate));
     await expect(page.getByLabel('옵션 1 이름')).toHaveValue(opt1Name);
     await expect(page.getByLabel('옵션 1 가격')).toHaveValue('20000');
     await expect(page.getByLabel('옵션 2 이름')).toHaveValue(opt2Name);
     await expect(page.getByLabel('옵션 2 가격')).toHaveValue('45000');
-    await expect(page.getByLabel('검증 포인트 1', { exact: true })).toHaveValue(auditPoint);
-    await expect(page.getByLabel('관련 고민 1', { exact: true })).toHaveValue(relatedConcernSlug);
-    await expect(page.getByLabel('태그 1', { exact: true })).toHaveValue(tagText);
-    await expect(page.getByPlaceholder('예: 닭고기 40%, 현미, 연어오일…')).toHaveValue(ingredients);
-    await expect(page.getByPlaceholder('예: 체중 5kg 기준 하루 60g, 2회 나눠 급여')).toHaveValue(howToUse);
-    await expect(page.getByLabel('추천 대상 1', { exact: true })).toHaveValue(recommended);
-    await expect(page.getByLabel('주의사항 1', { exact: true })).toHaveValue(cautionText);
+    await expect(page.getByLabel('고민 태그 1', { exact: true })).toHaveValue('skin');
+    await expect(page.getByRole('checkbox', { name: /수의사 관점/ })).toBeChecked();
     await expect(page.getByPlaceholder('예: 오후 2시 이전 주문 시 당일 출고')).toHaveValue(deliveryEstimate);
     await expect(page.getByPlaceholder('예: 제주/도서산간 추가 배송비')).toHaveValue(shippingNotice);
     await expect(page.getByPlaceholder('예: 단순 변심 시 수령 후 7일 이내')).toHaveValue(returnNotice);
     await expect(page.getByPlaceholder('예: 백조오브제')).toHaveValue(sellerName);
-    await expect(page.getByLabel('스토어 노출')).toBeChecked();
-    await expect(page.getByLabel('추천 상품 (MD)')).toBeChecked();
-    await expect(page.getByLabel('베스트 상품')).toBeChecked();
     // 대표 이미지 + 갤러리 1장 = Uploaded 미리보기 2장 이상.
     await expect(page.locator('img[alt="Uploaded"]').first()).toBeVisible({ timeout: 15_000 });
     expect(await page.locator('img[alt="Uploaded"]').count()).toBeGreaterThanOrEqual(2);
@@ -342,9 +309,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     const longDescription = xssProbe + ' ' + '가'.repeat(2900);
 
     await page.locator('#product-name').fill(boundaryName);
-    await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(xssProbe);
     await page
-      .getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)')
+      .getByPlaceholder('예: 산책 후 발과 털을 부드럽게 관리하는 데일리 케어 상품입니다.')
       .fill(longDescription);
     // price=0 은 salePrice > price 위반이 되므로 salePrice 도 0 으로 낮춘다(검증기 교차검증 통과).
     const boundarySpin = page.getByRole('spinbutton');
@@ -382,7 +348,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   //    이미지 없는 상품은 레거시 시드 데이터로만 존재 → 카드/상세 placeholder 렌더는 코드 분기
   //    (ProductCard.tsx:124 "상품 이미지 준비 중", ProductDetailClient.tsx:148-156)로만 커버되며
   //    이 스펙 범위 밖(폼 경계). 나머지 빈 상태(재고0·옵션無·detailBlocks無)는 폼으로 재현·검증한다.
-  test('빈 상태 변형 — 재고0 품절 뱃지·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
+  test('빈 상태 변형 — 재고0 구매 비활성·옵션 없음·detailBlocks 없음 그레이스풀 렌더', async ({ page }) => {
     assertNotProd();
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(page);
@@ -398,15 +364,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await spin.nth(2).fill('0'); // stock=0 → 품절
     await page.locator('input[type="file"]').setInputFiles(mainImagePath); // 대표 이미지는 필수
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });
-    await page.getByLabel('스토어 노출').check();
     await page.getByRole('button', { name: '등록 완료' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/products', { timeout: 20_000 });
+    await setProductDisplaySetting(page, emptyName, 'visible', true);
 
-    // 카드: 재고0 → "잠시 품절" 뱃지(shop-card stock 계약), 리터럴 undefined 없음.
+    // 카드: 재고0 → 고객 요청에 따라 "잠시 품절" 문구 없이 구매만 비활성화한다.
     await page.goto(`/shop?search=${encodeURIComponent(emptyName)}`);
     const card = page.locator('article', { hasText: emptyName }).first();
     await expect(card).toBeVisible({ timeout: 15_000 });
-    await expect(card).toContainText('잠시 품절'); // ProductCard.tsx:70,96-100
+    await expect(card).not.toContainText('잠시 품절');
+    await expect(card.getByRole('button', { name: /구매 불가/ })).toBeDisabled();
     await expect(card).not.toContainText('undefined');
     const emptyDetailHref = await page.getByRole('link', { name: `${emptyName} 상세 보기` }).first().getAttribute('href');
     expect(emptyDetailHref).toMatch(/^\/shop\/.+/);

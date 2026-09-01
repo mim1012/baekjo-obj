@@ -1,10 +1,9 @@
-import { RotateCcw, Store, Truck } from 'lucide-react';
+import { Store, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import type { Product } from '@/types';
-import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
 
 interface ProductPurchaseInfoProps {
-  product: Product;
+  product: Pick<Product, 'shippingFee' | 'deliveryEstimate' | 'shippingNotice' | 'returnNotice' | 'sellerName'>;
 }
 
 const nonBlank = (value: string | undefined) => {
@@ -13,32 +12,37 @@ const nonBlank = (value: string | undefined) => {
 };
 
 export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProps) {
-  const deliveryLabel =
-    nonBlank(product.deliveryEstimate) ??
-    nonBlank(product.shippingNotice) ??
-    DEFAULT_COMMERCE_POLICY.deliveryEstimate;
-  const returnLabel = nonBlank(product.returnNotice) ?? DEFAULT_COMMERCE_POLICY.returnNotice;
-  const sellerName = nonBlank(product.sellerName) ?? '백조오브제 셀렉션';
-  const shippingLabel =
-    product.shippingFee === 0
-      ? '무료 배송'
-      : product.shippingFee !== undefined
-        ? formatPrice(product.shippingFee)
-        : DEFAULT_COMMERCE_POLICY.shippingLabel;
+  const shippingLabel = product.shippingFee !== undefined ? formatPrice(product.shippingFee) : undefined;
+  const dispatchLabel = nonBlank(product.deliveryEstimate);
+  const shippingNoticeLabel = nonBlank(product.shippingNotice);
+  const returnLabel = nonBlank(product.returnNotice);
+  const sellerLabel = nonBlank(product.sellerName);
+  const hasPolicy = Boolean(
+    shippingLabel ||
+      shippingNoticeLabel ||
+      sellerLabel ||
+      dispatchLabel ||
+      returnLabel,
+  );
+  if (!hasPolicy) return null;
 
   return (
     <section aria-labelledby="purchase-information-title" className="mt-8 rounded-3xl border border-[#E7E0D5] bg-[#FAF8F3] p-6">
       <div className="mb-5 flex items-center justify-between gap-4">
         <h2 id="purchase-information-title" className="text-base font-bold text-[#17211D]">
-          배송과 구매 안내
+          구매 정보
         </h2>
-        <span className="text-xs text-[#59615B]">주문 전 확인해 주세요</span>
       </div>
       <dl className="grid gap-5 text-sm text-[#17211D] sm:grid-cols-2">
-        <InfoRow icon={Truck} title="배송비" description={shippingLabel} />
-        <InfoRow icon={Truck} title="출고 일정" description={deliveryLabel} />
-        <InfoRow icon={RotateCcw} title="교환·반품" description={returnLabel} />
-        <InfoRow icon={Store} title="판매 주체" description={sellerName} />
+        {shippingLabel && <InfoRow icon={Truck} title="배송비" description={shippingLabel} />}
+        {dispatchLabel && (
+          <InfoRow icon={Truck} title="출고 예정" description={dispatchLabel} />
+        )}
+        {shippingNoticeLabel && <InfoRow icon={Truck} title="배송 유의사항" description={shippingNoticeLabel} />}
+        {sellerLabel && <InfoRow icon={Store} title="판매자" description={sellerLabel} />}
+        {returnLabel && (
+          <InfoRow icon={Truck} title="교환·반품 안내" description={returnLabel} />
+        )}
       </dl>
     </section>
   );

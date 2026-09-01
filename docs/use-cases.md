@@ -1,7 +1,7 @@
 # 백조오브제 유스케이스 점검표 (도메인별)
 
 > 작성: 2026-07-23. 목적: **각 도메인별 기능을 유스케이스 단위로 점검**하기 위한 체크리스트.
-> 출처: `src/app/**/page.tsx` 59개 · `src/app/api/**/route.ts` 85개 실측 + AGENTS.md §7 골든플로우.
+> 출처: `src/app/**/page.tsx` 62개 · `src/app/api/**/route.ts` 실측 + 골든플로우 라우트 레지스트리.
 > 점검 방법: 각 항목의 ☐ 를 점검 후 ☑ 로 바꾸고, 이상 발견 시 "비고"에 기록.
 > 검증 스펙 열은 해당 유스케이스를 자동 검증하는 Playwright 스펙(`tests/`)이다 — 스펙이 없는 항목은 수동 점검 대상.
 > **스펙 유무·CI 배선 전수 대장: [`docs/testing/golden-spec-coverage.md`](./testing/golden-spec-coverage.md)** (있는 것/없는 것/있는데 CI에서 안 도는 것 전부 명시).
@@ -42,7 +42,8 @@
 | 3-7 | 상품 리뷰 작성/열람 | 회원 | 구매 상품에 리뷰 작성 → 상세 페이지 노출, 별점 집계 갱신(트리거 0070) | golden/member-review-inquiry.spec.ts, admin/purchase-review-eligibility.spec.ts | ☐ |
 | 3-8 | 상품 Q&A | 회원 | 상세에서 문의 작성 → 관리자 답변 → 재열람 | golden/member-review-inquiry.spec.ts, golden/admin-crud-qna-inquiries.spec.ts | ☐ |
 
-**알려진 제약:** 옵션별 재고 미구현(보류 — memory `option-stock-dorami-blueprint`). 재고는 상품 단위.
+**배포 확인 필요:** 옵션별 재고 검증·장바구니 상한·원자 차감/복원 코드는 0071 마이그레이션으로 구현됨.
+운영 반영 전에는 `supabase/migrations/0071_option_stock_atomic.sql` 적용과 staging 동시주문 회귀를 완료해야 한다.
 
 ## 4. 결제 (무통장 / 토스)
 
@@ -90,10 +91,10 @@
 
 | # | 유스케이스 | 액터 | 시나리오 | 검증 스펙 | 점검 |
 |---|---|---|---|---|---|
-| 8-1 | 케어키트 랜딩 | 방문자 | `/landing/care-kit`, `/b2b` 렌더 (키트 구성은 `/admin/kits`) | golden/care-kit.spec.ts, golden/admin-crud-kits-partners.spec.ts | ☐ |
+| 8-1 | 케어키트 랜딩 | 방문자 | `/landing/care-kit`, `/b2b` 렌더 (키트 구성은 `/admin/kits`) | golden/care-kit.spec.ts, golden/admin-crud-kits.spec.ts | ☐ |
 | 8-2 | 파트너 신청 제출 | 방문자 | 랜딩 폼 제출 → `/api/partner-inquiries` 저장 | golden/admin-crud-partner-inquiries.spec.ts | ☐ |
 | 8-3 | 파트너 문의 관리 | 관리자 | `/admin/partner-inquiries` 목록·상태 처리 | admin/partner-inquiry-binding-flow.spec.ts | ☐ |
-| 8-4 | 파트너(업체) 관리 | 관리자 | `/admin/partners` CRUD, 파트너 상품 API(`/api/partner/products`) | admin/partner-binding-flow.spec.ts, partner-type-policy.spec.ts | ☐ |
+| 8-4 | 제휴 문의 처리 | 관리자 | `/admin/partner-inquiries`에서 실제 공개 폼 접수의 상태·메모·삭제 처리 | golden/admin-crud-partner-inquiries.spec.ts, admin/partner-binding-flow.spec.ts | ☐ |
 
 ## 9. 회원 (골든플로우 #6)
 
@@ -114,7 +115,7 @@
 |---|---|---|---|---|---|
 | 10-1 | 1:1 문의 작성/수정 | 회원 | 문의 제출(`/api/inquiries`) → 마이페이지에서 수정·삭제 | golden/member-inquiry-edit-save.spec.ts | ☐ |
 | 10-2 | 문의 답변 | 관리자 | `/admin/inquiries` 답변 등록 → 회원 열람 | golden/admin-crud-qna-inquiries.spec.ts | ☐ |
-| 10-3 | QnA 콘텐츠 | 관리자 | `/admin/qna` 편집 → 공개 화면 반영 (`qna_config` DB) | golden/admin-crud-qna-config.spec.ts, admin/qna-public-wire-binding-flow.spec.ts | ☐ |
+| 10-3 | 상품문의 삭제 | 관리자 | `/admin/inquiries`에서 실제 고객 문의 답변·삭제 → 상품상세·마이페이지 반영 | admin/inquiry-admin-delete-flow.spec.ts, admin/qna-public-wire-binding-flow.spec.ts | ☐ |
 
 ## 11. 관리자 콘솔 (골든플로우 #7 — 클라이언트 주 사용 surface)
 
@@ -123,9 +124,10 @@
 | 11-1 | 관리자 접근 가드 | 관리자 | 비로그인 `/admin` → `/login?error=admin`, API는 401/403 JSON (proxy + requireAdmin 이중) | admin/route-coverage-audit.spec.ts | ☐ |
 | 11-2 | 대시보드 | 관리자 | `/admin` 통계 카드·차트 렌더 | admin/dashboard-stats.spec.ts | ☐ |
 | 11-3 | 상품 CRUD | 관리자 | 등록(`/new`)·수정·상세 에디터(detailBlocks)·진열(`/display`)·일괄 처리 | golden/admin-crud-products.spec.ts, products/form-payload.spec.ts 외 | ☐ |
+| 11-3-1 | 상품 태그 관리 | 관리자 | `/admin/products/tags`에서 태그 등록·수정·삭제·카드 노출·스토어 필터 노출·순서 관리 | golden/admin-crud-product-tags.spec.ts, admin/concern-tag-end-to-end-linkage.spec.ts | ☐ |
 | 11-4 | 브랜드 CRUD | 관리자 | 목록·상세 편집(로고·auditReport 포함) | golden/admin-crud-brands.spec.ts, admin/brand-binding-flow.spec.ts | ☐ |
 | 11-5 | 주문 관리 | 관리자 | 목록 검색·상태 변경(전이 가드)·상세·배송 등록 | admin/order-search.spec.ts, order-status-axis.spec.ts, order-funnel.spec.ts | ☐ |
-| 11-6 | 주문 정책 | 관리자 | `/admin/order-policy` 무통장 기한 등 정책 저장 | golden/admin-crud-order-policy.spec.ts | ☐ |
+| 11-6 | 무통장 자동취소 | 관리자 | `/admin/order-policy` 입금대기 자동취소 사용 여부·시간 저장 | golden/admin-crud-order-policy.spec.ts | ☐ |
 | 11-7 | 회원 관리 | 관리자 | 목록·상세·상태 전이(정지 매트릭스)·서류 열람 | golden/member-admin-edit-propagation.spec.ts | ☐ |
 | 11-8 | 리뷰 검수 | 관리자 | `/admin/reviews` moderation → 공개/숨김, 별점 재계산 | golden/admin-crud-reviews-moderation.spec.ts, admin/admin-reviews-moderation-contract.spec.ts | ☐ |
 | 11-9 | 콘텐츠 관리 | 관리자 | 공지·concerns·카테고리·설정·insurance-content·showcase-reviews 각 CRUD 즉시저장 | golden/admin-crud-*.spec.ts 일괄 | ☐ |

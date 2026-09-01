@@ -1,23 +1,22 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Eye, Save, X } from 'lucide-react';
-import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
-import { HomeSettings } from '@/data/homeContent';
+import { ArrowDown, ArrowUp, Eye, Plus, Save, Send, Trash2, X } from 'lucide-react';
+import { defaultHomeSettings, type HomeSettings } from '@/data/homeContent';
 import { getPublicProducts, getPublicBrands, getNoticesConfig, getShowcaseReviews } from '@/lib/storage';
 import HomeClient from '@/components/home/HomeClient';
 import type { Brand, Notice, Product, Review } from '@/types';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
+import ImageUploader from '@/components/admin-new/common/ImageUploader';
 
-// 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 아이콘·href·이미지 등 "구조"는
-// HomeClient 하드코딩이라 편집 대상이 아니고, 여기서는 "문구"만 편집한다(§ homeContent).
+// 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 문구·이미지·연결 주소·노출과 카드 순서를
+// 모두 한곳에서 관리한다.
 const TABS = [
   { id: 'hero', label: '메인 히어로' },
   { id: 'quickShop', label: '쇼핑 카테고리' },
   { id: 'bestProducts', label: '오늘의 추천' },
   { id: 'curation', label: '맞춤 큐레이션' },
   { id: 'audit', label: '백조오브제 Audit' },
-  { id: 'solutions', label: '3가지 솔루션' },
   { id: 'insuranceBanner', label: '펫보험 배너' },
   { id: 'trustBoard', label: '후기/소식' },
 ] as const;
@@ -25,9 +24,17 @@ const TABS = [
 type TabId = typeof TABS[number]['id'];
 
 export default function SiteSettingsPage() {
-  const { settings, updateSettings, loaded, loadError } = useSiteSettings();
-  const [draft, setDraft] = useState<HomeSettings>(settings);
+  const [draft, setDraft] = useState<HomeSettings>(defaultHomeSettings);
   const [dirty, setDirty] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [draftRevision, setDraftRevision] = useState<number | null>(null);
+  const [publishedRevision, setPublishedRevision] = useState<number | null>(null);
+  const [hasUnpublishedChanges, setHasUnpublishedChanges] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('hero');
   // 미리보기는 홈 화면(HomeClient)을 그대로 재사용한다 — repo(서버 전용)는 클라이언트
@@ -37,13 +44,35 @@ export default function SiteSettingsPage() {
   const [previewNotices, setPreviewNotices] = useState<Notice[]>([]);
   const [previewReviews, setPreviewReviews] = useState<Review[]>([]);
 
-  // provider 가 GET /api/settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) draft 를 그 값에
-  // 맞춘다. 단 관리자가 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
+  // 공개 GET이 아니라 관리자 CMS draft를 읽는다. 게시하지 않은 수정본이 있어도 이어서 편집해야 한다.
   useEffect(() => {
-    if (dirty) return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setDraft(settings);
-  }, [settings, dirty]);
+    let cancelled = false;
+    fetch('/api/admin/settings', { cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`load-failed:${response.status}`);
+        return response.json() as Promise<{
+          settings: HomeSettings;
+          draftRevision: number;
+          publishedRevision: number | null;
+          hasUnpublishedChanges: boolean;
+        }>;
+      })
+      .then((data) => {
+        if (cancelled) return;
+        setDraft(data.settings);
+        setDraftRevision(data.draftRevision);
+        setPublishedRevision(data.publishedRevision);
+        setHasUnpublishedChanges(data.hasUnpublishedChanges);
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isPreviewOpen) return;
@@ -76,14 +105,68 @@ export default function SiteSettingsPage() {
   // loaded 이전엔 저장을 막는다 — provider 의 GET 이 resolve 되기 전 저장은 draft 가 여전히
   // defaultHomeSettings 시드일 수 있어, 안 보인 섹션들이 default 값 그대로 실 DB 위에 PUT 된다
   // (전수조사 A-1, 2026-07-18).
-  const handleSave = async () => {
-    if (!loaded) return;
-    const ok = await updateSettings(draft);
-    if (ok) {
+  const saveDraft = async (): Promise<number | null> => {
+    if (!loaded || draftRevision === null) return null;
+    setIsSaving(true);
+    setActionError(null);
+    setSaveMessage(null);
+    try {
+      const response = await fetch('/api/admin/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: draft, expectedRevision: draftRevision }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        draftRevision?: number;
+        message?: string;
+      };
+      if (!response.ok || typeof result.draftRevision !== 'number') {
+        throw new Error(result.message || '임시저장에 실패했습니다.');
+      }
+      setDraftRevision(result.draftRevision);
       setDirty(false);
-      alert('설정이 저장되었습니다.');
-    } else {
-      alert('설정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      setHasUnpublishedChanges(true);
+      setSaveMessage(`편집본 v${result.draftRevision}으로 임시저장했습니다.`);
+      return result.draftRevision;
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '임시저장에 실패했습니다.');
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    await saveDraft();
+  };
+
+  const handlePublish = async () => {
+    if (!loaded || draftRevision === null) return;
+    setIsPublishing(true);
+    setActionError(null);
+    setSaveMessage(null);
+    try {
+      const revisionToPublish = dirty ? await saveDraft() : draftRevision;
+      if (revisionToPublish === null) return;
+      const response = await fetch('/api/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedRevision: revisionToPublish }),
+      });
+      const result = (await response.json().catch(() => ({}))) as {
+        publishedRevision?: number;
+        message?: string;
+      };
+      if (!response.ok || typeof result.publishedRevision !== 'number') {
+        throw new Error(result.message || '게시하지 못했습니다.');
+      }
+      setPublishedRevision(result.publishedRevision);
+      setHasUnpublishedChanges(false);
+      setSaveMessage(`홈 편집본 v${result.publishedRevision}을 공개했습니다.`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : '게시하지 못했습니다.');
+    } finally {
+      setIsPublishing(false);
     }
   };
 
@@ -115,18 +198,40 @@ export default function SiteSettingsPage() {
   // ----------------------------------------------------
   // Array Handlers
   // ----------------------------------------------------
-  const updateArrayField = (section: keyof HomeSettings, arrayField: string, index: number, itemField: string, value: string) => {
+  const updateArrayField = (section: keyof HomeSettings, arrayField: string, index: number, itemField: string, value: unknown) => {
     if (!loaded) return;
     setDirty(true);
     setDraft((prev) => {
       const sectionData = prev[section] as Record<string, unknown>;
-      const newArray = [...(sectionData[arrayField] as Array<Record<string, string>>)];
+      const newArray = [...(sectionData[arrayField] as Array<Record<string, unknown>>)];
       newArray[index] = { ...newArray[index], [itemField]: value };
       return {
         ...prev,
         [section]: { ...sectionData, [arrayField]: newArray }
       } as HomeSettings;
     });
+  };
+
+  const replaceArray = (section: keyof HomeSettings, arrayField: string, next: Array<Record<string, unknown>>) => {
+    if (!loaded) return;
+    setDirty(true);
+    setDraft((prev) => ({
+      ...prev,
+      [section]: { ...(prev[section] as unknown as Record<string, unknown>), [arrayField]: next },
+    }) as HomeSettings);
+  };
+
+  const removeArrayItem = (section: keyof HomeSettings, arrayField: string, index: number) => {
+    const items = ((draft[section] as unknown as Record<string, unknown>)[arrayField] as Array<Record<string, unknown>>);
+    replaceArray(section, arrayField, items.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const moveArrayItem = (section: keyof HomeSettings, arrayField: string, index: number, direction: -1 | 1) => {
+    const items = [...((draft[section] as unknown as Record<string, unknown>)[arrayField] as Array<Record<string, unknown>>)] ;
+    const target = index + direction;
+    if (target < 0 || target >= items.length) return;
+    [items[index], items[target]] = [items[target], items[index]];
+    replaceArray(section, arrayField, items);
   };
 
   const renderInput = (label: string, value: string, onChange: (v: string) => void, isTextarea = false) => (
@@ -150,6 +255,13 @@ export default function SiteSettingsPage() {
     </div>
   );
 
+  const renderToggle = (label: string, value: boolean, onChange: (value: boolean) => void) => (
+    <label className="flex items-center justify-between border border-[#E7E0D5] bg-[#FAF8F3] p-4">
+      <span className="text-sm font-semibold text-[#17211D]">{label}</span>
+      <input type="checkbox" checked={value} onChange={(event) => onChange(event.target.checked)} className="size-5 accent-[#17211D]" />
+    </label>
+  );
+
   // 줄바꿈은 마크업(<br/>)이 아니라 구조(string[])로 다룬다 — 한 줄에 한 문장씩, 개행으로 구분한다.
   // 빈 줄은 저장 시 제거해 정본이 깨지지 않도록 한다(normalize 가 최종 방어).
   const renderLinesInput = (label: string, lines: string[], onChange: (lines: string[]) => void) =>
@@ -166,7 +278,7 @@ export default function SiteSettingsPage() {
         title="사이트 콘텐츠 설정"
         // loadError 면 왜 편집·저장이 막혔는지 알려준다(opus 리뷰 MEDIUM — loaded 는 노출해도 소비하지
         // 않으면 버튼만 영문 모른 채 계속 비활성화된 것처럼 보인다). notices/concerns 화면과 같은 톤.
-        description={loadError ? '설정을 불러오지 못했습니다. 저장이 차단되었습니다 — 새로고침 후 다시 시도해 주세요.' : '홈페이지의 주요 문구를 섹션별로 편집하고, 실제 화면을 미리 확인한 뒤 한 번에 저장합니다.'}
+        description={loadError ? '편집본을 불러오지 못했습니다. 저장과 게시를 차단했습니다 — 새로고침 후 다시 시도해 주세요.' : '홈 화면을 편집해 임시저장하고, PC·모바일 미리보기에서 확인한 뒤 게시합니다.'}
         actions={<>
           <button
             onClick={() => setIsPreviewOpen(true)}
@@ -177,14 +289,35 @@ export default function SiteSettingsPage() {
           </button>
           <button
             onClick={handleSave}
-            disabled={!loaded}
-            className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!loaded || isSaving || isPublishing || !dirty}
+            className="flex min-h-11 items-center gap-2 border border-[#17211D] bg-white px-5 text-sm font-semibold text-[#17211D] transition-colors hover:bg-[#FAF8F3] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
-            변경사항 저장
+            {isSaving ? '저장 중…' : '임시저장'}
+          </button>
+          <button
+            onClick={handlePublish}
+            disabled={!loaded || isSaving || isPublishing || (!dirty && !hasUnpublishedChanges)}
+            className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="w-4 h-4" />
+            {isPublishing ? '게시 중…' : '홈에 게시'}
           </button>
         </>}
       />
+
+      <div className="flex flex-wrap items-center gap-3 border border-[#E7E0D5] bg-white px-4 py-3 text-sm">
+        <span className="font-semibold text-[#17211D]">게시본 v{publishedRevision ?? '없음'}</span>
+        <span className="text-[#9AA39B]">/</span>
+        <span className="font-semibold text-[#17211D]">편집본 v{draftRevision ?? '불러오는 중'}</span>
+        {(dirty || hasUnpublishedChanges) && (
+          <span className="bg-[#FFF3D6] px-2 py-1 text-xs font-semibold text-[#8A5B00]">
+            게시되지 않은 변경 있음
+          </span>
+        )}
+        {saveMessage && <span className="text-[#2F6B45]">{saveMessage}</span>}
+        {actionError && <span role="alert" className="font-medium text-[#A65348]">{actionError}</span>}
+      </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row">
         {/* Left Tabs */}
@@ -219,6 +352,12 @@ export default function SiteSettingsPage() {
             {/* 1. 메인 히어로 */}
             {activeTab === 'hero' && (
               <div className="space-y-4">
+                {renderToggle('메인 첫 화면 보이기', draft.hero.visible, (v) => updateDraft('hero', 'visible', v))}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <ImageUploader value={draft.hero.desktopImage} onChange={(v) => updateDraft('hero', 'desktopImage', v)} domain="banner" usage="hero" draftId="cms-home" label="PC 대표 이미지" description="가로형 이미지를 권장합니다." height="220px" />
+                  <ImageUploader value={draft.hero.mobileImage} onChange={(v) => updateDraft('hero', 'mobileImage', v)} domain="banner" usage="hero" draftId="cms-home" label="모바일 대표 이미지" description="세로형 또는 정사각형 이미지를 권장합니다." height="220px" />
+                </div>
+                {renderInput('대표 이미지 설명', draft.hero.imageAlt, (v) => updateDraft('hero', 'imageAlt', v))}
                 {renderInput('상단 영문 뱃지 (eyebrow)', draft.hero.eyebrow, (v) => updateDraft('hero', 'eyebrow', v))}
                 {renderLinesInput('큰 제목', draft.hero.titleLines, (v) => updateDraft('hero', 'titleLines', v))}
                 {renderLinesInput('설명문', draft.hero.descriptionLines, (v) => updateDraft('hero', 'descriptionLines', v))}
@@ -226,22 +365,39 @@ export default function SiteSettingsPage() {
                   {renderInput('기본 버튼 텍스트 (primaryCta)', draft.hero.primaryCtaLabel, (v) => updateDraft('hero', 'primaryCtaLabel', v))}
                   {renderInput('보조 버튼 텍스트 (secondaryCta)', draft.hero.secondaryCtaLabel, (v) => updateDraft('hero', 'secondaryCtaLabel', v))}
                 </div>
-                {renderInput('신뢰 문구 (trustNote)', draft.hero.trustNote, (v) => updateDraft('hero', 'trustNote', v))}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {renderInput('이미지 뱃지 제목 (badgeTitle)', draft.hero.badgeTitle, (v) => updateDraft('hero', 'badgeTitle', v))}
-                  {renderInput('이미지 뱃지 부제 (badgeSubtitle)', draft.hero.badgeSubtitle, (v) => updateDraft('hero', 'badgeSubtitle', v))}
+                  {renderInput('기본 버튼 연결 주소', draft.hero.primaryCtaHref, (v) => updateDraft('hero', 'primaryCtaHref', v))}
+                  {renderInput('보조 버튼 연결 주소', draft.hero.secondaryCtaHref, (v) => updateDraft('hero', 'secondaryCtaHref', v))}
                 </div>
+                {renderInput('신뢰 문구 (trustNote)', draft.hero.trustNote, (v) => updateDraft('hero', 'trustNote', v))}
               </div>
             )}
 
             {activeTab === 'quickShop' && (
               <div className="space-y-4">
-                <p className="text-sm leading-6 text-gray-600">홈에는 아래 6개 카테고리 바로가기만 노출됩니다.</p>
-                <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">바로가기 이름 (아이콘·링크는 고정)</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {renderToggle('빠른 쇼핑 영역 보이기', draft.quickShop.visible, (v) => updateDraft('quickShop', 'visible', v))}
+                <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                  <h4 className="text-sm font-bold text-gray-900">바로가기 메뉴</h4>
+                  <button type="button" onClick={() => replaceArray('quickShop', 'links', [...draft.quickShop.links, { name: '새 메뉴', href: '/shop', icon: 'health', visible: true }])} className="btn-secondary min-h-10 gap-2 px-3 text-xs"><Plus className="size-4" />추가</button>
+                </div>
+                <div className="space-y-4">
                   {draft.quickShop.links.map((link, idx) => (
-                    <div key={idx} className="bg-gray-50 p-3 rounded-sm border border-gray-200">
+                    <div key={idx} className="bg-gray-50 p-4 rounded-sm border border-gray-200">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        {renderToggle('고객에게 표시', link.visible, (v) => updateArrayField('quickShop', 'links', idx, 'visible', v))}
+                        <div className="flex gap-1">
+                          <button type="button" onClick={() => moveArrayItem('quickShop', 'links', idx, -1)} disabled={idx === 0} aria-label="위로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowUp className="size-4" /></button>
+                          <button type="button" onClick={() => moveArrayItem('quickShop', 'links', idx, 1)} disabled={idx === draft.quickShop.links.length - 1} aria-label="아래로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowDown className="size-4" /></button>
+                          <button type="button" onClick={() => removeArrayItem('quickShop', 'links', idx)} aria-label="삭제" className="inline-flex size-10 items-center justify-center border border-red-200 bg-white text-red-600"><Trash2 className="size-4" /></button>
+                        </div>
+                      </div>
                       {renderInput(`바로가기 ${idx + 1} 이름`, link.name, (v) => updateArrayField('quickShop', 'links', idx, 'name', v))}
+                      {renderInput('연결 주소', link.href, (v) => updateArrayField('quickShop', 'links', idx, 'href', v))}
+                      <label className="block text-xs font-medium text-[#59615B]">아이콘
+                        <select value={link.icon} onChange={(event) => updateArrayField('quickShop', 'links', idx, 'icon', event.target.value)} className="mt-1.5 min-h-11 w-full border border-[#D1D0C8] bg-white px-3 text-sm">
+                          <option value="dog">강아지</option><option value="cat">고양이</option><option value="rabbit">소동물</option><option value="food">사료·간식</option><option value="care">위생·배변</option><option value="health">건강관리</option>
+                        </select>
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -251,14 +407,17 @@ export default function SiteSettingsPage() {
             {/* 3. 오늘의 추천 */}
             {activeTab === 'bestProducts' && (
               <div className="space-y-4">
+                {renderToggle('추천 상품 영역 보이기', draft.bestProducts.visible, (v) => updateDraft('bestProducts', 'visible', v))}
                 {renderInput('섹션 제목 (title)', draft.bestProducts.title, (v) => updateDraft('bestProducts', 'title', v))}
                 {renderInput('전체보기 링크 텍스트 (linkLabel)', draft.bestProducts.linkLabel, (v) => updateDraft('bestProducts', 'linkLabel', v))}
+                {renderInput('전체보기 연결 주소', draft.bestProducts.linkHref, (v) => updateDraft('bestProducts', 'linkHref', v))}
               </div>
             )}
 
             {/* 4. 맞춤 큐레이션 */}
             {activeTab === 'curation' && (
               <div className="space-y-6">
+                {renderToggle('맞춤 큐레이션 영역 보이기', draft.curation.visible, (v) => updateDraft('curation', 'visible', v))}
                 <div className="bg-gray-50 p-4 rounded-sm border border-gray-200">
                   <h4 className="text-sm font-bold text-gray-900 mb-4">공통 영역</h4>
                   {renderInput('섹션 제목 (title)', draft.curation.title, (v) => updateDraft('curation', 'title', v))}
@@ -270,12 +429,25 @@ export default function SiteSettingsPage() {
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-bold text-gray-900 mb-4">고민 4가지 카드 (아이콘·이미지·링크는 고정)</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="mb-4 flex items-center justify-between gap-4">
+                    <h4 className="text-sm font-bold text-gray-900">고민 카드</h4>
+                    <button type="button" onClick={() => replaceArray('curation', 'cards', [...draft.curation.cards, { title: '새 고민', desc: '', href: '/concerns', image: '', visible: true }])} className="btn-secondary min-h-10 gap-2 px-3 text-xs"><Plus className="size-4" />카드 추가</button>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
                     {draft.curation.cards.map((card, idx) => (
-                      <div key={idx} className="bg-gray-50 p-3 border border-gray-200 rounded-sm">
+                      <div key={idx} className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          {renderToggle('카드 표시', card.visible, (v) => updateArrayField('curation', 'cards', idx, 'visible', v))}
+                          <div className="flex gap-1">
+                            <button type="button" onClick={() => moveArrayItem('curation', 'cards', idx, -1)} disabled={idx === 0} aria-label="위로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowUp className="size-4" /></button>
+                            <button type="button" onClick={() => moveArrayItem('curation', 'cards', idx, 1)} disabled={idx === draft.curation.cards.length - 1} aria-label="아래로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowDown className="size-4" /></button>
+                            <button type="button" onClick={() => removeArrayItem('curation', 'cards', idx)} aria-label="삭제" className="inline-flex size-10 items-center justify-center border border-red-200 bg-white text-red-600"><Trash2 className="size-4" /></button>
+                          </div>
+                        </div>
+                        <ImageUploader value={card.image} onChange={(v) => updateArrayField('curation', 'cards', idx, 'image', v)} domain="banner" usage="cover" draftId="cms-home" label={`카드 ${idx + 1} 이미지`} height="220px" />
                         {renderInput(`카드 ${idx + 1} 제목`, card.title, (v) => updateArrayField('curation', 'cards', idx, 'title', v))}
                         {renderInput(`카드 ${idx + 1} 설명`, card.desc, (v) => updateArrayField('curation', 'cards', idx, 'desc', v))}
+                        {renderInput(`카드 ${idx + 1} 연결 주소`, card.href, (v) => updateArrayField('curation', 'cards', idx, 'href', v))}
                       </div>
                     ))}
                   </div>
@@ -286,10 +458,17 @@ export default function SiteSettingsPage() {
             {/* 5. 백조오브제 Audit */}
             {activeTab === 'audit' && (
               <div className="space-y-6">
+                {renderToggle('Audit 소개 영역 보이기', draft.audit.visible, (v) => updateDraft('audit', 'visible', v))}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <ImageUploader value={draft.audit.desktopImage} onChange={(v) => updateDraft('audit', 'desktopImage', v)} domain="banner" usage="cover" draftId="cms-home" label="PC Audit 이미지" height="220px" />
+                  <ImageUploader value={draft.audit.mobileImage} onChange={(v) => updateDraft('audit', 'mobileImage', v)} domain="banner" usage="cover" draftId="cms-home" label="모바일 Audit 이미지" height="220px" />
+                </div>
+                {renderInput('Audit 이미지 설명', draft.audit.imageAlt, (v) => updateDraft('audit', 'imageAlt', v))}
                 {renderInput('상단 영문 뱃지 (badge)', draft.audit.badge, (v) => updateDraft('audit', 'badge', v))}
                 {renderLinesInput('큰 제목', draft.audit.titleLines, (v) => updateDraft('audit', 'titleLines', v))}
                 {renderInput('설명 (description)', draft.audit.description, (v) => updateDraft('audit', 'description', v), true)}
                 {renderInput('링크 텍스트 (linkLabel)', draft.audit.linkLabel, (v) => updateDraft('audit', 'linkLabel', v))}
+                {renderInput('링크 연결 주소', draft.audit.linkHref, (v) => updateDraft('audit', 'linkHref', v))}
 
                 <h4 className="text-sm font-bold text-gray-900 mt-6 pt-4 border-t border-gray-100">4가지 검증 기준 (아이콘은 고정)</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -303,44 +482,38 @@ export default function SiteSettingsPage() {
               </div>
             )}
 
-            {/* 6. 3가지 솔루션 */}
-            {activeTab === 'solutions' && (
-              <div className="space-y-6">
-                {renderInput('섹션 제목 (title)', draft.solutions.title, (v) => updateDraft('solutions', 'title', v))}
-                <h4 className="text-sm font-bold text-gray-900 mt-2">3가지 솔루션 카드 (이미지·링크는 고정)</h4>
-                <div className="space-y-4">
-                  {draft.solutions.cards.map((card, idx) => (
-                    <div key={idx} className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                      <h5 className="text-xs font-bold mb-2">솔루션 {idx + 1}</h5>
-                      {renderInput('제목 (title)', card.title, (v) => updateArrayField('solutions', 'cards', idx, 'title', v))}
-                      {renderInput('설명 (desc)', card.desc, (v) => updateArrayField('solutions', 'cards', idx, 'desc', v), true)}
-                      {renderInput('링크 텍스트 (linkLabel)', card.linkLabel, (v) => updateArrayField('solutions', 'cards', idx, 'linkLabel', v))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* 9. 펫보험 배너 */}
             {activeTab === 'insuranceBanner' && (
               <div className="space-y-4">
+                {renderToggle('펫보험 배너 보이기', draft.insuranceBanner.visible, (v) => updateDraft('insuranceBanner', 'visible', v))}
+                <div className="grid gap-5 md:grid-cols-2">
+                  <ImageUploader value={draft.insuranceBanner.desktopImage} onChange={(v) => updateDraft('insuranceBanner', 'desktopImage', v)} domain="banner" usage="cover" draftId="cms-home" label="PC 배너 이미지" height="220px" />
+                  <ImageUploader value={draft.insuranceBanner.mobileImage} onChange={(v) => updateDraft('insuranceBanner', 'mobileImage', v)} domain="banner" usage="cover" draftId="cms-home" label="모바일 배너 이미지" height="220px" />
+                </div>
+                {renderInput('배너 이미지 설명', draft.insuranceBanner.imageAlt, (v) => updateDraft('insuranceBanner', 'imageAlt', v))}
                 {renderInput('상단 영문 뱃지 (eyebrow)', draft.insuranceBanner.eyebrow, (v) => updateDraft('insuranceBanner', 'eyebrow', v))}
                 {renderInput('섹션 제목 (title)', draft.insuranceBanner.title, (v) => updateDraft('insuranceBanner', 'title', v))}
                 {renderInput('설명 (description)', draft.insuranceBanner.description, (v) => updateDraft('insuranceBanner', 'description', v), true)}
                 {renderInput('버튼 텍스트 (buttonLabel)', draft.insuranceBanner.buttonLabel, (v) => updateDraft('insuranceBanner', 'buttonLabel', v))}
+                {renderInput('버튼 연결 주소', draft.insuranceBanner.buttonHref, (v) => updateDraft('insuranceBanner', 'buttonHref', v))}
               </div>
             )}
 
             {/* 10. 후기/소식 */}
             {activeTab === 'trustBoard' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
-                  {renderInput('후기 영역 제목', draft.trustBoard.reviewsTitle, (v) => updateDraft('trustBoard', 'reviewsTitle', v))}
-                  {renderInput('후기 링크 텍스트', draft.trustBoard.reviewsLinkLabel, (v) => updateDraft('trustBoard', 'reviewsLinkLabel', v))}
-                </div>
-                <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
-                  {renderInput('소식 영역 제목', draft.trustBoard.noticesTitle, (v) => updateDraft('trustBoard', 'noticesTitle', v))}
-                  {renderInput('소식 링크 텍스트', draft.trustBoard.noticesLinkLabel, (v) => updateDraft('trustBoard', 'noticesLinkLabel', v))}
+              <div className="space-y-4">
+                {renderToggle('후기·소식 영역 보이기', draft.trustBoard.visible, (v) => updateDraft('trustBoard', 'visible', v))}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
+                    {renderInput('후기 영역 제목', draft.trustBoard.reviewsTitle, (v) => updateDraft('trustBoard', 'reviewsTitle', v))}
+                    {renderInput('후기 링크 텍스트', draft.trustBoard.reviewsLinkLabel, (v) => updateDraft('trustBoard', 'reviewsLinkLabel', v))}
+                    {renderInput('후기 연결 주소', draft.trustBoard.reviewsLinkHref, (v) => updateDraft('trustBoard', 'reviewsLinkHref', v))}
+                  </div>
+                  <div className="bg-gray-50 p-4 border border-gray-200 rounded-sm">
+                    {renderInput('소식 영역 제목', draft.trustBoard.noticesTitle, (v) => updateDraft('trustBoard', 'noticesTitle', v))}
+                    {renderInput('소식 링크 텍스트', draft.trustBoard.noticesLinkLabel, (v) => updateDraft('trustBoard', 'noticesLinkLabel', v))}
+                    {renderInput('소식 연결 주소', draft.trustBoard.noticesLinkHref, (v) => updateDraft('trustBoard', 'noticesLinkHref', v))}
+                  </div>
                 </div>
               </div>
             )}
@@ -361,11 +534,19 @@ export default function SiteSettingsPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSave}
-                  disabled={!loaded}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-md hover:bg-[#1f2823] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!loaded || isSaving || isPublishing || !dirty}
+                  className="flex items-center gap-2 px-4 py-2 border border-[#2F3B34] bg-white text-[#2F3B34] rounded-md hover:bg-[#F3EEE6] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4" />
-                  현재 상태로 저장
+                  임시저장
+                </button>
+                <button
+                  onClick={handlePublish}
+                  disabled={!loaded || isSaving || isPublishing || (!dirty && !hasUnpublishedChanges)}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-md hover:bg-[#1f2823] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Send className="w-4 h-4" />
+                  홈에 게시
                 </button>
                 <button
                   onClick={() => setIsPreviewOpen(false)}

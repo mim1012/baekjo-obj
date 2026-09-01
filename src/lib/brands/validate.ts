@@ -13,7 +13,6 @@ const MAX_ARRAY_ITEMS = 50;
 const MAX_SOURCE_URLS = 20;
 const MAX_PROCESS_ITEMS = 30;
 const MAX_DISPLAY_ORDER = 100_000;
-const AUDIT_GRADES = new Set(['A+', 'A', 'B+', 'B']);
 const MAX_SHIPPING_TEXT = 500;
 
 function isStr(v: unknown, min: number, max: number): v is string {
@@ -41,6 +40,10 @@ function validateAuditReport(raw: unknown): BrandAuditReport | null | undefined 
   if (!isStr(r.summary, 1, MAX_LONG_TEXT)) return null;
   if (!isStr(r.selectionReason, 1, MAX_LONG_TEXT)) return null;
   if (!isStrArray(r.process, MAX_PROCESS_ITEMS, MAX_TEXT)) return null;
+  if (r.checkpoints !== undefined && !isStrArray(r.checkpoints, MAX_PROCESS_ITEMS, MAX_TEXT)) return null;
+  if (r.materialReview !== undefined && !isStrArray(r.materialReview, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
+  if (r.curatorNote !== undefined && !isStrArray(r.curatorNote, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
+  if (r.auditConclusion !== undefined && !isStrArray(r.auditConclusion, MAX_PROCESS_ITEMS, MAX_LONG_TEXT)) return null;
   return {
     reportNo: r.reportNo,
     auditedAt: r.auditedAt,
@@ -50,6 +53,10 @@ function validateAuditReport(raw: unknown): BrandAuditReport | null | undefined 
     summary: r.summary,
     selectionReason: r.selectionReason,
     process: r.process,
+    checkpoints: r.checkpoints,
+    materialReview: r.materialReview,
+    curatorNote: r.curatorNote,
+    auditConclusion: r.auditConclusion,
   };
 }
 
@@ -64,6 +71,8 @@ const SHIPPING_TEXT_FIELDS = [
   'asNotice',
   'supportContact',
   'supportHours',
+  'supportEmail',
+  'supportKakaoLabel',
 ] as const;
 
 const SHIPPING_NUMBER_FIELDS = [
@@ -137,11 +146,6 @@ export function validateBrandFields(body: unknown, requireAll: boolean): Validat
   if (b.philosophy !== undefined) {
     if (!isStr(b.philosophy, 1, MAX_LONG_TEXT)) return null;
     out.philosophy = b.philosophy;
-  } else if (requireAll) return null;
-
-  if (b.auditGrade !== undefined) {
-    if (typeof b.auditGrade !== 'string' || !AUDIT_GRADES.has(b.auditGrade)) return null;
-    out.auditGrade = b.auditGrade as Brand['auditGrade'];
   } else if (requireAll) return null;
 
   // 공식몰 URL. optional·가산 — 빈 문자열을 허용해 폼에서 지울 수 있게 한다(0..MAX_URL).
@@ -223,8 +227,7 @@ export function toInsertInput(fields: ValidatedBrandFields): BrandInsertInput | 
     fields.name === undefined ||
     fields.logo === undefined ||
     fields.description === undefined ||
-    fields.philosophy === undefined ||
-    fields.auditGrade === undefined
+    fields.philosophy === undefined
   ) {
     return null;
   }

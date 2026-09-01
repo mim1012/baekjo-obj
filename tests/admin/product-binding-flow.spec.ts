@@ -14,31 +14,21 @@ function sliceBetween(source: string, startNeedle: string, endNeedle: string): s
 
 
 test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', () => {
-  test('관리자 상품 저장은 storage 콘센트를 통해 PATCH API 로 흐른다', () => {
-    const hookSource = src('src', 'hooks', 'admin-new', 'useProductList.ts');
+  test('상품 정보 수정과 단일 상품 진열 화면은 storage 콘센트를 통해 PATCH API 로 흐른다', () => {
+    const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
+    const displaySource = src('src', 'components', 'admin-new', 'products', 'ProductDisplayManager.tsx');
     const storageSource = src('src', 'lib', 'storage.ts');
 
-    const executeBulkAction = sliceBetween(
-      hookSource,
-      'const executeBulkAction = async',
-      'const performBulkDelete = async',
-    );
-    const updateListFunction = sliceBetween(
-      hookSource,
-      'const performBulkUpdate = async',
-      'return {',
-    );
     const storageUpdateFunction = sliceBetween(
       storageSource,
       'export async function updateProduct(',
       'export async function deleteProduct(',
     );
 
-    expect(hookSource).toMatch(/import\s+\{[^}]*\bupdateProduct\b[^}]*\}\s+from '@\/lib\/storage';/);
-    expect(executeBulkAction).toContain('await fetchInitialData();');
-    expect(updateListFunction).toContain('return executeBulkAction(ids, async (id) => {');
-    expect(updateListFunction).toContain('const res = await updateProduct(id, updates);');
-    expect(updateListFunction).toContain('if (res.error) throw new Error(res.error);');
+    expect(formSource).toMatch(/import\s+\{[^}]*\bupdateProduct\b[^}]*\}\s+from '@\/lib\/storage';/);
+    expect(formSource).toContain('const { error: updateError } = await updateProduct(initialData.id, payload);');
+    expect(displaySource).toContain("import { updateProduct } from '@/lib/storage';");
+    expect(displaySource).toContain('const { error } = await updateProduct(id, pendingUpdates[id]);');
 
     expect(storageUpdateFunction).toContain('fetch(`/api/admin/products/${encodeURIComponent(id)}`');
     expect(storageUpdateFunction).toContain("method: 'PATCH'");
@@ -63,6 +53,28 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(patchFunction).toContain('return NextResponse.json({ product: result.data }, { status: 200 });');
   });
 
+  test('진열 순서는 홈 추천·스토어 추천·스토어 전체 화면에 각각 같은 필드로 왕복된다', () => {
+    const displaySource = src('src', 'components', 'admin-new', 'products', 'ProductDisplayManager.tsx');
+    const homeSource = src('src', 'components', 'home', 'HomeClient.tsx');
+    const shopSource = src('src', 'components', 'shop', 'ShopContent.tsx');
+    const filtersSource = src('src', 'lib', 'filters.ts');
+    const brandSource = src('src', 'app', 'brands', '[id]', 'page.tsx');
+    const repoSource = src('src', 'lib', 'products', 'repo.ts');
+
+    expect(displaySource).toContain("field: 'homeFeaturedOrder'");
+    expect(displaySource).toContain("field: 'shopFeaturedOrder'");
+    expect(displaySource).toContain("field: 'catalogOrder'");
+    expect(displaySource).toContain("aria-label={`${product.name} 위로 이동`}");
+    expect(displaySource).toContain("aria-label={`${product.name} 아래로 이동`}");
+    expect(homeSource).toContain("'homeFeaturedOrder'");
+    expect(shopSource).toContain("'shopFeaturedOrder'");
+    expect(filtersSource).toContain("hasManagedProductOrder(sorted, 'catalogOrder')");
+    expect(brandSource).toContain("'catalogOrder'");
+    for (const field of ['homeFeaturedOrder', 'shopFeaturedOrder', 'catalogOrder']) {
+      expect(repoSource).toContain(`${field}: typeof d.${field} === 'number'`);
+    }
+  });
+
   test('repo update 는 DB 행을 includeHidden 으로 읽고 update 결과를 rowToProduct 로 되읽는다', () => {
     const repoSource = src('src', 'lib', 'products', 'repo.ts');
     const updateFunction = sliceBetween(
@@ -82,26 +94,19 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(updateFunction).toContain('return { status: \'ok\', data: rowToProduct(data as ProductRow) };');
   });
 
-  test('repo update 는 pointsEnabled=false 저장 시 기존 pointsRate 를 제거하는 merge helper 를 쓴다', () => {
-    const repoSource = src('src', 'lib', 'products', 'repo.ts');
-    const splitSource = src('src', 'lib', 'products', 'splitProductInput.ts');
-
-    expect(repoSource).toContain("import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput'");
-    expect(repoSource).toContain('const merged = mergeProductForStorage(existing, patch);');
-    expect(splitSource).toContain('if (patch.pointsEnabled === false)');
-    expect(splitSource).toContain('merged.pointsRate = undefined;');
-  });
-
   test('공개 상품 목록/상세는 정적 products 데이터가 아니라 공개 repo 캐시를 읽는다', () => {
     const shopPage = src('src', 'app', 'shop', 'page.tsx');
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
     const publicCache = src('src', 'lib', 'public-read-cache.ts');
 
     expect(shopPage).toContain("import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache'");
-    // concerns DB화(2026-07-17)로 고민 필터 옵션도 서버에서 함께 읽어 내려준다.
-    expect(shopPage).toContain('const [products, brands, concernsConfig] = await Promise.all([');
+    // 현재 상품 카드 태그와 같은 별도 사전으로 스토어 고민 필터를 읽어 내려준다.
+    expect(shopPage).toContain('const [products, brands, productTagsConfig, content] = await Promise.all([');
     expect(shopPage).toContain('listCachedPublicProducts(),');
     expect(shopPage).toContain('listCachedPublicBrands(),');
+    expect(shopPage).toContain("getPublishedPageContent<ShopPageContent & Record<string, unknown>>('shop')");
+    expect(shopPage).toContain('getPublicProductTagsConfig(),');
+    expect(shopPage).toContain('<ShopContent products={products} brands={brands} productTags={productTagsConfig.items} content={content} />');
     expect(shopPage).not.toContain('@/data/products');
 
     expect(detailPage).toContain('getCachedPublicProductById,');
@@ -109,40 +114,25 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(detailPage).toContain('const product = await getCachedPublicProductById(id);');
     expect(detailPage).not.toContain('@/data/products');
 
-    expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
+    expect(publicCache).toContain("from '@/lib/products/repo'");
+    expect(publicCache).toContain('getProductById,');
+    expect(publicCache).toContain('listProducts,');
+    expect(publicCache).toContain('type ProductListFilter,');
     expect(publicCache).toContain("type PublicProductListFilter = Omit<ProductListFilter, 'visibleOnly'>;");
     expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
     expect(publicCache).toContain('async (id: string) => getProductById(id)');
     expect(publicCache).not.toContain('visibleOnly: false');
   });
 
-  test('ProductForm 의 toFormState 는 pointsEnabled·pointsRate 를 화이트리스트에서 누락하지 않는다', () => {
+  test('운영하지 않는 적립금 설정은 폼·저장·공개 읽기 경로에서 제거됐다', () => {
     const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
-
-    const toFormStateFunction = sliceBetween(
-      formSource,
-      'const toFormState = (): ProductFormState => ({',
-      'const handleSave = async',
-    );
-
-    expect(toFormStateFunction).toContain('pointsEnabled: formData.pointsEnabled');
-    expect(toFormStateFunction).toContain('pointsRate: formData.pointsRate');
-  });
-
-  test('repo 의 rowToProduct 는 pointsEnabled·pointsRate 를 DB 행에서 되읽는다', () => {
     const repoSource = src('src', 'lib', 'products', 'repo.ts');
+    const detailSource = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
 
-    const rowToProductFunction = sliceBetween(
-      repoSource,
-      'function rowToProduct(row: ProductRow): Product {',
-      'export interface ProductListFilter',
-    );
-
-    expect(rowToProductFunction).toContain(
-      "pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined",
-    );
-    expect(rowToProductFunction).toContain(
-      "pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined",
-    );
+    for (const text of ['적립금 지급', '적립률 (%)', 'pointsEnabled', 'pointsRate']) {
+      expect(formSource).not.toContain(text);
+      expect(repoSource).not.toContain(text);
+      expect(detailSource).not.toContain(text);
+    }
   });
 });

@@ -42,7 +42,7 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     expect(pageSource).toContain("window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');");
     // 등록·수정·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스를 막는다(codex 2차 리뷰 HIGH).
     expect(pageSource).toContain('const busyRef = useRef(false);');
-    expect((pageSource.match(/if \(!loaded \|\| loadError \|\| busyRef\.current\) return;/g) ?? []).length).toBe(3);
+    expect((pageSource.match(/if \(!loaded \|\| loadError \|\| busyRef\.current\) return false;/g) ?? []).length).toBe(3);
     expect((pageSource.match(/busyRef\.current = true;/g) ?? []).length).toBe(3);
     expect((pageSource.match(/busyRef\.current = false;/g) ?? []).length).toBe(3);
     expect(pageSource).not.toContain('deletingRef');

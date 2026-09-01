@@ -62,7 +62,7 @@ export default function PartnerInquiryForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 text-left" aria-label="B2B 파트너십 문의 양식">
+    <form onSubmit={handleSubmit} className="space-y-6 text-left" aria-label="협업·제휴 문의 양식">
       <div>
         <label htmlFor="partner-company" className={LABEL_CLASS}>기관 / 업체명</label>
         <input
@@ -187,7 +187,7 @@ export default function PartnerInquiryForm() {
         disabled={submitting}
         className="flex min-h-14 w-full items-center justify-center rounded-full bg-[#17211D] px-6 text-[15px] font-bold text-[#FBFAF7] transition-all duration-500 ease-out hover:bg-[#202521] active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitting ? '접수 중…' : '제휴 문의 제출하기'}
+        {submitting ? '접수 중…' : '협업·제휴 문의하기'}
       </button>
 
       <p aria-live="polite" className="min-h-5 text-center text-[14px]">

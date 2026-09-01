@@ -3,13 +3,37 @@ import { Activity, FileText, Gift, ShieldCheck, type LucideIcon } from 'lucide-r
 import { EditorialActionLink, EditorialIconBadge } from '@/components/common/EditorialControls';
 import { PageIntro, SectionHeading } from '@/components/common/EditorialHeading';
 import PartnerInquiryForm from '@/components/care-kit/PartnerInquiryForm';
-import { defaultKitsConfig } from '@/lib/kits/config';
+import { resolvePublicKitsConfig } from '@/lib/kits/config';
 import { getKitsConfig } from '@/lib/kits/repo';
 import type { CareKit } from '@/types';
+import { getPublishedPageContent } from '@/lib/cms/content';
+
+type CareKitContent = Record<string, unknown> & {
+  hero: { visible: boolean; eyebrow: string; title: string; description: string; image: string; imageAlt: string; primaryCtaLabel: string; primaryCtaHref: string; secondaryCtaLabel: string; secondaryCtaHref: string; overlayEyebrow: string; overlayText: string };
+  body: {
+    visible: boolean;
+    eyebrow: string;
+    title: string;
+    description: string;
+    partnerVisible: boolean;
+    partnerEyebrow: string;
+    partnerLogo: string;
+    partnerLogoAlt: string;
+    partnerTitle: string;
+    partnerDescription: string;
+    disclosure: string;
+    inquiryVisible: boolean;
+    inquiryEyebrow: string;
+    inquiryTitle: string;
+    inquiryDescription: string;
+    kitItemsLabel: string;
+    kitTargetLabel: string;
+  };
+};
 
 export const metadata = {
   title: '케어 키트 | 백조오브제',
-  description: '동물병원, 장례식장, 그리고 보호자를 위한 백조오브제의 특별한 케어 키트입니다.',
+  description: '파트너의 목적과 상황에 맞춰 함께 기획하는 백조오브제 케어 키트를 소개합니다.',
 };
 
 export const dynamic = 'force-dynamic';
@@ -24,61 +48,58 @@ const kitIcons = {
 
 async function listVisibleCareKits(): Promise<CareKit[]> {
   const saved = await getKitsConfig();
-  return (saved ?? defaultKitsConfig).items.filter((kit) => kit.isVisible);
+  return resolvePublicKitsConfig(saved).items.filter((kit) => kit.isVisible);
 }
 
 export default async function CareKitLandingPage() {
-  const careKits = await listVisibleCareKits();
+  const [careKits, content] = await Promise.all([
+    listVisibleCareKits(),
+    getPublishedPageContent<CareKitContent>('care-kit'),
+  ]);
 
   return (
     <div className="page-canvas">
-      <section className="bg-noise border-b border-[#E7E0D5] bg-[#F7F4ED] py-12 md:py-14 lg:py-16">
+      {content.hero.visible && <section className="bg-noise border-b border-[#E7E0D5] bg-[#F7F4ED] py-12 md:py-14 lg:py-16">
         <div className="site-container-wide grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-16">
           <PageIntro
             className="lg:col-span-6"
-            eyebrow="Baekjo Objet Care Kit"
-            title={
-              <>
-                가장 도움이 필요한 순간,
-                <br />
-                작은 위로를 전합니다
-              </>
-            }
+            eyebrow={content.hero.eyebrow}
+            title={<MultilineText text={content.hero.title} />}
             description={
               <p>
-                단순한 샘플 묶음이 아닙니다. 백조오브제 케어 키트는 동물병원, 장례식장, 파트너 브랜드와 함께
-                보호자가 가장 도움이 필요한 순간에 받을 수 있는 실질적인 케어 가이드입니다.
+                {content.hero.description}
               </p>
             }
-            action={<EditorialActionLink href="#partner">제휴 문의하기</EditorialActionLink>}
+            action={<div className="grid w-full gap-3 sm:flex">
+              {content.hero.primaryCtaLabel && <EditorialActionLink href={content.hero.primaryCtaHref}>{content.hero.primaryCtaLabel}</EditorialActionLink>}
+              {content.hero.secondaryCtaLabel && <EditorialActionLink href={content.hero.secondaryCtaHref} variant="secondary">{content.hero.secondaryCtaLabel}</EditorialActionLink>}
+            </div>}
           />
 
           <div className="relative h-[300px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
-            <Image
-              src="/images/care_guide_hero.png"
-              alt="보호자에게 필요한 순간을 위한 백조오브제 케어 키트"
+            {content.hero.image && <Image
+              src={content.hero.image}
+              alt={content.hero.imageAlt}
               fill
               priority
               sizes="(max-width: 1023px) 100vw, 50vw"
               className="object-cover"
-            />
+            />}
             <div className="absolute inset-0 bg-gradient-to-t from-[#17211D]/85 via-[#17211D]/10 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6 text-[#FBFAF7] sm:p-8">
-              <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">Four moments of care</p>
-              <p className="mt-2 max-w-lg break-keep text-[20px] font-bold leading-[1.35] text-[#FBFAF7] sm:text-[24px]">
-                각 상황에 꼭 필요한 성분과 제품만 선별했습니다.
-              </p>
+              <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">{content.hero.overlayEyebrow}</p>
+              <p className="mt-2 max-w-lg break-keep text-[20px] font-bold leading-[1.35] text-[#FBFAF7] sm:text-[24px]">{content.hero.overlayText}</p>
             </div>
           </div>
         </div>
-      </section>
+      </section>}
 
-      <section className="page-section">
+      {content.body.visible && <section className="page-section">
         <div className="site-container-wide">
           <SectionHeading
-            eyebrow="Care kit collection"
-            title="4가지 맞춤 케어 키트"
-            description={<p>각 상황에 꼭 필요한 성분과 제품만 선별했습니다.</p>}
+            eyebrow={content.body.eyebrow}
+            title={content.body.title}
+            description={<p>{content.body.description}</p>}
           />
 
           <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4 xl:gap-5">
@@ -101,11 +122,11 @@ export default async function CareKitLandingPage() {
                   </p>
                   {kit.items.length > 0 && (
                     <p className="mt-3 break-keep text-[13px] leading-[1.7] text-[#59615B]">
-                      주요 구성품: {kit.items.join(', ')}
+                      {content.body.kitItemsLabel}: {kit.items.join(', ')}
                     </p>
                   )}
                   <div className="mt-auto border-t border-[#E7E0D5] pt-4">
-                    <p className="text-[11px] font-bold tracking-wide text-[#A8742E]">추천 대상</p>
+                    <p className="text-[11px] font-bold tracking-wide text-[#A8742E]">{content.body.kitTargetLabel}</p>
                     <p className="mt-2 break-keep text-[14px] leading-[1.7] text-[#59615B] md:text-[13px]">
                       {kit.target}
                     </p>
@@ -114,22 +135,49 @@ export default async function CareKitLandingPage() {
               );
             })}
           </div>
-        </div>
-      </section>
 
-      <section id="partner" className="page-section-muted scroll-mt-24 border-y border-[#E7E0D5]">
+          {content.body.partnerVisible && <div className="mt-8 grid gap-6 rounded-[24px] border border-[#E7E0D5] bg-[#FAF8F3] p-5 sm:p-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+            <div>
+              <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">{content.body.partnerEyebrow}</p>
+              {content.body.partnerLogo && <Image
+                src={content.body.partnerLogo}
+                alt={content.body.partnerLogoAlt}
+                width={178}
+                height={43}
+                className="mt-4 h-10 w-[178px] object-contain object-left"
+              />}
+            </div>
+            <div>
+              <p className="break-keep text-[18px] font-bold leading-[1.6] text-[#17211D]">
+                {content.body.partnerTitle}
+              </p>
+              <p className="mt-3 break-keep text-[14px] leading-[1.8] text-[#6F766F]">
+                {content.body.partnerDescription}
+              </p>
+            </div>
+          </div>}
+
+          {content.body.disclosure && <p className="mt-5 break-keep text-[14px] leading-[1.8] text-[#6F766F]">{content.body.disclosure}</p>}
+        </div>
+      </section>}
+
+      {content.body.inquiryVisible && <section id="partner" className="page-section-muted scroll-mt-24 border-y border-[#E7E0D5]">
         <div className="site-container-wide grid items-start gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:gap-16">
           <SectionHeading
-            eyebrow="Partnership inquiry"
-            title="B2B 파트너십 문의"
-            description={<p>동물병원, 장례식장, 브랜드 제휴 등 협력 관련 문의를 남겨주세요.</p>}
+            eyebrow={content.body.inquiryEyebrow}
+            title={content.body.inquiryTitle}
+            description={<p>{content.body.inquiryDescription}</p>}
           />
 
           <div className="rounded-[24px] border border-[#E7E0D5] bg-white p-5 shadow-[0_20px_48px_-28px_rgba(23,33,29,0.16)] sm:p-8">
             <PartnerInquiryForm />
           </div>
         </div>
-      </section>
+      </section>}
     </div>
   );
+}
+
+function MultilineText({ text }: { text: string }) {
+  return <>{text.split('\n').map((line, index) => <span key={`${line}-${index}`}>{index > 0 && <br />}{line}</span>)}</>;
 }

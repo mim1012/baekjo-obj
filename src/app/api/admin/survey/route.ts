@@ -1,28 +1,31 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { auth } from '@/lib/auth';
-import { findMemberById } from '@/lib/members/repo';
-import { saveSurveyConfig } from '@/lib/survey/repo';
-import type { SurveyConfig } from '@/lib/survey/config';
+import { getSurveyConfig, saveSurveyConfig } from '@/lib/survey/repo';
+import { defaultSurveyConfig, isValidSurveyConfig, resolveSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import { logServerError } from '@/lib/logServerError';
+import { requireAdmin } from '@/lib/admin/requireAdmin';
 
 /**
- * 본문이 SurveyConfig 모양인지 최소 검증한다. 값은 관리자만 저장하는 신뢰 입력이지만,
- * 통째로 jsonb 로 들어가므로 questions·rules 가 모두 배열로 존재하는지만 확인해
- * 깨진 페이로드가 저장돼 진단 화면이 조용히 깨지는 것을 막는다(§4).
+ * 본문이 실제로 끝까지 실행 가능한 SurveyConfig인지 검증한다. 질문·답·결과 참조와
+ * 결과 화면 문구까지 검사해 깨진 jsonb가 저장되는 것을 막는다.
  *
  * questions·rules 는 각각 최소 1개 이상이어야 한다. rules가 비면 공개 GET이 빈 배열을
  * 반환해 getSurveyResult(answers, [])가 항상 undefined를 반환하고, 결과 화면이 "분석 중..."
  * 로딩에서 영원히 멈춘다(Golden Flow #1 붕괴). questions가 비면 진단 자체가 성립하지 않는다.
  */
 function isSurveyConfig(body: unknown): body is SurveyConfig {
-  if (!body || typeof body !== 'object') return false;
-  const b = body as Record<string, unknown>;
-  return (
-    Array.isArray(b.questions) &&
-    b.questions.length >= 1 &&
-    Array.isArray(b.rules) &&
-    b.rules.length >= 1
-  );
+  return isValidSurveyConfig(body);
+}
+
+export async function GET() {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+  try {
+    const saved = await getSurveyConfig();
+    return NextResponse.json(resolveSurveyConfig(saved ?? defaultSurveyConfig), { status: 200 });
+  } catch (error) {
+    logServerError('[GET /api/admin/survey] 조회 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
 }
 
 /**
@@ -32,13 +35,8 @@ function isSurveyConfig(body: unknown): body is SurveyConfig {
  * 실제로 admin이고 active인지 다시 확인한다(admin/category-settings와 동일 방어).
  */
 export async function PUT(request: NextRequest) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== 'admin') {
-    return NextResponse.json(
-      { error: session?.user ? 'forbidden' : 'unauthorized' },
-      { status: session?.user ? 403 : 401 },
-    );
-  }
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
 
   let body: unknown;
   try {
@@ -51,11 +49,6 @@ export async function PUT(request: NextRequest) {
   }
 
   try {
-    const requester = session.user.memberId ? await findMemberById(session.user.memberId) : null;
-    if (!requester || requester.role !== 'admin' || requester.status === 'inactive') {
-      return NextResponse.json({ error: 'forbidden' }, { status: 403 });
-    }
-
     await saveSurveyConfig(body);
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {

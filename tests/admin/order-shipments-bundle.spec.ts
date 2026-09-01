@@ -83,10 +83,10 @@ test.describe('업체별 배송 카드 배선(§4 콘센트)', () => {
     expect(panel).not.toContain('localStorage');
 
     expect(card).toContain("import { updateOrderShipment } from '@/lib/storage'");
+    expect(card).toContain("import CarrierSelect from './CarrierSelect'");
     expect(card).toContain('defaultCarrier =');
     expect(card).toContain('bundle.shipment?.carrier ?? defaultCarrier');
     expect(card).toContain('DELIVERY_STATUSES.map');
-    expect(card).toContain('CARRIER_CODES.map');
     expect(card).not.toContain('fetch(');
     // 관리자는 '구매확정'을 세팅할 수 없다 — 상위집합을 select 에 쓰지 않는다.
     expect(card).not.toContain('SHIPMENT_DELIVERY_STATUSES');

@@ -3,9 +3,8 @@
 ## 파이프라인
 
 ```text
-PR → lint/typecheck/build/순수 계약 테스트
-develop push → Preview + staging 통합 테스트
-수동 승인 → Toss 승인·취소·환불 및 실제 OAuth
+작업 브랜치 PR → lint/typecheck/build/순수 계약 테스트 + Preview
+수동 staging 승인 → staging migration·통합 테스트·실제 OAuth 검증
 main merge → Production 배포 후 읽기 전용 스모크
 ```
 

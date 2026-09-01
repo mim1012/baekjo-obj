@@ -44,10 +44,19 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(golden).toContain("E2E_BASE_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("PAYMENTS_PREVIEW_URL: 'http://127.0.0.1:3000'");
     expect(golden).toContain("E2E_ADMIN_CRUD: '1'");
+    expect(golden).toContain('SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}');
+    expect(golden).not.toContain('SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}');
     expect(golden).toContain('TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}');
     expect(golden).toContain("LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'");
+    expect(golden).toContain("PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'");
+    expect(golden).toContain('echo "::add-mask::$auth_secret"');
+    expect(golden).toContain('echo "AUTH_SECRET=$auth_secret" >> "$GITHUB_ENV"');
+    expect(golden).toContain('randomBytes(32)');
     expect(golden).toContain('http://127.0.0.1:3000/api/test/supabase-ref');
     expect(golden).toContain('if [ "$runtime_ref" != "$TEST_SUPABASE_PROJECT_REF" ]');
+    expect(golden).toContain(
+      'tests/golden/admin-crud-cms-page-publish.spec.ts --project=golden-crud --workers=1 --retries=0',
+    );
     expect(golden).toContain('--project=golden-crud --workers=1 --retries=0');
     expect(golden).toContain('tests/payments/payment-routes.spec.ts --workers=1 --retries=0');
   });
@@ -94,7 +103,15 @@ test.describe('Preview workflow fail-closed policy', () => {
     const ci = readWorkflow('ci.yml');
     const dbJob = ci.slice(ci.indexOf('payments-db-spec:'));
 
-    expect(dbJob.match(/TEST_SUPABASE_PROJECT_REF:/g)).toHaveLength(2);
+    expect(dbJob).toContain('Fail closed on mandatory staging DB configuration');
+    expect(dbJob).toContain('STAGING_SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}');
+    expect(dbJob).toContain('PRODUCTION_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}');
+    expect(dbJob).toContain('SUPABASE_URL does not match TEST_SUPABASE_PROJECT_REF');
+    expect(dbJob).toContain('staging DB tests cannot target the production Supabase project');
+    expect(dbJob).not.toContain('STAGING_TEST_REF_GATE');
+    expect(dbJob).not.toContain("if: ${{ env.STAGING_TEST_REF_GATE != '' }}");
+    expect(dbJob.match(/TEST_SUPABASE_PROJECT_REF:/g)).toHaveLength(3);
+    expect(dbJob.match(/SUPABASE_URL: \$\{\{ secrets\.SUPABASE_URL_STAGING \}\}/g)).toHaveLength(3);
     expect(dbJob).not.toContain("github.ref == 'refs/heads/main'");
     expect(ci).toContain('deploy-lane-exception: main push production migration only');
   });

@@ -18,6 +18,24 @@ test.describe('brand naming normalization', () => {
     expect(defaults).not.toContain('백조 Audit');
   });
 
+  test('공식 로고 한 개를 헤더·푸터·로그인·관리자 화면에서 공통 사용한다', () => {
+    const definitions = read('src/lib/cms/pageDefinitions.ts');
+    const brandMark = read('src/components/common/BrandMark.tsx');
+    const header = read('src/components/common/Header.tsx');
+    const footer = read('src/components/common/Footer.tsx');
+    const adminSidebar = read('src/components/admin-new/layout/AdminSidebar.tsx');
+    const adminMobile = read('src/components/admin-new/layout/AdminMobileNav.tsx');
+
+    expect(definitions).toContain("headerLogo: '/images/baekjo-objet-header-logo-v2.png'");
+    expect(definitions).toContain("image('branding.headerLogo', '전체 화면 공통 로고')");
+    expect(definitions).not.toContain('footerLogo');
+    expect(brandMark).toContain('src={siteContent.branding.headerLogo}');
+    expect(brandMark).not.toContain('<svg');
+    for (const surface of [header, footer, adminSidebar, adminMobile]) {
+      expect(surface).toContain('BrandMark');
+    }
+  });
+
   // NOTE: the former "canonical seed data" assertion read src/data/{brands,products}.ts,
   // which were removed on main (be/kill-static-seed-canon) — the DB is now the sole SSOT
   // for products/brands. The brand-name display label now lives only in the DB and is

@@ -90,15 +90,49 @@ async function main() {
     );
   }
 
-  // 3) 검증 리포트 — 주요 테이블 존재 확인
+  // 3) 검증 리포트 — 주요 테이블과 전체 화면 CMS 연결 존재 확인
   const check = await q(
     `select table_name from information_schema.tables
      where table_schema='public'
-       and table_name in ('members','orders','products','brands','insurance_applications','site_settings')
+       and table_name in ('members','orders','products','brands','insurance_applications','site_settings','cms_pages','cms_page_versions')
      order by table_name;`,
   );
+  const expectedCmsPageKeys = [
+    'home',
+    'site-shell',
+    'shop',
+    'brands',
+    'reviews',
+    'notices',
+    'audit',
+    'b2b',
+    'concerns',
+    'experts',
+    'care-kit',
+    'insurance-landing',
+    'terms',
+    'privacy',
+    'refund-policy',
+  ];
+  const cmsRows = await q(
+    `select page_key from public.cms_pages
+     where page_key = any (array[${expectedCmsPageKeys.map((key) => `'${key}'`).join(',')}])
+     order by page_key;`,
+  );
+  const actualCmsPageKeys = new Set(cmsRows.map((row) => row.page_key));
+  const missingCmsPageKeys = expectedCmsPageKeys.filter((key) => !actualCmsPageKeys.has(key));
+  if (missingCmsPageKeys.length > 0) {
+    throw new Error(`전체 화면 CMS DB 연결 누락: ${missingCmsPageKeys.join(', ')}`);
+  }
+  const publishFunction = await q(
+    `select to_regprocedure('public.publish_cms_page(text,bigint,uuid)') is not null as available;`,
+  );
+  if (publishFunction[0]?.available !== true) {
+    throw new Error('전체 화면 CMS 게시 함수가 없습니다: public.publish_cms_page(text,bigint,uuid)');
+  }
   console.log(`[migrate] 완료 — 신규 적용 ${ran}건, baseline ${baselined}건.`);
   console.log(`[migrate] 검증 — 존재 테이블: ${check.map((r) => r.table_name).join(', ')}`);
+  console.log(`[migrate] 검증 — 전체 화면 CMS ${actualCmsPageKeys.size}개 및 게시 함수 연결 완료.`);
 }
 
 main().catch((e) => {

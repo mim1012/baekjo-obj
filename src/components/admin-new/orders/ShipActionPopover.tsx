@@ -4,9 +4,9 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Truck } from 'lucide-react';
 import type { Brand, Order } from '@/types';
-import { CARRIER_CODES, CARRIER_LABELS } from '@/lib/carriers';
 import { updateOrderShipment } from '@/lib/storage';
 import { groupItemsByBrand } from './groupItemsByBrand';
+import CarrierSelect from './CarrierSelect';
 
 interface ShipActionPopoverProps {
   order: Order;
@@ -96,19 +96,7 @@ export default function ShipActionPopover({ order, brandMap, onShipped }: ShipAc
                 </p>
                 <label className="block">
                   <span className="block text-[12px] font-medium text-gray-600 mb-1">택배사</span>
-                  <select
-                    value={carrier}
-                    onChange={(e) => setCarrier(e.target.value)}
-                    disabled={saving}
-                    className="w-full border border-gray-300 rounded-md px-2 min-h-11 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34] disabled:opacity-60"
-                  >
-                    <option value="">미지정</option>
-                    {CARRIER_CODES.map((code) => (
-                      <option key={code} value={code}>
-                        {CARRIER_LABELS[code]}
-                      </option>
-                    ))}
-                  </select>
+                  <CarrierSelect value={carrier} onChange={setCarrier} disabled={saving} />
                 </label>
                 <label className="block">
                   <span className="block text-[12px] font-medium text-gray-600 mb-1">운송장</span>

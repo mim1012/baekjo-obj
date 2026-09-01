@@ -7,13 +7,13 @@
 
 export const CARRIER_CODES = ['cj', 'hanjin', 'lotte', 'post', 'logen', 'gspostbox'] as const;
 
-export type CarrierCode = (typeof CARRIER_CODES)[number];
+export type CarrierCode = (typeof CARRIER_CODES)[number] | `${number}`;
 
 export function isCarrierCode(value: string): value is CarrierCode {
-  return (CARRIER_CODES as readonly string[]).includes(value);
+  return (CARRIER_CODES as readonly string[]).includes(value) || /^\d{2,3}$/.test(value);
 }
 
-export const CARRIER_LABELS: Record<CarrierCode, string> = {
+export const CARRIER_LABELS: Record<string, string> = {
   cj: 'CJ대한통운',
   hanjin: '한진택배',
   lotte: '롯데택배',
@@ -41,7 +41,7 @@ export const CARRIER_LABELS: Record<CarrierCode, string> = {
  * 규칙(이 파일 상단)에 따라 GS편의점택배는 t_code 없이 딥링크만 추가한다. 키가 등록되면
  * companylist에서 GS네트웍스(편의점택배) Code를 실측해 여기에 문자열(leading zero 유지)로 채운다.
  */
-export const SWEET_TRACKER_CODES: Partial<Record<CarrierCode, string>> = {
+export const SWEET_TRACKER_CODES: Readonly<Record<string, string>> = {
   post: '01',
   cj: '04',
   hanjin: '05',
@@ -61,7 +61,7 @@ export const SWEET_TRACKER_CODES: Partial<Record<CarrierCode, string>> = {
  * 실 curl 요청으로 확인. `reservation-inquiry/delivery/index.do`도 200이나 invoice 파라미터
  * 딥링크가 아니라 조회 입력 폼이라 tracking.do를 채택.
  */
-function buildRawUrl(carrier: CarrierCode, invoice: string): string {
+function buildRawUrl(carrier: CarrierCode, invoice: string): string | null {
   const encoded = encodeURIComponent(invoice);
   switch (carrier) {
     case 'cj':
@@ -76,6 +76,8 @@ function buildRawUrl(carrier: CarrierCode, invoice: string): string {
       return `https://www.ilogen.com/web/personal/trace/${encoded}`;
     case 'gspostbox':
       return `https://www.cvsnet.co.kr/invoice/tracking.do?invoice_no=${encoded}`;
+    default:
+      return null;
   }
 }
 

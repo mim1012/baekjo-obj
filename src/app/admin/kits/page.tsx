@@ -58,7 +58,7 @@ function createKitId(): string {
 
 function splitList(value: unknown): string[] {
   return asText(value)
-    .split(',')
+    .split(/\r?\n|,/)
     .map((item) => item.trim())
     .filter(Boolean);
 }
@@ -71,23 +71,14 @@ function asBoolean(value: unknown): boolean {
   return value === true || value === 'true';
 }
 
-function asNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
-}
-
 function draftToCareKit(draft: Record<string, string | number>, previous?: CareKit): CareKit {
   return {
     id: previous?.id ?? createKitId(),
     name: draftText(draft, 'name', previous?.name, '새 케어 키트'),
     type: hasDraftValue(draft, 'type') ? asKitType(draft.type) : previous?.type ?? 'sample',
     target: draftText(draft, 'target', previous?.target, '-'),
-    location: draftText(draft, 'location', previous?.location, '-'),
     items: draftList(draft, 'items', previous?.items),
     purpose: draftText(draft, 'purpose', previous?.purpose, '-'),
-    partnerId: draftOptionalText(draft, 'partnerId', previous?.partnerId),
-    stock: hasDraftValue(draft, 'stock') ? asNumber(draft.stock) : previous?.stock ?? 0,
     isVisible: hasDraftValue(draft, 'isVisible') ? asBoolean(draft.isVisible) : previous?.isVisible ?? true,
     description: draftOptionalText(draft, 'description', previous?.description),
   };
@@ -109,7 +100,6 @@ export default function AdminKitsPage() {
   const persistedItemsRef = useRef<CareKit[]>([]);
   // 저장·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스 방지(codex 2차 리뷰 HIGH).
   const busyRef = useRef(false);
-
   useEffect(() => {
     let cancelled = false;
     getKitsConfig()
@@ -135,8 +125,8 @@ export default function AdminKitsPage() {
   // default 목록을 저장하는 레이스를 막는다(opus 리뷰 MEDIUM-2). 관리자 PUT 라우트는 빈 배열을
   // 허용하므로 마지막 항목 차단은 없다.
   const handleDelete = async (id: string | number) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextItems = persistedItemsRef.current.filter((kit) => kit.id !== id);
@@ -144,8 +134,10 @@ export default function AdminKitsPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems((prev) => prev.filter((kit) => kit.id !== id));
+        return true;
       } else {
         window.alert('삭제 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -153,8 +145,8 @@ export default function AdminKitsPage() {
   };
 
   const handleCreate = async (draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextItems = [...persistedItemsRef.current, draftToCareKit(draft)];
@@ -162,8 +154,10 @@ export default function AdminKitsPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
     } finally {
       busyRef.current = false;
@@ -171,8 +165,8 @@ export default function AdminKitsPage() {
   };
 
   const handleUpdate = async (id: string | number, draft: Record<string, string | number>) => {
-    if (!loaded || loadError) return;
-    if (busyRef.current) return;
+    if (!loaded || loadError) return false;
+    if (busyRef.current) return false;
     busyRef.current = true;
     try {
       const nextItems = persistedItemsRef.current.map((kit) => (kit.id === id ? draftToCareKit(draft, kit) : kit));
@@ -180,9 +174,30 @@ export default function AdminKitsPage() {
       if (ok) {
         persistedItemsRef.current = nextItems;
         setItems(nextItems);
+        return true;
       } else {
         window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        return false;
       }
+    } finally {
+      busyRef.current = false;
+    }
+  };
+
+  const handleMove = async (id: string | number, direction: 'up' | 'down') => {
+    if (!loaded || loadError || busyRef.current) return false;
+    const currentIndex = persistedItemsRef.current.findIndex((kit) => kit.id === id);
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1);
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= persistedItemsRef.current.length) return false;
+    const nextItems = [...persistedItemsRef.current];
+    [nextItems[currentIndex], nextItems[targetIndex]] = [nextItems[targetIndex], nextItems[currentIndex]];
+    busyRef.current = true;
+    try {
+      const { ok } = await saveKitsConfig({ items: nextItems });
+      if (!ok) return false;
+      persistedItemsRef.current = nextItems;
+      setItems(nextItems);
+      return true;
     } finally {
       busyRef.current = false;
     }
@@ -193,8 +208,10 @@ export default function AdminKitsPage() {
   return (
     <AdminResourcePage
       title="케어 키트 관리"
-      description={loadError ? '케어 키트 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '상황별 맞춤형 케어 키트 구성과 재고를 관리합니다. 등록·수정·삭제가 모두 즉시 반영됩니다.'}
+      description={loadError ? '케어 키트 데이터를 불러오지 못했습니다. 저장을 막았습니다.' : !loaded ? '콘텐츠 로딩 중…' : '고객 화면에 실제로 보이는 케어 키트 카드를 관리합니다. 등록·수정·삭제·노출·순서가 모두 즉시 반영됩니다.'}
       actionLabel="키트 등록"
+      affectedScreen="케어키트 소개 화면(/landing/care-kit)의 키트 카드"
+      formIntro="케어키트 소개 화면의 카드에 보이는 내용만 입력합니다. 저장 버튼 한 번으로 등록 또는 수정이 끝납니다."
       searchPlaceholder="키트명, 구성품 검색"
       filters={['전체 유형', '병원 비치용', '이벤트 증정용', '노출 숨김']}
       columns={[
@@ -203,7 +220,6 @@ export default function AdminKitsPage() {
         { key: 'target', label: '제공 대상' },
         { key: 'purpose', label: '제공 목적' },
         { key: 'itemsLabel', label: '주요 구성품' },
-        { key: 'stockLabel', label: '재고 상태' },
         { key: 'status', label: '노출 상태' },
       ]}
       rows={items.map((kit) => ({
@@ -212,32 +228,26 @@ export default function AdminKitsPage() {
         type: kit.type,
         typeLabel: typeLabel(kit.type),
         target: kit.target,
-        location: kit.location,
         purpose: kit.purpose,
-        items: kit.items.join(', '),
+        items: kit.items.join('\n'),
         itemsLabel: kit.items.join(', '),
-        partnerId: kit.partnerId ?? '',
-        stock: kit.stock ?? 0,
-        stockLabel: `${kit.stock ?? 0}개`,
         isVisible: String(kit.isVisible),
         status: kit.isVisible ? '노출중' : '숨김',
         description: kit.description ?? '',
       }))}
       formFields={[
-        { key: 'name', label: '키트명' },
-        { key: 'type', label: '키트 유형', type: 'select', options: kitTypeOptions },
-        { key: 'target', label: '제공 대상' },
-        { key: 'location', label: '배포처/장소' },
-        { key: 'purpose', label: '제공 목적' },
-        { key: 'items', label: '주요 구성품(쉼표 구분)' },
-        { key: 'stock', label: '재고 수량', type: 'number' },
-        { key: 'isVisible', label: '노출 상태', type: 'select', options: visibleOptions },
-        { key: 'partnerId', label: '연결 제휴처 ID' },
-        { key: 'description', label: '설명', type: 'textarea' },
+        { key: 'name', label: '키트명', group: '고객 화면의 키트 카드', required: true },
+        { key: 'type', label: '키트 유형', type: 'select', options: kitTypeOptions, group: '고객 화면의 키트 카드' },
+        { key: 'target', label: '추천 대상', group: '고객 화면의 키트 카드' },
+        { key: 'purpose', label: '제공 목적', group: '고객 화면의 키트 카드' },
+        { key: 'items', label: '주요 구성품', type: 'stringList', group: '고객 화면의 키트 카드', description: '구성품을 한 항목씩 추가합니다. 쉼표를 입력할 필요가 없습니다.' },
+        { key: 'description', label: '키트 설명', type: 'textarea', group: '고객 화면의 키트 카드' },
+        { key: 'isVisible', label: '고객 화면 노출 상태', type: 'select', options: visibleOptions, group: '고객 화면의 키트 카드', description: '숨김을 선택하면 고객 화면에서 카드가 보이지 않습니다.' },
       ]}
       onCreateRow={ready ? handleCreate : undefined}
       onUpdateRow={ready ? handleUpdate : undefined}
       onDeleteRow={ready ? handleDelete : undefined}
+      onMoveRow={ready ? handleMove : undefined}
     />
   );
 }

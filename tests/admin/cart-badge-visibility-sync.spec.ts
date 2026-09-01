@@ -30,7 +30,7 @@ test.describe('장바구니 뱃지 ↔ 화면 노출상품 자가치유 동기�
     const pageSource = src('src', 'app', 'cart', 'page.tsx');
 
     expect(pageSource).toContain(
-      "import { getCart, updateCartQuantity, removeFromCart, pruneCartToVisibleProducts } from '@/lib/cart';",
+      "import { clearCart, getCart, pruneCartToVisibleProducts, removeFromCart, updateCartQuantity } from '@/lib/cart';",
     );
     const storageImport = pageSource.match(/import \{([^}]+)\} from '@\/lib\/storage';/);
     expect(storageImport?.[1]).toContain('getPublicProductsOrNull');
@@ -88,5 +88,11 @@ test.describe('장바구니 뱃지 ↔ 화면 노출상품 자가치유 동기�
     const headerSource = src('src', 'components', 'common', 'Header.tsx');
     expect(headerSource).toContain("window.addEventListener('cart-updated', callback);");
     expect(headerSource).toContain('useSyncExternalStore(subscribeToCart, getCartCount, () => 0)');
+  });
+
+  test('헤더 로그아웃은 세션 정리 완료 후 로그인 화면으로 이동한다', () => {
+    const headerSource = src('src', 'components', 'common', 'Header.tsx');
+    expect(headerSource).not.toContain('window.location.reload();');
+    expect(headerSource.match(/window\.location\.href = '\/login';/g)).toHaveLength(2);
   });
 });

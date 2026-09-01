@@ -3,11 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu, ChevronRight } from 'lucide-react';
+import { Menu, ChevronRight, CircleHelp } from 'lucide-react';
 import {
   ADMIN_MAIN_NAV,
-  ADMIN_CS_NAV,
-  ADMIN_ETC_NAV,
+  ADMIN_SITE_NAV,
+  ADMIN_OPERATIONS_NAV,
+  ADMIN_INSURANCE_NAV,
   ADMIN_BREADCRUMB_ONLY,
 } from './adminNav';
 
@@ -18,7 +19,7 @@ interface AdminHeaderProps {
 
 // 사이드바(adminNav.ts, SSOT)에서 파생 — 누락이 구조적으로 불가능하다.
 const routeNames: Record<string, string> = Object.fromEntries(
-  [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV, ...ADMIN_BREADCRUMB_ONLY].map((item) => [
+  [...ADMIN_MAIN_NAV, ...ADMIN_SITE_NAV, ...ADMIN_OPERATIONS_NAV, ...ADMIN_INSURANCE_NAV, ...ADMIN_BREADCRUMB_ONLY].map((item) => [
     item.href,
     item.name,
   ]),
@@ -52,7 +53,6 @@ export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const title = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '관리자';
 
   return (
     <header className="h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 sticky top-0 z-10 w-full">
@@ -82,7 +82,13 @@ export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        {/* 필요한 알림이나 기타 헤더 아이템 위치 */}
+        <Link
+          href="/admin/guide"
+          className="inline-flex min-h-10 items-center gap-2 border border-gray-200 bg-white px-3 text-[13px] font-semibold text-[#4B5563] hover:bg-gray-50 hover:text-[#17201B]"
+        >
+          <CircleHelp className="size-4" />
+          <span className="hidden sm:inline">사용 안내</span>
+        </Link>
         <div className="hidden md:block text-right">
           <p className="text-[13px] font-medium text-[#17201B]">{user.name || '관리자'} 님</p>
         </div>

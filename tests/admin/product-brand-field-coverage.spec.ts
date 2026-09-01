@@ -70,7 +70,8 @@ function parseColumnMapKeys(): Set<string> {
 
 // ── 상품 필드 분류 ────────────────────────────────────────────────────────
 //
-// VERIFIED = admin-crud-product-fields.spec.ts 가 폼(또는 ProductDetailEditor)에서 실제로 값을
+// VERIFIED = admin-crud-product-fields.spec.ts 가 ProductForm·ProductDetailEditor 또는 단일
+// ProductDisplayManager에서 실제로 값을
 // 채우고, 저장 후 관리자 편집 폼 왕복 또는 공개 /shop/[id] 에서 그 값을 검증한다.
 const PRODUCT_VERIFIED: readonly string[] = [
   'name',
@@ -86,25 +87,17 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'image',
   'images',
   'options',
-  'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
+  'concernTags',
   'detailBlocks', // ProductDetailEditor(/admin/products/[id]/editor)로 text+image 블록 저장 → #story 순서 검증
-  'ingredients',
-  'howToUse',
   'recommendedFor',
-  'caution',
   'shippingFee',
   'deliveryEstimate',
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ];
 
 // EXCLUDED = 의도적으로 라이브 왕복 스펙에서 다루지 않는 필드 + 사유.
@@ -113,28 +106,35 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
   reviewCount: '파생값(구매평 수) — ProductForm 입력 없음, 생성 시 서버가 0으로 채움.',
   categorySlug: '관리자 UI 없음 — category 설정에서 서버가 파생. ProductForm 미노출.',
   categoryName: '관리자 UI 없음 — ProductForm 미노출(계약만 개방).',
-  concernTags:
-    '관리자 UI 없음 — ProductForm 미노출, 생성 시 []로 기본값. (Brand.relatedConcernSlugs 와 혼동 주의)',
+  auditPoints: '현재 고객 상품 화면에서 읽지 않는 이전 필드 — ProductForm 미노출·재전송 금지.',
+  relatedConcernSlugs: '현재 고객 상품 화면에서 읽지 않는 이전 필드 — 고민 상세 추천은 Concern.recommendedProductIds가 정본.',
+  tags: '현재 고객 화면 검색·필터에서 읽지 않는 이전 일반 태그 — 카드 태그는 concernTags가 정본.',
+  ingredients: '현재 상품 상세에서 성분 구역을 제거한 계약에 따라 ProductForm 미노출·재전송 금지.',
+  howToUse: '현재 상품 상세에서 사용법 구역을 제거한 계약에 따라 ProductForm 미노출·재전송 금지.',
+  caution: '현재 상품 상세에서 주의사항 구역을 제거한 계약에 따라 ProductForm 미노출·재전송 금지.',
   ageGroup:
     '관리자 UI 없음 — formPayload.ts 가 항상 "all" 로 하드코딩 전송(사용자 편집 불가).',
   brandName:
     '역정규화 값 — ProductForm 이 선택한 brandId 로부터 파생 전송, 독립 입력 아님.',
+  homeFeaturedOrder:
+    'ProductForm 필드가 아니라 상품 진열 전용 순서 — product-display-order.spec.ts와 product-binding-flow.spec.ts가 검증.',
+  shopFeaturedOrder:
+    'ProductForm 필드가 아니라 상품 진열 전용 순서 — product-display-order.spec.ts와 product-binding-flow.spec.ts가 검증.',
+  catalogOrder:
+    'ProductForm 필드가 아니라 상품 진열 전용 순서 — product-display-order.spec.ts와 product-binding-flow.spec.ts가 검증.',
 };
 
 // ── 브랜드 필드 분류 ──────────────────────────────────────────────────────
 //
-// BrandDetailEditor(/admin/brands/[id]) 는 전 필드 에디터라 16개 필드를 모두 노출한다 →
+// BrandDetailEditor(/admin/brands/[id]) 는 현재 관리 필드를 모두 노출한다 →
 // admin-crud-brand-fields.spec.ts 가 전부 채워 왕복(admin 편집 재열람) 또는 공개 /brands/[id] 에서 검증.
-// sourceUrls·shipping·auditGrade·officialUrl 은 공개 상세에 렌더되지 않지만 BrandDetailEditor 에
-// 편집 UI가 있어 관리자 왕복으로 검증한다(=VERIFIED, 공개 assertion 없음).
+// 공개 브랜드 목록·상세가 실제로 읽는 필드만 VERIFIED다. 이전 admin-only URL 필드는
+// 홈페이지와 연결되지 않아 입력 UI에서 제거하고 EXCLUDED에 보존 사유를 기록한다.
 const BRAND_VERIFIED: readonly string[] = [
   'name',
   'logo',
   'description',
   'philosophy',
-  'auditGrade',
-  'officialUrl',
-  'sourceUrls',
   'shipping',
   'auditPoints',
   'auditReport',
@@ -147,7 +147,8 @@ const BRAND_VERIFIED: readonly string[] = [
 ];
 
 const BRAND_EXCLUDED: Record<string, string> = {
-  // 현재 전 필드가 BrandDetailEditor 로 왕복 검증되므로 제외 없음.
+  officialUrl: '현재 공개 브랜드 화면에 공식몰 링크가 없어 관리자 입력·재전송을 제거한 이전 필드.',
+  sourceUrls: '현재 공개 브랜드 화면에 출처 링크 구역이 없어 관리자 입력·재전송을 제거한 이전 필드.',
 };
 
 function assertClassified(
@@ -218,10 +219,14 @@ test.describe('상품·브랜드 폼 필드 커버리지 감사 — 필드 누�
     assertNoStale('브랜드', brandFields, BRAND_VERIFIED, BRAND_EXCLUDED);
   });
 
-  test('상품 검증 포인트·관련 고민·태그는 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
-    for (const connected of ['auditPoints', 'relatedConcernSlugs', 'tags']) {
-      expect(PRODUCT_VERIFIED).toContain(connected);
-      expect(PRODUCT_EXCLUDED[connected], `Product.${connected} 는 EXCLUDED 에 남아 있으면 안 됨`).toBeUndefined();
+  test('현재 홈페이지와 끊긴 과거 필드는 관리자 VERIFIED로 오인하지 않는다', () => {
+    for (const disconnected of ['auditPoints', 'relatedConcernSlugs', 'tags', 'ingredients', 'howToUse', 'caution']) {
+      expect(PRODUCT_VERIFIED).not.toContain(disconnected);
+      expect(PRODUCT_EXCLUDED[disconnected], `Product.${disconnected} 제외 사유 없음`).toBeTruthy();
+    }
+    for (const disconnected of ['officialUrl', 'sourceUrls']) {
+      expect(BRAND_VERIFIED).not.toContain(disconnected);
+      expect(BRAND_EXCLUDED[disconnected], `Brand.${disconnected} 제외 사유 없음`).toBeTruthy();
     }
   });
 });
@@ -245,27 +250,19 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'price',
   'image',
   'images',
-  'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
   'brandName',
   'rating',
   'reviewCount',
   'isBest',
   'isRecommended',
-  'stock', // 빈 상태 테스트(재고0 → "잠시 품절" 뱃지)에서 검증
+  'stock', // 빈 상태 테스트(재고0 → 구매 버튼 비활성)에서 검증
   'options',
   'detailBlocks',
   'description',
-  'ingredients',
-  'howToUse',
-  'recommendedFor',
-  'caution',
   'shippingFee',
   'deliveryEstimate',
   'returnNotice',
   'sellerName',
-  'pointsRate',
 ]);
 
 // 브랜드: brand-card + brand-detail 표면이 공개 렌더하고 라이브 스펙이 검증하는 필드.

@@ -17,13 +17,15 @@ export const COMPANY = {
   /** 사업자등록번호 (간이과세자) */
   businessNumber: '524-05-03658',
   /** 통신판매업 신고번호 */
-  mailOrderNumber: '2026-인천미추홀-0016',
+  mailOrderNumber: '제 2026-인천연수구-2198 호',
   /** 사업장 주소(사업자등록증 사업장 소재지 기준) */
   address: '인천광역시 연수구 인천타워대로 185, 5층 539호(송도동, 송도 센트럴비즈 한라)',
   /** 고객센터 전화 */
-  tel: '010-5683-1725',
+  tel: '1544-9883',
   /** 고객센터 이메일 */
   email: 'thebaekjo@naver.com',
+  /** 고객 상담 및 주문제작 확인 카카오톡 채널 */
+  kakaoTalkUrl: 'http://pf.kakao.com/_jxnxjxaX',
   /** 개인정보 보호책임자 */
   privacyOfficer: '백보윤',
   /** 호스팅 서비스 제공자 */
@@ -31,7 +33,7 @@ export const COMPANY = {
   /** 공정거래위원회 통신판매사업자 정보 조회 URL */
   businessLookupUrl: 'https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658',
   /** 고객센터 운영시간 */
-  supportHours: '평일 10:00 – 17:00 (점심 12:00 – 13:00) · 주말/공휴일 휴무',
+  supportHours: '평일 10:00 ~ 17:00 (점심 12:00 ~ 13:00) · 주말/공휴일 휴무',
 } as const;
 
 /**

@@ -26,9 +26,8 @@ env:
     src/app/api/admin/order-policy/
     src/app/api/admin/orders/
     src/app/api/admin/partner-inquiries/
-    src/app/api/admin/partners/
     src/app/api/admin/products/
-    src/app/api/admin/qna/
+    src/app/api/admin/product-tags/
     src/app/api/admin/reviews/
     src/app/api/admin/settings/
     src/app/api/admin/showcase-reviews/
@@ -37,12 +36,13 @@ env:
     admin-crud-brand-fields.spec.ts
     admin-crud-brands.spec.ts
     admin-crud-category-settings.spec.ts
+    admin-crud-cms-page-publish.spec.ts
     admin-crud-concerns.spec.ts
     admin-crud-home-settings.spec.ts
     admin-crud-insurance.spec.ts
     admin-crud-insurance-cert.spec.ts
     admin-crud-insurance-content.spec.ts
-    admin-crud-kits-partners.spec.ts
+    admin-crud-kits.spec.ts
     admin-crud-members.spec.ts
     admin-crud-members-pending-signup.spec.ts
     admin-crud-notices.spec.ts
@@ -53,7 +53,7 @@ env:
     admin-crud-product-fields.spec.ts
     admin-crud-product-gallery-removal.spec.ts
     admin-crud-products.spec.ts
-    admin-crud-qna-config.spec.ts
+    admin-crud-product-tags.spec.ts
     admin-crud-qna-inquiries.spec.ts
     admin-crud-reviews-moderation.spec.ts
     admin-crud-showcase-reviews.spec.ts
@@ -83,7 +83,8 @@ jobs:
       PAYMENTS_PREVIEW_URL: 'http://127.0.0.1:3000'
       E2E_ADMIN_CRUD: '1'
       LOCAL_APP_RUNTIME_SUPABASE_PREFLIGHT: '1'
-      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      PLAYWRIGHT_REUSE_EXISTING_SERVER: '1'
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL_STAGING }}
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
       TEST_SUPABASE_PROJECT_REF: ${{ secrets.TEST_SUPABASE_PROJECT_REF }}
@@ -109,6 +110,13 @@ jobs:
           test -n "$SUPABASE_SECRET_KEY" || exit 1
           actual_ref=$(node -e "const u=new URL(process.env.SUPABASE_URL); const m=/^([a-z0-9]{20})\.supabase\.co$/.exec(u.hostname.toLowerCase()); if(!m) process.exit(1); process.stdout.write(m[1])")
           test "$actual_ref" = "$TEST_SUPABASE_PROJECT_REF" || exit 1
+      - name: Apply migrations to isolated staging and verify CMS connection
+        run: node scripts/apply-migrations.mjs
+      - name: Prepare isolated localhost auth secret
+        run: |
+          auth_secret=$(node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))")
+          echo "::add-mask::$auth_secret"
+          echo "AUTH_SECRET=$auth_secret" >> "$GITHUB_ENV"
       - name: Start localhost app
         run: |
           npm run dev > "$RUNNER_TEMP/local-app.log" 2>&1 &
@@ -128,6 +136,8 @@ jobs:
         run: |
           test -n "$GOLDEN_CRUD_API_PATHS"
           test -n "$GOLDEN_CRUD_SPECS"
+      - name: CMS full-screen save publish and customer read-back validation
+        run: npx playwright test tests/golden/admin-crud-cms-page-publish.spec.ts --project=golden-crud --workers=1 --retries=0 --reporter=line
       - name: Golden CRUD and storage write validation
         run: npx playwright test --project=golden-crud --workers=1 --retries=0 --reporter=line
       - name: Payment order and confirm write validation

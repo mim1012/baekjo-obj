@@ -3,8 +3,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { HeartPulse, Home, ShoppingBag, ShieldCheck, User } from 'lucide-react';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 
-const NAV_ITEMS = [
+const ALL_NAV_ITEMS = [
   { label: '홈', href: '/', icon: Home },
   { label: '케어', href: '/concerns', icon: HeartPulse },
   { label: '쇼핑', href: '/shop', icon: ShoppingBag },
@@ -14,6 +15,10 @@ const NAV_ITEMS = [
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
+  const siteContent = usePublicSiteContent();
+  const navItems = ALL_NAV_ITEMS.filter(
+    (item) => item.href !== '/insurance' || siteContent.features.insurance,
+  );
 
   const hiddenOnFocusedFlow = [
     '/admin',
@@ -34,7 +39,7 @@ export default function MobileBottomNav() {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-[#E7E0D5] bg-[#FBFAF7]/95 pb-safe backdrop-blur-xl md:hidden">
       <nav aria-label="하단 메뉴" className="flex h-16 items-center justify-around px-1">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
           const Icon = item.icon;
 

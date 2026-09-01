@@ -14,13 +14,13 @@ import {
   type BrandDetailFieldErrors,
   type AuditReportFormState,
 } from '@/lib/brands/formPayload';
-import { CARRIER_CODES, CARRIER_LABELS, type CarrierCode } from '@/lib/carriers';
-
-const MAX_SOURCE_URLS = 20;
+import { type CarrierCode } from '@/lib/carriers';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
 import ImageUploader from '@/components/admin-new/common/ImageUploader';
+import CarrierSelect from '@/components/admin-new/orders/CarrierSelect';
 
 interface Option {
   id: string;
@@ -52,6 +52,10 @@ function toAuditReportForm(report: Brand['auditReport']): AuditReportFormState {
     summary: report.summary ?? '',
     selectionReason: report.selectionReason ?? '',
     process: Array.isArray(report.process) ? [...report.process] : [],
+    checkpoints: Array.isArray(report.checkpoints) ? [...report.checkpoints] : undefined,
+    materialReview: Array.isArray(report.materialReview) ? [...report.materialReview] : undefined,
+    curatorNote: Array.isArray(report.curatorNote) ? [...report.curatorNote] : undefined,
+    auditConclusion: Array.isArray(report.auditConclusion) ? [...report.auditConclusion] : undefined,
   };
 }
 
@@ -66,13 +70,11 @@ export default function BrandDetailEditor({
 }: BrandDetailEditorProps) {
   const router = useRouter();
 
-  // 기본 필드(모달과 동일 범위) — 상세는 전 필드 에디터라 이것도 편집한다.
+  // 기존 브랜드의 기본 필드부터 대형 필드까지 이 화면 하나가 모두 소유한다.
   const [name, setName] = useState(initialBrand.name ?? '');
   const [logo, setLogo] = useState(initialBrand.logo ?? '');
   const [description, setDescription] = useState(initialBrand.description ?? '');
   const [philosophy, setPhilosophy] = useState(initialBrand.philosophy ?? '');
-  const [auditGrade, setAuditGrade] = useState<Brand['auditGrade']>(initialBrand.auditGrade ?? 'A+');
-  const [officialUrl, setOfficialUrl] = useState(initialBrand.officialUrl ?? '');
   const [isRecommended, setIsRecommended] = useState(initialBrand.isRecommended ?? false);
   const [isVisible, setIsVisible] = useState(initialBrand.isVisible !== false);
   const [isNew, setIsNew] = useState(initialBrand.isNew ?? false);
@@ -90,7 +92,6 @@ export default function BrandDetailEditor({
     initialBrand.relatedConcernSlugs ?? [],
   );
   const [auditPoints, setAuditPoints] = useState<string[]>(initialBrand.auditPoints ?? []);
-  const [sourceUrls, setSourceUrls] = useState<string[]>(initialBrand.sourceUrls ?? []);
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,8 +140,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
-        officialUrl,
         isRecommended,
         isVisible,
         isNew,
@@ -149,7 +148,6 @@ export default function BrandDetailEditor({
         representativeProductIds,
         relatedConcernSlugs,
         auditPoints,
-        sourceUrls,
         shipping,
       },
       !!initialBrand.auditReport,
@@ -169,8 +167,6 @@ export default function BrandDetailEditor({
         logo,
         description,
         philosophy,
-        auditGrade,
-        officialUrl,
         isRecommended,
         isVisible,
         isNew,
@@ -179,7 +175,6 @@ export default function BrandDetailEditor({
         representativeProductIds,
         relatedConcernSlugs,
         auditPoints,
-        sourceUrls,
         shipping,
       });
 
@@ -200,8 +195,8 @@ export default function BrandDetailEditor({
   return (
     <div className="space-y-6 pb-24">
       <PageHeader
-        title={`${initialBrand.name} · 상세 편집`}
-        description="감사 보고서·대표상품·연관 고민 등 전 필드를 편집합니다. 빠른 편집은 목록의 수정 아이콘(모달)을 이용하세요."
+        title={`${formatBrandDisplayName(initialBrand.name)} · 상세 편집`}
+        description="기본 정보·노출 상태·감사 보고서·대표상품·연관 고민 등 기존 브랜드의 모든 내용을 이 화면 한 곳에서 수정합니다."
       >
         <button
           type="button"
@@ -256,32 +251,6 @@ export default function BrandDetailEditor({
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="검증 등급" htmlFor="bd-grade">
-                  <select
-                    id="bd-grade"
-                    value={auditGrade ?? 'A+'}
-                    onChange={(e) => setAuditGrade(e.target.value as Brand['auditGrade'])}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="A+">A+ 등급</option>
-                    <option value="A">A 등급</option>
-                    <option value="B+">B+ 등급</option>
-                    <option value="B">B 등급</option>
-                  </select>
-                </FormField>
-
-                <FormField label="공식몰 URL" htmlFor="bd-official" error={fieldErrors.officialUrl}>
-                  <input
-                    id="bd-official"
-                    type="url"
-                    value={officialUrl}
-                    onChange={(e) => setOfficialUrl(e.target.value)}
-                    className={INPUT_CLASS}
-                    placeholder="https://"
-                  />
-                </FormField>
-              </div>
             </div>
           </div>
 
@@ -354,24 +323,12 @@ export default function BrandDetailEditor({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="기본 택배사" htmlFor="ship-carrier">
-              <select
-                id="ship-carrier"
+              <CarrierSelect
                 value={shipping.defaultCarrier ?? ''}
-                onChange={(e) =>
-                  setShippingField(
-                    'defaultCarrier',
-                    e.target.value === '' ? undefined : (e.target.value as CarrierCode),
-                  )
+                onChange={(value) =>
+                  setShippingField('defaultCarrier', value === '' ? undefined : (value as CarrierCode))
                 }
-                className={INPUT_CLASS}
-              >
-                <option value="">선택 안 함</option>
-                {CARRIER_CODES.map((carrier) => (
-                  <option key={carrier} value={carrier}>
-                    {CARRIER_LABELS[carrier]}
-                  </option>
-                ))}
-              </select>
+              />
             </FormField>
 
             <FormField label="표시용 배송사" htmlFor="ship-carrier-label" error={fieldErrors['shipping.carrierLabel']}>
@@ -540,6 +497,28 @@ export default function BrandDetailEditor({
                   placeholder="예: 평일 10:00~17:00"
                 />
               </FormField>
+
+              <FormField label="고객지원 이메일" htmlFor="ship-support-email" error={fieldErrors['shipping.supportEmail']}>
+                <input
+                  id="ship-support-email"
+                  type="email"
+                  value={shipping.supportEmail ?? ''}
+                  onChange={(e) => setShippingField('supportEmail', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: help@example.com"
+                />
+              </FormField>
+
+              <FormField label="카카오 채널" htmlFor="ship-support-kakao" error={fieldErrors['shipping.supportKakaoLabel']}>
+                <input
+                  id="ship-support-kakao"
+                  type="text"
+                  value={shipping.supportKakaoLabel ?? ''}
+                  onChange={(e) => setShippingField('supportKakaoLabel', e.target.value)}
+                  className={INPUT_CLASS}
+                  placeholder="예: 브랜드명 카카오톡 채널"
+                />
+              </FormField>
             </div>
           </div>
         </section>
@@ -647,8 +626,8 @@ export default function BrandDetailEditor({
           </div>
         </section>
 
-        {/* ── 검증 포인트 · 근거 출처 ── */}
-        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6 space-y-6">
+        {/* ── 공개 브랜드 상세의 검증 포인트 ── */}
+        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6">
           <div>
             <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">검증 포인트</h2>
             <p className="text-[13px] text-gray-500 mb-4">브랜드 검증에서 강조할 항목(빈 항목은 저장 시 자동 제거).</p>
@@ -659,19 +638,6 @@ export default function BrandDetailEditor({
               addLabel="포인트 추가"
               itemLabel="검증 포인트"
               error={fieldErrors.auditPoints}
-            />
-          </div>
-          <div>
-            <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">근거 출처 URL</h2>
-            <p className="text-[13px] text-gray-500 mb-4">검증 근거가 되는 링크(최대 {MAX_SOURCE_URLS}개, 빈 항목은 자동 제거).</p>
-            <ArrayEditor
-              items={sourceUrls}
-              onChange={setSourceUrls}
-              placeholder="https://"
-              addLabel="출처 추가"
-              itemLabel="근거 출처"
-              maxItems={MAX_SOURCE_URLS}
-              error={fieldErrors.sourceUrls}
             />
           </div>
         </section>

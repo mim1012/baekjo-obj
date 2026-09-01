@@ -77,8 +77,9 @@ Playwright 프로젝트만 실행한다. 단, `main` push 또는 `develop→main
 | concerns | `src/lib/concerns/`·`src/app/{admin,}/concerns/`·`src/app/api/{,admin/}concerns/` | `admin-crud-concerns.spec.ts` |
 | home_settings | `src/lib/settings/`·`src/app/admin/settings/`·`homeContent.ts`·`SiteSettingsProvider.tsx`·`HomeClient.tsx`·`src/app/page.tsx` | `admin-crud-home-settings.spec.ts` |
 | insurance_content | `src/lib/insuranceContent/`·`src/app/admin/insurance-content/`·`src/app/insurance/`·API 양쪽 | `admin-crud-insurance-content.spec.ts` |
-| kits_partners | `src/lib/{kits,partners}/`·`src/app/admin/{kits,partners}/`·API 양쪽 | `admin-crud-kits-partners.spec.ts` |
+| kits | `src/lib/kits/`·`src/app/admin/kits/`·관리 API·공개 케어키트 화면 | `admin-crud-kits.spec.ts` |
 | products | `src/lib/products/`·`src/app/{admin/products,shop}/`·API 양쪽·`src/components/admin-new/products/` | `admin-crud-products.spec.ts` |
+| product_tags | `src/lib/productTags/`·`src/app/admin/products/tags/`·`src/app/api/{,admin/}product-tags/`·`ProductCard.tsx`·`ShopContent.tsx` | `admin-crud-product-tags.spec.ts` |
 | brands | `src/lib/brands/`·`src/app/{admin/brands,brands}/`·API 양쪽·`src/components/admin-new/brands/` | `admin-crud-brands.spec.ts` |
 | members | `src/lib/members/`·`src/app/admin/members/`·API·`src/components/admin-new/members/` | `admin-crud-members.spec.ts` |
 | qna_inquiries | `src/lib/inquiries/`·`src/lib/adapters.ts`·`src/app/admin/inquiries/`·API·`ProductTabsClient.tsx`·`src/components/inquiries/` | `admin-crud-qna-inquiries.spec.ts` |

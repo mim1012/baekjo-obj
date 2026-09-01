@@ -50,8 +50,8 @@ test.describe('보험 콘텐츠(동의 전문·FAQ) 관리자 저장 → 공개 
     // 법정 동의 문서('privacy'/'analysis')는 서버 왕복 없이 클라이언트에서 먼저 막는다(opus 리뷰 LOW-2).
     expect(pageSource).toContain("const REQUIRED_LEGAL_CONSENT_IDS = ['privacy', 'analysis'] as const;");
     expect(pageSource).toContain('const handleDeleteConsent = async (id: string | number) => {');
-    expect(pageSource).toContain('if (!loaded || loadError) return;');
-    expect(pageSource).toContain('if (busyRef.current) return;');
+    expect(pageSource).toContain('if (!loaded || loadError) return false;');
+    expect(pageSource).toContain('if (busyRef.current) return false;');
     expect(pageSource).toContain('(REQUIRED_LEGAL_CONSENT_IDS as readonly (string | number)[]).includes(id)');
     expect(pageSource).toContain('필수(법정) 동의 문서는 삭제할 수 없습니다.');
     expect(pageSource).toContain('const nextConsents = persistedRef.current.consents.filter((consent) => consent.id !== id);');

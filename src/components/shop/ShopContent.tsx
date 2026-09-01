@@ -4,48 +4,39 @@ import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
-import { Brand, Concern, Product } from '@/types';
+import { Brand, Product } from '@/types';
+import type { ProductTagDefinition } from '@/lib/productTags/config';
 import { getDataBackedShopCategoryOptions, normalizeShopCategory } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
+import { sortByManagedProductOrder } from '@/lib/products/displayOrder';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 const PRODUCTS_PER_PAGE = 20;
 
-const priceOptions = [
-  { id: 'all', label: '전체' },
-  { id: 'under-20000', label: '2만원 미만' },
-  { id: '20000-50000', label: '2-5만원' },
-  { id: '50000-100000', label: '5-10만원' },
-  { id: '100000-plus', label: '10만원 이상' },
-];
-
-const concernOptions = [
-  { slug: 'skin', title: '피부' },
-  { slug: 'joint', title: '관절' },
-  { slug: 'obesity', title: '체중' },
-  { slug: 'oral', title: '구강' },
-  { slug: 'odor', title: '냄새' },
-];
-
-const sortOptions: Array<{ id: SortOption; label: string }> = [
-  { id: 'recommended', label: '기본순' },
-  { id: 'popular', label: '인기순' },
-  { id: 'newest', label: '최신순' },
-  { id: 'reviews', label: '후기 많은 순' },
-  { id: 'price-low', label: '낮은 가격순' },
-  { id: 'price-high', label: '높은 가격순' },
-];
-
 interface Props {
   products: Product[];
   brands: Brand[];
-  /** 고민 필터 옵션. 서버 wrapper(page.tsx)가 concerns repo 로 읽어 내려준다(콘센트). */
-  concerns: Concern[];
+  /** 현재 홈페이지의 상품 태그 중 스토어 필터에 표시하도록 설정한 항목. */
+  productTags: ProductTagDefinition[];
+  content: ShopPageContent;
 }
 
-function ShopInner({ products, brands }: Props) {
+export interface ShopPageContent {
+  hero: { eyebrow: string; title: string; description: string; searchPlaceholder: string; searchButtonLabel: string };
+  featured: { visible: boolean; title: string };
+  catalog: { allLabel: string; allProductsLabel: string; filterLabel: string; resetLabel: string; countSuffix: string; resultsButtonSuffix: string };
+  filters: {
+    petTypeTitle: string; categoryTitle: string; brandTitle: string; priceTitle: string;
+    detailLabel: string; concernTitle: string; ratingTitle: string; allOptionLabel: string;
+    sortRecommendedLabel: string; sortPopularLabel: string; sortNewestLabel: string;
+    sortReviewsLabel: string; sortPriceLowLabel: string; sortPriceHighLabel: string;
+  };
+  empty: { title: string; buttonLabel: string };
+}
+
+function ShopInner({ products, brands, productTags, content }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
@@ -54,12 +45,26 @@ function ShopInner({ products, brands }: Props) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileFilterRef = useRef<HTMLElement>(null);
   const shopToolbarRef = useRef<HTMLDivElement>(null);
+  const concernOptions = productTags
+    .filter((tag) => tag.isVisible && tag.showInShopFilter)
+    .map((tag) => ({ slug: tag.slug, title: tag.label }));
+  const priceOptions = [
+    { id: 'all', label: content.filters.allOptionLabel, minPrice: undefined, maxPrice: undefined },
+    ...categorySettings.priceRanges,
+  ];
+  const sortOptions: Array<{ id: SortOption; label: string }> = [
+    { id: 'recommended', label: content.filters.sortRecommendedLabel },
+    { id: 'popular', label: content.filters.sortPopularLabel },
+    { id: 'newest', label: content.filters.sortNewestLabel },
+    { id: 'reviews', label: content.filters.sortReviewsLabel },
+    { id: 'price-low', label: content.filters.sortPriceLowLabel },
+    { id: 'price-high', label: content.filters.sortPriceHighLabel },
+  ];
 
   const params: Record<string, string | undefined> = {
     sort: searchParams.get('sort') || undefined,
     petType: searchParams.get('petType') || undefined,
     category: searchParams.get('category') || undefined,
-    lifestyle: searchParams.get('lifestyle') || undefined,
     concern: searchParams.get('concern') || undefined,
     brandId: searchParams.get('brandId') || undefined,
     price: searchParams.get('price') || undefined,
@@ -113,20 +118,8 @@ function ShopInner({ products, brands }: Props) {
 
   const currentSort = (params.sort as SortOption) || 'recommended';
   const priceRange = params.price || 'all';
-  const minPrice = priceRange === '20000-50000'
-    ? 20_000
-    : priceRange === '50000-100000'
-      ? 50_000
-      : priceRange === '100000-plus'
-        ? 100_000
-        : undefined;
-  const maxPrice = priceRange === 'under-20000'
-    ? 19_999
-    : priceRange === '20000-50000'
-      ? 49_999
-      : priceRange === '50000-100000'
-        ? 99_999
-        : undefined;
+  const selectedPriceRange = categorySettings.priceRanges.find((option) => option.id === priceRange);
+  const selectedRatingRange = categorySettings.ratingRanges.find((option) => option.id === params.rating);
 
   // 상품 detail에 저장된 과거 브랜드명이 오래되었더라도 현재 브랜드 테이블을 정본으로 사용한다.
   // 카드 표기와 브랜드명 검색이 같은 이름을 바라보게 해 브랜드 필터/검색 결과가 어긋나지 않는다.
@@ -142,12 +135,11 @@ function ShopInner({ products, brands }: Props) {
     filterProducts(productsWithBrandNames, {
       petType: params.petType,
       category: params.category,
-      lifestyleCategory: params.lifestyle,
       concern: params.concern,
       brandId: params.brandId,
-      minPrice,
-      maxPrice,
-      minRating: params.rating ? Number(params.rating) : undefined,
+      minPrice: selectedPriceRange?.minPrice,
+      maxPrice: selectedPriceRange?.maxPrice,
+      minRating: selectedRatingRange?.minRating,
       search: params.search,
     }),
     currentSort,
@@ -163,7 +155,10 @@ function ShopInner({ products, brands }: Props) {
   const paginatedProducts = filtered.slice(startIndex, endIndex);
 
   // 추천 상품은 페이지네이션과 분리해 전체를 가로 탐색한다.
-  const recommendedProducts = productsWithBrandNames.filter((p) => p.isRecommended || p.isBest);
+  const recommendedProducts = sortByManagedProductOrder(
+    productsWithBrandNames.filter((p) => p.isRecommended || p.isBest),
+    'shopFeaturedOrder',
+  );
 
   const makeHref = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString());
@@ -186,7 +181,6 @@ function ShopInner({ products, brands }: Props) {
   const activeFilterCount = [
     params.petType,
     params.category,
-    params.lifestyle,
     params.concern,
     params.brandId,
     params.price,
@@ -222,15 +216,17 @@ function ShopInner({ products, brands }: Props) {
 
   const renderFilterPanel = (onNavigate?: () => void) => (
     <div className="shop-filter-sidebar pb-8">
-      <FilterGroup title="반려동물" defaultOpen>
-        <FilterLink onClick={onNavigate} href={makeHref('petType', 'all')} active={!params.petType}>전체</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'dog')} active={params.petType === 'dog'}>강아지</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'cat')} active={params.petType === 'cat'}>고양이</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('petType', 'small')} active={params.petType === 'small'}>소동물</FilterLink>
+      <FilterGroup title={content.filters.petTypeTitle} defaultOpen>
+        <FilterLink onClick={onNavigate} href={makeHref('petType', 'all')} active={!params.petType}>{content.filters.allOptionLabel}</FilterLink>
+        {categorySettings.petTypes.map((petType) => (
+          <FilterLink onClick={onNavigate} key={petType.id} href={makeHref('petType', petType.id)} active={params.petType === petType.id}>
+            {petType.label}
+          </FilterLink>
+        ))}
       </FilterGroup>
 
-      <FilterGroup title="카테고리" defaultOpen>
-        <FilterLink onClick={onNavigate} href={makeHref('category', 'all')} active={!params.category}>전체</FilterLink>
+      <FilterGroup title={content.filters.categoryTitle} defaultOpen>
+        <FilterLink onClick={onNavigate} href={makeHref('category', 'all')} active={!params.category}>{content.filters.allOptionLabel}</FilterLink>
         {categoryOptions.map((category) => (
           <FilterLink
             key={category.slug}
@@ -243,8 +239,8 @@ function ShopInner({ products, brands }: Props) {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="브랜드">
-        <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>전체</FilterLink>
+      <FilterGroup title={content.filters.brandTitle}>
+        <FilterLink onClick={onNavigate} href={makeHref('brandId', 'all')} active={!params.brandId}>{content.filters.allOptionLabel}</FilterLink>
         {brands.map((brand) => (
           <FilterLink onClick={onNavigate} key={brand.id} href={makeHref('brandId', brand.id)} active={params.brandId === brand.id}>
             {formatBrandDisplayName(brand.name)}
@@ -252,7 +248,7 @@ function ShopInner({ products, brands }: Props) {
         ))}
       </FilterGroup>
 
-      <FilterGroup title="가격">
+      <FilterGroup title={content.filters.priceTitle}>
         {priceOptions.map((option) => (
           <FilterLink onClick={onNavigate} key={option.id} href={makeHref('price', option.id)} active={priceRange === option.id}>
             {option.label}
@@ -264,11 +260,11 @@ function ShopInner({ products, brands }: Props) {
           해당 필터가 이미 적용된 상태라면 접힌 채 숨지 않도록 펼쳐서 보여준다. */}
       <details open={hasDetailFilter} className="group border-b border-[#E7E0D5] py-4">
         <summary className="cursor-pointer list-none py-1 text-[13px] font-semibold tracking-wide text-[#59615B] transition-colors hover:text-[#A8742E]">
-          상세 필터 +
+          {content.filters.detailLabel} +
         </summary>
         <div className="mt-1">
-          <FilterGroup title="고민">
-            <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>전체</FilterLink>
+          <FilterGroup title={content.filters.concernTitle}>
+            <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>{content.filters.allOptionLabel}</FilterLink>
             {concernOptions.map((concern) => (
               <FilterLink onClick={onNavigate} key={concern.slug} href={makeHref('concern', concern.slug)} active={params.concern === concern.slug}>
                 {concern.title}
@@ -276,16 +272,19 @@ function ShopInner({ products, brands }: Props) {
             ))}
           </FilterGroup>
 
-          <FilterGroup title="평점">
-            <FilterLink onClick={onNavigate} href={makeHref('rating', 'all')} active={!params.rating}>전체 평점</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('rating', '4')} active={params.rating === '4'}>4.0 이상</FilterLink>
-            <FilterLink onClick={onNavigate} href={makeHref('rating', '4.5')} active={params.rating === '4.5'}>4.5 이상</FilterLink>
+          <FilterGroup title={content.filters.ratingTitle}>
+            <FilterLink onClick={onNavigate} href={makeHref('rating', 'all')} active={!params.rating}>{content.filters.allOptionLabel}</FilterLink>
+            {categorySettings.ratingRanges.map((rating) => (
+              <FilterLink onClick={onNavigate} key={rating.id} href={makeHref('rating', rating.id)} active={params.rating === rating.id}>
+                {rating.label}
+              </FilterLink>
+            ))}
           </FilterGroup>
         </div>
       </details>
 
       <Link href="/shop" scroll={false} onClick={onNavigate} className="mt-6 inline-flex text-sm font-semibold text-[#59615B] underline underline-offset-4 transition-colors duration-500 hover:text-[#17211D]">
-        필터 초기화
+        {content.catalog.resetLabel}
       </Link>
     </div>
   );
@@ -295,9 +294,9 @@ function ShopInner({ products, brands }: Props) {
       {/* 1. 상단 인트로 및 검색 */}
       <div className="shop-intro mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
-          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">BAEKJO OBJET SELECTION</p>
-          <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">우리 아이를 위한 좋은 선택</h1>
-          <p className="mt-2 text-[15px] text-[#59615B]">백조오브제의 기준으로 살펴보고 선택한 제품을 소개합니다.</p>
+          <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">{content.hero.eyebrow}</p>
+          <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">{content.hero.title}</h1>
+          <p className="mt-2 text-[15px] text-[#59615B]">{content.hero.description}</p>
         </div>
         <form onSubmit={handleSearchSubmit} role="search" className="flex h-12 w-full shrink-0 items-center rounded-full border border-[#E7E0D5] bg-white px-4 transition-colors duration-500 focus-within:border-[#A8742E] focus-within:ring-2 focus-within:ring-[#A8742E]/10 md:w-[420px]">
           <Search aria-hidden="true" className="mr-3 size-4 shrink-0 text-[#59615B]" />
@@ -309,7 +308,7 @@ function ShopInner({ products, brands }: Props) {
             autoFocus={shouldFocusSearch}
             value={searchTerm}
             onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="상품명, 브랜드명, 키워드를 검색하세요"
+            placeholder={content.hero.searchPlaceholder}
             className="min-w-0 flex-1 bg-transparent text-sm text-[#17211D] outline-none placeholder:text-[#59615B]/60"
           />
           {searchTerm && (
@@ -318,14 +317,14 @@ function ShopInner({ products, brands }: Props) {
             </button>
           )}
           <button type="submit" className="rounded-full bg-[#17211D] px-4 py-2 text-xs font-semibold text-[#FBFAF7] transition-colors duration-500 hover:bg-[#202521]">
-            검색
+            {content.hero.searchButtonLabel}
           </button>
         </form>
       </div>
 
       {/* 2. 빠른 카테고리 */}
       <div className="shop-category-tabs mb-10 flex flex-wrap gap-2 border-b border-[#E7E0D5] pb-4">
-        <Link href={makeHref('category', 'all')} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${!params.category ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>전체</Link>
+        <Link href={makeHref('category', 'all')} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${!params.category ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>{content.catalog.allLabel}</Link>
         {categoryOptions.map(cat => (
           <Link key={cat.slug} href={makeHref('category', cat.slug)} scroll={false} className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-semibold transition-colors ${normalizeShopCategory(params.category) === cat.slug ? 'bg-[#17211D] text-white' : 'bg-[#F3EEE6] text-[#59615B] hover:bg-[#EAE4D9] hover:text-[#17211D]'}`}>
             {cat.label}
@@ -334,10 +333,10 @@ function ShopInner({ products, brands }: Props) {
       </div>
 
       {/* 3. 추천 상품 영역 */}
-      {recommendedProducts.length > 0 && validPage === 1 && (
+      {content.featured.visible && recommendedProducts.length > 0 && validPage === 1 && (
         <section className="mb-14 rounded-3xl bg-[#F3EEE6]/60 p-6 lg:p-8">
           <div className="mb-6">
-            <h2 className="text-[22px] font-bold text-[#17211D]">DAILY PICK</h2>
+            <h2 className="text-[22px] font-bold text-[#17211D]">{content.featured.title}</h2>
           </div>
           <div className="flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-4 hide-scrollbar">
             {recommendedProducts.map(product => (
@@ -353,10 +352,10 @@ function ShopInner({ products, brands }: Props) {
       <div id="shop-toolbar" ref={shopToolbarRef} className="shop-toolbar mb-6 flex min-h-12 scroll-mt-24 flex-col gap-4 border-b border-[#E7E0D5] pb-4 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold text-[#17211D]">
-            {categoryOptions.find(c => c.slug === normalizeShopCategory(params.category))?.label || '전체 상품'}
+            {categoryOptions.find(c => c.slug === normalizeShopCategory(params.category))?.label || content.catalog.allProductsLabel}
           </h2>
           <span className="text-sm font-medium text-[#59615B]">
-            <span className="font-semibold text-[#17211D]">{totalItems}</span>개
+            <span className="font-semibold text-[#17211D]">{totalItems}</span>{content.catalog.countSuffix}
           </span>
         </div>
 
@@ -380,7 +379,7 @@ function ShopInner({ products, brands }: Props) {
             className="flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#E7E0D5] bg-white px-3 text-sm font-semibold text-[#17211D] md:hidden"
           >
             <SlidersHorizontal className="size-4" />
-            필터
+            {content.catalog.filterLabel}
             {activeFilterCount > 0 && <span className="ml-0.5 flex size-4 items-center justify-center rounded-full bg-[#A8742E] text-[10px] text-white">{activeFilterCount}</span>}
           </button>
         </div>
@@ -398,7 +397,7 @@ function ShopInner({ products, brands }: Props) {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-6 flex items-center justify-between border-b border-[#E7E0D5] pb-4">
-              <h2 id="mobile-filter-title" className="text-xl font-bold text-[#17211D]">필터</h2>
+              <h2 id="mobile-filter-title" className="text-xl font-bold text-[#17211D]">{content.catalog.filterLabel}</h2>
               <button type="button" onClick={() => setMobileFiltersOpen(false)} aria-label="필터 닫기" className="rounded-full p-2 text-[#59615B] hover:bg-[#F3EEE6] hover:text-[#17211D]">
                 <X className="size-5" />
               </button>
@@ -408,7 +407,7 @@ function ShopInner({ products, brands }: Props) {
             </div>
             <div className="sticky bottom-0 mt-2 border-t border-[#E7E0D5] bg-[#FBFAF7] pt-4">
               <button type="button" onClick={() => setMobileFiltersOpen(false)} className="btn-primary min-h-12 w-full text-base">
-                {totalItems}개 상품 보기
+                {totalItems}{content.catalog.resultsButtonSuffix}
               </button>
             </div>
           </section>
@@ -478,9 +477,9 @@ function ShopInner({ products, brands }: Props) {
             </>
           ) : (
             <div className="rounded-3xl border border-dashed border-[#D8C4A3] bg-[#FAF8F3] px-6 py-20 text-center">
-              <p className="text-lg font-bold text-[#17211D]">선택한 조건에 맞는 상품을 찾지 못했어요.</p>
+              <p className="text-lg font-bold text-[#17211D]">{content.empty.title}</p>
               <Link href="/shop" scroll={false} className="btn-primary mt-8 inline-flex px-8">
-                필터 초기화
+                {content.empty.buttonLabel}
               </Link>
             </div>
           )}
@@ -490,11 +489,11 @@ function ShopInner({ products, brands }: Props) {
   );
 }
 
-export default function ShopContent({ products, brands, concerns }: Props) {
+export default function ShopContent({ products, brands, productTags, content }: Props) {
   return (
     <main className="shop-page min-h-dvh bg-[#FBFAF7]">
       <Suspense fallback={<div className="shop-container mx-auto w-[calc(100%-32px)] max-w-[1280px] py-16"><div className="h-96 animate-pulse rounded-3xl bg-[#E7E0D5]/50" /></div>}>
-        <ShopInner products={products} brands={brands} concerns={concerns} />
+        <ShopInner products={products} brands={brands} productTags={productTags} content={content} />
       </Suspense>
     </main>
   );

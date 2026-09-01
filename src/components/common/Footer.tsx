@@ -1,25 +1,24 @@
+'use client';
+
 import Link from 'next/link';
-import { COMPANY } from '@/data/company';
+import { usePublicSiteContent } from '@/components/providers/PublicSiteContentProvider';
 import BrandMark from './BrandMark';
 
-const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
-const KAKAO_TALK_URL = 'https://pf.kakao.com/_KYWxon';
-
-const footerLinks = [
-  { label: '1:1 문의', href: '/mypage?tab=inquiries' },
-  { label: '이용약관', href: '/terms' },
-  { label: '개인정보처리방침', href: '/privacy' },
-  { label: '배송·교환·환불', href: '/refund-policy' },
-];
-
 export default function Footer({ variant = 'default' }: { variant?: 'default' | 'home' }) {
+  const siteContent = usePublicSiteContent();
+  const company = siteContent.company;
+  const footerLinks = siteContent.navigation.footerLinks.filter((link) => link.visible);
   const isHome = variant === 'home';
   return (
     <footer className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
       <div className={isHome ? 'mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8 py-12' : 'site-container-wide py-12'}>
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
-          <Link href="/" aria-label="백조오브제 홈" className="inline-flex text-[#FBFAF7]">
-            <BrandMark inverse hideTagline />
+          <Link
+            href="/"
+            aria-label="백조오브제 홈"
+            className="block shrink-0"
+          >
+            <BrandMark inverse />
           </Link>
 
           <div className="flex flex-col gap-5 md:items-end">
@@ -30,7 +29,7 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
                 </Link>
               ))}
               <a
-                href={COMPANY.businessLookupUrl}
+                href={company.businessLookupUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center transition-colors duration-500 hover:text-[#FBFAF7] md:min-h-0"
@@ -41,13 +40,13 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
 
             <div className="flex items-center gap-3" aria-label="SNS">
               <span className="text-xs font-semibold tracking-[0.12em] text-[#FBFAF7]/70">SNS</span>
-              <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
+              <SnsButton href={siteContent.social.instagramUrl} label="인스타그램" tone="instagram" disabled={!siteContent.social.instagramUrl}>
                 <InstagramIcon />
               </SnsButton>
-              <SnsButton href={KAKAO_TALK_URL} label="카카오톡" tone="kakao" disabled={!KAKAO_TALK_URL}>
+              <SnsButton href={siteContent.social.kakaoTalkUrl} label="카카오톡" tone="kakao" disabled={!siteContent.social.kakaoTalkUrl}>
                 <KakaoIcon />
               </SnsButton>
-              <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">@BAEKJO OBJET</p>
+              <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">{siteContent.social.instagramLabel}</p>
             </div>
           </div>
         </div>
@@ -56,10 +55,13 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
           <div>
             <p className="text-[13px] font-semibold tracking-[0.12em] text-[#FBFAF7]">BAEKJO OBJET</p>
             <p className="mt-3 max-w-2xl leading-6 text-[#FBFAF7]/70">
-              {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
+              {company.name} · 대표 {company.ceo} · 사업자등록번호 {company.businessNumber} · 통신판매업신고 {company.mailOrderNumber}
             </p>
             <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
-              사업장주소 {COMPANY.address} · 전화 {COMPANY.tel}
+              사업장주소 {company.address} · 전화 {company.tel}
+            </p>
+            <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
+              영업시간 {company.supportHours}
             </p>
           </div>
         </div>

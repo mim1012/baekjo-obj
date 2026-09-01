@@ -11,6 +11,8 @@ export { defaultCategorySettings } from '@/lib/categorySettings/config';
 interface CategorySettingsContextType {
   categorySettings: CategorySettings;
   updateCategorySettings: (newSettings: CategorySettings) => Promise<boolean>;
+  /** 다른 관리자 창에서 항목을 추가한 뒤 현재 화면의 선택 목록을 다시 불러온다. */
+  reloadCategorySettings: () => Promise<boolean>;
   /** true = 마운트 후 GET /api/category-settings 가 성공적으로 resolve 됐다(DB 실 데이터든, 서버
    * 폴백 default 든 무관). 공개 소비자(ShopContent·BrandsContent 등, audit class C)는 이 값을 쓰지
    * 않고 그대로 default-first 렌더를 유지한다 — 관리자 편집 화면(admin/categories)만 이 값으로
@@ -84,8 +86,24 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
       });
   };
 
+  const reloadCategorySettings = async (): Promise<boolean> => {
+    try {
+      const response = await fetch('/api/category-settings', { cache: 'no-store' });
+      if (!response.ok) return false;
+      const data = (await response.json()) as { settings?: CategorySettings };
+      if (!data.settings) return false;
+      setCategorySettings(data.settings);
+      setLoaded(true);
+      setLoadError(false);
+      return true;
+    } catch (error) {
+      console.error('Failed to reload category settings from /api/category-settings', error);
+      return false;
+    }
+  };
+
   return (
-    <CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, loaded, loadError }}>
+    <CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, reloadCategorySettings, loaded, loadError }}>
       {children}
     </CategorySettingsContext.Provider>
   );

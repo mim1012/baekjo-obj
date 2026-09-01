@@ -14,15 +14,14 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // 삭제해도 부작용이 없다 — 그래서 "가드 우회 검증"이 아니라 정상 lifecycle(등록→수정→
 // 비노출→삭제) 스펙으로 작성한다.
 //
-// ⚠️ BrandForm(모달, src/components/admin-new/brands/BrandForm.tsx)은 notices/concerns의
+// ⚠️ BrandForm은 신규 등록 전용이고 기존 브랜드는 BrandDetailEditor 한 곳에서만 수정한다.
+// 등록 모달은 notices/concerns의
 // AdminResourcePage 폼과 달리 FormField가 label에 htmlFor를 넘기지 않는다 — "진열 순서" 필드만
 // 예외로 htmlFor="brand-display-order"(= input id)를 갖는다. 그래서 getByLabel은 대부분 필드에서
 // 매칭되지 않는다(label이 input을 감싸지도, for로 연결되지도 않음) — 체크박스 3개(추천/노출/신규)만
 // <label>이 <input>을 직접 감싸 getByLabel이 동작한다. 나머지 필드는 placeholder/select/파일input
-// 으로 잡는다. 그리고 admin 목록 테이블은 모달이 열려도 DOM에 계속 남아 있고, 각 행의 노출 토글
-// 버튼 aria-label이 "브랜드관 노출 켜짐/꺼짐, 클릭하여 전환"이라 체크박스 라벨("브랜드관 노출")과
-// 문서 전체 기준 substring이 겹친다 — 그래서 모든 폼 필드 로케이터를 `#brand-form`(모달의
-// <form id="brand-form">)으로 스코핑한다. 제출 버튼(저장/등록/수정 완료)은 모달 푸터에
+// 으로 잡는다. admin 목록 테이블은 모달이 열려도 DOM에 계속 남으므로 모든 폼 필드 로케이터를
+// `#brand-form`(모달의 <form id="brand-form">)으로 스코핑한다. 제출 버튼은 모달 푸터에
 // `form="brand-form"` 속성으로 연결돼 있을 뿐 실제로는 <form> 밖에 있어 스코핑하지 않는다.
 //
 // ⚠️ 라벨 충돌 — 제출 버튼 "브랜드 등록"(정확히 이 텍스트)은 헤더의 트리거 버튼
@@ -30,8 +29,8 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 // === true) — getByRole 기본 substring 매칭이라 exact:true 없이는 두 버튼 다 매칭돼 strict-mode
 // violation이 난다. 실측 후 exact:true로 고정했다(다른 wave의 label 충돌과 같은 종류의 함정).
 //
-// ⚠️ 생성 필수 필드(src/lib/brands/validate.ts:112-227, requireAll=true 경로): name·logo·
-// description·philosophy·auditGrade 5개(toInsertInput이 이 5개 중 하나라도 undefined면 null을
+// ⚠️ 생성 필수 필드(src/lib/brands/validate.ts, requireAll=true 경로): name·logo·
+// description·philosophy 4개(toInsertInput이 이 4개 중 하나라도 undefined면 null을
 // 반환해 400). 모달의 자체 JS 검증(BrandForm.tsx:48-49)은 name·description만 막고 logo·philosophy는
 // 막지 않는다 — 빈 채로 제출하면 서버가 400을 내 등록이 조용히 실패한다(logo는 min 1자라 이미지
 // 업로드 없이는 통과 불가). 그래서 이 스펙은 5개 필드를 전부 채우고, 로고는 ImageUploader(숨겨진
@@ -59,7 +58,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
   const editedName = `${name}-수정`;
   const description = `E2E 한 줄 소개 ${runId}`;
   const philosophy = `E2E 브랜드 철학 스토리 ${runId}`;
-  const officialUrl = `https://example.com/e2e-brand-${runId}`;
   const BRANDS_SEARCH_PLACEHOLDER = '브랜드명 검색...';
 
   // 1x1 투명 PNG — setInputFiles가 통과할 최소 유효 파일이면 되므로 실제 이미지 내용은 무의미하다.
@@ -124,7 +122,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     await loginAsAdmin(page);
     await page.goto('/admin/brands');
 
-    // 1) 등록 — BrandForm 모달. 필수 5필드(name/logo/description/philosophy/auditGrade) 전부 채우고
+    // 1) 등록 — BrandForm 모달. 필수 4필드(name/logo/description/philosophy) 전부 채우고
     // displayOrder=0으로 목록 최상단·PAGE_SIZE 안쪽에 고정한다.
     await page.getByRole('button', { name: '새 브랜드 등록' }).click();
     const form = page.locator('form#brand-form');
@@ -133,24 +131,20 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     // 빈 문자열로 남아 서버 validate(min 1자)가 400을 낸다.
     await expect(form.locator('img[alt="Uploaded"]')).toBeVisible({ timeout: 20_000 });
     await form.locator('input[placeholder="예: 지위픽"]').fill(name);
-    await form.locator('select').selectOption('B+');
     await form.locator('textarea[placeholder="브랜드관에 표시할 간단한 소개"]').fill(description);
     await form
       .locator('textarea[placeholder="상세한 브랜드 스토리와 철학을 입력하세요."]')
       .fill(philosophy);
-    await form.locator('input[type="url"]').fill(officialUrl);
     await form.getByLabel('신규 브랜드 뱃지').check();
     await form.getByLabel('진열 순서').fill('0');
     // ⚠️ "브랜드 등록"은 "새 브랜드 등록"(헤더 트리거)의 substring이라 exact:true 필수(위 주석).
     await page.getByRole('button', { name: '브랜드 등록', exact: true }).click();
 
-    // 2) 관리자 목록 — 등록한 필드 전부(등급·상품수·노출상태·공식몰 URL)가 반영됐는지 행 단위로 확인.
+    // 2) 관리자 목록 — 상품수·노출상태가 반영됐는지 행 단위로 확인.
     const adminRow = page.locator('tr', { hasText: name });
     await expect(adminRow).toBeVisible({ timeout: 15_000 });
-    await expect(adminRow).toContainText('B+ 등급');
     await expect(adminRow).toContainText('0개'); // 신규 브랜드라 등록 상품 0건
     await expect(adminRow).toContainText('노출'); // isVisible 기본값 true
-    await expect(adminRow.locator(`a[href="${officialUrl}"]`)).toHaveCount(1);
 
     // 3) 공개 /brands 목록 카드 — 이름·소개가 그대로 노출되는지 확인, 클릭해 상세로 이동(id 확보).
     // ⚠️ displayOrder=0으로 맨 앞에 고정했더니 "스포트라이트 브랜드"(1위 브랜드 소개 섹션)와
@@ -182,32 +176,26 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드', () =
     await expect(page.locator('h1')).toContainText(name);
     await expect(page.locator('body')).toContainText(description);
     await expect(page.locator('body')).toContainText(philosophy);
-    await expect(page.locator('body')).toContainText('입점 자료 확인 중');
+    await expect(page.locator('body')).not.toContainText('입점 자료 확인 중');
 
-    // 5) 관리자로 돌아와 이름 수정(빠른 수정 모달, "수정" 버튼의 aria-label이 "{name} 빠른 수정").
-    await page.goto('/admin/brands');
-    await page.getByPlaceholder(BRANDS_SEARCH_PLACEHOLDER).fill(name);
-    await expect(page.getByRole('button', { name: '빠른 수정' })).toHaveCount(1);
-    await page.getByRole('button', { name: '빠른 수정' }).click();
-    await form.locator('input[placeholder="예: 지위픽"]').fill(editedName);
-    await page.getByRole('button', { name: '수정 완료' }).click();
+    // 5) 기존 브랜드 단일 소유 화면인 전체 수정에서 이름을 바꾼다.
+    await page.goto(`/admin/brands/${brandId}`);
+    await page.locator('#bd-name').fill(editedName);
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.waitForURL((url) => url.pathname === '/admin/brands', { timeout: 20_000 });
     await expect(page.locator('table')).toContainText(editedName, { timeout: 15_000 });
 
     // 6) 공개 화면에 수정 반영 확인.
     await page.goto('/brands');
     await expect(page.locator('body')).toContainText(editedName);
 
-    // 7) 노출 끄기 — 목록의 노출 토글 버튼. ⚠️ admin/brands/page.tsx:83 handleToggleVisible는
-    // 낙관적 업데이트라 서버 PATCH가 끝나기 전에 행이 이미 '숨김'으로 보인다 — 그 직후 바로
-    // 공개 화면을 확인하면 PATCH가 아직 커밋되지 않아 실패할 수 있다(실측). PATCH 응답 자체를
-    // 기다려 실제 반영 시점을 확정한다.
-    await page.goto('/admin/brands');
+    // 7) 노출 끄기 — 같은 전체 수정 화면에서 노출 체크를 해제하고 저장한다.
+    await page.goto(`/admin/brands/${brandId}`);
+    await page.getByLabel('브랜드관 노출').uncheck();
+    await page.getByRole('button', { name: '저장', exact: true }).click();
+    await page.waitForURL((url) => url.pathname === '/admin/brands', { timeout: 20_000 });
     await page.getByPlaceholder(BRANDS_SEARCH_PLACEHOLDER).fill(editedName);
     const toggleRow = page.locator('tr', { hasText: editedName });
-    await Promise.all([
-      page.waitForResponse((res) => res.url().includes('/api/admin/brands/') && res.request().method() === 'PATCH'),
-      toggleRow.getByRole('button', { name: /브랜드관 노출/ }).click(),
-    ]);
     await expect(toggleRow).toContainText('숨김', { timeout: 15_000 });
 
     // 8) 비노출 확인 — 공개 목록에서 사라지고, 공개 상세도 404(getBrandById가 includeHidden 없이

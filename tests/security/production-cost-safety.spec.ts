@@ -1,7 +1,10 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
-import { shouldStartLocalWebServer } from '../../playwright.config';
+import {
+  shouldReuseLocalWebServer,
+  shouldStartLocalWebServer,
+} from '../../playwright.config';
 import {
   assertNoProductionOrPreviewTarget,
   DEFAULT_E2E_BASE_URL,
@@ -281,10 +284,16 @@ test.describe('Production 비용 안전 경계', () => {
     expect(shouldStartLocalWebServer(true, ['--project=products'])).toBe(false);
     expect(shouldStartLocalWebServer(true, ['--project=security'])).toBe(false);
     expect(shouldStartLocalWebServer(false, ['--project=chromium'])).toBe(false);
+    expect(shouldReuseLocalWebServer({ CI: '1' })).toBe(false);
+    expect(
+      shouldReuseLocalWebServer({ CI: '1', PLAYWRIGHT_REUSE_EXISTING_SERVER: '1' }),
+    ).toBe(true);
+    expect(shouldReuseLocalWebServer({})).toBe(true);
     expect(targetSafetySource).toContain("'www.baekjo-objet.com'");
     expect(targetSafetySource).toContain("'baekjo-obj.vercel.app'");
     expect(source).toContain("'x-vercel-protection-bypass'");
     expect(source).toContain('selectedProjects.some((project) => browserProjects.has(project))');
+    expect(read('next.config.ts')).toContain("allowedDevOrigins: ['127.0.0.1']");
     expect(source).not.toContain('process.env.ALLOW_PRODUCTION_QA =');
   });
 

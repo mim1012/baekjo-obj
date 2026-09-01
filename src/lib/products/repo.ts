@@ -4,15 +4,14 @@ import { getSupabase } from '@/lib/supabase/server';
 import { getShopCategorySlugs } from '@/data/shopFilters';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
+import { parseProductPetTypes, productSupportsPetType, serializeProductPetTypes } from '@/lib/products/petTypes';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
-
-/** DB pet_type 은 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 'both'로 정규화해
- *  admin select/필터가 조용히 깨지지 않게 한다. */
+/** DB pet_type의 기존 단일값·both·복수 JSON을 정규화하고, 깨진 값은 기존 공용값으로 방어한다. */
 function normalizePetType(raw: string): Product['petType'] {
-  return PET_TYPES.has(raw) ? (raw as Product['petType']) : 'both';
+  const normalized = serializeProductPetTypes(parseProductPetTypes(raw));
+  return normalized || 'both';
 }
 
 interface ProductRow {
@@ -77,18 +76,18 @@ function rowToProduct(row: ProductRow): Product {
     sellerName: typeof d.sellerName === 'string' ? d.sellerName : undefined,
     tags: Array.isArray(d.tags) ? (d.tags as string[]) : undefined,
     brandName: typeof d.brandName === 'string' ? d.brandName : undefined,
-    isMembersOnlyPrice: typeof d.isMembersOnlyPrice === 'boolean' ? d.isMembersOnlyPrice : undefined,
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : undefined,
     recommendedFor: Array.isArray(d.recommendedFor) ? (d.recommendedFor as string[]) : undefined,
     caution: Array.isArray(d.caution) ? (d.caution as string[]) : undefined,
     ingredients: typeof d.ingredients === 'string' ? d.ingredients : undefined,
     howToUse: typeof d.howToUse === 'string' ? d.howToUse : undefined,
     shippingFee: typeof d.shippingFee === 'number' ? d.shippingFee : undefined,
-    pointsEnabled: typeof d.pointsEnabled === 'boolean' ? d.pointsEnabled : undefined,
-    pointsRate: typeof d.pointsRate === 'number' ? d.pointsRate : undefined,
     isVisible: row.is_visible,
     isBest: row.is_best,
     isRecommended: row.is_recommended,
+    homeFeaturedOrder: typeof d.homeFeaturedOrder === 'number' ? d.homeFeaturedOrder : undefined,
+    shopFeaturedOrder: typeof d.shopFeaturedOrder === 'number' ? d.shopFeaturedOrder : undefined,
+    catalogOrder: typeof d.catalogOrder === 'number' ? d.catalogOrder : undefined,
   };
 }
 
@@ -110,7 +109,6 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
     query = categorySlugs ? query.in('category_slug', categorySlugs) : query.eq('category_slug', filter.categorySlug);
   }
   if (filter.brandId) query = query.eq('brand_id', filter.brandId);
-  if (filter.petType) query = query.eq('pet_type', filter.petType);
   if (filter.visibleOnly ?? true) query = query.eq('is_visible', true);
 
   const { data, error } = await query
@@ -122,7 +120,54 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
     .order('id', { ascending: true })
     .limit(PRODUCTS_LIST_CAP);
   if (error) throw error;
-  return (data as ProductRow[]).map(rowToProduct);
+  const products = (data as ProductRow[]).map(rowToProduct);
+  const requestedPetType = filter.petType;
+  return requestedPetType
+    ? products.filter((product) => productSupportsPetType(product.petType, requestedPetType))
+    : products;
+}
+
+export async function countVisibleProductsByBrand(brandIds: string[]): Promise<Record<string, number>> {
+  const uniqueBrandIds = [...new Set(brandIds)];
+  const entries = await Promise.all(
+    uniqueBrandIds.map(async (brandId) => {
+      const { count, error } = await getSupabase()
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+        .eq('brand_id', brandId)
+        .eq('is_visible', true);
+      if (error) throw error;
+      return { brandId, count: count ?? 0 };
+    }),
+  );
+  return entries.reduce<Record<string, number>>((counts, entry) => {
+    counts[entry.brandId] = entry.count;
+    return counts;
+  }, {});
+}
+
+export async function listAllVisibleProductsByBrand(brandId: string): Promise<Product[]> {
+  const rows: ProductRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await getSupabase()
+      .from('products')
+      .select(SELECT_COLUMNS)
+      .eq('brand_id', brandId)
+      .eq('is_visible', true)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(offset, offset + PRODUCTS_LIST_CAP - 1);
+    if (error) throw error;
+
+    const page = (data as ProductRow[]) ?? [];
+    rows.push(...page);
+    if (page.length < PRODUCTS_LIST_CAP) break;
+    offset += page.length;
+  }
+
+  return rows.map(rowToProduct);
 }
 
 export async function listProductsByBrand(brandId: string): Promise<Product[]> {

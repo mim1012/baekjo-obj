@@ -3,6 +3,7 @@ import {
   Brand,
   ConfirmedOrderSummary,
   InsuranceApplication,
+  MemberAddress,
   Order,
   PartnerInquiry,
   Product,
@@ -10,22 +11,29 @@ import {
   Shipment,
   User,
 } from '@/types';
+import { clearCart } from '@/lib/cart';
 import type {
   DeliveryStatus,
   OrderShipmentTrackingResponse,
   TrackingLevel,
   TrackingStep,
 } from '@/types';
-import { defaultSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
+import { defaultSurveyConfig, resolveSurveyConfig, type SurveyConfig } from '@/lib/survey/config';
 import type { KitsConfig } from '@/lib/kits/config';
-import type { PartnersConfig } from '@/lib/partners/config';
-import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
+import type {
+  AdminProductTagsConfig,
+  ProductTagDefinition,
+  ProductTagsConfig,
+} from '@/lib/productTags/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
 import { defaultNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -48,6 +56,41 @@ function setJSON<T>(key: string, value: T): void {
 
 let wishlistCache: string[] | null = null;
 let wishlistRequest: Promise<string[]> | null = null;
+let publicBrandLinksCache: PublicBrandLink[] | null = null;
+let publicBrandLinksRequest: Promise<PublicBrandLink[]> | null = null;
+
+export type PublicBrandLink = {
+  readonly label: string;
+  readonly href: string;
+};
+
+type PublicBrandNavSummary = {
+  readonly id: string;
+  readonly name: string;
+  readonly slug: string;
+  readonly isVisible?: boolean;
+};
+
+function parsePublicBrandNavSummary(value: unknown): PublicBrandNavSummary | null {
+  if (!isRecord(value)) return null;
+  return typeof value.id === 'string' && typeof value.name === 'string' && typeof value.slug === 'string'
+    ? {
+        id: value.id,
+        name: value.name,
+        slug: value.slug,
+        isVisible: typeof value.isVisible === 'boolean' ? value.isVisible : undefined,
+      }
+    : null;
+}
+
+function parsePublicBrandLinks(payload: unknown): PublicBrandLink[] {
+  if (!isRecord(payload) || !Array.isArray(payload.brands)) return [];
+  return payload.brands.flatMap((brand): PublicBrandLink[] => {
+    const summary = parsePublicBrandNavSummary(brand);
+    if (!summary || summary.isVisible === false) return [];
+    return [{ label: formatBrandDisplayName(summary.name), href: `/brands/${summary.slug}` }];
+  });
+}
 
 function clearLegacyWishlistStorage(): void {
   if (typeof window !== 'undefined') {
@@ -58,6 +101,14 @@ function clearLegacyWishlistStorage(): void {
 function setWishlistCache(productIds: string[]): string[] {
   wishlistCache = productIds;
   return productIds;
+}
+
+function setCachedWishlistState(productId: string, wishlisted: boolean): string[] {
+  const current = wishlistCache ?? [];
+  const next = wishlisted
+    ? Array.from(new Set([...current, productId]))
+    : current.filter((id) => id !== productId);
+  return setWishlistCache(next);
 }
 
 function clearWishlistCache(): void {
@@ -107,7 +158,7 @@ export async function toggleWishlist(productId: string): Promise<boolean> {
   }
 
   const { wishlisted } = (await response.json()) as { wishlisted: boolean };
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, wishlisted);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return wishlisted;
 }
@@ -127,7 +178,7 @@ export async function removeWishlist(productId: string): Promise<boolean> {
     throw new Error('wishlist-remove-failed');
   }
 
-  await getWishlist({ force: true });
+  setCachedWishlistState(productId, false);
   emitStorageEvent(STORAGE_EVENTS.WISHLIST_CHANGED);
   return false;
 }
@@ -372,6 +423,8 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
       throw new Error('login-required');
     }
     if (response.status === 409) {
+      const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+      if (error === 'profile-incomplete') throw new Error('profile-incomplete');
       throw new Error('out-of-stock');
     }
     throw new Error('order-create-failed');
@@ -411,6 +464,12 @@ export async function getAllOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export function adminOrdersExportHref(filters: AdminOrderFilters): string {
+  const params = adminOrderFiltersToSearchParams(filters);
+  const query = params.toString();
+  return `/api/admin/orders/export${query ? `?${query}` : ''}`;
 }
 
 /**
@@ -476,6 +535,18 @@ export async function updateOrderStatus(
     } catch {
       /* 본문 없음/비JSON — 일반 코드 유지 */
     }
+    throw new Error(code);
+  }
+}
+
+export async function requestOrderCancellation(orderId: string): Promise<void> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/cancel-request`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+    const code = body && typeof body.error === 'string' ? body.error : 'cancel-request-failed';
     throw new Error(code);
   }
 }
@@ -888,6 +959,25 @@ export async function getPublicBrands(): Promise<Brand[]> {
   }
 }
 
+export async function getPublicBrandLinks(): Promise<PublicBrandLink[]> {
+  if (publicBrandLinksCache) return publicBrandLinksCache;
+  if (publicBrandLinksRequest) return publicBrandLinksRequest;
+
+  publicBrandLinksRequest = fetch('/api/brands?view=nav')
+    .then(async (response) => {
+      if (!response.ok) return [];
+      const links = parsePublicBrandLinks(await response.json());
+      publicBrandLinksCache = links;
+      return links;
+    })
+    .catch(() => [])
+    .finally(() => {
+      publicBrandLinksRequest = null;
+    });
+
+  return publicBrandLinksRequest;
+}
+
 /** 단건 공개 브랜드. GET /api/brands/[id]. 404·실패는 null. */
 export async function getPublicBrandById(id: string): Promise<Brand | null> {
   try {
@@ -1141,12 +1231,23 @@ export async function getSurveyConfig(): Promise<SurveyConfig> {
   try {
     const response = await fetch('/api/survey');
     if (!response.ok) return defaultSurveyConfig;
-    const { questions, rules } = (await response.json()) as SurveyConfig;
+    const { questions, rules, resultContent } = (await response.json()) as SurveyConfig;
     if (!Array.isArray(questions) || !Array.isArray(rules)) return defaultSurveyConfig;
-    return { questions, rules };
+    return resolveSurveyConfig({ questions, rules, resultContent });
   } catch {
     return defaultSurveyConfig;
   }
+}
+
+/** 관리자 전용 설문 조회. 공개 폴백을 사용하지 않아 로드 실패 뒤 기본값 덮어쓰기를 막는다. */
+export async function getAdminSurveyConfig(): Promise<Required<SurveyConfig>> {
+  const response = await fetch('/api/admin/survey', { cache: 'no-store' });
+  if (!response.ok) throw new Error('survey-config-load-failed');
+  const config = (await response.json()) as SurveyConfig;
+  if (!Array.isArray(config.questions) || !Array.isArray(config.rules)) {
+    throw new Error('survey-config-invalid-response');
+  }
+  return resolveSurveyConfig(config);
 }
 
 /** 설문 config 저장(관리자). PUT /api/admin/survey. 성공/실패를 boolean 으로 돌려 화면이 알림을 띄운다. */
@@ -1163,13 +1264,8 @@ export async function saveSurveyConfig(config: SurveyConfig): Promise<{ ok: bool
   }
 }
 
-/* ── 케어 키트 / B2B 제휴처 / Q&A (관리자 싱글턴 config) ───────
- * 세 화면 모두 예전엔 page.tsx 인라인 mock 또는 정적 @/data 라 관리자가 편집해도 저장되지 않았다
- * (drift). 이제 각각 싱글턴 config 로 DB 에 담고, 관리자 화면은 아래 콘센트로 읽고(get*) 통째로
- * 저장한다(save*). 컴포넌트는 fetch 를 직접 하지 않고 아래 콘센트만 거친다(§4).
- *  - 케어 키트·제휴처: 공개 소비자가 없어 조회도 관리자 전용(GET /api/admin/kits·partners).
- *  - Q&A: 공개 상품상세·마이페이지가 GET /api/qna 로 읽으므로 공개 조회를 둔다.
- * 공개 조회는 실패·미저장을 default* 로 접지만, 관리자 kits/partners 는 실패를 throw 해 저장을 막는다.
+/* ── 케어 키트(관리자 싱글턴 config) ────────────────────────
+ * 공개 /landing/care-kit 카드와 연결된 실제 항목만 아래 콘센트로 읽고 저장한다.
  */
 
 /** 관리자 케어 키트 config. GET /api/admin/kits. 실패·깨진 응답은 throw 해서 저장을 막는다. */
@@ -1195,19 +1291,21 @@ export async function saveKitsConfig(config: KitsConfig): Promise<{ ok: boolean 
   }
 }
 
-/** 관리자 제휴처 config. GET /api/admin/partners. 실패·깨진 응답은 throw 해서 저장을 막는다. */
-export async function getPartnersConfig(): Promise<PartnersConfig> {
-  const response = await fetch('/api/admin/partners');
-  if (!response.ok) throw new Error('partners-config-load-failed');
-  const { items } = (await response.json()) as PartnersConfig;
-  if (!Array.isArray(items)) throw new Error('partners-config-invalid-response');
-  return { items };
+/* ── 상품 카드 태그·스토어 고민 필터 ────────────────────── */
+
+export async function getAdminProductTagsConfig(): Promise<AdminProductTagsConfig> {
+  const response = await fetch('/api/admin/product-tags', { cache: 'no-store' });
+  if (!response.ok) throw new Error('product-tags-config-load-failed');
+  const config = await response.json() as AdminProductTagsConfig;
+  if (!Array.isArray(config.items) || !Array.isArray(config.hiddenSlugs)) {
+    throw new Error('product-tags-config-invalid-response');
+  }
+  return { ...config, persistenceReady: config.persistenceReady === true };
 }
 
-/** 제휴처 config 저장(관리자). PUT /api/admin/partners. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
-export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: boolean }> {
+export async function saveAdminProductTagsConfig(config: ProductTagsConfig): Promise<{ ok: boolean }> {
   try {
-    const response = await fetch('/api/admin/partners', {
+    const response = await fetch('/api/admin/product-tags', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(config),
@@ -1218,30 +1316,28 @@ export async function savePartnersConfig(config: PartnersConfig): Promise<{ ok: 
   }
 }
 
-/** 공개 Q&A config. GET /api/qna. 실패·미저장 시 defaultQnaConfig 로 폴백(상품상세 Q&A 탭이 안 깨진다). */
-export async function getQnaConfig(): Promise<QnaConfig> {
+export async function createAdminProductTag(label: string): Promise<{
+  ok: boolean;
+  tag?: ProductTagDefinition;
+  created?: boolean;
+  error?: string;
+}> {
   try {
-    const response = await fetch('/api/qna');
-    if (!response.ok) return defaultQnaConfig;
-    const { items } = (await response.json()) as QnaConfig;
-    if (!Array.isArray(items)) return defaultQnaConfig;
-    return { items };
-  } catch {
-    return defaultQnaConfig;
-  }
-}
-
-/** Q&A config 저장(관리자). PUT /api/admin/qna. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
-export async function saveQnaConfig(config: QnaConfig): Promise<{ ok: boolean }> {
-  try {
-    const response = await fetch('/api/admin/qna', {
-      method: 'PUT',
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
+      body: JSON.stringify({ label }),
     });
-    return { ok: response.ok };
+    const body = await response.json().catch(() => ({})) as {
+      tag?: ProductTagDefinition;
+      created?: boolean;
+      error?: string;
+    };
+    return response.ok && body.tag
+      ? { ok: true, tag: body.tag, created: body.created === true }
+      : { ok: false, error: body.error ?? 'server-error' };
   } catch {
-    return { ok: false };
+    return { ok: false, error: 'network-error' };
   }
 }
 
@@ -1433,12 +1529,24 @@ export async function saveShowcaseReviewsConfig(config: ShowcaseReviewsConfig): 
 export async function getAdminOrderPolicyConfig(): Promise<OrderPolicyConfig> {
   const response = await fetch('/api/admin/order-policy');
   if (!response.ok) throw new Error('order-policy-config-load-failed');
-  const { bankTransferAutoCancelEnabled, bankTransferTtlHours } =
+  const { bankTransferAutoCancelEnabled, bankTransferTtlHours, bankTransferAccount } =
     (await response.json()) as OrderPolicyConfig;
   if (typeof bankTransferTtlHours !== 'number' || !Number.isFinite(bankTransferTtlHours)) {
     throw new Error('order-policy-config-invalid-response');
   }
-  return { bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true, bankTransferTtlHours };
+  if (bankTransferAccount !== null && (
+    typeof bankTransferAccount !== 'object' ||
+    typeof bankTransferAccount.bankName !== 'string' ||
+    typeof bankTransferAccount.accountNumber !== 'string' ||
+    typeof bankTransferAccount.accountHolder !== 'string'
+  )) {
+    throw new Error('order-policy-account-invalid-response');
+  }
+  return {
+    bankTransferAutoCancelEnabled: bankTransferAutoCancelEnabled === true,
+    bankTransferTtlHours,
+    bankTransferAccount,
+  };
 }
 
 /** 주문 정책 config 저장(관리자). PUT /api/admin/order-policy. 성공/실패를 boolean 으로 돌려 화면이 알린다. */
@@ -1456,6 +1564,7 @@ export async function saveOrderPolicyConfig(config: OrderPolicyConfig): Promise<
 }
 
 const USER_KEY = 'baekjo_user';
+let sessionUserRequest: Promise<User | null> | null = null;
 
 export function getCurrentUser(): User | null {
   return getJSON<User | null>(USER_KEY, null);
@@ -1463,7 +1572,11 @@ export function getCurrentUser(): User | null {
 
 export function setCurrentUser(user: User | null): void {
   if (typeof window === 'undefined') return;
-  clearWishlistCache();
+  const previousUser = getCurrentUser();
+  if (!user || previousUser?.id !== user.id) {
+    clearWishlistCache();
+    clearCart();
+  }
   if (user) {
     setJSON(USER_KEY, user);
   } else {
@@ -1472,19 +1585,25 @@ export function setCurrentUser(user: User | null): void {
 }
 
 export async function getSessionUser(): Promise<User | null> {
-  try {
-    const response = await fetch('/api/members/me');
-    if (response.status === 401) {
-      setCurrentUser(null);
-      return null;
-    }
-    if (!response.ok) return null;
-    const { user } = (await response.json()) as { user: User };
-    setCurrentUser(user);
-    return user;
-  } catch {
-    return null;
-  }
+  if (sessionUserRequest) return sessionUserRequest;
+
+  sessionUserRequest = fetch('/api/members/me')
+    .then(async (response) => {
+      if (response.status === 401) {
+        setCurrentUser(null);
+        return null;
+      }
+      if (!response.ok) return null;
+      const { user } = (await response.json()) as { user: User };
+      setCurrentUser(user);
+      return user;
+    })
+    .catch(() => null)
+    .finally(() => {
+      sessionUserRequest = null;
+    });
+
+  return sessionUserRequest;
 }
 
 /**
@@ -1745,6 +1864,43 @@ export async function updateMyProfile(input: {
   } catch {
     return { error: 'network' };
   }
+}
+
+export async function getMyAddresses(): Promise<MemberAddress[]> {
+  const response = await fetch('/api/members/me/addresses', { cache: 'no-store' });
+  if (!response.ok) throw new Error('address-list-failed');
+  const { addresses } = (await response.json()) as { addresses: MemberAddress[] };
+  return addresses;
+}
+
+export async function createMyAddress(input: Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt' | 'isDefault'> & { isDefault?: boolean }): Promise<MemberAddress> {
+  const response = await fetch('/api/members/me/addresses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-create-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function updateMyAddress(
+  id: string,
+  input: Partial<Omit<MemberAddress, 'id' | 'createdAt' | 'updatedAt'>>,
+): Promise<MemberAddress> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('address-update-failed');
+  const { address } = (await response.json()) as { address: MemberAddress };
+  return address;
+}
+
+export async function deleteMyAddress(id: string): Promise<void> {
+  const response = await fetch(`/api/members/me/addresses/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) throw new Error('address-delete-failed');
 }
 
 /** 비밀번호 변경. 상태코드를 도메인 에러로 매핑해 화면이 분기할 수 있게 한다. */
@@ -2057,6 +2213,18 @@ export async function deleteProductInquiry(id: string, _userId: string): Promise
   const response = await fetch(`/api/inquiries/${encodeURIComponent(id)}`, { method: 'DELETE', cache: 'no-store' });
   if (!response.ok) {
     throw new Error('inquiry-delete-failed');
+  }
+  emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
+}
+
+/** 관리자 상품문의 삭제. DELETE /api/admin/inquiries/[id]. */
+export async function deleteAdminProductInquiry(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/inquiries/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    throw new Error('admin-inquiry-delete-failed');
   }
   emitStorageEvent(STORAGE_EVENTS.INQUIRIES_CHANGED);
 }

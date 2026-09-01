@@ -15,8 +15,8 @@ import type { SurveyConfig } from '@/lib/survey/config';
 // questions·rules 각각 최소 1개 이상을 강제한다(src/app/api/admin/survey/route.ts:17-26의
 // isSurveyConfig — 비면 400, rules가 비면 결과 화면이 "분석 중..."에서 영원히 멈춘다).
 // 그래서 이 스펙은 문항을 추가/삭제하지 않고, 기존 문항 중 정확히 하나(첫 번째 문항)의
-// title 텍스트에만 E2E 마커를 덧붙인다 — 구조가 절대 invalid해질 수 없고, 원복도 텍스트
-// 하나만 되돌리면 되므로 손실이 없다.
+// title과 결과 화면 작은 제목에 E2E 마커를 덧붙인다. 저장 전 전체 원본 config를 보관하고
+// 테스트 본문과 afterAll에서 모두 원복한다.
 //
 // ⚠️ 첫 번째 문항을 고른 이유: src/app/diagnosis/page.tsx는 currentStep=0으로 시작해 항상
 // questions[0]을 먼저 렌더한다(dependsOn 필드가 타입엔 있지만 이 페이지에서 필터링에 쓰이지
@@ -54,6 +54,8 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
   let originalConfig: SurveyConfig | undefined;
   let originalFirstTitle: string;
   let editedFirstTitle: string;
+  let originalResultEyebrow: string;
+  let editedResultEyebrow: string;
 
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
@@ -66,6 +68,9 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
     originalConfig = data;
     originalFirstTitle = data.questions[0].title;
     editedFirstTitle = `${originalFirstTitle}${marker}`;
+    expect(data.resultContent?.heroEyebrow).toBeTruthy();
+    originalResultEyebrow = data.resultContent!.heroEyebrow;
+    editedResultEyebrow = `${originalResultEyebrow}${marker}`;
 
     // 이전 실행이 크래시로 원복에 실패했다면 첫 문항 title에 E2E 마커가 남아있을 수 있다 —
     // 그 상태를 "정상 스냅샷"으로 오인하면 잘못된 값을 계속 복원하게 되므로 최소한 로그로 드러낸다
@@ -94,7 +99,7 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
     await page.close();
   });
 
-  test('첫 문항 title 편집 → 관리자 UI+공개 GET+공개 진단화면 반영 → 원본으로 복원', async ({ page }) => {
+  test('첫 문항·결과 공통 문구 편집 → 관리자 UI+공개 GET+고객 화면 반영 → 원본으로 복원', async ({ page }) => {
     // home-settings.spec.ts와 동일한 alert 처리 — 클릭과 동시에 dialog 이벤트를 기다린다.
     async function saveAndExpectSuccessAlert() {
       const [dialog] = await Promise.all([
@@ -128,6 +133,7 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
     await titleInput.fill(editedFirstTitle);
     await page.getByRole('button', { name: '수정 저장' }).click();
     await expect(editModalTitle).not.toBeVisible({ timeout: 15_000 });
+    await page.getByLabel('결과 화면 작은 제목').fill(editedResultEyebrow);
 
     // 2) 드래프트를 서버에 반영 — 관리자 목록에 수정된 title이 즉시 보인다.
     await expect(questionsPanel.getByRole('heading', { level: 3, name: editedFirstTitle, exact: true })).toBeVisible({
@@ -141,18 +147,25 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
     await expect(
       page.getByRole('heading', { level: 3, name: editedFirstTitle, exact: true }),
     ).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByLabel('결과 화면 작은 제목')).toHaveValue(editedResultEyebrow);
 
     // 4) 공개 GET /api/survey에도 반영됐는지 직접 확인.
     const publicRes = await page.request.get('/api/survey');
     expect(publicRes.ok()).toBe(true);
     const publicConfig = (await publicRes.json()) as SurveyConfig;
     expect(publicConfig.questions[0].title).toBe(editedFirstTitle);
+    expect(publicConfig.resultContent?.heroEyebrow).toBe(editedResultEyebrow);
 
     // 5) 공개 /diagnosis 첫 문항(questions[0], currentStep=0으로 항상 먼저 렌더)에도 반영되는지 확인.
     await page.goto('/diagnosis');
     await expect(page.getByRole('heading', { name: editedFirstTitle, exact: true })).toBeVisible({ timeout: 15_000 });
 
-    // 6) 원본으로 복원(afterAll과 별개로 테스트 본문에서도 즉시 복원 — afterAll은 안전망).
+    // 6) 고객 결과 화면의 공통 문구도 같은 저장값을 읽는지 확인한다.
+    await page.evaluate(() => localStorage.setItem('baekjo_survey_answers', '{}'));
+    await page.goto('/diagnosis/result');
+    await expect(page.getByText(editedResultEyebrow, { exact: true })).toBeVisible({ timeout: 15_000 });
+
+    // 7) 원본으로 복원(afterAll과 별개로 테스트 본문에서도 즉시 복원 — afterAll은 안전망).
     await page.goto('/admin/survey');
     await expect(page.getByRole('heading', { name: '진단 문항', level: 2 })).toBeVisible({ timeout: 15_000 });
     const editedCard = questionsPanel
@@ -165,15 +178,17 @@ test.describe('골든플로우 #1: 관리자 CRUD 실구동 — 맞춤 진단 �
     await restoreInput.fill(originalFirstTitle);
     await page.getByRole('button', { name: '수정 저장' }).click();
     await expect(editModalTitle).not.toBeVisible({ timeout: 15_000 });
+    await page.getByLabel('결과 화면 작은 제목').fill(originalResultEyebrow);
     await saveAndExpectSuccessAlert();
 
-    // 7) 원복이 실제로 반영됐는지 재조회해서 비교(추측하지 않는다 — PUT 성공만으로 끝내지 않음).
+    // 8) 원복이 실제로 반영됐는지 재조회해서 비교(추측하지 않는다 — PUT 성공만으로 끝내지 않음).
     const restoredRes = await page.request.get('/api/survey');
     expect(restoredRes.ok()).toBe(true);
     const restoredConfig = (await restoredRes.json()) as SurveyConfig;
     expect(restoredConfig.questions[0].title).toBe(originalFirstTitle);
     expect(restoredConfig.questions.length).toBe(originalConfig!.questions.length);
     expect(restoredConfig.rules.length).toBe(originalConfig!.rules.length);
+    expect(restoredConfig.resultContent?.heroEyebrow).toBe(originalResultEyebrow);
 
     await page.goto('/diagnosis');
     await expect(page.getByRole('heading', { name: originalFirstTitle, exact: true })).toBeVisible({

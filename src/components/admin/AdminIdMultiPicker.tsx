@@ -80,7 +80,7 @@ export default function AdminIdMultiPicker({
                   key={id}
                   className="inline-flex items-center gap-1 border border-[#C99] bg-[#FBEFEF] px-2 py-1 text-xs text-[#8A3B3B]"
                 >
-                  알 수 없는 ID: {id}
+                  현재 목록에서 찾을 수 없는 기존 연결값: {id}
                   <button
                     type="button"
                     aria-label={`${id} 제거`}
@@ -137,7 +137,7 @@ export default function AdminIdMultiPicker({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 aria-label={ariaLabel ? `${ariaLabel} 검색` : '검색'}
-                placeholder="이름 · ID 검색"
+                placeholder="이름으로 검색"
                 className="w-full border border-[#D1D0C8] bg-white py-2 pl-8 pr-3 text-sm focus:border-[#2F3B34]"
               />
             </label>
