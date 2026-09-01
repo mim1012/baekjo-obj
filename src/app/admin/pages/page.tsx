@@ -170,7 +170,7 @@ export default function AdminPagesPage() {
 
       {error && (
         <div role="alert" className="border border-[#DFC8C4] bg-[#F7ECEA] px-5 py-4 text-sm font-medium leading-6 text-[#8B3E38]">
-          {error} 화면 목록은 계속 사용할 수 있지만 ‘게시형’ 화면은 최신 CMS 데이터베이스 적용 전까지 저장할 수 없습니다.
+          {error} 화면 목록은 계속 사용할 수 있습니다. CMS 전용 표가 없는 환경도 기존 사이트 설정 저장소로 자동 연결되므로, 로그인과 네트워크 상태를 확인한 뒤 새로고침해 주세요.
         </div>
       )}
 

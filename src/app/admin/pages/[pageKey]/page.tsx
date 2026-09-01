@@ -207,21 +207,16 @@ export default function AdminPageEditor() {
           ) : undefined}
         />
         <div role="alert" className="border border-[#D8C4A3] bg-[#FFF8E8] p-6 text-[#5E4A28] sm:p-8">
-          <h2 className="text-lg font-bold text-[#17211D]">지금은 이 화면을 수정할 수 없습니다</h2>
+          <h2 className="text-lg font-bold text-[#17211D]">편집 내용을 불러오지 못했습니다</h2>
           <p className="mt-3 break-keep text-sm leading-7">
-            화면 관리용 데이터베이스 준비가 아직 끝나지 않았습니다. 개발자가 DB 적용 작업을 마치면 이곳에 기존 홈페이지 내용이 자동으로 나타나고, 임시저장과 게시를 사용할 수 있습니다.
+            로그인 상태나 네트워크 연결을 확인한 뒤 새로고침해 주세요. CMS 전용 표가 아직 없는 환경은 기존 사이트 설정 저장소로 자동 연결되므로 정상적인 경우에는 아래 안내가 아니라 실제 입력칸이 표시됩니다.
           </p>
-          <div className="mt-5 grid gap-px bg-[#E3D6BF] sm:grid-cols-3">
-            <div className="bg-white p-4"><p className="text-xs font-bold text-[#8A6B34]">현재 고객 홈페이지</p><p className="mt-2 text-sm font-semibold text-[#17211D]">기존 내용 그대로 유지</p></div>
-            <div className="bg-white p-4"><p className="text-xs font-bold text-[#8A6B34]">관리자 저장·게시</p><p className="mt-2 text-sm font-semibold text-[#17211D]">DB 적용 전까지 차단</p></div>
-            <div className="bg-white p-4"><p className="text-xs font-bold text-[#8A6B34]">직원이 할 일</p><p className="mt-2 text-sm font-semibold text-[#17211D]">현재는 고객 화면만 확인</p></div>
-          </div>
+          {error && <p className="mt-4 border-t border-[#E3D6BF] pt-4 text-sm font-semibold text-[#A65348]">오류 내용: {error}</p>}
           {knownDefinition && (
             <p className="mt-5 border-t border-[#E3D6BF] pt-4 text-xs leading-6 text-[#6F5B38]">
-              DB 적용 후 수정할 영역: {knownDefinition.sections.map((item) => item.label).join(' · ')}
+              이 화면에서 관리하는 영역: {knownDefinition.sections.map((item) => item.label).join(' · ')}
             </p>
           )}
-          {error && <p className="sr-only">{error}</p>}
         </div>
         {pageKey === 'brands' && (
           <section className="border border-[#E7E0D5] bg-white p-5 sm:p-7">

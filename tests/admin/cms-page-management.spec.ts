@@ -54,15 +54,21 @@ test.describe('비개발자용 페이지 관리 CMS', () => {
     expect(editor).toContain('항목 삭제');
   });
 
-  test('DB 적용 상태와 관계없이 관리 버튼으로 편집 위치를 확인할 수 있다', () => {
+  test('CMS 전용 표가 없어도 기존 DB 호환 저장소를 사용해 편집 화면을 연다', () => {
     const pageList = read('src', 'app', 'admin', 'pages', 'page.tsx');
     const editor = read('src', 'app', 'admin', 'pages', '[pageKey]', 'page.tsx');
+    const repo = read('src', 'lib', 'cms', 'repo.ts');
 
     expect(pageList).not.toContain('aria-disabled={unavailable}');
     expect(pageList).not.toContain("'pointer-events-none opacity-40'");
     expect(pageList).toContain('href={action.adminRoute}');
-    expect(editor).toContain('지금은 이 화면을 수정할 수 없습니다');
-    expect(editor).toContain('DB 적용 후 수정할 영역');
+    expect(editor).not.toContain('지금은 이 화면을 수정할 수 없습니다');
+    expect(editor).not.toContain('DB 적용 전까지 차단');
+    expect(repo).toContain("const COMPATIBILITY_ROW_PREFIX = 'cms-page:'");
+    expect(repo).toContain(".from('site_settings')");
+    expect(repo).toContain('saveCmsCompatibilityDraft');
+    expect(repo).toContain('publishCmsCompatibilityDraft');
+    expect(read('supabase', 'migrations', '0154_import_cms_compatibility_rows.sql')).toContain("id like 'cms-page:%'");
   });
 
   test('공개 화면은 CMS 게시본을 읽고, 마이그레이션은 전체 카탈로그를 초기 등록한다', () => {
@@ -141,7 +147,8 @@ test.describe('비개발자용 페이지 관리 CMS', () => {
     const repo = read('src', 'lib', 'cms', 'repo.ts');
     const content = read('src', 'lib', 'cms', 'content.ts');
     const settingsRepo = read('src', 'lib', 'settings', 'repo.ts');
-    expect(repo).toContain("code === '42P01' || code === 'PGRST205'");
+    expect(repo).toContain("code === '42P01'");
+    expect(repo).toContain("code === 'PGRST205'");
     expect(content).toContain('isCmsSchemaUnavailable(error)');
     expect(settingsRepo).toContain('isCmsSchemaUnavailable(error)');
   });
