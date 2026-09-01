@@ -11,6 +11,8 @@ function source(...segments: string[]): string {
 test('제품 상세는 성분 안내와 브랜드 검토 구역 및 연결 탭을 노출하지 않는다', () => {
   const productPage = source('src', 'app', 'shop', '[id]', 'page.tsx');
   const tabsClient = source('src', 'components', 'shop', 'ProductTabsClient.tsx');
+  const productDetailClient = source('src', 'components', 'shop', 'ProductDetailClient.tsx');
+  const noticesConfig = source('src', 'lib', 'notices', 'config.ts');
 
   for (const removedCopy of [
     'id="details"',
@@ -28,6 +30,9 @@ test('제품 상세는 성분 안내와 브랜드 검토 구역 및 연결 탭�
     'function InfoCard',
     'function ChipCard',
     'function ChecklistCard',
+    'pointsRateLabel',
+    'getProductPointsRateLabel',
+    '적립금',
   ]) {
     expect(productPage, `${removedCopy}가 제품 상세 소스에 남아 있습니다.`).not.toContain(removedCopy);
   }
@@ -41,4 +46,9 @@ test('제품 상세는 성분 안내와 브랜드 검토 구역 및 연결 탭�
   expect(tabsClient).toContain("['상품 이야기', 'story']");
   expect(tabsClient).toContain("[`후기 ${reviews.length}`, 'reviews']");
   expect(tabsClient).toContain("[`문의 ${inquiries.length}`, 'qna']");
+  expect(productDetailClient).not.toContain('pointsRateLabel');
+  expect(productDetailClient).not.toContain('getProductPointsRateLabel');
+  expect(productDetailClient).not.toContain('적립금');
+  expect(noticesConfig).not.toContain('쿠폰');
+  expect(noticesConfig).not.toContain('첫 구매 고객 무료 배송 혜택');
 });

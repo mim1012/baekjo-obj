@@ -87,8 +87,7 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'images',
   'options',
   'auditPoints',
-  'relatedConcernSlugs',
-  'tags',
+  'concernTags',
   'detailBlocks', // ProductDetailEditor(/admin/products/[id]/editor)로 text+image 블록 저장 → #story 순서 검증
   'ingredients',
   'howToUse',
@@ -99,12 +98,9 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
-  'pointsEnabled',
-  'pointsRate',
 ];
 
 // EXCLUDED = 의도적으로 라이브 왕복 스펙에서 다루지 않는 필드 + 사유.
@@ -113,8 +109,10 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
   reviewCount: '파생값(구매평 수) — ProductForm 입력 없음, 생성 시 서버가 0으로 채움.',
   categorySlug: '관리자 UI 없음 — category 설정에서 서버가 파생. ProductForm 미노출.',
   categoryName: '관리자 UI 없음 — ProductForm 미노출(계약만 개방).',
-  concernTags:
-    '관리자 UI 없음 — ProductForm 미노출, 생성 시 []로 기본값. (Brand.relatedConcernSlugs 와 혼동 주의)',
+  relatedConcernSlugs:
+    '레거시 내부 필드 — ProductForm은 기존 운영 데이터의 concernTags를 사용하며 이 필드는 직접 편집하지 않는다.',
+  tags:
+    '관리자 UI 제거 — 카테고리·고민 DB 선택으로 분류 체계를 통일하고 기존 저장값은 read-modify-write로 보존.',
   ageGroup:
     '관리자 UI 없음 — formPayload.ts 가 항상 "all" 로 하드코딩 전송(사용자 편집 불가).',
   brandName:
@@ -217,11 +215,12 @@ test.describe('상품·브랜드 폼 필드 커버리지 감사 — 필드 누�
     assertNoStale('브랜드', brandFields, BRAND_VERIFIED, BRAND_EXCLUDED);
   });
 
-  test('상품 검증 포인트·관련 고민·태그는 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
-    for (const connected of ['auditPoints', 'relatedConcernSlugs', 'tags']) {
+  test('상품 검증 포인트·관련 고민은 dead field가 아니라 VERIFIED 로 승격돼 있다', () => {
+    for (const connected of ['auditPoints', 'concernTags']) {
       expect(PRODUCT_VERIFIED).toContain(connected);
       expect(PRODUCT_EXCLUDED[connected], `Product.${connected} 는 EXCLUDED 에 남아 있으면 안 됨`).toBeUndefined();
     }
+    expect(PRODUCT_EXCLUDED.tags).toBeTruthy();
   });
 });
 
@@ -257,7 +256,6 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'deliveryEstimate',
   'returnNotice',
   'sellerName',
-  'pointsRate',
 ]);
 
 // 브랜드: brand-card + brand-detail 표면이 공개 렌더하고 라이브 스펙이 검증하는 필드.

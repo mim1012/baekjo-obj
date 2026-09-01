@@ -63,7 +63,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   const salePrice = 9000;
   const stock = 50;
   const shippingFee = 3000;
-  const pointsRate = 5;
   const detailText = `E2E상세본문텍스트블록 ${runId}`;
   const detailImageAlt = `E2E상세이미지 ${runId}`;
 
@@ -157,11 +156,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await spin.nth(2).fill(String(stock));
     await spin.nth(3).fill(String(shippingFee));
 
-    // ── 3) 적립금 지급 + 적립률 ──
-    await page.getByText('적립금 지급').click();
-    await page.getByPlaceholder('상품금액 기준. 배송비 제외').fill(String(pointsRate));
-
-    // ── 4) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
+    // ── 3) 옵션 2개 (OptionEditor 는 빈 상태로 시작 → 추가 버튼으로 행 생성) ──
     await page.getByRole('button', { name: '옵션 추가' }).click();
     await page.getByLabel('옵션 1 이름').fill(opt1Name);
     await page.getByLabel('옵션 1 가격').fill('20000');
@@ -236,7 +231,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       deliveryEstimate,
       returnNotice,
       sellerName,
-      pointsRate: `${pointsRate}%`, // "…{rate}% 적립 설정"
       brandName: brandNameText,
     };
     for (const f of getSurface('shop-detail').fields) {
@@ -304,7 +298,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(editSpin.nth(1)).toHaveValue(String(salePrice));
     await expect(editSpin.nth(2)).toHaveValue(String(stock));
     await expect(editSpin.nth(3)).toHaveValue(String(shippingFee));
-    await expect(page.getByPlaceholder('상품금액 기준. 배송비 제외')).toHaveValue(String(pointsRate));
     await expect(page.getByLabel('옵션 1 이름')).toHaveValue(opt1Name);
     await expect(page.getByLabel('옵션 1 가격')).toHaveValue('20000');
     await expect(page.getByLabel('옵션 2 이름')).toHaveValue(opt2Name);

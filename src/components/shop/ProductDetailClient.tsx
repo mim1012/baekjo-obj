@@ -4,20 +4,19 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
-import { Product } from '@/types';
+import type { Product } from '@/types';
 import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import { DEFAULT_COMMERCE_POLICY } from '@/data/company';
-import { getProductPointsRateLabel } from '@/lib/products/points';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 
 interface Props {
   product: Product;
+  relatedConcernLabels?: string[];
 }
 
-export default function ProductDetailClient({ product }: Props) {
+export default function ProductDetailClient({ product, relatedConcernLabels = [] }: Props) {
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
@@ -87,6 +86,9 @@ export default function ProductDetailClient({ product }: Props) {
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
+  const categoryLabels = [product.categoryName ?? product.category, product.lifestyleCategory].filter(
+    (label, index, labels): label is string => Boolean(label) && labels.indexOf(label) === index,
+  );
 
 
   // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
@@ -103,11 +105,7 @@ export default function ProductDetailClient({ product }: Props) {
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const isSellable = hasPrice && product.stock > 0;
-  const unavailableTitle = isAdminViewer
-    ? '판매가 미입력'
-    : product.isMembersOnlyPrice
-      ? '회원 전용가 등록 대기'
-      : '판매가 등록 대기';
+  const unavailableTitle = isAdminViewer ? '판매가 미입력' : '판매가 등록 대기';
   const unavailableDescription = isAdminViewer
     ? '관리자 상품 편집에서 판매가와 재고를 입력하면 장바구니와 바로구매가 활성화됩니다.'
     : '판매가가 확정되면 장바구니와 바로구매를 이용할 수 있습니다.';
@@ -115,10 +113,9 @@ export default function ProductDetailClient({ product }: Props) {
   // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
-  const pointsRateLabel = getProductPointsRateLabel(product);
   const isRepetMadeToOrder = isRepetMadeToOrderProduct(product.brandId);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -126,6 +123,11 @@ export default function ProductDetailClient({ product }: Props) {
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
       return;
     }
     addToCart({
@@ -136,7 +138,7 @@ export default function ProductDetailClient({ product }: Props) {
     alert('장바구니에 담겼습니다.');
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -144,6 +146,11 @@ export default function ProductDetailClient({ product }: Props) {
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    const user = await getSessionUser();
+    if (!user) {
+      router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
       return;
     }
     addToCart({
@@ -203,6 +210,25 @@ export default function ProductDetailClient({ product }: Props) {
         <div className="mb-3 text-sm font-semibold tracking-wide text-[#59615B] uppercase">{brandName}</div>
         <h1 className="text-3xl font-bold text-[#17211D] tracking-tight text-balance leading-tight">{product.name}</h1>
 
+        {categoryLabels.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2" aria-label="상품 카테고리">
+            {categoryLabels.map((label) => (
+              <span key={label} className="rounded-full bg-[#F1EDE5] px-3 py-1 text-xs font-medium text-[#17211D]">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+        {relatedConcernLabels.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2" aria-label="상품 주요 고민">
+            {relatedConcernLabels.map((label) => (
+              <span key={label} className="rounded-full bg-[#EDF0EC] px-3 py-1 text-xs font-medium text-[#17201B]">
+                {label}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="mt-4 flex items-center gap-2 text-sm text-[#17211D]">
           <Star className="size-4 fill-[#17211D]" />
           <span className="font-semibold tabular-nums">{product.rating}</span>
@@ -233,18 +259,12 @@ export default function ProductDetailClient({ product }: Props) {
         </div>
 
         <div className="mt-8 space-y-4 text-sm">
-          <div className="flex">
-            <span className="w-24 text-[#59615B] font-medium">배송비</span>
-            <span className="text-[#59615B]">
-              {product.shippingFee !== undefined
-                ? `${formatPrice(product.shippingFee)} (50,000원 이상 무료배송)`
-                : DEFAULT_COMMERCE_POLICY.shippingLabel}
-            </span>
-          </div>
-          {pointsRateLabel && (
+          {product.shippingFee !== undefined && (
             <div className="flex">
-              <span className="w-24 text-[#59615B] font-medium">적립금</span>
-              <span className="text-[#59615B]">상품금액 기준 {pointsRateLabel} 적립 설정</span>
+              <span className="w-24 text-[#59615B] font-medium">배송비</span>
+              <span className="text-[#59615B]">
+                {formatPrice(product.shippingFee)}
+              </span>
             </div>
           )}
         </div>
@@ -327,7 +347,7 @@ export default function ProductDetailClient({ product }: Props) {
             <>
               <button
                 type="button"
-                onClick={handleAddToCart}
+                onClick={() => void handleAddToCart()}
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -335,7 +355,7 @@ export default function ProductDetailClient({ product }: Props) {
               </button>
               <button
                 type="button"
-                onClick={handleBuyNow}
+                onClick={() => void handleBuyNow()}
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-[14px] md:text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >

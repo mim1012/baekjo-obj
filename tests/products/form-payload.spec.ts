@@ -10,7 +10,7 @@ import {
 
 // 상품 폼 "봉인 해제" payload 회귀 스펙 — 순수 함수, 브라우저·DB 불필요.
 // 공개 상세가 렌더하는데 폼이 못 채우던 필드(options·images·ingredients·howToUse·recommendedFor·
-// caution·배송/판매자 안내·isMembersOnlyPrice)를 폼이 담되, 암묵 스프레드가 아니라 명시
+// caution·배송/판매자 안내)를 폼이 담되, 암묵 스프레드가 아니라 명시
 // 화이트리스트로만 담는지 잠근다. 특히 detailBlocks(다른 화면 소유)를 절대 재전송하지 않는지.
 
 /** 편집 가능한 전체 필드가 채워진 폼 상태. */
@@ -33,8 +33,7 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
       { id: 'opt-b', name: '5kg', price: '68000', stock: '5' },
     ],
     auditPoints: ['상품 검증 포인트'],
-    relatedConcernSlugs: ['skin'],
-    tags: ['저알러지'],
+    concernTags: ['skin'],
     ingredients: '닭고기, 현미',
     howToUse: '하루 2회 급여',
     recommendedFor: ['알러지가 있는 반려견'],
@@ -44,7 +43,6 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
     shippingNotice: '제주/도서 추가비',
     returnNotice: '단순 변심 7일 내',
     sellerName: '백조오브제',
-    isMembersOnlyPrice: false,
     isVisible: true,
     isBest: false,
     isRecommended: true,
@@ -67,22 +65,21 @@ test('detailBlocks 를 절대 재전송하지 않는다(ProductDetailEditor 소�
   expect('detailBlocks' in payload).toBe(false);
 });
 
-test('rating·reviewCount·concernTags 는 폼이 담지 않는다(집계·별도 소유)', () => {
+test('rating·reviewCount 는 폼이 담지 않는다(집계·별도 소유)', () => {
   const payload = buildProductUpdatePayload(form(), '지위픽') as Record<string, unknown>;
   expect('rating' in payload).toBe(false);
   expect('reviewCount' in payload).toBe(false);
-  expect('concernTags' in payload).toBe(false);
+  expect(payload.concernTags).toEqual(['skin']);
 });
 
 /* ── 봉인 해제 필드가 실제로 담긴다 ── */
 
-test('봉인됐던 필드(images·options·auditPoints·relatedConcernSlugs·tags·ingredients·howToUse·recommendedFor·caution·배송·판매자)가 payload 에 담긴다', () => {
+test('봉인됐던 필드(images·options·auditPoints·concernTags·ingredients·howToUse·recommendedFor·caution·배송·판매자)가 payload 에 담긴다', () => {
   const payload = buildProductUpdatePayload(form(), '지위픽');
   expect(payload.images).toEqual(['/products/p1.webp', '/products/p1-2.webp']);
   expect(payload.options).toHaveLength(2);
   expect(payload.auditPoints).toEqual(['상품 검증 포인트']);
-  expect(payload.relatedConcernSlugs).toEqual(['skin']);
-  expect(payload.tags).toEqual(['저알러지']);
+  expect(payload.concernTags).toEqual(['skin']);
   expect(payload.ingredients).toBe('닭고기, 현미');
   expect(payload.howToUse).toBe('하루 2회 급여');
   expect(payload.recommendedFor).toEqual(['알러지가 있는 반려견']);
@@ -102,19 +99,17 @@ test('배열은 입력을 그대로 참조하지 않고 새 배열로 복사한�
   const payload = buildProductUpdatePayload(src, '지위픽');
   expect(payload.images).not.toBe(src.images);
   expect(payload.auditPoints).not.toBe(src.auditPoints);
-  expect(payload.relatedConcernSlugs).not.toBe(src.relatedConcernSlugs);
-  expect(payload.tags).not.toBe(src.tags);
+  expect(payload.concernTags).not.toBe(src.concernTags);
   expect(payload.recommendedFor).not.toBe(src.recommendedFor);
   expect(payload.caution).not.toBe(src.caution);
 });
 
-test('images·auditPoints·relatedConcernSlugs·tags·recommendedFor·caution 의 공백 항목은 제거된다', () => {
+test('images·auditPoints·concernTags·recommendedFor·caution 의 공백 항목은 제거된다', () => {
   const payload = buildProductUpdatePayload(
     form({
       images: ['/products/p1.webp', '   ', ''],
       auditPoints: ['검증', ' '],
-      relatedConcernSlugs: ['skin', ''],
-      tags: ['태그', '  '],
+      concernTags: ['skin', ''],
       recommendedFor: ['유효', '  '],
       caution: ['', '주의'],
     }),
@@ -122,21 +117,19 @@ test('images·auditPoints·relatedConcernSlugs·tags·recommendedFor·caution �
   );
   expect(payload.images).toEqual(['/products/p1.webp']);
   expect(payload.auditPoints).toEqual(['검증']);
-  expect(payload.relatedConcernSlugs).toEqual(['skin']);
-  expect(payload.tags).toEqual(['태그']);
+  expect(payload.concernTags).toEqual(['skin']);
   expect(payload.recommendedFor).toEqual(['유효']);
   expect(payload.caution).toEqual(['주의']);
 });
 
 test('배열이 비면 빈 배열을 담는다(전체 삭제 반영)', () => {
   const payload = buildProductUpdatePayload(
-    form({ images: [], auditPoints: [], relatedConcernSlugs: [], tags: [], recommendedFor: [], caution: [] }),
+    form({ images: [], auditPoints: [], concernTags: [], recommendedFor: [], caution: [] }),
     '지위픽',
   );
   expect(payload.images).toEqual([]);
   expect(payload.auditPoints).toEqual([]);
-  expect(payload.relatedConcernSlugs).toEqual([]);
-  expect(payload.tags).toEqual([]);
+  expect(payload.concernTags).toEqual([]);
   expect(payload.recommendedFor).toEqual([]);
   expect(payload.caution).toEqual([]);
 });
@@ -169,32 +162,6 @@ test('shippingFee 가 숫자면 담고, null/undefined(미입력)면 키를 담�
 test('salePrice 0 은 null 로 정규화한다(할인 없음)', () => {
   expect(buildProductUpdatePayload(form({ salePrice: 0 }), 'x').salePrice).toBeNull();
   expect(buildProductUpdatePayload(form({ salePrice: 25000 }), 'x').salePrice).toBe(25000);
-});
-
-/* ── isMembersOnlyPrice boolean 기본값 ── */
-
-test('isMembersOnlyPrice 는 boolean 으로 항상 담고 미지정 시 false', () => {
-  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: true }), 'x').isMembersOnlyPrice).toBe(true);
-  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: undefined }), 'x').isMembersOnlyPrice).toBe(false);
-});
-
-/* ── pointsEnabled: boolean 으로 항상 담음(shippingFee 와 달리 조건부 아님) ── */
-
-test('pointsEnabled 는 boolean 으로 항상 담고 미지정 시 false', () => {
-  expect(buildProductUpdatePayload(form({ pointsEnabled: true }), 'x').pointsEnabled).toBe(true);
-  expect(buildProductUpdatePayload(form({ pointsEnabled: undefined }), 'x').pointsEnabled).toBe(false);
-});
-
-/* ── pointsRate: 적립금 지급이 켜져 있을 때만 저장, 해제 시 기존 rate 제거 경로 ── */
-
-test('pointsRate 는 pointsEnabled=true 인 숫자만 담고, 해제 상태면 숫자가 있어도 담지 않는다', () => {
-  expect(buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: 5 }), 'x').pointsRate).toBe(5);
-
-  const disabled = buildProductUpdatePayload(form({ pointsEnabled: false, pointsRate: 5 }), 'x') as Record<string, unknown>;
-  expect('pointsRate' in disabled).toBe(false);
-
-  const undef = buildProductUpdatePayload(form({ pointsEnabled: true, pointsRate: undefined }), 'x') as Record<string, unknown>;
-  expect('pointsRate' in undef).toBe(false);
 });
 
 /* ── normalizeOptions: 빈 행·유효하지 않은 행 제거, id 부여 ── */
