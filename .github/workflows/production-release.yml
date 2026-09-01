@@ -40,6 +40,21 @@ jobs:
           RELEASE_SHA: ${{ steps.verify.outputs.sha }}
         run: |
           set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          existing_tag=""
+          while read -r candidate; do
+            existing_sha=$(git rev-list -n 1 "$candidate")
+            if [ "$existing_sha" = "$RELEASE_SHA" ]; then
+              existing_tag="$candidate"
+              break
+            fi
+          done < <(git for-each-ref --format='%(refname:strip=2)' refs/tags)
+          if [ -n "$existing_tag" ]; then
+            echo "tag=$existing_tag" >> "$GITHUB_OUTPUT"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           base_tag="v$(date -u +%Y.%m.%d)"
           tag="$base_tag"
           suffix=0
@@ -64,8 +79,10 @@ jobs:
           done
 
       - name: Create GitHub Release with generated notes
-        if: steps.tag.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
-        run: gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0
+          gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" --generate-notes --target "${{ steps.verify.outputs.sha }}"

@@ -5,6 +5,11 @@ import {
   FIELD_SURFACE_MATRIX,
   domainSurfaceFields,
 } from '../golden/_lib/fieldSurfaceMatrix';
+import {
+  getBrandDisplayLogo,
+  getBrandTitleDisplayLogo,
+} from '../../src/components/common/BrandLogo';
+import type { Brand } from '../../src/types';
 
 // 필드 단위 커버리지 감사 — golden-crud-coverage.spec.ts(도메인 단위)의 자매편.
 //
@@ -244,6 +249,7 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'image',
   'images',
   'brandName',
+  'summary',
   'rating',
   'reviewCount',
   'isBest',
@@ -254,8 +260,14 @@ const PRODUCT_SURFACE_ASSERTED = new Set<string>([
   'description',
   'shippingFee',
   'deliveryEstimate',
+  'shippingNotice',
   'returnNotice',
   'sellerName',
+  'auditPoints',
+  'ingredients',
+  'howToUse',
+  'recommendedFor',
+  'caution',
 ]);
 
 // 브랜드: brand-card + brand-detail 표면이 공개 렌더하고 라이브 스펙이 검증하는 필드.
@@ -338,5 +350,33 @@ test.describe('필드-표면 매트릭스 완전성 — 공개 화면 필드 누
       stale,
       `fieldSurfaceMatrix 의 브랜드 필드 [${stale.join(', ')}] 이 validateBrandFields 허용 목록에 없습니다.`,
     ).toEqual([]);
+  });
+});
+
+function logoBrand(
+  id: string,
+  logo: string,
+  wordmarkImage?: string,
+): Pick<Brand, 'id' | 'logo' | 'wordmarkImage'> {
+  return wordmarkImage === undefined
+    ? { id, logo }
+    : { id, logo, wordmarkImage };
+}
+
+test.describe('브랜드 로고 공개 표시 우선순위', () => {
+  test('고정 전시 로고 fallback 대상 브랜드도 관리자 logo 값이 있으면 그 값을 목록 로고 src로 사용한다', () => {
+    for (const brand of [
+      logoBrand('b3', '/uploads/admin-nobledog-logo.png'),
+      logoBrand('b5', '/uploads/admin-alloming-logo.png'),
+      logoBrand('b6', '/uploads/admin-repet-logo.png'),
+    ]) {
+      expect(getBrandDisplayLogo(brand)).toBe(brand.logo);
+    }
+  });
+
+  test('브랜드 상세 제목 로고는 관리자 wordmarkImage, 관리자 logo, 고정 fallback 순서로 선택한다', () => {
+    expect(getBrandTitleDisplayLogo(logoBrand('b3', '/uploads/admin-nobledog-logo.png', '/uploads/admin-nobledog-wordmark.png'))).toBe('/uploads/admin-nobledog-wordmark.png');
+    expect(getBrandTitleDisplayLogo(logoBrand('b5', '/uploads/admin-alloming-logo.png'))).toBe('/uploads/admin-alloming-logo.png');
+    expect(getBrandTitleDisplayLogo(logoBrand('b6', ''))).toBe('/brands/repet-clean.png');
   });
 });

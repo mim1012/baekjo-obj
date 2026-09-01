@@ -209,6 +209,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.locator('section', { hasText: 'DAILY PICK' })).toContainText(name);
     await expect(shopCard).toContainText('후기'); // reviewCount(:160)
     if (brandNameText) await expect(shopCard).toContainText(brandNameText); // brandName(:45,134)
+    await expect(shopCard).toContainText(summary);
     const detailHref = await page.getByRole('link', { name: `${name} 상세 보기` }).first().getAttribute('href');
     expect(detailHref).toMatch(/^\/shop\/.+/);
     await page.goto(detailHref ?? `/shop?search=${encodeURIComponent(name)}`, {
@@ -229,8 +230,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       description,
       shippingFee: '3,000',
       deliveryEstimate,
+      shippingNotice,
       returnNotice,
       sellerName,
+      auditPoints: auditPoint,
+      ingredients,
+      howToUse,
+      recommendedFor: recommended,
+      caution: cautionText,
       brandName: brandNameText,
     };
     for (const f of getSurface('shop-detail').fields) {
@@ -410,6 +417,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.getByRole('button', { name: '품절' }).first()).toBeVisible(); // :289/:297
     await expect(page.locator('body')).not.toContainText('undefined');
     await expect(page.locator(`img[alt="${emptyName}"]`).first()).toBeVisible(); // 이미지 폴백 그레이스풀
+    await expect(page.locator('#product-public-details-title')).toHaveCount(0);
 
     // 정리 — 이 상품만.
     await page.goto('/admin/products');
