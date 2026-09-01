@@ -95,7 +95,6 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',

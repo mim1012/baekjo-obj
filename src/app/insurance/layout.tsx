@@ -7,4 +7,3 @@ export default async function InsuranceLayout({ children }: { children: React.Re
   if (!shell.features.insurance) redirect('/');
   return children;
 }
-

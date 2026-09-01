@@ -24,7 +24,6 @@ export function isHomeSettingsInput(value: unknown): value is Record<string, unk
     (key) => body[key] !== null && typeof body[key] === 'object' && !Array.isArray(body[key]),
   );
 }
-
 export function normalizeCmsHomeContent(value: unknown): HomeSettings | null {
   return isHomeSettingsInput(value) ? normalizeHomeSettings(value) : null;
 }
@@ -34,4 +33,3 @@ export function homeContentWithFallback(value: unknown): HomeSettings {
     ? normalizeHomeSettings(value)
     : defaultHomeSettings;
 }
-

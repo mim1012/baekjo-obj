@@ -8,6 +8,7 @@ const read = (...segments: string[]) => fs.readFileSync(path.join(root, ...segme
 
 const publicConsumers: Record<string, string[]> = {
   'site-shell': [
+    'src/components/common/BrandMark.tsx',
     'src/components/common/Header.tsx',
     'src/components/common/Footer.tsx',
     'src/components/common/MobileBottomNav.tsx',

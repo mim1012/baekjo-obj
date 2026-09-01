@@ -6,7 +6,6 @@ import { logServerError } from '@/lib/logServerError';
 interface Context {
   params: Promise<{ pageKey: string }>;
 }
-
 export async function GET(_request: Request, context: Context) {
   const { pageKey } = await context.params;
   if (!getCmsPageDefinition(pageKey)) {
@@ -23,4 +22,3 @@ export async function GET(_request: Request, context: Context) {
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
-

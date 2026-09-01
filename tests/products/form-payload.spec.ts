@@ -38,7 +38,6 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
     shippingNotice: '제주/도서 추가비',
     returnNotice: '단순 변심 7일 내',
     sellerName: '백조오브제',
-    isMembersOnlyPrice: false,
     ...over,
   };
 }
@@ -150,13 +149,6 @@ test('shippingFee 가 숫자면 담고, null/undefined(미입력)면 키를 담�
 test('salePrice 0 은 null 로 정규화한다(할인 없음)', () => {
   expect(buildProductUpdatePayload(form({ salePrice: 0 }), 'x').salePrice).toBeNull();
   expect(buildProductUpdatePayload(form({ salePrice: 25000 }), 'x').salePrice).toBe(25000);
-});
-
-/* ── isMembersOnlyPrice boolean 기본값 ── */
-
-test('isMembersOnlyPrice 는 boolean 으로 항상 담고 미지정 시 false', () => {
-  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: true }), 'x').isMembersOnlyPrice).toBe(true);
-  expect(buildProductUpdatePayload(form({ isMembersOnlyPrice: undefined }), 'x').isMembersOnlyPrice).toBe(false);
 });
 
 /* ── normalizeOptions: 빈 행·유효하지 않은 행 제거, id 부여 ── */

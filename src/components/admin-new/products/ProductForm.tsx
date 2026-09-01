@@ -120,7 +120,6 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     salePrice: 0,
     stock: 0,
     image: '',
-    isMembersOnlyPrice: false,
     summary: '',
     description: '',
     deliveryEstimate: '',
@@ -191,7 +190,6 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     shippingNotice: formData.shippingNotice,
     returnNotice: formData.returnNotice,
     sellerName: formData.sellerName,
-    isMembersOnlyPrice: formData.isMembersOnlyPrice,
   });
 
   const handleSave = async () => {
@@ -470,15 +468,6 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
                 />
               </FormField>
             </div>
-            <label className="mt-4 flex items-center justify-between p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
-              <span className="text-[14px] font-medium text-[#17201B]">회원 전용가 (비회원에게 가격 숨김)</span>
-              <input
-                type="checkbox"
-                checked={formData.isMembersOnlyPrice || false}
-                onChange={(e) => handleChange('isMembersOnlyPrice', e.target.checked)}
-                className="w-4 h-4 text-[#17201B] border-gray-300 rounded focus:ring-[#17201B]"
-              />
-            </label>
           </SectionCard>
 
           {/* 상품 옵션 */}

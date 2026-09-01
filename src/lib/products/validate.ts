@@ -330,11 +330,6 @@ export function validateProductFields(
     out.brandName = b.brandName;
   }
 
-  if (b.isMembersOnlyPrice !== undefined) {
-    if (!isBool(b.isMembersOnlyPrice)) return null;
-    out.isMembersOnlyPrice = b.isMembersOnlyPrice;
-  }
-
   if (b.auditPoints !== undefined) {
     if (!isStrArray(b.auditPoints, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;
     out.auditPoints = b.auditPoints;

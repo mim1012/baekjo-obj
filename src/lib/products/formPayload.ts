@@ -34,7 +34,6 @@ export const PRODUCT_FORM_FIELDS = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
-  'isMembersOnlyPrice',
   'isVisible',
   'isBest',
   'isRecommended',
@@ -114,7 +113,6 @@ export interface ProductFormState {
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
-  isMembersOnlyPrice?: boolean;
 }
 
 /**
@@ -125,7 +123,6 @@ export interface ProductFormState {
  *   **지우기**를 지원한다. 서버 validate 가 빈 문자열을
  *   허용하고 splitProductInput 이 ''(≠undefined)를 detail 에 써 기존 값을 덮으므로 실제로 지워진다.
  * - salePrice 0 은 null 로(할인 없음). shippingFee 는 값이 유효할 때만 담는다(미입력=기존값 보존).
- * - isMembersOnlyPrice 는 boolean 으로 항상 담는다.
  */
 function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
@@ -149,7 +146,6 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
     sellerName: form.sellerName?.trim() ?? '',
-    isMembersOnlyPrice: form.isMembersOnlyPrice ?? false,
   };
 
   // shippingFee 는 숫자일 때만 담는다. null/undefined(미입력)면 키를 빼 기존/기본값을 보존한다

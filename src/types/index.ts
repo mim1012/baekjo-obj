@@ -21,7 +21,7 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  /** 상품 카테고리 관리의 반려동물 연결값. 'both'는 강아지·고양이 공용 시스템 값이다. */
+  /** 상품 카테고리 관리에서 등록하는 반려동물 연결값. */
   petType: string;
   ageGroup: string;
   image: string;
@@ -37,7 +37,6 @@ export interface Product {
   sellerName?: string;
   tags?: string[];
   brandName?: string;
-  isMembersOnlyPrice?: boolean;
   auditPoints?: string[];
   recommendedFor?: string[];
   caution?: string[];
@@ -47,11 +46,11 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
-  /** 홈의 베스트·추천 상품 영역 순서. 미설정이면 기존 인기순을 그대로 사용한다. */
+  /** 홈의 베스트·추천 상품 영역 순서. */
   homeFeaturedOrder?: number;
-  /** 스토어 상단 추천 상품 영역 순서. 미설정이면 기존 상품 조회순을 그대로 사용한다. */
+  /** 스토어 상단 추천 상품 영역 순서. */
   shopFeaturedOrder?: number;
-  /** 스토어 전체 상품·브랜드 상품의 기본 순서. 미설정이면 기존 추천/조회순을 그대로 사용한다. */
+  /** 스토어 전체 상품·브랜드 상품의 기본 순서. */
   catalogOrder?: number;
 }
 
@@ -114,6 +113,8 @@ export interface BrandShippingPolicy {
   asNotice?: string;
   supportContact?: string;
   supportHours?: string;
+  supportEmail?: string;
+  supportKakaoLabel?: string;
 }
 
 export interface BrandAuditReport {
@@ -258,6 +259,12 @@ export type InsuranceStatus =
   | '분석완료';
 
 /* ── 주문 ─────────────────────────────────────── */
+export interface BankTransferAccount {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
 export interface Order {
   id: string;
   customerName: string;
@@ -268,6 +275,7 @@ export interface Order {
   deliveryFee: number;
   deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
   paymentMethod: string;
+  bankTransferAccount?: BankTransferAccount;
   orderStatus: OrderStatus;
   paymentStatus: string;
   deliveryStatus: string;
@@ -418,6 +426,7 @@ export interface User {
   createdAt: string;
   provider?: 'kakao' | 'naver' | 'email';
   profileImage?: string;
+  profileCompleted?: boolean;
   emailVerified?: boolean;
   companyName?: string;
   businessNumber?: string;
@@ -574,7 +583,7 @@ export interface SurveyQuestion {
 export interface SurveyResultRule {
   id: string;
   condition: {
-    /** 관리자가 질문과 답을 직접 연결하는 현재 규칙. 이전 고정 필드는 하위 호환용으로 유지한다. */
+    /** 관리자가 질문과 답을 직접 연결하는 현재 규칙. 이전 고정 필드는 하위 호환용이다. */
     answers?: Array<{
       questionId: string;
       optionValue: string;

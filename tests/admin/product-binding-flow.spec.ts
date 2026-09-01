@@ -114,7 +114,10 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(detailPage).toContain('const product = await getCachedPublicProductById(id);');
     expect(detailPage).not.toContain('@/data/products');
 
-    expect(publicCache).toContain("import { listProducts, getProductById, type ProductListFilter } from '@/lib/products/repo'");
+    expect(publicCache).toContain("from '@/lib/products/repo'");
+    expect(publicCache).toContain('getProductById,');
+    expect(publicCache).toContain('listProducts,');
+    expect(publicCache).toContain('type ProductListFilter,');
     expect(publicCache).toContain("type PublicProductListFilter = Omit<ProductListFilter, 'visibleOnly'>;");
     expect(publicCache).toContain('listProducts({ categorySlug, brandId, petType, visibleOnly: true })');
     expect(publicCache).toContain('async (id: string) => getProductById(id)');
