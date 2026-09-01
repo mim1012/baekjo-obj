@@ -156,10 +156,6 @@ export default function AdminNoticesPage() {
   const handleDelete = async (id: string | number) => {
     if (!loaded || loadError || busyRef.current) return;
     const nextItems = persistedItemsRef.current.filter((notice) => notice.id !== id);
-    if (nextItems.length === 0) {
-      window.alert('공지는 최소 1건 남아 있어야 합니다. 마지막 공지는 삭제할 수 없습니다.');
-      return;
-    }
     busyRef.current = true;
     try {
       const { ok } = await saveNoticesConfig({ items: nextItems });
