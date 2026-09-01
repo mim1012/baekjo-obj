@@ -18,7 +18,7 @@
 - 배송비·무료배송 기준과 무통장입금 자동취소를 서로 다른 설정으로 분리했다.
 - 화면과 실제 데이터가 없던 관리자 페이지 3개는 메뉴만 숨기지 않고 페이지·API·관련 코드까지 제거했다.
 
-마이그레이션 `0148`~`0153`은 승인된 staging Supabase(`aeooyivfijthfcrfrnyk`)에 적용했다. 전체 화면 CMS 15개 키, 게시 이력 테이블, 게시 함수 연결을 DB에서 확인했고, 대표 경로인 브랜드 목록 문구를 관리자 계정으로 임시저장 → 게시 → 고객 `/brands` 화면 read-back → 원상복구까지 통과했다. Production DB에는 쓰기 작업이나 마이그레이션을 실행하지 않았으므로 실제 운영 반영은 `develop → main` 릴리스 절차에서 별도로 확인해야 한다.
+마이그레이션 `0148`~`0154`는 승인된 staging Supabase(`aeooyivfijthfcrfrnyk`)에 적용했다. 전체 화면 CMS 15개 키, 게시 이력 테이블, 게시 함수와 CMS 적용 전 호환 저장 내용 이관을 확인했고, 대표 경로인 브랜드 목록 문구를 관리자 계정으로 임시저장 → 게시 → 고객 `/brands` 화면 read-back → 원상복구까지 통과했다. Production DB에는 테스트 데이터나 마이그레이션을 쓰지 않았고, CMS 전용 표가 없는 현재 연결에서도 기존 `site_settings` 호환 저장소를 통해 관리자 입력·임시저장·게시가 가능하다.
 
 ## 2. 첫 직원이 사용하는 시작 순서
 
@@ -259,7 +259,7 @@
 - production build는 소스 컴파일과 TypeScript까지 통과했으나, 정적 페이지 생성 중 현재 로컬에서 Production Supabase 도메인을 DNS 조회하지 못해 종료됐다. 코드 오류나 마이그레이션 오류로 판정하지 않으며, staging 환경이 준비되면 같은 명령을 다시 실행해야 한다.
 - staging 전용 골든 CRUD 5개 파일 9개 시나리오가 새 화면 구조로 컴파일되는 것 확인
 - staging 전용 결제·배송 검사는 `.env.test.local` 부재를 안전장치가 감지해 테스트 시작 전에 차단했다. Production DB 쓰기는 실행하지 않았다.
-- GitHub Actions의 승인된 staging 연결에서 마이그레이션 `0148`~`0153` 적용 및 `cms_pages`, `cms_page_versions`, 전체 화면 CMS 15개 키, `publish_cms_page` 게시 함수 검증 통과
+- GitHub Actions의 승인된 staging 연결에서 마이그레이션 `0148`~`0154` 적용 및 `cms_pages`, `cms_page_versions`, 전체 화면 CMS 15개 키, `publish_cms_page` 게시 함수, 호환 저장 내용 이관 검증 통과
 - 전체 화면 관리 전용 실구동: 관리자 로그인 → `brands` 초안 임시저장 → 게시 → 고객 `/brands` 표시 확인 → 기존 게시본과 초안 원상복구 통과 ([실행 기록](https://github.com/mim1012/baekjo-obj/actions/runs/33476707029))
 
 실제 브라우저 화면 확인 결과:
@@ -288,12 +288,12 @@
 - 적립금 제거 고객 화면: `artifacts/admin-screen-audit-20260831T080342Z/public-product-no-points.png`
 - 최신 고객 홈페이지: `artifacts/public-screen-audit-20260831T185105Z/` — `contact-sheet-1.png`~`contact-sheet-3.png`, `audit.json`; 35개 화면, 경로 문제 0건
 
-최신 관리자 캡처에 남은 브라우저 오류 3건은 촬영 당시 `0148`~`0151`이 적용되지 않은 Production 연결 로컬 환경에서 `/admin/pages`, `/admin/settings`, `/admin/pages/shop`의 CMS 조회가 500을 반환한 기록이다. 현재는 CMS 전용 표가 없어도 기존 `site_settings` 호환 저장소로 자동 연결하므로 페이지 편집 입력칸·임시저장·게시를 사용할 수 있다. 승인된 staging에는 `0148`~`0153`을 적용하고 CMS 연결·게시·공개 read-back을 통과했으며, `0154`는 호환 저장 내용의 정식 CMS 이관을 담당한다. 고객 캡처의 이미지 400과 기존 `notices_config` 기본값 대체 경고는 별도 로컬 캡처 환경 기록이며, 캡처 파일은 로컬 검수 자료라 PR에는 넣지 않는다.
+최신 관리자 캡처에 남은 브라우저 오류 3건은 촬영 당시 `0148`~`0151`이 적용되지 않은 Production 연결 로컬 환경에서 `/admin/pages`, `/admin/settings`, `/admin/pages/shop`의 CMS 조회가 500을 반환한 기록이다. 현재는 CMS 전용 표가 없어도 기존 `site_settings` 호환 저장소로 자동 연결하므로 페이지 편집 입력칸·임시저장·게시를 사용할 수 있다. 승인된 staging에는 `0148`~`0154`를 적용하고 CMS 연결·게시·공개 read-back과 호환 저장 내용 이관을 통과했다. 고객 캡처의 이미지 400과 기존 `notices_config` 기본값 대체 경고는 별도 로컬 캡처 환경 기록이며, 캡처 파일은 로컬 검수 자료라 PR에는 넣지 않는다.
 
 staging DB 확인 결과와 남은 항목:
 
 1. 완료 — `TEST_SUPABASE_PROJECT_REF=aeooyivfijthfcrfrnyk`와 실제 `SUPABASE_URL` ref 일치 확인
-2. 완료 — 마이그레이션 `0148`~`0153` 적용
+2. 완료 — 마이그레이션 `0148`~`0154` 적용
 3. 완료 — 전체 화면 CMS 15개 DB 행·게시 이력·게시 함수 확인, 대표 `brands` 문구 임시저장 → 게시 → 고객 화면 확인 → 원상복구
 4. 상품 태그 등록 → 상품 연결 → 카드·필터 확인 → 이름 수정 → 삭제 영향 확인
 5. 반려동물 항목 추가 → 상품 화면 목록 새로고침 → 두 개 이상 체크 → 저장·새로고침 → 각 스토어 필터에서 같은 상품 확인

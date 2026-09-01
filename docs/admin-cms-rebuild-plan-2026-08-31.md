@@ -97,7 +97,7 @@ GitHub Actions의 분리된 staging 쓰기 경로에서 `cms_pages`, `cms_page_v
 ## staging 검증 상태
 
 1. 완료 — staging ref `aeooyivfijthfcrfrnyk` 일치 검사
-2. 완료 — `0148`~`0153` 적용
+2. 완료 — `0148`~`0154` 적용. `0154`는 CMS 전용 표 적용 전 호환 저장소에서 수정한 내용을 정식 CMS로 자동 이관
 3. 완료 — 전체 화면 CMS 15개 연결과 대표 게시형 화면 임시저장·게시·공개 read-back·원상복구
 4. 상품·브랜드·고민·진단·후기·공지·키트 CRUD read-back
 5. 상품 태그 등록·상품 연결·카드/필터 표시·수정·삭제
