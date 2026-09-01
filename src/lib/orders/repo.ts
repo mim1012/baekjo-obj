@@ -17,6 +17,14 @@ import {
   type RefundItemSnapshot,
   type RefundStatus,
 } from '@/lib/orders/refund';
+import {
+  ORDER_ACTION_REQUEST_STATUSES,
+  ORDER_ACTION_REQUEST_TYPES,
+  type OrderActionRequestItem,
+  type OrderActionRequestRecord,
+  type OrderActionRequestStatus,
+  type OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 
 const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES);
 
@@ -459,6 +467,53 @@ export async function requestOrderCancellation(id: string, memberId: string): Pr
     .select('id');
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+const ACTION_REQUEST_COLUMNS = 'id, order_id, member_id, request_type, brand_id, items, requested_amount, reason, status, created_at, updated_at';
+
+function parseActionRequest(raw: unknown): OrderActionRequestRecord {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request');
+  const row = raw as Record<string, unknown>;
+  if (
+    typeof row.id !== 'string' || typeof row.order_id !== 'string' || typeof row.member_id !== 'string' ||
+    typeof row.request_type !== 'string' || !ORDER_ACTION_REQUEST_TYPES.includes(row.request_type as OrderActionRequestType) ||
+    typeof row.brand_id !== 'string' || !Array.isArray(row.items) || typeof row.requested_amount !== 'number' ||
+    !Number.isSafeInteger(row.requested_amount) || typeof row.reason !== 'string' || typeof row.status !== 'string' ||
+    !ORDER_ACTION_REQUEST_STATUSES.includes(row.status as OrderActionRequestStatus) ||
+    typeof row.created_at !== 'string' || typeof row.updated_at !== 'string'
+  ) throw new Error('invalid-order-action-request');
+  return {
+    id: row.id, orderId: row.order_id, memberId: row.member_id,
+    requestType: row.request_type as OrderActionRequestType, brandId: row.brand_id,
+    items: row.items as OrderActionRequestItem[], requestedAmount: row.requested_amount,
+    reason: row.reason, status: row.status as OrderActionRequestStatus,
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+export async function listOrderActionRequests(orderId: string, memberId?: string): Promise<OrderActionRequestRecord[]> {
+  let query = getSupabase().from('order_action_requests').select(ACTION_REQUEST_COLUMNS).eq('order_id', orderId);
+  if (memberId) query = query.eq('member_id', memberId);
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as unknown[]).map(parseActionRequest);
+}
+
+export async function createOrderActionRequest(input: {
+  orderId: string;
+  memberId: string;
+  requestType: OrderActionRequestType;
+  brandId: string;
+  items: OrderActionRequestItem[];
+  requestedAmount: number;
+  reason: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().from('order_action_requests').insert({
+    order_id: input.orderId, member_id: input.memberId, request_type: input.requestType,
+    brand_id: input.brandId, items: input.items, requested_amount: input.requestedAmount, reason: input.reason,
+  }).select(ACTION_REQUEST_COLUMNS).single();
+  if (error) throw new Error(error.code === '23505' ? 'action-request-already-exists' : error.message);
+  return parseActionRequest(data);
 }
 
 /**
