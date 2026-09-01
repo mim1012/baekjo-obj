@@ -31,8 +31,8 @@ export function filterProducts(
     ) return false;
     if (
       filters.lifestyleCategory &&
-      filters.lifestyleCategory !== 'all' &&
-      normalizeShopCategory(p.categorySlug ?? p.lifestyleCategory) !== normalizeShopCategory(filters.lifestyleCategory)
+      filters.lifestyleCategory.trim() !== 'all' &&
+      p.lifestyleCategory.trim() !== filters.lifestyleCategory.trim()
     ) return false;
     if (filters.concern && filters.concern !== 'all' && !p.concernTags.includes(filters.concern)) return false;
     if (filters.brandId && filters.brandId !== 'all' && p.brandId !== filters.brandId) return false;

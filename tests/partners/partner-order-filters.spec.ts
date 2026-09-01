@@ -32,15 +32,15 @@ test.describe('partner order date range contract', () => {
       ok: true,
       range: { createdFrom: '2026-07-10', createdTo: '2026-07-12' },
       dbRange: {
-        createdFromIso: '2026-07-10T00:00:00.000Z',
-        createdToExclusiveIso: '2026-07-13T00:00:00.000Z',
+        createdFromIso: '2026-07-09T15:00:00.000Z',
+        createdToExclusiveIso: '2026-07-12T15:00:00.000Z',
       },
     });
     expect(toOrderDateRangeIso({ createdFrom: '2026-07-10', createdTo: '' })).toEqual({
-      createdFromIso: '2026-07-10T00:00:00.000Z',
+      createdFromIso: '2026-07-09T15:00:00.000Z',
     });
     expect(toOrderDateRangeIso({ createdFrom: '', createdTo: '2026-07-12' })).toEqual({
-      createdToExclusiveIso: '2026-07-13T00:00:00.000Z',
+      createdToExclusiveIso: '2026-07-12T15:00:00.000Z',
     });
   });
 
@@ -62,9 +62,10 @@ test.describe('partner order date range contract', () => {
     });
 
     const range = { createdFrom: '2026-07-10', createdTo: '2026-07-12' };
-    expect(matchesOrderDateRange({ createdAt: '2026-07-10T00:00:00.000Z' }, range)).toBe(true);
-    expect(matchesOrderDateRange({ createdAt: '2026-07-12T23:59:59.999Z' }, range)).toBe(true);
-    expect(matchesOrderDateRange({ createdAt: '2026-07-13T00:00:00.000Z' }, range)).toBe(false);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-09T14:59:59.999Z' }, range)).toBe(false);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-09T15:00:00.000Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-12T14:59:59.999Z' }, range)).toBe(true);
+    expect(matchesOrderDateRange({ createdAt: '2026-07-12T15:00:00.000Z' }, range)).toBe(false);
   });
 
   test('날짜 필터 이후에도 partner 브랜드 권한 투영은 완화되지 않는다', () => {
@@ -116,5 +117,12 @@ test.describe('partner order API and client source contract', () => {
     expect(client).toContain('controller.abort()');
     expect(client).toContain('setExpandedOrderId(null)');
     expect(client).toContain('선택한 기간에 해당하는 내 브랜드 주문이 없습니다.');
+  });
+
+  test('CI는 partner 날짜 계약 프로젝트를 실행한다', () => {
+    const ci = read('.github/workflows/ci.yml');
+
+    expect(ci).toContain('partners-contract:');
+    expect(ci).toContain('npx playwright test --project=partners --reporter=line');
   });
 });

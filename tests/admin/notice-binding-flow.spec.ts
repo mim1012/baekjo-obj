@@ -36,8 +36,8 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     expect((pageSource.match(/persistedItemsRef\.current = nextItems;/g) ?? []).length).toBe(3);
     expect(pageSource).toContain('setItems(nextItems);');
     expect(pageSource).toContain('setItems((prev) => prev.filter((notice) => notice.id !== id));');
-    // 마지막 1건 삭제는 여전히 막는다(전시 후기와의 차이).
     expect(pageSource).toContain('nextItems.length === 0');
+    expect(pageSource).toContain('마지막 공지는 삭제할 수 없습니다.');
     expect(pageSource).toContain("window.alert('등록 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');");
     expect(pageSource).toContain("window.alert('수정 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');");
     // 등록·수정·삭제 공용 상호배제 — 동시 PUT 이 서로를 덮어쓰는 레이스를 막는다(codex 2차 리뷰 HIGH).
@@ -52,7 +52,8 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     const storageSource = src('src', 'lib', 'storage.ts');
 
     expect(storageSource).toContain("fetch('/api/notices')");
-    expect(storageSource).toContain('return defaultNoticesConfig;');
+    expect(storageSource).toContain('emptyNoticesConfig');
+    expect(storageSource).not.toContain('defaultNoticesConfig');
     expect(storageSource).toContain("fetch('/api/admin/notices', {");
     // 관리자 getter 는 실패·깨진 응답에 throw 해서 저장을 막는다(공개 폴백과 분리 — concerns 미러).
     expect(storageSource).toContain('export async function getAdminNoticesConfig');
@@ -67,8 +68,7 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     // item 단위 형상은 repo 와 공용인 validate.ts 를 재사용한다(중복 정의 제거 — codex F1).
     expect(routeSource).toContain("import { isNoticeShape, normalizeNotice } from '@/lib/notices/validate';");
     expect(routeSource).toContain('items.every(isNoticeShape)');
-    // items 최소 1건 — 전부 삭제하면 공개 공지 목록·홈 소식 4건이 통째로 빈다.
-    expect(routeSource).toContain('items.length < 1');
+    expect(routeSource).not.toContain('items.length < 1');
     // id 는 상세 라우트의 식별 키 — 중복을 거부한다.
     expect(routeSource).toContain('new Set(ids).size === ids.length');
     // category null 은 저장 전 undefined 로 정규화한다.
@@ -91,10 +91,11 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     expect(validateSource).toContain('notice.category ?? undefined');
   });
 
-  test('공개 API 라우트는 절대 500 을 내지 않고 default 로 폴백한다', () => {
+  test('공개 API 라우트는 절대 500 을 내지 않고 빈 목록으로 폴백한다', () => {
     const routeSource = src('src', 'app', 'api', 'notices', 'route.ts');
 
-    expect(routeSource).toContain('defaultNoticesConfig');
+    expect(routeSource).toContain('emptyNoticesConfig');
+    expect(routeSource).not.toContain('defaultNoticesConfig');
     expect(routeSource).toContain('logServerError');
   });
 
@@ -103,12 +104,12 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
 
     expect(repoSource).toContain(".from('notices_config')");
     expect(repoSource).toContain('upsert(');
-    // item 단위 형상 가드 — 기형 jsonb item 이 소비부에서 crash 하지 않게 default 폴백으로 접는다(codex F1).
     expect(repoSource).toContain('items.every(isNoticeShape)');
     expect(repoSource).toContain('data.value.items.map(normalizeNotice)');
-    // 공개 서버 페이지용 폴백 — 미저장·조회 실패에도 기본 목록으로 렌더한다.
+    // 공개 서버 페이지용 폴백 — 미저장·조회 실패에도 빈 상태로 렌더한다.
     expect(repoSource).toContain('export async function getNoticesConfigWithFallback');
-    expect(repoSource).toContain('defaultNoticesConfig');
+    expect(repoSource).toContain('emptyNoticesConfig');
+    expect(repoSource).not.toContain('defaultNoticesConfig');
   });
 
   test('공개 화면은 더 이상 정적 @/data/notices 를 import 하지 않는다', () => {
@@ -141,5 +142,25 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     const clientSource = src('src', 'components', 'home', 'HomeClient.tsx');
     expect(clientSource).toContain('notices: Notice[];');
     expect(clientSource).toContain('notices.slice(0, 4)');
+  });
+
+  test('공지 데이터가 없으면 하드코딩 게시글 대신 공개 빈 상태를 사용한다', () => {
+    const configSource = src('src', 'lib', 'notices', 'config.ts');
+    const publicRouteSource = src('src', 'app', 'api', 'notices', 'route.ts');
+    const repoSource = src('src', 'lib', 'notices', 'repo.ts');
+    const listPageSource = src('src', 'app', 'notices', 'page.tsx');
+    const homeSource = src('src', 'components', 'home', 'HomeClient.tsx');
+
+    expect(configSource).toContain('export const emptyNoticesConfig: NoticesConfig = { items: [] };');
+    expect(configSource).not.toContain('백조오브제 프리미엄 펫쇼핑몰 오픈 안내');
+    expect(configSource).not.toContain('개인정보 처리방침 변경 사전 안내');
+    expect(publicRouteSource).toContain('emptyNoticesConfig');
+    expect(publicRouteSource).not.toContain('defaultNoticesConfig');
+    expect(repoSource).toContain('emptyNoticesConfig');
+    expect(repoSource).not.toContain('defaultNoticesConfig');
+    expect(listPageSource).toContain('content.empty.title');
+    expect(listPageSource).toContain('content.empty.description');
+    expect(homeSource).toContain('empty.title');
+    expect(homeSource).toContain('empty.description');
   });
 });
