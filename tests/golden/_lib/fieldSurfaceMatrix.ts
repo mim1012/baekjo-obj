@@ -189,9 +189,9 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       },
       {
         field: 'representativeProductIds',
-        render: 'src/app/brands/[id]/page.tsx:215,232-234',
-        kind: 'text',
-        note: '"이 브랜드에서 먼저 보여드리고 싶은 것들" 섹션 — 연결 상품을 ProductCard 로 렌더(빈값 시 전체 상품 폴백 :32).',
+        render: 'src/app/brands/[id]/page.tsx:64-70,147-151',
+        kind: 'derived',
+        note: '대표상품이 있으면 히어로 이미지를 우선 선택하고, 상품 그리드는 모든 공개 brandProducts를 렌더한다.',
       },
       { field: 'logo', render: 'src/app/brands/[id]/page.tsx:92', kind: 'image', note: '상품 없을 때만 히어로 폴백(상품 있으면 미렌더).' },
     ],

@@ -12,7 +12,8 @@ import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
 import {
   getCachedPublicBrandById,
   getCachedPublicBrandBySlug,
-  listCachedPublicProducts,
+  getCachedPublicProductCountsByBrand,
+  listCachedPublicProductsByBrand,
 } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
@@ -61,13 +62,15 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const presentation = getBrandPresentation(brand);
   const fullBrandName = formatBrandDisplayName(brand.name);
   const titleLogoSrc = getBrandTitleDisplayLogo(brand);
-  const brandProducts = await listCachedPublicProducts({ brandId: brand.id });
-  const representativeProducts = brandProducts.filter((product) =>
+  const [brandProducts, productCounts] = await Promise.all([
+    listCachedPublicProductsByBrand(brand.id),
+    getCachedPublicProductCountsByBrand([brand.id]),
+  ]);
+  const publicProductCount = productCounts[brand.id] ?? 0;
+  const representativeProduct = brandProducts.find((product) =>
     brand.representativeProductIds.includes(product.id),
   );
-  
-  // Use all brand products for the representative section if representativeProducts is empty
-  const displayProducts = representativeProducts.length > 0 ? representativeProducts : brandProducts;
+  const heroProduct = representativeProduct ?? brandProducts[0];
 
   const { items: concerns } = await getConcernsConfigWithFallback();
   const relatedConcerns = concerns.filter((concern) =>
@@ -139,7 +142,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </span>
               ))}
               <span className="inline-flex h-[28px] items-center justify-center rounded-full bg-[#F1EDE5] px-3 text-[11px] font-medium text-[#17251F] md:h-[30px] md:text-[12px]">
-                상품 {brandProducts.length}개
+                상품 {publicProductCount}개
               </span>
             </div>
           </div>
@@ -147,8 +150,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           {/* 우측 브랜드 비주얼 */}
           <div className="w-full flex-1 md:w-[54%]">
             <div className="relative aspect-[16/10] w-full max-h-[280px] overflow-hidden rounded-[20px] bg-[#F1EDE5] md:max-h-[320px]">
-               {displayProducts[0] ? (
-                 <Image src={displayProducts[0].image} alt={displayProducts[0].name} fill className="object-contain p-4 mix-blend-multiply md:p-6" sizes="(max-width: 768px) 100vw, 54vw" priority />
+               {heroProduct ? (
+                 <Image src={heroProduct.image} alt={heroProduct.name} fill className="object-contain p-4 mix-blend-multiply md:p-6" sizes="(max-width: 768px) 100vw, 54vw" priority />
                ) : (
                   <div className="flex h-full items-center justify-center">
                     <BrandLogo brand={brand} size="md" surface={false} uniformScale />
@@ -277,24 +280,24 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
-               <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">이 브랜드에서 먼저 보여드리고 싶은 것들</h2>
-               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}의 대표 제품을 소개합니다.</p>
+               <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">이 브랜드의 상품</h2>
+               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}의 공개 상품을 소개합니다.</p>
              </div>
-             {brandProducts.length > 0 && (
+              {publicProductCount > 0 && (
                <Link href={`/shop?brandId=${brand.id}`} className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
                  전체 상품 보기 <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
                </Link>
              )}
           </div>
 
-          {displayProducts.length > 0 ? (
-            <div className={`grid gap-3 md:gap-5 ${
-              displayProducts.length >= 4 ? 'md:grid-cols-3 lg:grid-cols-4' :
-              displayProducts.length === 3 ? 'md:max-w-[1040px] md:grid-cols-3' :
-              displayProducts.length === 2 ? 'md:max-w-[660px] md:grid-cols-2' :
-              'md:max-w-[320px] md:grid-cols-1'
-            }`}>
-              {displayProducts.map((product) => (
+           {brandProducts.length > 0 ? (
+             <div className={`grid gap-3 md:gap-5 ${
+               brandProducts.length >= 4 ? 'md:grid-cols-3 lg:grid-cols-4' :
+               brandProducts.length === 3 ? 'md:max-w-[1040px] md:grid-cols-3' :
+               brandProducts.length === 2 ? 'md:max-w-[660px] md:grid-cols-2' :
+               'md:max-w-[320px] md:grid-cols-1'
+             }`}>
+               {brandProducts.map((product) => (
                 <div key={product.id} className="w-full md:w-auto md:min-w-0">
                    <ProductCard product={product} density="compact" mobileLayout="horizontal" />
                 </div>
@@ -302,8 +305,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             </div>
           ) : (
             <div className="rounded-[20px] border border-dashed border-[#E2DACD] bg-[#FFFEFB] px-6 py-12 md:py-16 text-center">
-              <p className="text-[15px] md:text-[16px] font-semibold text-[#17251F]">먼저 소개할 상품을 고르고 있어요.</p>
-              <p className="mt-2 text-[13px] md:text-[14px] text-[#6F756F]">상품 정보가 준비되는 대로 차근차근 채워둘게요.</p>
+               <p className="text-[15px] md:text-[16px] font-semibold text-[#17251F]">아직 등록된 상품이 없어요.</p>
+               <p className="mt-2 text-[13px] md:text-[14px] text-[#6F756F]">상품 정보가 준비되는 대로 차근차근 채워둘게요.</p>
             </div>
           )}
         </div>
