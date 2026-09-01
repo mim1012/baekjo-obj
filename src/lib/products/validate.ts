@@ -2,6 +2,7 @@
 // id/createdAt은 여기서 받지 않는다(서버 결정, mass-assignment 차단).
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
+import { isValidProductPetTypeValue } from '@/lib/products/petTypes';
 
 const MAX_NAME = 200;
 const MAX_SHORT_TEXT = 100;
@@ -250,7 +251,7 @@ export function validateProductFields(
   }
 
   if (b.petType !== undefined) {
-    if (!isStr(b.petType, 1, MAX_SHORT_TEXT)) return null;
+    if (!isStr(b.petType, 1, MAX_LONG_TEXT) || !isValidProductPetTypeValue(b.petType)) return null;
     out.petType = b.petType;
   } else if (requireAll) return null;
 

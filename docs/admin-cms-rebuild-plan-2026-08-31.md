@@ -60,7 +60,7 @@
 ## 최신 main 통합 후 코드 검증
 
 - TypeScript 통과
-- 상품·관리자 회귀검사 678개 통과
+- 상품·관리자 회귀검사 683개 통과
 - 추적·보안 회귀검사 107개 통과
 - lint 오류 0개, 기존 경고 14개
 - production build는 소스 컴파일과 TypeScript까지 통과. 정적 페이지 생성은 로컬에서 Production Supabase DNS를 조회하지 못해 중단됐으며 staging 환경에서 재실행 필요
@@ -89,16 +89,18 @@
 - `0150_cms_concerns_page.sql`
 - `0151_cms_public_list_pages.sql`
 - `0152_product_tags_config.sql`
+- `0153_product_pet_types_multi_select.sql`
 
 현재 로컬 `.env.local`은 Production Supabase를 가리키고 staging용 `.env.test.local`이 없다. 따라서 코드·정적·DB 없는 화면 계약까지만 검증하고, 실제 DB 쓰기는 보류한다.
 
 ## staging에서 해야 하는 마지막 검증
 
 1. staging ref `aeooyivfijthfcrfrnyk` 일치 검사
-2. `0148`~`0152` 적용
+2. `0148`~`0153` 적용
 3. 각 게시형 화면 임시저장·게시·새로고침·공개 read-back
 4. 상품·브랜드·고민·진단·후기·공지·키트 CRUD read-back
 5. 상품 태그 등록·상품 연결·카드/필터 표시·수정·삭제
-6. 주문·결제·취소·부분환불·전액환불·배송 회귀검사
+6. 반려동물 항목 추가·상품 복수 체크·저장·스토어 필터별 read-back
+7. 주문·결제·취소·부분환불·전액환불·배송 회귀검사
 
 위 검증 전에는 “운영 DB까지 완료”라고 판정하지 않는다.

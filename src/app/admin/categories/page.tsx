@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, ExternalLink, Layers, Plus, SlidersHorizontal, Tras
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { useProductList } from '@/hooks/admin-new/useProductList';
 import { normalizeShopCategory } from '@/data/shopFilters';
+import { productSupportsPetType } from '@/lib/products/petTypes';
 import type {
   CategorySettings,
   StoreFilterOption,
@@ -125,7 +126,8 @@ export default function CategoryManagerPage() {
     }
     if (field === 'petTypes') {
       const id = settings.petTypes[index]?.id;
-      return products.filter((product) => product.petType === id).length;
+      if (!id) return 0;
+      return products.filter((product) => productSupportsPetType(product.petType, id)).length;
     }
     return 0;
   };
@@ -190,7 +192,11 @@ export default function CategoryManagerPage() {
   const renderSimpleEditor = (field: SimpleField, title: string, description: string) => {
     const list = settings[field];
     return (
-      <section data-testid={`category-editor-${field}`} className="overflow-hidden rounded-md border border-gray-200 bg-white">
+      <section
+        id={field === 'petTypes' ? 'pet-types' : undefined}
+        data-testid={`category-editor-${field}`}
+        className="scroll-mt-24 overflow-hidden rounded-md border border-gray-200 bg-white"
+      >
         {renderCardHeader(title, description, () => addSimple(field))}
         <div className="space-y-2 p-4">
           {list.length === 0 ? (

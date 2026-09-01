@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
+import { ArrowLeft, RefreshCw, Trash2, Plus, X } from 'lucide-react';
 import type { Product, Brand } from '@/types';
 import { createAdminProductTag, createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
@@ -13,6 +13,7 @@ import {
 } from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
+import { parseProductPetTypes, serializeProductPetTypes } from '@/lib/products/petTypes';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -24,14 +25,15 @@ interface ProductFormProps {
   brands: Brand[];
 }
 
-type RequiredField = 'name' | 'brandId' | 'category' | 'image';
+type RequiredField = 'name' | 'brandId' | 'category' | 'petType' | 'image';
 
-const REQUIRED_FIELDS: RequiredField[] = ['name', 'brandId', 'category', 'image'];
+const REQUIRED_FIELDS: RequiredField[] = ['name', 'brandId', 'category', 'petType', 'image'];
 
 const REQUIRED_LABELS: Record<RequiredField, string> = {
   name: '상품명',
   brandId: '브랜드',
   category: '스토어 카테고리',
+  petType: '반려동물',
   image: '대표 이미지',
 };
 
@@ -44,6 +46,7 @@ const REQUIRED_MESSAGES: Record<RequiredField, string> = {
   name: '상품명을 입력해주세요.',
   brandId: '브랜드를 선택해주세요.',
   category: '스토어 카테고리를 선택해주세요.',
+  petType: '반려동물을 한 개 이상 선택해주세요.',
   image: '대표 이미지를 등록해주세요.',
 };
 
@@ -94,7 +97,7 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
 
 export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const router = useRouter();
-  const { categorySettings } = useCategorySettings();
+  const { categorySettings, reloadCategorySettings } = useCategorySettings();
   const { items: productTags, reload: reloadProductTags } = useProductTagSettings();
   const productTagSuggestions = productTags
     .filter((tag) => tag.isVisible)
@@ -114,7 +117,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
     brandId: '',
     category: '',
     lifestyleCategory: '',
-    petType: 'both',
+    petType: '',
     ageGroup: 'all',
     price: 0,
     salePrice: 0,
@@ -136,6 +139,7 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
   const [optionRows, setOptionRows] = useState<ProductOptionFormState[]>(() => toOptionRows(initialData));
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isRefreshingCategories, setIsRefreshingCategories] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<RequiredField, string>>>({});
 
@@ -162,6 +166,30 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
       }
       return next;
     });
+  };
+
+  const selectedPetTypeIds = parseProductPetTypes(formData.petType);
+  const knownPetTypeIds = new Set(categorySettings.petTypes.map((item) => item.id));
+  const selectablePetTypes = [
+    ...categorySettings.petTypes,
+    ...selectedPetTypeIds
+      .filter((id) => !knownPetTypeIds.has(id))
+      .map((id) => ({ id, label: `${id} (카테고리 목록에 없음)` })),
+  ];
+
+  const togglePetType = (id: string, checked: boolean) => {
+    const selected = new Set(selectedPetTypeIds);
+    if (checked) selected.add(id);
+    else selected.delete(id);
+    const ordered = selectablePetTypes.filter((item) => selected.has(item.id)).map((item) => item.id);
+    handleChange('petType', serializeProductPetTypes(ordered));
+  };
+
+  const refreshPetTypes = async () => {
+    setIsRefreshingCategories(true);
+    const refreshed = await reloadCategorySettings();
+    if (!refreshed) setError('반려동물 목록을 새로 불러오지 못했습니다. 잠시 후 다시 시도해주세요.');
+    setIsRefreshingCategories(false);
   };
 
   /** formData(+옵션 상태)를 순수 payload 빌더가 받는 ProductFormState 로 모은다. */
@@ -386,18 +414,63 @@ export default function ProductForm({ initialData, brands }: ProductFormProps) {
               </div>
 
               <div>
-                <FormField label="반려동물" htmlFor="product-pet-type" description="상품 카테고리 관리 → 반려동물 필터에서 항목을 추가하거나 순서를 바꿀 수 있습니다.">
-                  <select
-                    id="product-pet-type"
-                    value={formData.petType || 'both'}
-                    onChange={(e) => handleChange('petType', e.target.value)}
-                    className={INPUT_CLASS}
+                <FormField
+                  label="반려동물"
+                  htmlFor="product-pet-type-first"
+                  required
+                  error={fieldErrors.petType}
+                  description="복수 선택할 수 있습니다. 상품 카테고리 관리에서 반려동물을 추가하면 아래 체크 목록과 고객 스토어 필터에 같은 이름으로 반영됩니다."
+                >
+                  <div
+                    role="group"
+                    aria-label="상품 적용 반려동물"
+                    aria-describedby={fieldErrors.petType ? 'product-pet-type-error' : undefined}
+                    className="grid gap-2 rounded-md border border-gray-300 bg-white p-3 sm:grid-cols-2 lg:grid-cols-3"
                   >
-                    <option value="both">강아지·고양이 공용</option>
-                    {categorySettings.petTypes.map((petType) => (
-                      <option key={petType.id} value={petType.id}>{petType.label} 전용</option>
-                    ))}
-                  </select>
+                    {selectablePetTypes.map((petType, index) => {
+                      const checked = selectedPetTypeIds.includes(petType.id);
+                      return (
+                        <label
+                          key={petType.id}
+                          className={`flex min-h-11 cursor-pointer items-center gap-3 rounded border px-3 py-2 text-sm transition-colors ${
+                            checked
+                              ? 'border-[#17201B] bg-[#F3EEE6] font-semibold text-[#17201B]'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                          }`}
+                        >
+                          <input
+                            id={index === 0 ? 'product-pet-type-first' : `product-pet-type-${petType.id}`}
+                            type="checkbox"
+                            value={petType.id}
+                            checked={checked}
+                            onChange={(event) => togglePetType(petType.id, event.target.checked)}
+                            className="size-4 rounded border-gray-300 accent-[#17201B]"
+                          />
+                          <span>{petType.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <a
+                      href="/admin/categories#pet-types"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-h-9 items-center rounded border border-[#D1D0C8] bg-white px-3 text-xs font-semibold text-[#2F3B34] hover:bg-[#F3EEE6]"
+                    >
+                      반려동물 항목 추가·수정
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => void refreshPetTypes()}
+                      disabled={isRefreshingCategories}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded border border-[#D1D0C8] bg-white px-3 text-xs font-semibold text-[#2F3B34] hover:bg-[#F3EEE6] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <RefreshCw className={`size-3.5 ${isRefreshingCategories ? 'animate-spin' : ''}`} aria-hidden="true" />
+                      {isRefreshingCategories ? '불러오는 중' : '추가한 항목 새로고침'}
+                    </button>
+                    <span className="text-xs text-gray-500">현재 {selectedPetTypeIds.length}개 선택</span>
+                  </div>
                 </FormField>
               </div>
 

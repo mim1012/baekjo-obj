@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { Product, Brand } from '@/types';
 import { getAdminProducts, getAdminBrands, deleteProduct } from '@/lib/storage';
 import { normalizeShopCategory } from '@/data/shopFilters';
+import { productSupportsPetType } from '@/lib/products/petTypes';
 
 export type ProductFilterState = {
   keyword: string;
@@ -81,7 +82,7 @@ export function useProductList(
       if (filters.brandId && p.brandId !== filters.brandId) return false;
       if (filters.category && normalizeShopCategory(p.categorySlug ?? p.category) !== normalizeShopCategory(filters.category)) return false;
       if (filters.lifestyleCategory && p.lifestyleCategory !== filters.lifestyleCategory) return false;
-      if (filters.petType && p.petType !== filters.petType) return false;
+      if (filters.petType && !productSupportsPetType(p.petType, filters.petType)) return false;
       
       // Booleans
       if (filters.isVisible !== 'all') {

@@ -4,12 +4,14 @@ import { getSupabase } from '@/lib/supabase/server';
 import { getShopCategorySlugs } from '@/data/shopFilters';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
+import { parseProductPetTypes, productSupportsPetType, serializeProductPetTypes } from '@/lib/products/petTypes';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
-/** DB pet_type 은 관리자에서 추가할 수 있는 자유 text다. 빈 값만 공용으로 보정한다. */
+/** DB pet_type의 기존 단일값·both·복수 JSON을 정규화하고, 깨진 값은 기존 공용값으로 방어한다. */
 function normalizePetType(raw: string): Product['petType'] {
-  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : 'both';
+  const normalized = serializeProductPetTypes(parseProductPetTypes(raw));
+  return normalized || 'both';
 }
 
 interface ProductRow {
@@ -107,7 +109,6 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
     query = categorySlugs ? query.in('category_slug', categorySlugs) : query.eq('category_slug', filter.categorySlug);
   }
   if (filter.brandId) query = query.eq('brand_id', filter.brandId);
-  if (filter.petType) query = query.eq('pet_type', filter.petType);
   if (filter.visibleOnly ?? true) query = query.eq('is_visible', true);
 
   const { data, error } = await query
@@ -119,7 +120,11 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
     .order('id', { ascending: true })
     .limit(PRODUCTS_LIST_CAP);
   if (error) throw error;
-  return (data as ProductRow[]).map(rowToProduct);
+  const products = (data as ProductRow[]).map(rowToProduct);
+  const requestedPetType = filter.petType;
+  return requestedPetType
+    ? products.filter((product) => productSupportsPetType(product.petType, requestedPetType))
+    : products;
 }
 
 export async function countVisibleProductsByBrand(brandIds: string[]): Promise<Record<string, number>> {

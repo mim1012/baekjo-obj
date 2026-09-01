@@ -83,6 +83,8 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(updateFunction).not.toContain('@/data/products');
     expect(updateFunction).not.toContain('@/data/brands');
     expectNoCategoryBypass(providerSource);
+    expect(providerSource).toContain("const reloadCategorySettings = async (): Promise<boolean> => {");
+    expect(providerSource).toContain("fetch('/api/category-settings', { cache: 'no-store' })");
     expect(providerSource).toContain("throw new Error('useCategorySettings must be used within CategorySettingsProvider');");
   });
 
@@ -97,7 +99,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(hydrationEffect).toContain('setLoaded(true);');
     expect(hydrationEffect).toContain('setLoadError(true);');
     expect(providerSource).toContain(
-      '<CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, loaded, loadError }}>',
+      '<CategorySettingsContext.Provider value={{ categorySettings, updateCategorySettings, reloadCategorySettings, loaded, loadError }}>',
     );
   });
 
@@ -135,6 +137,17 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(putFunction).toContain('await saveCategorySettings(body);');
     expect(putFunction).toContain('revalidateTag(PUBLIC_READ_CACHE_TAGS.categorySettings, EXPIRE_PUBLIC_READ_CACHE);');
     expect(putFunction).toContain('return NextResponse.json({ ok: true }, { status: 200 });');
+  });
+
+  test('복수 반려동물과 관리자가 추가한 연결값을 products.pet_type text 컬럼이 허용한다', () => {
+    const migration = src('supabase', 'migrations', '0153_product_pet_types_multi_select.sql');
+    const repo = src('src', 'lib', 'products', 'repo.ts');
+    const filters = src('src', 'lib', 'filters.ts');
+
+    expect(migration).toContain('drop constraint if exists products_pet_type_check');
+    expect(migration).toContain('char_length(btrim(pet_type)) between 1 and 3000');
+    expect(repo).toContain('productSupportsPetType(product.petType');
+    expect(filters).toContain('productSupportsPetType(p.petType, filters.petType)');
   });
 
   test('브랜드 API 는 Header 전용 nav 요약 응답을 전체 응답과 분리한다', () => {
@@ -219,9 +232,13 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expectNoCategoryBypass(brandsContent);
 
     expect(productForm).toContain("import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';");
-    expect(productForm).toContain('const { categorySettings } = useCategorySettings();');
+    expect(productForm).toContain('const { categorySettings, reloadCategorySettings } = useCategorySettings();');
     expect(productForm).toContain('categorySettings.productCategories.map((c) => (');
-    expect(productForm).toContain('categorySettings.petTypes.map((petType) => (');
+    expect(productForm).toContain('...categorySettings.petTypes,');
+    expect(productForm).toContain('type="checkbox"');
+    expect(productForm).toContain('togglePetType(petType.id, event.target.checked)');
+    expect(productForm).toContain('await reloadCategorySettings();');
+    expect(productForm).toContain('href="/admin/categories#pet-types"');
     expect(productForm).toContain("lifestyleCategory: formData.categorySlug || formData.category");
     expectNoCategoryBypass(productForm);
 
@@ -233,5 +250,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(adminPage).toContain('href="/admin/brands"');
     expect(adminPage).toContain('href="/admin/products/tags"');
     expect(adminPage).toContain('상품이 ${count}개라 삭제할 수 없습니다.');
+    expect(adminPage).toContain('productSupportsPetType(product.petType, id)');
+    expect(adminPage).toContain("id={field === 'petTypes' ? 'pet-types' : undefined}");
   });
 });

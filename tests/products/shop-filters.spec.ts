@@ -153,8 +153,10 @@ test('푸드와 영양을 서로 다른 공개 분류로 필터링한다', () =>
 test('관리자가 추가한 반려동물 연결값은 같은 상품만 필터링하고 공용 상품을 섞지 않는다', () => {
   const products = [
     product({ id: 'bird', petType: 'pet-bird' }),
+    product({ id: 'dog-bird', petType: '["dog","pet-bird"]' }),
     product({ id: 'both', petType: 'both' }),
     product({ id: 'dog', petType: 'dog' }),
   ];
-  expect(filterProducts(products, { petType: 'pet-bird' }).map((item) => item.id)).toEqual(['bird']);
+  expect(filterProducts(products, { petType: 'pet-bird' }).map((item) => item.id)).toEqual(['bird', 'dog-bird']);
+  expect(filterProducts(products, { petType: 'dog' }).map((item) => item.id)).toEqual(['dog-bird', 'both', 'dog']);
 });
