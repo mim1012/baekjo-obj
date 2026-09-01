@@ -30,12 +30,13 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
   });
 
   test('약관·개인정보·배송환불 페이지가 토스 심사 핵심 문구를 포함한다', () => {
-    const privacy = src('src', 'app', 'privacy', 'page.tsx');
-    const terms = src('src', 'app', 'terms', 'page.tsx');
+    const legalContent = src('src', 'data', 'legalContent.ts');
+    const privacy = legalContent;
+    const terms = legalContent;
     const refundPolicy = src('src', 'app', 'refund-policy', 'page.tsx');
 
-    expect(privacy).toContain('전자결제 처리: 토스페이먼츠');
-    expect(terms).toContain('배송·교환·환불 안내 페이지');
+    expect(privacy).toContain('토스페이먼츠(주)');
+    expect(terms).toContain('청약철회·교환·반품·환급');
     expect(refundPolicy).toContain('배송지역: 대한민국 전 지역');
     expect(refundPolicy).toContain('교환·반품 신청기간');
     expect(refundPolicy).toContain('무통장입금 주문은 환불 계좌 확인 후');
