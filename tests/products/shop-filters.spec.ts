@@ -170,3 +170,12 @@ test('라이프스타일 필터는 상품 카테고리 slug가 있어도 lifesty
 
   expect(filterProducts(products, { lifestyleCategory: '주거와 미학' }).map((item) => item.id)).toEqual(['p-home']);
 });
+
+test('라이프스타일 필터는 관리자 입력값의 앞뒤 공백을 무시한다', () => {
+  const products = [
+    product({ id: 'p-home', lifestyleCategory: ' 주거와 미학 ' }),
+    product({ id: 'p-play', lifestyleCategory: '놀이와 활동' }),
+  ];
+
+  expect(filterProducts(products, { lifestyleCategory: '주거와 미학' }).map((item) => item.id)).toEqual(['p-home']);
+});

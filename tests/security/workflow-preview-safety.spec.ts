@@ -123,11 +123,21 @@ test.describe('Preview workflow fail-closed policy', () => {
     expect(nameConfig).toBeLessThan(tagCreate);
     expect(emailConfig).toBeLessThan(tagCreate);
     expect(tagStep).toContain('existing_sha=$(git rev-list -n 1 "$tag")');
+    expect(tagStep).toContain("git for-each-ref --format='%(refname:strip=2)' refs/tags");
+    expect(tagStep).toContain('git rev-list -n 1 "$candidate"');
+    expect(tagStep).toContain('existing_tag=');
     expect(tagStep).toContain('echo "created=false" >> "$GITHUB_OUTPUT"');
     expect(tagStep).toContain('suffix=$((suffix + 1))');
     expect(tagStep).toContain('git push origin "$tag"');
     expect(releaseStep).not.toContain("steps.tag.outputs.created == 'true'");
     expect(releaseStep).toContain('gh release view "$RELEASE_TAG" >/dev/null 2>&1 && exit 0');
     expect(releaseStep).toContain('gh release create "$RELEASE_TAG"');
+  });
+
+  test('CI는 production release contract를 실행한다', () => {
+    const ci = readWorkflow('ci.yml');
+
+    expect(ci).toContain('release-contract:');
+    expect(ci).toContain('npx playwright test tests/security/workflow-preview-safety.spec.ts --project=security --workers=1 --retries=0 --reporter=line');
   });
 });
