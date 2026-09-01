@@ -60,7 +60,7 @@ export default function HomeClient({
   const recentNotices = notices.slice(0, 4);
   const displayBrands = brands.filter(b => b.isVisible !== false);
 
-  const { hero, quickShop, curation, audit, solutions, insuranceBanner, trustBoard } = settings;
+  const { hero, quickShop, curation, audit, insuranceBanner, trustBoard } = settings;
   const bestProductsCopy = settings.bestProducts;
 
   const quickLinks = quickShop.links.filter((link) => link.visible);
@@ -265,23 +265,6 @@ export default function HomeClient({
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
         <BrandShowcaseSlider brands={displayBrands} />
       </section>
-
-      {solutions.visible && <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
-        <h2 className="mb-6 text-[22px] font-bold tracking-tight text-[#18231F] sm:text-[28px] md:mb-8">{solutions.title}</h2>
-        <div className="grid gap-5 md:grid-cols-3">
-          {solutions.cards.filter((card) => card.visible).map((card) => (
-            <Link key={`${card.href}-${card.title}`} href={card.href} className="group relative flex min-h-[260px] overflow-hidden rounded-[22px] bg-[#17211D]">
-              {card.image && <Image src={card.image} alt={card.title} fill sizes="(max-width: 767px) 100vw, 33vw" className="object-cover transition-transform duration-700 group-hover:scale-105" />}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
-              <div className="relative z-10 mt-auto p-6 text-white">
-                <h3 className="text-xl font-bold">{card.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-white/80">{card.desc}</p>
-                <span className="mt-5 inline-flex items-center text-sm font-semibold">{card.linkLabel}<ArrowRight className="ml-1.5 size-4" /></span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>}
 
       {/* 9. 펫보험 안내 배너 — 기능 플래그로 미노출(복귀는 features.ts) */}
       {insuranceBanner?.visible && (

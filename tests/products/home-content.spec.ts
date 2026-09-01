@@ -107,7 +107,7 @@ test.describe('홈 쇼핑 카테고리 설정', () => {
       { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
       { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
     ]);
-    expect(defaultHomeSettings.solutions.cards[2]?.linkLabel).toBe('보험 분석 시작하기');
+    expect(defaultHomeSettings).not.toHaveProperty('solutions');
     expect(defaultHomeSettings.insuranceBanner.buttonLabel).toBe('보험 분석 시작하기');
   });
 });

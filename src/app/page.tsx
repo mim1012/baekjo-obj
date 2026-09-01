@@ -44,12 +44,6 @@ export default async function Home() {
   // props에서도 제외해 화면뿐 아니라 공개 HTML/RSC payload에도 보험 문구가 노출되지 않게 한다.
   const visibleHomeSettings = shell.features.insurance
     ? { ...publicHomeSettings, insuranceBanner }
-    : {
-        ...publicHomeSettings,
-        solutions: {
-          ...publicHomeSettings.solutions,
-          cards: publicHomeSettings.solutions.cards.filter((card) => !card.href.startsWith('/insurance')),
-        },
-      };
+    : publicHomeSettings;
   return <HomeClient products={products} brands={brands} notices={sortedNotices} reviews={reviewsConfig.items.filter((review) => review.isVisible !== false)} settings={visibleHomeSettings} />;
 }

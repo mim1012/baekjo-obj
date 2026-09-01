@@ -12,7 +12,6 @@ export const HOME_REQUIRED_SECTIONS = [
   'bestProducts',
   'curation',
   'audit',
-  'solutions',
   'insuranceBanner',
   'trustBoard',
 ] as const;

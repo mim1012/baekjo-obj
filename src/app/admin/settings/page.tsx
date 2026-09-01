@@ -17,7 +17,6 @@ const TABS = [
   { id: 'bestProducts', label: '오늘의 추천' },
   { id: 'curation', label: '맞춤 큐레이션' },
   { id: 'audit', label: '백조오브제 Audit' },
-  { id: 'solutions', label: '3가지 솔루션' },
   { id: 'insuranceBanner', label: '펫보험 배너' },
   { id: 'trustBoard', label: '후기/소식' },
 ] as const;
@@ -477,37 +476,6 @@ export default function SiteSettingsPage() {
                     <div key={idx} className="bg-gray-50 p-3 rounded-sm border border-gray-200">
                       {renderInput(`기준 ${idx + 1} 제목`, item.title, (v) => updateArrayField('audit', 'criteria', idx, 'title', v))}
                       {renderInput(`기준 ${idx + 1} 설명`, item.desc, (v) => updateArrayField('audit', 'criteria', idx, 'desc', v))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 6. 3가지 솔루션 */}
-            {activeTab === 'solutions' && (
-              <div className="space-y-6">
-                {renderToggle('3가지 솔루션 영역 보이기', draft.solutions.visible, (v) => updateDraft('solutions', 'visible', v))}
-                {renderInput('섹션 제목 (title)', draft.solutions.title, (v) => updateDraft('solutions', 'title', v))}
-                <div className="flex items-center justify-between gap-4">
-                  <h4 className="text-sm font-bold text-gray-900">솔루션 카드</h4>
-                  <button type="button" onClick={() => replaceArray('solutions', 'cards', [...draft.solutions.cards, { title: '새 솔루션', desc: '', linkLabel: '자세히 보기', href: '/', image: '', visible: true }])} className="btn-secondary min-h-10 gap-2 px-3 text-xs"><Plus className="size-4" />카드 추가</button>
-                </div>
-                <div className="space-y-4">
-                  {draft.solutions.cards.map((card, idx) => (
-                    <div key={idx} className="bg-gray-50 p-4 rounded-sm border border-gray-200">
-                      <div className="mb-3 flex items-center justify-between gap-3">
-                        {renderToggle('카드 표시', card.visible, (v) => updateArrayField('solutions', 'cards', idx, 'visible', v))}
-                        <div className="flex gap-1">
-                          <button type="button" onClick={() => moveArrayItem('solutions', 'cards', idx, -1)} disabled={idx === 0} aria-label="위로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowUp className="size-4" /></button>
-                          <button type="button" onClick={() => moveArrayItem('solutions', 'cards', idx, 1)} disabled={idx === draft.solutions.cards.length - 1} aria-label="아래로" className="inline-flex size-10 items-center justify-center border bg-white disabled:opacity-30"><ArrowDown className="size-4" /></button>
-                          <button type="button" onClick={() => removeArrayItem('solutions', 'cards', idx)} aria-label="삭제" className="inline-flex size-10 items-center justify-center border border-red-200 bg-white text-red-600"><Trash2 className="size-4" /></button>
-                        </div>
-                      </div>
-                      <ImageUploader value={card.image} onChange={(v) => updateArrayField('solutions', 'cards', idx, 'image', v)} domain="banner" usage="cover" draftId="cms-home" label={`솔루션 ${idx + 1} 이미지`} height="220px" />
-                      {renderInput('제목 (title)', card.title, (v) => updateArrayField('solutions', 'cards', idx, 'title', v))}
-                      {renderInput('설명 (desc)', card.desc, (v) => updateArrayField('solutions', 'cards', idx, 'desc', v), true)}
-                      {renderInput('링크 텍스트 (linkLabel)', card.linkLabel, (v) => updateArrayField('solutions', 'cards', idx, 'linkLabel', v))}
-                      {renderInput('연결 주소', card.href, (v) => updateArrayField('solutions', 'cards', idx, 'href', v))}
                     </div>
                   ))}
                 </div>

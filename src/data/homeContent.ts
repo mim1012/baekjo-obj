@@ -60,12 +60,6 @@ export interface HomeSettings {
     imageAlt: string;
     criteria: Array<{ title: string; desc: string }>;
   };
-  /** 6. 우리 아이를 위한 3가지 솔루션 (이미지·href 는 하드코딩) */
-  solutions: {
-    visible: boolean;
-    title: string;
-    cards: Array<{ title: string; desc: string; linkLabel: string; href: string; image: string; visible: boolean }>;
-  };
   /** 9. 펫보험 안내 배너 */
   insuranceBanner: {
     visible: boolean;
@@ -151,15 +145,6 @@ export const defaultHomeSettings: HomeSettings = {
       { title: '성분·원료', desc: '성분과 원료를 확인합니다.' },
       { title: '제조 과정', desc: '제품이 만들어지는 과정을 확인합니다.' },
       { title: '사용 경험', desc: '실제 보호자의 경험을 확인합니다.' },
-    ],
-  },
-  solutions: {
-    visible: true,
-    title: '우리 아이를 위한 3가지 솔루션',
-    cards: [
-      { title: '검증 브랜드', desc: 'Audit 기준을 철저히 통과한 믿을 수 있는 브랜드와 상품', linkLabel: '브랜드 보러가기', href: '/brands', image: '/images/solutions/audit.png', visible: true },
-      { title: '고민별 큐레이션', desc: '우리 아이의 증상과 고민에 딱 맞는 상품 맞춤 추천', linkLabel: '큐레이션 보러가기', href: '/concerns', image: '/images/solutions/curation.png', visible: true },
-      { title: '펫보험 비교', desc: '복잡한 보장 조건을 우리 아이 맞춤으로 한눈에 비교', linkLabel: '보험 분석 시작하기', href: '/insurance', image: '/images/solutions/insurance.png', visible: true },
     ],
   },
   insuranceBanner: {
@@ -275,25 +260,6 @@ function normalizeCurationCards(
   });
 }
 
-function normalizeSolutionCards(
-  value: unknown,
-  defaults: HomeSettings['solutions']['cards'],
-): HomeSettings['solutions']['cards'] {
-  if (!Array.isArray(value)) return defaults;
-  return value.slice(0, 12).map((rawItem, index) => {
-    const fallback = defaults[index] ?? { title: '', desc: '', linkLabel: '자세히 보기', href: '/', image: '', visible: true };
-    const item = isRecord(rawItem) ? rawItem : {};
-    return {
-      title: asString(item.title, fallback.title),
-      desc: asString(item.desc, fallback.desc),
-      linkLabel: asString(item.linkLabel, fallback.linkLabel),
-      href: asString(item.href, fallback.href),
-      image: asString(item.image, fallback.image),
-      visible: asBoolean(item.visible, fallback.visible),
-    };
-  });
-}
-
 export function normalizeHomeSettings(input: unknown): HomeSettings {
   const root = isRecord(input) ? input : {};
   const hero = isRecord(root.hero) ? root.hero : {};
@@ -301,7 +267,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
   const bestProducts = isRecord(root.bestProducts) ? root.bestProducts : {};
   const curation = isRecord(root.curation) ? root.curation : {};
   const audit = isRecord(root.audit) ? root.audit : {};
-  const solutions = isRecord(root.solutions) ? root.solutions : {};
   const insuranceBanner = isRecord(root.insuranceBanner) ? root.insuranceBanner : {};
   const trustBoard = isRecord(root.trustBoard) ? root.trustBoard : {};
 
@@ -354,11 +319,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
         title: asString(item.title, fallback.title),
         desc: asString(item.desc, fallback.desc),
       })),
-    },
-    solutions: {
-      visible: asBoolean(solutions.visible, d.solutions.visible),
-      title: asString(solutions.title, d.solutions.title),
-      cards: normalizeSolutionCards(solutions.cards, d.solutions.cards),
     },
     insuranceBanner: {
       visible: asBoolean(insuranceBanner.visible, d.insuranceBanner.visible),
