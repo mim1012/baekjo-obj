@@ -81,9 +81,9 @@
 | 배송·교환·환불 고객 안내문 | `/admin/pages/refund-policy` |
 | 진단 질문·결과·결과 화면 문구 | `/admin/survey` |
 
-## DB 적용 전 상태
+## staging DB 적용 상태
 
-준비된 마이그레이션:
+승인된 staging Supabase(`aeooyivfijthfcrfrnyk`)에 적용한 마이그레이션:
 
 - `0148_cms_page_versions.sql`
 - `0149_cms_page_catalog.sql`
@@ -92,16 +92,16 @@
 - `0152_product_tags_config.sql`
 - `0153_product_pet_types_multi_select.sql`
 
-현재 로컬 `.env.local`은 Production Supabase를 가리키고 staging용 `.env.test.local`이 없다. 따라서 코드·정적·DB 없는 화면 계약까지만 검증하고, 실제 DB 쓰기는 보류한다.
+GitHub Actions의 분리된 staging 쓰기 경로에서 `cms_pages`, `cms_page_versions`, 전체 화면 CMS 15개 키와 `publish_cms_page` 게시 함수를 확인했다. 관리자 로그인 후 브랜드 목록 문구를 임시저장하고 게시한 뒤 고객 `/brands` 화면에서 같은 값을 확인하고 원래 게시본·초안을 복구하는 실구동도 통과했다. Production DB에는 쓰기 작업을 하지 않았다.
 
-## staging에서 해야 하는 마지막 검증
+## staging 검증 상태
 
-1. staging ref `aeooyivfijthfcrfrnyk` 일치 검사
-2. `0148`~`0153` 적용
-3. 각 게시형 화면 임시저장·게시·새로고침·공개 read-back
+1. 완료 — staging ref `aeooyivfijthfcrfrnyk` 일치 검사
+2. 완료 — `0148`~`0153` 적용
+3. 완료 — 전체 화면 CMS 15개 연결과 대표 게시형 화면 임시저장·게시·공개 read-back·원상복구
 4. 상품·브랜드·고민·진단·후기·공지·키트 CRUD read-back
 5. 상품 태그 등록·상품 연결·카드/필터 표시·수정·삭제
 6. 반려동물 항목 추가·상품 복수 체크·저장·스토어 필터별 read-back
 7. 주문·결제·취소·부분환불·전액환불·배송 회귀검사
 
-위 검증 전에는 “운영 DB까지 완료”라고 판정하지 않는다.
+전체 화면 관리 CMS의 staging DB 연결은 완료했다. 나머지 상품·주문 도메인의 실구동 검증과 Production 반영은 별도 릴리스 게이트를 통과해야 하며, 이 staging 결과만으로 “운영 DB까지 완료”라고 판정하지 않는다.
