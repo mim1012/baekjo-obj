@@ -39,15 +39,16 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const mainNav = page.getByRole('navigation', { name: '주요 메뉴' });
     const navText = await mainNav.innerText();
     let navCursor = -1;
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
+    for (const label of ['셀렉션', '브랜드', '케어', 'B2B', '백조오브제']) {
       const next = navText.indexOf(label, navCursor + 1);
       expect(next, `${label} 메뉴 순서`).toBeGreaterThan(navCursor);
       navCursor = next;
     }
+    await expect(mainNav).not.toContainText('펫보험');
     await expect(page.getByRole('heading', { name: '좋은 브랜드를 찾고 계셨나요?' })).toBeVisible();
     await expect(page.getByText('좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.')).toBeVisible();
     await expect(page.getByText('백조오브제 Audit을 통과한 브랜드만 소개합니다.')).toBeVisible();
-    await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toHaveCount(0);
     const auditHero = page.getByTestId('home-audit-hero');
     const auditImage = page.getByTestId('home-audit-image');
     expect(decodeURIComponent(await auditImage.evaluate((image: HTMLImageElement) => image.currentSrc)))
@@ -85,11 +86,12 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await search.fill('써니사이드업');
     await page.getByRole('button', { name: '검색', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe('써니사이드업');
-    await expect(page.locator('.shop-product-grid article').first()).toBeVisible();
+    const sunnyProductCard = page.locator('.shop-product-grid article').filter({ hasText: '써니사이드업' }).first();
+    await expect(sunnyProductCard).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT, 'shop-desktop.png'), fullPage: true });
-    await page.locator('.shop-product-grid article').first().locator('a[href^="/shop/"]').first().click();
+    await sunnyProductCard.locator('a[href^="/shop/"]').first().click();
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByTestId('product-detail').getByText('써니사이드업 (SUNNY SIDE UP)', { exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText('써니사이드업', { exact: true }).first()).toBeVisible();
 
     await openHealthy(page, '/concerns');
     await expect(page.getByText('06 CARE', { exact: true })).toBeVisible();
@@ -112,7 +114,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.screenshot({ path: path.join(OUTPUT, 'tear-care-desktop.png'), fullPage: true });
   });
 
-  test('PC 브랜드·보험·B2B 문구와 링크를 확인한다', async ({ page }) => {
+  test('PC 브랜드·B2B 문구와 링크 및 숨김 보험 경로를 확인한다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openHealthy(page, '/brands');
     await expect(page.getByRole('heading', { name: '우리 아이를 생각한다면, 좋은 선택이 필요합니다.' })).toBeVisible();
@@ -121,15 +123,19 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
       await expect(page.getByRole('heading', { name: value, exact: true })).toBeVisible();
     }
     const brandGrid = page.getByTestId('brand-grid');
+    const loadMoreBrands = page.getByRole('button', { name: '더 보기', exact: true });
+    if (await loadMoreBrands.count()) {
+      await loadMoreBrands.click();
+    }
     for (const brandName of [
-      '노블독 (Noble Dog)',
-      '알로밍 (ALLOMING)',
-      '오미프로 (OMIPRO)',
-      '페네핏 (PENEFIT)',
-      '써니사이드업 (SUNNY SIDE UP)',
-      '챠콜스토리 (Charcoal Story)',
-      'RE:펫 (RE:PET)',
-      '메종슈슈 (Maison Chouchou)',
+      '노블독',
+      '알로밍',
+      '오미프로',
+      '페네핏',
+      '써니사이드업',
+      '챠콜스토리',
+      'RE:펫',
+      '메종슈슈',
     ]) {
       await expect(brandGrid.getByText(brandName, { exact: true })).toBeVisible();
     }
@@ -148,17 +154,18 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.screenshot({ path: path.join(OUTPUT, 'brands-desktop.png'), fullPage: true });
 
     await openHealthy(page, '/brands/b3');
-    await expect(page.getByRole('heading', { name: '노블독 (Noble Dog)', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '노블독', exact: true })).toBeVisible();
     await expect(page.getByText('꾸준한 구강 관리가 일상에 자리 잡을 수 있도록 돕는 브랜드', { exact: true })).toBeVisible();
     await expect(page.getByText('구강 · 양치', { exact: true })).toBeVisible();
 
-    await openHealthy(page, '/insurance');
-    await expect(page.getByText('같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.')).toBeVisible();
-    await expect(page.getByRole('link', { name: /보험 분석 시작하기/ })).toBeVisible();
+    const insuranceResponse = await page.goto('/insurance');
+    expect(insuranceResponse?.status(), '/insurance redirect HTTP status').toBeLessThan(400);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toHaveCount(0);
 
     await openHealthy(page, '/b2b');
-    await expect(page.getByRole('heading', { name: '기준이 같다면, 함께 만들어갑니다.' })).toBeVisible();
-    const partnershipLink = page.getByRole('link', { name: /파트너십 문의하기/ }).last();
+    await expect(page.getByRole('heading', { name: '반려가족과 만나는 순간을 함께 설계합니다.' })).toBeVisible();
+    const partnershipLink = page.getByRole('link', { name: 'B2B 문의하기' }).last();
     await expect(partnershipLink).toHaveAttribute('href', '/landing/care-kit#partner');
     await page.screenshot({ path: path.join(OUTPUT, 'b2b-desktop.png'), fullPage: true });
   });
@@ -177,9 +184,10 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.getByRole('button', { name: '메뉴 열기' }).click();
     const mobileNav = page.getByRole('navigation', { name: '전체 메뉴' });
     await expect(mobileNav).toBeVisible();
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
+    for (const label of ['셀렉션', '브랜드', '케어', '백조오브제', 'B2B']) {
       await expect(mobileNav.getByText(label, { exact: true }).first()).toBeVisible();
     }
+    await expect(mobileNav).not.toContainText('펫보험');
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-menu.png') });
 
     await openHealthy(page, '/shop');

@@ -4,7 +4,13 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { encode } from 'next-auth/jwt';
-import { assertGoldenWritePreflight, loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
+import {
+  assertGoldenWritePreflight,
+  loginAsAdmin,
+  loginWithCredentials,
+  selectProductBrand,
+  selectProductFormOption,
+} from './adminCrudHelpers';
 
 // member-*.spec.ts(wave6 — 회원 여정 전수) 전용 헬퍼. 파일명이 *.spec.ts가 아니라
 // Playwright 테스트로 수집되지 않는다.
@@ -19,6 +25,13 @@ export const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 export async function loginAsMember(page: Page): Promise<void> {
   await assertGoldenWritePreflight();
   await loginWithCredentials(page, MEMBER_EMAIL!, MEMBER_PASSWORD!);
+}
+
+export async function waitForCartProduct(page: Page, productId: string): Promise<void> {
+  await expect.poll(
+    () => page.evaluate((id) => localStorage.getItem('baekjo_cart')?.includes(id) ?? false, productId),
+    { timeout: 15_000 },
+  ).toBe(true);
 }
 
 export async function loginAsMemberReadOnly(page: Page): Promise<void> {
@@ -84,9 +97,9 @@ export async function createThrowawayProduct(
     await page.goto('/admin/products/new');
 
     await page.locator('#product-name').fill(name);
-    await page.locator('#product-brand').selectOption('b1');
-    await page.locator('#product-category').selectOption({ index: 1 });
-    await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await selectProductBrand(page, 'b1');
+    await selectProductFormOption(page, '스토어 카테고리 선택');
+    await selectProductFormOption(page, '라이프스타일 분류 선택');
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('both');
     await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(`${namePrefix} 테스트 상품`);

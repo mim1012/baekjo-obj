@@ -7,6 +7,7 @@ import {
   loginAsAdmin,
   loginWithCredentials,
 } from './_lib/adminCrudHelpers';
+import { q } from '../payments/helpers';
 
 test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
@@ -54,6 +55,7 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
       });
       expect(activateResponse.ok()).toBe(true);
     }
+    await q(`update public.members set email_verified = true where email = '${email.replaceAll("'", "''")}';`);
     await setupPage.close();
 
     const changeContext = await browser.newContext({ extraHTTPHeaders: bypassHeaders() });

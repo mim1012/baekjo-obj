@@ -4,6 +4,7 @@ import {
   MEMBER_EMAIL,
   MEMBER_PASSWORD,
   loginAsMember,
+  waitForCartProduct,
   createThrowawayProduct,
   cleanupThrowawayProducts,
   forceOrderPurchaseConfirmed,
@@ -54,6 +55,7 @@ test.describe('골든플로우: 회원 여정 — 구매평·상품문의 회원
     await loginAsMember(memberPage);
     await memberPage.goto(`/shop/${productId}`);
     await memberPage.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(memberPage, productId);
     await memberPage.goto('/checkout');
     await memberPage.locator('input[name="customerName"]').fill('E2E 리뷰테스터');
     await memberPage.locator('input[name="phone"]').fill('010-2222-3333');

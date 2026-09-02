@@ -73,9 +73,10 @@ export default function CategoryManagerPage() {
       setDirty(true);
     };
 
-    const commitItemName = () => {
-      if (!dirty) return;
-      void commit(settings);
+    const commitItemName = (index: number, event: React.FocusEvent<HTMLInputElement>) => {
+      const nextList = [...list];
+      nextList[index] = event.currentTarget.value;
+      void commit(withList(nextList));
     };
 
     const removeItem = (index: number) => {
@@ -126,7 +127,7 @@ export default function CategoryManagerPage() {
                   type="text"
                   value={item}
                   onChange={(e) => updateItemLocal(index, e.target.value)}
-                  onBlur={commitItemName}
+                  onBlur={(event) => commitItemName(index, event)}
                   className="flex-1 border-0 border-b border-transparent focus:border-[#17201B] focus:ring-0 text-[14px] px-1 py-1.5"
                   placeholder="항목 이름"
                 />

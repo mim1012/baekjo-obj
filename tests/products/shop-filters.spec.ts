@@ -98,6 +98,32 @@ test.describe('공개 쇼핑 분류', () => {
 
     expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(['푸드', '커스텀']);
   });
+
+  test('객체로 남은 공개 분류 저장값은 label 문자열로 복원한다', () => {
+    const savedSettings = {
+      ...defaultCategorySettings,
+      productCategories: [
+        { id: 'food', label: '푸드' },
+        { id: 'care', label: '케어' },
+      ],
+    } as unknown as typeof defaultCategorySettings;
+
+    expect(normalizeStoredCategorySettings(savedSettings).productCategories).toEqual(['푸드', '케어']);
+  });
+
+  test('현재 계약에 없는 레거시 설정 키도 읽을 때 보존한다', () => {
+    const legacySettings = {
+      ...defaultCategorySettings,
+      petTypes: [{ id: 'dog', label: '강아지' }],
+      priceRanges: [{ id: 'under-20000', label: '2만원 미만', maxPrice: 19_999 }],
+      ratingRanges: [{ id: '4', label: '4.0 이상', minRating: 4 }],
+    };
+
+    const normalized = normalizeStoredCategorySettings(legacySettings) as typeof legacySettings;
+    expect(normalized.petTypes).toEqual(legacySettings.petTypes);
+    expect(normalized.priceRanges).toEqual(legacySettings.priceRanges);
+    expect(normalized.ratingRanges).toEqual(legacySettings.ratingRanges);
+  });
 });
 
 function product(overrides: Partial<Product> = {}): Product {

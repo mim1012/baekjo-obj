@@ -36,15 +36,17 @@ test.describe('골든플로우: 회원 여정 — 소셜 로그인 앱 내부 �
   test('소셜 로그인 시작과 완료 브릿지는 /auth/complete → /api/members/me → setCurrentUser 로 이어진다', () => {
     const socialAuth = src('src', 'lib', 'socialAuth.ts');
     expect(socialAuth).toContain("const SOCIAL_COMPLETE_PATH = '/auth/complete';");
-    expect(socialAuth).toContain("export async function loginWithProvider(provider: 'kakao' | 'naver')");
-    expect(socialAuth).toContain('await signIn(provider, { redirectTo: SOCIAL_COMPLETE_PATH });');
+    expect(socialAuth).toContain("export async function loginWithProvider(provider: 'kakao' | 'naver', returnTo = '/')");
+    expect(socialAuth).toContain('const params = new URLSearchParams({ returnTo: normalizeReturnTo(returnTo) });');
+    expect(socialAuth).toContain('await signIn(provider, { redirectTo: `${SOCIAL_COMPLETE_PATH}?${params.toString()}` });');
     expect(socialAuth).toContain("const response = await fetch('/api/members/me');");
     expect(socialAuth).toContain('setCurrentUser(user);');
 
     const completePage = src('src', 'app', 'auth', 'complete', 'page.tsx');
-    expect(completePage).toContain("import { completeSocialLogin } from '@/lib/socialAuth';");
+    expect(completePage).toContain("import { completeSocialLogin, normalizeReturnTo } from '@/lib/socialAuth';");
+    expect(completePage).toContain('const returnTo = normalizeReturnTo(');
     expect(completePage).toContain('completeSocialLogin()');
-    expect(completePage).toContain("router.replace(user ? '/' : '/login?error=social');");
+    expect(completePage).toContain('router.replace(user.profileCompleted ? returnTo :');
     expect(completePage).toContain("router.replace('/login?error=social');");
   });
 

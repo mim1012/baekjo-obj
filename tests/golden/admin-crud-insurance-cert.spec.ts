@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createClient } from '@supabase/supabase-js';
+import { FEATURES } from '@/config/features';
 import { assertAllowedTestSupabaseRef } from '../_lib/supabaseSafety';
 import {
   ADMIN_EMAIL,
@@ -30,6 +31,7 @@ import {
 // production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐. 이 스펙이 만드는 신청
 // 건과 스토리지 파일은 마지막 단계의 DELETE(파기 검증 겸 정리)가 지운다.
 test.describe('골든플로우 #3: 증권 업로드 실구동 — 업로드→관리자 열람→PII 파기', () => {
+  test.skip(!FEATURES.insurance, '공개 보험 기능이 미노출이라 증권 신청 여정은 실행하지 않음');
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 관리자 열람 검증 불가로 skip');
 

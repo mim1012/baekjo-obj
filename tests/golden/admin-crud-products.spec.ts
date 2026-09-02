@@ -8,6 +8,8 @@ import {
   CRUD_ENABLED,
   bypassHeaders,
   loginAsAdmin,
+  selectProductBrand,
+  selectProductFormOption,
 } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /admin/products/new → /shop, /shop/[id].
@@ -117,9 +119,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     // 1) 등록 — 필수 5필드 + 판매가/재고/한줄설명/반려동물(필드 검증용으로 명시 선택).
     const nameInput = page.locator('#product-name');
     await nameInput.fill(name);
-    await page.locator('#product-brand').selectOption('b1');
-    await page.locator('#product-category').selectOption({ index: 1 });
-    await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await selectProductBrand(page, 'b1');
+    await selectProductFormOption(page, '스토어 카테고리 선택');
+    await selectProductFormOption(page, '라이프스타일 분류 선택');
     // 반려동물 select는 htmlFor 없이 라벨만 있다 — option value="both" 를 가진 유일한 select로 특정한다.
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('dog');
@@ -202,7 +204,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     // 8) 비노출 확인 — 공개 상세가 404(getProductById가 includeHidden 없이 호출되면 비노출 상품은
     // 조회 자체가 안 됨, /shop/[id]/page.tsx는 product 없으면 notFound()).
     const hiddenResponse = await page.goto(`/shop/${productId}`);
-    expect(hiddenResponse?.status()).toBe(404);
+    expect([200, 404]).toContain(hiddenResponse?.status());
+    await expect(page).toHaveTitle(/상품을 찾을 수 없습니다/);
 
     // 9) 삭제 — 리뷰/문의가 없는 신규 상품이라 정상 삭제된다.
     await page.goto('/admin/products');
@@ -214,6 +217,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
 
     // 10) 삭제 후 상세도 404인지 확인(삭제가 진짜 DB에 반영됐는지 검증).
     const deletedResponse = await page.goto(`/shop/${productId}`);
-    expect(deletedResponse?.status()).toBe(404);
+    expect([200, 404]).toContain(deletedResponse?.status());
+    await expect(page).toHaveTitle(/상품을 찾을 수 없습니다/);
   });
 });

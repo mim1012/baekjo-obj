@@ -2,7 +2,15 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+  selectProductBrand,
+  selectProductFormOption,
+} from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /shop/[id](장바구니)→/checkout(무통장입금)→/admin/orders
 // (입금확인·상태 전이)→/mypage(회원 반영).
@@ -94,9 +102,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     await adminPage.goto('/admin/products/new');
 
     await adminPage.locator('#product-name').fill(productName);
-    await adminPage.locator('#product-brand').selectOption('b1');
-    await adminPage.locator('#product-category').selectOption({ index: 1 });
-    await adminPage.locator('#product-lifestyle').selectOption({ index: 1 });
+    await selectProductBrand(adminPage, 'b1');
+    await selectProductFormOption(adminPage, '스토어 카테고리 선택');
+    await selectProductFormOption(adminPage, '라이프스타일 분류 선택');
     const petTypeSelect = adminPage
       .locator('select')
       .filter({ has: adminPage.locator('option[value="both"]') });
@@ -142,6 +150,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     // 페이지 하단 "함께 보면 좋은 상품" 추천 카드(<article>)에도 동일 텍스트의 장바구니 버튼이 있어
     // strict-mode 위반이 난다(실측) — 메인 상품의 것은 article 밖에 있으므로 .first()로 특정한다.
     await memberPage.getByRole('button', { name: '장바구니' }).first().click();
+    await expect.poll(
+      () => memberPage.evaluate((id) => localStorage.getItem('baekjo_cart')?.includes(id) ?? false, productId!),
+      { timeout: 15_000 },
+    ).toBe(true);
 
     await memberPage.goto('/cart');
     await memberPage.getByRole('link', { name: /주문하기/ }).click();

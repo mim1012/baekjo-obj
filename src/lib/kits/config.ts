@@ -9,6 +9,62 @@ export interface KitsConfig {
   items: CareKit[];
 }
 
+const KIT_TYPES: ReadonlySet<CareKit['type']> = new Set([
+  'hospital',
+  'vitality',
+  'funeral',
+  'welcome',
+  'sample',
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeStoredKit(value: unknown): CareKit | null {
+  if (!isRecord(value)) return null;
+  if (
+    typeof value.id !== 'string' ||
+    typeof value.name !== 'string' ||
+    typeof value.target !== 'string' ||
+    typeof value.purpose !== 'string' ||
+    typeof value.type !== 'string' ||
+    !KIT_TYPES.has(value.type as CareKit['type'])
+  ) {
+    return null;
+  }
+
+  const items = Array.isArray(value.items)
+    ? value.items.filter((item): item is string => typeof item === 'string')
+    : [];
+  const stock = typeof value.stock === 'number' && Number.isFinite(value.stock)
+    ? Math.max(0, Math.floor(value.stock))
+    : 0;
+  const kit: CareKit = {
+    id: value.id,
+    name: value.name,
+    type: value.type as CareKit['type'],
+    target: value.target,
+    location: typeof value.location === 'string' ? value.location : '-',
+    items,
+    purpose: value.purpose,
+    stock,
+    isVisible: typeof value.isVisible === 'boolean' ? value.isVisible : true,
+  };
+
+  if (typeof value.partnerId === 'string' && value.partnerId.length > 0) kit.partnerId = value.partnerId;
+  if (typeof value.description === 'string' && value.description.length > 0) kit.description = value.description;
+  return kit;
+}
+
+export function normalizeStoredKitsConfig(value: unknown): KitsConfig | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  return { items: value.items.flatMap((item) => {
+    const normalized = normalizeStoredKit(item);
+    return normalized ? [normalized] : [];
+  }) };
+}
+
 /** DB 행이 없거나 조회 실패 시 관리자 케어키트 화면이 폴백하는 기본 키트 목록. */
 export const defaultKitsConfig: KitsConfig = {
   items: [

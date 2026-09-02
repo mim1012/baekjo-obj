@@ -906,7 +906,7 @@ export async function getPublicProductsOrNull(filter?: {
     if (filter?.brandId) params.set('brandId', filter.brandId);
     if (filter?.petType) params.set('petType', filter.petType);
     const query = params.toString();
-    const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
+    const response = await fetch(`/api/products${query ? `?${query}` : ''}`, { cache: 'no-store' });
     if (!response.ok) return null;
     const { products } = (await response.json()) as { products: Product[] };
     return products;
