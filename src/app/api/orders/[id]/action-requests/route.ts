@@ -2,11 +2,40 @@ import { NextResponse } from 'next/server';
 import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { createOrderActionRequest, getOrderById, listOrderActionRequests } from '@/lib/orders/repo';
 import { listShipmentsByOrder } from '@/lib/shipments/repo';
-import { brandDeliveryFee, brandItems, ORDER_ACTION_REQUEST_TYPES, type OrderActionRequestType } from '@/lib/orders/actionRequests';
+import {
+  brandDeliveryFee,
+  brandItems,
+  ORDER_ACTION_REQUEST_TYPES,
+  reservedQuantityByLine,
+  type OrderActionRequestItemInput,
+  type OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 import { logServerError } from '@/lib/logServerError';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REQUESTABLE_DELIVERY = ['배송전', '배송준비'] as const;
+
+function readSelectedItems(value: unknown): OrderActionRequestItemInput[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 100) return null;
+  const seen = new Set<number>();
+  const items: OrderActionRequestItemInput[] = [];
+  for (const raw of value) {
+    if (!raw || typeof raw !== 'object') return null;
+    const item = raw as Record<string, unknown>;
+    if (
+      typeof item.lineIndex !== 'number' ||
+      !Number.isSafeInteger(item.lineIndex) ||
+      item.lineIndex < 0 ||
+      typeof item.quantity !== 'number' ||
+      !Number.isSafeInteger(item.quantity) ||
+      item.quantity <= 0 ||
+      seen.has(item.lineIndex)
+    ) return null;
+    seen.add(item.lineIndex);
+    items.push({ lineIndex: item.lineIndex, quantity: item.quantity });
+  }
+  return items;
+}
 
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -38,11 +67,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const requestType: OrderActionRequestType | null = body.requestType === 'CANCEL' || body.requestType === 'REFUND' ? body.requestType : null;
     const brandId = typeof body.brandId === 'string' ? body.brandId.trim() : '';
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
-    if (!requestType || !ORDER_ACTION_REQUEST_TYPES.includes(requestType) || !brandId || reason.length === 0 || reason.length > 200) {
+    const selectedItems = readSelectedItems(body.items);
+    if (!requestType || !ORDER_ACTION_REQUEST_TYPES.includes(requestType) || !brandId || !selectedItems || reason.length === 0 || reason.length > 200) {
       return NextResponse.json({ error: 'invalid-action-request' }, { status: 422 });
     }
-    const items = brandItems(order, brandId);
-    if (items.length === 0) return NextResponse.json({ error: 'brand-items-not-found' }, { status: 422 });
+    const requests = await listOrderActionRequests(id, member.memberId);
+    const reserved = reservedQuantityByLine(requests);
+    for (const selected of selectedItems) {
+      const source = order.items[selected.lineIndex];
+      const remaining = source ? source.quantity - (reserved.get(selected.lineIndex) ?? 0) : 0;
+      if (!source || source.brandId !== brandId || selected.quantity > remaining) {
+        return NextResponse.json({ error: 'action-request-quantity-exceeds-remaining' }, { status: 409 });
+      }
+    }
+    const items = brandItems(order, brandId, selectedItems);
+    if (items.length !== selectedItems.length) return NextResponse.json({ error: 'brand-items-not-found' }, { status: 422 });
     const shipment = (await listShipmentsByOrder(id)).find((candidate) => candidate.brandId === brandId)?.deliveryStatus ?? order.deliveryStatus;
     if (requestType === 'CANCEL' && !REQUESTABLE_DELIVERY.includes(shipment as (typeof REQUESTABLE_DELIVERY)[number])) {
       return NextResponse.json({ error: 'action-request-after-shipment-not-supported' }, { status: 409 });
@@ -50,7 +89,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (requestType === 'REFUND' && order.paymentStatus !== '결제완료') {
       return NextResponse.json({ error: 'refund-order-not-paid' }, { status: 409 });
     }
-    const requestedAmount = items.reduce((sum, item) => sum + item.amount, 0) + brandDeliveryFee(order, brandId);
+    const requestedAmount = items.reduce((sum, item) => sum + item.amount, 0) + brandDeliveryFee(order, brandId, selectedItems);
     const created = await createOrderActionRequest({ orderId: id, memberId: member.memberId, requestType, brandId, items, requestedAmount, reason });
     return NextResponse.json({ request: created }, { status: 201 });
   } catch (error) {

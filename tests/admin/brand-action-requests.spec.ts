@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { brandDeliveryFee, brandItems } from '../../src/lib/orders/actionRequests';
+import { brandDeliveryFee, brandItems, reservedQuantityByLine } from '../../src/lib/orders/actionRequests';
 import type { Order } from '../../src/types';
 
 const order = (): Order => ({
@@ -22,5 +22,29 @@ test.describe('브랜드별 취소·환불 요청 계산', () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.amount).toBe(2000);
     expect(brandDeliveryFee(current, 'brand-a')).toBe(3000);
+  });
+
+  test('브랜드 상품 수량을 선택하면 선택한 수량만 요청 항목과 금액에 반영한다', () => {
+    const current = order();
+    const items = brandItems(current, 'brand-a', [{ lineIndex: 0, quantity: 1 }]);
+    expect(items[0]).toMatchObject({ lineIndex: 0, quantity: 1, amount: 1000 });
+    expect(brandDeliveryFee(current, 'brand-a', [{ lineIndex: 0, quantity: 1 }])).toBe(0);
+  });
+
+  test('이미 접수되거나 완료된 취소 수량은 잔여 수량에서 예약한다', () => {
+    const reserved = reservedQuantityByLine([
+      {
+        id: 'request-1', orderId: 'order-1', memberId: 'member-1', requestType: 'CANCEL', brandId: 'brand-a',
+        items: [{ lineIndex: 0, productId: 'p1', productName: 'A', quantity: 1, unitPrice: 1000, amount: 1000 }],
+        requestedAmount: 1000, reason: '고객 요청', status: 'REQUESTED', createdAt: '2026-01-01', updatedAt: '2026-01-01',
+      },
+      {
+        id: 'request-2', orderId: 'order-1', memberId: 'member-1', requestType: 'CANCEL', brandId: 'brand-a',
+        items: [{ lineIndex: 1, productId: 'p2', productName: 'B', quantity: 1, unitPrice: 2000, amount: 2000 }],
+        requestedAmount: 2000, reason: '고객 요청', status: 'REJECTED', createdAt: '2026-01-01', updatedAt: '2026-01-01',
+      },
+    ]);
+    expect(reserved.get(0)).toBe(1);
+    expect(reserved.get(1)).toBeUndefined();
   });
 });

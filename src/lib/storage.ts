@@ -28,7 +28,11 @@ import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
-import type { OrderActionRequestRecord, OrderActionRequestType } from '@/lib/orders/actionRequests';
+import type {
+  OrderActionRequestItemInput,
+  OrderActionRequestRecord,
+  OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
@@ -551,7 +555,7 @@ export async function requestOrderCancellation(orderId: string): Promise<void> {
 
 export async function createOrderActionRequest(
   orderId: string,
-  input: { requestType: OrderActionRequestType; brandId: string; reason: string },
+  input: { requestType: OrderActionRequestType; brandId: string; items: OrderActionRequestItemInput[]; reason: string },
 ): Promise<OrderActionRequestRecord> {
   const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/action-requests`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),

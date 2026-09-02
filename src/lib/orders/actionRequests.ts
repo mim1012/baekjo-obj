@@ -15,6 +15,11 @@ export interface OrderActionRequestItem {
   optionName?: string;
 }
 
+export interface OrderActionRequestItemInput {
+  lineIndex: number;
+  quantity: number;
+}
+
 export interface OrderActionRequestRecord {
   id: string;
   orderId: string;
@@ -33,21 +38,51 @@ export function brandIdForItem(item: OrderItem): string | null {
   return item.brandId ?? null;
 }
 
-export function brandItems(order: Order, brandId: string): OrderActionRequestItem[] {
+export function brandItems(
+  order: Order,
+  brandId: string,
+  selectedItems?: readonly OrderActionRequestItemInput[],
+): OrderActionRequestItem[] {
+  const selectedByLine = selectedItems ? new Map(selectedItems.map((item) => [item.lineIndex, item.quantity])) : null;
   return order.items.flatMap((item, lineIndex) => {
-    if (item.brandId !== brandId || item.quantity <= 0 || item.price <= 0) return [];
+    const quantity = selectedByLine ? selectedByLine.get(lineIndex) ?? 0 : item.quantity;
+    if (item.brandId !== brandId || quantity <= 0 || item.quantity <= 0 || item.price <= 0) return [];
     return [{
       lineIndex,
       productId: item.productId,
       productName: item.productName,
-      quantity: item.quantity,
+      quantity,
       unitPrice: item.price,
-      amount: item.price * item.quantity,
+      amount: item.price * quantity,
       ...(item.optionName ? { optionName: item.optionName } : {}),
     }];
   });
 }
 
-export function brandDeliveryFee(order: Order, brandId: string): number {
+export function brandDeliveryFee(
+  order: Order,
+  brandId: string,
+  selectedItems?: readonly OrderActionRequestItemInput[] | readonly OrderActionRequestItem[],
+): number {
+  const brandOrderItems = order.items
+    .map((item, lineIndex) => ({ item, lineIndex }))
+    .filter(({ item }) => item.brandId === brandId);
+  const selectedByLine = selectedItems ? new Map(selectedItems.map((item) => [item.lineIndex, item.quantity])) : null;
+  const cancelsWholeBrand = brandOrderItems.every(({ item, lineIndex }) => {
+    const quantity = selectedByLine ? selectedByLine.get(lineIndex) ?? 0 : item.quantity;
+    return quantity >= item.quantity;
+  });
+  if (!cancelsWholeBrand) return 0;
   return order.deliveryFeeBreakdown?.find((line) => line.brandId === brandId)?.appliedDeliveryFee ?? 0;
+}
+
+export function reservedQuantityByLine(requests: readonly OrderActionRequestRecord[]): Map<number, number> {
+  const reserved = new Map<number, number>();
+  for (const request of requests) {
+    if (request.status === 'REJECTED') continue;
+    for (const item of request.items) {
+      reserved.set(item.lineIndex, (reserved.get(item.lineIndex) ?? 0) + item.quantity);
+    }
+  }
+  return reserved;
 }

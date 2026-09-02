@@ -10,7 +10,11 @@ import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timel
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
 import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
-import type { OrderActionRequestRecord } from '@/lib/orders/actionRequests';
+import type {
+  OrderActionRequestItemInput,
+  OrderActionRequestRecord,
+} from '@/lib/orders/actionRequests';
+import { reservedQuantityByLine } from '@/lib/orders/actionRequests';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
@@ -31,7 +35,8 @@ const ITEMS_PER_PAGE = 20;
 export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview, onOrderUpdated }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [actionRequestKey, setActionRequestKey] = useState<string | null>(null);
-  const [actionRequests, setActionRequests] = useState<Record<string, OrderActionRequestRecord>>({});
+  const [actionRequests, setActionRequests] = useState<OrderActionRequestRecord[]>([]);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
@@ -55,11 +60,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       }
     })).then((requestGroups) => {
       if (!active) return;
-      const next: Record<string, OrderActionRequestRecord> = {};
-      for (const requests of requestGroups) {
-        for (const request of requests) next[`${request.orderId}:${request.brandId}:${request.requestType}`] = request;
-      }
-      setActionRequests(next);
+      setActionRequests(requestGroups.flat());
     });
     return () => { active = false; };
   }, [orders]);
@@ -128,21 +129,48 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return shipment?.deliveryStatus || '배송전';
   };
 
-  const handleActionRequest = async (order: Order, brandId: string, requestType: 'CANCEL' | 'REFUND', brandName: string) => {
+  const remainingQuantity = (order: Order, lineIndex: number): number => {
+    const requests = actionRequests.filter((request) => request.orderId === order.id);
+    const reserved = reservedQuantityByLine(requests).get(lineIndex) ?? 0;
+    return Math.max(0, (order.items[lineIndex]?.quantity ?? 0) - reserved);
+  };
+
+  const hasActiveRequest = (orderId: string, brandId: string, requestType: 'CANCEL' | 'REFUND'): boolean =>
+    actionRequests.some(
+      (request) =>
+        request.orderId === orderId &&
+        request.brandId === brandId &&
+        request.requestType === requestType &&
+        (request.status === 'REQUESTED' || request.status === 'APPROVED'),
+    );
+
+  const handleActionRequest = async (
+    order: Order,
+    brandId: string,
+    requestType: 'CANCEL' | 'REFUND',
+    brandName: string,
+    items: OrderActionRequestItemInput[],
+  ) => {
+    if (items.length === 0) {
+      window.alert('취소할 상품 수량을 먼저 선택해주세요.');
+      return;
+    }
     const reason = window.prompt(`${brandName} ${requestType === 'CANCEL' ? '취소' : '환불'} 사유를 입력해주세요.`, '고객 요청');
     if (reason === null || reason.trim() === '') return;
     const key = `${order.id}:${brandId}:${requestType}`;
     if (!window.confirm(`${brandName} 상품 ${requestType === 'CANCEL' ? '취소' : '환불'}을 요청하시겠습니까?`)) return;
     setActionRequestKey(key);
     try {
-      const created = await createOrderActionRequest(order.id, { requestType, brandId, reason: reason.trim() });
-      setActionRequests((current) => ({ ...current, [key]: created }));
+      const created = await createOrderActionRequest(order.id, { requestType, brandId, items, reason: reason.trim() });
+      setActionRequests((current) => [...current, created]);
       await onOrderUpdated();
     } catch (error) {
-      const message = error instanceof Error && error.message === 'action-request-already-exists'
-        ? '같은 브랜드의 요청이 이미 접수되어 있습니다.'
-        : error instanceof Error && error.message === 'action-request-order-closed'
-          ? '이미 종료된 주문에는 요청할 수 없습니다.'
+        const message = error instanceof Error && error.message === 'action-request-already-exists'
+          ? '같은 브랜드의 요청이 이미 접수되어 있습니다.'
+          : error instanceof Error && error.message === 'action-request-quantity-exceeds-remaining'
+            ? '이미 처리 중이거나 취소된 수량이 포함되어 있습니다. 주문을 새로고침한 뒤 다시 선택해주세요.'
+          : error instanceof Error && error.message === 'action-request-order-closed'
+            ? '이미 종료된 주문에는 요청할 수 없습니다.'
           : '브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
       window.alert(message);
     } finally {
@@ -304,8 +332,15 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 const brand = bundle.brandId ? brands.find((b) => b.id === bundle.brandId) : null;
                 const label = brand?.name ?? (bundle.brandId ? '배송 정보' : '배송조회');
                 const cancelKey = `${order.id}:${bundle.brandId}:CANCEL`;
-                const refundKey = `${order.id}:${bundle.brandId}:REFUND`;
                 const brandId = bundle.brandId;
+                const bundleLineItems = order.items
+                  .map((item, lineIndex) => ({ item, lineIndex }))
+                  .filter(({ item }) => item.brandId === brandId);
+                const selectedItems = bundleLineItems.flatMap(({ lineIndex }) => {
+                  const quantity = selectedQuantities[`${order.id}:${lineIndex}`] ?? 0;
+                  return quantity > 0 ? [{ lineIndex, quantity }] : [];
+                });
+                const hasRemainingItems = bundleLineItems.some(({ lineIndex }) => remainingQuantity(order, lineIndex) > 0);
                 return (
                   <div
                     key={bundle.brandId ?? '__legacy__'}
@@ -320,8 +355,47 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       {!brandId && isCancellationRequestAllowed(order) && <button onClick={() => void handleLegacyCancelRequest(order)} disabled={Boolean(actionRequestKey)} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequestKey === order.id ? '요청 중...' : '주문 취소 요청'}</button>}
                       {brandId && (
                         <>
-                          <button onClick={() => void handleActionRequest(order, brandId, 'CANCEL', label)} disabled={Boolean(actionRequestKey) || Boolean(actionRequests[cancelKey])} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequests[cancelKey] ? '취소 접수됨' : actionRequestKey === cancelKey ? '요청 중...' : '브랜드 취소'}</button>
-                          <button onClick={() => void handleActionRequest(order, brandId, 'REFUND', label)} disabled={Boolean(actionRequestKey) || Boolean(actionRequests[refundKey])} className="mp-btn-secondary h-9 gap-1 px-3 text-xs">{actionRequests[refundKey] ? '환불 접수됨' : actionRequestKey === refundKey ? '요청 중...' : '브랜드 환불'}</button>
+                          {hasRemainingItems && (
+                            <div className="w-full space-y-2 rounded-md border border-[#EBE6DC] bg-white p-3 text-xs sm:max-w-md">
+                              <p className="font-semibold text-[#18231F]">취소할 상품 수량을 선택해주세요.</p>
+                              {bundleLineItems.map(({ item, lineIndex }) => {
+                                const remaining = remainingQuantity(order, lineIndex);
+                                return (
+                                  <label key={`${order.id}-${lineIndex}`} className="flex items-center justify-between gap-3 text-[#68716C]">
+                                    <span className="min-w-0 truncate">{item.productName} <span className="text-[#A29E93]">(잔여 {remaining}개)</span></span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={remaining}
+                                      value={selectedQuantities[`${order.id}:${lineIndex}`] ?? 0}
+                                      onChange={(event) => {
+                                        const value = Math.min(remaining, Math.max(0, Number(event.target.value) || 0));
+                                        setSelectedQuantities((current) => ({ ...current, [`${order.id}:${lineIndex}`]: value }));
+                                      }}
+                                      disabled={remaining === 0}
+                                      aria-label={`${item.productName} 취소 수량`}
+                                      className="h-9 w-20 rounded border border-[#D8D3C8] px-2 text-right text-[#18231F]"
+                                    />
+                                  </label>
+                                );
+                              })}
+                              <button
+                                onClick={() => void handleActionRequest(order, brandId, 'CANCEL', label, selectedItems)}
+                                disabled={Boolean(actionRequestKey) || hasActiveRequest(order.id, brandId, 'CANCEL')}
+                                className="mp-btn-secondary h-9 w-full gap-1 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                <CircleAlert className="h-3.5 w-3.5" />
+                                {hasActiveRequest(order.id, brandId, 'CANCEL') ? '취소 접수됨' : actionRequestKey === cancelKey ? '요청 중...' : '선택 상품 취소 요청'}
+                              </button>
+                              <button
+                                onClick={() => void handleActionRequest(order, brandId, 'REFUND', label, selectedItems)}
+                                disabled={Boolean(actionRequestKey) || hasActiveRequest(order.id, brandId, 'REFUND')}
+                                className="mp-btn-secondary h-9 w-full gap-1 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {hasActiveRequest(order.id, brandId, 'REFUND') ? '환불 접수됨' : actionRequestKey === `${order.id}:${brandId}:REFUND` ? '요청 중...' : '선택 상품 환불 요청'}
+                              </button>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
