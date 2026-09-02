@@ -93,7 +93,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 전시 후기', 
     await page.getByRole('button', { name: '후기 등록' }).click();
     await page.getByLabel('상품 ID').fill(PRODUCT_ID);
     await page.getByLabel('반려동물').selectOption('dog');
-    await page.getByLabel('견종/묘종').fill(breed);
+    await page.getByLabel('품종').fill(breed);
     await page.getByLabel('나이').fill(age);
     await page.getByLabel('사용 기간').fill(usePeriod);
     await page.getByLabel('별점').fill(String(rating));

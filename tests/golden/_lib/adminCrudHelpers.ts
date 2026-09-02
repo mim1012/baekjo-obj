@@ -74,6 +74,24 @@ export async function loginAsAdmin(page: Page): Promise<void> {
   await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
 }
 
+export async function selectProductBrand(page: Page, brandId: string): Promise<void> {
+  const select = page.locator('#product-brand');
+  await expect(select).toBeVisible({ timeout: 15_000 });
+  await expect(select.locator(`option[value="${brandId}"]`)).toBeAttached({ timeout: 15_000 });
+  await select.selectOption(brandId);
+}
+
+export async function selectProductFormOption(page: Page, groupName: string, optionIndex = 0): Promise<string> {
+  const group = page.getByRole('group', { name: groupName });
+  await expect(group).toBeVisible({ timeout: 15_000 });
+  const option = group.getByRole('button').nth(optionIndex);
+  await expect(option).toBeVisible({ timeout: 15_000 });
+  const label = (await option.innerText()).trim();
+  await option.click();
+  await expect(option).toHaveAttribute('aria-pressed', 'true');
+  return label;
+}
+
 /**
  * 관리자 목록 화면에서 검색어에 매칭되는 모든 행을 삭제한다 — 이전 실행이 남긴 잔여
  * E2E 테스트 데이터를 치우는 정리 가드(beforeAll/afterAll 양쪽에서 호출).

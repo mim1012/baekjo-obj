@@ -150,7 +150,7 @@ test.describe('release UI 모바일 반응형 검증', () => {
 
           const bottomNav = page.getByRole('navigation', { name: '하단 메뉴' });
           await expect(bottomNav).toBeVisible();
-          for (const label of ['홈', '케어', '쇼핑', '보험', '마이']) {
+          for (const label of ['홈', '케어', '쇼핑', '마이']) {
             await expectTouchTarget(bottomNav.getByRole('link', { name: label }), `${width}px ${route.slug} ${label}`);
           }
 

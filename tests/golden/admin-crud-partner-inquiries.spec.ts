@@ -39,7 +39,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — B2B 제휴 문�
     await page.locator('#partner-inquiry').fill(`E2E 테스트 문의 내용 ${runId}`);
     await page.locator('#partner-agree').check();
 
-    const submitButton = page.getByRole('button', { name: '제휴 문의 제출하기' });
+    const submitButton = page.getByRole('button', { name: '협업·제휴 문의하기' });
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
     await expect(page.getByText(/제휴 문의가 접수되었습니다/)).toBeVisible({ timeout: 15_000 });

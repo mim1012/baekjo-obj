@@ -2,7 +2,15 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  loginAsAdmin,
+  selectProductBrand,
+  selectProductFormOption,
+} from './_lib/adminCrudHelpers';
 
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 갤러리 이미지 삭제', () => {
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
@@ -70,9 +78,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 갤러리
     await loginAsAdmin(page);
     await page.goto('/admin/products/new');
     await page.locator('#product-name').fill(name);
-    await page.locator('#product-brand').selectOption('b1');
-    await page.locator('#product-category').selectOption({ index: 1 });
-    await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await selectProductBrand(page, 'b1');
+    await selectProductFormOption(page, '스토어 카테고리 선택');
+    await selectProductFormOption(page, '라이프스타일 분류 선택');
     await page.getByRole('spinbutton').first().fill('10000');
     await page.locator('input[type="file"]').setInputFiles(mainImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });
