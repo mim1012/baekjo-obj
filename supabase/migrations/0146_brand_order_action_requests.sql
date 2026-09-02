@@ -11,7 +11,6 @@ create table public.order_action_requests (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create index order_action_requests_order_idx on public.order_action_requests (order_id, created_at desc);
 create index order_action_requests_pending_idx on public.order_action_requests (status, created_at desc)
   where status = 'REQUESTED';
@@ -20,4 +19,3 @@ create unique index order_action_requests_active_brand_idx
   where status in ('REQUESTED', 'APPROVED');
 
 alter table public.order_action_requests enable row level security;
-

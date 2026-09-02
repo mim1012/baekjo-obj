@@ -69,7 +69,7 @@ function MypageContent() {
   const [inquiries, setInquiries] = useState<ProductInquiry[]>([]);
   // 정적 @/data/products 직접 import 대신 콘센트(getPublicProducts)로 로드(§4 drift 방지).
   const [products, setProducts] = useState<Product[]>([]);
-  
+
   const [isMounted, setIsMounted] = useState(false);
 
   // Modals state
