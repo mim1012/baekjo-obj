@@ -11,9 +11,9 @@ import {
   type OrderActionRequestType,
 } from '@/lib/orders/actionRequests';
 import { logServerError } from '@/lib/logServerError';
+import { CANCELLABLE_DELIVERY_STATUSES } from '@/lib/orders/cancellation';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const REQUESTABLE_DELIVERY = ['배송전', '배송준비'] as const;
 
 function readSelectedItems(value: unknown): OrderActionRequestItemInput[] | null {
   if (!Array.isArray(value) || value.length === 0 || value.length > 100) return null;
@@ -83,7 +83,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const items = brandItems(order, brandId, selectedItems);
     if (items.length !== selectedItems.length) return NextResponse.json({ error: 'brand-items-not-found' }, { status: 422 });
     const shipment = (await listShipmentsByOrder(id)).find((candidate) => candidate.brandId === brandId)?.deliveryStatus ?? order.deliveryStatus;
-    if (requestType === 'CANCEL' && !REQUESTABLE_DELIVERY.includes(shipment as (typeof REQUESTABLE_DELIVERY)[number])) {
+    if (requestType === 'CANCEL' && !CANCELLABLE_DELIVERY_STATUSES.includes(shipment as (typeof CANCELLABLE_DELIVERY_STATUSES)[number])) {
       return NextResponse.json({ error: 'action-request-after-shipment-not-supported' }, { status: 409 });
     }
     if (requestType === 'REFUND' && order.paymentStatus !== '결제완료') {
