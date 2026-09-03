@@ -201,7 +201,6 @@ export interface InsuranceApplication {
   petBreed?: string;
   hasCurrentInsurance?: boolean;
   currentInsuranceName?: string;
-  medicalHistory?: string;
   targetPremium?: string;
   neutered?: boolean;
   gender?: string;

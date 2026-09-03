@@ -98,6 +98,8 @@ export default function SignupPage() {
       petType: formData.petType,
       breed: formData.breed,
       mainConcern: formData.mainConcern,
+      termsAgree: formData.termsAgree,
+      privacyAgree: formData.privacyAgree,
     });
     setPending(false);
 

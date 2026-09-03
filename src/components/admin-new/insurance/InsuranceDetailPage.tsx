@@ -170,24 +170,14 @@ export default function InsuranceDetailPage({ id }: InsuranceDetailPageProps) {
               )}
             </div>
             
-            {(application.medicalHistory || application.concerns) && (
+            {application.concerns && (
               <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                {application.medicalHistory && (
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">과거 병력</h5>
-                    <div className="bg-gray-50 p-3 rounded-md border border-gray-100 text-[13px] text-gray-700 whitespace-pre-wrap min-h-[60px]">
-                      {application.medicalHistory}
-                    </div>
+                <div>
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">현재 주요 고민</h5>
+                  <div className="bg-gray-50 p-3 rounded-md border border-gray-100 text-[13px] text-gray-700 whitespace-pre-wrap min-h-[60px]">
+                    {application.concerns}
                   </div>
-                )}
-                {application.concerns && (
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-2">현재 주요 고민</h5>
-                    <div className="bg-gray-50 p-3 rounded-md border border-gray-100 text-[13px] text-gray-700 whitespace-pre-wrap min-h-[60px]">
-                      {application.concerns}
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </FormSection>

@@ -18,6 +18,8 @@ interface SignupBody {
   petType?: unknown;
   breed?: unknown;
   mainConcern?: unknown;
+  termsAgree?: unknown;
+  privacyAgree?: unknown;
 }
 
 interface ValidatedSignup {
@@ -47,6 +49,7 @@ function validate(body: SignupBody): ValidatedSignup | null {
   if (petType !== undefined && typeof petType !== 'string') return null;
   if (breed !== undefined && typeof breed !== 'string') return null;
   if (mainConcern !== undefined && typeof mainConcern !== 'string') return null;
+  if (body.termsAgree !== true || body.privacyAgree !== true) return null;
 
   return {
     name,

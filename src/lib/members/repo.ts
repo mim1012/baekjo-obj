@@ -1,7 +1,7 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
 import { isMemberProfileComplete } from '@/lib/members/profile';
+import { LEGAL_DOCUMENT_VERSIONS } from '@/lib/legal/consent';
 import type { User } from '@/types';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
@@ -37,10 +37,14 @@ interface MemberRow {
   signup_data: Record<string, unknown>;
   managed_brand_ids: string[] | null;
   must_change_password: boolean;
+  terms_agreed_at: string | null;
+  terms_agreement_version: string | null;
+  privacy_agreed_at: string | null;
+  privacy_agreement_version: string | null;
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password, terms_agreed_at, terms_agreement_version, privacy_agreed_at, privacy_agreement_version';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -154,6 +158,10 @@ export async function insertEmailMember(input: InsertEmailMemberInput): Promise<
       breed: input.breed ?? null,
       main_concern: input.mainConcern ?? null,
       role: 'user',
+      terms_agreed_at: new Date().toISOString(),
+      terms_agreement_version: LEGAL_DOCUMENT_VERSIONS.terms,
+      privacy_agreed_at: new Date().toISOString(),
+      privacy_agreement_version: LEGAL_DOCUMENT_VERSIONS.privacy,
     })
     .select(SELECT_COLUMNS)
     .single();
@@ -397,16 +405,7 @@ export async function approvePartnerMember(
  * (§HIGH-2 — opus 리뷰).
  */
 export async function withdrawMember(id: string): Promise<boolean> {
-  const { data, error } = await getSupabase()
-    .from('members')
-    .update(buildWithdrawalPatch(id))
-    .eq('id', id)
-    .select('id')
-    .maybeSingle();
+  const { data, error } = await getSupabase().rpc('withdraw_member', { p_member_id: id });
   if (error) throw error;
-
-  const { error: tokensError } = await getSupabase().from('member_tokens').delete().eq('member_id', id);
-  if (tokensError) throw tokensError;
-
-  return data !== null;
+  return data === true;
 }

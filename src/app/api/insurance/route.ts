@@ -78,9 +78,6 @@ function validate(body: unknown): InsertInsuranceInput | null {
     ...(optStr(b.currentInsuranceName, MAX_SHORT) !== undefined
       ? { currentInsuranceName: optStr(b.currentInsuranceName, MAX_SHORT) }
       : {}),
-    ...(optStr(b.medicalHistory, MAX_TEXT) !== undefined
-      ? { medicalHistory: optStr(b.medicalHistory, MAX_TEXT) }
-      : {}),
     ...(optStr(b.targetPremium, MAX_SHORT) !== undefined
       ? { targetPremium: optStr(b.targetPremium, MAX_SHORT) }
       : {}),

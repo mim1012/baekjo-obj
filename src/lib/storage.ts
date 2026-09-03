@@ -1668,6 +1668,8 @@ export async function registerUser(input: {
   petType?: string;
   breed?: string;
   mainConcern?: string;
+  termsAgree: boolean;
+  privacyAgree: boolean;
 }): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
   try {
     const response = await fetch('/api/members', {
