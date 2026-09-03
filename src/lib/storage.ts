@@ -1701,7 +1701,9 @@ export async function registerUser(input: {
   petType?: string;
   breed?: string;
   mainConcern?: string;
-}): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
+  termsAgree: boolean;
+  privacyAgree: boolean;
+}): Promise<{ user?: User; verificationPending?: true; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
   try {
     const response = await fetch('/api/members', {
       method: 'POST',
@@ -1709,15 +1711,24 @@ export async function registerUser(input: {
       body: JSON.stringify(input),
     });
     if (response.status === 201) {
-      const loginResult = await login(input.email, input.password);
-      // 가입(201)은 성공했지만 후속 로그인이 실패한 경우 — 조용히 넘기면
-      // 로그아웃 상태로 /mypage에 보내게 되므로 명시적으로 알린다.
-      if (!loginResult.user) return { error: 'session' };
-      return { user: loginResult.user };
+      return { verificationPending: true };
     }
     if (response.status === 409) return { error: 'duplicate-email' };
     if (response.status === 400) return { error: 'invalid-input' };
     return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+export async function requestEmailVerificationByEmail(email: string): Promise<{ ok?: true; error?: 'network' }> {
+  try {
+    const response = await fetch('/api/members/verify/public-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return response.ok ? { ok: true } : { error: 'network' };
   } catch {
     return { error: 'network' };
   }
