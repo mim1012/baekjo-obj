@@ -28,6 +28,11 @@ import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type {
+  OrderActionRequestItemInput,
+  OrderActionRequestRecord,
+  OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
@@ -546,6 +551,34 @@ export async function requestOrderCancellation(orderId: string): Promise<void> {
     const code = body && typeof body.error === 'string' ? body.error : 'cancel-request-failed';
     throw new Error(code);
   }
+}
+
+export async function createOrderActionRequest(
+  orderId: string,
+  input: { requestType: OrderActionRequestType; brandId: string; items: OrderActionRequestItemInput[]; reason: string },
+): Promise<OrderActionRequestRecord> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/action-requests`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+  const body = (await response.json().catch(() => null)) as { error?: unknown; request?: unknown } | null;
+  if (!response.ok || !body || !body.request || typeof body.request !== 'object') {
+    throw new Error(body && typeof body.error === 'string' ? body.error : 'action-request-failed');
+  }
+  return body.request as OrderActionRequestRecord;
+}
+
+export async function getOrderActionRequests(orderId: string): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/action-requests`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('action-request-history-failed');
+  const body = (await response.json()) as { requests?: unknown };
+  return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
+}
+
+export async function getAdminOrderActionRequests(orderId: string): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/action-requests`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('action-request-history-failed');
+  const body = (await response.json()) as { requests?: unknown };
+  return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
 }
 
 export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
