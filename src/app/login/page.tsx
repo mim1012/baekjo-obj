@@ -159,8 +159,6 @@ export default function LoginPage() {
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-[#59615B]">
             <Link href="/signup" className="hover:text-[#2F3B34]">회원가입</Link>
             <span className="h-3 w-px bg-[#D3D2CA]" />
-            <Link href="#" className="hover:text-[#2F3B34]">아이디 찾기</Link>
-            <span className="h-3 w-px bg-[#D3D2CA]" />
             <Link href="/forgot-password" className="hover:text-[#2F3B34]">비밀번호 찾기</Link>
           </div>
 
