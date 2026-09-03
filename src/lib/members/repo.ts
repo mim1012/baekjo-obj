@@ -139,6 +139,10 @@ export interface InsertEmailMemberInput {
   petType?: string;
   breed?: string;
   mainConcern?: string;
+  termsAgreedAt: string;
+  privacyAgreedAt: string;
+  termsVersion: string;
+  privacyVersion: string;
 }
 
 export async function insertEmailMember(input: InsertEmailMemberInput): Promise<MemberRecord> {
@@ -153,6 +157,10 @@ export async function insertEmailMember(input: InsertEmailMemberInput): Promise<
       pet_type: input.petType ?? null,
       breed: input.breed ?? null,
       main_concern: input.mainConcern ?? null,
+      terms_agreed_at: input.termsAgreedAt,
+      privacy_agreed_at: input.privacyAgreedAt,
+      terms_version: input.termsVersion,
+      privacy_version: input.privacyVersion,
       role: 'user',
     })
     .select(SELECT_COLUMNS)
