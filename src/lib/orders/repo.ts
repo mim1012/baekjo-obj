@@ -1,7 +1,7 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import {
-  ORDER_STATUSES,
+  ALL_ORDER_STATUSES,
   type DeliveryFeeBreakdown,
   type Order,
   type OrderItem,
@@ -18,15 +18,17 @@ import {
   type RefundStatus,
 } from '@/lib/orders/refund';
 import {
+  deriveRequestStatus,
   ORDER_ACTION_REQUEST_STATUSES,
   ORDER_ACTION_REQUEST_TYPES,
   type OrderActionRequestItem,
+  type OrderActionRequestItemState,
+  type OrderActionRequestItemStatus,
   type OrderActionRequestRecord,
-  type OrderActionRequestStatus,
   type OrderActionRequestType,
 } from '@/lib/orders/actionRequests';
 
-const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES);
+const ORDER_STATUS_SET = new Set<string>(ALL_ORDER_STATUSES);
 
 /** DB order_status 는 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 '주문접수'로 정규화해
  *  admin select/필터/통계가 조용히 깨지지 않게 한다. */
@@ -469,8 +471,37 @@ export async function requestOrderCancellation(id: string, memberId: string): Pr
   return (data?.length ?? 0) > 0;
 }
 
-const ACTION_REQUEST_COLUMNS = 'id, order_id, member_id, request_type, brand_id, items, requested_amount, reason, status, created_at, updated_at';
+const ACTION_REQUEST_COLUMNS = 'id, order_id, member_id, request_type, brand_id, requested_amount, reason, status, created_at, updated_at';
+const ACTION_REQUEST_COLUMNS_WITH_ITEMS =
+  `${ACTION_REQUEST_COLUMNS}, order_action_request_items(id, line_index, product_id, product_name, quantity, unit_price, amount, option_name, status)`;
 
+function parseActionRequestItemState(raw: unknown): OrderActionRequestItemState {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request-item');
+  const row = raw as Record<string, unknown>;
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.lineIndex !== 'number' || !Number.isSafeInteger(row.lineIndex) ||
+    typeof row.productId !== 'string' || typeof row.productName !== 'string' ||
+    typeof row.quantity !== 'number' || !Number.isSafeInteger(row.quantity) ||
+    typeof row.unitPrice !== 'number' || !Number.isSafeInteger(row.unitPrice) ||
+    typeof row.amount !== 'number' || !Number.isSafeInteger(row.amount) ||
+    typeof row.status !== 'string' || !ORDER_ACTION_REQUEST_STATUSES.includes(row.status as OrderActionRequestItemStatus)
+  ) throw new Error('invalid-order-action-request-item');
+  return {
+    id: row.id, lineIndex: row.lineIndex, productId: row.productId, productName: row.productName,
+    quantity: row.quantity, unitPrice: row.unitPrice, amount: row.amount,
+    ...(typeof row.optionName === 'string' ? { optionName: row.optionName } : {}),
+    status: row.status as OrderActionRequestItemStatus,
+  };
+}
+
+/**
+ * 아이템(items)이 이미 camelCase({id,lineIndex,...,status})로 준비된 레코드를 파싱한다. RPC
+ * (create/transition/complete)는 이 모양으로 jsonb를 돌려주고, listOrderActionRequests는 embedded
+ * snake_case 행을 이 모양으로 변환한 뒤 넘긴다(단일 파서 -- §4 콘센트 규칙).
+ * status는 DB row.status(advisory)를 신뢰하지 않고 아이템 상태에서 항상 재파생한다
+ * (deriveRequestStatus가 진실 소스).
+ */
 function parseActionRequest(raw: unknown): OrderActionRequestRecord {
   if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request');
   const row = raw as Record<string, unknown>;
@@ -478,25 +509,49 @@ function parseActionRequest(raw: unknown): OrderActionRequestRecord {
     typeof row.id !== 'string' || typeof row.order_id !== 'string' || typeof row.member_id !== 'string' ||
     typeof row.request_type !== 'string' || !ORDER_ACTION_REQUEST_TYPES.includes(row.request_type as OrderActionRequestType) ||
     typeof row.brand_id !== 'string' || !Array.isArray(row.items) || typeof row.requested_amount !== 'number' ||
-    !Number.isSafeInteger(row.requested_amount) || typeof row.reason !== 'string' || typeof row.status !== 'string' ||
-    !ORDER_ACTION_REQUEST_STATUSES.includes(row.status as OrderActionRequestStatus) ||
+    !Number.isSafeInteger(row.requested_amount) || typeof row.reason !== 'string' ||
     typeof row.created_at !== 'string' || typeof row.updated_at !== 'string'
   ) throw new Error('invalid-order-action-request');
+  const items = row.items.map(parseActionRequestItemState).sort((a, b) => a.lineIndex - b.lineIndex);
   return {
     id: row.id, orderId: row.order_id, memberId: row.member_id,
     requestType: row.request_type as OrderActionRequestType, brandId: row.brand_id,
-    items: row.items as OrderActionRequestItem[], requestedAmount: row.requested_amount,
-    reason: row.reason, status: row.status as OrderActionRequestStatus,
+    items, requestedAmount: row.requested_amount,
+    reason: row.reason, status: deriveRequestStatus(items),
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 
+/** 관리자/RPC가 camelCase(items 포함)로 이미 돌려준 jsonb를 그대로 parseActionRequest에 넘긴다. */
+function parseActionRequestFromRpc(raw: unknown): OrderActionRequestRecord {
+  return parseActionRequest(raw);
+}
+
+/** listOrderActionRequests 전용: PostgREST가 내려주는 embedded snake_case 행을
+ *  parseActionRequest가 기대하는 camelCase 아이템 모양으로 변환한다. */
+function toCamelCaseItem(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const row = raw as Record<string, unknown>;
+  return {
+    id: row.id, lineIndex: row.line_index, productId: row.product_id, productName: row.product_name,
+    quantity: row.quantity, unitPrice: row.unit_price, amount: row.amount,
+    optionName: row.option_name ?? undefined, status: row.status,
+  };
+}
+
+function toParsableActionRequestRow(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const row = raw as Record<string, unknown>;
+  const embeddedItems = Array.isArray(row.order_action_request_items) ? row.order_action_request_items : [];
+  return { ...row, items: embeddedItems.map(toCamelCaseItem) };
+}
+
 export async function listOrderActionRequests(orderId: string, memberId?: string): Promise<OrderActionRequestRecord[]> {
-  let query = getSupabase().from('order_action_requests').select(ACTION_REQUEST_COLUMNS).eq('order_id', orderId);
+  let query = getSupabase().from('order_action_requests').select(ACTION_REQUEST_COLUMNS_WITH_ITEMS).eq('order_id', orderId);
   if (memberId) query = query.eq('member_id', memberId);
   const { data, error } = await query.order('created_at', { ascending: false });
   if (error) throw error;
-  return (data as unknown[]).map(parseActionRequest);
+  return (data as unknown[]).map((row) => parseActionRequest(toParsableActionRequestRow(row)));
 }
 
 export async function createOrderActionRequest(input: {
@@ -508,12 +563,45 @@ export async function createOrderActionRequest(input: {
   requestedAmount: number;
   reason: string;
 }): Promise<OrderActionRequestRecord> {
-  const { data, error } = await getSupabase().from('order_action_requests').insert({
-    order_id: input.orderId, member_id: input.memberId, request_type: input.requestType,
-    brand_id: input.brandId, items: input.items, requested_amount: input.requestedAmount, reason: input.reason,
-  }).select(ACTION_REQUEST_COLUMNS).single();
-  if (error) throw new Error(error.code === '23505' ? 'action-request-already-exists' : error.message);
-  return parseActionRequest(data);
+  const { data, error } = await getSupabase().rpc('create_order_action_request', {
+    p_order_id: input.orderId,
+    p_member_id: input.memberId,
+    p_request_type: input.requestType,
+    p_brand_id: input.brandId,
+    p_items: input.items,
+    p_requested_amount: input.requestedAmount,
+    p_reason: input.reason,
+  });
+  if (error) {
+    if (error.code === '23505' || error.message === 'action-request-already-exists') {
+      throw new Error('action-request-already-exists');
+    }
+    throw new Error(error.message);
+  }
+  return parseActionRequestFromRpc(data);
+}
+
+/** 관리자 승인/반려 -- 아이템 레벨 전이(transition_action_request RPC, 0151). */
+export async function transitionOrderActionRequest(
+  requestId: string,
+  action: 'APPROVE' | 'REJECT',
+): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('transition_action_request', {
+    p_request_id: requestId,
+    p_action: action,
+  });
+  if (error) throw new Error(error.message);
+  return parseActionRequestFromRpc(data);
+}
+
+/** 관리자 취소완료 -- 승인된 아이템을 완료 처리하고 결제상태에 맞춰 재고 복원/환불 정산을
+ *  검증한다(complete_action_request_and_restore RPC, 0151). */
+export async function completeOrderActionRequest(requestId: string): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('complete_action_request_and_restore', {
+    p_request_id: requestId,
+  });
+  if (error) throw new Error(error.message);
+  return parseActionRequestFromRpc(data);
 }
 
 /**

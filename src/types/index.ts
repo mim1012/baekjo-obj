@@ -318,13 +318,28 @@ export type ConfirmedOrderSummary = Pick<
   'id' | 'orderStatus' | 'paymentStatus' | 'totalPrice' | 'deliveryFee' | 'paidAt'
 >;
 
+/**
+ * 관리자가 수동으로 설정할 수 있는 주문 상태(관리자 상세 select·PATCH 화이트리스트의 진실 소스).
+ * '부분취소'/'부분취소완료'는 상품별 취소 처리에서 **파생**되는 값이라 여기 넣지 않는다 —
+ * 관리자가 직접 고를 수 없고 오직 order_action_request_items 집계(RPC)로만 기록된다.
+ */
 export const ORDER_STATUSES = [
   '주문접수',
   '취소요청',
   '취소완료',
 ] as const;
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+/**
+ * 상품별 취소 집계에서만 파생되는 주문 상태. 일부 상품/수량이 취소 승인(부분취소) 또는 취소
+ * 완료(부분취소완료)됐지만 주문 전체가 취소완료는 아닌 중간 상태를 나타낸다. 관리자 수동
+ * select에는 노출하지 않는다(시스템 파생 전용).
+ */
+export const DERIVED_ORDER_STATUSES = ['부분취소', '부분취소완료'] as const;
+
+/** 관리자 수동 + 파생을 합친 주문 상태 전수. DB order_status read-back·정규화의 진실 소스. */
+export const ALL_ORDER_STATUSES = [...ORDER_STATUSES, ...DERIVED_ORDER_STATUSES] as const;
+
+export type OrderStatus = (typeof ALL_ORDER_STATUSES)[number];
 
 /**
  * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.
