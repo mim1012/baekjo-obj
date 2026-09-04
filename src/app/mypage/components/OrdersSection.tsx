@@ -68,11 +68,6 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return () => { active = false; };
   }, [orders]);
 
-  useEffect(() => {
-    setCurrentPage(1);
-    setExpandedOrderId(null);
-  }, [dateRange]);
-
   // 주문 역순 정렬 (최신순)
   const sortedOrders = orders.filter((order) => matchesOrderDateRange(order, dateRange)).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -88,7 +83,11 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
         <OrderDateRangeFilter
           createdFrom={dateRange.createdFrom}
           createdTo={dateRange.createdTo}
-          onChange={setDateRange}
+          onChange={(range) => {
+            setDateRange(range);
+            setCurrentPage(1);
+            setExpandedOrderId(null);
+          }}
           ariaLabel="주문내역 빠른 기간 선택"
         />
       </div>
