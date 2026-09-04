@@ -6,6 +6,14 @@ const root = path.resolve(__dirname, '..', '..');
 const src = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), 'utf8');
 
 test.describe('마이페이지 주문 렌더링', () => {
+  test('주문내역은 공통 기간 필터와 선택 기간 빈 상태를 제공한다', () => {
+    const page = src('src', 'app', 'mypage', 'components', 'OrdersSection.tsx');
+
+    expect(page).toContain("import { OrderDateRangeFilter }");
+    expect(page).toContain('matchesOrderDateRange');
+    expect(page).toContain('선택한 기간에 해당하는 주문 내역이 없습니다.');
+  });
+
   test('주문 카드는 배송조회 전체 완료를 기다리지 않고 먼저 렌더한다', () => {
     const page = src('src', 'app', 'mypage', 'MypageClient.tsx');
 

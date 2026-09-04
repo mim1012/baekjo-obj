@@ -15,6 +15,8 @@ import type {
   OrderActionRequestRecord,
 } from '@/lib/orders/actionRequests';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
+import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
+import { EMPTY_ORDER_DATE_RANGE, matchesOrderDateRange, type OrderDateRange } from '@/lib/orders/orderDateFilters';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import OrderActionRequestSheet from './OrderActionRequestSheet';
@@ -34,6 +36,7 @@ const ITEMS_PER_PAGE = 20;
 
 export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview, onOrderUpdated }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [dateRange, setDateRange] = useState<OrderDateRange>(EMPTY_ORDER_DATE_RANGE);
   const [actionRequestKey, setActionRequestKey] = useState<string | null>(null);
   const [actionRequests, setActionRequests] = useState<OrderActionRequestRecord[]>([]);
   const [actionOrder, setActionOrder] = useState<Order | null>(null);
@@ -66,13 +69,30 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   }, [orders]);
 
   // 주문 역순 정렬 (최신순)
-  const sortedOrders = [...orders].sort(
+  const sortedOrders = orders.filter((order) => matchesOrderDateRange(order, dateRange)).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const totalItems = sortedOrders.length;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedOrders = sortedOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const hasDateFilter = Boolean(dateRange.createdFrom || dateRange.createdTo);
+  const dateRangeFilter = (
+    <div className="mb-6 rounded-md border border-[#EBE6DC] bg-[#FBF9F4] p-3" aria-label="주문내역 기간 필터">
+      <div className="flex flex-wrap items-center gap-3">
+        <OrderDateRangeFilter
+          createdFrom={dateRange.createdFrom}
+          createdTo={dateRange.createdTo}
+          onChange={(range) => {
+            setDateRange(range);
+            setCurrentPage(1);
+            setExpandedOrderId(null);
+          }}
+          ariaLabel="주문내역 빠른 기간 선택"
+        />
+      </div>
+    </div>
+  );
 
   if (totalItems === 0) {
     return (
@@ -80,13 +100,22 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-[#18231F]">주문내역</h2>
         </div>
-        <EmptyState
-          icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
-          title="주문 내역이 없어요."
-          description="최근 구매하신 상품이 없습니다."
-          actionLabel="쇼핑하러 가기"
-          actionHref="/shop"
-        />
+        {dateRangeFilter}
+        {hasDateFilter ? (
+          <EmptyState
+            icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
+            title="선택한 기간에 해당하는 주문 내역이 없습니다."
+            description="다른 기간을 선택해 주문 내역을 확인해보세요."
+          />
+        ) : (
+          <EmptyState
+            icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
+            title="주문 내역이 없어요."
+            description="최근 구매하신 상품이 없습니다."
+            actionLabel="쇼핑하러 가기"
+            actionHref="/shop"
+          />
+        )}
       </section>
     );
   }
@@ -172,6 +201,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#18231F]">주문내역</h2>
       </div>
+      {dateRangeFilter}
 
       <div className="flex flex-col gap-6">
         {paginatedOrders.map((order) => {
