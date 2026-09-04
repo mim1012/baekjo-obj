@@ -58,7 +58,7 @@ function validate(body: unknown): OrderStatusUpdate | null {
 
   if (b.orderStatus !== undefined) {
     if (typeof b.orderStatus !== 'string') return null;
-    if (!ORDER_STATUSES.includes(b.orderStatus as OrderStatus)) return null;
+    if (!ORDER_STATUSES.includes(b.orderStatus as (typeof ORDER_STATUSES)[number])) return null;
     updates.orderStatus = b.orderStatus as OrderStatus;
   }
   if (b.paymentStatus !== undefined) {

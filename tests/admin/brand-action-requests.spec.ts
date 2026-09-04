@@ -35,12 +35,12 @@ test.describe('브랜드별 취소·환불 요청 계산', () => {
     const reserved = reservedQuantityByLine([
       {
         id: 'request-1', orderId: 'order-1', memberId: 'member-1', requestType: 'CANCEL', brandId: 'brand-a',
-        items: [{ lineIndex: 0, productId: 'p1', productName: 'A', quantity: 1, unitPrice: 1000, amount: 1000 }],
+        items: [{ id: 'item-1', lineIndex: 0, productId: 'p1', productName: 'A', quantity: 1, unitPrice: 1000, amount: 1000, status: 'REQUESTED' }],
         requestedAmount: 1000, reason: '고객 요청', status: 'REQUESTED', createdAt: '2026-01-01', updatedAt: '2026-01-01',
       },
       {
         id: 'request-2', orderId: 'order-1', memberId: 'member-1', requestType: 'CANCEL', brandId: 'brand-a',
-        items: [{ lineIndex: 1, productId: 'p2', productName: 'B', quantity: 1, unitPrice: 2000, amount: 2000 }],
+        items: [{ id: 'item-2', lineIndex: 1, productId: 'p2', productName: 'B', quantity: 1, unitPrice: 2000, amount: 2000, status: 'REJECTED' }],
         requestedAmount: 2000, reason: '고객 요청', status: 'REJECTED', createdAt: '2026-01-01', updatedAt: '2026-01-01',
       },
     ]);

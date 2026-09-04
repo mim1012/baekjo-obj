@@ -581,6 +581,23 @@ export async function getAdminOrderActionRequests(orderId: string): Promise<Orde
   return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
 }
 
+export async function updateAdminOrderActionRequest(
+  orderId: string,
+  requestId: string,
+  action: 'approve' | 'reject' | 'complete',
+): Promise<OrderActionRequestRecord> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/action-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, action }),
+  });
+  const body = (await response.json().catch(() => null)) as { error?: unknown; request?: unknown } | null;
+  if (!response.ok || !body || !body.request || typeof body.request !== 'object') {
+    throw new Error(body && typeof body.error === 'string' ? body.error : 'action-request-update-failed');
+  }
+  return body.request as OrderActionRequestRecord;
+}
+
 export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/refunds`, {
     cache: 'no-store',

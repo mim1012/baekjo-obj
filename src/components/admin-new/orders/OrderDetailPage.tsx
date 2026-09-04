@@ -235,7 +235,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           </FormSection>
 
           <OrderRefundPanel order={order} onUpdate={loadOrder} />
-          <OrderActionRequestsPanel order={order} />
+          <OrderActionRequestsPanel order={order} onUpdate={loadOrder} />
 
           <OrderStatusPanel
             key={`${order.id}:${order.orderStatus}:${order.paymentStatus}:${order.deliveryStatus}:${order.trackingNumber ?? ''}:${order.carrier ?? ''}:${order.deliveryMemo ?? ''}`}
