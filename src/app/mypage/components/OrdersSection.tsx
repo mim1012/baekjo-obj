@@ -14,10 +14,10 @@ import type {
   OrderActionRequestItemInput,
   OrderActionRequestRecord,
 } from '@/lib/orders/actionRequests';
-import { reservedQuantityByLine } from '@/lib/orders/actionRequests';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
+import OrderActionRequestSheet from './OrderActionRequestSheet';
 import EmptyState from '@/components/common/EmptyState';
 import { ChevronDown, CircleAlert, PackageSearch, Truck } from 'lucide-react';
 
@@ -36,7 +36,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   const [currentPage, setCurrentPage] = useState(1);
   const [actionRequestKey, setActionRequestKey] = useState<string | null>(null);
   const [actionRequests, setActionRequests] = useState<OrderActionRequestRecord[]>([]);
-  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
+  const [actionOrder, setActionOrder] = useState<Order | null>(null);
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
@@ -129,52 +129,28 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return shipment?.deliveryStatus || '배송전';
   };
 
-  const remainingQuantity = (order: Order, lineIndex: number): number => {
-    const requests = actionRequests.filter((request) => request.orderId === order.id);
-    const reserved = reservedQuantityByLine(requests).get(lineIndex) ?? 0;
-    return Math.max(0, (order.items[lineIndex]?.quantity ?? 0) - reserved);
-  };
-
-  const hasActiveRequest = (orderId: string, brandId: string, requestType: 'CANCEL' | 'REFUND'): boolean =>
-    actionRequests.some(
-      (request) =>
-        request.orderId === orderId &&
-        request.brandId === brandId &&
-        request.requestType === requestType &&
-        (request.status === 'REQUESTED' || request.status === 'APPROVED'),
-    );
-
   const handleActionRequest = async (
-    order: Order,
-    brandId: string,
     requestType: 'CANCEL' | 'REFUND',
-    brandName: string,
+    brandId: string,
     items: OrderActionRequestItemInput[],
+    reason: string,
   ) => {
-    if (items.length === 0) {
-      window.alert('취소할 상품 수량을 먼저 선택해주세요.');
-      return;
-    }
-    const reason = window.prompt(`${brandName} ${requestType === 'CANCEL' ? '취소' : '환불'} 사유를 입력해주세요.`, '고객 요청');
-    if (reason === null || reason.trim() === '') return;
-    const key = `${order.id}:${brandId}:${requestType}`;
-    if (!window.confirm(`${brandName} 상품 ${requestType === 'CANCEL' ? '취소' : '환불'}을 요청하시겠습니까?`)) return;
-    setActionRequestKey(key);
+    if (!actionOrder) return;
     try {
-      const created = await createOrderActionRequest(order.id, { requestType, brandId, items, reason: reason.trim() });
+      const created = await createOrderActionRequest(actionOrder.id, { requestType, brandId, items, reason });
       setActionRequests((current) => [...current, created]);
       await onOrderUpdated();
     } catch (error) {
-        const message = error instanceof Error && error.message === 'action-request-already-exists'
-          ? '같은 브랜드의 요청이 이미 접수되어 있습니다.'
-          : error instanceof Error && error.message === 'action-request-quantity-exceeds-remaining'
-            ? '이미 처리 중이거나 취소된 수량이 포함되어 있습니다. 주문을 새로고침한 뒤 다시 선택해주세요.'
-          : error instanceof Error && error.message === 'action-request-order-closed'
-            ? '이미 종료된 주문에는 요청할 수 없습니다.'
-          : '브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
-      window.alert(message);
-    } finally {
-      setActionRequestKey(null);
+      if (error instanceof Error && error.message === 'action-request-already-exists') {
+        throw new Error('같은 브랜드의 요청이 이미 접수되어 있습니다.');
+      }
+      if (error instanceof Error && error.message === 'action-request-quantity-exceeds-remaining') {
+        throw new Error('이미 처리 중이거나 취소된 수량이 포함되어 있습니다. 주문을 새로고침한 뒤 다시 선택해주세요.');
+      }
+      if (error instanceof Error && error.message === 'action-request-order-closed') {
+        throw new Error('이미 종료된 주문에는 요청할 수 없습니다.');
+      }
+      throw new Error('브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.');
     }
   };
 
@@ -232,6 +208,16 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                     className={`h-4 w-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`}
                   />
                 </button>
+                {bundles.some((bundle) => Boolean(bundle.brandId)) && order.orderStatus !== '취소완료' && (
+                  <button
+                    type="button"
+                    onClick={() => setActionOrder(order)}
+                    className="mp-btn-secondary h-11 gap-1 px-3 text-xs"
+                  >
+                    <CircleAlert className="h-3.5 w-3.5" />
+                    취소·환불 요청
+                  </button>
+                )}
               </div>
             </div>
 
@@ -256,7 +242,14 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
               </dl>
             )}
 
-            <div className="flex flex-col divide-y divide-[#EBE6DC]">
+            {expandedOrderId !== order.id && (
+              <div className="flex items-center justify-between gap-4 border-b border-[#EBE6DC] px-6 py-4 text-sm">
+                <span className="truncate text-[#17201B]">{order.items[0]?.productName ?? '주문 상품'}</span>
+                {order.items.length > 1 && <span className="shrink-0 text-xs text-[#8A918B]">외 {order.items.length - 1}개 상품</span>}
+              </div>
+            )}
+
+            {expandedOrderId === order.id && <div className="flex flex-col divide-y divide-[#EBE6DC]">
               {order.items.map((item, idx) => {
                 const product = products.find((p) => p.id === item.productId);
                 const canOpenProduct = Boolean(product && product.isVisible !== false);
@@ -324,23 +317,14 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                   </div>
                 );
               })}
-            </div>
+            </div>}
 
             {/* 업체별 배송조회 — 버튼은 항상 살아 있게 한다(숨기면 CS 문의가 는다). 레거시 단일 번들은 "배송조회"로 표기. */}
             <div className="flex flex-col gap-2 border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">
               {bundles.map((bundle) => {
                 const brand = bundle.brandId ? brands.find((b) => b.id === bundle.brandId) : null;
                 const label = brand?.name ?? (bundle.brandId ? '배송 정보' : '배송조회');
-                const cancelKey = `${order.id}:${bundle.brandId}:CANCEL`;
                 const brandId = bundle.brandId;
-                const bundleLineItems = order.items
-                  .map((item, lineIndex) => ({ item, lineIndex }))
-                  .filter(({ item }) => item.brandId === brandId);
-                const selectedItems = bundleLineItems.flatMap(({ lineIndex }) => {
-                  const quantity = selectedQuantities[`${order.id}:${lineIndex}`] ?? 0;
-                  return quantity > 0 ? [{ lineIndex, quantity }] : [];
-                });
-                const hasRemainingItems = bundleLineItems.some(({ lineIndex }) => remainingQuantity(order, lineIndex) > 0);
                 return (
                   <div
                     key={bundle.brandId ?? '__legacy__'}
@@ -353,51 +337,6 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                     <div className="flex flex-wrap justify-end gap-2">
                       <button onClick={() => setTracking({ order, bundle })} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><Truck className="h-3.5 w-3.5" />배송조회</button>
                       {!brandId && isCancellationRequestAllowed(order) && <button onClick={() => void handleLegacyCancelRequest(order)} disabled={Boolean(actionRequestKey)} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequestKey === order.id ? '요청 중...' : '주문 취소 요청'}</button>}
-                      {brandId && (
-                        <>
-                          {hasRemainingItems && (
-                            <div className="w-full space-y-2 rounded-md border border-[#EBE6DC] bg-white p-3 text-xs sm:max-w-md">
-                              <p className="font-semibold text-[#18231F]">취소할 상품 수량을 선택해주세요.</p>
-                              {bundleLineItems.map(({ item, lineIndex }) => {
-                                const remaining = remainingQuantity(order, lineIndex);
-                                return (
-                                  <label key={`${order.id}-${lineIndex}`} className="flex items-center justify-between gap-3 text-[#68716C]">
-                                    <span className="min-w-0 truncate">{item.productName} <span className="text-[#A29E93]">(잔여 {remaining}개)</span></span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      max={remaining}
-                                      value={selectedQuantities[`${order.id}:${lineIndex}`] ?? 0}
-                                      onChange={(event) => {
-                                        const value = Math.min(remaining, Math.max(0, Number(event.target.value) || 0));
-                                        setSelectedQuantities((current) => ({ ...current, [`${order.id}:${lineIndex}`]: value }));
-                                      }}
-                                      disabled={remaining === 0}
-                                      aria-label={`${item.productName} 취소 수량`}
-                                      className="h-9 w-20 rounded border border-[#D8D3C8] px-2 text-right text-[#18231F]"
-                                    />
-                                  </label>
-                                );
-                              })}
-                              <button
-                                onClick={() => void handleActionRequest(order, brandId, 'CANCEL', label, selectedItems)}
-                                disabled={Boolean(actionRequestKey) || hasActiveRequest(order.id, brandId, 'CANCEL')}
-                                className="mp-btn-secondary h-9 w-full gap-1 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <CircleAlert className="h-3.5 w-3.5" />
-                                {hasActiveRequest(order.id, brandId, 'CANCEL') ? '취소 접수됨' : actionRequestKey === cancelKey ? '요청 중...' : '선택 상품 취소 요청'}
-                              </button>
-                              <button
-                                onClick={() => void handleActionRequest(order, brandId, 'REFUND', label, selectedItems)}
-                                disabled={Boolean(actionRequestKey) || hasActiveRequest(order.id, brandId, 'REFUND')}
-                                className="mp-btn-secondary h-9 w-full gap-1 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                {hasActiveRequest(order.id, brandId, 'REFUND') ? '환불 접수됨' : actionRequestKey === `${order.id}:${brandId}:REFUND` ? '요청 중...' : '선택 상품 환불 요청'}
-                              </button>
-                            </div>
-                          )}
-                        </>
-                      )}
                     </div>
                   </div>
                 );
@@ -422,6 +361,18 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
           order={tracking.order}
           bundle={tracking.bundle}
           brands={brands}
+        />
+      )}
+
+      {actionOrder && (
+        <OrderActionRequestSheet
+          order={actionOrder}
+          bundles={groupOrderItemsByBundle(actionOrder.items)}
+          brands={brands}
+          shipments={shipmentsByOrder[actionOrder.id] ?? []}
+          requests={actionRequests.filter((request) => request.orderId === actionOrder.id)}
+          onClose={() => setActionOrder(null)}
+          onSubmit={handleActionRequest}
         />
       )}
     </section>
