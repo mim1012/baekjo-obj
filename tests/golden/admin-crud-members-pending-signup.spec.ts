@@ -86,7 +86,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     // 2) 관리자 API로 방금 만든 계정을 찾아 pending 상태 확인(신뢰 가능한 진실 소스).
     const adminPage = await page.context().browser()!.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(adminPage);
-    const listRes = await adminPage.request.get('/api/admin/members');
+    const listRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listRes.ok()).toBe(true);
     const { users } = (await listRes.json()) as {
       users: Array<{ id: string; email: string; status: string; role: string }>;
@@ -127,7 +127,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     // 4) 새로고침 후에도 유지되는지 확인 + API 재조회로 이중 확인.
     await adminPage.reload();
     await expect(adminPage.locator('body')).toContainText('활성 (승인완료)', { timeout: 15_000 });
-    const verifyRes = await adminPage.request.get('/api/admin/members');
+    const verifyRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     const verified = (await verifyRes.json()) as { users: Array<{ id: string; status: string }> };
     expect(verified.users.find((u) => u.id === memberId)?.status).toBe('active');
 
@@ -146,3 +146,4 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     await adminPage.close();
   });
 });
+

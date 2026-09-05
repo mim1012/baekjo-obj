@@ -1,11 +1,11 @@
-import NextAuth, { type NextAuthRequest } from 'next-auth';
+import type { NextAuthRequest } from 'next-auth';
 import { NextResponse } from 'next/server';
-import { authConfig } from '@/lib/auth.config';
+import { auth } from '@/lib/auth';
 import { FEATURES } from '@/config/features';
 
 // Next.js 16: 'middleware' 파일 컨벤션이 deprecated 되어 'proxy'로 대체됐다(런타임은 nodejs 고정,
-// edge 미지원). 엣지 전용으로 나눠뒀던 auth.config.ts는 더 이상 필수는 아니지만, 가볍고 안전해서 그대로 재사용한다.
-const { auth } = NextAuth(authConfig);
+// edge 미지원). 페이지 가드에도 Node 인증 설정의 세션 폐기 검사를 적용한다.
+// Use the same DB-backed JWT revocation check for page guards and API sessions.
 
 /** 관리자 전용 경로(/admin, /api/admin) 접근 가드 + 미노출 기능 페이지 리다이렉트. */
 function proxy(req: NextAuthRequest) {
@@ -59,3 +59,4 @@ export const config = {
     '/experts/:path*',
   ],
 };
+

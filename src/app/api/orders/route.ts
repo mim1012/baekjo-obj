@@ -1,9 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import {
-  insertOrder,
-  deleteOrderById,
-  decrementStockForOrder,
+  reserveOrder,
   type InsertOrderInput,
 } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
@@ -151,7 +149,7 @@ function extractProductIds(body: unknown): string[] {
  * POST /api/orders — 주문 생성(회원 전용).
  * 세션의 member_id를 서버가 부여한다. id/createdAt/member_id 및
  * 결제·주문·배송 상태와 금액(totalPrice/deliveryFee)은 본문을 신뢰하지 않고 서버가 정한다(mass-assignment·결제 위조 차단).
- * 생성→차감 순서. 차감 실패 시 방금 만든 주문을 삭제(보상)해 유령 주문을 남기지 않는다.
+ * 주문 저장과 재고 차감을 단일 DB 트랜잭션으로 처리한다.
  */
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -222,29 +220,18 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const order = await insertOrder(validated, memberId);
-
-    try {
-      await decrementStockForOrder(
-        validated.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
-      );
-    } catch (stockError) {
-      await deleteOrderById(order.id).catch((cleanupError) => {
-        logServerError('[POST /api/orders] 재고 차감 실패 후 주문 보상 삭제 실패', cleanupError);
-      });
-      const message = stockError instanceof Error ? stockError.message : String(stockError);
-      if (message.includes('INSUFFICIENT_STOCK')) {
-        return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
-      }
-      logServerError('[POST /api/orders] 재고 차감 실패', stockError);
-      return NextResponse.json({ error: 'server-error' }, { status: 500 });
-    }
+    const order = await reserveOrder(validated, memberId);
 
     // order는 방금 만든 본인 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
     // 클라이언트는 Order 필드만 사용하고 나머지는 무시한다.
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('INSUFFICIENT_STOCK')) {
+      return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
+    }
     logServerError('[POST /api/orders] 주문 생성 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
+

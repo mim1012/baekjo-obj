@@ -8,7 +8,8 @@ import {
   updateOrderRefundException,
 } from '@/lib/orders/repo';
 import {
-  normalizeRefundRequest,
+  normalizeRefundPayload,
+  assertRefundableOrder,
   RefundValidationError,
   type NormalizedRefundRequest,
   type OrderRefundRecord,
@@ -123,7 +124,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   try {
     const order = await getOrderById(id);
     if (!order) return NextResponse.json({ error: 'not-found' }, { status: 404 });
-    const normalized = normalizeRefundRequest(order, body);
+    const normalized = normalizeRefundPayload(order, body);
     if (!order.paymentKey) {
       return NextResponse.json({ error: 'refund-provider-not-supported' }, { status: 422 });
     }
@@ -140,6 +141,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'refund-request-failed', refund: existing }, { status: 409 });
     }
 
+    assertRefundableOrder(order);
     const providerSnapshot = await queryTossPayment(order.paymentKey);
     const providerBalance = validateProviderSnapshot(providerSnapshot, order);
     const expectedBalance = order.totalPrice + order.deliveryFee - successfulRefundAmount(refunds);
@@ -267,3 +269,4 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
+

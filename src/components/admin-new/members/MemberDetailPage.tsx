@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, User as UserIcon, Building2, FileText, CheckCircle2 } from 'lucide-react';
-import { getAdminMembers } from '@/lib/storage';
+import { getAdminMember } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { formatDate } from '@/lib/format';
 import type { User } from '@/types';
@@ -28,9 +28,9 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
 
   const loadMember = useCallback(async () => {
     try {
-      const res = await getAdminMembers();
+      const res = await getAdminMember(id);
       if (res.error) throw new Error(res.error);
-      const found = res.users?.find((u) => u.id === id);
+      const found = res.user;
       if (!found) throw new Error('회원 정보를 찾을 수 없습니다.');
       setMember(found);
       setError(null);
@@ -213,3 +213,4 @@ export default function MemberDetailPage({ id }: MemberDetailPageProps) {
     </div>
   );
 }
+

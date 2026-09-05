@@ -90,7 +90,7 @@ function getOrderItem(order: Order, lineIndex: number): OrderItem {
   return item;
 }
 
-export function normalizeRefundRequest(order: Order, body: unknown): NormalizedRefundRequest {
+export function assertRefundableOrder(order: Order): void {
   if (order.paymentStatus !== '결제완료') {
     throw new RefundValidationError('refund-order-not-paid');
   }
@@ -100,6 +100,10 @@ export function normalizeRefundRequest(order: Order, body: unknown): NormalizedR
   if (order.deliveryStatus && !['배송전', '배송준비'].includes(order.deliveryStatus)) {
     throw new RefundValidationError('refund-after-shipment-not-supported');
   }
+}
+
+/** Parse and compare replay payloads independently of the current order state. */
+export function normalizeRefundPayload(order: Order, body: unknown): NormalizedRefundRequest {
   if (!body || typeof body !== 'object') throw new RefundValidationError('invalid-refund-input');
 
   const input = body as Record<string, unknown>;
@@ -146,6 +150,11 @@ export function normalizeRefundRequest(order: Order, body: unknown): NormalizedR
   return { idempotencyKey, reason, includeDeliveryFee, requestedAmount, items };
 }
 
+export function normalizeRefundRequest(order: Order, body: unknown): NormalizedRefundRequest {
+  assertRefundableOrder(order);
+  return normalizeRefundPayload(order, body);
+}
+
 export function refundedQuantityByLine(refunds: OrderRefundRecord[]): Map<number, number> {
   const result = new Map<number, number>();
   for (const refund of refunds) {
@@ -185,3 +194,4 @@ export function refundStatusLabel(status: RefundStatus): string {
       return '확인 필요';
   }
 }
+

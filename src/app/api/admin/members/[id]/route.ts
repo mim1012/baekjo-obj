@@ -91,3 +91,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }
+
+
+/** Fetch a member directly; detail pages must not depend on the current list page. */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+  const { id } = await context.params;
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return NextResponse.json({ error: 'not-found' }, { status: 404 });
+  }
+  try {
+    const member = await findMemberById(id);
+    if (!member) return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    return NextResponse.json({ user: toUser(member) }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    logServerError('[GET /api/admin/members/[id]] 조회 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}

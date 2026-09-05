@@ -2,10 +2,11 @@
 import { getSupabase } from '@/lib/supabase/server';
 import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
 import { isMemberProfileComplete } from '@/lib/members/profile';
-import type { User } from '@/types';
+import type { User, AdminMemberPage } from '@/types';
+import type { MemberListQuery } from '@/lib/members/listQuery';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
-export type MemberRecord = User & { passwordHash: string | null };
+export type MemberRecord = User & { passwordHash: string | null; sessionVersion: number };
 
 /** 이메일 unique 제약(Postgres 23505) 위반 시 던지는 타입드 에러. */
 export class DuplicateEmailError extends Error {
@@ -21,6 +22,7 @@ interface MemberRow {
   name: string;
   phone: string;
   password_hash: string | null;
+  session_version: number;
   provider: 'email' | 'kakao' | 'naver';
   provider_id: string | null;
   pet_type: string | null;
@@ -40,7 +42,7 @@ interface MemberRow {
 }
 
 const SELECT_COLUMNS =
-  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password';
+  'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password, session_version';
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -58,6 +60,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     profileImage: row.profile_image ?? undefined,
     emailVerified: row.email_verified,
     passwordHash: row.password_hash,
+    sessionVersion: row.session_version,
     companyName: row.company_name ?? undefined,
     businessNumber: row.business_number ?? undefined,
     rejectReason: row.reject_reason ?? undefined,
@@ -417,4 +420,16 @@ export async function withdrawMember(id: string): Promise<boolean> {
   if (tokensError) throw tokensError;
 
   return data !== null;
+}
+
+
+/** Parameterized RPC keeps filtering, totals and the page in one DB snapshot. */
+export async function listMemberPage(query: MemberListQuery): Promise<AdminMemberPage> {
+  const { data, error } = await getSupabase().rpc('list_admin_member_page', {
+    p_page: query.page, p_page_size: query.pageSize, p_search: query.search,
+    p_role: query.role, p_status: query.status,
+  });
+  if (error) throw error;
+  const result = data as Omit<AdminMemberPage, 'users'> & { users: MemberRow[] };
+  return { ...result, users: result.users.map((row) => toUser(rowToRecord(row))) };
 }
