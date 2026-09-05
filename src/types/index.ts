@@ -757,3 +757,13 @@ export type OrderShipmentTrackingResponse =
       readonly source: 'client';
       readonly reason: 'request-failed';
     };
+
+
+/** Server-paginated member management response; summary is unfiltered. */
+export interface AdminMemberPage {
+  users: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: { total: number; recent: number; pending: number; partners: number };
+}

@@ -15,7 +15,7 @@ test.describe('member-only order contract', () => {
     // status==='active'까지 DB 재검증한다(정지·탈퇴 회원의 주문 생성 차단 — U6 세션 실효).
     // 401 자체는 이 헬퍼 안(requireActiveMember.ts)에서 여전히 unauthenticated 요청에 내려간다.
     const authCheckIndex = route.indexOf('const activeMember = await requireActiveMember();');
-    const insertIndex = route.indexOf('await insertOrder(');
+    const insertIndex = route.indexOf('await reserveOrder(');
 
     expect(authCheckIndex).toBeGreaterThanOrEqual(0);
     expect(insertIndex).toBeGreaterThan(authCheckIndex);
@@ -53,3 +53,4 @@ test.describe('member-only order contract', () => {
     expect(detail).toContain("router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`)");
   });
 });
+

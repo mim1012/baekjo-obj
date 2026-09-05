@@ -36,7 +36,7 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
     expect(signupResponse.status()).toBe(201);
 
     await loginAsAdmin(setupPage);
-    const listResponse = await setupPage.request.get('/api/admin/members');
+    const listResponse = await setupPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listResponse.ok()).toBe(true);
     const { users } = (await listResponse.json()) as {
       users: Array<{
@@ -69,6 +69,11 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
     await changePage.getByLabel('새 비밀번호 확인').fill(changedPassword);
     await changePage.getByRole('button', { name: '비밀번호 변경' }).click();
     await expect(changePage.getByRole('status')).toContainText('비밀번호가 변경되었습니다.', { timeout: 15_000 });
+    // The pre-change JWT must no longer authorize either member reads or writes.
+    expect((await changePage.request.get('/api/orders/mine')).status()).toBe(401);
+    expect((await changePage.request.patch('/api/members/password', {
+      data: { currentPassword: changedPassword, newPassword: initialPassword },
+    })).status()).toBe(401);
     await changeContext.close();
 
     const oldPasswordContext = await browser.newContext({ extraHTTPHeaders: bypassHeaders() });
@@ -90,3 +95,4 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
     await newPasswordContext.close();
   });
 });
+

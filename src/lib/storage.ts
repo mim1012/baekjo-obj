@@ -1,3 +1,4 @@
+import type { AdminMemberPage } from '@/types';
 import {
   AdminDashboardSummary,
   Brand,
@@ -1787,19 +1788,32 @@ export async function checkEmailAvailable(email: string): Promise<boolean | null
  * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
  * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
  */
-export async function getAdminMembers(): Promise<{
-  users?: User[];
-  error?: 'unauthorized' | 'forbidden' | 'network';
-}> {
+export async function getAdminMembers(
+  query: { page?: number; pageSize?: number; search?: string; role?: string; status?: string } = {},
+  signal?: AbortSignal,
+): Promise<Partial<AdminMemberPage> & { error?: 'unauthorized' | 'forbidden' | 'network' }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
   try {
-    const response = await fetch('/api/admin/members');
-    if (response.ok) {
-      const { users } = (await response.json()) as { users: User[] };
-      return { users };
-    }
+    const suffix = params.size ? `?${params}` : '';
+    const response = await fetch(`/api/admin/members${suffix}`, { cache: 'no-store', signal });
+    if (response.ok) return await response.json() as AdminMemberPage;
     if (response.status === 401) return { error: 'unauthorized' };
     if (response.status === 403) return { error: 'forbidden' };
     return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** Direct lookup also supports members outside the first list page. */
+export async function getAdminMember(id: string): Promise<{ user?: User; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) return { error: response.status === 404 ? 'not-found' : 'member-load-failed' };
+    return await response.json() as { user: User };
   } catch {
     return { error: 'network' };
   }
@@ -2360,3 +2374,4 @@ export async function deleteAdminReview(id: string): Promise<{ ok: boolean }> {
     return { ok: false };
   }
 }
+

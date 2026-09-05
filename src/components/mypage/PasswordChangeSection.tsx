@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
-import { changePassword } from '@/lib/storage';
+import { changePassword, logout } from '@/lib/storage';
 
 const ERROR_MESSAGES: Record<string, string> = {
   'invalid-current': '현재 비밀번호가 올바르지 않습니다.',
@@ -59,7 +59,11 @@ export default function PasswordChangeSection() {
         )}
         {success && (
           <div role="status" className="rounded-md border border-[#D7DED7] bg-[#EEF2EC] p-3 text-xs font-medium text-[#2F3B34]">
-            비밀번호가 변경되었습니다.
+            비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해 주세요.
+            <button type="button" className="ml-2 underline" onClick={async () => {
+              await logout();
+              window.location.assign('/login');
+            }}>다시 로그인</button>
           </div>
         )}
 
@@ -108,3 +112,4 @@ export default function PasswordChangeSection() {
     </section>
   );
 }
+

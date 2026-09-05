@@ -76,7 +76,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 상태 �
     await loginAsAdmin(page);
 
     // 1) API로 현재 상태 스냅샷 — UI 검색/클릭보다 먼저, 신뢰 가능한 진실 소스로 기록해둔다.
-    const listRes = await page.request.get('/api/admin/members');
+    const listRes = await page.request.get(`/api/admin/members?search=${encodeURIComponent(TARGET_EMAIL)}`);
     expect(listRes.ok()).toBe(true);
     const { users } = (await listRes.json()) as { users: Array<{ id: string; email: string; status: string; role: string }> };
     const target = users.find((u) => u.email === TARGET_EMAIL);
@@ -140,3 +140,4 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 상태 �
     await expect(selectAfterApproval).toBeDisabled();
   });
 });
+

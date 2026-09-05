@@ -261,6 +261,16 @@ export async function insertOrder(
   return rowToRecord(data as OrderRow);
 }
 
+/** 주문과 재고는 같은 RPC 안에서 커밋된다. 응답 오류에 주문을 보상 삭제하지 않는다. */
+export async function reserveOrder(input: InsertOrderInput, memberId: string): Promise<OrderRecord> {
+  const { data, error } = await getSupabase().rpc('reserve_order', {
+    p_member_id: memberId,
+    p_order: input,
+  });
+  if (error) throw new Error(error.message);
+  return rowToRecord(data as OrderRow);
+}
+
 /** 재고 차감 실패 시 방금 만든 주문을 되돌리는 보상용. 생성 직후 자기 주문에만 사용한다. */
 export async function deleteOrderById(id: string): Promise<void> {
   const { error } = await getSupabase().from('orders').delete().eq('id', id);
@@ -780,3 +790,4 @@ export async function markReclaimDead(id: string): Promise<void> {
     throw new Error(`markReclaimDead: 0행 갱신(orderId=${id}) — 주문을 찾지 못했거나 예상 밖 상태`);
   }
 }
+

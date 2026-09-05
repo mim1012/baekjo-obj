@@ -2,7 +2,8 @@ import NextAuth from 'next-auth';
 import { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from '@/lib/auth.config';
-import { findMemberByEmail, upsertSocialMember } from '@/lib/members/repo';
+import { findMemberByEmail, findMemberById, upsertSocialMember } from '@/lib/members/repo';
+import { isCurrentSession } from '@/lib/members/sessionVersion';
 import { verifyPassword } from '@/lib/members/password';
 import { checkAuthRateLimit, resetAuthRateLimit } from '@/lib/security/authRateLimit';
 
@@ -75,6 +76,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: member.email,
           name: member.name,
           role: member.role,
+          sessionVersion: member.sessionVersion,
         };
         return authorizedUser;
       },
@@ -120,17 +122,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           profileImage: typeof token.picture === 'string' ? token.picture : null,
         });
         token.memberId = member.id;
+        token.sessionVersion = member.sessionVersion;
         // 소셜 로그인은 관리자 승격 경로가 아니다 — 항상 'user'로 고정.
         token.role = 'user';
         token.provider = account.provider;
       } else if (user) {
         token.memberId = user.id;
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion;
         token.role = (
           user as { role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner' }
         ).role;
         token.provider = 'email';
+      } else {
+        // Never refresh the version from the DB: that would revive a revoked JWT.
+        const member = typeof token.memberId === 'string' ? await findMemberById(token.memberId) : null;
+        if (!isCurrentSession(token.sessionVersion, member)) return null;
       }
       return token;
     },
   },
 });
+

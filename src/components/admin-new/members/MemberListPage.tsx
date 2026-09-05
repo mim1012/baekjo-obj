@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Users, UserPlus, Shield, ShieldCheck } from 'lucide-react';
 import { getAdminMembers } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
@@ -12,7 +12,7 @@ import ErrorState from '@/components/admin-new/common/ErrorState';
 import MemberFilters from './MemberFilters';
 import MemberDataTable from './MemberDataTable';
 import MemberMobileCard from './MemberMobileCard';
-import type { User } from '@/types';
+import type { AdminMemberPage, User } from '@/types';
 
 export default function MemberListPage() {
   const mounted = useMounted();
@@ -27,63 +27,45 @@ export default function MemberListPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
 
-  const loadMembers = useCallback(async () => {
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<AdminMemberPage['summary']>({ total: 0, recent: 0, pending: 0, partners: 0 });
+  const requestId = useRef(0);
+  const loadMembers = useCallback(async (signal?: AbortSignal) => {
+    const id = ++requestId.current;
+    setLoading(true);
     try {
-      const res = await getAdminMembers();
-      if (res.error) throw new Error(res.error);
-      setMembers(res.users || []);
+      const res = await getAdminMembers({
+        page: currentPage, pageSize: ITEMS_PER_PAGE, search: searchTerm,
+        role: roleFilter === '전체' ? '' : roleFilter,
+        status: statusFilter === '전체' ? '' : statusFilter,
+      }, signal);
+      if (signal?.aborted || id !== requestId.current) return;
+      if (res.error || !res.summary || res.total === undefined || res.page === undefined) {
+        throw new Error(res.error ?? 'invalid-response');
+      }
+      setMembers(res.users ?? []);
+      setTotal(res.total);
+      setSummary(res.summary);
+      setCurrentPage(res.page);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      if (!signal?.aborted && id === requestId.current) {
+        setError(err instanceof Error ? err : new Error(String(err)));
+      }
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && id === requestId.current) setLoading(false);
     }
-  }, []);
+  }, [currentPage, searchTerm, roleFilter, statusFilter]);
 
   useEffect(() => {
-    (async () => {
-      await loadMembers();
-    })();
+    const controller = new AbortController();
+    const timer = setTimeout(() => { void loadMembers(controller.signal); }, 200);
+    return () => { clearTimeout(timer); controller.abort(); ++requestId.current; };
   }, [loadMembers]);
 
-  const handleRetry = useCallback(() => {
-    setLoading(true);
-    loadMembers();
-  }, [loadMembers]);
-
-  const filteredMembers = useMemo(() => {
-    let result = [...members].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      // wave-4: 주문 검색과 동일한 클래스의 크래시 방지 — 타입은 required지만 레거시/기형
-      // 행에서는 undefined일 수 있어 전부 nullish 가드로 감싼다.
-      result = result.filter(
-        (m) =>
-          (m.name ?? '').toLowerCase().includes(term) ||
-          (m.email ?? '').toLowerCase().includes(term) ||
-          (m.phone ?? '').includes(term) ||
-          (m.companyName ?? '').toLowerCase().includes(term)
-      );
-    }
-
-    if (roleFilter !== '전체') {
-      result = result.filter((m) => m.role === roleFilter);
-    }
-    
-    if (statusFilter !== '전체') {
-      result = result.filter((m) => m.status === statusFilter);
-    }
-
-    return result;
-  }, [members, searchTerm, roleFilter, statusFilter]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredMembers.length / ITEMS_PER_PAGE));
-  const paginatedMembers = useMemo(() => {
-    return filteredMembers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-  }, [filteredMembers, currentPage, ITEMS_PER_PAGE]);
+  const handleRetry = useCallback(() => { void loadMembers(); }, [loadMembers]);
+  const totalPages = Math.max(1, Math.ceil(total / ITEMS_PER_PAGE));
+  const paginatedMembers = members;
 
   const handleSearchChange = useCallback((val: string) => {
     setSearchTerm(val);
@@ -124,15 +106,6 @@ export default function MemberListPage() {
     );
   }
 
-  const totalCount = members.length;
-  const newMemberCount = members.filter(m => {
-    const today = new Date();
-    const joinedDate = new Date(m.createdAt);
-    return joinedDate.getTime() > today.getTime() - 7 * 24 * 60 * 60 * 1000;
-  }).length;
-  const pendingCount = members.filter((m) => m.status === 'pending').length;
-  const partnerCount = members.filter((m) => m.role === 'partner' || m.role === 'b2b').length;
-
   return (
     <div className="space-y-6">
       <PageHeader 
@@ -142,10 +115,10 @@ export default function MemberListPage() {
 
       <SummaryStrip
         items={[
-          { label: '전체 회원', value: totalCount, icon: Users },
-          { label: '신규 가입(최근 7일)', value: newMemberCount, icon: UserPlus },
-          { label: '권한 승인 대기', value: pendingCount, icon: Shield, highlight: pendingCount > 0 },
-          { label: '파트너/B2B 회원', value: partnerCount, icon: ShieldCheck },
+          { label: '전체 회원', value: summary.total, icon: Users },
+          { label: '신규 가입(최근 7일)', value: summary.recent, icon: UserPlus },
+          { label: '권한 승인 대기', value: summary.pending, icon: Shield, highlight: summary.pending > 0 },
+          { label: '파트너/B2B 회원', value: summary.partners, icon: ShieldCheck },
         ]}
       />
 
@@ -175,7 +148,7 @@ export default function MemberListPage() {
           )}
         </div>
 
-        {filteredMembers.length > 0 && (
+        {total > 0 && (
           <div className="pt-4">
             <Pagination
               currentPage={currentPage}
@@ -188,3 +161,4 @@ export default function MemberListPage() {
     </div>
   );
 }
+
