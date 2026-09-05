@@ -15,6 +15,10 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     expect(footer).toContain("href: '/refund-policy'");
     expect(footer).toContain('사업자정보');
     expect(footer).toContain('COMPANY.businessLookupUrl');
+    expect(footer).toContain('전화 {COMPANY.tel}');
+    expect(footer).toContain('영업시간 {COMPANY.supportHours}');
+    expect(company).toContain("tel: '1544-9883'");
+    expect(company).toContain("supportHours: '평일 10:00 ~ 17:00");
     expect(company).toContain('https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658');
   });
 
