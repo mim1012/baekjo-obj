@@ -16,6 +16,10 @@ import {
 } from '@/lib/brands/formPayload';
 import { type CarrierCode } from '@/lib/carriers';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
+import {
+  brandPageCopyFields,
+  normalizeBrandPageCopy,
+} from '@/lib/brands/pageCopy';
 
 const MAX_SOURCE_URLS = 20;
 
@@ -96,6 +100,7 @@ export default function BrandDetailEditor({
   );
   const [auditPoints, setAuditPoints] = useState<string[]>(initialBrand.auditPoints ?? []);
   const [sourceUrls, setSourceUrls] = useState<string[]>(initialBrand.sourceUrls ?? []);
+  const [pageCopy, setPageCopy] = useState(() => normalizeBrandPageCopy(initialBrand.pageCopy));
 
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +160,7 @@ export default function BrandDetailEditor({
         auditPoints,
         sourceUrls,
         shipping,
+        pageCopy,
       },
       !!initialBrand.auditReport,
     );
@@ -184,6 +190,7 @@ export default function BrandDetailEditor({
         auditPoints,
         sourceUrls,
         shipping,
+        pageCopy,
       });
 
       const { error: updateError } = await updateBrand(
@@ -329,6 +336,39 @@ export default function BrandDetailEditor({
                 placeholder="낮을수록 먼저 노출 (미입력 시 뒤로)"
               />
             </FormField>
+          </div>
+        </section>
+
+        {/* ── 브랜드 상세페이지 전용 문구 ── */}
+        <section className="rounded-md border border-gray-200 bg-white p-6 shadow-sm">
+          <h2 className="mb-1 text-[15px] font-semibold text-[#17201B]">브랜드 상세페이지 문구</h2>
+          <p className="mb-5 text-[13px] leading-6 text-gray-500">
+            이 브랜드의 고객 상세 화면에만 적용됩니다. {'{brand}'}를 입력하면 화면에서 브랜드명으로 바뀝니다.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {brandPageCopyFields.map((item) => (
+              <FormField key={item.key} label={item.label} htmlFor={`brand-copy-${item.key}`}>
+                {item.multiline ? (
+                  <textarea
+                    id={`brand-copy-${item.key}`}
+                    value={pageCopy[item.key]}
+                    onChange={(event) => setPageCopy((current) => ({ ...current, [item.key]: event.target.value }))}
+                    maxLength={5000}
+                    rows={3}
+                    className={`${INPUT_CLASS} resize-y sm:min-h-24`}
+                  />
+                ) : (
+                  <input
+                    id={`brand-copy-${item.key}`}
+                    type="text"
+                    value={pageCopy[item.key]}
+                    onChange={(event) => setPageCopy((current) => ({ ...current, [item.key]: event.target.value }))}
+                    maxLength={5000}
+                    className={INPUT_CLASS}
+                  />
+                )}
+              </FormField>
+            ))}
           </div>
         </section>
 

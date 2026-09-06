@@ -14,6 +14,7 @@ import ReviewCard from '@/components/common/ReviewCard';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 import { FEATURES } from '@/config/features';
 import { sortProducts } from '@/lib/filters';
+import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
 
@@ -79,9 +80,9 @@ export default function HomeClient({
   reviews: Review[];
   settings: HomeClientSettings;
 }) {
-  const bestProducts = sortProducts(
-    products.filter((product) => product.isBest || product.isRecommended),
-    'popular',
+  const bestProducts = sortProductsByDisplayOrder(
+    sortProducts(products.filter((product) => product.isRecommended), 'popular'),
+    'homeDisplayOrder',
   ).slice(0, 3);
   const recentNotices = notices.slice(0, 4);
   const displayBrands = brands.filter(b => b.isVisible !== false);
@@ -166,13 +167,6 @@ export default function HomeClient({
           </div>
           </div>
 
-          <div className="absolute right-5 top-5 z-20 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md sm:right-8 sm:top-8 lg:right-12 xl:right-14">
-            <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
-            <div className="flex flex-col">
-              <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
-              <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
-            </div>
-          </div>
         </div>
       </section>
 

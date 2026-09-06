@@ -1,9 +1,14 @@
 import type { LegalArticle } from '@/components/legal/StaticLegalDocument';
 import { COMPANY } from '@/data/company';
+import {
+  COMMERCE_LEGAL_EFFECTIVE_DATE,
+  NONCONFORMING_WITHDRAWAL_PERIOD,
+  STANDARD_WITHDRAWAL_PERIOD,
+} from '@/data/commerceLegal';
 
 export const TERMS_CONTENT = {
   "title": "이용약관",
-  "effectiveDate": "2026년 9월 1일",
+  "effectiveDate": COMMERCE_LEGAL_EFFECTIVE_DATE,
   "introduction": "",
   "articles": [
     {
@@ -98,7 +103,7 @@ export const TERMS_CONTENT = {
     },
     {
       "title": "제15조 (청약철회)",
-      "body": "① 소비자인 구매자는 계약내용과 거래조건을 기재한 서면을 받은 날부터 7일 이내에 청약철회할 수 있습니다. 여기서 서면은 전자문서를 포함하고 회사 또는 판매자가 발송한 주문확인 통지를 포함합니다. 그 서면을 받은 때보다 상품의 공급이 늦게 이루어진 경우에는 상품을 공급받거나 공급이 시작된 날부터 7일 이내로 합니다.\n② 상품이 표시·광고와 다르거나 계약내용과 다르게 이행된 경우에는 상품을 공급받은 날부터 3개월 이내, 또는 그 사실을 안 날이나 알 수 있었던 날부터 30일 이내에 청약철회할 수 있습니다.\n③ 구매자는 몰의 주문내역, 고객센터, 전자우편 또는 판매자가 안내한 방법으로 청약철회를 신청할 수 있습니다. 회사가 공식 접수창구로 제공한 채널에 접수된 경우 회사가 접수한 때 판매자에게 도달한 것으로 보며 회사는 이를 지체 없이 전달합니다.",
+      "body": `① 소비자인 구매자는 ${STANDARD_WITHDRAWAL_PERIOD} 여기서 서면은 전자문서를 포함하고 회사 또는 판매자가 발송한 주문확인 통지를 포함합니다.\n② ${NONCONFORMING_WITHDRAWAL_PERIOD}\n③ 구매자는 몰의 주문내역, 고객센터, 전자우편 또는 판매자가 안내한 방법으로 청약철회를 신청할 수 있습니다. 회사가 공식 접수창구로 제공한 채널에 접수된 경우 회사가 접수한 때 판매자에게 도달한 것으로 보며 회사는 이를 지체 없이 전달합니다.`,
       "visible": true
     },
     {
@@ -168,7 +173,7 @@ export const TERMS_CONTENT = {
     },
     {
       "title": "제1조 (시행일)",
-      "body": "이 약관은 2026년 9월 1일부터 시행합니다.",
+      "body": `이 약관은 ${COMMERCE_LEGAL_EFFECTIVE_DATE}부터 시행합니다.`,
       "visible": true
     }
   ]
@@ -176,7 +181,7 @@ export const TERMS_CONTENT = {
 
 export const PRIVACY_CONTENT = {
   "title": "개인정보 처리방침",
-  "effectiveDate": "2026년 9월 1일",
+  "effectiveDate": COMMERCE_LEGAL_EFFECTIVE_DATE,
   "introduction": "백조 오브제(이하 ‘회사’)는 개인정보 보호법 등 관계 법령을 준수하고, 이용자의 개인정보를 안전하게 보호하며 관련 고충을 신속하게 처리하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다. 회사는 입점 판매자와 구매자 사이의 거래를 연결하는 통신판매중개자로서, 주문 이행에 필요한 개인정보를 결제 단계에서 특정된 판매자에게 제공합니다. 해당 판매자는 회사와 별개의 개인정보처리자로서 제공받은 개인정보를 자신의 책임으로 처리합니다.",
   "articles": [
     {
@@ -256,7 +261,7 @@ export const PRIVACY_CONTENT = {
     },
     {
       "title": "14. 개인정보처리방침의 변경",
-      "body": "· 이 방침은 2026년 9월 1일부터 시행합니다.\n· 방침이 변경되는 경우 회사는 시행일 7일 전부터 홈페이지 공지사항 등을 통해 알립니다. 이용자의 권리에 중대한 영향을 미치는 변경은 시행일 30일 전부터 알립니다.\n· 회사는 이전 방침을 이용자가 확인할 수 있도록 개정 이력을 공개합니다.",
+      "body": `· 이 방침은 ${COMMERCE_LEGAL_EFFECTIVE_DATE}부터 시행합니다.\n· 방침이 변경되는 경우 회사는 시행일 7일 전부터 홈페이지 공지사항 등을 통해 알립니다. 이용자의 권리에 중대한 영향을 미치는 변경은 시행일 30일 전부터 알립니다.\n· 회사는 이전 방침을 이용자가 확인할 수 있도록 개정 이력을 공개합니다.`,
       "visible": true
     }
   ]

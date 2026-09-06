@@ -91,6 +91,15 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(patchFunction).toContain('return NextResponse.json({ brand }, { status: 200 });');
   });
 
+  test('공개 브랜드 API 는 DB 환경파일이 없는 로컬 개발에서 헤더를 빈 목록으로 유지한다', () => {
+    const route = src('src', 'app', 'api', 'brands', 'route.ts');
+
+    expect(route).toContain("process.env.NODE_ENV === 'development'");
+    expect(route).toContain('isMissingSupabaseEnvironmentError(error)');
+    expect(route).toContain('NextResponse.json({ brands: [] }, { status: 200 })');
+    expect(route).toContain("NextResponse.json({ error: 'server-error' }, { status: 500 })");
+  });
+
   test('repo 브랜드 목록/update 는 DB 행을 rowToBrand 로 되읽는다', () => {
     const repoSource = src('src', 'lib', 'brands', 'repo.ts');
     const updateFunction = sliceBetween(

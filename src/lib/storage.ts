@@ -2,12 +2,16 @@ import {
   AdminDashboardSummary,
   Brand,
   ConfirmedOrderSummary,
+  CustomerServiceRequest,
   InsuranceApplication,
   MemberAddress,
+  MarketingPreferences,
   Order,
   PartnerInquiry,
   Product,
   Review,
+  Seller,
+  SellerAcceptance,
   Shipment,
   User,
 } from '@/types';
@@ -29,6 +33,7 @@ import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
 import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import type { CheckoutConsentClaims } from '@/lib/orders/compliance';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
@@ -400,7 +405,7 @@ const LAST_ORDER_KEY = 'baekjo_last_order';
 export type CreateOrderInput = Pick<
   Order,
   'customerName' | 'phone' | 'address' | 'items' | 'paymentMethod' | 'deliveryMemo'
->;
+> & { consents: CheckoutConsentClaims };
 
 /**
  * 주문 생성. POST /api/orders(회원 전용). 서버가 id·createdAt·member_id 및
@@ -422,7 +427,13 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     if (response.status === 409) {
       const { error } = (await response.json().catch(() => ({}))) as { error?: string };
       if (error === 'profile-incomplete') throw new Error('profile-incomplete');
+      if (error === 'seller-information-missing') throw new Error('seller-information-missing');
+      if (error === 'product-compliance-incomplete') throw new Error('product-compliance-incomplete');
       throw new Error('out-of-stock');
+    }
+    if (response.status === 400) {
+      const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+      if (error === 'consent-required') throw new Error('consent-required');
     }
     throw new Error('order-create-failed');
   }
@@ -446,6 +457,50 @@ export async function getMyOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export async function getMyCustomerServiceRequests(): Promise<CustomerServiceRequest[]> {
+  try {
+    const response = await fetch('/api/orders/requests', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { requests } = (await response.json()) as { requests: CustomerServiceRequest[] };
+    return Array.isArray(requests) ? requests : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createCustomerServiceRequest(input: Pick<CustomerServiceRequest, 'orderId' | 'sellerKey' | 'type' | 'reason'>): Promise<CustomerServiceRequest> {
+  const response = await fetch('/api/orders/requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'request-create-failed');
+  }
+  return ((await response.json()) as { request: CustomerServiceRequest }).request;
+}
+
+export async function getAdminCustomerServiceRequests(): Promise<CustomerServiceRequest[]> {
+  try {
+    const response = await fetch('/api/admin/order-requests', { cache: 'no-store' });
+    if (!response.ok) return [];
+    return ((await response.json()) as { requests: CustomerServiceRequest[] }).requests;
+  } catch {
+    return [];
+  }
+}
+
+export async function updateAdminCustomerServiceRequest(id: string, status: CustomerServiceRequest['status'], adminNote?: string): Promise<CustomerServiceRequest> {
+  const response = await fetch(`/api/admin/order-requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, adminNote }),
+  });
+  if (!response.ok) throw new Error('request-update-failed');
+  return ((await response.json()) as { request: CustomerServiceRequest }).request;
 }
 
 /**
@@ -483,6 +538,17 @@ export async function getOrderById(id: string): Promise<Order | null> {
     return null;
   }
 }
+
+export async function updateOrderSellerAcceptance(orderId: string, sellerKey: string, status: SellerAcceptance['status'], note?: string): Promise<SellerAcceptance> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/seller-acceptances/${encodeURIComponent(sellerKey)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) throw new Error('seller-acceptance-update-failed');
+  return ((await response.json()) as { acceptance: SellerAcceptance }).acceptance;
+}
+
 
 /**
  * 최근 주문 스냅샷. sessionStorage 에 저장된 createOrder 응답만 파싱한다
@@ -1216,6 +1282,57 @@ export async function deleteBrand(id: string): Promise<{ ok?: true; error?: stri
   }
 }
 
+/* ── 실제 판매자(관리자) ─────────────────────────────────── */
+export type CreateSellerInput = Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'freeShippingThreshold'> & {
+  freeShippingThreshold?: number | null;
+};
+export type UpdateSellerInput = Partial<CreateSellerInput>;
+
+export async function getAdminSellers(): Promise<Seller[]> {
+  try {
+    const response = await fetch('/api/admin/sellers', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { sellers } = (await response.json()) as { sellers: Seller[] };
+    return Array.isArray(sellers) ? sellers : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createSeller(input: CreateSellerInput): Promise<Seller> {
+  const response = await fetch('/api/admin/sellers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-create-failed');
+  }
+  return ((await response.json()) as { seller: Seller }).seller;
+}
+
+export async function updateSeller(id: string, input: UpdateSellerInput): Promise<Seller> {
+  const response = await fetch(`/api/admin/sellers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-update-failed');
+  }
+  return ((await response.json()) as { seller: Seller }).seller;
+}
+
+export async function deleteSeller(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/sellers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-delete-failed');
+  }
+}
+
 /* ── 맞춤 진단 설문 ─────────────────────────────────────────
  * 공개 진단 화면(/diagnosis·/diagnosis/result)은 GET /api/survey 로 설문 config 를 읽고,
  * 관리자 화면은 PUT /api/admin/survey 로 통째로 저장한다. 컴포넌트는 fetch 를 직접 하지 않고
@@ -1855,6 +1972,22 @@ export async function updateMyProfile(input: {
   } catch {
     return { error: 'network' };
   }
+}
+
+export async function getMyMarketingPreferences(): Promise<MarketingPreferences> {
+  const response = await fetch('/api/members/me/marketing-preferences', { cache: 'no-store' });
+  if (!response.ok) throw new Error('marketing-preferences-load-failed');
+  return ((await response.json()) as { preferences: MarketingPreferences }).preferences;
+}
+
+export async function updateMyMarketingPreferences(input: Pick<MarketingPreferences, 'email' | 'sms'>): Promise<MarketingPreferences> {
+  const response = await fetch('/api/members/me/marketing-preferences', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('marketing-preferences-update-failed');
+  return ((await response.json()) as { preferences: MarketingPreferences }).preferences;
 }
 
 export async function getMyAddresses(): Promise<MemberAddress[]> {

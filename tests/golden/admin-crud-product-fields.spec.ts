@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, ensureGoldenVerifiedSeller, fillProductCompliance, loginAsAdmin } from './_lib/adminCrudHelpers';
 import { getSurface } from './_lib/fieldSurfaceMatrix';
 
 // 골든플로우 #7 — 상품 폼 "전 필드 왕복" 실구동.
@@ -53,7 +53,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
   const deliveryEstimate = `오후2시이전당일출고 ${runId}`;
   const shippingNotice = `제주추가배송비 ${runId}`;
   const returnNotice = `수령후7일이내 ${runId}`;
-  const sellerName = `백조오브제셀렉션 ${runId}`;
+  const sellerName = 'E2E 전용 검증 판매자';
   const auditPoint = `상품검증포인트 ${runId}`;
   const relatedConcernSlug = `skin-${runId}`;
   const tagText = `저알러지태그 ${runId}`;
@@ -130,6 +130,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
 
     await loginAsAdmin(page);
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
 
     // ── 1) 기본 정보 ──
@@ -139,6 +140,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     const brandNameText = (await page.locator('#product-brand option:checked').innerText()).trim();
     await page.locator('#product-category').selectOption({ index: 1 });
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await fillProductCompliance(page, sellerId);
     categoryValue = await page.locator('#product-category').inputValue();
     lifestyleValue = await page.locator('#product-lifestyle').inputValue();
     // 반려동물 select 는 htmlFor 없이 라벨만 — option value="both" 를 가진 유일한 select 로 특정.
@@ -182,7 +184,6 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.getByPlaceholder('예: 오후 2시 이전 주문 시 당일 출고').fill(deliveryEstimate);
     await page.getByPlaceholder('예: 제주/도서산간 추가 배송비').fill(shippingNotice);
     await page.getByPlaceholder('예: 단순 변심 시 수령 후 7일 이내').fill(returnNotice);
-    await page.getByPlaceholder('예: 백조오브제').fill(sellerName);
 
     // ── 7) 대표 이미지(단일 file input) + 갤러리 1장(추가 후 마지막 file input) ──
     await page.locator('input[type="file"]').setInputFiles(mainImagePath);
@@ -319,7 +320,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.getByPlaceholder('예: 오후 2시 이전 주문 시 당일 출고')).toHaveValue(deliveryEstimate);
     await expect(page.getByPlaceholder('예: 제주/도서산간 추가 배송비')).toHaveValue(shippingNotice);
     await expect(page.getByPlaceholder('예: 단순 변심 시 수령 후 7일 이내')).toHaveValue(returnNotice);
-    await expect(page.getByPlaceholder('예: 백조오브제')).toHaveValue(sellerName);
+    await expect(page.locator('#product-seller')).toHaveValue(sellerId);
+    await expect(page.locator('#product-disclosure-category')).toHaveValue('life');
+    await expect(page.locator('#product-disclosure-productName')).toHaveValue('E2E 품명·모델명');
     await expect(page.getByLabel('스토어 노출')).toBeChecked();
     await expect(page.getByLabel('추천 상품 (MD)')).toBeChecked();
     await expect(page.getByLabel('베스트 상품')).toBeChecked();
@@ -380,6 +383,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     assertNotProd();
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
     await loginAsAdmin(page);
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
 
     const emptyName = `${SEARCH_PREFIX}empty-${runId}`;
@@ -387,6 +391,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await page.locator('#product-brand').selectOption('b1');
     await page.locator('#product-category').selectOption({ index: 1 });
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await fillProductCompliance(page, sellerId);
     const spin = page.getByRole('spinbutton');
     await spin.nth(0).fill('10000'); // price
     await spin.nth(2).fill('0'); // stock=0 → 품절

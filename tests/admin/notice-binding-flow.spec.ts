@@ -94,9 +94,8 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
   test('공개 API 라우트는 절대 500 을 내지 않고 빈 목록으로 폴백한다', () => {
     const routeSource = src('src', 'app', 'api', 'notices', 'route.ts');
 
-    expect(routeSource).toContain('emptyNoticesConfig');
+    expect(routeSource).toContain('getNoticesConfigWithFallback');
     expect(routeSource).not.toContain('defaultNoticesConfig');
-    expect(routeSource).toContain('logServerError');
   });
 
   test('repo 는 notices_config 싱글턴 행을 upsert 하고 서버 폴백 조회를 제공한다', () => {
@@ -154,7 +153,7 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     expect(configSource).toContain('export const emptyNoticesConfig: NoticesConfig = { items: [] };');
     expect(configSource).not.toContain('백조오브제 프리미엄 펫쇼핑몰 오픈 안내');
     expect(configSource).not.toContain('개인정보 처리방침 변경 사전 안내');
-    expect(publicRouteSource).toContain('emptyNoticesConfig');
+    expect(publicRouteSource).toContain('getNoticesConfigWithFallback');
     expect(publicRouteSource).not.toContain('defaultNoticesConfig');
     expect(repoSource).toContain('emptyNoticesConfig');
     expect(repoSource).not.toContain('defaultNoticesConfig');

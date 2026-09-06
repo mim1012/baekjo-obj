@@ -32,6 +32,8 @@ const ALL_MAIN_LINKS: NavLinkDef[] = [
 const MAIN_LINKS = ALL_MAIN_LINKS.filter(
   (link) => !link.feature || FEATURES[link.feature],
 );
+const PRIMARY_MAIN_LINKS = MAIN_LINKS.filter((link) => link.href !== '/b2b');
+const B2B_LINK = MAIN_LINKS.find((link) => link.href === '/b2b');
 
 const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
@@ -164,7 +166,7 @@ export default function Header() {
             </div>
           </div>
 
-          {MAIN_LINKS.slice(0, 3).map((link) => (
+          {PRIMARY_MAIN_LINKS.map((link) => (
             <NavLink key={link.href} {...link} active={isActive(link.href)} />
           ))}
 
@@ -194,9 +196,8 @@ export default function Header() {
             </div>
           </div>
 
-          {/* 기능 플래그로 펫보험이 빠질 수 있어 4번째 링크가 없을 수 있다 — 가드 렌더. */}
-          {MAIN_LINKS[3] && (
-            <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
+          {B2B_LINK && (
+            <NavLink {...B2B_LINK} active={isActive(B2B_LINK.href)} />
           )}
         </nav>
 
@@ -307,7 +308,7 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS.slice(0, 3).map((link) => (
+            {PRIMARY_MAIN_LINKS.map((link) => (
               <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
             ))}
 
@@ -326,8 +327,8 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS[3] && (
-              <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
+            {B2B_LINK && (
+              <MobileLink {...B2B_LINK} active={isActive(B2B_LINK.href)} onClick={closeMenu} />
             )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">

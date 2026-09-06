@@ -14,6 +14,7 @@ import FormSection from '@/components/admin-new/common/FormSection';
 import OrderStatusPanel from './OrderStatusPanel';
 import OrderShipmentsPanel from './OrderShipmentsPanel';
 import OrderRefundPanel from './OrderRefundPanel';
+import OrderSellerAcceptancePanel from './OrderSellerAcceptancePanel';
 
 interface OrderDetailPageProps {
   id: string;
@@ -206,12 +207,12 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
               </div>
               {order.deliveryFeeBreakdown && order.deliveryFeeBreakdown.length > 0 && (
                 <div className="space-y-2 border-b border-gray-100 pb-3" data-testid="delivery-fee-breakdown">
-                  <span className="block text-gray-500">업체별 배송비</span>
+                  <span className="block text-gray-500">판매자별 배송비</span>
                   <div className="space-y-1 rounded-md bg-[#F8F7F2] px-3 py-2 text-[13px]">
                     {order.deliveryFeeBreakdown.map((line) => (
-                      <div key={line.brandId} className="flex items-center justify-between gap-3">
+                      <div key={`${line.sellerKey ?? 'brand'}:${line.brandId}`} className="flex items-center justify-between gap-3">
                         <span className="min-w-0 truncate text-gray-600">
-                          {line.brandName ?? line.brandId}
+                          {line.sellerName ?? line.brandName ?? line.brandId}
                           {line.isFreeShipping && line.freeShippingThreshold !== undefined
                             ? ` (${formatPrice(line.freeShippingThreshold)} 이상 무료)`
                             : ''}
@@ -234,6 +235,18 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           </FormSection>
 
           <OrderRefundPanel order={order} onUpdate={loadOrder} />
+
+          <OrderSellerAcceptancePanel order={order} onUpdate={setOrder} />
+
+          {order.consentRecords && order.consentRecords.length > 0 && (
+            <section className="rounded-md border border-gray-200 bg-white p-5">
+              <h2 className="text-[15px] font-semibold text-[#17201B]">주문 동의 증적</h2>
+              <p className="mt-1 text-xs text-gray-500">주문 당시 전문·버전·SHA-256 해시·동의 시각이 봉인되어 있습니다.</p>
+              <div className="mt-4 space-y-3">
+                {order.consentRecords.map((record) => <details key={`${record.type}:${record.subjectKey}`} className="rounded border bg-[#F7F8F6] p-3"><summary className="cursor-pointer text-xs font-semibold">{record.type === 'order_terms' ? '주문 확인' : record.type === 'third_party_provision' ? '제3자 제공' : '주문제작'} · {record.subjectKey}</summary><dl className="mt-3 grid gap-2 break-all text-xs text-gray-600"><div><dt className="font-semibold">버전</dt><dd>{record.policyVersion}</dd></div><div><dt className="font-semibold">동의 시각</dt><dd>{record.agreedAt}</dd></div><div><dt className="font-semibold">내용 해시</dt><dd className="font-mono">{record.contentHash}</dd></div><div><dt className="font-semibold">전문</dt><dd className="mt-1 whitespace-pre-line rounded bg-white p-2 leading-5">{record.contentSnapshot}</dd></div></dl></details>)}
+              </div>
+            </section>
+          )}
 
           <OrderStatusPanel
             key={`${order.id}:${order.orderStatus}:${order.paymentStatus}:${order.deliveryStatus}:${order.trackingNumber ?? ''}:${order.carrier ?? ''}:${order.deliveryMemo ?? ''}`}

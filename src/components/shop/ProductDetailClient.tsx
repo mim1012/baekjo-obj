@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Heart, Minus, Plus, ShoppingCart, CreditCard, Star } from 'lucide-react';
@@ -9,8 +9,10 @@ import { formatPrice, calcDiscount } from '@/lib/format';
 import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
-import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
+import RepetMadeToOrderNotice, { isMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
+import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
+import SellerDisclosure from '@/components/shop/SellerDisclosure';
 
 interface Props {
   product: Product;
@@ -21,19 +23,26 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
-  const [selectedOption, setSelectedOption] = useState(product.options?.[0]?.id || '');
+  const firstSelectableOption = product.options?.find((option) => option.stock === undefined || option.stock > 0)
+    ?? product.options?.[0];
+  const [selectedOption, setSelectedOption] = useState(firstSelectableOption?.id || '');
   const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
   const [activeImage, setActiveImage] = useState(0);
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
+  const wishlistMutationVersionRef = useRef(0);
   const [isAdminViewer, setIsAdminViewer] = useState(false);
 
   useEffect(() => {
     if (!mounted) return;
     let active = true;
     const syncWishlist = () => {
+      const syncVersion = wishlistMutationVersionRef.current;
       getWishlist().then((wishlistIds) => {
-        if (active) setWishlisted(wishlistIds.includes(product.id));
+        // 초기 조회가 늦게 끝나도 그 사이 사용자가 누른 낙관 상태를 되돌리지 않는다.
+        if (active && syncVersion === wishlistMutationVersionRef.current) {
+          setWishlisted(wishlistIds.includes(product.id));
+        }
       });
     };
     syncWishlist();
@@ -59,6 +68,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     if (wishlistBusy) return;
     const previousWishlisted = wishlisted;
     const nextWishlisted = !previousWishlisted;
+    wishlistMutationVersionRef.current += 1;
     setWishlistBusy(true);
     setWishlisted(nextWishlisted);
     try {
@@ -83,7 +93,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     setQuantity(1);
     // 파생 검증(validOption)만으론 다른 상품이 같은 옵션 id 를 쓸 때 이전 선택이 유효 매치로
     // 넘어오므로, 상품 전환 시점 리셋을 병행한다.
-    setSelectedOption(product.options?.[0]?.id || '');
+    setSelectedOption(firstSelectableOption?.id || '');
   }
   // brandName 은 repo 가 조인해 내려준다(콘센트 — src/types/index.ts Product.brandName).
   const brandName = product.brandName ?? product.brandId;
@@ -93,7 +103,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
 
 
   // 옵션은 상태를 믿지 않고 매 렌더 검증 — 현재 상품에 없는 옵션 ID는 첫 옵션으로 대체
-  const validOption = product.options?.find(o => o.id === selectedOption) ?? product.options?.[0];
+  const validOption = product.options?.find(o => o.id === selectedOption) ?? firstSelectableOption;
   const effectiveOptionId = validOption?.id ?? '';
 
   const hasPrice = product.price !== null && product.price !== undefined;
@@ -102,10 +112,14 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
 
   const finalPrice = basePrice + optionPrice;
   // 표시·계산·핸들러 전달 수량 일원화 — stock 변동과 무관하게 항상 1 이상으로 클램프
-  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, product.stock)));
+  const availableStock = validOption?.stock === undefined
+    ? product.stock
+    : Math.min(product.stock, validOption.stock);
+  const displayQty = Math.max(1, Math.min(quantity, Math.max(1, availableStock)));
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
-  const isSellable = hasPrice && product.stock > 0;
+  const commerceReady = isProductCommerceReady(product);
+  const isSellable = hasPrice && availableStock > 0 && commerceReady;
   const unavailableTitle = isAdminViewer ? '판매가 미입력' : '판매가 등록 대기';
   const unavailableDescription = isAdminViewer
     ? '관리자 상품 편집에서 판매가와 재고를 입력하면 장바구니와 바로구매가 활성화됩니다.'
@@ -114,9 +128,13 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   // 방어적 인덱스 클램프 — gallery 축소(상품 전환 직후 렌더) 시 undefined src 방지
   const safeIndex = Math.min(activeImage, gallery.length - 1);
   const currentImage = gallery[safeIndex];
-  const isRepetMadeToOrder = isRepetMadeToOrderProduct(product.brandId);
+  const isRepetMadeToOrder = isMadeToOrderProduct(product);
 
   const handleAddToCart = async () => {
+    if (!commerceReady) {
+      alert('실제 판매자와 필수 상품정보를 확인 중인 상품입니다. 준비가 끝난 뒤 주문해주세요.');
+      return;
+    }
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -124,6 +142,10 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    if (validOption?.stock !== undefined && validOption.stock <= 0) {
+      alert('선택한 옵션은 일시 품절되었습니다.');
       return;
     }
     const user = await getSessionUser();
@@ -140,6 +162,10 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   };
 
   const handleBuyNow = async () => {
+    if (!commerceReady) {
+      alert('실제 판매자와 필수 상품정보를 확인 중인 상품입니다. 준비가 끝난 뒤 주문해주세요.');
+      return;
+    }
     if (!hasPrice) {
       alert('가격을 먼저 확인해주세요.');
       router.push('/login');
@@ -147,6 +173,10 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
+      return;
+    }
+    if (validOption?.stock !== undefined && validOption.stock <= 0) {
+      alert('선택한 옵션은 일시 품절되었습니다.');
       return;
     }
     const user = await getSessionUser();
@@ -254,6 +284,16 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
               </>
             )}
           </div>
+          {product.seller ? (
+            <SellerDisclosure seller={product.seller} className="mt-4" />
+          ) : (
+            <p className="mt-3 text-sm font-semibold text-[#59615B]">실제 판매자 · 판매자 정보 확인 중</p>
+          )}
+          {!commerceReady && (
+            <p role="status" className="mt-3 rounded-xl border border-[#E8CF9E] bg-[#FFF9EC] p-3 text-sm leading-6 text-[#7A4E1D]">
+              실제 판매자 사업자정보와 상품군별 필수정보를 확인 중이라 현재 구매할 수 없습니다.
+            </p>
+          )}
           {!hasPrice && (
             <p className="mt-3 break-keep text-sm leading-6 text-[#59615B]">{unavailableDescription}</p>
           )}
@@ -270,7 +310,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
           )}
         </div>
 
-        {isRepetMadeToOrder && <RepetMadeToOrderNotice className="mt-8" />}
+        {isRepetMadeToOrder && <RepetMadeToOrderNotice className="mt-8" policy={product.madeToOrderPolicy} />}
 
         {/* Options */}
         {product.options && product.options.length > 0 && (
@@ -283,8 +323,9 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
                 className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 md:py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
               >
                 {product.options.map(opt => (
-                  <option key={opt.id} value={opt.id}>
+                  <option key={opt.id} value={opt.id} disabled={opt.stock !== undefined && opt.stock <= 0}>
                     {opt.name} {(opt.priceDiff ?? opt.price) > 0 ? `(+${formatPrice(opt.priceDiff ?? opt.price)})` : ''}
+                    {opt.stock !== undefined && opt.stock <= 0 ? ' · 품절' : ''}
                   </option>
                 ))}
               </select>
@@ -352,7 +393,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] border border-[rgba(15,23,42,0.12)] bg-white text-[14px] md:text-base font-semibold text-[#17211D] hover:bg-[#F4F2EC] hover:border-[#17211D] transition-all shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '장바구니' : '품절'}
+                <ShoppingCart className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '장바구니' : commerceReady ? '품절' : '판매 준비 중'}
               </button>
               <button
                 type="button"
@@ -360,7 +401,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
                 disabled={!isSellable}
                 className="flex h-[54px] md:h-[60px] flex-1 items-center justify-center rounded-[16px] bg-[#17211D] text-[14px] md:text-base font-semibold text-white hover:bg-[#2F3B34] transition-all shadow-md disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '바로구매' : '품절'}
+                <CreditCard className="mr-1.5 md:mr-2 h-4 w-4 md:h-5 md:w-5" /> {isSellable ? '바로구매' : commerceReady ? '품절' : '판매 준비 중'}
               </button>
             </>
           ) : (

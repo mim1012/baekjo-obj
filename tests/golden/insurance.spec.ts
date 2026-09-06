@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { FEATURES } from '../../src/config/features';
 
 // Golden Flow #3 — 펫보험 분석·신청: insurance → recommend → apply → complete
 //
@@ -12,6 +13,11 @@ import { test, expect } from '@playwright/test';
 test.describe('골든플로우 #3 (LIVE): 보험 분석 신청 폼', () => {
   test('/insurance/apply 폼 필드가 렌더되고 입력 가능하다 (제출하지 않음)', async ({ page }) => {
     await page.goto('/insurance/apply');
+
+    if (!FEATURES.insurance) {
+      await expect(page).toHaveURL(/\/$/);
+      return;
+    }
 
     // 제목 + 핵심 폼 필드 렌더.
     await expect(page.getByRole('heading', { name: '보험 분석 신청' })).toBeVisible();
@@ -35,6 +41,10 @@ test.describe('골든플로우 #3 (LIVE): 보험 분석 신청 폼', () => {
   // 실제로 존재하는지만 확인한다. 진짜 업로드~파기는 admin-crud-insurance-cert.spec.ts.
   test('증권 파일 첨부 입력이 폼에 존재한다(선택, 업로드는 실행하지 않음)', async ({ page }) => {
     await page.goto('/insurance/apply');
+    if (!FEATURES.insurance) {
+      await expect(page).toHaveURL(/\/$/);
+      return;
+    }
     const fileInput = page.locator('input[type="file"]');
     await expect(fileInput).toBeVisible();
     await expect(fileInput).toHaveAttribute('accept', /pdf/);

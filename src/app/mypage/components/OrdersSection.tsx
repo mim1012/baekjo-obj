@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, OrderItem, ProductReview, Product, Brand, Shipment } from '@/types';
+import { Order, OrderItem, ProductReview, Product, Brand, Shipment, CustomerServiceRequest } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
-import { buildReviewTargetKey, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
+import { buildReviewTargetKey, createCustomerServiceRequest, getMyCustomerServiceRequests, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
@@ -39,10 +39,35 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   // href="#"로 죽어 있던 링크를 배송지·결제수단·금액 요약을 펼쳐 보여주는 토글로 대체한다
   // (order-complete 페이지의 OrderDetailCard와 같은 정보를 이 카드 안에서 보여주는 최소 침습 방식).
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [serviceRequests, setServiceRequests] = useState<CustomerServiceRequest[]>([]);
+  const [requestingKey, setRequestingKey] = useState<string | null>(null);
 
   useEffect(() => {
-    getPublicBrands().then(setBrands);
+    getPublicBrands().then(setBrands).catch(() => setBrands([]));
+    getMyCustomerServiceRequests().then(setServiceRequests).catch(() => setServiceRequests([]));
   }, []);
+
+  const handleServiceRequest = async (order: Order, sellerKey: string, type: CustomerServiceRequest['type']) => {
+    const typeLabel = type === 'exchange' ? '교환' : '반품';
+    const reason = window.prompt(`${typeLabel} 사유를 5자 이상 입력해주세요.\n접수 후 판매자 확인을 거쳐 처리됩니다.`);
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+      window.alert('사유를 5자 이상 입력해주세요.');
+      return;
+    }
+    const busyKey = `${order.id}:${sellerKey}:${type}`;
+    setRequestingKey(busyKey);
+    try {
+      const created = await createCustomerServiceRequest({ orderId: order.id, sellerKey, type, reason: reason.trim() });
+      setServiceRequests((current) => [created, ...current]);
+      window.alert(`${typeLabel} 요청이 접수되었습니다.`);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      window.alert(code === 'request-already-open' ? `이미 처리 중인 ${typeLabel} 요청이 있습니다.` : code === 'request-not-allowed' ? '결제 완료된 주문만 요청할 수 있습니다.' : `${typeLabel} 요청을 접수하지 못했습니다.`);
+    } finally {
+      setRequestingKey(null);
+    }
+  };
 
   // 주문 역순 정렬 (최신순)
   const sortedOrders = [...orders].sort(
@@ -136,6 +161,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
         {paginatedOrders.map((order) => {
           // 업체(브랜드)별 번들. 레거시 주문(brandId 없는 아이템)은 하나의 null 번들로 접혀 최소 1개 버튼을 갖는다.
           const bundles = groupOrderItemsByBundle(order.items);
+          const sellerGroups = order.sellerGroups ?? [];
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
@@ -234,8 +260,8 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                         </div>
                       )}
                       <div className="flex flex-col justify-center">
-                        {product?.brandName && (
-                          <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
+                        {(item.sellerName || product?.seller?.displayName || product?.brandName) && (
+                          <span className="text-xs font-semibold text-[#68716C]">판매자 · {item.sellerName || product?.seller?.displayName || product?.brandName}</span>
                         )}
                         {canOpenProduct ? (
                           <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
@@ -271,6 +297,32 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 );
               })}
             </div>
+
+            {sellerGroups.length > 0 && (
+              <div className="border-t border-[#EBE6DC] bg-white px-6 py-4">
+                <h3 className="text-sm font-bold text-[#18231F]">판매자별 취소·교환·반품</h3>
+                <p className="mt-1 text-xs leading-5 text-[#68716C]">주문 취소는 주문 상단 버튼, 교환·반품은 아래 실제 판매자별 버튼으로 접수합니다.</p>
+                <div className="mt-3 space-y-3">
+                  {sellerGroups.map((group) => {
+                    const requests = serviceRequests.filter((request) => request.orderId === order.id && request.sellerKey === group.key);
+                    const canRequest = order.paymentStatus === '결제완료' && !['취소요청', '취소완료'].includes(order.orderStatus);
+                    const acceptance = order.sellerAcceptances?.find((item) => item.sellerKey === group.key);
+                    return (
+                      <div key={group.key} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#EBE6DC] bg-[#FBF9F4] p-3">
+                        <div><p className="text-sm font-semibold text-[#18231F]">{group.seller.displayName}</p><p className="mt-0.5 text-xs text-[#68716C]">{group.productIds.length}종 · 판매자 처리 상태 {acceptance?.status === 'accepted' ? '수락' : acceptance?.status === 'rejected' ? '거절' : acceptance?.status === 'cancelled' ? '묶음 취소' : '접수 대기'}{acceptance?.note ? ` · ${acceptance.note}` : ''}</p>{requests.map((request) => <p key={request.id} className="mt-1 text-xs font-semibold text-[#A8742E]">{request.type === 'exchange' ? '교환' : '반품'} · {request.status === 'received' ? '접수' : request.status === 'reviewing' ? '검토 중' : request.status === 'approved' ? '승인' : request.status === 'rejected' ? '반려' : '완료'}{request.adminNote ? ` · ${request.adminNote}` : ''}</p>)}</div>
+                        <div className="flex gap-2">
+                          {(['exchange', 'return'] as const).map((type) => {
+                            const busyKey = `${order.id}:${group.key}:${type}`;
+                            const hasOpen = requests.some((request) => request.type === type && ['received', 'reviewing', 'approved'].includes(request.status));
+                            return <button key={type} type="button" disabled={!canRequest || hasOpen || requestingKey === busyKey} onClick={() => void handleServiceRequest(order, group.key, type)} className="mp-btn-secondary h-9 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50">{hasOpen ? `${type === 'exchange' ? '교환' : '반품'} 처리 중` : `${type === 'exchange' ? '교환' : '반품'} 요청`}</button>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 업체별 배송조회 — 버튼은 항상 살아 있게 한다(숨기면 CS 문의가 는다). 레거시 단일 번들은 "배송조회"로 표기. */}
             <div className="flex flex-col gap-2 border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">

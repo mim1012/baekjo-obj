@@ -2,6 +2,7 @@
 // id/createdAt은 여기서 받지 않는다(서버 결정, mass-assignment 차단).
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
+import { normalizeDisclosure, normalizeMadeToOrderPolicy } from '@/lib/products/disclosures';
 
 const MAX_NAME = 200;
 const MAX_SHORT_TEXT = 100;
@@ -23,7 +24,9 @@ const MAX_STOCK = 1_000_000;
 const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
 const MAX_REVIEW_COUNT = 10_000_000;
+const MAX_DISPLAY_ORDER = 100_000;
 const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -188,6 +191,11 @@ export function validateProductFields(
     out.brandId = b.brandId;
   } else if (requireAll) return null;
 
+  if (b.sellerId !== undefined) {
+    if (b.sellerId !== null && (typeof b.sellerId !== 'string' || !UUID_RE.test(b.sellerId))) return null;
+    out.sellerId = b.sellerId === null ? undefined : b.sellerId;
+  }
+
   if (b.name !== undefined) {
     if (!isStr(b.name, 1, MAX_NAME)) return null;
     out.name = b.name;
@@ -320,6 +328,18 @@ export function validateProductFields(
     out.sellerName = b.sellerName;
   }
 
+  if (b.disclosure !== undefined) {
+    const disclosure = normalizeDisclosure(b.disclosure);
+    if (!disclosure) return null;
+    out.disclosure = disclosure;
+  }
+
+  if (b.madeToOrderPolicy !== undefined) {
+    const madeToOrderPolicy = normalizeMadeToOrderPolicy(b.madeToOrderPolicy);
+    if (!madeToOrderPolicy) return null;
+    out.madeToOrderPolicy = madeToOrderPolicy;
+  }
+
   if (b.tags !== undefined) {
     if (!isStrArray(b.tags, MAX_ARRAY_ITEMS, MAX_SHORT_TEXT)) return null;
     out.tags = b.tags;
@@ -379,6 +399,21 @@ export function validateProductFields(
     out.isRecommended = b.isRecommended;
   } else if (requireAll) {
     out.isRecommended = false;
+  }
+
+  if (b.homeDisplayOrder !== undefined) {
+    if (!isNum(b.homeDisplayOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.homeDisplayOrder)) return null;
+    out.homeDisplayOrder = b.homeDisplayOrder;
+  }
+
+  if (b.dailyPickDisplayOrder !== undefined) {
+    if (!isNum(b.dailyPickDisplayOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.dailyPickDisplayOrder)) return null;
+    out.dailyPickDisplayOrder = b.dailyPickDisplayOrder;
+  }
+
+  if (b.storeDisplayOrder !== undefined) {
+    if (!isNum(b.storeDisplayOrder, 0, MAX_DISPLAY_ORDER) || !Number.isInteger(b.storeDisplayOrder)) return null;
+    out.storeDisplayOrder = b.storeDisplayOrder;
   }
 
   // salePrice는 price보다 클 수 없고, 정가(price) 없이 세일가만 존재할 수도 없다. 이 패스는

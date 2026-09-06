@@ -1,11 +1,14 @@
 import { COMPANY, DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import {
+  COMMERCE_LEGAL_EFFECTIVE_DATE,
+  NONCONFORMING_WITHDRAWAL_PERIOD,
+  STANDARD_WITHDRAWAL_PERIOD,
+} from '@/data/commerceLegal';
 
 export const metadata = {
   title: '배송·교환·환불 안내 | 백조오브제',
   description: '백조오브제 상품 배송, 교환, 반품, 환불 기준입니다.',
 };
-
-const EFFECTIVE_DATE = '2026년 9월 1일';
 
 export default function RefundPolicyPage() {
   return (
@@ -14,7 +17,7 @@ export default function RefundPolicyPage() {
         <div className="mx-auto max-w-3xl">
           <p className="page-eyebrow">Commerce Policy</p>
           <h1 className="mt-3 text-3xl font-bold text-[#202521] md:text-4xl">배송·교환·환불 안내</h1>
-          <p className="mt-4 text-sm text-[#6F766F]">시행일: {EFFECTIVE_DATE}</p>
+          <p className="mt-4 text-sm text-[#6F766F]">시행일: {COMMERCE_LEGAL_EFFECTIVE_DATE}</p>
 
           <div className="mt-10 space-y-10">
             <Article title="1. 배송 안내">
@@ -31,8 +34,8 @@ export default function RefundPolicyPage() {
             <Article title="2. 교환·반품 안내">
               <List
                 items={[
-                  '청약철회 및 교환·반품 신청기간: 계약내용에 관한 서면 또는 전자문서를 받은 날부터 7일 이내입니다. 상품 공급이 더 늦은 경우에는 상품을 공급받거나 공급이 시작된 날부터 7일 이내입니다.',
-                  '표시·광고 내용과 다르거나 계약내용과 다르게 이행된 경우에는 상품을 공급받은 날부터 3개월 이내 또는 그 사실을 안 날이나 알 수 있었던 날부터 30일 이내에 신청할 수 있습니다.',
+                  `청약철회 및 교환·반품 신청기간: ${STANDARD_WITHDRAWAL_PERIOD}`,
+                  NONCONFORMING_WITHDRAWAL_PERIOD,
                   '단순 변심에 따른 교환·반품 배송비는 고객 부담입니다. 상품 불량 또는 오배송의 경우 배송비는 판매자가 부담합니다.',
                   '반품 주소는 교환·반품 접수 시 고객센터에서 개별 안내합니다.',
                   '상품을 사용했거나 훼손·오염된 경우, 구성품이 누락된 경우 등 관계 법령상 청약철회 제한 사유에 해당하면 교환·반품이 제한될 수 있습니다. 맞춤제작 상품은 사전 고지와 별도 동의 등 관계 법령에서 정한 요건을 갖춘 경우에만 제한됩니다.',

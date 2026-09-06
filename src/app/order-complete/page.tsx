@@ -91,14 +91,18 @@ function OrderDetailCard({ order }: { order: Order }) {
         <strong className="text-sm tabular-nums text-[#2F3B34]">{order.id}</strong>
       </div>
       <div className="space-y-4 p-6">
-        {order.items.map((item) => (
-          <div key={`${item.productId}-${item.optionName ?? ''}`} className="flex justify-between gap-5 text-sm">
-            <div>
-              <p className="font-medium text-[#303731]">{item.productName}</p>
-              <p className="mt-1 text-xs text-[#8A918B]">{item.optionName || '기본 옵션'} · {item.quantity}개</p>
+        {(order.sellerGroups?.length ? order.sellerGroups : [{ key: 'legacy', seller: { displayName: '판매자 확인 필요' }, productIds: order.items.map((item) => item.productId) }]).map((group) => (
+          <section key={group.key} className="rounded border border-[#D8D6CE] bg-white p-4">
+            <div className="mb-3 flex items-center justify-between gap-3"><strong className="text-xs text-[#A8742E]">판매자 · {group.seller.displayName}</strong><span className="text-[11px] text-[#7B827C]">판매자 접수 대기</span></div>
+            <div className="space-y-3">
+              {order.items.filter((item) => group.productIds.includes(item.productId)).map((item) => (
+                <div key={`${item.productId}-${item.optionName ?? ''}`} className="flex justify-between gap-5 text-sm">
+                  <div><p className="font-medium text-[#303731]">{item.productName}</p><p className="mt-1 text-xs text-[#8A918B]">{item.optionName || '기본 옵션'} · {item.quantity}개</p></div>
+                  <strong className="shrink-0 tabular-nums text-[#2F3B34]">{formatPrice(item.price * item.quantity)}</strong>
+                </div>
+              ))}
             </div>
-            <strong className="shrink-0 tabular-nums text-[#2F3B34]">{formatPrice(item.price * item.quantity)}</strong>
-          </div>
+          </section>
         ))}
       </div>
       <dl className="grid gap-3 border-t border-[#D8D6CE] bg-[#F0EEE8] p-6 text-sm">

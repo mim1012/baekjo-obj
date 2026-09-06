@@ -8,6 +8,7 @@ import { getPublicProducts, getPublicBrands, getNoticesConfig, getShowcaseReview
 import HomeClient from '@/components/home/HomeClient';
 import type { Brand, Notice, Product, Review } from '@/types';
 import { AdminPageHeader } from '@/components/admin/AdminUi';
+import PageTextSettingsEditor from '@/components/admin-new/settings/PageTextSettingsEditor';
 
 // 탭은 실제 홈(HomeClient)의 섹션 순서와 1:1 이다. 아이콘·href·이미지 등 "구조"는
 // HomeClient 하드코딩이라 편집 대상이 아니고, 여기서는 "문구"만 편집한다(§ homeContent).
@@ -186,6 +187,8 @@ export default function SiteSettingsPage() {
         </>}
       />
 
+      <PageTextSettingsEditor />
+
       <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-hidden lg:flex-row">
         {/* Left Tabs */}
         <div className="flex h-auto shrink-0 flex-col overflow-hidden border border-[#E7E0D5] bg-white lg:h-full lg:w-64">
@@ -227,10 +230,6 @@ export default function SiteSettingsPage() {
                   {renderInput('보조 버튼 텍스트 (secondaryCta)', draft.hero.secondaryCtaLabel, (v) => updateDraft('hero', 'secondaryCtaLabel', v))}
                 </div>
                 {renderInput('신뢰 문구 (trustNote)', draft.hero.trustNote, (v) => updateDraft('hero', 'trustNote', v))}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {renderInput('이미지 뱃지 제목 (badgeTitle)', draft.hero.badgeTitle, (v) => updateDraft('hero', 'badgeTitle', v))}
-                  {renderInput('이미지 뱃지 부제 (badgeSubtitle)', draft.hero.badgeSubtitle, (v) => updateDraft('hero', 'badgeSubtitle', v))}
-                </div>
               </div>
             )}
 

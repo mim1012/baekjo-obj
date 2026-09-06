@@ -3,6 +3,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 import {
   MEMBER_EMAIL,
   MEMBER_PASSWORD,
+  acceptRequiredCheckoutConsents,
   loginAsMember,
   createThrowawayProduct,
   cleanupThrowawayProducts,
@@ -74,7 +75,7 @@ test.describe('골든플로우: 관리자 구매평 검수(숨김→별점 제�
     await memberPage.locator('input[name="phone"]').fill('010-4444-5555');
     await memberPage.locator('input[name="address"]').fill('서울시 마포구 검수로 1');
     await memberPage.locator('label').filter({ hasText: '무통장입금' }).click();
-    await memberPage.locator('input[type="checkbox"]').check();
+    await acceptRequiredCheckoutConsents(memberPage);
     await memberPage.getByRole('button', { name: /결제하기/ }).click();
     await memberPage.waitForURL(/\/order-complete/, { timeout: 20_000 });
 

@@ -4,6 +4,7 @@ import type { Product } from '@/types';
 // 분리한다. repo.ts에서 그대로 re-export해 호출부는 바뀌지 않는다.
 const PRODUCT_COLUMN_MAP: Partial<Record<keyof Product, string>> = {
   brandId: 'brand_id',
+  sellerId: 'seller_id',
   name: 'name',
   price: 'price',
   salePrice: 'sale_price',
@@ -33,7 +34,7 @@ export function splitProductInput(input: Partial<Product>): {
       // brand_id 는 FK(on delete set null). 브랜드가 삭제된 상품은 rowToProduct 에서 '' 로 읽혀,
       // 노출-전용 read-modify-write 시 brand_id='' 로 되써져 23503(invalid-brand)이 났다.
       // 빈 문자열은 "브랜드 없음"이므로 NULL 로 저장한다.
-      columns[columnName] = columnName === 'brand_id' && value === '' ? null : value;
+      columns[columnName] = (columnName === 'brand_id' || columnName === 'seller_id') && value === '' ? null : value;
     } else {
       detail[key] = value;
     }

@@ -1,6 +1,31 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('고객 법적 안내 화면', () => {
+  test('관리자에 등록한 실제 판매자 정보를 상품에서 열어 확인한다', async ({ page, request }) => {
+    const productsResponse = await request.get('/api/products');
+    expect(productsResponse.ok()).toBe(true);
+    const productsPayload = await productsResponse.json() as {
+      products?: Array<{
+        id: string;
+        seller?: { id: string; legalName: string; representativeName: string };
+      }>;
+    };
+    const product = productsPayload.products?.find((candidate) => candidate.seller);
+    expect(product?.seller, '공개 상품에 연결된 실제 판매자가 없습니다.').toBeTruthy();
+    if (!product?.seller) return;
+
+    await page.goto(`/shop/${product.id}`);
+    const disclosure = page.locator('[data-seller-disclosure]');
+    await expect(disclosure).toBeVisible();
+    await expect(disclosure).not.toHaveAttribute('open', '');
+    await disclosure.locator('summary').click();
+    await expect(disclosure).toHaveAttribute('open', '');
+    await expect(disclosure.getByText(product.seller.representativeName, { exact: true })).toBeVisible();
+    await expect(disclosure.getByRole('link')).toHaveCount(0);
+    await disclosure.locator('summary').click();
+    await expect(disclosure).not.toHaveAttribute('open', '');
+  });
+
   test('홈·상품·브랜드 화면에 중개 및 큐레이션 안내가 보인다', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByTestId('marketplace-notice')).toHaveCount(2);
@@ -12,8 +37,12 @@ test.describe('고객 법적 안내 화면', () => {
     await expect(page.getByText('안심하고 선택할 수 있는 안전성을 갖춘 브랜드', { exact: true })).toHaveCount(0);
 
     await page.goto('/shop/p4');
-    await expect(page.getByTestId('marketplace-notice')).toBeVisible();
-    await expect(page.getByRole('link', { name: '백조 오브제 자체 큐레이션 기준 보기' }).first()).toHaveAttribute('href', '/audit');
+    await expect(page.getByRole('main').getByTestId('marketplace-notice').first()).toBeVisible();
+    const brandAuditLink = page.getByRole('link', { name: /자체 큐레이션 기준 보기/ }).first();
+    await expect(brandAuditLink).toHaveAttribute('href', /^\/brands\/[^#]+#brand-audit$/);
+    await brandAuditLink.click();
+    await expect(page).toHaveURL(/\/brands\/[^#]+#brand-audit$/);
+    await expect(page.locator('#brand-audit')).toBeVisible({ timeout: 30_000 });
   });
 
   test('케어가이드 두 위치에 의료 안내가 보인다', async ({ page }) => {

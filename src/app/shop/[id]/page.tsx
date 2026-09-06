@@ -10,6 +10,7 @@ import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import ProductPublicDetails from '@/components/shop/ProductPublicDetails';
 import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
+import ProductDisclosureInfo from '@/components/shop/ProductDisclosureInfo';
 import ProductTabsClient from '@/components/shop/ProductTabsClient';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 
@@ -118,6 +119,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </section>
 
           <ProductPublicDetails product={product} />
+          <ProductDisclosureInfo product={product} />
           <ProductPurchaseInfo product={product} />
         </ProductTabsClient>
 

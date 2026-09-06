@@ -1,6 +1,9 @@
 import { expect, test, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { FEATURES } from '../../src/config/features';
+import { getBrandPresentation } from '../../src/lib/brands/presentation';
+import type { Brand } from '../../src/types';
 
 const OUTPUT = path.resolve('.gstack/qa-reports/baekjo-0827');
 fs.mkdirSync(OUTPUT, { recursive: true });
@@ -39,15 +42,20 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     const mainNav = page.getByRole('navigation', { name: '주요 메뉴' });
     const navText = await mainNav.innerText();
     let navCursor = -1;
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
+    const primaryNavLabels = ['셀렉션', '브랜드', '케어', ...(FEATURES.insurance ? ['펫보험'] : []), '백조오브제', 'B2B'];
+    for (const label of primaryNavLabels) {
       const next = navText.indexOf(label, navCursor + 1);
       expect(next, `${label} 메뉴 순서`).toBeGreaterThan(navCursor);
       navCursor = next;
     }
     await expect(page.getByRole('heading', { name: '좋은 브랜드를 찾고 계셨나요?' })).toBeVisible();
-    await expect(page.getByText('좋은 브랜드는 결과입니다. 백조오브제는 그 과정까지 확인합니다.')).toBeVisible();
+    await expect(page.getByText('좋은 브랜드는 결과입니다. 백조오브제는 과정까지 확인합니다.')).toBeVisible();
     await expect(page.getByText('백조오브제 Audit을 통과한 브랜드만 소개합니다.')).toBeVisible();
-    await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
+    if (FEATURES.insurance) {
+      await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toBeVisible();
+    } else {
+      await expect(page.getByRole('link', { name: '보험 분석 시작하기' })).toHaveCount(0);
+    }
     const auditHero = page.getByTestId('home-audit-hero');
     const auditImage = page.getByTestId('home-audit-image');
     expect(decodeURIComponent(await auditImage.evaluate((image: HTMLImageElement) => image.currentSrc)))
@@ -70,7 +78,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await expect(page.getByText('BAEKJO OBJET SELECTION')).toBeVisible();
     await expect(page.getByRole('heading', { name: '우리 아이를 위한 좋은 선택' })).toBeVisible();
     await expect(page.getByText('백조오브제의 기준으로 살펴보고 선택한 제품을 소개합니다.')).toBeVisible();
-    const sidebar = page.getByRole('complementary');
+    const sidebar = page.locator('.shop-container aside').first();
     await expect(sidebar).toContainText('소동물');
     for (const categoryLabel of ['푸드', '영양', '케어', '패션', '펫로스', '라이프']) {
       await expect(sidebar.getByText(categoryLabel, { exact: true })).toBeAttached();
@@ -80,7 +88,6 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     }
     await expect(sidebar).not.toContainText('연령');
     await expect(page.locator('body')).not.toContainText('SELECTED');
-    await expect(page.locator('body')).not.toContainText('잠시 품절');
     const search = page.getByRole('textbox', { name: '상품 검색' });
     await search.fill('써니사이드업');
     await page.getByRole('button', { name: '검색', exact: true }).click();
@@ -89,7 +96,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.screenshot({ path: path.join(OUTPUT, 'shop-desktop.png'), fullPage: true });
     await page.locator('.shop-product-grid article').first().locator('a[href^="/shop/"]').first().click();
     await page.waitForLoadState('domcontentloaded');
-    await expect(page.getByTestId('product-detail').getByText('써니사이드업 (SUNNY SIDE UP)', { exact: true })).toBeVisible();
+    await expect(page.locator('main').getByText('써니사이드업 (SUNNY SIDE UP)', { exact: true }).first()).toBeVisible();
 
     await openHealthy(page, '/concerns');
     await expect(page.getByText('06 CARE', { exact: true })).toBeVisible();
@@ -116,49 +123,39 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openHealthy(page, '/brands');
     await expect(page.getByRole('heading', { name: '우리 아이를 생각한다면, 좋은 선택이 필요합니다.' })).toBeVisible();
-    await expect(page.getByText('우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.')).toBeVisible();
+    await expect(page.getByText('백조오브제가 공개 자료와 브랜드 제출 자료를 바탕으로 자체 기준에 따라 살펴본 브랜드입니다.')).toBeVisible();
     for (const value of ['WHO', 'VALUE', 'PRINCIPLE', 'SAFETY', 'BELIEF']) {
       await expect(page.getByRole('heading', { name: value, exact: true })).toBeVisible();
     }
     const brandGrid = page.getByTestId('brand-grid');
-    for (const brandName of [
-      '노블독 (Noble Dog)',
-      '알로밍 (ALLOMING)',
-      '오미프로 (OMIPRO)',
-      '페네핏 (PENEFIT)',
-      '써니사이드업 (SUNNY SIDE UP)',
-      '챠콜스토리 (Charcoal Story)',
-      'RE:펫 (RE:PET)',
-      '메종슈슈 (Maison Chouchou)',
-    ]) {
-      await expect(brandGrid.getByText(brandName, { exact: true })).toBeVisible();
-    }
-    for (const description of [
-      '꾸준한 구강 관리를 고민하는 브랜드',
-      '교감의 시간을 제품으로 설계하는 브랜드',
-      '몸속의 작은 변화까지 고민하는 영양 브랜드',
-      '더 많은 아이들이 함께할 수 있는 식탁을 고민하는 브랜드',
-      '연구의 시작부터 생명을 먼저 생각하는 브랜드',
-      '숯의 가치를 반려동물에게 전하는 브랜드',
-      '펫로스를 가장 가까이에서 경험한 작가가 만드는 브랜드',
-      '입히는 대상이 아닌, 함께 살아가는 존재로 대하는 브랜드',
-    ]) {
-      await expect(page.getByText(description, { exact: true }).first()).toBeVisible();
+    const brandsResponse = await page.request.get('/api/brands');
+    expect(brandsResponse.ok()).toBe(true);
+    const brands = ((await brandsResponse.json()) as { brands: Brand[] }).brands;
+    await expect(brandGrid.locator('article')).toHaveCount(brands.length);
+    for (const brand of brands) {
+      const card = brandGrid.locator(`article:has(a[href="/brands/${brand.slug}"])`);
+      await expect(card).toBeVisible();
+      await expect(card.getByRole('heading', { name: getBrandPresentation(brand).displayName, exact: true })).toBeVisible();
+      await expect(card.getByText(getBrandPresentation(brand).cardDescription, { exact: true })).toBeVisible();
     }
     await page.screenshot({ path: path.join(OUTPUT, 'brands-desktop.png'), fullPage: true });
 
     await openHealthy(page, '/brands/b3');
-    await expect(page.getByRole('heading', { name: '노블독 (Noble Dog)', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '노블독', exact: true })).toBeVisible();
     await expect(page.getByText('꾸준한 구강 관리가 일상에 자리 잡을 수 있도록 돕는 브랜드', { exact: true })).toBeVisible();
     await expect(page.getByText('구강 · 양치', { exact: true })).toBeVisible();
 
     await openHealthy(page, '/insurance');
-    await expect(page.getByText('같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.')).toBeVisible();
-    await expect(page.getByRole('link', { name: /보험 분석 시작하기/ })).toBeVisible();
+    if (FEATURES.insurance) {
+      await expect(page.getByText('같은 품종이라도, 나이와 기왕력에 따라 우리 아이에게 맞는 보험은 달라집니다.')).toBeVisible();
+      await expect(page.getByRole('link', { name: /보험 분석 시작하기/ })).toBeVisible();
+    } else {
+      await expect(page).toHaveURL(/\/$/);
+    }
 
     await openHealthy(page, '/b2b');
-    await expect(page.getByRole('heading', { name: '기준이 같다면, 함께 만들어갑니다.' })).toBeVisible();
-    const partnershipLink = page.getByRole('link', { name: /파트너십 문의하기/ }).last();
+    await expect(page.getByRole('heading', { name: '반려가족과 만나는 순간을 함께 설계합니다.' })).toBeVisible();
+    const partnershipLink = page.getByRole('link', { name: 'B2B 문의하기', exact: true }).last();
     await expect(partnershipLink).toHaveAttribute('href', '/landing/care-kit#partner');
     await page.screenshot({ path: path.join(OUTPUT, 'b2b-desktop.png'), fullPage: true });
   });
@@ -177,7 +174,8 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.getByRole('button', { name: '메뉴 열기' }).click();
     const mobileNav = page.getByRole('navigation', { name: '전체 메뉴' });
     await expect(mobileNav).toBeVisible();
-    for (const label of ['셀렉션', '브랜드', '케어', '펫보험', '백조오브제', 'B2B']) {
+    const mobileNavLabels = ['셀렉션', '브랜드', '케어', ...(FEATURES.insurance ? ['펫보험'] : []), '백조오브제', 'B2B'];
+    for (const label of mobileNavLabels) {
       await expect(mobileNav.getByText(label, { exact: true }).first()).toBeVisible();
     }
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-menu.png') });

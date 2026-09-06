@@ -1,13 +1,9 @@
 import { MessageCircle, PackageCheck } from 'lucide-react';
 import { COMPANY } from '@/data/company';
+import type { MadeToOrderPolicy } from '@/types';
+export { isMadeToOrderProduct, isRepetMadeToOrderProduct, REPET_BRAND_ID } from '@/lib/products/madeToOrder';
 
-export const REPET_BRAND_ID = 'b6';
-
-export function isRepetMadeToOrderProduct(brandId: string): boolean {
-  return brandId === REPET_BRAND_ID;
-}
-
-export default function RepetMadeToOrderNotice({ className = '' }: { className?: string }) {
+export default function RepetMadeToOrderNotice({ className = '', policy }: { className?: string; policy?: MadeToOrderPolicy }) {
   return (
     <aside
       data-testid="repet-made-to-order-notice"
@@ -29,8 +25,16 @@ export default function RepetMadeToOrderNotice({ className = '' }: { className?:
       <div className="mt-4 space-y-2 break-keep text-[14px] leading-7 text-[#4F574F]">
         <p>본 상품은 주문 후 제작자와의 확인 과정이 필요한 주문제작 상품입니다.</p>
         <p className="font-semibold text-[#7A4E1D]">
-          본 상품은 1:1 주문제작 상품으로, 제작이 시작된 이후에는 주문 취소가 어렵습니다. 제작 일정에 따라 최대 3개월까지 소요될 수 있으니 충분히 확인하신 후 주문해주세요.
+          {policy?.cancellationRestriction || '제작이 시작된 이후에는 단순 변심에 따른 주문 취소가 제한될 수 있습니다.'}
         </p>
+        <dl className="grid gap-2 rounded-xl border border-[#E8CF9E] bg-white/65 p-4 text-[13px] sm:grid-cols-2">
+          <PolicyRow label="제작 기간" value={policy?.productionPeriod || '제작 일정에 따라 최대 3개월'} />
+          <PolicyRow label="확인 방법" value={policy?.proofMethod || '카카오톡 채널을 통한 사진 확인'} />
+          <PolicyRow label="수정 횟수" value={policy?.revisionCount || '주문 후 개별 안내'} />
+          <PolicyRow label="수정 범위" value={policy?.revisionScope || '제작 단계에 따라 개별 안내'} />
+          <PolicyRow label="사진 이용 목적" value={policy?.photoPurpose || '제작 진행과 완성품 확인'} />
+          <PolicyRow label="사진 보관·파기" value={[policy?.photoRetentionPeriod, policy?.photoDeletionMethod].filter(Boolean).join(' · ') || '배송 완료 후 필요한 기간만 보관하고 삭제'} />
+        </dl>
         <p>
           주문 완료 후 원활한 제작 진행을 위해 <strong className="text-[#17211D]">‘백조오브제 주문제작’ 카카오톡 채널</strong>로
           주문자명과 주문번호를 남겨주세요.
@@ -49,4 +53,8 @@ export default function RepetMadeToOrderNotice({ className = '' }: { className?:
       </a>
     </aside>
   );
+}
+
+function PolicyRow({ label, value }: { label: string; value: string }) {
+  return <div><dt className="font-bold text-[#7A4E1D]">{label}</dt><dd className="mt-0.5 text-[#4F574F]">{value}</dd></div>;
 }

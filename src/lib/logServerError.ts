@@ -3,7 +3,22 @@
  * Postgrest 에러의 detail/hint 필드에는 제약을 위반한 행의 실제 값(이메일 등 개인정보)이
  * 포함될 수 있으므로, code/message만 추출해서 남긴다.
  */
+export const MISSING_SUPABASE_ENV_MESSAGE =
+  'SUPABASE_URL / SUPABASE_SECRET_KEY 환경변수가 설정되지 않았습니다.';
+
+export function isMissingSupabaseEnvironmentError(error: unknown): boolean {
+  return error instanceof Error && error.message === MISSING_SUPABASE_ENV_MESSAGE;
+}
+
 export function logServerError(context: string, error: unknown): void {
+  // 로컬 개발에서 DB 환경파일을 아직 받지 못한 상태는 애플리케이션 결함이 아니다.
+  // Next 개발 오버레이가 console.error를 런타임 오류처럼 표시하지 않도록 warn으로 남긴다.
+  // production/test에서는 기존 error 레벨을 유지해 설정 누락이 조용히 묻히지 않게 한다.
+  if (process.env.NODE_ENV === 'development' && isMissingSupabaseEnvironmentError(error)) {
+    logServerWarn(context, error);
+    return;
+  }
+
   if (error && typeof error === 'object' && 'message' in error) {
     const code = 'code' in error ? (error as { code?: unknown }).code : undefined;
     console.error(context, { code, message: (error as { message?: unknown }).message });

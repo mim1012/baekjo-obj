@@ -3,6 +3,7 @@
 import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
 import type { BrandInsertInput, BrandPatchInput } from '@/lib/brands/repo';
 import { isCarrierCode } from '@/lib/carriers';
+import { brandPageCopyFields, normalizeBrandPageCopy } from '@/lib/brands/pageCopy';
 
 const MAX_NAME = 200;
 const MAX_SHORT_TEXT = 100;
@@ -163,6 +164,16 @@ export function validateBrandFields(body: unknown, requireAll: boolean): Validat
   const shipping = validateShippingPolicy(b.shipping);
   if (shipping === null) return null;
   if (shipping !== undefined) out.shipping = shipping;
+
+  if (b.pageCopy !== undefined) {
+    if (!b.pageCopy || typeof b.pageCopy !== 'object' || Array.isArray(b.pageCopy)) return null;
+    const pageCopy = b.pageCopy as Record<string, unknown>;
+    for (const { key } of brandPageCopyFields) {
+      const value = pageCopy[key];
+      if (value !== undefined && !isStr(value, 0, MAX_LONG_TEXT)) return null;
+    }
+    out.pageCopy = normalizeBrandPageCopy(pageCopy);
+  }
 
   if (b.auditPoints !== undefined) {
     if (!isStrArray(b.auditPoints, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;

@@ -4,6 +4,9 @@ import { getSupabase } from '@/lib/supabase/server';
 import { getShopCategorySlugs } from '@/data/shopFilters';
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitProductInput';
+import { getSellerById, sellerRowToModel, type SellerRow } from '@/lib/sellers/repo';
+import { isSellerLegallyComplete } from '@/lib/sellers/validate';
+import { isDisclosureComplete, normalizeDisclosure, normalizeMadeToOrderPolicy } from '@/lib/products/disclosures';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
@@ -18,6 +21,8 @@ function normalizePetType(raw: string): Product['petType'] {
 interface ProductRow {
   id: string;
   brand_id: string | null;
+  seller_id: string | null;
+  seller: SellerRow | SellerRow[] | null;
   name: string;
   price: number | null;
   sale_price: number | null;
@@ -36,7 +41,7 @@ interface ProductRow {
 }
 
 const SELECT_COLUMNS =
-  'id, brand_id, name, price, sale_price, category, category_slug, lifestyle_category, pet_type, stock, rating, review_count, is_visible, is_best, is_recommended, detail, created_at';
+  'id, brand_id, seller_id, name, price, sale_price, category, category_slug, lifestyle_category, pet_type, stock, rating, review_count, is_visible, is_best, is_recommended, detail, created_at, seller:sellers!products_seller_id_fkey(id, display_name, legal_name, representative_name, business_registration_number, mail_order_registration_number, business_address, phone, email, return_address, shipping_fee, free_shipping_threshold, dispatch_estimate, return_policy, status, created_at, updated_at)';
 
 /** jsonb detail을 안전하게 객체로 취급한다. 객체가 아니면 빈 객체로 방어한다. */
 function detailOf(raw: unknown): Record<string, unknown> {
@@ -46,9 +51,14 @@ function detailOf(raw: unknown): Record<string, unknown> {
 
 function rowToProduct(row: ProductRow): Product {
   const d = detailOf(row.detail);
+  const sellerRow = Array.isArray(row.seller) ? row.seller[0] : row.seller;
+  const disclosure = normalizeDisclosure(d.disclosure);
+  const madeToOrderPolicy = normalizeMadeToOrderPolicy(d.madeToOrderPolicy);
   return {
     id: row.id,
     brandId: row.brand_id ?? '',
+    sellerId: row.seller_id ?? undefined,
+    seller: sellerRow ? sellerRowToModel(sellerRow) : undefined,
     name: row.name,
     price: row.price,
     salePrice: row.sale_price,
@@ -75,6 +85,8 @@ function rowToProduct(row: ProductRow): Product {
     deliveryEstimate: typeof d.deliveryEstimate === 'string' ? d.deliveryEstimate : undefined,
     returnNotice: typeof d.returnNotice === 'string' ? d.returnNotice : undefined,
     sellerName: typeof d.sellerName === 'string' ? d.sellerName : undefined,
+    disclosure: disclosure ?? undefined,
+    madeToOrderPolicy: madeToOrderPolicy ?? undefined,
     tags: Array.isArray(d.tags) ? (d.tags as string[]) : undefined,
     brandName: typeof d.brandName === 'string' ? d.brandName : undefined,
     auditPoints: Array.isArray(d.auditPoints) ? (d.auditPoints as string[]) : undefined,
@@ -86,12 +98,16 @@ function rowToProduct(row: ProductRow): Product {
     isVisible: row.is_visible,
     isBest: row.is_best,
     isRecommended: row.is_recommended,
+    homeDisplayOrder: typeof d.homeDisplayOrder === 'number' ? d.homeDisplayOrder : undefined,
+    dailyPickDisplayOrder: typeof d.dailyPickDisplayOrder === 'number' ? d.dailyPickDisplayOrder : undefined,
+    storeDisplayOrder: typeof d.storeDisplayOrder === 'number' ? d.storeDisplayOrder : undefined,
   };
 }
 
 export interface ProductListFilter {
   categorySlug?: string;
   brandId?: string;
+  sellerId?: string;
   petType?: string;
   /** 기본 true(공개 노출 상품만). admin 목록에서는 false로 넘겨 비노출 상품도 포함한다. */
   visibleOnly?: boolean;
@@ -107,6 +123,7 @@ export async function listProducts(filter: ProductListFilter = {}): Promise<Prod
     query = categorySlugs ? query.in('category_slug', categorySlugs) : query.eq('category_slug', filter.categorySlug);
   }
   if (filter.brandId) query = query.eq('brand_id', filter.brandId);
+  if (filter.sellerId) query = query.eq('seller_id', filter.sellerId);
   if (filter.petType) query = query.eq('pet_type', filter.petType);
   if (filter.visibleOnly ?? true) query = query.eq('is_visible', true);
 
@@ -206,7 +223,24 @@ export async function listProductsByIds(
 export type ProductInsertInput = Omit<Product, 'id'>;
 export type ProductPatchInput = Partial<Omit<Product, 'id'>>;
 
+export class ProductComplianceError extends Error {
+  constructor() {
+    super('product-compliance-incomplete');
+    this.name = 'ProductComplianceError';
+  }
+}
+
+async function assertProductPublishable(product: ProductInsertInput | Product): Promise<void> {
+  if (!product.isVisible) return;
+  if (!product.sellerId || !isDisclosureComplete(product.disclosure)) throw new ProductComplianceError();
+  const seller = await getSellerById(product.sellerId);
+  if (!seller || seller.status !== 'verified' || !isSellerLegallyComplete(seller)) {
+    throw new ProductComplianceError();
+  }
+}
+
 export async function insertProduct(input: ProductInsertInput): Promise<Product> {
+  await assertProductPublishable(input);
   const id = `product_${randomUUID()}`;
   const { columns, detail } = splitProductInput(input);
   const { data, error } = await getSupabase()
@@ -247,6 +281,7 @@ export async function updateProduct(
 
   const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
+  await assertProductPublishable(merged);
 
   const { columns, detail } = splitProductInput(merged);
   const { data, error } = await getSupabase()
@@ -295,6 +330,7 @@ export async function updateProductScoped(
 
   const merged = mergeProductForStorage(existing, patch);
   if (!assertPriceInvariant(merged)) return { status: 'invalid' };
+  await assertProductPublishable(merged);
 
   const { columns, detail } = splitProductInput(merged);
   const { data, error } = await getSupabase()

@@ -25,8 +25,11 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     expect(checkout).toContain('주문 전 확인');
     expect(checkout).toContain('주문·배송·결제 처리를 위해');
     expect(checkout).toContain('href="/refund-policy"');
-    expect(checkout).toContain('주문 정보, 결제 금액, 배송·교환·환불 기준 및 개인정보 수집·이용 안내를 확인했습니다');
-    expect(checkout).toContain('<input required type="checkbox"');
+    expect(checkout).toContain('ORDER_TERMS_CONTENT');
+    expect(checkout).toContain('실제 판매자');
+    expect(checkout).toContain('<input required type="checkbox" checked={orderTermsAgreed}');
+    expect(checkout).toContain('thirdPartyConsentContent(group.seller)');
+    expect(checkout).toContain('madeToOrderConsentContent(product)');
   });
 
   test('약관·개인정보·배송환불 페이지가 토스 심사 핵심 문구를 포함한다', () => {
@@ -78,7 +81,11 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     expect(brands).not.toContain('안심하고 선택할 수 있는 안전성을 갖춘 브랜드');
     expect(brandsPage).toContain("title: '큐레이션 브랜드'");
     expect(card).toContain('자체 큐레이션 · 기준 보기');
-    expect(card).toContain('href="/audit"');
+    expect(card).toContain('href={brandAuditHref}');
+    expect(card).toContain('#brand-audit');
+    expect(card).not.toContain('href="/audit"');
+    expect(card).toContain('실제 판매자');
+    expect(card).toContain('판매 준비 중');
     expect((concern.match(/<CareGuideDisclaimer/g) ?? [])).toHaveLength(2);
     expect(diagnosis).not.toContain('가장 효과적인 라인업입니다');
   });
@@ -86,11 +93,15 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
   test('환불정책 시행일·청약철회 기간과 개인정보 연락처를 통일한다', () => {
     const legalContent = src('src', 'data', 'legalContent.ts');
     const refundPolicy = src('src', 'app', 'refund-policy', 'page.tsx');
+    const commerceLegal = src('src', 'data', 'commerceLegal.ts');
 
-    expect(refundPolicy).toContain("const EFFECTIVE_DATE = '2026년 9월 1일'");
-    expect(refundPolicy).toContain('서면 또는 전자문서를 받은 날부터 7일 이내');
-    expect(refundPolicy).toContain('상품을 공급받은 날부터 3개월 이내');
-    expect(refundPolicy).toContain('알 수 있었던 날부터 30일 이내');
+    expect(commerceLegal).toContain("COMMERCE_LEGAL_EFFECTIVE_DATE = '2026년 9월 1일'");
+    expect(commerceLegal).toContain('서면 또는 전자문서를 받은 날부터 7일 이내');
+    expect(commerceLegal).toContain('상품을 공급받은 날부터 3개월 이내 또는 그 사실을 안 날이나 알 수 있었던 날부터 30일 이내');
+    expect(refundPolicy).toContain('STANDARD_WITHDRAWAL_PERIOD');
+    expect(refundPolicy).toContain('NONCONFORMING_WITHDRAWAL_PERIOD');
+    expect(legalContent).toContain('STANDARD_WITHDRAWAL_PERIOD');
+    expect(legalContent).toContain('NONCONFORMING_WITHDRAWAL_PERIOD');
     expect(legalContent).toContain('${COMPANY.tel}');
     expect(legalContent).not.toContain('010-5683-1725');
   });

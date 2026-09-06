@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireBrandScoped } from '@/lib/admin/requireBrandScoped';
-import { getProductById, updateProductScoped, deleteProductScoped } from '@/lib/products/repo';
+import { getProductById, updateProductScoped, deleteProductScoped, ProductComplianceError } from '@/lib/products/repo';
 import { validateProductFields, toPatchInput } from '@/lib/products/validate';
 import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
@@ -63,6 +63,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     revalidatePath(`/brands/${existing.brandId}`);
     return NextResponse.json({ product: result.data }, { status: 200 });
   } catch (error) {
+    if (error instanceof ProductComplianceError) {
+      return NextResponse.json({ error: 'product-compliance-incomplete' }, { status: 400 });
+    }
     if (error && typeof error === 'object' && isForeignKeyViolation(error as { code?: string })) {
       return NextResponse.json({ error: 'invalid-brand' }, { status: 400 });
     }

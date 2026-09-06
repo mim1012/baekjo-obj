@@ -13,6 +13,7 @@ import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
+import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
 
 export default function CartPage() {
   const router = useRouter();
@@ -96,9 +97,15 @@ export default function CartPage() {
     const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
     // 상품 상세 페이지와 동일한 재고 판단 기준(ProductDetailClient.tsx: isSellable = hasPrice && stock > 0).
     // stock 정보가 없는 상품(product 자체가 안 실린 경우)은 아래 filter(item.product)에서 이미 걸러진다.
-    const stock = product?.stock ?? null;
+    const productStock = product?.stock ?? null;
+    const stock = option?.stock === undefined
+      ? productStock
+      : productStock === null
+        ? option.stock
+        : Math.min(productStock, option.stock);
     const isSoldOut = stock !== null && stock <= 0;
     const isOverStock = stock !== null && stock > 0 && item.quantity > stock;
+    const commerceReady = product ? isProductCommerceReady(product) : false;
 
     return {
       ...item,
@@ -111,6 +118,7 @@ export default function CartPage() {
       stock,
       isSoldOut,
       isOverStock,
+      commerceReady,
     };
   }).filter(item => item.product);
 
@@ -121,14 +129,39 @@ export default function CartPage() {
   const deliveryFeeCalculation = calcBrandDeliveryFee(
     pricedItems.map((item) => ({
       brandId: item.product?.brandId ?? '',
+      sellerKey: item.product?.sellerId ? `seller:${item.product.sellerId}` : `brand:${item.product?.brandId || 'unknown'}`,
       brandName: item.brandName,
+      sellerName: item.product?.seller?.displayName,
       totalPrice: item.totalPrice,
+      shippingFee: item.product?.seller?.shippingFee,
+      freeShippingThreshold: item.product?.seller?.freeShippingThreshold,
     })),
     brands,
   );
   const deliveryFee = deliveryFeeCalculation.deliveryFee;
   const finalPrice = totalProductsPrice + deliveryFee;
+  const hasUnavailableItems = enrichedItems.some((item) => !item.commerceReady || item.isSoldOut || item.isOverStock);
   const checkoutHref = isLoggedIn() ? '/checkout' : '/login?redirect=/checkout';
+  const sellerGroups = enrichedItems.reduce<Array<{
+    key: string;
+    label: string;
+    legalName?: string;
+    items: typeof enrichedItems;
+  }>>((groups, item) => {
+    const key = item.product?.sellerId ? `seller:${item.product.sellerId}` : `brand:${item.product?.brandId || 'unknown'}`;
+    let group = groups.find((candidate) => candidate.key === key);
+    if (!group) {
+      group = {
+        key,
+        label: item.product?.seller?.displayName || item.product?.sellerName || item.brandName || '판매자 확인 필요',
+        legalName: item.product?.seller?.legalName,
+        items: [],
+      };
+      groups.push(group);
+    }
+    group.items.push(item);
+    return groups;
+  }, []);
 
   return (
     <div className="bg-[#F4F2EC] min-h-dvh py-8 md:py-12">
@@ -148,7 +181,32 @@ export default function CartPage() {
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* Cart Items */}
             <div className="lg:w-2/3 space-y-3 md:space-y-4">
-              {enrichedItems.map((item, idx) => (
+              {sellerGroups.map((group) => {
+                const groupSubtotal = group.items.reduce((sum, item) => sum + item.totalPrice, 0);
+                const groupShippingFee = deliveryFeeCalculation.breakdown
+                  .filter((fee) => fee.sellerKey
+                    ? fee.sellerKey === group.key
+                    : group.items.some((item) => item.product?.brandId === fee.brandId))
+                  .reduce((sum, fee) => sum + fee.appliedDeliveryFee, 0);
+                const dispatchEstimates = [...new Set(group.items.map((item) => item.product?.seller?.dispatchEstimate || item.product?.deliveryEstimate).filter(Boolean))];
+                const returnPolicies = [...new Set(group.items.map((item) => item.product?.seller?.returnPolicy || item.product?.returnNotice).filter(Boolean))];
+                return (
+                <section key={group.key} className="overflow-hidden rounded-sm border border-gray-200 bg-[#FBF9F4] shadow-sm" aria-label={`${group.label} 판매 상품`}>
+                  <header className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 md:px-6">
+                    <div><p className="text-xs font-bold text-[#A8742E]">실제 판매자</p><h2 className="mt-0.5 text-sm font-bold text-[#202521]">{group.label}</h2></div>
+                    <p className="text-xs text-gray-500">{group.legalName ? `${group.legalName} · ` : ''}{group.items.length}개 상품</p>
+                  </header>
+                  <div className="border-b border-gray-200 bg-white px-4 py-3 text-xs leading-5 text-[#59615B] md:px-6">
+                    <p>이 상품의 판매자는 <strong className="text-[#17211D]">{group.legalName || group.label}</strong>이며, 백조 오브제는 판매자와 구매자 간 거래를 중개합니다.</p>
+                    <dl className="mt-2 grid gap-1 sm:grid-cols-2">
+                      <div><dt className="inline font-semibold">판매자별 상품금액 </dt><dd className="inline">{formatPrice(groupSubtotal)}</dd></div>
+                      <div><dt className="inline font-semibold">판매자별 배송비 </dt><dd className="inline">{groupShippingFee === 0 ? '무료' : formatPrice(groupShippingFee)}</dd></div>
+                      <div><dt className="inline font-semibold">출고 예정 </dt><dd className="inline">{dispatchEstimates.join(' / ') || '상품 상세 확인'}</dd></div>
+                      <div><dt className="inline font-semibold">교환·반품 </dt><dd className="inline">{returnPolicies.join(' / ') || '배송·교환·환불 안내 확인'}</dd></div>
+                    </dl>
+                  </div>
+                  <div className="space-y-3 p-3 md:p-4">
+              {group.items.map((item, idx) => (
                 <div key={`${item.productId}-${item.optionId || 'none'}-${idx}`} className="flex gap-3 sm:gap-4 bg-white p-4 md:p-6 rounded-sm shadow-sm border border-gray-100">
                   <Link
                     href={`/shop/${item.product?.id}`}
@@ -182,9 +240,16 @@ export default function CartPage() {
                           <div className="mt-1 text-[13px] font-semibold text-[#A65348] md:text-sm">품절된 상품입니다</div>
                         ) : item.isOverStock ? (
                           <div className="mt-1 text-[13px] font-semibold text-[#A65348] md:text-sm">재고 부족 (재고 {item.stock}개)</div>
+                        ) : !item.commerceReady ? (
+                          <div className="mt-1 text-[13px] font-semibold text-[#A65348] md:text-sm">판매자·필수 상품정보 확인 중</div>
                         ) : null}
                       </div>
-                      <button onClick={() => handleRemove(item.productId, item.optionId)} className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0">
+                      <button
+                        type="button"
+                        aria-label={`${item.product?.name ?? '상품'} 삭제`}
+                        onClick={() => handleRemove(item.productId, item.optionId)}
+                        className="text-gray-400 hover:text-red-500 p-2 sm:p-1 -mr-2 sm:-mr-1 -mt-2 sm:-mt-1 shrink-0"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -195,6 +260,8 @@ export default function CartPage() {
                         <div className="flex flex-col gap-1">
                           <div className="flex items-center rounded-lg border border-gray-200 bg-white">
                             <button
+                              type="button"
+                              aria-label={`${item.product?.name ?? '상품'} 수량 줄이기`}
                               onClick={() => handleUpdateQuantity(item.productId, item.optionId, item.quantity - 1)}
                               className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34]"
                             >
@@ -204,6 +271,8 @@ export default function CartPage() {
                               {item.quantity}
                             </span>
                             <button
+                              type="button"
+                              aria-label={`${item.product?.name ?? '상품'} 수량 늘리기`}
                               onClick={() => handleUpdateQuantity(item.productId, item.optionId, Math.min(item.quantity + 1, item.stock ?? Infinity))}
                               disabled={item.stock !== null && item.quantity >= item.stock}
                               className="flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center text-gray-500 hover:text-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:text-gray-500"
@@ -222,6 +291,10 @@ export default function CartPage() {
                   </div>
                 </div>
               ))}
+                  </div>
+                </section>
+                );
+              })}
             </div>
 
             {/* Order Summary */}
@@ -241,8 +314,8 @@ export default function CartPage() {
                   {deliveryFeeCalculation.breakdown.length > 0 && (
                     <div className="space-y-1 text-right text-xs text-[#68776C]">
                       {deliveryFeeCalculation.breakdown.map((item) => (
-                        <div key={item.brandId}>
-                          {item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
+                        <div key={`${item.sellerKey ?? 'brand'}-${item.brandId}`}>
+                          {sellerGroups.find((group) => group.key === item.sellerKey)?.label ?? item.sellerName ?? item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
                         </div>
                       ))}
                     </div>
@@ -268,6 +341,10 @@ export default function CartPage() {
                     className="flex w-full items-center justify-center rounded-sm bg-[#9CA3AF] px-6 py-4 md:py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white cursor-not-allowed"
                   >
                     일부 상품 가격 확인 필요
+                  </button>
+                ) : hasUnavailableItems ? (
+                  <button type="button" disabled className="flex h-[52px] w-full cursor-not-allowed items-center justify-center rounded-sm bg-[#9CA3AF] px-6 py-4 text-[15px] font-bold text-white md:h-[56px] md:text-base">
+                    품절·판매 준비 상품 확인 필요
                   </button>
                 ) : (
                   <Link 

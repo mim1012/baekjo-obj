@@ -3,6 +3,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 import {
   MEMBER_EMAIL,
   MEMBER_PASSWORD,
+  acceptRequiredCheckoutConsents,
   loginAsMember,
   createThrowawayProduct,
   cleanupThrowawayProducts,
@@ -68,6 +69,7 @@ test.describe('골든플로우 #2 경계: 회원 여정 — 카드결제 위젯 
     test.skip(isDisabled, 'NEXT_PUBLIC_TOSS_CLIENT_KEY 미설정 — 카드결제 옵션 자체가 비활성화됨(경계 문서화, 코드상 정상)');
 
     await cardRadioLabel.click();
+    await acceptRequiredCheckoutConsents(page);
 
     // 위젯 마운트 대상 컨테이너 — 로드 실패 시 별도 에러 문구로 대체되므로(widgetError),
     // 정상 마운트를 "위젯 준비중" 문구가 사라지고 결제수단 UI가 뜨는 것으로 확인한다.

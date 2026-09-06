@@ -11,9 +11,17 @@ import { createOrder, cancelReservation, getMyAddresses, getPublicBrands, getPub
 import { Brand, CartItem, MemberAddress, OrderItem, Product, ProductOption } from '@/types';
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
-import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
+import RepetMadeToOrderNotice, { isMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 import { FEATURES } from '@/config/features';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
+import {
+  buildOrderSellerGroups,
+  expectedMadeToOrderProductIds,
+  madeToOrderConsentContent,
+  ORDER_TERMS_CONTENT,
+  thirdPartyConsentContent,
+} from '@/lib/orders/compliance';
+import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 const CARD_PAYMENT_ENABLED = FEATURES.cardPayment;
@@ -92,6 +100,9 @@ function CheckoutForm() {
   const [widgetError, setWidgetError] = useState(false);
   const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
   const [orderCompleted, setOrderCompleted] = useState(false);
+  const [orderTermsAgreed, setOrderTermsAgreed] = useState(false);
+  const [sellerConsentKeys, setSellerConsentKeys] = useState<string[]>([]);
+  const [madeToOrderConsentIds, setMadeToOrderConsentIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -157,7 +168,8 @@ function CheckoutForm() {
   const ready = mounted && !productsLoading && sessionChecked;
   const cartItems = ready ? getCheckoutItems(products) : [];
   const hasUnpricedItems = cartItems.some(item => !item.hasPrice);
-  const hasRepetMadeToOrderItem = cartItems.some((item) => isRepetMadeToOrderProduct(item.product.brandId));
+  const madeToOrderProducts = cartItems.map((item) => item.product).filter(isMadeToOrderProduct);
+  const hasRepetMadeToOrderItem = madeToOrderProducts.length > 0;
   const isCardPayment = CARD_PAYMENT_ENABLED && formData.paymentMethod === '카드결제';
   const totalProductsPrice = cartItems.reduce((sum, item) => sum + item.totalPrice, 0);
   const deliveryFeeCalculation = calcBrandDeliveryFee(
@@ -165,14 +177,39 @@ function CheckoutForm() {
       const brand = brands.find((candidate) => candidate.id === item.product.brandId);
       return {
         brandId: item.product.brandId,
+        sellerKey: item.product.sellerId ? `seller:${item.product.sellerId}` : `brand:${item.product.brandId || 'unknown'}`,
         brandName: brand?.name ?? item.product.brandName,
+        sellerName: item.product.seller?.displayName,
         totalPrice: item.totalPrice,
+        shippingFee: item.product.seller?.shippingFee,
+        freeShippingThreshold: item.product.seller?.freeShippingThreshold,
       };
     }),
     brands,
   );
   const deliveryFee = deliveryFeeCalculation.deliveryFee;
   const finalPrice = totalProductsPrice + deliveryFee;
+  const checkoutProducts = cartItems.map((item) => item.product);
+  const checkoutSellerGroups = buildOrderSellerGroups(
+    cartItems.map((item) => ({
+      productId: item.productId,
+      productName: item.product.name,
+      optionId: item.optionId,
+      optionName: item.option?.name,
+      quantity: item.quantity,
+      price: item.price,
+      brandId: item.product.brandId,
+      sellerId: item.product.sellerId,
+      sellerName: item.product.seller?.displayName || item.product.sellerName,
+    })),
+    checkoutProducts,
+    deliveryFeeCalculation.breakdown,
+  );
+  const expectedMadeToOrderIds = expectedMadeToOrderProductIds(checkoutProducts);
+  const sellerInformationMissing = checkoutProducts.some((product) => !isProductCommerceReady(product));
+  const allConsentsChecked = orderTermsAgreed
+    && checkoutSellerGroups.every((group) => sellerConsentKeys.includes(group.key))
+    && expectedMadeToOrderIds.every((id) => madeToOrderConsentIds.includes(id));
 
   useEffect(() => {
     // 주문 성공 후 clearCart() 로 카트가 비어도 이 이펙트가 /cart 로 되튕기면 안 된다 — 이동은
@@ -266,6 +303,14 @@ function CheckoutForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (!allConsentsChecked) {
+      alert('필수 동의를 모두 확인해주세요.');
+      return;
+    }
+    if (sellerInformationMissing) {
+      alert('판매자 또는 필수 상품정보 확인이 필요한 상품이 있어 주문할 수 없습니다. 고객센터로 문의해주세요.');
+      return;
+    }
 
     // 주문 항목 구성. id·createdAt·member_id 는 서버가 정하므로 여기서 넘기지 않는다.
     const orderItems: OrderItem[] = cartItems.map(item => ({
@@ -295,6 +340,11 @@ function CheckoutForm() {
         items: orderItems,
         paymentMethod: formData.paymentMethod,
         deliveryMemo: formData.memo,
+        consents: {
+          orderTerms: true,
+          thirdPartySellerKeys: checkoutSellerGroups.map((group) => group.key),
+          madeToOrderProductIds: expectedMadeToOrderIds,
+        },
       });
       orderId = order.id;
       authoritativePrice = order.totalPrice + order.deliveryFee;
@@ -306,6 +356,12 @@ function CheckoutForm() {
         alert('일부 상품의 재고가 부족합니다. 장바구니를 확인해주세요.');
       } else if (error instanceof Error && error.message === 'profile-incomplete') {
         router.replace('/auth/complete-profile?returnTo=/checkout');
+      } else if (error instanceof Error && error.message === 'seller-information-missing') {
+        alert('실제 판매자 정보가 확인되지 않은 상품이 있습니다. 고객센터로 문의해주세요.');
+      } else if (error instanceof Error && error.message === 'product-compliance-incomplete') {
+        alert('판매자 또는 필수 상품정보가 준비되지 않은 상품이 있습니다. 장바구니를 다시 확인해주세요.');
+      } else if (error instanceof Error && error.message === 'consent-required') {
+        alert('판매자별 개인정보 제공 및 주문제작 동의를 다시 확인해주세요.');
       } else {
         alert('주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
       }
@@ -387,7 +443,11 @@ function CheckoutForm() {
       <div className="site-container">
         <h1 className="text-xl md:text-2xl font-bold text-[#202521] mb-5 md:mb-8">주문/결제</h1>
 
-        {hasRepetMadeToOrderItem && <RepetMadeToOrderNotice className="mb-5 md:mb-8" />}
+        {hasRepetMadeToOrderItem && (
+          <div className="mb-5 space-y-4 md:mb-8">
+            {madeToOrderProducts.map((product) => <RepetMadeToOrderNotice key={product.id} policy={product.madeToOrderPolicy} />)}
+          </div>
+        )}
         <MarketplaceNotice className="mb-5 md:mb-8" />
 
         <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8">
@@ -431,6 +491,48 @@ function CheckoutForm() {
                 </div>
               </div>
             </section>
+
+            <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100" aria-labelledby="seller-consent-title">
+              <h2 id="seller-consent-title" className="text-[16px] md:text-lg font-bold text-[#202521]">판매자별 주문·개인정보 제공</h2>
+              <p className="mt-2 text-sm leading-6 text-gray-600">상품마다 실제 판매자와 배송·반품 책임 주체를 확인하고 각각 동의해주세요.</p>
+              {sellerInformationMissing && <p role="alert" className="mt-4 rounded border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">실제 판매자 또는 필수 상품정보가 아직 확인되지 않은 상품이 포함되어 현재 주문할 수 없습니다.</p>}
+              <div className="mt-5 space-y-4">
+                {checkoutSellerGroups.map((group) => (
+                  <div key={group.key} className="rounded-lg border border-[#DED8CC] bg-[#FBF9F4] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div><p className="font-bold text-[#18231F]">{group.seller.displayName}</p><p className="mt-1 text-xs text-[#68716C]">상품 {group.productIds.length}종 · 상품금액 {formatPrice(group.subtotal)} · 배송비 {formatPrice(group.shippingFee)}</p></div>
+                      {group.seller.businessRegistrationNumber && <span className="text-xs text-[#68716C]">사업자 {group.seller.businessRegistrationNumber}</span>}
+                    </div>
+                    <p className="mt-3 whitespace-pre-line rounded bg-white p-3 text-xs leading-5 text-[#59615B]">{thirdPartyConsentContent(group.seller)}</p>
+                    <label className="mt-3 flex cursor-pointer items-start gap-3 text-sm font-semibold text-[#2F3B34]">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={sellerConsentKeys.includes(group.key)}
+                        onChange={(event) => setSellerConsentKeys((current) => event.target.checked ? [...new Set([...current, group.key])] : current.filter((key) => key !== group.key))}
+                        className="mt-1 size-4"
+                      />
+                      <span>[필수] {group.seller.displayName}에 주문·배송을 위한 개인정보 제공에 동의합니다.</span>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {madeToOrderProducts.length > 0 && (
+              <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100" aria-labelledby="made-to-order-consent-title">
+                <h2 id="made-to-order-consent-title" className="text-[16px] md:text-lg font-bold text-[#202521]">주문제작 별도 동의</h2>
+                <p className="mt-2 text-sm leading-6 text-gray-600">제작 시작 이후 취소 제한과 사진 처리 기준을 상품별로 확인해주세요.</p>
+                <div className="mt-4 space-y-3">
+                  {madeToOrderProducts.map((product) => (
+                    <label key={product.id} className="flex cursor-pointer items-start gap-3 rounded border border-[#E8CF9E] bg-[#FFF9EC] p-4 text-sm text-[#4F574F]">
+                      <input type="checkbox" required checked={madeToOrderConsentIds.includes(product.id)} onChange={(event) => setMadeToOrderConsentIds((current) => event.target.checked ? [...new Set([...current, product.id])] : current.filter((id) => id !== product.id))} className="mt-1 size-4" />
+                          <span><strong className="block text-[#7A4E1D]">[필수] {product.name} 주문제작 조건에 동의합니다.</strong><span className="mt-1 block whitespace-pre-line leading-6">{madeToOrderConsentContent(product)}</span></span>
+                    </label>
+                  ))}
+                </div>
+              </section>
+            )}
 
             <section className="bg-white p-5 md:p-8 rounded-sm shadow-sm border border-gray-100">
               <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-4 md:mb-6">결제 수단</h2>
@@ -505,9 +607,9 @@ function CheckoutForm() {
                 </div>
               </div>
               <label className="flex cursor-pointer items-start gap-3 pt-4 text-sm text-[#4A514A]">
-                <input required type="checkbox" className="mt-1 size-4" />
+                <input required type="checkbox" checked={orderTermsAgreed} onChange={(event) => setOrderTermsAgreed(event.target.checked)} className="mt-1 size-4" />
                 <span>
-                  <strong>[필수]</strong> 주문 정보, 결제 금액, 배송·교환·환불 기준 및 개인정보 수집·이용 안내를 확인했습니다.
+                  <strong>[필수]</strong> {ORDER_TERMS_CONTENT}
                 </span>
               </label>
             </section>
@@ -520,13 +622,15 @@ function CheckoutForm() {
               <h2 className="text-[16px] md:text-lg font-bold text-[#202521] mb-5 md:mb-6">주문 상품 ({cartItems.length}개)</h2>
 
               <div className="space-y-4 mb-5 md:mb-6 max-h-60 overflow-y-auto hide-scrollbar">
-                {cartItems.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-start text-sm">
-                    <div className="flex-1 pr-4">
-                      <div className="break-keep font-medium leading-[1.5] text-gray-900">{item.product.name}</div>
-                      <div className="text-[13px] text-gray-500 mt-1">{item.option?.name ? `${item.option.name} / ` : ''}{item.quantity}개</div>
-                    </div>
-                    <div className="font-bold text-[14px] text-[#2F3B34] shrink-0">{formatPrice(item.totalPrice)}</div>
+                {checkoutSellerGroups.map((group) => (
+                  <div key={group.key} className="border-b border-gray-100 pb-3 last:border-0">
+                    <p className="mb-2 text-xs font-bold text-[#A8742E]">판매자 · {group.seller.displayName}</p>
+                    {cartItems.filter((item) => group.productIds.includes(item.productId)).map((item) => (
+                      <div key={`${item.productId}-${item.optionId || 'none'}`} className="mb-2 flex justify-between items-start text-sm last:mb-0">
+                        <div className="flex-1 pr-4"><div className="break-keep font-medium leading-[1.5] text-gray-900">{item.product.name}</div><div className="text-[13px] text-gray-500 mt-1">{item.option?.name ? `${item.option.name} / ` : ''}{item.quantity}개</div></div>
+                        <div className="font-bold text-[14px] text-[#2F3B34] shrink-0">{formatPrice(item.totalPrice)}</div>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
@@ -543,8 +647,8 @@ function CheckoutForm() {
                 {deliveryFeeCalculation.breakdown.length > 0 && (
                   <div className="space-y-1 text-right text-xs text-[#68776C]">
                     {deliveryFeeCalculation.breakdown.map((item) => (
-                      <div key={item.brandId}>
-                        {item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
+                          <div key={`${item.sellerKey ?? 'brand'}-${item.brandId}`}>
+                        {item.sellerName ?? item.brandName ?? item.brandId}: {item.appliedDeliveryFee === 0 ? '무료' : formatPrice(item.appliedDeliveryFee)}
                       </div>
                     ))}
                   </div>
@@ -558,7 +662,7 @@ function CheckoutForm() {
 
               <button
                 type="submit"
-                disabled={submitting || (isCardPayment && !widgetReady)}
+                disabled={submitting || sellerInformationMissing || !allConsentsChecked || (isCardPayment && !widgetReady)}
                 className="w-full rounded-sm bg-[#2F3B34] px-6 py-4 h-[52px] md:h-[56px] text-[15px] md:text-base font-bold text-white transition hover:bg-[#2F3B34]/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? '주문 처리 중…' : `${formatPrice(finalPrice)} 결제하기`}

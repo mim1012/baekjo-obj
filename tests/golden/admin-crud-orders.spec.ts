@@ -2,7 +2,8 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, ensureGoldenVerifiedSeller, fillProductCompliance, loginAsAdmin } from './_lib/adminCrudHelpers';
+import { acceptRequiredCheckoutConsents } from './_lib/memberCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /shop/[id](장바구니)→/checkout(무통장입금)→/admin/orders
 // (입금확인·상태 전이)→/mypage(회원 반영).
@@ -91,12 +92,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     // 로 깨진다(실측). 마지막 상품 삭제 확인만 별도로, 그 직전에 한정해서 건다(아래 11번 참고).
     const adminPage = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(adminPage);
+    const sellerId = await ensureGoldenVerifiedSeller(adminPage);
     await adminPage.goto('/admin/products/new');
 
     await adminPage.locator('#product-name').fill(productName);
     await adminPage.locator('#product-brand').selectOption('b1');
     await adminPage.locator('#product-category').selectOption({ index: 1 });
     await adminPage.locator('#product-lifestyle').selectOption({ index: 1 });
+    await fillProductCompliance(adminPage, sellerId);
     const petTypeSelect = adminPage
       .locator('select')
       .filter({ has: adminPage.locator('option[value="both"]') });
@@ -154,8 +157,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     // 무통장입금은 기본 선택값이지만(checkout/page.tsx 초기 state) 명시적으로 재확인.
     await memberPage.getByText('무통장입금', { exact: true }).click();
 
-    const consentCheckbox = memberPage.locator('input[type="checkbox"]').first();
-    await consentCheckbox.check();
+    await acceptRequiredCheckoutConsents(memberPage);
 
     await memberPage.getByRole('button', { name: /결제하기/ }).click();
     await memberPage.waitForURL(/\/order-complete/, { timeout: 15_000 });
@@ -167,7 +169,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     const ordersRes = await adminPage.request.get('/api/admin/orders');
     expect(ordersRes.ok()).toBe(true);
     const { orders } = (await ordersRes.json()) as {
-      orders: Array<{ id: string; customerName: string; paymentStatus: string; orderStatus: string }>;
+      orders: Array<{
+        id: string;
+        customerName: string;
+        paymentStatus: string;
+        orderStatus: string;
+        sellerGroups?: Array<{ key: string }>;
+      }>;
     };
     const createdOrder = orders.find((o) => o.customerName === recipientMarker);
     expect(createdOrder, `${recipientMarker} 주문이 admin API 목록에 없습니다`).toBeTruthy();
@@ -243,6 +251,42 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
       expect(depositVerify.orders.find((o) => o.id === orderId)?.paymentStatus).toBe('결제완료');
     }).toPass({ timeout: 20_000 });
 
+    // 8) 결제 완료 주문의 판매자 단위 교환 요청을 회원 API로 접수하고, 관리자 화면에서 처리한다.
+    const sellerKey = createdOrder!.sellerGroups?.[0]?.key;
+    expect(sellerKey, '주문에 실제 판매자 그룹 스냅샷이 없습니다').toBeTruthy();
+    const requestReason = `E2E 교환 요청 ${runId}`;
+    const serviceRequestResponse = await memberPage.request.post('/api/orders/requests', {
+      data: { orderId, sellerKey, type: 'exchange', reason: requestReason },
+    });
+    expect(
+      serviceRequestResponse.ok(),
+      `교환 요청 접수 실패: ${serviceRequestResponse.status()} ${await serviceRequestResponse.text()}`,
+    ).toBe(true);
+    const serviceRequestBody = (await serviceRequestResponse.json()) as { request: { id: string; status: string } };
+    expect(serviceRequestBody.request.status).toBe('received');
+
+    await adminPage.goto('/admin/order-requests');
+    const requestRow = adminPage.locator('tr', { hasText: requestReason });
+    await expect(requestRow).toBeVisible({ timeout: 15_000 });
+    adminPage.once('dialog', (dialog) => dialog.accept('E2E 고객 안내 메모'));
+    await requestRow.getByRole('combobox', { name: `${orderId} 처리 상태` }).selectOption('reviewing');
+    await expect(requestRow).toContainText('검토 중', { timeout: 15_000 });
+    await expect(requestRow).toContainText('E2E 고객 안내 메모');
+
+    const completeResponse = await adminPage.request.patch(
+      `/api/admin/order-requests/${encodeURIComponent(serviceRequestBody.request.id)}`,
+      { data: { status: 'completed', adminNote: 'E2E 처리 완료' } },
+    );
+    expect(completeResponse.ok()).toBe(true);
+    const memberRequestsResponse = await memberPage.request.get('/api/orders/requests');
+    const memberRequests = (await memberRequestsResponse.json()) as {
+      requests: Array<{ id: string; status: string; adminNote?: string }>;
+    };
+    const reflectedRequest = memberRequests.requests.find((item) => item.id === serviceRequestBody.request.id);
+    expect(reflectedRequest?.status).toBe('completed');
+    expect(reflectedRequest?.adminNote).toBe('E2E 처리 완료');
+
+    await adminPage.goto('/admin/orders');
     await adminPage.locator('tr', { hasText: recipientMarker }).getByRole('link', { name: '상세보기' }).click();
     await adminPage.waitForURL(new RegExp(`/admin/orders/${orderId}$`), { timeout: 15_000 });
     await expect(adminPage.locator('div.mb-6', { hasText: '결제 상태' }).locator('select')).toHaveValue('결제완료');

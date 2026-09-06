@@ -110,18 +110,24 @@ function productSummaryKey(item: OrderItem): string {
   return `${item.productName}\u0000${item.optionName ?? ''}`;
 }
 
-function brandBreakdown(order: Order, brandId: string): DeliveryFeeBreakdown | undefined {
-  return (order.deliveryFeeBreakdown ?? []).find((row) => row.brandId === brandId);
+function deliveryGroupKey(item: OrderItem): string {
+  return item.sellerId ? `seller:${item.sellerId}` : brandKeyFor(item);
+}
+
+function breakdownForItem(order: Order, item: OrderItem): DeliveryFeeBreakdown | undefined {
+  const key = deliveryGroupKey(item);
+  return (order.deliveryFeeBreakdown ?? []).find((row) =>
+    row.sellerKey ? row.sellerKey === key : row.brandId === item.brandId);
 }
 
 function brandNameFor(order: Order, item: OrderItem, brandMap: ReadonlyMap<string, Brand>): string {
   if (!item.brandId) return '미지정 브랜드';
-  return brandBreakdown(order, item.brandId)?.brandName ?? brandMap.get(item.brandId)?.name ?? item.brandId;
+  return brandMap.get(item.brandId)?.name ?? breakdownForItem(order, item)?.brandName ?? item.brandId;
 }
 
-function shippingForOrderBrand(order: Order, item: OrderItem): number {
+function shippingForOrderGroup(order: Order, item: OrderItem): number {
   if (!item.brandId) return order.deliveryFee;
-  return brandBreakdown(order, item.brandId)?.appliedDeliveryFee ?? 0;
+  return breakdownForItem(order, item)?.appliedDeliveryFee ?? 0;
 }
 
 function addTotals(left: AdminOrderSalesTotals, right: AdminOrderSalesTotals): AdminOrderSalesTotals {
@@ -236,15 +242,16 @@ export function buildAdminOrderReport(input: AdminOrderReportInput): AdminOrderR
 
   for (const order of input.orders) {
     const items = order.items.length > 0 ? order.items : [emptyOrderItem()];
-    const seenOrderBrands = new Set<string>();
+    const seenShippingGroups = new Set<string>();
 
     for (const item of items) {
       const brandId = brandKeyFor(item);
       if (brandFilter && item.brandId !== brandFilter) continue;
 
-      const firstBrandRow = !seenOrderBrands.has(brandId);
-      seenOrderBrands.add(brandId);
-      const shipping = firstBrandRow ? shippingForOrderBrand(order, item) : 0;
+      const shippingGroupKey = deliveryGroupKey(item);
+      const firstShippingGroupRow = !seenShippingGroups.has(shippingGroupKey);
+      seenShippingGroups.add(shippingGroupKey);
+      const shipping = firstShippingGroupRow ? shippingForOrderGroup(order, item) : 0;
       const brandName = brandNameFor(order, item, brandMap);
       detailRows.push(toDetailRow(order, item, brandName, shipping));
 

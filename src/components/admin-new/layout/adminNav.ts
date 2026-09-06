@@ -21,6 +21,7 @@ import {
   Settings,
   FileText,
   Timer,
+  Store,
 } from 'lucide-react';
 
 /** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
@@ -40,7 +41,9 @@ export const ADMIN_MAIN_NAV: AdminSidebarItem[] = [
   { name: '상품 진열 관리', href: '/admin/products/display', icon: LayoutGrid },
   { name: '카테고리 관리', href: '/admin/categories', icon: FolderTree },
   { name: '브랜드 관리', href: '/admin/brands', icon: Tag },
+  { name: '판매자 관리', href: '/admin/sellers', icon: Store },
   { name: '주문 관리', href: '/admin/orders', icon: ShoppingCart },
+  { name: '교환·반품 요청', href: '/admin/order-requests', icon: Inbox },
   { name: '회원 관리', href: '/admin/members', icon: Users },
 ];
 

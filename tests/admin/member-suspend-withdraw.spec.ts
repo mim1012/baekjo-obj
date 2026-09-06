@@ -114,19 +114,25 @@ test.describe('탈퇴 시 PII 익명화 패치 (buildWithdrawalPatch)', () => {
   });
 });
 
-test.describe('탈퇴 시 member_tokens 정리 (소스 계약)', () => {
+test.describe('탈퇴 원자 처리 (소스·DB 계약)', () => {
   const repoSource = fs.readFileSync(
     path.resolve(__dirname, '..', '..', 'src', 'lib', 'members', 'repo.ts'),
     'utf8',
   );
+  const migration = fs.readFileSync(
+    path.resolve(__dirname, '..', '..', 'supabase', 'migrations', '0157_atomic_member_withdrawal.sql'),
+    'utf8',
+  );
 
-  test('withdrawMember가 member_tokens 테이블에서 해당 회원 행을 삭제한다(0002_email_tokens.sql)', () => {
-    const fnStart = repoSource.indexOf('export async function withdrawMember(');
-    expect(fnStart).toBeGreaterThanOrEqual(0);
-    const fn = repoSource.slice(fnStart, repoSource.indexOf('\n}', fnStart));
-    expect(fn).toContain("from('member_tokens')");
-    expect(fn).toContain('.delete()');
-    expect(fn).toContain(".eq('member_id', id)");
+  test('withdrawMember는 익명화·토큰삭제·마케팅철회를 묶은 서버 전용 RPC만 호출한다', () => {
+    expect(repoSource).toContain("rpc('withdraw_member', { p_member_id: id })");
+    expect(migration).toContain("status = 'withdrawn'");
+    expect(migration).toContain('delete from public.member_tokens where member_id = p_member_id');
+    expect(migration).toContain('email_enabled = false');
+    expect(migration).toContain('sms_enabled = false');
+    expect(migration).toContain('member_marketing_preference_events');
+    expect(migration).toContain('from public, anon, authenticated');
+    expect(migration).toContain('to service_role');
   });
 });
 

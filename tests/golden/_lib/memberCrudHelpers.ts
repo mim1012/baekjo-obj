@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { encode } from 'next-auth/jwt';
-import { assertGoldenWritePreflight, loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
+import { assertGoldenWritePreflight, ensureGoldenVerifiedSeller, fillProductCompliance, loginAsAdmin, loginWithCredentials } from './adminCrudHelpers';
 
 // member-*.spec.ts(wave6 — 회원 여정 전수) 전용 헬퍼. 파일명이 *.spec.ts가 아니라
 // Playwright 테스트로 수집되지 않는다.
@@ -19,6 +19,16 @@ export const MEMBER_PASSWORD = process.env.E2E_MEMBER_PASSWORD;
 export async function loginAsMember(page: Page): Promise<void> {
   await assertGoldenWritePreflight();
   await loginWithCredentials(page, MEMBER_EMAIL!, MEMBER_PASSWORD!);
+}
+
+/** 체크아웃의 주문약관·판매자별 제3자 제공·주문제작 필수 동의를 모두 선택한다. */
+export async function acceptRequiredCheckoutConsents(page: Page): Promise<void> {
+  const checkboxes = page.locator('input[type="checkbox"][required]');
+  await expect(checkboxes.first()).toBeVisible({ timeout: 15_000 });
+  const count = await checkboxes.count();
+  for (let index = 0; index < count; index += 1) {
+    await checkboxes.nth(index).check();
+  }
 }
 
 export async function loginAsMemberReadOnly(page: Page): Promise<void> {
@@ -81,12 +91,14 @@ export async function createThrowawayProduct(
 
   try {
     await loginAsAdmin(page);
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
 
     await page.locator('#product-name').fill(name);
     await page.locator('#product-brand').selectOption('b1');
     await page.locator('#product-category').selectOption({ index: 1 });
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await fillProductCompliance(page, sellerId);
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('both');
     await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(`${namePrefix} 테스트 상품`);

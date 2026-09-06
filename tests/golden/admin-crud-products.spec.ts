@@ -7,6 +7,8 @@ import {
   ADMIN_PASSWORD,
   CRUD_ENABLED,
   bypassHeaders,
+  ensureGoldenVerifiedSeller,
+  fillProductCompliance,
   loginAsAdmin,
 } from './_lib/adminCrudHelpers';
 
@@ -112,6 +114,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     });
 
     await loginAsAdmin(page);
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
 
     // 1) 등록 — 필수 5필드 + 판매가/재고/한줄설명/반려동물(필드 검증용으로 명시 선택).
@@ -120,6 +123,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품', () => {
     await page.locator('#product-brand').selectOption('b1');
     await page.locator('#product-category').selectOption({ index: 1 });
     await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await fillProductCompliance(page, sellerId);
     // 반려동물 select는 htmlFor 없이 라벨만 있다 — option value="both" 를 가진 유일한 select로 특정한다.
     const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
     await petTypeSelect.selectOption('dog');

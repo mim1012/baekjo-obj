@@ -14,6 +14,7 @@ import type { CreateProductInput, UpdateProductInput } from '@/lib/storage';
 export const PRODUCT_FORM_FIELDS = [
   'name',
   'brandId',
+  'sellerId',
   'brandName',
   'category',
   'lifestyleCategory',
@@ -37,6 +38,8 @@ export const PRODUCT_FORM_FIELDS = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
+  'disclosure',
+  'madeToOrderPolicy',
   'isVisible',
   'isBest',
   'isRecommended',
@@ -96,6 +99,7 @@ export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[
 export interface ProductFormState {
   name?: string;
   brandId?: string;
+  sellerId?: string;
   category?: string;
   lifestyleCategory?: string;
   petType?: Product['petType'];
@@ -119,6 +123,8 @@ export interface ProductFormState {
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
+  disclosure?: Product['disclosure'];
+  madeToOrderPolicy?: Product['madeToOrderPolicy'];
   isVisible?: boolean;
   isBest?: boolean;
   isRecommended?: boolean;
@@ -137,6 +143,7 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
     name: form.name,
     brandId: form.brandId,
+    sellerId: form.sellerId || undefined,
     category: form.category,
     lifestyleCategory: form.lifestyleCategory,
     petType: form.petType,
@@ -158,6 +165,8 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
     sellerName: form.sellerName?.trim() ?? '',
+    disclosure: form.disclosure?.categoryCode ? form.disclosure : undefined,
+    madeToOrderPolicy: form.madeToOrderPolicy,
     isVisible: form.isVisible ?? false,
     isBest: form.isBest ?? false,
     isRecommended: form.isRecommended ?? false,

@@ -3,7 +3,7 @@ import { formatPrice } from '@/lib/format';
 import type { Product } from '@/types';
 
 interface ProductPurchaseInfoProps {
-  product: Pick<Product, 'shippingFee' | 'deliveryEstimate' | 'shippingNotice' | 'returnNotice' | 'sellerName'>;
+  product: Pick<Product, 'shippingFee' | 'deliveryEstimate' | 'shippingNotice' | 'returnNotice' | 'sellerName' | 'seller'>;
 }
 
 const nonBlank = (value: string | undefined) => {
@@ -12,11 +12,12 @@ const nonBlank = (value: string | undefined) => {
 };
 
 export default function ProductPurchaseInfo({ product }: ProductPurchaseInfoProps) {
-  const shippingLabel = product.shippingFee !== undefined ? formatPrice(product.shippingFee) : undefined;
-  const dispatchLabel = nonBlank(product.deliveryEstimate);
+  const shippingFee = product.seller?.shippingFee ?? product.shippingFee;
+  const shippingLabel = shippingFee !== undefined ? formatPrice(shippingFee) : undefined;
+  const dispatchLabel = nonBlank(product.seller?.dispatchEstimate ?? product.deliveryEstimate);
   const shippingNoticeLabel = nonBlank(product.shippingNotice);
-  const returnLabel = nonBlank(product.returnNotice);
-  const sellerLabel = nonBlank(product.sellerName);
+  const returnLabel = nonBlank(product.seller?.returnPolicy ?? product.returnNotice);
+  const sellerLabel = nonBlank(product.seller?.displayName ?? product.sellerName);
   const hasPolicy = Boolean(
     shippingLabel ||
       shippingNoticeLabel ||
