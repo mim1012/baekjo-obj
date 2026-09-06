@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, LogOut } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { logout } from '@/lib/storage';
 import {
   ADMIN_MAIN_NAV,
   ADMIN_CS_NAV,
@@ -127,7 +127,12 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
               <p className="text-[12px] text-gray-500 truncate">{user.role}</p>
             </div>
             <button
-              onClick={() => signOut({ callbackUrl: '/' })}
+              type="button"
+              onClick={() => {
+                void logout().finally(() => {
+                  window.location.assign('/');
+                });
+              }}
               className="p-2 rounded-md text-gray-500 hover:bg-gray-100 hover:text-red-600 transition-colors"
             >
               <LogOut size={18} />

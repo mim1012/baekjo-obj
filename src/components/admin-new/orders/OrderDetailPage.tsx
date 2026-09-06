@@ -15,6 +15,7 @@ import OrderStatusPanel from './OrderStatusPanel';
 import OrderShipmentsPanel from './OrderShipmentsPanel';
 import OrderRefundPanel from './OrderRefundPanel';
 import OrderSellerAcceptancePanel from './OrderSellerAcceptancePanel';
+import OrderActionRequestsPanel from './OrderActionRequestsPanel';
 
 interface OrderDetailPageProps {
   id: string;
@@ -235,6 +236,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           </FormSection>
 
           <OrderRefundPanel order={order} onUpdate={loadOrder} />
+          <OrderActionRequestsPanel order={order} />
 
           <OrderSellerAcceptancePanel order={order} onUpdate={setOrder} />
 

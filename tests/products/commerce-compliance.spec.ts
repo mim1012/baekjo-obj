@@ -191,11 +191,11 @@ test('주문 동의는 판매자별·주문제작 상품별 정확한 집합만 
 });
 
 test('DB 마이그레이션은 주문·재고·동의·판매자 수락을 한 트랜잭션에 묶고 종결상태를 동기화한다', () => {
-  const atomic = source('supabase', 'migrations', '0153_order_seller_acceptances.sql');
-  const terminal = source('supabase', 'migrations', '0154_sync_terminal_order_seller_acceptances.sql');
-  const guards = source('supabase', 'migrations', '0155_compliance_write_guards.sql');
-  const sellerFulfillment = source('supabase', 'migrations', '0156_seller_fulfillment_policy.sql');
-  const consentStorage = source('supabase', 'migrations', '0149_sellers_order_compliance_and_customer_requests.sql');
+  const atomic = source('supabase', 'migrations', '0155_order_seller_acceptances.sql');
+  const terminal = source('supabase', 'migrations', '0156_sync_terminal_order_seller_acceptances.sql');
+  const guards = source('supabase', 'migrations', '0157_compliance_write_guards.sql');
+  const sellerFulfillment = source('supabase', 'migrations', '0158_seller_fulfillment_policy.sql');
+  const consentStorage = source('supabase', 'migrations', '0151_sellers_order_compliance_and_customer_requests.sql');
 
   expect(atomic).toContain('perform public.decrement_stock_for_order(p_items)');
   expect(atomic).toContain('insert into public.orders');

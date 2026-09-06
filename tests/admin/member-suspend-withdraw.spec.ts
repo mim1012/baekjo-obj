@@ -120,7 +120,7 @@ test.describe('탈퇴 원자 처리 (소스·DB 계약)', () => {
     'utf8',
   );
   const migration = fs.readFileSync(
-    path.resolve(__dirname, '..', '..', 'supabase', 'migrations', '0157_atomic_member_withdrawal.sql'),
+    path.resolve(__dirname, '..', '..', 'supabase', 'migrations', '0159_atomic_member_withdrawal.sql'),
     'utf8',
   );
 

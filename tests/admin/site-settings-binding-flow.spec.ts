@@ -29,7 +29,7 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     expect(providerSource).toContain('loadError: boolean;');
     expect(providerSource).toContain('const [loaded, setLoaded] = useState(false);');
     expect(providerSource).toContain('const [loadError, setLoadError] = useState(false);');
-    expect(hydrationEffect).toContain("fetch('/api/settings')");
+    expect(hydrationEffect).toContain("fetch('/api/settings', { cache: 'no-store' })");
     expect(hydrationEffect).toContain('setSettings(data.settings);');
     expect(hydrationEffect).toContain('setLoaded(true);');
     expect(hydrationEffect).toContain('setLoadError(true);');

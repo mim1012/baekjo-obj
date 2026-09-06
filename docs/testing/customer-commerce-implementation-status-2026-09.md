@@ -33,7 +33,7 @@
 - 연결: 상품 등록·수정에서 판매자를 선택한다. 검증 완료 상태와 필수정보가 모두 갖춰져야 공개 판매할 수 있다.
 - 고객: 상품카드와 상세의 가격 가까이에 실제 판매자를 표시하고, 상세의 `정보 열기`에서 사업자·배송·반품 정보를 한 자리에서 확인한다. 별도 판매자 상세 페이지는 두지 않는다.
 - 안전장치: 작성 중·판매 중지·필수정보 미완성 판매자는 공개 페이지에서 조회되지 않는다. 연결된 판매자는 삭제하지 못하고 판매 중지로 전환한다.
-- DB: `sellers`, `products.seller_id`; 마이그레이션 `0149`, `0156`
+- DB: `sellers`, `products.seller_id`; 마이그레이션 `0151`, `0158`
 - 근거: `src/app/admin/sellers`, `src/lib/sellers`, `src/components/shop/SellerDisclosure.tsx`, `src/components/shop/ProductPurchaseInfo.tsx`
 - 남은 확인: 실제 입점 판매자 자료를 staging에 입력하고 저장·수정·상품 연결·고객 노출을 확인한다.
 
@@ -98,27 +98,27 @@
 - 주문서에서 실제 판매자별 상품·금액·배송비를 다시 보여준다.
 - 결제·입금 상태와 판매자의 `접수 대기 / 수락 / 거절 / 묶음 취소`를 서로 다른 상태로 저장한다.
 - 주문 취소 또는 전액환불 시 판매자 상태도 DB 트리거가 `묶음 취소`로 종료한다.
-- 근거: `src/app/checkout/page.tsx`, `src/components/admin-new/orders/OrderSellerAcceptancePanel.tsx`, 마이그레이션 `0153`~`0155`
+- 근거: `src/app/checkout/page.tsx`, `src/components/admin-new/orders/OrderSellerAcceptancePanel.tsx`, 마이그레이션 `0155`~`0157`
 
 ### 10-2. 개인정보 제공 동의 증적
 
 - 판매자마다 제공받는 자, 목적, 항목, 보유기간, 거부 결과를 표시하고 별도 동의를 받는다.
 - 주문약관, 판매자별 제3자 제공, 주문제작 동의의 원문·버전·시각·IP·브라우저·SHA-256 해시를 주문에 저장한다.
 - 주문 후 판매자 스냅샷과 동의 증적은 DB 트리거로 수정하지 못하게 봉인한다.
-- 근거: `src/lib/orders/compliance.ts`, `src/app/api/orders/route.ts`, 마이그레이션 `0149`, `0150`, `0153`
+- 근거: `src/lib/orders/compliance.ts`, `src/app/api/orders/route.ts`, 마이그레이션 `0151`, `0152`, `0155`
 
 ### 10-3. 마이페이지
 
 - 주문취소, 판매자별 교환·반품 접수, 상태와 관리자 메모 확인, 회원정보 수정, 마케팅 수신 철회, 후기 조회·수정·삭제, 회원탈퇴가 API와 연결돼 있다.
 - 교환·반품은 `접수 → 검토 → 승인/반려 → 완료` 순서만 허용하며 완료 후 되돌릴 수 없다.
 - 회원탈퇴는 개인정보 익명화, 인증 토큰 삭제, 마케팅 수신 철회와 이력 기록을 한 트랜잭션으로 처리한다.
-- 근거: `src/app/mypage`, `src/app/api/orders/requests`, `src/app/api/members/me`, `src/app/api/reviews`, 마이그레이션 `0152`, `0157`, `0158`
+- 근거: `src/app/mypage`, `src/app/api/orders/requests`, `src/app/api/members/me`, `src/app/api/reviews`, 마이그레이션 `0154`, `0159`, `0160`
 
 ### 10-4. 주문제작 상품
 
 - 제작기간, 시안 확인, 수정 횟수·범위, 사진 목적·보관·삭제, 취소 제한을 구조화해 입력하고 상품 상세에 표시한다.
 - 주문서에서 주문제작 상품별 별도 동의를 받고 당시 정책 원문과 시각을 저장한다.
-- 근거: `src/lib/products/madeToOrder.ts`, `src/components/shop/RepetMadeToOrderNotice.tsx`, `src/lib/orders/compliance.ts`, 마이그레이션 `0151`
+- 근거: `src/lib/products/madeToOrder.ts`, `src/components/shop/RepetMadeToOrderNotice.tsx`, `src/lib/orders/compliance.ts`, 마이그레이션 `0153`
 
 ### 10-5. 재고와 초과판매 방지
 
@@ -126,16 +126,17 @@
 - 주문 생성, 재고 차감, 판매자 접수 상태, 동의 증적 저장을 `create_order_with_inventory` 한 트랜잭션으로 처리한다.
 - 재고가 부족하면 주문 전체가 롤백되고 빈 주문이나 음수 재고가 남지 않는다.
 - 기존 취소·환불 재고 복원 함수는 조건부 상태 변경으로 한 번만 실행된다.
-- 근거: `src/app/api/orders/route.ts`, `src/lib/orders/repo.ts`, 마이그레이션 `0150`, `0153`
+- 근거: `src/app/api/orders/route.ts`, `src/lib/orders/repo.ts`, 마이그레이션 `0152`, `0155`
 
 ## 자동검사 결과
 
 - `npx tsc --noEmit`: 통과
-- `npm run lint`: 오류 0건, 기존 경고 29건
-- products/admin/tracking/security: 최종 현재 코드 기준 761건 전부 통과
+- `npm run lint`: 오류 0건, 기존 경고 22건
+- products/admin/tracking/security: 최종 `develop` 통합 코드 기준 790건 전부 통과
+- 전체 페이지 PC·모바일 로그인 스모크: 274건 통과, 로컬 DB에 보험신청·주문 표본이 없어 동적 상세 6건 미실행
 - payments/shipments: DB가 필요 없는 46건 통과, staging 환경이 필요한 43건 미실행
-- `npm run build`: 당시 128개 페이지 생성 성공(이후 별도 판매자 상세 페이지는 요구사항에 따라 제거)
-- 일회용 Supabase PostgreSQL: 기존 마이그레이션을 포함한 141개 SQL을 `0001`부터 `0158`까지 순서대로 적용 성공
+- `npm run build`: 최종 `develop` 통합 코드 기준 130개 페이지 생성 성공
+- 일회용 Supabase PostgreSQL: `develop` 통합 전 기준 141개 SQL을 `0001`부터 당시 `0158`까지 순서대로 적용 성공. 통합 후 번호가 `0151`~`0160`으로 조정되어 전체 재적용 검증이 필요하다.
 - 일회용 DB 동작 검증: 재고 차감, 판매자 접수 생성, 동의 스냅샷 봉인, 품절 롤백, 취소 동기화, 교환·반품 상태 잠금, 회원탈퇴·토큰삭제·마케팅 철회 통과
 - 동시 주문 검증: 재고 1개 상품에 2건을 동시에 요청해 주문 1건만 생성, 다른 1건은 `INSUFFICIENT_STOCK`, 최종 재고 0 확인
 
@@ -143,7 +144,7 @@
 
 ## 운영 확인 전 남은 일
 
-1. Supabase staging ref `aeooyivfijthfcrfrnyk`에 마이그레이션 `0149`~`0158` 적용
+1. Supabase staging ref `aeooyivfijthfcrfrnyk`에 마이그레이션 `0149`~`0160` 적용
 2. 실제 입점 판매자 정보와 상품정보제공고시 입력
 3. 관리자 등록부터 고객 주문·교환·반품·탈퇴까지 화면 체크표 실행
 4. Toss staging 카드 승인·취소·부분환불·전액환불 및 원장 재조회

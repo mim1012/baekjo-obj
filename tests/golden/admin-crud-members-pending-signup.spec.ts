@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /signup(B2B 업체 탭) → 관리자 승인(pending → active).
@@ -33,6 +36,18 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
   const runId = Date.now();
   const email = `e2e-b2b-${runId}@test.baekjo`;
   const companyName = `E2E B2B 테스트 업체 ${runId}`;
+  const documentPath = path.join(os.tmpdir(), `e2e-b2b-license-${runId}.png`);
+
+  test.beforeAll(() => {
+    fs.writeFileSync(
+      documentPath,
+      Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    );
+  });
+
+  test.afterAll(() => {
+    fs.rmSync(documentPath, { force: true });
+  });
 
   test('B2B 신규가입(즉시 pending) → 관리자 승인 → 새로고침 후 영속성 확인', async ({ page }) => {
     // 1) B2B 탭으로 가입 신청.
@@ -56,6 +71,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     await page.getByLabel('백조오브제와 함께하고 싶은 이유를 알려주세요. *').fill('E2E 테스트 사유');
 
     await page.getByLabel('사업자등록증 (필수)').check();
+    await page.locator('input[type="file"]').first().setInputFiles(documentPath);
+    await expect(page.getByText(/업로드됨/)).toBeVisible({ timeout: 20_000 });
 
     await page.getByLabel('운영 시간 *').fill('평일 09:00-18:00');
     await page.getByLabel('제공 서비스 *').fill('E2E 테스트 서비스 제공');

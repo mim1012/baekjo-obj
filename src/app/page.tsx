@@ -1,8 +1,8 @@
 import {
-  getCachedSiteSettings,
   listCachedPublicBrands,
   listCachedPublicProducts,
 } from '@/lib/public-read-cache';
+import { getSiteSettings } from '@/lib/settings/repo';
 import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { defaultHomeSettings } from '@/data/homeContent';
@@ -25,7 +25,7 @@ export default async function Home() {
     listCachedPublicBrands(),
     // 홈 문구의 정본은 관리자 설정(site_settings)이다. 저장 행이 없거나 조회 실패 시엔
     // defaultHomeSettings 로 폴백한다 — 공개 홈은 어떤 경우에도 문구가 비면 안 된다.
-    getCachedSiteSettings().catch(() => null),
+    getSiteSettings().catch(() => null),
     getNoticesConfigWithFallback(),
     // 전시용 후기도 DB 가 정본(showcase_reviews_config) — 미저장·실패는 repo 가 default 로 접는다.
     getShowcaseReviewsConfigWithFallback(),

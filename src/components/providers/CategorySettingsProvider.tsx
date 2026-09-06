@@ -37,7 +37,7 @@ export function CategorySettingsProvider({ children }: { children: ReactNode }) 
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/category-settings')
+    fetch('/api/category-settings', { cache: 'no-store' })
       .then((res) => res.json())
       .then((data: { settings?: CategorySettings }) => {
         if (cancelled) return;

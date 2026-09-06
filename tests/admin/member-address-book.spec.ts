@@ -20,7 +20,7 @@ test.describe('회원 배송지 주소록 계약', () => {
     const storage = read('src/lib/storage.ts');
     const sidebar = read('src/app/mypage/components/MypageSidebar.tsx');
     const mobileNav = read('src/app/mypage/components/MypageMobileNav.tsx');
-    const page = read('src/app/mypage/page.tsx');
+    const page = read('src/app/mypage/MypageClient.tsx');
 
     expect(listRoute).toContain('requireActiveMember');
     expect(detailRoute).toContain('requireActiveMember');

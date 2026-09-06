@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { registerUser, registerBusinessMember, isLoggedIn, getConcernsConfig } from '@/lib/storage';
+import { registerUser, registerBusinessMember, isLoggedIn, getConcernsConfig, requestEmailVerificationByEmail } from '@/lib/storage';
 import { defaultConcernsConfig } from '@/lib/concerns/config';
 import type { Concern } from '@/types';
 import SocialLoginButtons from '@/components/common/SocialLoginButtons';
@@ -25,6 +25,8 @@ export default function SignupPage() {
   const [pending, setPending] = useState(false);
   const [signupTab, setSignupTab] = useState<SignupTab>('user');
   const [businessResult, setBusinessResult] = useState<BusinessResult>(null);
+  const [verificationPendingEmail, setVerificationPendingEmail] = useState('');
+  const [verificationMessage, setVerificationMessage] = useState('');
   // 주요 고민 select 옵션. 초기값은 기본 config, 마운트 후 콘센트로 실제 config 를 불러온다(§4).
   const [concerns, setConcerns] = useState<Concern[]>(defaultConcernsConfig.items);
   const [formData, setFormData] = useState({
@@ -98,6 +100,8 @@ export default function SignupPage() {
       petType: formData.petType,
       breed: formData.breed,
       mainConcern: formData.mainConcern,
+      termsAgree: formData.termsAgree,
+      privacyAgree: formData.privacyAgree,
     });
     setPending(false);
 
@@ -116,10 +120,8 @@ export default function SignupPage() {
       scrollToError();
       return;
     }
-    if (result.error === 'session') {
-      setError('가입은 완료됐어요. 로그인 화면에서 로그인해 주세요.');
-      scrollToError();
-      router.push('/login');
+    if (result.verificationPending) {
+      setVerificationPendingEmail(formData.email);
       return;
     }
     router.push('/mypage');
@@ -186,6 +188,32 @@ export default function SignupPage() {
           <Link href="/" className="inline-flex min-h-12 items-center justify-center bg-[#2F3B34] px-6 text-sm font-semibold text-white w-full">
             홈으로 돌아가기
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationPendingEmail) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-16">
+        <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-8 text-center shadow-sm sm:p-10">
+          <h1 className="text-2xl font-bold text-[#202521]">이메일 인증을 완료해 주세요</h1>
+          <p className="mt-4 text-sm leading-7 text-[#59615B]">
+            가입이 완료되었습니다. 입력한 이메일의 인증 링크를 확인한 뒤 로그인해 주세요.
+          </p>
+          {verificationMessage && <p role="status" className="mt-4 text-sm text-[#2F3B34]">{verificationMessage}</p>}
+          <button
+            type="button"
+            onClick={async () => {
+              setVerificationMessage('');
+              const response = await requestEmailVerificationByEmail(verificationPendingEmail);
+              setVerificationMessage(response.ok ? '인증 메일을 다시 보냈어요. 메일함을 확인해 주세요.' : '잠시 후 다시 시도해 주세요.');
+            }}
+            className="mt-7 min-h-12 w-full bg-[#2F3B34] px-5 text-sm font-semibold text-white"
+          >
+            인증 메일 다시 보내기
+          </button>
+          <Link href="/login" className="mt-5 inline-block text-sm font-semibold text-[#59615B] underline underline-offset-4">로그인으로 이동</Link>
         </div>
       </div>
     );

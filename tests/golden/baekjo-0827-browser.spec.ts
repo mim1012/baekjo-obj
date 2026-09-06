@@ -48,6 +48,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
       expect(next, `${label} 메뉴 순서`).toBeGreaterThan(navCursor);
       navCursor = next;
     }
+    await expect(mainNav).not.toContainText('펫보험');
     await expect(page.getByRole('heading', { name: '좋은 브랜드를 찾고 계셨나요?' })).toBeVisible();
     await expect(page.getByText('좋은 브랜드는 결과입니다. 백조오브제는 과정까지 확인합니다.')).toBeVisible();
     await expect(page.getByText('백조오브제 Audit을 통과한 브랜드만 소개합니다.')).toBeVisible();
@@ -92,9 +93,10 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await search.fill('써니사이드업');
     await page.getByRole('button', { name: '검색', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe('써니사이드업');
-    await expect(page.locator('.shop-product-grid article').first()).toBeVisible();
+    const sunnyProductCard = page.locator('.shop-product-grid article').filter({ hasText: '써니사이드업' }).first();
+    await expect(sunnyProductCard).toBeVisible();
     await page.screenshot({ path: path.join(OUTPUT, 'shop-desktop.png'), fullPage: true });
-    await page.locator('.shop-product-grid article').first().locator('a[href^="/shop/"]').first().click();
+    await sunnyProductCard.locator('a[href^="/shop/"]').first().click();
     await page.waitForLoadState('domcontentloaded');
     await expect(page.locator('main').getByText('써니사이드업 (SUNNY SIDE UP)', { exact: true }).first()).toBeVisible();
 
@@ -119,7 +121,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     await page.screenshot({ path: path.join(OUTPUT, 'tear-care-desktop.png'), fullPage: true });
   });
 
-  test('PC 브랜드·보험·B2B 문구와 링크를 확인한다', async ({ page }) => {
+  test('PC 브랜드·B2B 문구와 링크 및 숨김 보험 경로를 확인한다', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await openHealthy(page, '/brands');
     await expect(page.getByRole('heading', { name: '우리 아이를 생각한다면, 좋은 선택이 필요합니다.' })).toBeVisible();
@@ -178,6 +180,7 @@ test.describe('0827 고객 요구사항 실제 화면', () => {
     for (const label of mobileNavLabels) {
       await expect(mobileNav.getByText(label, { exact: true }).first()).toBeVisible();
     }
+    await expect(mobileNav).not.toContainText('펫보험');
     await page.screenshot({ path: path.join(OUTPUT, 'home-mobile-menu.png') });
 
     await openHealthy(page, '/shop');

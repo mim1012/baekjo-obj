@@ -75,7 +75,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(providerSource).toContain("import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';");
     expect(providerSource).toContain('const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);');
-    expect(hydrationEffect).toContain("fetch('/api/category-settings')");
+    expect(hydrationEffect).toContain("fetch('/api/category-settings', { cache: 'no-store' })");
     expect(hydrationEffect).toContain('setCategorySettings(data.settings);');
     expect(updateFunction).toContain("fetch('/api/admin/category-settings', {");
     expect(updateFunction).toContain("method: 'PUT'");

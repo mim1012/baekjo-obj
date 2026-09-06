@@ -35,6 +35,7 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/page-texts',
   '/api/admin/orders',
   '/api/admin/orders/[id]',
+  '/api/admin/orders/[id]/action-requests',
   '/api/admin/orders/export',
   '/api/admin/orders/[id]/refunds',
   '/api/admin/orders/[id]/seller-acceptances/[sellerKey]',

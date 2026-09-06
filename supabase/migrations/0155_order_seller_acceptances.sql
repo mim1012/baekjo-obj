@@ -17,7 +17,7 @@ create index if not exists order_seller_acceptances_order_idx
 alter table public.order_seller_acceptances enable row level security;
 revoke all on public.order_seller_acceptances from anon, authenticated;
 
--- 0150 함수와 같은 시그니처를 유지한 채 판매자별 운영 상태 초기화를 같은 트랜잭션에 포함한다.
+-- 0152 함수와 같은 시그니처를 유지한 채 판매자별 운영 상태 초기화를 같은 트랜잭션에 포함한다.
 create or replace function public.create_order_with_inventory(
   p_member_id uuid,
   p_customer_name text,

@@ -18,7 +18,7 @@ test('화면·API·DB가 같은 상태 전이 방어를 사용한다', () => {
   const root = path.resolve(__dirname, '..', '..');
   const page = fs.readFileSync(path.join(root, 'src/app/admin/order-requests/page.tsx'), 'utf8');
   const route = fs.readFileSync(path.join(root, 'src/app/api/admin/order-requests/[id]/route.ts'), 'utf8');
-  const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0158_customer_service_request_state_guard.sql'), 'utf8');
+  const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0160_customer_service_request_state_guard.sql'), 'utf8');
   expect(page).toContain('nextCustomerServiceRequestStatuses(request.status)');
   expect(route).toContain('isCustomerServiceRequestTransitionAllowed(current.status');
   expect(route).toContain('invalid-status-transition');

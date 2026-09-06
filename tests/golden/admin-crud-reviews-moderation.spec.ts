@@ -5,6 +5,7 @@ import {
   MEMBER_PASSWORD,
   acceptRequiredCheckoutConsents,
   loginAsMember,
+  waitForCartProduct,
   createThrowawayProduct,
   cleanupThrowawayProducts,
   forceOrderPurchaseConfirmed,
@@ -70,6 +71,7 @@ test.describe('골든플로우: 관리자 구매평 검수(숨김→별점 제�
     await loginAsMember(memberPage);
     await memberPage.goto(`/shop/${productId}`);
     await memberPage.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(memberPage, productId);
     await memberPage.goto('/checkout');
     await memberPage.locator('input[name="customerName"]').fill('E2E 검수테스터');
     await memberPage.locator('input[name="phone"]').fill('010-4444-5555');

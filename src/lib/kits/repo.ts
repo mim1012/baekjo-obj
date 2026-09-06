@@ -1,7 +1,7 @@
 // kits_config 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 // 케어 키트 config({ items })를 한 행(id='default')에 jsonb 로 통째로 저장/조회한다(싱글턴).
 import { getSupabase } from '@/lib/supabase/server';
-import type { KitsConfig } from '@/lib/kits/config';
+import { normalizeStoredKitsConfig, type KitsConfig } from '@/lib/kits/config';
 
 const CONFIG_ROW_ID = 'default';
 
@@ -16,7 +16,7 @@ export async function getKitsConfig(): Promise<KitsConfig | null> {
     .eq('id', CONFIG_ROW_ID)
     .maybeSingle();
   if (error) throw error;
-  return data ? (data.value as KitsConfig) : null;
+  return data ? normalizeStoredKitsConfig(data.value) : null;
 }
 
 /** 키트 config 를 통째로 upsert(id='default') 한다. 없으면 생성, 있으면 덮어쓴다. */

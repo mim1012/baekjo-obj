@@ -100,11 +100,19 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     // 그 안의 input을 스코핑한다.
     const eyebrowField = page.locator('div.mb-4', { hasText: '상단 영문 뱃지 (eyebrow)' }).locator('input');
     await expect(eyebrowField).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: '변경사항 저장' })).toBeEnabled({ timeout: 15_000 });
     await eyebrowField.fill(eyebrow);
     await saveAndExpectSuccessAlert();
 
+    const savedSettingsResponse = await page.request.get('/api/settings', {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+    expect(savedSettingsResponse.ok()).toBe(true);
+    const savedSettings = (await savedSettingsResponse.json()) as { settings: { hero: { eyebrow: string } } };
+    expect(savedSettings.settings.hero.eyebrow).toBe(eyebrow);
+
     // 공개 홈에 반영되는지 확인 — HomeClient.tsx:102 `{hero.eyebrow}`.
-    await page.goto('/');
+    await page.goto(`/?e2e-home-settings=${runId}`);
     await expect(page.locator('body')).toContainText(eyebrow);
 
     // 원본으로 복원(afterAll과 별개로 테스트 본문에서도 즉시 복원 — afterAll은 안전망).
@@ -116,7 +124,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     await saveAndExpectSuccessAlert();
 
     // 공개 홈에서도 원본 문구로 되돌아왔는지 확인 — 이 스펙이 공유 staging 상태를 깨지 않았다는 증거.
-    await page.goto('/');
+    await page.goto(`/?e2e-home-settings-restore=${runId}`);
     await expect(page.locator('body')).toContainText(originalEyebrow);
     await expect(page.locator('body')).not.toContainText(eyebrow);
   });

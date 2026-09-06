@@ -5,7 +5,7 @@ name: CI (drift gate)
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
   push:
     branches: [main]
 

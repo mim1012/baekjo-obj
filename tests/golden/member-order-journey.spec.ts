@@ -5,6 +5,7 @@ import {
   MEMBER_PASSWORD,
   acceptRequiredCheckoutConsents,
   loginAsMember,
+  waitForCartProduct,
   createThrowawayProduct,
   cleanupThrowawayProducts,
 } from './_lib/memberCrudHelpers';
@@ -74,10 +75,12 @@ test.describe('골든플로우 #2: 회원 여정 — 스토어 구매(무통장�
     await page.goto(`/shop/${productAId}`);
     await expect(page.getByRole('heading', { name: productAName })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(page, productAId);
 
     await page.goto(`/shop/${productBId}`);
     await expect(page.getByRole('heading', { name: productBName })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(page, productBId);
 
     // 2) 장바구니 — A 수량을 2로 늘렸다가 1로 되돌리고(변경 동작 확인), B는 삭제한다.
     await page.goto('/cart');
@@ -125,7 +128,7 @@ test.describe('골든플로우 #2: 회원 여정 — 스토어 구매(무통장�
     const orderCard = page.locator('.mypage-card', { hasText: productAName }).first();
     await expect(orderCard).toBeVisible({ timeout: 15_000 });
     await expect(orderCard).toContainText('주문접수');
-    await expect(orderCard).toContainText('입금대기');
+    await expect(orderCard).toContainText('입금 대기');
     await expect(orderCard).toContainText('배송전');
     await expect(orderCard).toContainText('1개');
   });

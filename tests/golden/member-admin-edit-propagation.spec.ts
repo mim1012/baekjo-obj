@@ -5,6 +5,7 @@ import {
   MEMBER_PASSWORD,
   acceptRequiredCheckoutConsents,
   loginAsMember,
+  waitForCartProduct,
   createThrowawayProduct,
   cleanupThrowawayProducts,
   patchProductAsAdmin,
@@ -70,6 +71,7 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.getByRole('heading', { name: originalName })).toBeVisible({ timeout: 15_000 });
     await memberPage.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(memberPage, productId);
 
     await memberPage.goto('/cart');
     await expect(memberPage.locator('body')).toContainText(originalName, { timeout: 15_000 });
@@ -142,6 +144,7 @@ test.describe('골든플로우: 회원 여정 — 관리자 수정의 중간 여
     await memberPage.goto(`/shop/${productId}`);
     await expect(memberPage.getByRole('heading', { name: productName })).toBeVisible({ timeout: 15_000 });
     await memberPage.getByRole('button', { name: '장바구니' }).first().click();
+    await waitForCartProduct(memberPage, productId);
 
     await memberPage.goto('/cart');
     await expect(memberPage.locator('body')).toContainText(productName, { timeout: 15_000 });

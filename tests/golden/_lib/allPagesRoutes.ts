@@ -98,7 +98,7 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
   { route: '/login', kind: 'static', auth: 'none', note: '로그인' },
   { route: '/notices', kind: 'static', auth: 'none', note: '공지사항 목록' },
   { route: '/order-complete', kind: 'static', auth: 'none', note: '주문완료(쿼리 없는 cold visit)' },
-  { route: '/privacy', kind: 'static', auth: 'none', note: '개인정보처리방침' },
+  { route: '/privacy', kind: 'static', auth: 'none', note: '개인정보 처리방침' },
   { route: '/refund-policy', kind: 'static', auth: 'none', note: '배송·교환·환불 안내' },
   { route: '/reviews', kind: 'static', auth: 'none', note: '구매후기 목록' },
   { route: '/shop', kind: 'static', auth: 'none', note: '스토어 목록' },

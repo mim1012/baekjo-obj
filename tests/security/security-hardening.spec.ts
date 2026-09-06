@@ -83,7 +83,7 @@ test.describe('보안 경계 회귀 계약', () => {
     const acceptanceAdmin = read('src', 'app', 'api', 'admin', 'orders', '[id]', 'seller-acceptances', '[sellerKey]', 'route.ts');
     const memberRequests = read('src', 'app', 'api', 'orders', 'requests', 'route.ts');
     const marketing = read('src', 'app', 'api', 'members', 'me', 'marketing-preferences', 'route.ts');
-    const migration = read('supabase', 'migrations', '0155_compliance_write_guards.sql');
+    const migration = read('supabase', 'migrations', '0157_compliance_write_guards.sql');
 
     expect(sellerAdmin).toContain('requireAdmin()');
     expect(requestAdmin).toContain('requireAdmin()');

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { FEATURES } from '@/config/features';
 import {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
@@ -23,6 +24,7 @@ import {
 // 🚨 쓰기(write) 스펙 — 실제 DB에 데이터를 만들고 지운다. E2E_ADMIN_CRUD=1 로 명시적으로
 // 켜지 않으면 전체 skip. 절대 production을 겨냥하지 말 것 — 대상은 Vercel Preview/staging뿐.
 test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 보험 FAQ', () => {
+  test.skip(!FEATURES.insurance, '공개 보험 기능이 미노출이라 공개 FAQ 여정은 실행하지 않음');
   test.skip(!CRUD_ENABLED, 'E2E_ADMIN_CRUD=1 미설정 — 쓰기 스펙 skip(Preview/staging 전용)');
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'E2E_ADMIN_* secret 미주입 — 로그인 불가로 skip');
 

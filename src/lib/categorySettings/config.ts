@@ -36,15 +36,48 @@ const LEGACY_PRODUCT_CATEGORY_LABELS: ReadonlySet<string> = new Set([
 
 const MERGED_PRODUCT_CATEGORIES = ['식품·영양', '케어', '패션', '펫로스', '라이프'];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeLabel(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (isRecord(value) && typeof value.label === 'string') return value.label;
+  return null;
+}
+
+function normalizeLabelList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const label = normalizeLabel(item);
+    return label === null ? [] : [label];
+  });
+}
+
+function normalizeBrandFilters(value: unknown): BrandFilter[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.label !== 'string') return [];
+    return [{ id: item.id, label: item.label }];
+  });
+}
+
 export function normalizeStoredCategorySettings(settings: CategorySettings): CategorySettings {
+  const rawSettings = settings as unknown as Record<string, unknown>;
+  const normalizedSettings: CategorySettings = {
+    ...settings,
+    productCategories: normalizeLabelList(rawSettings.productCategories),
+    lifestyleCategories: normalizeLabelList(rawSettings.lifestyleCategories),
+    brandFilters: normalizeBrandFilters(rawSettings.brandFilters),
+  };
   const isLegacyProductCategorySet =
-    settings.productCategories.length > 0 &&
-    settings.productCategories.every((category) => LEGACY_PRODUCT_CATEGORY_LABELS.has(category));
+    normalizedSettings.productCategories.length > 0 &&
+    normalizedSettings.productCategories.every((category) => LEGACY_PRODUCT_CATEGORY_LABELS.has(category));
   const isMergedProductCategorySet =
-    settings.productCategories.length === MERGED_PRODUCT_CATEGORIES.length &&
-    settings.productCategories.every((category, index) => category === MERGED_PRODUCT_CATEGORIES[index]);
+    normalizedSettings.productCategories.length === MERGED_PRODUCT_CATEGORIES.length &&
+    normalizedSettings.productCategories.every((category, index) => category === MERGED_PRODUCT_CATEGORIES[index]);
 
   return isLegacyProductCategorySet || isMergedProductCategorySet
-    ? { ...settings, productCategories: [...defaultCategorySettings.productCategories] }
-    : settings;
+    ? { ...normalizedSettings, productCategories: [...defaultCategorySettings.productCategories] }
+    : normalizedSettings;
 }
