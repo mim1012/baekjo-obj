@@ -15,6 +15,7 @@ import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
 import EmptyState from '@/components/common/EmptyState';
 import { ChevronDown, CircleAlert, PackageSearch, Truck } from 'lucide-react';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -128,6 +129,8 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#18231F]">주문내역</h2>
       </div>
+
+      <MarketplaceNotice className="mb-6" />
 
       <div className="flex flex-col gap-6">
         {paginatedOrders.map((order) => {

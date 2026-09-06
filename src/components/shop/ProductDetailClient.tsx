@@ -10,6 +10,7 @@ import { addToCart } from '@/lib/cart';
 import { getSessionUser, getWishlist, STORAGE_EVENTS, toggleWishlist } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 interface Props {
   product: Product;
@@ -383,6 +384,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
             </>
           )}
         </div>
+        <MarketplaceNotice className="mt-6" />
         {isAdminViewer && (
           <button
             type="button"

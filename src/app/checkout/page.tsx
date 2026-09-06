@@ -13,6 +13,7 @@ import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import RepetMadeToOrderNotice, { isRepetMadeToOrderProduct } from '@/components/shop/RepetMadeToOrderNotice';
 import { FEATURES } from '@/config/features';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 const CARD_PAYMENT_ENABLED = FEATURES.cardPayment;
@@ -387,6 +388,7 @@ function CheckoutForm() {
         <h1 className="text-xl md:text-2xl font-bold text-[#202521] mb-5 md:mb-8">주문/결제</h1>
 
         {hasRepetMadeToOrderItem && <RepetMadeToOrderNotice className="mb-5 md:mb-8" />}
+        <MarketplaceNotice className="mb-5 md:mb-8" />
 
         <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-6 lg:gap-8">
           {/* Form Fields */}

@@ -9,6 +9,7 @@ import { clearCart } from '@/lib/cart';
 import { formatPrice } from '@/lib/format';
 import { customerPaymentStatusLabel } from '@/lib/orders/customerPaymentLabels';
 import type { Order } from '@/types';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 // checkout PENDING_ORDER_KEY와 동기화 — 토스 위젯 진입 시 checkout이 심어두는 미완료 결제
 // 표식. 리터럴 값을 그대로 맞춰야 승인 성공 후 정리가 실제로 지워진다(계약 파일 아님 — 값만 동기화).
@@ -367,6 +368,8 @@ function OrderCompleteInner() {
             저장된 최근 주문 정보가 없습니다.
           </div>
         )}
+
+        <MarketplaceNotice className="mt-8" />
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           <Link href="/shop" className="flex min-h-12 items-center justify-center border border-[#AEB3AE] bg-[#FAF9F5] px-6 text-sm font-semibold text-[#3E4841]">

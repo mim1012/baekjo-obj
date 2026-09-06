@@ -133,7 +133,7 @@ export default function DiagnosisResultPage() {
           {recommendedBrands.length > 0 && (
             <section className={`${activeTab === 'brands' ? 'block' : 'hidden'} md:block`}>
               <div className="mb-4 md:mb-8 border-b border-[#D8D6CE] pb-3 md:pb-4">
-                <h2 className="text-[18px] md:text-2xl font-bold text-[#202521]">도움이 되는 검증 브랜드</h2>
+                <h2 className="text-[18px] md:text-2xl font-bold text-[#202521]">함께 살펴볼 큐레이션 브랜드</h2>
                 <p className="text-[13px] md:text-base text-[#6F756F] mt-1.5 md:mt-2">아이의 상태와 고민에 가장 적합한 브랜드입니다.</p>
               </div>
               <div className="flex md:grid md:grid-cols-2 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
@@ -151,7 +151,7 @@ export default function DiagnosisResultPage() {
             <section className={`${activeTab === 'products' ? 'block' : 'hidden'} md:block mt-0 md:mt-16`}>
               <div className="mb-4 md:mb-8 border-b border-[#D8D6CE] pb-3 md:pb-4">
                 <h2 className="text-[18px] md:text-2xl font-bold text-[#202521]">필요한 카테고리 상품</h2>
-                <p className="text-[13px] md:text-base text-[#6F756F] mt-1.5 md:mt-2">선정된 브랜드의 제품 중 가장 효과적인 라인업입니다.</p>
+                <p className="text-[13px] md:text-base text-[#6F756F] mt-1.5 md:mt-2">입력한 고민과 관련해 함께 살펴볼 수 있는 상품입니다.</p>
               </div>
               <div className="flex md:grid md:grid-cols-4 gap-4 md:gap-6 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
                 {recommendedProducts.map(product => (

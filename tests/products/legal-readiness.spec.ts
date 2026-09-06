@@ -42,6 +42,59 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     expect(refundPolicy).toContain('무통장입금 주문은 환불 계좌 확인 후');
   });
 
+  test('통신판매중개 안내를 주요 고객 화면에 같은 문구로 노출한다', () => {
+    const notice = src('src', 'components', 'common', 'MarketplaceNotice.tsx');
+    const noticeCopy = src('src', 'data', 'customerNotices.ts');
+    const placements = [
+      ['src', 'components', 'common', 'Footer.tsx'],
+      ['src', 'components', 'home', 'HomeClient.tsx'],
+      ['src', 'components', 'shop', 'ProductDetailClient.tsx'],
+      ['src', 'app', 'cart', 'page.tsx'],
+      ['src', 'app', 'checkout', 'page.tsx'],
+      ['src', 'app', 'order-complete', 'page.tsx'],
+      ['src', 'app', 'mypage', 'components', 'OrdersSection.tsx'],
+    ];
+
+    expect(notice).toContain('MARKETPLACE_NOTICE');
+    expect(notice).toContain('이용약관에서 자세히 보기');
+    expect(noticeCopy).toContain('통신판매중개자로서 통신판매의 당사자가 아닙니다');
+    expect(noticeCopy).toContain('관계 법령에 따라 백조 오브제가 부담하는 책임은 제외되지 않습니다');
+    for (const placement of placements) {
+      expect(src(...placement)).toContain('<MarketplaceNotice');
+    }
+  });
+
+  test('브랜드·BEST·케어가이드 문구를 과장 없이 안내한다', () => {
+    const brands = src('src', 'components', 'brands', 'BrandsContent.tsx');
+    const brandsPage = src('src', 'app', 'brands', 'page.tsx');
+    const card = src('src', 'components', 'common', 'ProductCard.tsx');
+    const concern = src('src', 'app', 'concerns', '[slug]', 'page.tsx');
+    const diagnosis = src('src', 'app', 'diagnosis', 'result', 'page.tsx');
+
+    expect(brands).toContain('큐레이션 브랜드');
+    expect(brands).toContain('공개 자료와 브랜드 제출 자료');
+    expect(brands).toContain('안전 관련 표시·인증 자료와 사용상 주의사항을 확인합니다');
+    expect(brands).not.toContain('검증 브랜드 수');
+    expect(brands).not.toContain('안심하고 선택할 수 있는 안전성을 갖춘 브랜드');
+    expect(brandsPage).toContain("title: '큐레이션 브랜드'");
+    expect(card).toContain('자체 큐레이션 · 기준 보기');
+    expect(card).toContain('href="/audit"');
+    expect((concern.match(/<CareGuideDisclaimer/g) ?? [])).toHaveLength(2);
+    expect(diagnosis).not.toContain('가장 효과적인 라인업입니다');
+  });
+
+  test('환불정책 시행일·청약철회 기간과 개인정보 연락처를 통일한다', () => {
+    const legalContent = src('src', 'data', 'legalContent.ts');
+    const refundPolicy = src('src', 'app', 'refund-policy', 'page.tsx');
+
+    expect(refundPolicy).toContain("const EFFECTIVE_DATE = '2026년 9월 1일'");
+    expect(refundPolicy).toContain('서면 또는 전자문서를 받은 날부터 7일 이내');
+    expect(refundPolicy).toContain('상품을 공급받은 날부터 3개월 이내');
+    expect(refundPolicy).toContain('알 수 있었던 날부터 30일 이내');
+    expect(legalContent).toContain('${COMPANY.tel}');
+    expect(legalContent).not.toContain('010-5683-1725');
+  });
+
   test('회원가입 필수 동의에 전문 링크와 수집 요약을 표시한다', () => {
     const signup = src('src', 'app', 'signup', 'page.tsx');
 

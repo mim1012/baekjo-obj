@@ -125,9 +125,18 @@ export default function ProductCard({
               : "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
         }>
           {product.isBest && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
-              BEST
-            </span>
+            <>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
+                BEST
+              </span>
+              <Link
+                href="/audit"
+                aria-label="백조 오브제 자체 큐레이션 기준 보기"
+                className="pointer-events-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-[#59615B] underline underline-offset-2 md:text-[10px]"
+              >
+                자체 큐레이션 · 기준 보기
+              </Link>
+            </>
           )}
           {availabilityLabel && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[9px] font-bold leading-none text-[#59615B] md:px-2.5 md:text-[11px]">

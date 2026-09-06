@@ -11,6 +11,7 @@ import type { HomeSettings } from '@/data/homeContent';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 import { FEATURES } from '@/config/features';
 import { sortProducts } from '@/lib/filters';
 import { formatDate } from '@/lib/format';
@@ -259,6 +260,7 @@ export default function HomeClient({
         <Link href="/shop" className="mt-8 flex w-full h-[48px] items-center justify-center rounded-xl border border-[#DED8CC] text-[14px] font-bold text-[#18231F] sm:hidden">
           {bestProductsCopy.linkLabel}
         </Link>
+        <MarketplaceNotice className="mt-6 md:mt-8" />
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">

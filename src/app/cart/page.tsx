@@ -12,6 +12,7 @@ import { CartItem, Product, Brand } from '@/types';
 import EmptyState from '@/components/common/EmptyState';
 import { useMounted } from '@/lib/useMounted';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 export default function CartPage() {
   const router = useRouter();
@@ -142,7 +143,9 @@ export default function CartPage() {
             actionHref="/shop"
           />
         ) : (
-          <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
+          <div className="space-y-5">
+            <MarketplaceNotice />
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8">
             {/* Cart Items */}
             <div className="lg:w-2/3 space-y-3 md:space-y-4">
               {enrichedItems.map((item, idx) => (
@@ -275,6 +278,7 @@ export default function CartPage() {
                   </Link>
                 )}
               </div>
+            </div>
             </div>
           </div>
         )}

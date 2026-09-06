@@ -25,7 +25,7 @@ const selectionStandards = [
   { icon: Leaf, title: 'WHO', description: '반려동물의 행복을 가장 먼저 생각하는 브랜드' },
   { icon: Box, title: 'VALUE', description: '제품 하나에도 브랜드의 철학과 진심을 담는 브랜드' },
   { icon: ShieldCheck, title: 'PRINCIPLE', description: '제품이 만들어지는 과정에서도 타협하지 않는 브랜드' },
-  { icon: ThumbsUp, title: 'SAFETY', description: '안심하고 선택할 수 있는 안전성을 갖춘 브랜드' },
+  { icon: ThumbsUp, title: 'SAFETY', description: '안전 관련 표시·인증 자료와 사용상 주의사항을 확인합니다' },
   { icon: Recycle, title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지키는 브랜드' },
 ];
 
@@ -129,11 +129,10 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand }: Props) {
               좋은 선택이 필요합니다.
             </h1>
             <p className="mt-4 max-w-[500px] break-keep text-[14px] leading-[1.7] text-[#59615B] md:mt-5 md:text-[15px] lg:mt-6 lg:text-[16px]">
-              우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.
+              백조오브제가 공개 자료와 브랜드 제출 자료를 바탕으로 자체 기준에 따라 살펴본 브랜드입니다.
             </p>
             <div className="mt-5 flex items-baseline gap-2 md:mt-6 lg:mt-7">
-              <span className="text-[18px] font-bold text-[#17251F] lg:text-[20px]">{brands.length}곳</span>
-              <span className="text-[12px] font-medium text-[#59615B]">검증 브랜드 수</span>
+              <span className="text-[18px] font-bold text-[#17251F] lg:text-[20px]">{brands.length}곳의 큐레이션 브랜드</span>
             </div>
           </div>
         </div>
@@ -300,7 +299,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand }: Props) {
                  기준이 같다면, 함께 만들어갑니다.
                </h3>
                <p className="text-[14px] md:text-[15px] text-[#6F756F] leading-[1.6] break-keep">
-                 <span className="inline-block xl:whitespace-nowrap">모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다.</span><br className="hidden lg:block" />
+                 <span className="inline-block xl:whitespace-nowrap">공개 자료와 브랜드 제출 자료를 바탕으로 백조오브제의 자체 기준을 살펴봅니다.</span><br className="hidden lg:block" />
                  <span className="inline-block mt-1 lg:mt-0">신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.</span>
                </p>
                <Link href="/landing/care-kit" className="mt-5 inline-flex h-[46px] self-center items-center justify-center whitespace-nowrap rounded-md bg-[#17382D] px-6 text-[14px] font-semibold text-white transition-colors hover:bg-[#10291F] md:self-start">
