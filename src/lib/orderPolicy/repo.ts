@@ -57,9 +57,14 @@ export async function resolveBankTransferSettings(): Promise<{
 }> {
   try {
     const config = await getOrderPolicyConfig();
-    // 계좌 폴백은 normalizeOrderPolicyConfig 단일 소스에서 처리한다(레거시 계좌키 없는 행 대비).
     const resolved = config ?? defaultOrderPolicyConfig;
-    return { ttlMs: toTtlMs(resolved), account: resolved.bankTransferAccount };
+    // 주문 생성 경로는 계좌가 절대 비면 안 된다(무통장 고객이 입금 계좌를 못 봄). normalize 가
+    // 레거시 키누락은 기본계좌로 채우지만, 저장값이 명시적 null·유효하지 않은 경우엔 account=null 이
+    // 올 수 있으므로 여기서 한 번 더 기본계좌로 폴백한다(관리자 read 와 달리 주문 경로는 공란 불허).
+    return {
+      ttlMs: toTtlMs(resolved),
+      account: resolved.bankTransferAccount ?? defaultOrderPolicyConfig.bankTransferAccount,
+    };
   } catch (error) {
     logServerError('[orderPolicy] 주문 정책 조회 실패 — 기본값(자동취소 비활성) 폴백', error);
     return {
