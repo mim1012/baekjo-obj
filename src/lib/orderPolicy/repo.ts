@@ -57,14 +57,9 @@ export async function resolveBankTransferSettings(): Promise<{
 }> {
   try {
     const config = await getOrderPolicyConfig();
+    // 계좌 폴백은 normalizeOrderPolicyConfig 단일 소스에서 처리한다(레거시 계좌키 없는 행 대비).
     const resolved = config ?? defaultOrderPolicyConfig;
-    // 계좌는 반드시 기본값으로라도 채운다. 0045 마이그레이션이 bankTransferAccount 키 없는 행을
-    // 무조건 seed 했으므로, 레거시 행은 정규화 시 account=null 이 된다 — 이 경우 무통장 주문에
-    // 계좌가 안 실려 고객이 입금 계좌를 못 본다. null 이면 기본 계좌로 폴백해 회귀를 막는다.
-    return {
-      ttlMs: toTtlMs(resolved),
-      account: resolved.bankTransferAccount ?? defaultOrderPolicyConfig.bankTransferAccount,
-    };
+    return { ttlMs: toTtlMs(resolved), account: resolved.bankTransferAccount };
   } catch (error) {
     logServerError('[orderPolicy] 주문 정책 조회 실패 — 기본값(자동취소 비활성) 폴백', error);
     return {

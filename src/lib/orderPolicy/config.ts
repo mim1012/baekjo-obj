@@ -64,7 +64,12 @@ export function normalizeOrderPolicyConfig(value: unknown): OrderPolicyConfig {
   if (!value || typeof value !== 'object') return { ...defaultOrderPolicyConfig };
   const record = value as Record<string, unknown>;
   const enabled = record.bankTransferAutoCancelEnabled === true;
-  const bankTransferAccount = normalizeBankTransferAccount(record.bankTransferAccount);
+  // 계좌키 없거나 깨진 저장값이면 기본계좌로 폴백한다. 0045 마이그레이션이 bankTransferAccount
+  // 키 없는 order_policy_config 행을 무조건 seed 했으므로, 레거시 행은 계좌가 없다 — 폴백이
+  // 없으면 고객 주문완료 화면과 관리자 편집화면 양쪽에서 계좌가 사라진다. normalize 단일 소스에서
+  // 채워 고객·관리자 read가 모두 기본계좌를 보게 한다.
+  const bankTransferAccount =
+    normalizeBankTransferAccount(record.bankTransferAccount) ?? defaultOrderPolicyConfig.bankTransferAccount;
   const raw = record.bankTransferTtlHours;
   if (typeof raw !== 'number' || !Number.isFinite(raw)) {
     return { ...defaultOrderPolicyConfig, bankTransferAutoCancelEnabled: enabled, bankTransferAccount };
