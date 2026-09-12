@@ -126,6 +126,7 @@ async function installMypageFixtures(page: Page, shipments: readonly typeof ship
     '/api/orders/mine',
     '/api/orders/mine/shipments',
     '/api/orders/mine/products',
+    '/api/orders/requests',
     '/api/products',
     '/api/brands',
     '/api/wishlist',
@@ -156,6 +157,7 @@ async function installMypageFixtures(page: Page, shipments: readonly typeof ship
   await page.route('**/api/orders/mine/shipments', (route) => fulfillJson(route, { shipments }));
   await page.route(`**/api/orders/${ORDER_ID}/shipments`, (route) => fulfillJson(route, { shipments }));
   await page.route('**/api/orders/mine/products', (route) => fulfillJson(route, { products: [product] }));
+  await page.route('**/api/orders/requests', (route) => fulfillJson(route, { requests: [] }));
   await page.route('**/api/products', (route) => fulfillJson(route, { products: [product] }));
   await page.route('**/api/brands', (route) => fulfillJson(route, { brands: [brand] }));
   await page.route('**/api/wishlist', (route) => fulfillJson(route, { productIds: [] }));

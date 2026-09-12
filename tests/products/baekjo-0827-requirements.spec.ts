@@ -12,6 +12,7 @@ import {
 } from '@/lib/concerns/config';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
+import { defaultBrandPageCopy } from '@/lib/brands/pageCopy';
 import { defaultKitsConfig } from '@/lib/kits/config';
 
 const ROOT = path.resolve(__dirname, '..', '..');
@@ -629,8 +630,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const source = getSourceBrandContent({ id: 'b2', philosophy: '', highlights: [], auditPoints: [] });
     const report = getSourceAuditReport({ id: 'b2', auditReport: undefined });
 
-    expect(detail).toContain('title="백조오브제 검토 완료"');
-    expect(detail).toContain('아래 항목을 중심으로 검토를 완료하였습니다.');
+    expect(defaultBrandPageCopy.auditTitle).toBe('백조오브제 검토 완료');
+    expect(defaultBrandPageCopy.auditIntro).toBe('아래 항목을 중심으로 검토를 완료하였습니다.');
+    expect(detail).toContain('title={pageCopy.auditTitle}');
+    expect(detail).toContain('{pageCopy.auditIntro}');
     expect(source.summaryCategoryNote).toBe('냄새 문제에서 시작해 장과 뼈 건강을 고려한 영양 제품을 소개합니다.');
     expect(source.summaryConcernNote).toBe('먹는 영양으로 배변 냄새 관리에 도움을 줍니다.');
     expect(source.auditPoints).toHaveLength(6);
@@ -679,9 +682,11 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('메종슈슈 Audit 요약은 완료 상태와 확정 검토 항목을 표시한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0091_maison_chouchou_audit_points.sql');
-    expect(detail).toContain('title="백조오브제 검토 완료"');
-    expect(detail).toContain("const auditStatusText = hasCompletedAudit ? 'Audit Completed' : ''");
-    expect(detail).toContain('Audit 자세히 보기 <ArrowRight');
+    expect(defaultBrandPageCopy.auditTitle).toBe('백조오브제 검토 완료');
+    expect(defaultBrandPageCopy.auditCompletedLabel).toBe('Audit Completed');
+    expect(defaultBrandPageCopy.auditLinkLabel).toBe('Audit 자세히 보기');
+    expect(detail).toContain('const auditStatusText = hasCompletedAudit ? pageCopy.auditCompletedLabel :');
+    expect(detail).toContain('{pageCopy.auditLinkLabel} <ArrowRight');
     for (const point of [
       '제품별 소재 및 혼용률 확인',
       '사이즈 구성 및 착용 방식 확인',

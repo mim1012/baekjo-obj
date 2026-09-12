@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
-import type { Concern, Product, Brand } from '@/types';
+import type { Concern, Product, Brand, Seller } from '@/types';
 import { createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
   buildProductCreatePayload,
@@ -12,6 +13,13 @@ import {
   type ProductOptionFormState,
 } from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import {
+  disclosureDefinition,
+  EMPTY_MADE_TO_ORDER_POLICY,
+  isDisclosureComplete,
+  PRODUCT_DISCLOSURE_CATEGORIES,
+  PRODUCT_DISCLOSURE_SCHEMA_VERSION,
+} from '@/lib/products/disclosures';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import FormField from '@/components/admin-new/common/FormField';
@@ -22,6 +30,7 @@ interface ProductFormProps {
   initialData?: Product | null;
   brands: Brand[];
   concerns: Concern[];
+  sellers: Seller[];
 }
 
 type RequiredField = 'name' | 'brandId' | 'category' | 'lifestyleCategory' | 'image';
@@ -66,6 +75,8 @@ function toUserMessage(err: unknown): string {
       return '입력값을 확인해주세요. 필수 항목이 비었거나 형식이 올바르지 않습니다.';
     case 'invalid-brand':
       return '선택한 브랜드를 찾을 수 없습니다. 브랜드를 다시 선택해주세요.';
+    case 'product-compliance-incomplete':
+      return '공개 상품은 검증 완료 판매자와 상품군별 필수정보를 모두 입력해야 합니다.';
     case 'not-found':
       return '상품을 찾을 수 없습니다. 목록에서 다시 시도해주세요.';
     case 'unauthorized':
@@ -126,7 +137,7 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   }));
 }
 
-export default function ProductForm({ initialData, brands, concerns }: ProductFormProps) {
+export default function ProductForm({ initialData, brands, concerns, sellers }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
   const isEdit = !!initialData;
@@ -139,6 +150,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
   const [formData, setFormData] = useState<Partial<Product>>({
     name: '',
     brandId: '',
+    sellerId: '',
     category: '',
     lifestyleCategory: '',
     petType: 'both',
@@ -158,6 +170,12 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     shippingNotice: '',
     returnNotice: '',
     sellerName: '',
+    disclosure: {
+      categoryCode: '',
+      schemaVersion: PRODUCT_DISCLOSURE_SCHEMA_VERSION,
+      values: {},
+    },
+    madeToOrderPolicy: EMPTY_MADE_TO_ORDER_POLICY,
     images: [],
     auditPoints: [],
     concernTags: [],
@@ -202,6 +220,7 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
   const toFormState = (): ProductFormState => ({
     name: formData.name,
     brandId: formData.brandId,
+    sellerId: formData.sellerId,
     category: formData.category,
     lifestyleCategory: formData.lifestyleCategory,
     petType: formData.petType,
@@ -225,6 +244,8 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
     shippingNotice: formData.shippingNotice,
     returnNotice: formData.returnNotice,
     sellerName: formData.sellerName,
+    disclosure: formData.disclosure,
+    madeToOrderPolicy: formData.madeToOrderPolicy,
     isVisible: formData.isVisible,
     isBest: formData.isBest,
     isRecommended: formData.isRecommended,
@@ -245,12 +266,21 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
       return;
     }
 
+    if (formData.isVisible) {
+      const seller = sellers.find((candidate) => candidate.id === formData.sellerId);
+      if (!seller || seller.status !== 'verified' || !isDisclosureComplete(formData.disclosure)) {
+        setError('스토어에 공개하려면 검증 완료 판매자를 선택하고 상품군별 필수정보를 모두 입력해주세요.');
+        return;
+      }
+    }
+
     setIsSaving(true);
     setError(null);
 
     try {
       const brandName = brands.find((b) => b.id === formData.brandId)?.name;
       const formState = toFormState();
+      formState.sellerName = sellers.find((seller) => seller.id === formData.sellerId)?.displayName ?? '';
 
       // payload 는 순수 빌더가 화이트리스트로만 구성한다(`...formData` 암묵 스프레드 금지).
       // detailBlocks(상세 에디터 소유)·rating 등은 담기지 않아 read-modify-write 로 보존된다.
@@ -299,6 +329,8 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
   const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
   const caution = formData.caution ?? [];
+  const selectedBrand = brands.find((brand) => brand.id === formData.brandId);
+  const selectedSeller = sellers.find((seller) => seller.id === formData.sellerId);
 
   return (
     <div className="space-y-6 pb-24">
@@ -306,8 +338,8 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
         title={isEdit ? '상품 수정' : '새 상품 등록'}
         description={
           isEdit
-            ? '기본 정보·가격·옵션·상세 정보·배송 안내까지 상세페이지에 노출되는 모든 항목을 수정합니다.'
-            : '새 상품의 기본 정보와 상세페이지 노출 항목을 등록합니다.'
+            ? '실제 판매자·기본 정보·가격·옵션·상세 정보·배송 안내를 상품별로 수정합니다.'
+            : '새 상품의 실제 판매자와 기본 정보, 상세페이지 노출 항목을 등록합니다.'
         }
       >
         <button
@@ -331,6 +363,99 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          <div id="product-brand-link" className="scroll-mt-24">
+            <SectionCard
+              title="상품 브랜드 연결"
+              description="이 상품이 속한 브랜드를 선택합니다. 고객이 상품 카드의 BEST 옆 ‘자체 큐레이션 · 기준 보기’를 누르면 선택한 브랜드의 검토 기준으로 이동합니다."
+            >
+              <div className="space-y-4">
+                <FormField label="이 상품의 브랜드" htmlFor="product-brand" required error={fieldErrors.brandId}>
+                  <select
+                    id="product-brand"
+                    value={formData.brandId || ''}
+                    onChange={(event) => handleChange('brandId', event.target.value)}
+                    onBlur={() => handleBlur('brandId')}
+                    aria-invalid={!!fieldErrors.brandId}
+                    aria-describedby={fieldErrors.brandId ? 'product-brand-error' : undefined}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="">브랜드 선택</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                {selectedBrand ? (
+                  <div className="rounded-md border border-[#DCE5DD] bg-[#F5F8F5] p-4 text-sm text-[#39463E]">
+                    <p className="font-semibold text-[#17201B]">현재 연결 브랜드: {selectedBrand.name}</p>
+                    <p className="mt-1 text-xs leading-5 text-[#68756C]">
+                      저장 후 고객 상품카드의 큐레이션 기준 버튼이 이 브랜드 상세로 연결됩니다.
+                    </p>
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-[#E8CF9E] bg-[#FFF9EC] p-3 text-sm text-[#7A4E1D]">
+                    브랜드를 선택해야 상품을 저장하고 브랜드별 큐레이션 기준을 연결할 수 있습니다.
+                  </p>
+                )}
+              </div>
+            </SectionCard>
+          </div>
+
+          <div id="actual-seller" className="scroll-mt-24">
+            <SectionCard
+              title="실제 판매자 연결"
+              description="이 상품의 판매 계약·배송·교환·반품을 책임지는 사업자를 선택합니다. 상품마다 서로 다른 판매자를 지정할 수 있습니다."
+            >
+              <div className="space-y-4">
+                <FormField label="이 상품의 실제 판매자" htmlFor="product-seller" required>
+                  <select
+                    id="product-seller"
+                    value={formData.sellerId ?? ''}
+                    onChange={(event) => handleChange('sellerId', event.target.value)}
+                    className={INPUT_CLASS}
+                  >
+                    <option value="" disabled>판매자 선택</option>
+                    {sellers.map((seller) => (
+                      <option key={seller.id} value={seller.id}>
+                        {seller.displayName} · {seller.status === 'verified' ? '검증 완료' : seller.status === 'draft' ? '작성 중' : '판매 중지'}
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+
+                {selectedSeller ? (
+                  <div className="rounded-md border border-[#DCE5DD] bg-[#F5F8F5] p-4 text-sm text-[#39463E]">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold text-[#17201B]">현재 연결: {selectedSeller.displayName}</p>
+                        <p className="mt-1 text-xs text-[#68756C]">
+                          {selectedSeller.legalName} · 사업자번호 {selectedSeller.businessRegistrationNumber}
+                        </p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${selectedSeller.status === 'verified' ? 'bg-[#E1EEE3] text-[#286138]' : selectedSeller.status === 'draft' ? 'bg-[#FFF2D8] text-[#8A5A10]' : 'bg-[#F8E2E2] text-[#9A3838]'}`}>
+                        {selectedSeller.status === 'verified' ? '검증 완료' : selectedSeller.status === 'draft' ? '작성 중' : '판매 중지'}
+                      </span>
+                    </div>
+                    {selectedSeller.status !== 'verified' && (
+                      <p className="mt-3 text-xs font-medium text-[#8A5A10]">스토어에 공개하려면 판매자 관리에서 이 판매자를 검증 완료 상태로 바꿔야 합니다.</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="rounded-md border border-[#E8CF9E] bg-[#FFF9EC] p-3 text-sm text-[#7A4E1D]">
+                    실제 판매자가 아직 지정되지 않았습니다. 스토어에 공개하기 전에 반드시 선택해주세요.
+                  </p>
+                )}
+
+                <Link href="/admin/sellers" className="inline-flex text-sm font-semibold text-[#9A5B20] underline underline-offset-4">
+                  판매자 정보 등록·수정하기
+                </Link>
+              </div>
+            </SectionCard>
+          </div>
+
           {/* 기본 정보 */}
           <SectionCard title="기본 정보">
             <div className="space-y-4">
@@ -348,35 +473,14 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="브랜드" htmlFor="product-brand" required error={fieldErrors.brandId}>
-                  <select
-                    id="product-brand"
-                    value={formData.brandId || ''}
-                    onChange={(e) => handleChange('brandId', e.target.value)}
-                    onBlur={() => handleBlur('brandId')}
-                    aria-invalid={!!fieldErrors.brandId}
-                    aria-describedby={fieldErrors.brandId ? 'product-brand-error' : undefined}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="">브랜드 선택</option>
-                    {brands.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
-
-                <FormField label="스토어 카테고리" htmlFor="product-category" required error={fieldErrors.category}>
-                  <SelectionCardGrid
-                    options={categorySettings.productCategories}
-                    value={formData.category}
-                    onChange={(value) => handleChange('category', value)}
-                    ariaLabel="스토어 카테고리 선택"
-                  />
-                </FormField>
-              </div>
+              <FormField label="스토어 카테고리" htmlFor="product-category" required error={fieldErrors.category}>
+                <SelectionCardGrid
+                  options={categorySettings.productCategories}
+                  value={formData.category}
+                  onChange={(value) => handleChange('category', value)}
+                  ariaLabel="스토어 카테고리 선택"
+                />
+              </FormField>
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="반려동물">
@@ -561,8 +665,65 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
             </div>
           </SectionCard>
 
-          {/* 배송/판매자 안내 */}
-          <SectionCard title="배송·판매자 안내" description="상세페이지 하단 구매 정보에 노출됩니다.">
+          {/* 상품정보제공고시 */}
+          <SectionCard title="상품군별 필수정보" description="상품군을 고르면 고객에게 반드시 보여야 할 항목이 나타납니다. 공개 전 모든 항목을 채워야 합니다.">
+            <div className="space-y-4">
+              <FormField label="상품군" htmlFor="product-disclosure-category" required>
+                <select
+                  id="product-disclosure-category"
+                  value={formData.disclosure?.categoryCode ?? ''}
+                  onChange={(event) => handleChange('disclosure', {
+                    categoryCode: event.target.value,
+                    schemaVersion: PRODUCT_DISCLOSURE_SCHEMA_VERSION,
+                    values: {},
+                  })}
+                  className={INPUT_CLASS}
+                >
+                  <option value="">상품군 선택</option>
+                  {PRODUCT_DISCLOSURE_CATEGORIES.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}
+                </select>
+              </FormField>
+              {disclosureDefinition(formData.disclosure?.categoryCode)?.fields.map((field) => (
+                <FormField key={field.key} label={field.label} htmlFor={`product-disclosure-${field.key}`} required>
+                  <textarea
+                    id={`product-disclosure-${field.key}`}
+                    value={formData.disclosure?.values[field.key] ?? ''}
+                    onChange={(event) => handleChange('disclosure', {
+                      categoryCode: formData.disclosure?.categoryCode ?? '',
+                      schemaVersion: PRODUCT_DISCLOSURE_SCHEMA_VERSION,
+                      values: { ...formData.disclosure?.values, [field.key]: event.target.value },
+                    })}
+                    className={`${INPUT_CLASS} min-h-20 resize-y`}
+                    placeholder={field.placeholder}
+                  />
+                </FormField>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* 주문제작 정책 */}
+          <SectionCard title="주문제작 정책" description="주문제작 상품이면 켜고 제작·검수·사진 처리 기준을 정확히 입력합니다. 결제 단계에서 별도 동의를 받습니다.">
+            <div className="space-y-4">
+              <ToggleRow label="주문제작 상품" checked={formData.madeToOrderPolicy?.active ?? false} onChange={(active) => handleChange('madeToOrderPolicy', { ...(formData.madeToOrderPolicy ?? EMPTY_MADE_TO_ORDER_POLICY), active })} />
+              {formData.madeToOrderPolicy?.active && ([
+                ['productionPeriod', '제작 기간', '예: 결제 완료 후 최대 3개월'],
+                ['proofMethod', '시안·제작 확인 방법', '예: 카카오톡 채널로 사진 전달'],
+                ['revisionCount', '무상 수정 횟수', '예: 시안 단계 1회'],
+                ['revisionScope', '수정 가능 범위', '예: 배치·문구 조정, 제작 시작 후 변경 불가'],
+                ['photoPurpose', '사진 이용 목적', '제작 진행 확인 및 완성품 검수'],
+                ['photoRetentionPeriod', '사진 보관 기간', '예: 배송 완료 후 30일'],
+                ['photoDeletionMethod', '사진 파기 방법', '예: 기간 만료 후 복구 불가능하게 삭제'],
+                ['cancellationRestriction', '취소 제한 시점·사유', '예: 고객 시안 승인 또는 제작 시작 후 단순변심 취소 제한'],
+              ] as const).map(([key, label, placeholder]) => (
+                <FormField key={key} label={label} htmlFor={`product-made-to-order-${key}`} required>
+                  <textarea id={`product-made-to-order-${key}`} value={formData.madeToOrderPolicy?.[key] ?? ''} onChange={(event) => handleChange('madeToOrderPolicy', { ...(formData.madeToOrderPolicy ?? EMPTY_MADE_TO_ORDER_POLICY), [key]: event.target.value })} className={`${INPUT_CLASS} min-h-20 resize-y`} placeholder={placeholder} />
+                </FormField>
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* 배송 안내 */}
+          <SectionCard title="배송 안내" description="상세페이지 하단 구매 정보에 노출됩니다.">
             <div className="space-y-4">
               <FormField label="출고 예정 안내">
                 <input
@@ -591,15 +752,6 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                   placeholder="예: 단순 변심 시 수령 후 7일 이내"
                 />
               </FormField>
-              <FormField label="판매자명">
-                <input
-                  type="text"
-                  value={formData.sellerName || ''}
-                  onChange={(e) => handleChange('sellerName', e.target.value)}
-                  className={INPUT_CLASS}
-                  placeholder="예: 백조오브제"
-                />
-              </FormField>
             </div>
           </SectionCard>
         </div>
@@ -619,10 +771,13 @@ export default function ProductForm({ initialData, brands, concerns }: ProductFo
                 onChange={(v) => handleChange('isRecommended', v)}
               />
               <ToggleRow
-                label="베스트 상품"
+                label="BEST · 자체 큐레이션 표시"
                 checked={formData.isBest || false}
                 onChange={(v) => handleChange('isBest', v)}
               />
+              <p className="rounded bg-[#F7F8F6] px-3 py-2 text-xs leading-5 text-[#59615B]">
+                켜면 고객 상품카드에 BEST 배지와 선택한 브랜드의 검토 기준으로 가는 ‘자체 큐레이션 · 기준 보기’ 링크가 함께 표시됩니다.
+              </p>
             </div>
           </SectionCard>
 

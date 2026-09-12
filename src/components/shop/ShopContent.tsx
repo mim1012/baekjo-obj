@@ -8,6 +8,7 @@ import { Brand, Concern, Product } from '@/types';
 import { getDataBackedShopCategoryOptions, normalizeShopCategory } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
+import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
@@ -168,7 +169,10 @@ function ShopInner({ products, brands }: Props) {
   const paginatedProducts = filtered.slice(startIndex, endIndex);
 
   // 추천 상품은 페이지네이션과 분리해 전체를 가로 탐색한다.
-  const recommendedProducts = productsWithBrandNames.filter((p) => p.isRecommended || p.isBest);
+  const recommendedProducts = sortProductsByDisplayOrder(
+    productsWithBrandNames.filter((product) => product.isBest),
+    'dailyPickDisplayOrder',
+  );
 
   const makeHref = (key: string, value: string) => {
     const next = new URLSearchParams(searchParams.toString());

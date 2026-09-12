@@ -9,15 +9,31 @@ import { test, expect } from '@playwright/test';
 
 test('상품 목록 조회가 실패해도 장바구니(localStorage)는 지워지지 않는다', async ({ page }) => {
   const CART_KEY = 'baekjo_cart';
+  const USER_KEY = 'baekjo_user';
+  const user = {
+    id: 'cart-failure-member',
+    email: 'cart-failure@example.test',
+    name: '장바구니 회귀 회원',
+    role: 'user',
+    status: 'active',
+    provider: 'email',
+    emailVerified: true,
+  };
+
+  // 장바구니가 회원 전용이므로, DB 쓰기 없는 읽기 세션만 가로채 현재 회원 계약을 재현한다.
+  await page.route('**/api/members/me', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user }) }),
+  );
 
   // 실제 상품 존재 여부는 이 테스트의 관심사가 아니다 — "조회 실패 시 절대 안 지운다"만
   // 검증하면 되므로 임의의 productId로 카트를 미리 심어둔다.
   await page.goto('/');
   await page.evaluate(
-    ({ key }) => {
-      localStorage.setItem(key, JSON.stringify([{ productId: 'p1', optionId: undefined, quantity: 2 }]));
+    ({ cartKey, userKey, sessionUser }) => {
+      localStorage.setItem(userKey, JSON.stringify(sessionUser));
+      localStorage.setItem(cartKey, JSON.stringify([{ productId: 'p1', optionId: undefined, quantity: 2 }]));
     },
-    { key: CART_KEY },
+    { cartKey: CART_KEY, userKey: USER_KEY, sessionUser: user },
   );
 
   // /api/products 조회를 강제로 실패시킨다(네트워크 블립·일시 500 시뮬레이션).

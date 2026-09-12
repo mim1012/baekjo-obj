@@ -56,7 +56,11 @@ function breakdownForItem(
   item: OrderItem,
   breakdowns: readonly DeliveryFeeBreakdown[],
 ): DeliveryFeeBreakdown | undefined {
-  return item.brandId ? breakdowns.find((row) => row.brandId === item.brandId) : undefined;
+  if (!item.brandId) return undefined;
+  const sellerKey = item.sellerId ? `seller:${item.sellerId}` : undefined;
+  return breakdowns.find((row) => sellerKey && row.sellerKey
+    ? row.sellerKey === sellerKey
+    : row.brandId === item.brandId);
 }
 
 function brandNameForItem(

@@ -2,8 +2,8 @@ import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/l
 import BrandsContent from '@/components/brands/BrandsContent';
 
 export const metadata = {
-  title: '검증 브랜드',
-  description: '브랜드 철학부터 성분과 제조 과정까지 백조오브제가 살펴본 반려동물 브랜드를 소개합니다.',
+  title: '큐레이션 브랜드',
+  description: '공개 자료와 브랜드 제출 자료를 바탕으로 백조오브제의 자체 기준에 따라 살펴본 반려동물 브랜드를 소개합니다.',
   alternates: { canonical: '/brands' },
   openGraph: { url: '/brands' },
 };

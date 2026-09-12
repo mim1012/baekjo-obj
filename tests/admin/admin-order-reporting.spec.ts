@@ -158,3 +158,24 @@ test('Given a brand filter, When building the report, Then only that brand detai
   expect(report.overall).toEqual({ quantity: 2, productAmount: 14000, shipping: 3000, finalAmount: 17000 });
   expect(report.brands.map((brand) => brand.brandName)).toEqual(['알로밍']);
 });
+
+test('같은 브랜드의 판매자가 둘이면 두 판매자의 배송비를 정산 합계에 모두 포함한다', () => {
+  const multiSeller = order({
+    id: 'multi-seller',
+    items: [
+      { productId: 'a-1', productName: '판매자1 상품', quantity: 1, price: 10_000, brandId: 'brand-a', sellerId: 's1' },
+      { productId: 'a-2', productName: '판매자2 상품', quantity: 1, price: 20_000, brandId: 'brand-a', sellerId: 's2' },
+    ],
+    totalPrice: 30_000,
+    deliveryFee: 7_000,
+    deliveryFeeBreakdown: [
+      { brandId: 'brand-a', brandName: '페네핏', sellerKey: 'seller:s1', sellerName: '판매자 1', subtotal: 10_000, shippingFee: 3_000, appliedDeliveryFee: 3_000, isFreeShipping: false },
+      { brandId: 'brand-a', brandName: '페네핏', sellerKey: 'seller:s2', sellerName: '판매자 2', subtotal: 20_000, shippingFee: 4_000, appliedDeliveryFee: 4_000, isFreeShipping: false },
+    ],
+  });
+
+  const report = buildAdminOrderReport({ orders: [multiSeller], brands });
+  expect(report.detailRows.map((row) => row.shipping)).toEqual([3_000, 4_000]);
+  expect(report.overall).toEqual({ quantity: 2, productAmount: 30_000, shipping: 7_000, finalAmount: 37_000 });
+  expect(report.brands[0]?.total.shipping).toBe(7_000);
+});

@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signOut } from 'next-auth/react';
 import { User } from '@/types';
-import { setCurrentUser, updateMyProfile, withdrawAccount } from '@/lib/storage';
+import { getMyMarketingPreferences, setCurrentUser, updateMyMarketingPreferences, updateMyProfile, withdrawAccount } from '@/lib/storage';
 
 interface ProfileSectionProps {
   user: User | null;
@@ -37,6 +37,22 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState('');
+  const [marketing, setMarketing] = useState({ email: false, sms: false });
+  const [marketingLoading, setMarketingLoading] = useState(true);
+  const [marketingSaving, setMarketingSaving] = useState(false);
+  const [marketingMessage, setMarketingMessage] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    getMyMarketingPreferences().then((preferences) => {
+      if (active) setMarketing({ email: preferences.email, sms: preferences.sms });
+    }).catch(() => {
+      if (active) setMarketingMessage('마케팅 수신 설정을 불러오지 못했습니다.');
+    }).finally(() => {
+      if (active) setMarketingLoading(false);
+    });
+    return () => { active = false; };
+  }, []);
 
   if (!user) return null;
 
@@ -76,6 +92,20 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setIsSaved(false);
+  };
+
+  const saveMarketing = async () => {
+    setMarketingSaving(true);
+    setMarketingMessage('');
+    try {
+      const saved = await updateMyMarketingPreferences(marketing);
+      setMarketing({ email: saved.email, sms: saved.sms });
+      setMarketingMessage(!saved.email && !saved.sms ? '마케팅 수신 동의를 철회했습니다.' : '마케팅 수신 설정을 저장했습니다.');
+    } catch {
+      setMarketingMessage('마케팅 수신 설정을 저장하지 못했습니다.');
+    } finally {
+      setMarketingSaving(false);
+    }
   };
 
   return (
@@ -161,6 +191,18 @@ export default function ProfileSection({ user }: ProfileSectionProps) {
             </button>
           </div>
         </form>
+      </div>
+
+      <div className="mypage-card mt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div><h3 className="text-base font-bold text-[#18231F]">마케팅 수신 동의</h3><p className="mt-1 text-sm leading-6 text-[#68716C]">선택 동의이며 언제든 아래에서 채널별로 철회할 수 있습니다. 주문·배송 같은 필수 안내는 이 설정과 무관하게 발송될 수 있습니다.</p></div>
+          <span className="rounded-full bg-[#F2EEE5] px-3 py-1 text-xs font-semibold text-[#68716C]">선택</span>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-[#DED8CC] p-4"><span><strong className="block text-sm text-[#18231F]">이메일 수신</strong><span className="mt-1 block text-xs text-[#68716C]">신상품·이벤트 소식</span></span><input type="checkbox" disabled={marketingLoading || marketingSaving} checked={marketing.email} onChange={(event) => setMarketing((current) => ({ ...current, email: event.target.checked }))} className="size-4" /></label>
+          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-[#DED8CC] p-4"><span><strong className="block text-sm text-[#18231F]">문자 수신</strong><span className="mt-1 block text-xs text-[#68716C]">혜택·프로모션 소식</span></span><input type="checkbox" disabled={marketingLoading || marketingSaving} checked={marketing.sms} onChange={(event) => setMarketing((current) => ({ ...current, sms: event.target.checked }))} className="size-4" /></label>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-3">{marketingMessage && <p role="status" className="text-sm font-semibold text-[#A8742E]">{marketingMessage}</p>}<button type="button" onClick={() => void saveMarketing()} disabled={marketingLoading || marketingSaving} className="mp-btn-secondary disabled:opacity-50">{marketingSaving ? '저장 중…' : '수신 설정 저장'}</button></div>
       </div>
 
       <div className="mt-6 flex justify-end">

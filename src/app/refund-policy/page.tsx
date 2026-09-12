@@ -1,11 +1,14 @@
 import { COMPANY, DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import {
+  COMMERCE_LEGAL_EFFECTIVE_DATE,
+  NONCONFORMING_WITHDRAWAL_PERIOD,
+  STANDARD_WITHDRAWAL_PERIOD,
+} from '@/data/commerceLegal';
 
 export const metadata = {
   title: '배송·교환·환불 안내 | 백조오브제',
   description: '백조오브제 상품 배송, 교환, 반품, 환불 기준입니다.',
 };
-
-const EFFECTIVE_DATE = '2026년 7월 16일';
 
 export default function RefundPolicyPage() {
   return (
@@ -14,7 +17,7 @@ export default function RefundPolicyPage() {
         <div className="mx-auto max-w-3xl">
           <p className="page-eyebrow">Commerce Policy</p>
           <h1 className="mt-3 text-3xl font-bold text-[#202521] md:text-4xl">배송·교환·환불 안내</h1>
-          <p className="mt-4 text-sm text-[#6F766F]">시행일: {EFFECTIVE_DATE}</p>
+          <p className="mt-4 text-sm text-[#6F766F]">시행일: {COMMERCE_LEGAL_EFFECTIVE_DATE}</p>
 
           <div className="mt-10 space-y-10">
             <Article title="1. 배송 안내">
@@ -31,10 +34,11 @@ export default function RefundPolicyPage() {
             <Article title="2. 교환·반품 안내">
               <List
                 items={[
-                  '교환·반품 신청기간: 상품 수령일로부터 7일 이내 고객센터 또는 상품 문의를 통해 신청할 수 있습니다.',
+                  `청약철회 및 교환·반품 신청기간: ${STANDARD_WITHDRAWAL_PERIOD}`,
+                  NONCONFORMING_WITHDRAWAL_PERIOD,
                   '단순 변심에 따른 교환·반품 배송비는 고객 부담입니다. 상품 불량 또는 오배송의 경우 배송비는 판매자가 부담합니다.',
                   '반품 주소는 교환·반품 접수 시 고객센터에서 개별 안내합니다.',
-                  '상품을 사용했거나 훼손·오염된 경우, 구성품이 누락된 경우, 맞춤제작·신선식품 등 재판매가 어려운 상품은 교환·반품이 제한될 수 있습니다.',
+                  '상품을 사용했거나 훼손·오염된 경우, 구성품이 누락된 경우 등 관계 법령상 청약철회 제한 사유에 해당하면 교환·반품이 제한될 수 있습니다. 맞춤제작 상품은 사전 고지와 별도 동의 등 관계 법령에서 정한 요건을 갖춘 경우에만 제한됩니다.',
                 ]}
               />
             </Article>
@@ -45,7 +49,7 @@ export default function RefundPolicyPage() {
                   '반품 상품 회수 및 검수 완료 후 결제수단에 따라 환불이 진행됩니다.',
                   '신용카드 결제 취소는 카드사 정책에 따라 영업일 기준 3–7일 정도 소요될 수 있습니다.',
                   '무통장입금 주문은 환불 계좌 확인 후 영업일 기준 3일 이내 환불 처리합니다.',
-                  '표시·광고 내용과 다르거나 계약 내용과 다르게 이행된 경우 관련 법령에 따라 교환·반품·환불을 처리합니다.',
+                  '판매자 또는 회사의 책임이 있는 상품 불량·오배송·계약내용 불일치의 경우 관계 법령과 이용약관에 따라 환불하며, 소비자의 법정 권리를 제한하지 않습니다.',
                 ]}
               />
             </Article>

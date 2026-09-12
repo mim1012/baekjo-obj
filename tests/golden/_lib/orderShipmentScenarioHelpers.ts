@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { assertLocalhostAppRuntimeSupabaseRefMatchesTestRef } from '../../_lib/supabaseSafety';
+import { ensureGoldenVerifiedSeller } from './adminCrudHelpers';
 
 type AdminBrand = {
   id: string;
@@ -260,9 +261,11 @@ async function createBrand(page: Page, scenario: BrandScenario): Promise<string>
 
 async function createProduct(page: Page, scenario: BrandScenario): Promise<string> {
   if (!scenario.brandId) throw new Error(`${scenario.name} brandId가 없습니다.`);
+  const sellerId = await ensureGoldenVerifiedSeller(page);
   const response = await page.request.post('/api/admin/products', {
     data: {
       brandId: scenario.brandId,
+      sellerId,
       name: scenario.productName,
       price: 12000,
       rating: 0,
@@ -275,6 +278,22 @@ async function createProduct(page: Page, scenario: BrandScenario): Promise<strin
       image: PRODUCT_IMAGE,
       stock: 999,
       description: `${scenario.productName} 주문 배송 검증용 상품`,
+      disclosure: {
+        categoryCode: 'life',
+        schemaVersion: '2026-09-06',
+        values: {
+          productName: scenario.productName,
+          material: 'E2E 테스트 재질',
+          sizeAndWeight: 'E2E 테스트 크기와 중량',
+          color: 'E2E 테스트 색상',
+          manufacturer: 'E2E 테스트 제조자',
+          countryOfOrigin: '대한민국',
+          manufacturedAt: '테스트 실행 시점',
+          safety: 'E2E 테스트 안전 주의',
+          maintenance: 'E2E 테스트 관리 방법',
+          qualityAndSupport: '관련 법령 및 02-0000-0000',
+        },
+      },
       isVisible: true,
       isBest: false,
       isRecommended: false,

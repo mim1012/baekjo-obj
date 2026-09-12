@@ -7,6 +7,8 @@ import {
   ADMIN_PASSWORD,
   CRUD_ENABLED,
   bypassHeaders,
+  ensureGoldenVerifiedSeller,
+  fillProductCompliance,
   loginAsAdmin,
   selectProductBrand,
   selectProductFormOption,
@@ -76,11 +78,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 갤러리
     page.on('dialog', (dialog) => dialog.accept().catch(() => {}));
 
     await loginAsAdmin(page);
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
     await page.locator('#product-name').fill(name);
     await selectProductBrand(page, 'b1');
     await selectProductFormOption(page, '스토어 카테고리 선택');
     await selectProductFormOption(page, '라이프스타일 분류 선택');
+    await fillProductCompliance(page, sellerId);
     await page.getByRole('spinbutton').first().fill('10000');
     await page.locator('input[type="file"]').setInputFiles(mainImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });

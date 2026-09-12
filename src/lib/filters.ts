@@ -1,5 +1,6 @@
 import { Product } from '@/types';
 import { normalizeShopCategory } from '@/data/shopFilters';
+import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 
 export function filterProducts(
   products: Product[],
@@ -76,6 +77,9 @@ export function sortProducts(products: Product[], sort: SortOption): Product[] {
       return sorted.sort((a, b) => (b.salePrice ?? b.price ?? 0) - (a.salePrice ?? a.price ?? 0));
     case 'recommended':
     default:
-      return sorted.sort((a, b) => (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0));
+      return sortProductsByDisplayOrder(
+        sorted.sort((a, b) => (b.isRecommended ? 1 : 0) - (a.isRecommended ? 1 : 0)),
+        'storeDisplayOrder',
+      );
   }
 }

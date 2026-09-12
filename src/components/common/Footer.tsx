@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { COMPANY } from '@/data/company';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
 
@@ -60,6 +61,8 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
             </div>
           </div>
         </div>
+
+        <MarketplaceNotice variant="dark" className="mt-10" />
 
         <div className="mt-10 flex flex-col gap-3 border-t border-[#FBFAF7]/10 pt-6 text-xs md:flex-row md:items-end md:justify-between">
           <div>

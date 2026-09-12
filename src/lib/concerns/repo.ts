@@ -7,7 +7,8 @@ import {
   defaultConcernsConfig,
   type ConcernsConfig,
 } from '@/lib/concerns/config';
-import { logServerError } from '@/lib/logServerError';
+import { isMissingSupabaseEnvironmentError, logServerError } from '@/lib/logServerError';
+import { getCanonicalPublicConcernsConfig } from '@/lib/public-dev-fallback';
 
 const CONFIG_ROW_ID = 'default';
 
@@ -54,7 +55,11 @@ export async function getConcernsConfigWithFallback(): Promise<ConcernsConfig> {
     );
   } catch (error) {
     logServerError('[concerns/repo] 조회 실패 — defaultConcernsConfig 로 폴백', error);
-    return applySourceConcernFaqCopy(applySourceConcernCardCopy(defaultConcernsConfig));
+    const fallback =
+      process.env.NODE_ENV === 'development' && isMissingSupabaseEnvironmentError(error)
+        ? (await getCanonicalPublicConcernsConfig()) ?? defaultConcernsConfig
+        : defaultConcernsConfig;
+    return applySourceConcernFaqCopy(applySourceConcernCardCopy(fallback));
   }
 }
 

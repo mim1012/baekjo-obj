@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">백조 오브제 판매자 정보부터 고객 사후처리까지의 전체 흐름</title>
+  <desc id="desc">관리자가 판매자와 상품 필수정보를 입력하면 데이터베이스에 저장되고 상품카드, 상세, 판매자 정보, 장바구니, 주문동의, 주문완료, 마이페이지로 이어지는 구조를 나타낸다.</desc>
+  <defs>
+    <style>
+      .title{font:700 38px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#17211D}
+      .sub{font:400 18px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#59615B}
+      .lane{font:700 20px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#17211D}
+      .step{font:700 21px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#17211D}
+      .body{font:400 16px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#465049}
+      .small{font:400 14px 'Malgun Gothic','Apple SD Gothic Neo',sans-serif;fill:#59615B}
+      .white{fill:#fff}
+      .box{fill:#fff;stroke:#D8D3C8;stroke-width:2}
+      .admin{fill:#EEF3EC;stroke:#92A18F;stroke-width:2}
+      .data{fill:#FFF7E8;stroke:#C79D55;stroke-width:2}
+      .customer{fill:#F7F3EE;stroke:#B89B76;stroke-width:2}
+      .after{fill:#F0F3F6;stroke:#8796A5;stroke-width:2}
+      .gate{fill:#FFF1EF;stroke:#B86C61;stroke-width:2}
+      .arrow{fill:none;stroke:#68776C;stroke-width:3;marker-end:url(#head)}
+      .dash{fill:none;stroke:#9A958B;stroke-width:2;stroke-dasharray:8 7;marker-end:url(#headMuted)}
+    </style>
+    <marker id="head" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#68776C"/></marker>
+    <marker id="headMuted" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#9A958B"/></marker>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%"><feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#17211D" flood-opacity=".10"/></filter>
+  </defs>
+
+  <rect width="1600" height="1120" fill="#FBFAF7"/>
+  <text x="80" y="72" class="title">관리자 입력 → 고객 노출 → 실제 주문·사후처리</text>
+  <text x="80" y="108" class="sub">문구만 보여주는 구조가 아니라, 저장·검증·동의 증적·재고 차감까지 연결합니다.</text>
+
+  <rect x="70" y="145" width="330" height="52" rx="16" fill="#DEE9DB"/>
+  <text x="235" y="178" text-anchor="middle" class="lane">① 관리자 준비</text>
+  <rect x="455" y="145" width="300" height="52" rx="16" fill="#F7E4BA"/>
+  <text x="605" y="178" text-anchor="middle" class="lane">② API·DB 안전장치</text>
+  <rect x="810" y="145" width="340" height="52" rx="16" fill="#EDE2D4"/>
+  <text x="980" y="178" text-anchor="middle" class="lane">③ 고객 구매 화면</text>
+  <rect x="1205" y="145" width="325" height="52" rx="16" fill="#DFE7EE"/>
+  <text x="1368" y="178" text-anchor="middle" class="lane">④ 주문 후 처리</text>
+
+  <g filter="url(#shadow)">
+    <rect x="70" y="230" width="330" height="190" rx="22" class="admin"/>
+    <circle cx="108" cy="270" r="21" fill="#52664F"/><text x="108" y="277" text-anchor="middle" class="step white">1</text>
+    <text x="142" y="278" class="step">실제 판매자 등록</text>
+    <text x="100" y="320" class="body">• 법적 상호·대표자·사업자번호</text>
+    <text x="100" y="350" class="body">• 통신판매번호·주소·연락처</text>
+    <text x="100" y="380" class="body">• 작성 중 / 검증 완료 / 판매 중지</text>
+
+    <rect x="70" y="460" width="330" height="250" rx="22" class="admin"/>
+    <circle cx="108" cy="500" r="21" fill="#52664F"/><text x="108" y="507" text-anchor="middle" class="step white">2</text>
+    <text x="142" y="508" class="step">상품에 판매자 연결</text>
+    <text x="100" y="550" class="body">• 6개 상품군별 필수정보 입력</text>
+    <text x="100" y="580" class="body">• 배송·출고·교환반품 조건</text>
+    <text x="100" y="610" class="body">• 주문제작 제작·사진 정책</text>
+    <rect x="98" y="641" width="274" height="43" rx="10" fill="#FFF1EF"/>
+    <text x="235" y="668" text-anchor="middle" class="small">필수정보가 없으면 공개 판매 차단</text>
+
+    <rect x="455" y="230" width="300" height="205" rx="22" class="data"/>
+    <text x="605" y="274" text-anchor="middle" class="step">판매자·상품 DB 저장</text>
+    <text x="485" y="318" class="body">sellers</text>
+    <text x="485" y="348" class="body">products.seller_id</text>
+    <text x="485" y="378" class="body">products.disclosure</text>
+    <text x="485" y="408" class="body">made_to_order_policy</text>
+
+    <rect x="455" y="475" width="300" height="235" rx="22" class="data"/>
+    <text x="605" y="519" text-anchor="middle" class="step">서버가 결제 직전 재검증</text>
+    <text x="485" y="562" class="body">• 검증 완료 판매자인가?</text>
+    <text x="485" y="592" class="body">• 필수 상품정보가 완성됐나?</text>
+    <text x="485" y="622" class="body">• 재고·가격·옵션이 유효한가?</text>
+    <text x="485" y="652" class="body">• 모든 필수 동의가 정확한가?</text>
+    <text x="605" y="685" text-anchor="middle" class="small">하나라도 아니면 주문 생성 안 함</text>
+
+    <rect x="810" y="230" width="340" height="155" rx="22" class="customer"/>
+    <circle cx="848" cy="270" r="21" fill="#9C784B"/><text x="848" y="277" text-anchor="middle" class="step white">3</text>
+    <text x="882" y="278" class="step">상품·판매자 상세</text>
+    <text x="840" y="320" class="body">가격 가까이에 실제 법적 판매자 표시</text>
+    <text x="840" y="350" class="body">별도 판매자정보 + 상품정보고시 노출</text>
+
+    <rect x="810" y="420" width="340" height="170" rx="22" class="customer"/>
+    <circle cx="848" cy="460" r="21" fill="#9C784B"/><text x="848" y="467" text-anchor="middle" class="step white">4</text>
+    <text x="882" y="468" class="step">장바구니</text>
+    <text x="840" y="510" class="body">판매자별 상품·배송비·출고·반품 묶음</text>
+    <text x="840" y="540" class="body">여러 판매자면 각각 계산하고 합산</text>
+    <text x="840" y="570" class="small">품절·준비 중 상품이 있으면 주문 차단</text>
+
+    <rect x="810" y="625" width="340" height="245" rx="22" class="customer"/>
+    <circle cx="848" cy="665" r="21" fill="#9C784B"/><text x="848" y="672" text-anchor="middle" class="step white">5</text>
+    <text x="882" y="673" class="step">주문서 필수 동의</text>
+    <text x="840" y="715" class="body">• 판매자마다 개인정보 제공 동의</text>
+    <text x="840" y="745" class="body">• 이용약관 확인과 별도 구분</text>
+    <text x="840" y="775" class="body">• 주문제작 상품은 추가 별도 동의</text>
+    <rect x="838" y="806" width="284" height="42" rx="10" fill="#FFF1EF"/>
+    <text x="980" y="832" text-anchor="middle" class="small">체크가 빠지면 결제 버튼 비활성화</text>
+
+    <rect x="1205" y="230" width="325" height="180" rx="22" class="after"/>
+    <circle cx="1243" cy="270" r="21" fill="#647789"/><text x="1243" y="277" text-anchor="middle" class="step white">6</text>
+    <text x="1277" y="278" class="step">주문 생성</text>
+    <text x="1235" y="320" class="body">주문 + 재고 차감을 한 번에 처리</text>
+    <text x="1235" y="350" class="body">동의 문구·시각·해시를 증적으로 저장</text>
+    <text x="1235" y="380" class="small">재고 1개면 동시 주문도 1건만 성공</text>
+
+    <rect x="1205" y="450" width="325" height="185" rx="22" class="after"/>
+    <circle cx="1243" cy="490" r="21" fill="#647789"/><text x="1243" y="497" text-anchor="middle" class="step white">7</text>
+    <text x="1277" y="498" class="step">결제와 판매자 수락 분리</text>
+    <text x="1235" y="540" class="body">결제·입금 상태</text>
+    <text x="1235" y="570" class="body">≠ 판매자 접수 대기·수락·거절</text>
+    <text x="1235" y="602" class="small">관리자가 판매자별 상태와 메모 처리</text>
+
+    <rect x="1205" y="675" width="325" height="195" rx="22" class="after"/>
+    <circle cx="1243" cy="715" r="21" fill="#647789"/><text x="1243" y="722" text-anchor="middle" class="step white">8</text>
+    <text x="1277" y="723" class="step">마이페이지 사후처리</text>
+    <text x="1235" y="765" class="body">취소 + 판매자별 교환·반품 순차 처리</text>
+    <text x="1235" y="795" class="body">마케팅 철회·후기 조회/수정/삭제</text>
+    <text x="1235" y="825" class="small">탈퇴 시 개인정보·토큰·마케팅 함께 정리</text>
+  </g>
+
+  <path d="M400 325 H455" class="arrow"/>
+  <path d="M400 585 H455" class="arrow"/>
+  <path d="M755 330 H810" class="arrow"/>
+  <path d="M980 385 V420" class="arrow"/>
+  <path d="M980 590 V625" class="arrow"/>
+  <path d="M1150 748 H1175 V320 H1205" class="arrow"/>
+  <path d="M1368 410 V450" class="arrow"/>
+  <path d="M1368 635 V675" class="arrow"/>
+  <path d="M1205 550 H1178 V930 H610 V710" class="dash"/>
+
+  <rect x="70" y="920" width="1460" height="135" rx="24" class="box"/>
+  <text x="105" y="963" class="step">운영 공개 전 꼭 필요한 실제 자료</text>
+  <text x="105" y="1003" class="body">판매자 법정 사업자정보 · 상품별 고시 원문 · 판매자별 배송/반품 조건 · 주문제작 제작/사진 정책</text>
+  <text x="105" y="1035" class="small">자료가 없는 기존 상품은 임의 값으로 채우지 않고 “판매 준비 중”으로 유지합니다. 실제 쓰기 테스트는 staging에서만 진행합니다.</text>
+</svg>

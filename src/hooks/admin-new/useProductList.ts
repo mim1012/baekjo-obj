@@ -13,7 +13,7 @@ export type ProductFilterState = {
   isVisible: string; // 'all', 'true', 'false'
   isRecommended: string; // 'all', 'true', 'false'
   isBest: string; // 'all', 'true', 'false'
-  missing: string; // 'all', 'stock', 'price', 'image', 'detail', 'any'
+  missing: string; // 'all', 'stock', 'price', 'image', 'detail', 'seller', 'any'
 };
 
 export const defaultFilters: ProductFilterState = {
@@ -102,6 +102,7 @@ export function useProductList(
         const isMissingStock = p.stock <= 0;
         const isMissingPrice = p.price === null || p.price === undefined || p.price <= 0;
         const isMissingImage = !p.image || p.image.trim() === '';
+        const isMissingSeller = !p.sellerId;
         
         const hasDetailBlocks = p.detailBlocks && p.detailBlocks.length > 0;
         const hasDescription = p.description && p.description.trim() !== '';
@@ -111,7 +112,8 @@ export function useProductList(
         if (filters.missing === 'price' && !isMissingPrice) return false;
         if (filters.missing === 'image' && !isMissingImage) return false;
         if (filters.missing === 'detail' && !isMissingDetail) return false;
-        if (filters.missing === 'any' && !isMissingStock && !isMissingPrice && !isMissingImage && !isMissingDetail) return false;
+        if (filters.missing === 'seller' && !isMissingSeller) return false;
+        if (filters.missing === 'any' && !isMissingStock && !isMissingPrice && !isMissingImage && !isMissingDetail && !isMissingSeller) return false;
       }
       
       return true;

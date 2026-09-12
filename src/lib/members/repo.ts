@@ -1,6 +1,5 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
 import { isMemberProfileComplete } from '@/lib/members/profile';
 import type { User } from '@/types';
 
@@ -395,26 +394,16 @@ export async function approvePartnerMember(
 
 /**
  * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터·
- * 비밀번호 해시·소셜 provider_id·b2b 컬럼 — buildWithdrawalPatch 참고).
+ * 비밀번호 해시·소셜 provider_id·b2b 컬럼).
  * 주문 이력은 삭제하지 않는다 — 전자상거래법 등 거래기록 보존 의무 때문에 소프트 탈퇴로만 처리한다.
  * 이미 탈퇴한 회원(status가 이미 'withdrawn')을 다시 호출해도 멱등하게 true를 반환한다.
  * 이메일은 unique 제약이 있으므로 회원 id를 박아 재사용 불가능한 고정 문자열로 치환한다.
  *
- * member_tokens(0002_email_tokens.sql — 이메일 인증/비밀번호 재설정 토큰)의 잔존 행도 함께
- * 지운다. 탈퇴 후에는 로그인 자체가 불가하니 악용 경로는 아니지만, PII 잔존을 남기지 않는다
- * (§HIGH-2 — opus 리뷰).
+ * withdraw_member RPC가 개인정보 익명화, member_tokens 삭제, 마케팅 수신 철회와 이력 기록을
+ * 같은 트랜잭션에서 실행한다. 중간 단계가 실패하면 모두 롤백된다.
  */
 export async function withdrawMember(id: string): Promise<boolean> {
-  const { data, error } = await getSupabase()
-    .from('members')
-    .update(buildWithdrawalPatch(id))
-    .eq('id', id)
-    .select('id')
-    .maybeSingle();
+  const { data, error } = await getSupabase().rpc('withdraw_member', { p_member_id: id });
   if (error) throw error;
-
-  const { error: tokensError } = await getSupabase().from('member_tokens').delete().eq('member_id', id);
-  if (tokensError) throw tokensError;
-
-  return data !== null;
+  return data === true;
 }

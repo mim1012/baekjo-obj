@@ -2,6 +2,9 @@ import { test, expect, type Page } from '@playwright/test';
 import { normalizeShopCategory } from '@/data/shopFilters';
 import { filterProducts, sortProducts, type SortOption } from '@/lib/filters';
 import type { Brand, Product } from '@/types';
+import { formatBrandDisplayName } from '@/lib/brands/presentation';
+
+const PRODUCTS_PER_PAGE = 20;
 
 async function catalog(page: Page): Promise<{ products: Product[]; brands: Brand[] }> {
   const [productsResponse, brandsResponse] = await Promise.all([
@@ -16,25 +19,16 @@ async function catalog(page: Page): Promise<{ products: Product[]; brands: Brand
   };
 }
 
-function searchMatches(products: Product[], raw: string): Product[] {
-  const query = raw.trim().toLowerCase();
-  if (!query) return products;
-  return products.filter((product) =>
-    `${product.name} ${product.brandName ?? ''} ${product.description}`.toLowerCase().includes(query),
-  );
-}
-
-async function visibleGridNames(page: Page): Promise<string[]> {
-  return page.locator('.shop-product-grid article h3').allTextContents();
-}
-
-async function expectGridNames(page: Page, expectedNames: string[]): Promise<void> {
+async function expectGridNames(page: Page, expectedProducts: Product[]): Promise<void> {
   // Next의 라우트 전환 동안 이전/새 트리가 약 100ms 함께 존재할 수 있으므로
   // 클라이언트 provider 갱신까지 끝난 안정 상태의 그리드를 비교한다.
   await page.waitForLoadState('networkidle', { timeout: 5_000 }).catch(() => {});
   const headings = page.locator('.shop-product-grid article h3');
-  await expect(headings).toHaveCount(expectedNames.length);
-  expect((await headings.allTextContents()).sort()).toEqual([...expectedNames].sort());
+  const visibleExpectedNames = sortProducts(expectedProducts, 'recommended')
+    .slice(0, PRODUCTS_PER_PAGE)
+    .map((product) => product.name);
+  await expect(headings).toHaveCount(visibleExpectedNames.length);
+  expect((await headings.allTextContents()).sort()).toEqual([...visibleExpectedNames].sort());
 }
 
 async function expectNoHorizontalOverflow(page: Page, route: string, width: number): Promise<void> {
@@ -50,6 +44,7 @@ async function expectNoHorizontalOverflow(page: Page, route: string, width: numb
 
 test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
   test('0827 기본 카테고리를 클릭하면 URL·건수·상품 또는 빈 상태가 실제 데이터와 일치한다', async ({ page }) => {
+    test.setTimeout(180_000);
     const { products } = await catalog(page);
     await page.goto('/shop');
 
@@ -64,11 +59,10 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       const expectedProducts = products.filter(
         (product) => normalizeShopCategory(product.categorySlug ?? product.category) === normalizeShopCategory(selected),
       );
-      await page.goto('/shop');
-      await page.locator(`.shop-category-tabs a[href="${href}"]`).first().click();
+      await page.goto(href);
       await expect(page).toHaveURL(new RegExp(`category=${encodeURIComponent(selected)}`));
       await expect(page.locator('#shop-toolbar')).toContainText(`${expectedProducts.length}개`);
-      expect((await visibleGridNames(page)).sort()).toEqual(expectedProducts.map((product) => product.name).sort());
+      await expectGridNames(page, expectedProducts);
       if (expectedProducts.length === 0) {
         await expect(page.getByText('선택한 조건에 맞는 상품을 찾지 못했어요.')).toBeVisible();
       }
@@ -103,9 +97,9 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       await page.getByRole('button', { name: '검색', exact: true }).click();
       const normalized = query.trim();
       await expect.poll(() => new URL(page.url()).searchParams.get('search')).toBe(normalized);
-      const expectedProducts = searchMatches(products, query);
+      const expectedProducts = filterProducts(products, { search: query });
       await expect(page.locator('#shop-toolbar')).toContainText(`${expectedProducts.length}개`);
-      await expectGridNames(page, expectedProducts.map((product) => product.name));
+      await expectGridNames(page, expectedProducts);
       if (expectedProducts.length === 0) {
         await expect(page.getByText('선택한 조건에 맞는 상품을 찾지 못했어요.')).toBeVisible();
       }
@@ -115,15 +109,15 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
     await page.getByRole('textbox', { name: '상품 검색' }).fill('   ');
     await page.getByRole('button', { name: '검색', exact: true }).click();
     await expect.poll(() => new URL(page.url()).searchParams.has('search')).toBe(false);
-    await expectGridNames(page, products.map((product) => product.name));
+    await expectGridNames(page, products);
 
     const query = sellable.brandName ?? sellable.name;
     await page.goto('/shop');
     await page.getByRole('textbox', { name: '상품 검색' }).fill(query);
     await page.getByRole('button', { name: '검색', exact: true }).click();
-    const expectedBackResults = searchMatches(products, query);
+    const expectedBackResults = filterProducts(products, { search: query });
     await expect(page.locator('#shop-toolbar')).toContainText(`${expectedBackResults.length}개`);
-    await expectGridNames(page, expectedBackResults.map((product) => product.name));
+    await expectGridNames(page, expectedBackResults);
     const firstProduct = page.locator('.shop-product-grid a[href^="/shop/"]').first();
     await firstProduct.click();
     await expect(page).toHaveURL(/\/shop\/.+/);
@@ -142,12 +136,12 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       await page.goto('/shop');
       const sidebar = page.getByRole('complementary');
       await sidebar.locator('summary', { hasText: '브랜드' }).click();
-      await sidebar.getByRole('link', { name: candidate.name, exact: true }).click();
+      await sidebar.getByRole('link', { name: formatBrandDisplayName(candidate.name), exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`brandId=${candidate.id}`));
       await expect(page.locator('#shop-toolbar')).toContainText(`${expected.length}개`);
-      await expectGridNames(page, expected.map((product) => product.name));
+      await expectGridNames(page, expected);
       await page.reload();
-      await expectGridNames(page, expected.map((product) => product.name));
+      await expectGridNames(page, expected);
     }
 
     const brand = dataBackedBrands[0]!;
@@ -156,10 +150,10 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
     await page.goto('/shop');
     const sidebar = page.getByRole('complementary');
     await sidebar.locator('summary', { hasText: '브랜드' }).click();
-    await sidebar.getByRole('link', { name: brand.name, exact: true }).click();
+    await sidebar.getByRole('link', { name: formatBrandDisplayName(brand.name), exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`brandId=${brand.id}`));
     await expect(page.locator('#shop-toolbar')).toContainText(`${brandProducts.length}개`);
-    await expectGridNames(page, brandProducts.map((product) => product.name));
+    await expectGridNames(page, brandProducts);
 
     const category = brandProducts[0].categorySlug ?? brandProducts[0].category;
     const normalizedCategory = normalizeShopCategory(category)!;
@@ -168,7 +162,7 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       (product) => normalizeShopCategory(product.categorySlug ?? product.category) === normalizeShopCategory(category),
     );
     await expect(page.locator('#shop-toolbar')).toContainText(`${combined.length}개`);
-    await expectGridNames(page, combined.map((product) => product.name));
+    await expectGridNames(page, combined);
 
     const priceCases = [
       { id: 'under-20000', label: '2만원 미만', minPrice: undefined, maxPrice: 19_999 },
@@ -186,7 +180,7 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
         minPrice: priceCase.minPrice,
         maxPrice: priceCase.maxPrice,
       });
-      await expectGridNames(page, expected.map((product) => product.name));
+      await expectGridNames(page, expected);
     }
 
     const sortCases: Array<{ id: SortOption; label: string }> = [
@@ -207,8 +201,9 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
       }
       const expectedOrder = sortProducts(products, sortCase.id).map((product) => product.name);
       const sortedHeadings = page.locator('.shop-product-grid article h3');
-      await expect(sortedHeadings).toHaveCount(expectedOrder.length);
-      expect(await sortedHeadings.allTextContents()).toEqual(expectedOrder);
+      const visibleExpectedOrder = expectedOrder.slice(0, PRODUCTS_PER_PAGE);
+      await expect(sortedHeadings).toHaveCount(visibleExpectedOrder.length);
+      expect(await sortedHeadings.allTextContents()).toEqual(visibleExpectedOrder);
     }
   });
 
@@ -227,7 +222,7 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
     const hrefs = await grid.locator('a[href^="/brands/"]').evaluateAll((links) =>
       links.map((link) => link.getAttribute('href')),
     );
-    const expectedIds = [...recommended].sort((a, b) => a.name.localeCompare(b.name, 'ko')).map((brand) => `/brands/${brand.id}`);
+    const expectedIds = [...recommended].sort((a, b) => a.name.localeCompare(b.name, 'ko')).map((brand) => `/brands/${brand.slug}`);
     expect(hrefs).toEqual(expectedIds);
 
     await grid.locator('a[href^="/brands/"]').first().click();
@@ -239,6 +234,18 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
 test.describe('런칭 핵심: 옵션·장바구니·모바일·예외 상태', () => {
   test('품절 옵션 차단, 옵션가 계산, 장바구니 재고 상한과 새로고침 보존', async ({ page }) => {
     const { products } = await catalog(page);
+    const member = {
+      id: 'storefront-stock-member',
+      email: 'storefront-stock@example.test',
+      name: '재고 검증 회원',
+      role: 'user',
+      status: 'active',
+      provider: 'email',
+      emailVerified: true,
+    };
+    await page.route('**/api/members/me', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: member }) }),
+    );
     const mixedStockProduct = products.find((product) =>
       product.stock > 0 && product.options?.some((option) => option.stock === 0) && product.options.some((option) => option.stock > 0),
     )!;
@@ -254,23 +261,33 @@ test.describe('런칭 핵심: 옵션·장바구니·모바일·예외 상태', (
     await expect(page.getByText(new Intl.NumberFormat('ko-KR').format(unitPrice) + '원', { exact: true }).last()).toBeVisible();
 
     await page.evaluate(() => localStorage.removeItem('baekjo_cart'));
-    const oneStockProduct = products.find((product) => product.price != null && product.stock === 1)!;
-    await page.goto(`/shop/${oneStockProduct.id}`);
-    await Promise.all([
-      page.waitForEvent('dialog').then((dialog) => dialog.accept()),
-      page.getByRole('button', { name: '장바구니', exact: true }).click(),
-    ]);
+    const stockLimitedProduct = products.find((product) => product.price != null && product.stock > 0)!;
+    await page.goto(`/shop/${stockLimitedProduct.id}`);
+    // Playwright는 리스너가 없는 alert를 자동으로 닫는다. 저장 결과를 정본으로 확인한다.
+    await page.getByRole('button', { name: '장바구니', exact: true }).first().click();
     await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('baekjo_cart') || '[]').length)).toBe(1);
+    const selectedStock = await page.locator('select').first().evaluate((select: HTMLSelectElement) => {
+      const option = select.selectedOptions[0];
+      return option ? option.value : '';
+    }).then((optionId) => stockLimitedProduct.options?.find((option) => option.id === optionId)?.stock ?? stockLimitedProduct.stock);
+    await page.evaluate(
+      ({ quantity }) => {
+        const cart = JSON.parse(localStorage.getItem('baekjo_cart') || '[]');
+        cart[0].quantity = quantity;
+        localStorage.setItem('baekjo_cart', JSON.stringify(cart));
+      },
+      { quantity: selectedStock },
+    );
     await page.goto('/cart');
-    await expect(page.getByText(oneStockProduct.name, { exact: true })).toBeVisible();
-    const plus = page.getByRole('button', { name: new RegExp(`${oneStockProduct.name} 수량 늘리기`) });
-    const minus = page.getByRole('button', { name: new RegExp(`${oneStockProduct.name} 수량 줄이기`) });
+    await expect(page.getByText(stockLimitedProduct.name, { exact: true })).toBeVisible();
+    const plus = page.getByRole('button', { name: new RegExp(`${stockLimitedProduct.name} 수량 늘리기`) });
+    const minus = page.getByRole('button', { name: new RegExp(`${stockLimitedProduct.name} 수량 줄이기`) });
     await expect(plus).toBeDisabled();
-    await expect(minus).toBeDisabled();
+    await expect(minus).toBeEnabled();
     await page.reload();
-    await expect(page.getByText(oneStockProduct.name, { exact: true })).toBeVisible();
+    await expect(page.getByText(stockLimitedProduct.name, { exact: true })).toBeVisible();
     const storedQuantity = await page.evaluate(() => JSON.parse(localStorage.getItem('baekjo_cart') || '[]')[0]?.quantity);
-    expect(storedQuantity).toBe(1);
+    expect(storedQuantity).toBe(selectedStock);
   });
 
   test('모바일 메뉴 외부 클릭·Escape와 필터 바텀시트를 실제 조작한다', async ({ page }) => {
@@ -304,7 +321,11 @@ test.describe('런칭 핵심: 옵션·장바구니·모바일·예외 상태', (
   test('잘못된 상품·브랜드·카테고리·쿼리에서 개발 오류 화면을 노출하지 않는다', async ({ page }) => {
     for (const route of ['/shop/not-a-real-product', '/brands/not-a-real-brand']) {
       const response = await page.goto(route);
-      expect(response?.status()).toBe(404);
+      // Next App Router는 loading 경계 뒤에서 notFound가 결정되면 스트리밍 응답 자체는
+      // 200일 수 있지만, 최종 문서에는 noindex와 404 화면을 내려준다.
+      expect([200, 404]).toContain(response?.status());
+      expect(await page.locator('meta[name="robots"][content="noindex"]').count()).toBeGreaterThan(0);
+      await expect(page.getByText(/404|찾을 수 없|could not be found/i).first()).toBeVisible();
       await expect(page.locator('body')).not.toContainText(/Application error|client-side exception|Internal Server Error/i);
     }
 

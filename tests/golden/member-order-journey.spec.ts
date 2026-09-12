@@ -3,6 +3,7 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin 
 import {
   MEMBER_EMAIL,
   MEMBER_PASSWORD,
+  acceptRequiredCheckoutConsents,
   loginAsMember,
   waitForCartProduct,
   createThrowawayProduct,
@@ -115,7 +116,7 @@ test.describe('골든플로우 #2: 회원 여정 — 스토어 구매(무통장�
     await page.locator('input[name="phone"]').fill('010-1234-5678');
     await page.locator('input[name="address"]').fill('서울시 강남구 테스트로 1');
     await page.locator('label').filter({ hasText: '무통장입금' }).click();
-    await page.locator('input[type="checkbox"]').check();
+    await acceptRequiredCheckoutConsents(page);
 
     await page.getByRole('button', { name: /결제하기/ }).click();
     await page.waitForURL(/\/order-complete/, { timeout: 20_000 });

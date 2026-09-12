@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, GripVertical, Image as ImageIcon, Images, Type, Trash2, LayoutTemplate } from 'lucide-react';
 import { Reorder, useDragControls, type PanInfo } from 'framer-motion';
@@ -38,6 +39,15 @@ const createKeyedBlock = (block: ProductDetailBlock): KeyedBlock => ({
   block,
 });
 
+const createInitialKeyedBlock = (
+  block: ProductDetailBlock,
+  index: number,
+  productId: string,
+): KeyedBlock => ({
+  key: `${productId}-initial-${index}`,
+  block,
+});
+
 // 드래그 중 포인터가 스크롤 컨테이너 가장자리 이 거리 안으로 들어오면 자동 스크롤한다.
 const AUTO_SCROLL_EDGE_PX = 60;
 const AUTO_SCROLL_SPEED_PX = 12;
@@ -51,7 +61,7 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
   // 기본적으로 빈 배열이 아니면 복사해서 사용, 없으면 빈 배열
   const [keyedBlocks, setKeyedBlocks] = useState<KeyedBlock[]>(() =>
     product.detailBlocks && product.detailBlocks.length > 0
-      ? product.detailBlocks.map(createKeyedBlock)
+      ? product.detailBlocks.map((block, index) => createInitialKeyedBlock(block, index, product.id))
       : []
   );
   const [isSaving, setIsSaving] = useState(false);
@@ -242,6 +252,21 @@ export default function ProductDetailEditor({ product }: ProductDetailEditorProp
           <ArrowLeft size={16} /> 돌아가기
         </button>
       </PageHeader>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-[#DCE5DD] bg-[#F5F8F5] p-4">
+        <div>
+          <p className="text-sm font-semibold text-[#17201B]">
+            실제 판매자 · {product.seller?.displayName || product.sellerName || '미지정'}
+          </p>
+          <p className="mt-1 text-xs text-[#68756C]">판매 계약·배송·교환·반품 책임 판매자는 상품 기본정보에서 변경합니다.</p>
+        </div>
+        <Link
+          href={`/admin/products/${product.id}#actual-seller`}
+          className="rounded border border-[#B9824D] bg-white px-3 py-2 text-xs font-semibold text-[#8A501B] hover:bg-[#FFF9F1]"
+        >
+          실제 판매자 변경
+        </Link>
+      </div>
 
       {error && (
         <div className="p-4 bg-red-50 text-red-600 rounded-md border border-red-200 text-[13px] font-medium">

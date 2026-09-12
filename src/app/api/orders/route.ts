@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { createHash } from 'node:crypto';
 import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import {
-  insertOrder,
-  deleteOrderById,
-  decrementStockForOrder,
+  createOrderWithInventory,
   type InsertOrderInput,
 } from '@/lib/orders/repo';
 import { listProductsByIds } from '@/lib/products/repo';
@@ -16,6 +15,8 @@ import { checkOrderRateLimit, orderRateLimitKey } from '@/lib/orders/rateLimit';
 import { calcBrandDeliveryFee } from '@/lib/orderPolicy';
 import type { Brand, OrderItem, Product } from '@/types';
 import { FEATURES } from '@/config/features';
+import { buildConsentRecords, buildOrderSellerGroups, validateCheckoutConsentClaims } from '@/lib/orders/compliance';
+import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
 
 // 거대 페이로드 방어(App Router 는 기본 본문 크기 제한이 없다).
 const MAX_ITEMS = 100;
@@ -93,15 +94,29 @@ function validate(
     if (!product) return null;
     const resolved = resolveOrderItem(shape, product);
     if (!resolved.ok) return null;
-    items.push(resolved.item);
+    items.push({
+      ...resolved.item,
+      ...(product.sellerId ? { sellerId: product.sellerId } : {}),
+      ...(product.seller?.displayName || product.sellerName
+        ? { sellerName: product.seller?.displayName || product.sellerName }
+        : {}),
+    });
   }
 
   const subtotal = items.reduce((sum, it) => sum + it.price * it.quantity, 0);
   const deliveryFeeCalculation = calcBrandDeliveryFee(
-    items.map((item) => ({
-      brandId: item.brandId ?? '',
-      totalPrice: item.price * item.quantity,
-    })),
+    items.map((item) => {
+      const seller = productMap.get(item.productId)?.seller;
+      return {
+        brandId: item.brandId ?? '',
+        sellerKey: item.sellerId ? `seller:${item.sellerId}` : `brand:${item.brandId || 'unknown'}`,
+        brandName: brands.find((brand) => brand.id === item.brandId)?.name,
+        sellerName: seller?.displayName,
+        totalPrice: item.price * item.quantity,
+        shippingFee: seller?.shippingFee,
+        freeShippingThreshold: seller?.freeShippingThreshold,
+      };
+    }),
     brands,
   );
   // 실제 '결제완료' 승격은 결제 게이트/웹훅에서만. 생성 시엔 대기 상태로 고정한다.
@@ -151,7 +166,7 @@ function extractProductIds(body: unknown): string[] {
  * POST /api/orders — 주문 생성(회원 전용).
  * 세션의 member_id를 서버가 부여한다. id/createdAt/member_id 및
  * 결제·주문·배송 상태와 금액(totalPrice/deliveryFee)은 본문을 신뢰하지 않고 서버가 정한다(mass-assignment·결제 위조 차단).
- * 생성→차감 순서. 차감 실패 시 방금 만든 주문을 삭제(보상)해 유령 주문을 남기지 않는다.
+ * 주문 insert·재고 차감·판매자별 접수 상태 생성을 하나의 DB 트랜잭션으로 처리한다.
  */
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -221,29 +236,47 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  try {
-    const order = await insertOrder(validated, memberId);
+  // 계약 상대방이 확인되지 않은 상품은 주문을 받지 않는다. 화면의 브랜드명/레거시 판매자명은
+  // 법적 판매자 정보가 아니므로 verified seller 레코드가 모든 상품에 연결돼야 한다.
+  const unavailableProduct = productList.some((product) => !isProductCommerceReady(product));
+  if (unavailableProduct) {
+    return NextResponse.json({ error: 'product-compliance-incomplete' }, { status: 409 });
+  }
 
-    try {
-      await decrementStockForOrder(
-        validated.items.map((it) => ({ productId: it.productId, quantity: it.quantity })),
-      );
-    } catch (stockError) {
-      await deleteOrderById(order.id).catch((cleanupError) => {
-        logServerError('[POST /api/orders] 재고 차감 실패 후 주문 보상 삭제 실패', cleanupError);
-      });
-      const message = stockError instanceof Error ? stockError.message : String(stockError);
-      if (message.includes('INSUFFICIENT_STOCK')) {
-        return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
-      }
-      logServerError('[POST /api/orders] 재고 차감 실패', stockError);
-      return NextResponse.json({ error: 'server-error' }, { status: 500 });
-    }
+  const sellerGroups = buildOrderSellerGroups(
+    validated.items,
+    productList,
+    validated.deliveryFeeBreakdown ?? [],
+  );
+  const rawConsents = body && typeof body === 'object'
+    ? (body as Record<string, unknown>).consents
+    : undefined;
+  if (!validateCheckoutConsentClaims(rawConsents, sellerGroups, productList)) {
+    return NextResponse.json({ error: 'consent-required' }, { status: 400 });
+  }
+  const agreedAt = new Date().toISOString();
+  const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+  const ipAddress = forwardedFor || request.headers.get('x-real-ip') || undefined;
+  const userAgent = request.headers.get('user-agent')?.slice(0, 500) || undefined;
+  const consentRecords = buildConsentRecords(sellerGroups, productList, {
+    agreedAt,
+    ipAddress,
+    userAgent,
+    hash: (content) => createHash('sha256').update(content, 'utf8').digest('hex'),
+  });
+  const finalized: InsertOrderInput = { ...validated, sellerGroups, consentRecords };
+
+  try {
+    const order = await createOrderWithInventory(finalized, memberId);
 
     // order는 방금 만든 본인 주문이므로 member_id 동봉이 타인 PII 노출이 아니다.
     // 클라이언트는 Order 필드만 사용하고 나머지는 무시한다.
     return NextResponse.json({ order }, { status: 201 });
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.includes('INSUFFICIENT_STOCK')) {
+      return NextResponse.json({ error: 'out-of-stock' }, { status: 409 });
+    }
     logServerError('[POST /api/orders] 주문 생성 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

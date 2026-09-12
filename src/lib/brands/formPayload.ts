@@ -1,7 +1,8 @@
 // BrandForm 이 실제로 편집하는 필드만 서버로 보내기 위한 순수 페이로드 빌더.
 // React 컴포넌트에서 분리해 단위 테스트(tests/admin/brand-validate.spec.ts)가
 // 브라우저 없이 payload 형태를 직접 검증할 수 있게 한다.
-import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
+import type { Brand, BrandAuditReport, BrandPageCopy, BrandShippingPolicy } from '@/types';
+import { normalizeBrandPageCopy } from '@/lib/brands/pageCopy';
 
 const MAX_BRAND_NAME = 200;
 const MAX_BRAND_SHORT_TEXT = 100;
@@ -252,6 +253,7 @@ export interface BrandDetailFormState {
   auditPoints: string[];
   sourceUrls: string[];
   shipping?: BrandShippingPolicy;
+  pageCopy?: BrandPageCopy;
 }
 
 export type BrandDetailFieldErrors = Partial<
@@ -466,6 +468,7 @@ export const BRAND_DETAIL_FIELDS = [
   'auditPoints',
   'sourceUrls',
   'shipping',
+  'pageCopy',
 ] as const;
 
 /**
@@ -493,6 +496,7 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     auditPoints: cleanStringList(form.auditPoints),
     sourceUrls: cleanStringList(form.sourceUrls),
     shipping: buildBrandShippingPayload(form.shipping ?? {}),
+    pageCopy: normalizeBrandPageCopy(form.pageCopy),
     auditReport: buildAuditReportPayload(form.auditReport),
   };
 

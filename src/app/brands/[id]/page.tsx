@@ -19,6 +19,7 @@ import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
+import { normalizeBrandPageCopy, renderBrandPageCopy } from '@/lib/brands/pageCopy';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -60,6 +61,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   }
 
   const presentation = getBrandPresentation(brand);
+  const pageCopy = normalizeBrandPageCopy(brand.pageCopy);
   const fullBrandName = formatBrandDisplayName(brand.name);
   const titleLogoSrc = getBrandTitleDisplayLogo(brand);
   const [brandProducts, productCounts] = await Promise.all([
@@ -84,7 +86,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const sourceAuditReport = getSourceAuditReport(brand);
   const hasCompletedAudit = sourceContent.auditPoints.length > 0;
   const hasDetailedAudit = Boolean(sourceAuditReport);
-  const auditStatusText = hasCompletedAudit ? 'Audit Completed' : '';
+  const auditStatusText = hasCompletedAudit ? pageCopy.auditCompletedLabel : '';
   const storyBody = sourceContent.philosophy;
   const storyHighlights = sourceContent.highlights;
   const auditPoints = sourceContent.auditPoints;
@@ -106,7 +108,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               className="mb-4 inline-flex items-center gap-2 text-[12px] font-semibold text-[#6F756F] transition-colors hover:text-[#17251F] md:mb-5 md:text-[13px]"
             >
               <ArrowLeft className="w-4 h-4" />
-              모든 브랜드 보기
+              {pageCopy.backToBrandsLabel}
             </Link>
             
             {auditStatusText && (
@@ -173,7 +175,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <Leaf className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">카테고리</div>
+                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.categoryLabel}</div>
                   <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryCategoryLabel ?? brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
                   {(sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote) && (
                     <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote}</div>
@@ -187,7 +189,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <Heart className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">관련 고민</div>
+                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.concernLabel}</div>
                   <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryConcernLabel ?? brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
                   {(sourceContent.summaryConcernNote ?? brand.summaryConcernNote) && (
                     <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryConcernNote ?? brand.summaryConcernNote}</div>
@@ -200,13 +202,13 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
       </section>
 
       {/* 3. 스토리 & Audit 통합 패널 */}
-      <section className="mb-10 md:mb-12">
+      <section id="brand-audit" className="mb-10 scroll-mt-24 md:mb-12">
         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
            <div className="flex flex-col overflow-hidden rounded-[20px] border border-[#E2DACD] bg-[#FFFEFB] shadow-[0_4px_24px_rgba(23,37,31,0.03)] lg:flex-row">
              
              {/* 스토리 */}
              <div className="flex-1 border-b border-[#E2DACD] p-5 md:p-6 lg:w-[48%] lg:border-r lg:border-b-0 lg:p-8">
-               <div className="text-[11px] md:text-[12px] font-bold text-[#6F756F] tracking-wide mb-3">BRAND STORY</div>
+               <div className="text-[11px] md:text-[12px] font-bold text-[#6F756F] tracking-wide mb-3">{pageCopy.storyEyebrow}</div>
                <h2 className="mb-3 text-balance break-keep text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:text-[20px]">
                  {presentation.displayName}
                </h2>
@@ -227,14 +229,14 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              {/* Audit */}
              <div className="flex-1 lg:w-[52%]">
                 <AuditAccordion
-                  title="백조오브제 검토 완료"
-                  subtitle="BAEKJO OBJET AUDIT"
+                  title={pageCopy.auditTitle}
+                  subtitle={pageCopy.auditSubtitle}
                   statusLabel={auditStatusText}
                   theme="light"
                   density="compact"
                 >
                   <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
-                     아래 항목을 중심으로 검토를 완료하였습니다.
+                     {pageCopy.auditIntro}
                   </p>
 
                   <div className="mb-6 flex flex-col gap-2.5">
@@ -248,11 +250,11 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
 
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                     <Link href={hasDetailedAudit ? '#brand-audit-report' : '/audit'} className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
-                      Audit 자세히 보기 <ArrowRight className="w-3.5 h-3.5" />
+                      {pageCopy.auditLinkLabel} <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                     {hasDetailedAudit && (
                       <Link href="#brand-audit-report" className="text-[13px] font-bold text-[#17251F] hover:text-[#6F756F] flex items-center gap-1 transition-colors">
-                        브랜드 자료 더 보기 <ArrowRight className="w-3.5 h-3.5" />
+                        {pageCopy.sourceLinkLabel} <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                     )}
                   </div>
@@ -280,12 +282,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
-               <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">이 브랜드의 상품</h2>
-               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}의 공개 상품을 소개합니다.</p>
+               <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">{pageCopy.productsTitle}</h2>
+               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{renderBrandPageCopy(pageCopy.productsDescription, fullBrandName)}</p>
              </div>
               {publicProductCount > 0 && (
                <Link href={`/shop?brandId=${brand.id}`} className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
-                 전체 상품 보기 <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
+                 {pageCopy.allProductsLabel} <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
                </Link>
              )}
           </div>
@@ -305,8 +307,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             </div>
           ) : (
             <div className="rounded-[20px] border border-dashed border-[#E2DACD] bg-[#FFFEFB] px-6 py-12 md:py-16 text-center">
-               <p className="text-[15px] md:text-[16px] font-semibold text-[#17251F]">아직 등록된 상품이 없어요.</p>
-               <p className="mt-2 text-[13px] md:text-[14px] text-[#6F756F]">상품 정보가 준비되는 대로 차근차근 채워둘게요.</p>
+               <p className="text-[15px] md:text-[16px] font-semibold text-[#17251F]">{pageCopy.emptyProductsTitle}</p>
+               <p className="mt-2 text-[13px] md:text-[14px] text-[#6F756F]">{pageCopy.emptyProductsDescription}</p>
             </div>
           )}
         </div>
@@ -317,12 +319,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
-               <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">반려가족 후기</h2>
-               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{fullBrandName}을 사용한 보호자들의 솔직한 후기를 확인해보세요.</p>
+               <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">{pageCopy.reviewsTitle}</h2>
+               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{renderBrandPageCopy(pageCopy.reviewsDescription, fullBrandName)}</p>
              </div>
              {brandReviews.length > 0 && (
                <Link href="/reviews" className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
-                 전체 후기 보기 <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
+                 {pageCopy.allReviewsLabel} <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
                </Link>
              )}
           </div>
@@ -341,8 +343,8 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           ) : (
             <div className="flex min-h-[120px] flex-col items-center justify-center rounded-[16px] border border-[#E2DACD] bg-[#FFFEFB] px-6 py-6 text-center md:min-h-[136px]">
               <MessageSquare className="w-8 h-8 text-[#D8C4A3] mb-3 opacity-60" />
-              <p className="text-[14px] md:text-[15px] font-semibold text-[#17251F]">아직 도착한 후기가 없어요.</p>
-              <p className="mt-1 text-[12px] md:text-[13px] text-[#6F756F]">이 브랜드의 첫 번째 후기를 남겨주세요.</p>
+              <p className="text-[14px] md:text-[15px] font-semibold text-[#17251F]">{pageCopy.emptyReviewsTitle}</p>
+              <p className="mt-1 text-[12px] md:text-[13px] text-[#6F756F]">{pageCopy.emptyReviewsDescription}</p>
             </div>
           )}
         </div>
@@ -356,13 +358,13 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                {/* 텍스트 영역 */}
                <div className="z-10 flex flex-1 flex-col justify-center p-5 md:w-[55%] md:p-8">
                   <h2 className="mb-2 break-keep text-[18px] font-bold tracking-tight text-[#17251F] md:text-[21px]">
-                    다른 검증 브랜드도 살펴보세요.
+                    {pageCopy.otherBrandsTitle}
                   </h2>
                   <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
-                    백조오브제가 까다롭게 검토한 다양한 브랜드를 만나보세요.
+                    {pageCopy.otherBrandsDescription}
                   </p>
                   <Link href="/brands" className="inline-flex h-[38px] self-start items-center justify-center rounded-md bg-[#16382D] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#10291F]">
-                    전체 브랜드 보기 <ArrowRight className="ml-2 w-4 h-4" />
+                    {pageCopy.otherBrandsButtonLabel} <ArrowRight className="ml-2 w-4 h-4" />
                   </Link>
                </div>
 

@@ -56,7 +56,12 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
   kits: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/kits/' },
   members: { spec: 'admin-crud-members.spec.ts', pathNeedle: 'src/app/api/admin/members/' },
   notices: { spec: 'admin-crud-notices.spec.ts', pathNeedle: 'src/app/api/admin/notices/' },
+  'order-requests': {
+    spec: 'admin-crud-orders.spec.ts',
+    pathNeedle: 'src/app/api/admin/order-requests/',
+  },
   'order-policy': { spec: 'admin-crud-order-policy.spec.ts', pathNeedle: 'src/app/api/admin/order-policy/' },
+  'page-texts': { spec: 'admin-crud-page-texts.spec.ts', pathNeedle: 'src/app/api/admin/page-texts/' },
   orders: { spec: 'admin-crud-orders.spec.ts', pathNeedle: 'src/app/api/admin/orders/' },
   'partner-inquiries': {
     spec: 'admin-crud-partner-inquiries.spec.ts',
@@ -68,6 +73,10 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
   reviews: {
     spec: 'admin-crud-reviews-moderation.spec.ts',
     pathNeedle: 'src/app/api/admin/reviews/',
+  },
+  sellers: {
+    spec: 'admin-crud-sellers.spec.ts',
+    pathNeedle: 'src/app/api/admin/sellers/',
   },
   settings: { spec: 'admin-crud-home-settings.spec.ts', pathNeedle: 'src/app/api/admin/settings/' },
   'showcase-reviews': {

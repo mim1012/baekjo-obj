@@ -7,6 +7,8 @@ import {
   ADMIN_PASSWORD,
   CRUD_ENABLED,
   bypassHeaders,
+  ensureGoldenVerifiedSeller,
+  fillProductCompliance,
   loginAsAdmin,
   selectProductBrand,
   selectProductFormOption,
@@ -76,6 +78,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
   const processStep = `성분분석 ${runId}`;
   const auditPoint = `무방부제원료 ${runId}`;
   const sourceUrl = `https://example.com/e2e-source-${runId}`;
+  const pageProductsTitle = `브랜드별 상품 문구 ${runId}`;
 
   let carrierValue = '';
   let concernLabel = '';
@@ -196,11 +199,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     if (!brandId) throw new Error('brandId 조회 실패');
 
     // ── 2) 이 브랜드 아래 최소 상품 1건 생성(대표상품 연결용) ──
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
     await page.locator('#product-name').fill(prodName);
     await selectProductBrand(page, brandId);
     await selectProductFormOption(page, '스토어 카테고리 선택');
     await selectProductFormOption(page, '라이프스타일 분류 선택');
+    await fillProductCompliance(page, sellerId);
     await page.locator('input[type="file"]').setInputFiles(prodImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });
     await page.getByLabel('스토어 노출').check();
@@ -262,6 +267,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     // 추천 노출 토글 켜기(모달에서 안 켰음) + displayOrder 유지.
     await page.getByLabel('브랜드관 추천 노출').check();
 
+    // 브랜드 상세 전용 문구 — 환경설정이 아니라 이 브랜드 편집 화면에서 저장한다.
+    await page.locator('#brand-copy-productsTitle').fill(pageProductsTitle);
+
     await page.getByRole('button', { name: '저장' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/brands', { timeout: 20_000 });
 
@@ -281,6 +289,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
       relatedConcernSlugs: '전반적 관리',
       auditPoints: auditPoint,
       representativeProductIds: prodName,
+      pageCopy: pageProductsTitle,
     };
     for (const f of getSurface('brand-detail').fields) {
       if (f.kind !== 'text') continue;
@@ -330,6 +339,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.getByLabel('근거 출처 1', { exact: true })).toHaveValue(sourceUrl);
     await expect(page.getByLabel('브랜드관 추천 노출')).toBeChecked();
     await expect(page.getByLabel('신규 브랜드 뱃지')).toBeChecked();
+    await expect(page.locator('#brand-copy-productsTitle')).toHaveValue(pageProductsTitle);
 
     // ── 6) 정리 — 상품 먼저(브랜드 FK), 그다음 브랜드 삭제 ──
     await cleanupStaleProducts(page);

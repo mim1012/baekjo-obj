@@ -64,7 +64,15 @@ export function normalizeOrderPolicyConfig(value: unknown): OrderPolicyConfig {
   if (!value || typeof value !== 'object') return { ...defaultOrderPolicyConfig };
   const record = value as Record<string, unknown>;
   const enabled = record.bankTransferAutoCancelEnabled === true;
-  const bankTransferAccount = normalizeBankTransferAccount(record.bankTransferAccount);
+  // 계좌키가 아예 없으면(0045가 무조건 seed 한 레거시 행) 기본계좌로 폴백해 고객 주문완료 화면과
+  // 관리자 편집화면 양쪽이 계좌를 보게 한다. 단 키는 있는데 값이 유효하지 않으면(관리자 오입력 등)
+  // 기본계좌로 덮지 않고 null 을 유지한다 — 잘못된 입력을 몰래 기본값으로 바꾸면 안 된다
+  // (order-policy-config 스펙 계약: 유효하지 않은 계좌는 저장하지 않는다).
+  const rawAccount = record.bankTransferAccount;
+  const bankTransferAccount =
+    rawAccount === undefined
+      ? defaultOrderPolicyConfig.bankTransferAccount
+      : normalizeBankTransferAccount(rawAccount);
   const raw = record.bankTransferTtlHours;
   if (typeof raw !== 'number' || !Number.isFinite(raw)) {
     return { ...defaultOrderPolicyConfig, bankTransferAutoCancelEnabled: enabled, bankTransferAccount };

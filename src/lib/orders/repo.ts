@@ -4,7 +4,11 @@ import {
   ORDER_STATUSES,
   type DeliveryFeeBreakdown,
   type Order,
+  type OrderConsentRecord,
   type OrderItem,
+  type OrderSellerGroup,
+  type SellerSnapshot,
+  type SellerAcceptance,
   type OrderStatus,
 } from '@/types';
 import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
@@ -51,6 +55,9 @@ interface OrderRow {
   total_price: number;
   delivery_fee: number;
   delivery_fee_breakdown: unknown;
+  seller_groups: unknown;
+  consent_records: unknown;
+  seller_acceptances: unknown;
   payment_method: string;
   bank_transfer_account: unknown;
   order_status: string;
@@ -69,7 +76,7 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, seller_groups, consent_records, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead, seller_acceptances:order_seller_acceptances(id, order_id, seller_key, seller_id, status, note, updated_at)';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -91,10 +98,87 @@ function parseDeliveryFeeBreakdown(raw: unknown): DeliveryFeeBreakdown[] {
       typeof row.appliedDeliveryFee === 'number' &&
       Number.isSafeInteger(row.appliedDeliveryFee) &&
       typeof row.isFreeShipping === 'boolean' &&
+      (row.sellerKey === undefined || typeof row.sellerKey === 'string') &&
+      (row.sellerName === undefined || typeof row.sellerName === 'string') &&
       (row.brandName === undefined || typeof row.brandName === 'string') &&
       (row.freeShippingThreshold === undefined ||
         (typeof row.freeShippingThreshold === 'number' && Number.isSafeInteger(row.freeShippingThreshold)))
     );
+  });
+}
+
+function parseSellerGroups(raw: unknown): OrderSellerGroup[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): OrderSellerGroup[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (typeof row.key !== 'string' || !Array.isArray(row.productIds)
+      || !row.productIds.every((id) => typeof id === 'string')
+      || typeof row.subtotal !== 'number' || !Number.isSafeInteger(row.subtotal)
+      || typeof row.shippingFee !== 'number' || !Number.isSafeInteger(row.shippingFee)
+      || !row.seller || typeof row.seller !== 'object' || Array.isArray(row.seller)) return [];
+    const rawSeller = row.seller as Record<string, unknown>;
+    if (typeof rawSeller.displayName !== 'string') return [];
+    const seller: SellerSnapshot = { displayName: rawSeller.displayName };
+    for (const field of ['id', 'legalName', 'representativeName', 'businessRegistrationNumber',
+      'mailOrderRegistrationNumber', 'businessAddress', 'phone', 'email', 'returnAddress'] as const) {
+      if (rawSeller[field] !== undefined && typeof rawSeller[field] !== 'string') return [];
+      if (typeof rawSeller[field] === 'string') seller[field] = rawSeller[field];
+    }
+    const status = row.acceptanceStatus;
+    if (status !== 'pending' && status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return [];
+    return [{
+      key: row.key,
+      seller,
+      productIds: row.productIds as string[],
+      subtotal: row.subtotal,
+      shippingFee: row.shippingFee,
+      ...(typeof row.dispatchEstimate === 'string' ? { dispatchEstimate: row.dispatchEstimate } : {}),
+      ...(typeof row.returnPolicy === 'string' ? { returnPolicy: row.returnPolicy } : {}),
+      acceptanceStatus: status,
+    }];
+  });
+}
+
+function parseConsentRecords(raw: unknown): OrderConsentRecord[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): OrderConsentRecord[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (!['order_terms', 'third_party_provision', 'made_to_order'].includes(String(row.type))
+      || typeof row.subjectKey !== 'string' || typeof row.policyVersion !== 'string'
+      || typeof row.contentHash !== 'string' || typeof row.contentSnapshot !== 'string'
+      || typeof row.agreedAt !== 'string') return [];
+    return [{
+      type: row.type as OrderConsentRecord['type'],
+      subjectKey: row.subjectKey,
+      policyVersion: row.policyVersion,
+      contentHash: row.contentHash,
+      contentSnapshot: row.contentSnapshot,
+      agreedAt: row.agreedAt,
+      ...(typeof row.ipAddress === 'string' ? { ipAddress: row.ipAddress } : {}),
+      ...(typeof row.userAgent === 'string' ? { userAgent: row.userAgent } : {}),
+    }];
+  });
+}
+
+function parseSellerAcceptances(raw: unknown): SellerAcceptance[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): SellerAcceptance[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (typeof row.id !== 'string' || typeof row.order_id !== 'string' || typeof row.seller_key !== 'string'
+      || typeof row.status !== 'string' || !['pending', 'accepted', 'rejected', 'cancelled'].includes(row.status)
+      || typeof row.updated_at !== 'string') return [];
+    return [{
+      id: row.id,
+      orderId: row.order_id,
+      sellerKey: row.seller_key,
+      sellerId: typeof row.seller_id === 'string' ? row.seller_id : undefined,
+      status: row.status as SellerAcceptance['status'],
+      note: typeof row.note === 'string' ? row.note : undefined,
+      updatedAt: row.updated_at,
+    }];
   });
 }
 
@@ -110,6 +194,9 @@ function rowToRecord(row: OrderRow): OrderRecord {
     totalPrice: row.total_price,
     deliveryFee: row.delivery_fee,
     deliveryFeeBreakdown: parseDeliveryFeeBreakdown(row.delivery_fee_breakdown),
+    sellerGroups: parseSellerGroups(row.seller_groups),
+    consentRecords: parseConsentRecords(row.consent_records),
+    sellerAcceptances: parseSellerAcceptances(row.seller_acceptances),
     paymentMethod: row.payment_method,
     ...(bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: normalizeOrderStatus(row.order_status),
@@ -221,6 +308,8 @@ export type InsertOrderInput = Pick<
   | 'totalPrice'
   | 'deliveryFee'
   | 'deliveryFeeBreakdown'
+  | 'sellerGroups'
+  | 'consentRecords'
   | 'paymentMethod'
   | 'orderStatus'
   | 'paymentStatus'
@@ -246,6 +335,8 @@ export async function insertOrder(
       total_price: input.totalPrice,
       delivery_fee: input.deliveryFee,
       delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
+      seller_groups: input.sellerGroups ?? [],
+      consent_records: input.consentRecords ?? [],
       payment_method: input.paymentMethod,
       bank_transfer_account: input.bankTransferAccount ?? null,
       order_status: input.orderStatus,
@@ -259,6 +350,36 @@ export async function insertOrder(
     .single();
   if (error) throw error;
   return rowToRecord(data as OrderRow);
+}
+
+/** 주문·판매자/동의 스냅샷 insert와 상품 재고 차감을 단일 DB 트랜잭션으로 수행한다(0152). */
+export async function createOrderWithInventory(
+  input: InsertOrderInput,
+  memberId: string,
+): Promise<OrderRecord> {
+  const { data, error } = await getSupabase().rpc('create_order_with_inventory', {
+    p_member_id: memberId,
+    p_customer_name: input.customerName,
+    p_phone: input.phone,
+    p_address: input.address,
+    p_items: input.items,
+    p_total_price: input.totalPrice,
+    p_delivery_fee: input.deliveryFee,
+    p_delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
+    p_payment_method: input.paymentMethod,
+    p_bank_transfer_account: input.bankTransferAccount ?? null,
+    p_order_status: input.orderStatus,
+    p_payment_status: input.paymentStatus,
+    p_delivery_status: input.deliveryStatus,
+    p_tracking_number: input.trackingNumber ?? null,
+    p_delivery_memo: input.deliveryMemo ?? null,
+    p_expires_at: input.expiresAt ?? null,
+    p_seller_groups: input.sellerGroups ?? [],
+    p_consent_records: input.consentRecords ?? [],
+  });
+  if (error) throw new Error(error.message);
+  const created = rowToRecord(data as OrderRow);
+  return (await getOrderById(created.id)) ?? created;
 }
 
 /** 재고 차감 실패 시 방금 만든 주문을 되돌리는 보상용. 생성 직후 자기 주문에만 사용한다. */
