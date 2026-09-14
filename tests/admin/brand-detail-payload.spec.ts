@@ -50,6 +50,7 @@ function form(over: Partial<BrandDetailFormState> = {}): BrandDetailFormState {
     relatedConcernSlugs: ['tear'],
     auditPoints: ['무방부제'],
     sourceUrls: ['https://src.com'],
+    highlights: [],
     ...over,
   };
 }

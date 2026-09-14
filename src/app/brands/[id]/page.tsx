@@ -18,7 +18,6 @@ import {
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
 import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
-import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
 import { normalizeBrandPageCopy, renderBrandPageCopy } from '@/lib/brands/pageCopy';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
@@ -82,15 +81,13 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
   const brandReviews = showcaseReviews.filter((review) =>
     review.isVisible !== false && brandProducts.some((product) => product.id === review.productId),
   );
-  const sourceContent = getSourceBrandContent(brand);
-  const sourceAuditReport = getSourceAuditReport(brand);
-  const hasCompletedAudit = sourceContent.auditPoints.length > 0;
-  const hasDetailedAudit = Boolean(sourceAuditReport);
+  const hasCompletedAudit = brand.auditPoints.length > 0;
+  const hasDetailedAudit = Boolean(brand.auditReport);
   const auditStatusText = hasCompletedAudit ? pageCopy.auditCompletedLabel : '';
-  const storyBody = sourceContent.philosophy;
-  const storyHighlights = sourceContent.highlights;
-  const auditPoints = sourceContent.auditPoints;
-  const publicBrand = { ...brand, auditPoints, auditReport: sourceAuditReport };
+  const storyBody = brand.philosophy;
+  const storyHighlights = brand.highlights ?? [];
+  const auditPoints = brand.auditPoints;
+  const publicBrand = brand;
   const categoryNames = presentation.categories
     || [...new Set(brandProducts.map(p => p.categoryName || p.category).filter(Boolean))].join(' · ');
   const relatedConcernNames = presentation.concerns
@@ -176,9 +173,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.categoryLabel}</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryCategoryLabel ?? brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
-                  {(sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote) && (
-                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryCategoryNote ?? brand.summaryCategoryNote}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
+                  {brand.summaryCategoryNote && (
+                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote}</div>
                   )}
                 </div>
               </div>
@@ -190,9 +187,9 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                 </div>
                 <div>
                   <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.concernLabel}</div>
-                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{sourceContent.summaryConcernLabel ?? brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
-                  {(sourceContent.summaryConcernNote ?? brand.summaryConcernNote) && (
-                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{sourceContent.summaryConcernNote ?? brand.summaryConcernNote}</div>
+                  <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
+                  {brand.summaryConcernNote && (
+                    <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote}</div>
                   )}
                 </div>
               </div>
