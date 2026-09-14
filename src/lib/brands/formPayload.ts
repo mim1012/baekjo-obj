@@ -252,6 +252,11 @@ export interface BrandDetailFormState {
   relatedConcernSlugs: string[];
   auditPoints: string[];
   sourceUrls: string[];
+  highlights: string[];
+  summaryCategoryLabel?: string;
+  summaryCategoryNote?: string;
+  summaryConcernLabel?: string;
+  summaryConcernNote?: string;
   shipping?: BrandShippingPolicy;
   pageCopy?: BrandPageCopy;
 }
@@ -267,6 +272,11 @@ export type BrandDetailFieldErrors = Partial<
     | 'auditReport'
     | 'auditPoints'
     | 'sourceUrls'
+    | 'highlights'
+    | 'summaryCategoryLabel'
+    | 'summaryCategoryNote'
+    | 'summaryConcernLabel'
+    | 'summaryConcernNote'
     | 'representativeProductIds'
     | 'relatedConcernSlugs'
     | `auditReport.${keyof AuditReportFormState}`
@@ -359,6 +369,19 @@ export function validateBrandDetailFormState(
   );
   setStringListError(errors, 'auditPoints', '검증 포인트', form.auditPoints, MAX_BRAND_ARRAY_ITEMS, MAX_BRAND_TEXT);
   setStringListError(errors, 'sourceUrls', '근거 출처 URL', form.sourceUrls, MAX_BRAND_SOURCE_URLS, MAX_BRAND_URL);
+  setStringListError(errors, 'highlights', '스토리 하이라이트', form.highlights, MAX_BRAND_ARRAY_ITEMS, MAX_BRAND_TEXT);
+  setTextError(errors, 'summaryCategoryLabel', '카테고리 요약 라벨', form.summaryCategoryLabel, {
+    max: MAX_BRAND_SHORT_TEXT,
+  });
+  setTextError(errors, 'summaryCategoryNote', '카테고리 요약 설명', form.summaryCategoryNote, {
+    max: MAX_BRAND_TEXT,
+  });
+  setTextError(errors, 'summaryConcernLabel', '고민 요약 라벨', form.summaryConcernLabel, {
+    max: MAX_BRAND_SHORT_TEXT,
+  });
+  setTextError(errors, 'summaryConcernNote', '고민 요약 설명', form.summaryConcernNote, {
+    max: MAX_BRAND_TEXT,
+  });
 
   const reportError = validateAuditReportForm(form.auditReport);
   if (reportError) errors.auditReport = reportError;
@@ -467,6 +490,11 @@ export const BRAND_DETAIL_FIELDS = [
   'relatedConcernSlugs',
   'auditPoints',
   'sourceUrls',
+  'highlights',
+  'summaryCategoryLabel',
+  'summaryCategoryNote',
+  'summaryConcernLabel',
+  'summaryConcernNote',
   'shipping',
   'pageCopy',
 ] as const;
@@ -495,6 +523,11 @@ export function buildBrandDetailPayload(form: BrandDetailFormState): Partial<Bra
     relatedConcernSlugs: [...form.relatedConcernSlugs],
     auditPoints: cleanStringList(form.auditPoints),
     sourceUrls: cleanStringList(form.sourceUrls),
+    highlights: cleanStringList(form.highlights),
+    summaryCategoryLabel: cleanOptionalText(form.summaryCategoryLabel),
+    summaryCategoryNote: cleanOptionalText(form.summaryCategoryNote),
+    summaryConcernLabel: cleanOptionalText(form.summaryConcernLabel),
+    summaryConcernNote: cleanOptionalText(form.summaryConcernNote),
     shipping: buildBrandShippingPayload(form.shipping ?? {}),
     pageCopy: normalizeBrandPageCopy(form.pageCopy),
     auditReport: buildAuditReportPayload(form.auditReport),

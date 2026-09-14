@@ -102,6 +102,13 @@ export default function BrandDetailEditor({
   const [sourceUrls, setSourceUrls] = useState<string[]>(initialBrand.sourceUrls ?? []);
   const [pageCopy, setPageCopy] = useState(() => normalizeBrandPageCopy(initialBrand.pageCopy));
 
+  // 브랜드 상세페이지 스토리 하이라이트 · 요약 카드 문구(구 sourceContent.ts 하드코딩 → DB 단일정본화).
+  const [highlights, setHighlights] = useState<string[]>(initialBrand.highlights ?? []);
+  const [summaryCategoryLabel, setSummaryCategoryLabel] = useState(initialBrand.summaryCategoryLabel ?? '');
+  const [summaryCategoryNote, setSummaryCategoryNote] = useState(initialBrand.summaryCategoryNote ?? '');
+  const [summaryConcernLabel, setSummaryConcernLabel] = useState(initialBrand.summaryConcernLabel ?? '');
+  const [summaryConcernNote, setSummaryConcernNote] = useState(initialBrand.summaryConcernNote ?? '');
+
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<BrandDetailFieldErrors>({});
@@ -159,6 +166,11 @@ export default function BrandDetailEditor({
         relatedConcernSlugs,
         auditPoints,
         sourceUrls,
+        highlights,
+        summaryCategoryLabel,
+        summaryCategoryNote,
+        summaryConcernLabel,
+        summaryConcernNote,
         shipping,
         pageCopy,
       },
@@ -189,6 +201,11 @@ export default function BrandDetailEditor({
         relatedConcernSlugs,
         auditPoints,
         sourceUrls,
+        highlights,
+        summaryCategoryLabel,
+        summaryCategoryNote,
+        summaryConcernLabel,
+        summaryConcernNote,
         shipping,
         pageCopy,
       });
@@ -637,6 +654,98 @@ export default function BrandDetailEditor({
                 addLabel="단계 추가"
                 itemLabel="검증 과정 단계"
                 error={fieldErrors['auditReport.process']}
+              />
+            </FormField>
+            <FormField label="검증 체크포인트 (선택)">
+              <ArrayEditor
+                items={auditReport.checkpoints ?? []}
+                onChange={(next) => setAuditReport((prev) => ({ ...prev, checkpoints: next }))}
+                placeholder="예: 성분과 영양 정보의 투명한 공개"
+                addLabel="체크포인트 추가"
+                itemLabel="검증 체크포인트"
+              />
+            </FormField>
+            <FormField label="소재 검토 (선택)">
+              <ArrayEditor
+                items={auditReport.materialReview ?? []}
+                onChange={(next) => setAuditReport((prev) => ({ ...prev, materialReview: next }))}
+                placeholder="문단 단위로 입력하세요."
+                addLabel="문단 추가"
+                itemLabel="소재 검토 문단"
+              />
+            </FormField>
+            <FormField label="큐레이터 노트 (선택)">
+              <ArrayEditor
+                items={auditReport.curatorNote ?? []}
+                onChange={(next) => setAuditReport((prev) => ({ ...prev, curatorNote: next }))}
+                placeholder="문단 단위로 입력하세요."
+                addLabel="문단 추가"
+                itemLabel="큐레이터 노트 문단"
+              />
+            </FormField>
+            <FormField label="감사 결론 (선택)">
+              <ArrayEditor
+                items={auditReport.auditConclusion ?? []}
+                onChange={(next) => setAuditReport((prev) => ({ ...prev, auditConclusion: next }))}
+                placeholder="문단 단위로 입력하세요."
+                addLabel="문단 추가"
+                itemLabel="감사 결론 문단"
+              />
+            </FormField>
+          </div>
+        </section>
+
+        {/* ── 스토리 하이라이트 · 요약 카드 문구 ── */}
+        <section className="bg-white border border-gray-200 rounded-md shadow-sm p-6 space-y-6">
+          <div>
+            <h2 className="text-[15px] font-semibold text-[#17201B] mb-1">스토리 하이라이트</h2>
+            <p className="text-[13px] text-gray-500 mb-4">
+              브랜드 상세 스토리 영역에 태그처럼 표시되는 짧은 문구입니다(빈 항목은 저장 시 자동 제거).
+            </p>
+            <ArrayEditor
+              items={highlights}
+              onChange={setHighlights}
+              placeholder="예: 하나의 레시피를 정답으로 두지 않는 제품 개발"
+              addLabel="하이라이트 추가"
+              itemLabel="스토리 하이라이트"
+              error={fieldErrors.highlights}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <FormField label="카테고리 요약 라벨" htmlFor="bd-summary-category-label" error={fieldErrors.summaryCategoryLabel}>
+              <input
+                id="bd-summary-category-label"
+                type="text"
+                value={summaryCategoryLabel}
+                onChange={(e) => setSummaryCategoryLabel(e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 푸드 · 영양"
+              />
+            </FormField>
+            <FormField label="고민 요약 라벨" htmlFor="bd-summary-concern-label" error={fieldErrors.summaryConcernLabel}>
+              <input
+                id="bd-summary-concern-label"
+                type="text"
+                value={summaryConcernLabel}
+                onChange={(e) => setSummaryConcernLabel(e.target.value)}
+                className={INPUT_CLASS}
+                placeholder="예: 편식 · 영양 관리"
+              />
+            </FormField>
+            <FormField label="카테고리 요약 설명" htmlFor="bd-summary-category-note" error={fieldErrors.summaryCategoryNote}>
+              <textarea
+                id="bd-summary-category-note"
+                value={summaryCategoryNote}
+                onChange={(e) => setSummaryCategoryNote(e.target.value)}
+                className={`${INPUT_CLASS} h-20 resize-none`}
+              />
+            </FormField>
+            <FormField label="고민 요약 설명" htmlFor="bd-summary-concern-note" error={fieldErrors.summaryConcernNote}>
+              <textarea
+                id="bd-summary-concern-note"
+                value={summaryConcernNote}
+                onChange={(e) => setSummaryConcernNote(e.target.value)}
+                className={`${INPUT_CLASS} h-20 resize-none`}
               />
             </FormField>
           </div>

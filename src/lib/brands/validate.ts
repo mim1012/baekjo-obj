@@ -149,6 +149,29 @@ export function validateBrandFields(body: unknown, requireAll: boolean): Validat
     out.philosophy = b.philosophy;
   } else if (requireAll) return null;
 
+  // 브랜드 상세페이지 스토리 하이라이트·요약 카드 문구. 전부 optional — 미입력 시 화면은
+  // categoryNames/relatedConcernNames 등 계산값으로 폴백한다(브랜드 상세 렌더 계약).
+  if (b.highlights !== undefined) {
+    if (!isStrArray(b.highlights, MAX_ARRAY_ITEMS, MAX_TEXT)) return null;
+    out.highlights = b.highlights;
+  }
+  if (b.summaryCategoryLabel !== undefined) {
+    if (!isStr(b.summaryCategoryLabel, 0, MAX_SHORT_TEXT)) return null;
+    out.summaryCategoryLabel = b.summaryCategoryLabel;
+  }
+  if (b.summaryCategoryNote !== undefined) {
+    if (!isStr(b.summaryCategoryNote, 0, MAX_TEXT)) return null;
+    out.summaryCategoryNote = b.summaryCategoryNote;
+  }
+  if (b.summaryConcernLabel !== undefined) {
+    if (!isStr(b.summaryConcernLabel, 0, MAX_SHORT_TEXT)) return null;
+    out.summaryConcernLabel = b.summaryConcernLabel;
+  }
+  if (b.summaryConcernNote !== undefined) {
+    if (!isStr(b.summaryConcernNote, 0, MAX_TEXT)) return null;
+    out.summaryConcernNote = b.summaryConcernNote;
+  }
+
   // 공식몰 URL. optional·가산 — 빈 문자열을 허용해 폼에서 지울 수 있게 한다(0..MAX_URL).
   if (b.officialUrl !== undefined) {
     if (!isStr(b.officialUrl, 0, MAX_URL)) return null;
