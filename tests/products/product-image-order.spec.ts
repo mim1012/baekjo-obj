@@ -70,3 +70,44 @@ test.describe('imageOrder — 상품 대표 이미지 순서', () => {
     expect(original).toEqual(snapshot);
   });
 });
+
+// ProductForm.tsx + ProductImageOrderEditor 합성 시나리오 회귀 방지.
+// ProductForm은 orderedImages를 normalizeImageOrder(빈 문자열 제거)가 아니라 비파괴 병합
+// [image ?? '', ...images]로 계산한다 — normalizeImageOrder를 썼을 때는 "이미지 추가"가 만든
+// 빈 슬롯이 다음 렌더에서 걸러져 사라져, 그 슬롯의 업로더가 렌더되지 않고 두 번째 업로드가
+// 인덱스 0(대표)을 덮어쓰는 회귀가 있었다(admin-crud-product-fields.spec.ts,
+// admin-crud-product-gallery-removal.spec.ts 골든플로우에서 실측). 이 스펙은 그 합성 흐름을
+// (setRepresentative만으로) 재현해 대표가 바뀌지 않고 images가 2개로 늘어나는지 검증한다.
+test.describe('ProductForm 합성 시나리오 — 비파괴 병합(orderedImages) 왕복', () => {
+  test('신규 상품: 대표 업로드 → 이미지 추가 → 두 번째 업로드 → images 2개, 대표 교체 없음', () => {
+    let image = '';
+    let images: string[] = [];
+
+    // ProductForm.handleOrderedImagesChange와 동일: 항상 setRepresentative(next, 0)만 쓴다.
+    const setFields = (next: string[]) => {
+      const fields = setRepresentative(next, 0);
+      image = fields.image;
+      images = fields.images;
+    };
+    // ProductForm의 orderedImages 계산과 동일한 비파괴 병합(정규화로 빈 문자열을 걸러내지 않음).
+    const ordered = () => [image, ...images];
+
+    // 1) 신규 상품 — 대표 placeholder 1행만 있다.
+    expect(ordered()).toEqual(['']);
+
+    // 2) 대표 이미지 업로드 — ProductImageOrderEditor.update(0, url).
+    setFields(ordered().map((v, i) => (i === 0 ? 'main.png' : v)));
+    expect(ordered()).toEqual(['main.png']);
+
+    // 3) "이미지 추가" 클릭 — ProductImageOrderEditor.add(): 빈 슬롯이 끝에 붙고,
+    //    비파괴 병합이므로 다음 렌더에서도 사라지지 않아야 한다.
+    setFields([...ordered(), '']);
+    expect(ordered()).toEqual(['main.png', '']);
+
+    // 4) 방금 추가된(두 번째) 슬롯에 업로드 — update(1, url). 대표(인덱스 0)는 그대로여야 한다.
+    setFields(ordered().map((v, i) => (i === 1 ? 'gallery.png' : v)));
+    expect(ordered()).toEqual(['main.png', 'gallery.png']);
+    expect(image).toBe('main.png');
+    expect(images).toEqual(['gallery.png']);
+  });
+});

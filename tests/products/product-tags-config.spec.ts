@@ -62,6 +62,36 @@ test.describe('resolveProductTagsConfig — 미등록 태그 자동 편입', () 
   });
 });
 
+// 2026-09-15 리뷰 B3: 레거시 concernTags 원문(형식 위반 값)이 검증 없이 items로 승격되면,
+// 그 값이 그대로 관리자 PUT payload에 실려 isTag(productTags/repo.ts) 검증에 걸려 태그 화면의
+// 모든 저장이 400으로 막히고, 어쩌다 저장돼도 다음 GET에서 isProductTagsConfig가 통째로 거부해
+// 공개 사전이 조용히 기본값으로 되돌아간다. resolveProductTagsConfig는 이제 isProductTagSlug를
+// 통과하지 못하는 원문을 items에 승격하지 않는다.
+test.describe('resolveProductTagsConfig — 형식 위반 legacy concernTags는 승격하지 않는다(B3)', () => {
+  test('공백·대문자·언더스코어가 섞인 legacy 값은 items에 편입되지 않는다', () => {
+    const resolved = resolveProductTagsConfig(defaultProductTagsConfig, ['피부_관리', 'Skin', 'in valid']);
+    expect(resolved.items.some((item) => item.slug === '피부_관리')).toBe(false);
+    expect(resolved.items.some((item) => item.slug === 'Skin')).toBe(false);
+    expect(resolved.items.some((item) => item.slug === 'in valid')).toBe(false);
+  });
+
+  test('형식 위반 값이 섞여 있어도 유효한 legacy 값은 그대로 편입되고, 결과 items는 PUT 계약(isProductTagSlug)을 전부 통과한다', () => {
+    const resolved = resolveProductTagsConfig(defaultProductTagsConfig, ['피부_관리', 'legacy-valid-tag']);
+    expect(resolved.items.some((item) => item.slug === 'legacy-valid-tag')).toBe(true);
+    expect(resolved.items.every((item) => isProductTagSlug(item.slug))).toBe(true);
+  });
+
+  test('형식 위반 legacy 값만 있어도 나머지 사전 저장(PUT round-trip)이 막히지 않는다 — 위반 값은 조용히 제외된다', () => {
+    // 위반 값 하나 때문에 resolve 결과 전체가 비거나 예외를 던지면 안 된다 — 관리자가 다른 태그를
+    // 편집해 그대로 PUT해도(=resolve 결과를 payload로 재사용) 위반 값이 없으니 400이 나지 않는다.
+    const resolved = resolveProductTagsConfig(defaultProductTagsConfig, ['ALL CAPS TAG']);
+    expect(resolved.items.map((item) => item.slug)).toEqual(
+      defaultProductTagsConfig.items.map((item) => item.slug),
+    );
+    expect(resolved.items.every((item) => isProductTagSlug(item.slug))).toBe(true);
+  });
+});
+
 test.describe('resolveProductTagsConfig — 숨김은 삭제가 아니다', () => {
   test('hiddenSlugs에 등록된 태그는 사전에서 제외되지만 hiddenSlugs 기록에는 남는다', () => {
     const stored = {

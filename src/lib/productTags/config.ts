@@ -105,7 +105,13 @@ export function resolveProductTagsConfig(
 
   for (const raw of productTagValues) {
     const slug = raw.trim();
-    if (!slug || hidden.has(slug) || seen.has(slug)) continue;
+    // 형식(PRODUCT_TAG_SLUG_RE) 위반 값은 사전(items)에 승격하지 않는다 — 승격하면 그 값이
+    // 그대로 관리자 PUT payload에 실려 isTag(productTags/repo.ts) 검증에 걸려 태그 화면의
+    // 모든 저장이 400으로 막히고, 어쩌다 저장돼도 다음 GET에서 isProductTagsConfig가 통째로
+    // 거부해 공개 사전이 조용히 기본값으로 되돌아간다(2026-09-15 리뷰 B3). 이 값을 쓴 상품의
+    // 고객 화면 표기는 ProductCard/shop/[id]가 labelBySlug 미등록 시 원문 그대로 보여주는
+    // 폴백으로 이미 보존되므로, 여기서 걸러도 고객 화면은 바뀌지 않는다.
+    if (!isProductTagSlug(slug) || hidden.has(slug) || seen.has(slug)) continue;
     seen.add(slug);
     items.push({ slug, label: slug, isVisible: true, showInShopFilter: false });
   }

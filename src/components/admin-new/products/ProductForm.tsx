@@ -14,7 +14,7 @@ import {
 } from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
 import { parseProductPetTypes, serializeProductPetTypes } from '@/lib/products/petTypes';
-import { moveImage, normalizeImageOrder, setRepresentative } from '@/lib/products/imageOrder';
+import { moveImage, setRepresentative } from '@/lib/products/imageOrder';
 import type { ProductTagDefinition } from '@/lib/productTags/config';
 import {
   disclosureDefinition,
@@ -353,7 +353,11 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
   };
 
   const images = formData.images ?? [];
-  const orderedImages = normalizeImageOrder(formData.image, images);
+  // 비파괴 병합 — normalizeImageOrder는 빈 문자열을 걸러내, ProductImageOrderEditor의 "이미지
+  // 추가"가 만든 빈 슬롯이 다음 렌더에서 사라지는 회귀가 있었다(대표 이미지가 이미 채워진 상태에서
+  // 재현: 두 번째 업로드가 인덱스 0=대표를 덮어씀). 빈 항목 제거는 저장 경계
+  // (formPayload.ts buildEditableFields → cleanStringList)가 담당하므로 여기서는 순서만 합친다.
+  const orderedImages = [formData.image ?? '', ...images];
   const auditPoints = formData.auditPoints ?? [];
   const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
@@ -1186,8 +1190,12 @@ function OptionEditor({
 
 /**
  * 1번을 대표 이미지로 저장하는 통합 상품 이미지 순서 편집기. ordered[0]이 대표(image), 나머지가
- * 갤러리(images)다 — 상위(ProductForm)가 normalizeImageOrder로 합쳐 넘기고, setRepresentative/
- * moveImage(둘 다 순수 함수, tests/products/product-image-order.spec.ts)로만 순서를 바꾼다.
+ * 갤러리(images)다 — 상위(ProductForm)가 [image, ...images] 비파괴 병합으로 합쳐 넘기고,
+ * setRepresentative/moveImage(둘 다 순수 함수, tests/products/product-image-order.spec.ts)로만
+ * 순서를 바꾼다. 부모는 normalizeImageOrder(빈 문자열 제거)를 쓰지 않는다 — 이 편집기가 만드는
+ * "이미지 추가" 빈 슬롯이 다음 렌더에서 걸러져 사라지면(그 슬롯을 렌더할 수 없어 두 번째 업로드가
+ * 인덱스 0=대표를 덮어쓰는 회귀가 났었다), 저장 시점(formPayload.ts cleanStringList)에만 빈
+ * 항목을 제거한다.
  */
 function ProductImageOrderEditor({
   images,
@@ -1200,17 +1208,12 @@ function ProductImageOrderEditor({
   entityId?: string;
   draftId?: string;
 }) {
-  // 대표 이미지는 필수(REQUIRED_FIELDS 'image')이므로, 아직 이미지가 하나도 없는 신규 상품이라도
-  // 대표 이미지용 업로더 슬롯 1개는 항상 보여준다 — images가 완전히 비어 있으면 빈 문자열 placeholder
-  // 1개짜리 표시용 배열(rows)을 대신 그린다(images 자체는 여전히 빈 배열로 유지, 실제 상태는
-  // update()가 append로 처리).
-  const rows = images.length > 0 ? images : [''];
+  // images(prop)는 항상 [대표, ...갤러리] 순서로, 대표가 비어 있어도(신규 상품) 자리 하나는
+  // 반드시 포함해 온다(ProductForm.tsx: [formData.image ?? '', ...(formData.images ?? [])]) —
+  // 그래서 여기서는 별도 placeholder 폴백 없이 images를 그대로 rows로 그린다.
+  const rows = images;
 
   const update = (idx: number, url: string) => {
-    if (idx >= images.length) {
-      onChange([...images, url]);
-      return;
-    }
     onChange(images.map((img, i) => (i === idx ? url : img)));
   };
   const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
@@ -1267,7 +1270,7 @@ function ProductImageOrderEditor({
               <button
                 type="button"
                 onClick={() => remove(idx)}
-                disabled={idx === 0 && images.length === 0}
+                disabled={idx === 0 && images.length === 1 && !img.trim()}
                 aria-label={idx === 0 ? '대표 이미지 삭제' : `갤러리 이미지 ${idx} 삭제`}
                 className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
               >

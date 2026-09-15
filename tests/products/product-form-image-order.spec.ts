@@ -19,18 +19,27 @@ test.describe('ProductForm — 상품 이미지 순서 UI 문구 회귀 방지',
     expect(source).toContain('번 이미지 아래로 이동');
   });
 
-  // 2026-09-15 회귀: 통합 이미지 순서 편집기가 images를 그대로 map하면, 신규 상품(images=[])일 때
-  // 대표 이미지 <input type="file">가 화면에 하나도 렌더되지 않아 필수 대표 이미지를 올릴 방법이
-  // 없었다(golden admin-crud-products.spec.ts/admin-crud-product-gallery-removal.spec.ts 회귀).
-  // ProductImageOrderEditor는 images가 비어 있으면 대표 슬롯 1개짜리 placeholder(rows)를 대신
-  // 그려야 하고, update()는 그 placeholder에 업로드된 URL을 append로 실제 images에 반영해야 한다.
-  test('images가 비어 있어도 대표 이미지 업로더 슬롯 1개는 항상 렌더된다(rows placeholder)', () => {
+  // 2026-09-15 회귀 #1: 통합 이미지 순서 편집기가 images를 그대로 map하면, 신규 상품(images=[])일
+  // 때 대표 이미지 <input type="file">가 화면에 하나도 렌더되지 않아 필수 대표 이미지를 올릴
+  // 방법이 없었다(golden admin-crud-products.spec.ts/admin-crud-product-gallery-removal.spec.ts
+  // 회귀). 최초 수정은 ProductImageOrderEditor 안에 로컬 placeholder(rows) 폴백을 뒀지만, 그
+  // 폴백은 대표가 이미 채워진 뒤 "이미지 추가"가 만드는 빈 슬롯까지는 못 지켜줬다(회귀 #2).
+  //
+  // 2026-09-15 회귀 #2: ProductForm이 orderedImages를 normalizeImageOrder(빈 문자열 제거)로
+  // 계산하면, "이미지 추가"가 images에 붙인 빈 슬롯이 다음 렌더에서 걸러져 사라진다 — 그 슬롯의
+  // 업로더가 렌더되지 않으니 두 번째 업로드가 인덱스 0(대표)을 덮어써 대표가 바뀌는 결함이 났다
+  // (admin-crud-product-fields.spec.ts/admin-crud-product-gallery-removal.spec.ts 실측).
+  // 최종 수정: 대표 슬롯 폴백과 "빈 슬롯 유지"를 모두 ProductForm의 비파괴 병합
+  // ([image, ...images], 정규화 없음)으로 해결한다 — 편집기는 images를 그대로 rows로 그리기만
+  // 하면 된다.
+  test('orderedImages는 정규화 없이 비파괴 병합해, 대표 placeholder와 "이미지 추가" 빈 슬롯을 모두 다음 렌더까지 보존한다', () => {
     const source = fs.readFileSync(
       path.join(process.cwd(), 'src', 'components', 'admin-new', 'products', 'ProductForm.tsx'),
       'utf8',
     );
-    expect(source).toContain("const rows = images.length > 0 ? images : ['']");
-    expect(source).toContain('if (idx >= images.length)');
+    expect(source).toContain("const orderedImages = [formData.image ?? '', ...images];");
+    expect(source).not.toContain('normalizeImageOrder(formData.image, images)');
+    expect(source).toContain('const rows = images;');
     expect(source).toContain('{rows.map((img, idx) => (');
   });
 });
