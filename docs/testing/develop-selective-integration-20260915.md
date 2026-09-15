@@ -105,3 +105,56 @@ CMS foundation 0162/0163 적용·보존 검증, 현재 Audit 데이터의 guarde
 5. `55489c3` 기준 작성자 게이트: `tsc` 0; `node --test` 49/49; pure playwright products+admin+tracking+security 959 passed; `npm run lint` 0 errors.
 6. 참고: 서브에이전트 실행 2건이 API rate limit로 중단됐다가 재개됐다. 이전에 있었던 importer 로그인 실패는 PowerShell env-loading 아티팩트였다(앱 결함 아님). `MobileBottomNav` 하단 라벨은 설계상 여전히 page-text DOM substitution이며 site-shell CMS가 아니다.
 7. 아직 미완료: PR2는 아직 push/PR 생성되지 않았다(delta review 대기). PR3(tags/product UI + capture 스크립트 `scripts/capture-*-screen-audit.mjs`, `tests/security/capture-tools-local-safety.spec.ts` 여전히 untracked), PR4(cancellation), PR5(session/member/refund)는 시작되지 않았다. Production 배포 시 0162~0166을 순서대로 적용해야 하고, staging에서 수행한 페이지 14개 활성화는 Production에서 admin "현재 값 가져오기" 버튼으로 재실행해야 한다(staging 활성화는 이전되지 않는다).
+
+## 2026-09-16 후속 4 (PR3 태그·분류·상품 편집·운영 가이드)
+
+브랜치 `codex/product-admin-20260915`(develop e90f2d8 = PR2 #335 머지 기점)에서 태그·분류·반려동물·이미지 순서·관리 가이드 기능을 구현. 커밋 3개:
+
+1. **commit `3b81ee0`** (기능 구현):
+   - 태그 사전: `src/lib/productTags` 정의 + `/admin/products/tags`·`/api/admin/product-tags`·`/api/product-tags` + `ProductTagSettingsProvider` → `ProductCard`/`ShopContent` option set 연결
+   - 복수 반려동물: `src/lib/products/petTypes.ts`에 multi pet-type 구현, 기존 pet_type text 유지
+   - 이미지 순서: `src/lib/products/imageOrder.ts` + ProductForm 에디터
+   - 관리 가이드: `/admin/guide` + `src/lib/admin/publicPageRegistry.ts` 링크 → `/admin/pages/<key>`
+   - 캡처 도구: `scripts/capture-*-screen-audit.mjs` + `tests/security/capture-tools-local-safety.spec.ts`
+   - Migration: `0167_product_tags_config_reconcile.sql`, `0168_product_pet_type_multi_value.sql`
+
+2. **commit `cf0c30a`** (리뷰 수정):
+   - 빈 상품용 이미지 업로더 렌더링 (B1 수정)
+   - 태그 chip aria-label 추가
+   - shared slug rule `isProductTagSlug` 검증·리포·PUT에 일관 적용 (400 invalid-slug)
+   - admin 검증에 pet-type ID 허용
+   - product detail 관련 concern label을 tag config에서 파생
+
+3. **commit `221d813`** (비파괴 이미지 슬롯 병합):
+   - ProductForm.tsx:360 이미지 non-destructive merge
+   - legacy concernTags slug rule 위반은 사전 항목으로 승격하지 않음
+
+**규칙 준수**: 공유 파일은 수동 패치만 적용(source branch `origin/codex/admin-public-site-management-20260901`는 분기 계통). develop 전용 기능(판매자 가입·공개·madeToOrderPolicy·ProductComplianceError·commerceReady/summary/판매자 표기·PR2 CMS 레이블)은 독립 리뷰어가 무결성 검증.
+
+**Staging (ref aeooyivfijthfcrfrnyk)**:
+- `0167` 적용: 2026-09-15 13:54:39.596188+00, sha256 `a6bf6eda6973d493e026157e296ae8ce4290240c961e4e231d11820c6b5efc0d`
+- `0168` 적용: 13:54:40.318678+00, sha256 `ed9fc5312c9d1ee95d98fa1b53c544f8b1434ee6fb2ec51a6272930d7bb0bcb5`
+- product_tags_config 기존값 17개(운영자 편집) md5 `31b0ca561ddf16dd0ed88ece3828ae1a` 적용 전후 불변
+- ACL anon/authenticated SELECT/UPDATE 취소(이전 true), service_role 유지
+- products_pet_type_check constraint 동일(기존 0153에서 이미 완화)
+- staging detail.concernTags: 9개 서로 다른 값, 모두 slug rule 만족
+
+**독립 리뷰 (opus lane)**:
+- `3b81ee0`: FAIL — B1 신규 상품 이미지 업로드 불가, B2 태그 PUT slug 불일치
+- `cf0c30a`: FAIL 유지 — B1 반 수정, B3 legacy slug 승격 신규 발견
+- delta `221d813`: 작성 시점 리뷰 대기
+
+**라이브 golden (127.0.0.1:3130, staging 테스트 관리자)**:
+- admin-crud-product-tags PASS
+- admin-crud-category-settings PASS
+- admin-crud-products PASS
+- admin-crud-product-gallery-removal PASS
+- admin-crud-product-fields 초기 실패 후 spec drift 수정(이전 "베스트 상품"을 645823b에서 "BEST · 자체 큐레이션 표시"로 변경, #305 이후 판매자 dispatchEstimate 표시) → spec 갱신·재실행 중
+
+**순수 게이트 (221d813)**:
+- tsc 0, eslint 0, node --test 49/49, playwright products/admin/tracking/security 1069 passed, npm run lint 0 errors
+
+**알려진 staging 잔여물**:
+- 숨겨진 테스트 상품 E2E-상품-1784775010078 (2026-07-23) 삭제 불가 (409 product-has-history 설계상) — cleanup 로그 노이즈, 회귀 아님
+
+**미완료**: PR3 미push/미PR 생성; PR4(주문 취소) D:\Project\BAGJO1-pr4-cancellation-20260915에 구현(commit aab98f2, migration 0169–0171 미적용), 독립 리뷰 진행 중; PR5 계획 중.
