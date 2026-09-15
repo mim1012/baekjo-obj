@@ -118,7 +118,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
           '저장이 fail-closed로 차단되어 있어 쓰기(PUT /api/admin/settings)/원복 플로우는 건너뛴다. ' +
           '이 실행은 차단 안내 문구와 저장 버튼 비활성화만 확인한다.',
       });
-      await expect(page.getByRole('alert')).toContainText('홈 화면은 페이지 관리(CMS)에서', { timeout: 15_000 });
+      // Next의 route announcer(div[role=alert])도 함께 매치돼 strict mode에 걸리므로 안내문 텍스트로 좁힌다.
+      await expect(page.getByRole('alert').filter({ hasText: '홈 화면' })).toContainText('홈 화면은 페이지 관리(CMS)에서', {
+        timeout: 15_000,
+      });
       await expect(page.getByRole('button', { name: '변경사항 저장' })).toBeDisabled({ timeout: 15_000 });
       await expect(page.getByRole('link', { name: '홈 페이지 편집 열기' })).toBeVisible({ timeout: 15_000 });
       return;
