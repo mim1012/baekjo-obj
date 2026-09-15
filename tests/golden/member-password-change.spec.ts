@@ -36,7 +36,9 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
     expect(signupResponse.status()).toBe(201);
 
     await loginAsAdmin(setupPage);
-    const listResponse = await setupPage.request.get('/api/admin/members');
+    // U2(0173) 이후 /api/admin/members는 페이지당 20건으로 서버 페이지네이션되므로, search로
+    // 좁혀서 조회한다.
+    const listResponse = await setupPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listResponse.ok()).toBe(true);
     const { users } = (await listResponse.json()) as {
       users: Array<{

@@ -8,6 +8,10 @@ import {
 } from '@/lib/members/statusTransitions';
 import { logServerError } from '@/lib/logServerError';
 
+// UUID가 아닌 id는 조회할 수 없는 형태이므로 존재 은폐 차원에서 곧바로 404로 접는다
+// (src/app/api/admin/orders/[id]/refunds/route.ts의 UUID_RE 패턴과 동일).
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // 이 엔드포인트가 허용하는 목표 상태. 승인/반려(pending→active|rejected)에 더해
 // 정지/재활성(active→inactive, inactive→active)도 다룬다. 'withdrawn'은 회원 본인만
 // (members/me DELETE → withdrawMember) 진입 가능한 상태라 관리자 전환 대상이 아니다.
@@ -88,6 +92,26 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ user: toUser(updated) }, { status: 200 });
   } catch (error) {
     logServerError('[PATCH /api/admin/members/[id]] 상태 변경 실패', error);
+    return NextResponse.json({ error: 'server-error' }, { status: 500 });
+  }
+}
+
+/**
+ * GET /api/admin/members/[id] — 단건 회원 조회. 회원 상세 화면(MemberDetailPage)이 목록 페이지의
+ * 현재 페이지에 없는 회원(다른 검색/필터 결과)도 열 수 있어야 해서 목록 조회에 의존하지 않는다.
+ */
+export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin.ok) return admin.response;
+  const { id } = await context.params;
+  if (!UUID_RE.test(id)) return NextResponse.json({ error: 'not-found' }, { status: 404 });
+
+  try {
+    const member = await findMemberById(id);
+    if (!member) return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    return NextResponse.json({ user: toUser(member) }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    logServerError('[GET /api/admin/members/[id]] 조회 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 }

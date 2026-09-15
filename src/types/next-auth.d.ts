@@ -23,6 +23,8 @@ declare module 'next-auth/jwt' {
     role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
     /** members 테이블 PK */
     memberId?: string;
+    /** members.session_version 스냅샷 — 비밀번호/role/정지 등으로 값이 바뀌면 기존 토큰을 무효화한다 */
+    sessionVersion?: number;
   }
 }
 
@@ -33,5 +35,6 @@ declare module '@auth/core/jwt' {
     provider?: string;
     role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner';
     memberId?: string;
+    sessionVersion?: number;
   }
 }
