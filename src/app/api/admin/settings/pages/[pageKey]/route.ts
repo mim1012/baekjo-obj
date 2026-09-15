@@ -6,6 +6,7 @@ import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 import {
   CmsRevisionConflictError,
   getCmsPageState,
+  getPublishedCmsPage,
   listCmsPageVersions,
   publishCmsPage,
   restoreCmsPageVersionDraft,
@@ -121,6 +122,9 @@ export async function POST(request: Request, context: Context) {
   if (expectedRevision === null) return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
 
   try {
+    if (await getPublishedCmsPage(pageKey) === null) {
+      return NextResponse.json({ error: 'initial-import-required' }, { status: 409 });
+    }
     const published = await publishCmsPage({
       pageKey,
       expectedRevision,

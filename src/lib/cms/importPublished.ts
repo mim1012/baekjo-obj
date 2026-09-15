@@ -1,4 +1,8 @@
 import 'server-only';
+import { normalizePageTextSettings, pageTextDefinitions } from '@/data/pageTextContent';
+import { auditContentFromPageTexts } from '@/components/admin-new/pages/auditContent';
+import { normalizeCmsPageContent } from '@/lib/cms/normalize';
+import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 import { getSupabase } from '@/lib/supabase/server';
 
 export interface AuditImportInput {
@@ -16,6 +20,9 @@ export function parseAuditImportInput(value: unknown): AuditImportInput | null {
   const { expectedRevision, sourceValue, sourceUpdatedAt } = value;
   if (typeof expectedRevision !== 'number' || !Number.isSafeInteger(expectedRevision) || expectedRevision <= 0) return null;
   if (!isRecord(sourceValue) || !isRecord(sourceValue.values)) return null;
+  const fields = pageTextDefinitions.find((page) => page.id === 'audit')?.fields;
+  if (!fields || Object.entries(sourceValue.values).some(([key, text]) =>
+    key.startsWith('audit.') && (typeof text !== 'string' || !fields.some((field) => key === `audit.${field.id}`)))) return null;
   if (typeof sourceUpdatedAt !== 'string'
     || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/.test(sourceUpdatedAt)
     || !Number.isFinite(Date.parse(sourceUpdatedAt))) return null;
@@ -30,11 +37,18 @@ export class AuditImportConflictError extends Error {
 }
 
 export async function publishAuditCmsFromSource(input: AuditImportInput & { readonly actorId: string }) {
+  const definition = getCmsPageDefinition('audit');
+  if (!definition) throw new Error('audit-definition-missing');
+  const expectedContent = normalizeCmsPageContent(
+    definition,
+    auditContentFromPageTexts(normalizePageTextSettings(input.sourceValue)),
+  );
   const { data, error } = await getSupabase().rpc('publish_audit_cms_from_source', {
     p_expected_revision: input.expectedRevision,
     p_expected_source_value: input.sourceValue,
     p_expected_source_updated_at: input.sourceUpdatedAt,
     p_actor: input.actorId,
+    p_expected_content: expectedContent,
   });
   if (error) {
     if (error.code === '40001') throw new AuditImportConflictError();

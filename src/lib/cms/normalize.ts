@@ -1,4 +1,3 @@
-import { normalizeHomeSettings } from '@/data/homeContent';
 import {
   type CmsFieldDefinition,
   type CmsLinkItem,
@@ -100,7 +99,6 @@ export function normalizeCmsPageContent(
   definition: CmsPageDefinition,
   value: unknown,
 ): Record<string, unknown> {
-  if (definition.key === 'home') return { ...normalizeHomeSettings(value) };
   if (definition.sections.length === 0) return isObject(value) ? clone(value) : {};
 
   const result = isObject(value) ? clone(value) : clone(definition.defaultContent);

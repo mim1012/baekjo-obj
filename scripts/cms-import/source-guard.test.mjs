@@ -3,26 +3,33 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
+import { isDeepStrictEqual } from 'node:util';
 
 const root = new URL('../../', import.meta.url);
 const helperFile = 'src/lib/cms/importPublished.ts';
 const routeFile = 'src/app/api/admin/settings/pages/[pageKey]/import-publish/route.ts';
 const input = { expectedRevision: 5, sourceValue: { version: 1, values: { 'audit.heroDescription': 'source snapshot' } }, sourceUpdatedAt: '2026-09-15T00:00:00.123456+00:00' };
 
-function load(relative, dependencies, audit = []) {
+function load(relative, dependencies = {}, audit = []) {
   const file = fileURLToPath(new URL(relative, root));
   const { outputText } = ts.transpileModule(readFileSync(file, 'utf8'), {
     fileName: file, compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
   });
   const loaded = { exports: {} };
   new Function('require', 'module', 'exports', 'console', outputText)((name) => {
+    if (!Object.hasOwn(dependencies, name) && name.startsWith('@/') && !name.includes('/supabase/')) return load(`src/${name.slice(2)}.ts`);
     assert(Object.hasOwn(dependencies, name), `Unstubbed dependency: ${name}`);
     return dependencies[name];
   }, loaded, loaded.exports, { info: (...args) => audit.push(args) });
   return loaded.exports;
 }
 
-function harness({ authorized = true, conflict = false } = {}) {
+const { normalizeCmsPageContent } = load('src/lib/cms/normalize.ts');
+const { getCmsPageDefinition } = load('src/lib/cms/pageDefinitions.ts');
+const { buildSnapshot } = await import('./mapper.mjs');
+const expectedContent = normalizeCmsPageContent(getCmsPageDefinition('audit'), buildSnapshot({ id: 'page-texts', value: input.sourceValue }));
+
+function harness({ authorized = true, conflict = false, draft = expectedContent, sourceValue = input.sourceValue } = {}) {
   const rpc = [];
   const audit = [];
   const revalidated = [];
@@ -30,7 +37,10 @@ function harness({ authorized = true, conflict = false } = {}) {
     'server-only': {},
     '@/lib/supabase/server': { getSupabase: () => ({ rpc: async (...args) => {
       rpc.push(args);
-      return conflict ? { data: null, error: { code: '40001' } } : { data: [{ published_revision: 5, published_at: '2026-09-15T00:00:01Z' }], error: null };
+      const parameters = args[1];
+      const mismatch = !isDeepStrictEqual(sourceValue, parameters.p_expected_source_value)
+        || (Object.hasOwn(parameters, 'p_expected_content') && !isDeepStrictEqual(draft, parameters.p_expected_content));
+      return conflict || mismatch ? { data: null, error: { code: '40001' } } : { data: [{ published_revision: 5, published_at: '2026-09-15T00:00:01Z' }], error: null };
     } }) },
   });
   const route = load(routeFile, {
@@ -50,6 +60,7 @@ test('guard route sends exact raw source value and microsecond timestamp to the 
   assert.deepEqual(h.rpc, [['publish_audit_cms_from_source', {
     p_expected_revision: 5, p_expected_source_value: input.sourceValue,
     p_expected_source_updated_at: input.sourceUpdatedAt, p_actor: 'actor-uuid',
+    p_expected_content: expectedContent,
   }]]);
   assert.deepEqual(h.revalidated, ['/audit']);
   assert.equal(h.audit.length, 0);
@@ -57,6 +68,41 @@ test('guard route sends exact raw source value and microsecond timestamp to the 
   assert.equal(h.route.GET, undefined);
   assert.equal(h.route.PATCH, undefined);
 });
+
+test('correct source cannot publish an unrelated draft, even with client expected content', async () => {
+  const h = harness({ draft: { unrelated: true } });
+  assert.equal((await h.request({ ...input, expectedContent: { unrelated: true } })).status, 409);
+  assert.deepEqual(h.revalidated, []);
+});
+
+test('source drift after PATCH conflicts at guarded publication', async () => {
+  const h = harness({ sourceValue: { ...input.sourceValue, values: { 'audit.heroDescription': 'changed after PATCH' } } });
+  assert.equal((await h.request()).status, 409);
+  assert.deepEqual(h.revalidated, []);
+});
+
+for (const managed of [false, true]) {
+  test(`ordinary publication ${managed ? 'allows revision-guarded edits after bootstrap' : 'refuses initial activation'}`, async () => {
+    const published = [];
+    const route = load('src/app/api/admin/settings/pages/[pageKey]/route.ts', {
+      'next/cache': { revalidatePath: () => {} },
+      'next/server': { NextResponse: { json: (body, options) => Response.json(body, options) } },
+      '@/lib/admin/requireAdmin': { requireAdmin: async () => ({ ok: true, requester: { id: 'actor-uuid' } }) },
+      '@/lib/cms/content': { normalizeCmsPageContent },
+      '@/lib/cms/repo': {
+        CmsRevisionConflictError: class extends Error {},
+        getPublishedCmsPage: async () => managed ? expectedContent : null,
+        publishCmsPage: async (value) => { published.push(value); return { publishedRevision: 5 }; },
+      },
+      '@/lib/logServerError': { logServerError: () => {} },
+    });
+    const response = await route.POST(new Request('http://localhost/api/admin/settings/pages/audit', { method: 'POST', body: JSON.stringify({ expectedRevision: 5 }) }), { params: Promise.resolve({ pageKey: 'audit' }) });
+    assert.equal(response.status, managed ? 200 : 409);
+    assert.equal(published.length, managed ? 1 : 0);
+    if (!managed) assert.equal((await response.json()).error, 'initial-import-required');
+    else assert.equal(published[0].expectedRevision, 5);
+  });
+}
 
 test('source/revision SQL40001 becomes 409 with no success audit or invalidation', async () => {
   const h = harness({ conflict: true });

@@ -2,13 +2,78 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
-import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
+import { CMS_PAGE_DEFINITIONS, getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 
 const root = path.resolve(__dirname, '..', '..');
+
+for (const empty of [false, true]) {
+  test(`home CMS preserves structural content with ${empty ? 'empty' : 'extended'} cards`, () => {
+    const definition = getCmsPageDefinition('home');
+    if (!definition) throw new Error('home definition missing');
+    const input = {
+      futureRoot: { nested: ['keep'] },
+      hero: { desktopImage: '/desktop.webp', mobileImage: '/mobile.webp', href: '/shop', visible: false, titleLines: [], futureHero: { keep: true } },
+      quickShop: { links: [{ name: '', href: '/shop', icon: 'star', visible: false, futureLink: [] }] },
+      curation: { cards: empty ? [] : Array.from({ length: 12 }, (_, index) => ({ title: `card ${index}`, desc: ' long '.repeat(1500), image: '/card.webp', href: '/brands', visible: false, futureCard: { keep: [] } })) },
+      solutions: { cards: [] },
+    };
+    const saved = normalizeCmsPageContent(definition, input);
+    const readBack = normalizeCmsPageContent(definition, JSON.parse(JSON.stringify(saved)));
+    expect(readBack).toEqual(input);
+    expect(readBack).not.toBe(input);
+  });
+}
 
 function read(...segments: readonly string[]): string {
   return fs.readFileSync(path.join(root, ...segments), 'utf8');
 }
+
+function extendContent(value: unknown, empty: boolean): unknown {
+  if (Array.isArray(value)) {
+    return empty ? [] : [...value, ...value, ...value].map((item) => extendContent(item, empty));
+  }
+  if (value !== null && typeof value === 'object') {
+    return { ...Object.fromEntries(Object.entries(value).map(([key, item]) => [key, extendContent(item, empty)])), futureField: { nested: [], keep: false } };
+  }
+  return value;
+}
+
+for (const definition of CMS_PAGE_DEFINITIONS) {
+  for (const empty of [false, true]) {
+    test(`${definition.key} preserves nested extensions and ${empty ? 'empty' : 'extended'} arrays`, () => {
+      const input = extendContent(normalizeCmsPageContent(definition, definition.defaultContent), empty);
+      expect(normalizeCmsPageContent(definition, input)).toEqual(input);
+    });
+  }
+}
+
+test('0164 binds bootstrap content inside both row locks and closes older RPC access', () => {
+  const sql = read('supabase', 'migrations', '0164_cms_activation_contract.sql');
+  const [ordinary, guarded] = sql.split('create or replace function public.publish_audit_cms_from_source(');
+  expect(ordinary.indexOf('for update;')).toBeLessThan(ordinary.indexOf("raise exception 'initial-import-required'"));
+  expect(ordinary.indexOf("raise exception 'initial-import-required'")).toBeLessThan(ordinary.indexOf('insert into public.cms_page_versions'));
+  expect(ordinary).toContain('p_expected_revision is null');
+  const sourceLock = guarded.indexOf("where id = 'page-texts'\n  for update;");
+  const sourceCheck = guarded.indexOf('v_source.value is distinct from p_expected_source_value');
+  const timeCheck = guarded.indexOf('v_source.updated_at is distinct from p_expected_source_updated_at');
+  const pageLock = guarded.indexOf("where page_key = 'audit'\n  for update;");
+  const revisionCheck = guarded.indexOf('v_page.draft_revision is distinct from p_expected_revision');
+  const contentCheck = guarded.indexOf('v_page.draft_content is distinct from p_expected_content');
+  const archive = guarded.indexOf('insert into public.cms_page_versions');
+  expect(sourceLock).toBeGreaterThan(0);
+  expect([sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive]).toEqual(
+    [sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive].toSorted((a, b) => a - b),
+  );
+  expect(guarded).not.toContain('from public.publish_cms_page(');
+  expect(sql).toMatch(/publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid\)\s+from public, anon, authenticated, service_role;/);
+  expect(sql).toMatch(/revoke all on function public.publish_cms_page\(text, bigint, uuid\) from public, anon, authenticated;/);
+  expect(sql).toMatch(/grant execute on function public.publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid, jsonb\)\s+to service_role;/);
+  for (const body of [ordinary, guarded]) {
+    expect(body).toContain('on conflict (page_key, revision) do nothing');
+    expect(body).toContain('v_existing_version.content <> v_published_content');
+    expect(body).not.toMatch(/(?:update|delete from)\s+public\.cms_page_versions/i);
+  }
+});
 
 test('cms foundation migration is additive and does not overwrite existing page content', () => {
   const migration = read('supabase', 'migrations', '0162_cms_foundation_reconcile.sql');
