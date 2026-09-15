@@ -648,6 +648,41 @@ export async function getAdminOrderActionRequests(orderId: string): Promise<Orde
   return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
 }
 
+/** 관리자 승인/반려/완료 409(action-requests/route.ts, ORDER_ACTION_REQUEST_ERROR_CODES 등)를
+ *  코드+한국어 문구 그대로 실어 던진다 — 호출부(OrderActionRequestsPanel)가 code로 힌트를 분기하고
+ *  message를 그대로 보여줄 수 있게 한다. */
+export class AdminActionRequestConflictError extends Error {
+  constructor(public readonly code: string, message: string) {
+    super(message);
+    this.name = 'AdminActionRequestConflictError';
+  }
+}
+
+/** 관리자 상품별 취소·환불 요청 승인/반려/완료(POST /api/admin/orders/[id]/action-requests,
+ *  0170 RPC 경유). 성공 시 그 라우트가 함께 돌려주는 최신 요청 목록을 그대로 반환한다 — 패널이
+ *  별도로 재조회하지 않고 이 응답으로 상태를 갱신한다. */
+export async function transitionAdminOrderActionRequest(
+  orderId: string,
+  requestId: string,
+  action: 'approve' | 'reject' | 'complete',
+): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/action-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, action }),
+  });
+  const body = (await response.json().catch(() => null)) as
+    | { ok?: boolean; requests?: unknown; error?: unknown; message?: unknown }
+    | null;
+  if (!response.ok) {
+    const code = body && typeof body.error === 'string' ? body.error : 'action-request-update-failed';
+    const message = body && typeof body.message === 'string' ? body.message : '요청 처리에 실패했습니다.';
+    throw new AdminActionRequestConflictError(code, message);
+  }
+  if (!body || !Array.isArray(body.requests)) throw new Error('action-request-update-failed');
+  return body.requests as OrderActionRequestRecord[];
+}
+
 export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
   const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/refunds`, {
     cache: 'no-store',

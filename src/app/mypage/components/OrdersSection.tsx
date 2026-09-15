@@ -22,6 +22,10 @@ import type {
   OrderActionRequestItemInput,
   OrderActionRequestRecord,
 } from '@/lib/orders/actionRequests';
+import {
+  hasRejectedActionRequestItem,
+  MEMBER_ACTION_REQUEST_ITEM_LABEL as ACTION_ITEM_STATUS_LABEL,
+} from '@/lib/orders/actionRequestPresentation';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
 import { EMPTY_ORDER_DATE_RANGE, matchesOrderDateRange, type OrderDateRange } from '@/lib/orders/orderDateFilters';
@@ -210,9 +214,6 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       if (error instanceof Error && error.message === 'action-request-quantity-exceeds-remaining') {
         throw new Error('이미 처리 중이거나 취소된 수량이 포함되어 있습니다. 주문을 새로고침한 뒤 다시 선택해주세요.');
       }
-      if (error instanceof Error && error.message === 'action-request-order-closed') {
-        throw new Error('이미 종료된 주문에는 요청할 수 없습니다.');
-      }
       throw new Error('브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.');
     }
   };
@@ -244,6 +245,11 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
           // 업체(브랜드)별 번들. 레거시 주문(brandId 없는 아이템)은 하나의 null 번들로 접혀 최소 1개 버튼을 갖는다.
           const bundles = groupOrderItemsByBundle(order.items);
           const sellerGroups = order.sellerGroups ?? [];
+          const orderActionRequests = actionRequests.filter((request) => request.orderId === order.id);
+          // 취소 반려는 주문 집계 상태(order.orderStatus)를 다시 주문접수로 되돌리므로 목록 상단
+          // 배지만으론 회원이 반려 사실을 알 수 없다 — 반려된 요청 아이템이 있으면 목록 레벨에
+          // '취소 반려' 배지를 띄운다.
+          const hasRejectedRequest = hasRejectedActionRequestItem(orderActionRequests);
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
@@ -264,6 +270,11 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(getOrderDeliveryLabel(order))}`}>
                   {getOrderDeliveryLabel(order)}
                 </span>
+                {hasRejectedRequest && (
+                  <span className="rounded-full bg-[#A65348] px-3 py-1 text-xs font-bold text-white">
+                    취소 반려
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
@@ -386,6 +397,27 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
               })}
             </div>}
 
+            {expandedOrderId === order.id && orderActionRequests.length > 0 && (
+              <div className="border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">
+                <h3 className="text-sm font-semibold text-[#18231F]">취소·환불 요청 현황</h3>
+                <div className="mt-3 space-y-2">
+                  {orderActionRequests.map((request) => (
+                    <div key={request.id} className="rounded-md border border-[#EBE6DC] bg-white px-4 py-3 text-sm">
+                      <p className="text-xs font-semibold text-[#68716C]">{request.requestType === 'CANCEL' ? '취소 요청' : '환불 요청'}</p>
+                      <div className="mt-2 space-y-1">
+                        {request.items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between gap-3 text-[#18231F]">
+                            <span className="min-w-0 truncate">{item.productName}{item.optionName ? ` (${item.optionName})` : ''} × {item.quantity}개</span>
+                            <span className="shrink-0 text-xs font-semibold text-[#68716C]">{ACTION_ITEM_STATUS_LABEL[item.status]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {sellerGroups.length > 0 && (
               <div className="border-t border-[#EBE6DC] bg-white px-6 py-4">
                 <h3 className="text-sm font-bold text-[#18231F]">판매자별 취소·교환·반품</h3>
@@ -393,7 +425,10 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 <div className="mt-3 space-y-3">
                   {sellerGroups.map((group) => {
                     const requests = serviceRequests.filter((request) => request.orderId === order.id && request.sellerKey === group.key);
-                    const canRequest = order.paymentStatus === '결제완료' && !['취소요청', '취소완료'].includes(order.orderStatus);
+                    // 부분취소는 취소요청과 동일하게 교환·반품을 막는다(취소 처리 중 상태) — 서버
+                    // 측 최종 게이트(src/app/api/orders/requests/route.ts 제외 목록)와 정렬. 부분취소완료는
+                    // 남은 아이템에 대해 계속 허용한다(제외 목록에 없음).
+                    const canRequest = order.paymentStatus === '결제완료' && !['취소요청', '부분취소', '취소완료'].includes(order.orderStatus);
                     const acceptance = order.sellerAcceptances?.find((item) => item.sellerKey === group.key);
                     return (
                       <div key={group.key} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#EBE6DC] bg-[#FBF9F4] p-3">
