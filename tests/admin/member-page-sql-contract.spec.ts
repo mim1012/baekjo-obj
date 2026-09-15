@@ -136,6 +136,7 @@ test('repo.listMemberPage maps RPC SQLSTATE PT409 to InvalidMemberQueryError', a
       }),
     },
     '@/lib/members/profile': { isMemberProfileComplete: () => true },
+    '@/lib/logServerError': { logServerError: () => {} },
   });
   const { listMemberPage, InvalidMemberQueryError } = repo as {
     listMemberPage: (query: { page: number; pageSize: number; search: string; role: string; status: string }) => Promise<unknown>;
@@ -191,6 +192,7 @@ test('repo.listMemberPage never exposes password_hash on returned users even if 
       }),
     },
     '@/lib/members/profile': { isMemberProfileComplete: () => true },
+    '@/lib/logServerError': { logServerError: () => {} },
   });
   const { listMemberPage } = repo as {
     listMemberPage: (query: { page: number; pageSize: number; search: string; role: string; status: string }) => Promise<{ users: Array<Record<string, unknown>> }>;

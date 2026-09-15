@@ -19,6 +19,11 @@ export default function MemberListPage() {
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  // 전체 페이지 LoadingState는 "최초 1회 로드"에만 쓴다. 이후에는 검색/필터/페이지 변경마다
+  // loadMembers()가 setLoading(true)를 다시 호출해도 MemberFilters(검색 입력창)를 언마운트하면
+  // 안 되므로, 첫 응답(성공/실패 불문) 이후에는 true로 굳혀 다시 false로 돌리지 않는다.
+  // 이후의 로딩 표시는 MemberDataTable의 isLoading prop(표 내부 스피너)만 담당한다.
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('전체');
@@ -61,7 +66,10 @@ export default function MemberListPage() {
         setError(err instanceof Error ? err : new Error(String(err)));
       }
     } finally {
-      if (!signal?.aborted && id === requestId.current) setLoading(false);
+      if (!signal?.aborted && id === requestId.current) {
+        setLoading(false);
+        setInitialLoadDone(true);
+      }
     }
   }, [currentPage, searchTerm, roleFilter, statusFilter]);
 
@@ -95,7 +103,7 @@ export default function MemberListPage() {
 
   if (!mounted) return null;
 
-  if (loading && members.length === 0) {
+  if (!initialLoadDone && loading && members.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader title="회원 관리" description="가입된 전체 회원 목록을 조회하고 권한을 관리합니다." />
