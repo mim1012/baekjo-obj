@@ -3,9 +3,9 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Trash2, Plus, X } from 'lucide-react';
-import type { Concern, Product, Brand, Seller } from '@/types';
-import { createProduct, updateProduct, deleteProduct } from '@/lib/storage';
+import { ArrowLeft, ArrowUp, ArrowDown, Trash2, Plus, X } from 'lucide-react';
+import type { Product, Brand, Seller } from '@/types';
+import { createAdminProductTag, createProduct, updateProduct, deleteProduct } from '@/lib/storage';
 import {
   buildProductCreatePayload,
   buildProductUpdatePayload,
@@ -13,6 +13,9 @@ import {
   type ProductOptionFormState,
 } from '@/lib/products/formPayload';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import { parseProductPetTypes, serializeProductPetTypes } from '@/lib/products/petTypes';
+import { moveImage, normalizeImageOrder, setRepresentative } from '@/lib/products/imageOrder';
+import type { ProductTagDefinition } from '@/lib/productTags/config';
 import {
   disclosureDefinition,
   EMPTY_MADE_TO_ORDER_POLICY,
@@ -29,7 +32,7 @@ import ImageUploader from '@/components/admin-new/common/ImageUploader';
 interface ProductFormProps {
   initialData?: Product | null;
   brands: Brand[];
-  concerns: Concern[];
+  productTags: ProductTagDefinition[];
   sellers: Seller[];
 }
 
@@ -137,9 +140,13 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
   }));
 }
 
-export default function ProductForm({ initialData, brands, concerns, sellers }: ProductFormProps) {
+export default function ProductForm({ initialData, brands, productTags, sellers }: ProductFormProps) {
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
+  const [tags, setTags] = useState<ProductTagDefinition[]>(productTags);
+  const [newTagLabel, setNewTagLabel] = useState('');
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
+  const [tagFeedback, setTagFeedback] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
   const isEdit = !!initialData;
   const [draftId] = useState(() =>
     typeof crypto !== 'undefined' && crypto.randomUUID
@@ -214,6 +221,27 @@ export default function ProductForm({ initialData, brands, concerns, sellers }: 
       }
       return next;
     });
+  };
+
+  // 반려동물 다중 선택. categorySettings.petTypes(관리자 설정)를 선택 목록으로 쓰고, 이미 저장된
+  // 값이 그 목록 밖(설정에서 지워진 id 등)이면 "카테고리 목록에 없음" 항목으로 덧붙여 선택을
+  // 잃지 않게 한다. 선택값은 항상 serializeProductPetTypes로 즉시 직렬화해 formData.petType(단일
+  // 문자열)에 저장하므로 formPayload/validate는 이 필드를 그대로 문자열 하나로만 다룬다.
+  const selectedPetTypeIds = parseProductPetTypes(formData.petType);
+  const knownPetTypeIds = new Set(categorySettings.petTypes.map((item) => item.id));
+  const selectablePetTypes = [
+    ...categorySettings.petTypes,
+    ...selectedPetTypeIds
+      .filter((id) => !knownPetTypeIds.has(id))
+      .map((id) => ({ id, label: `${id} (카테고리 목록에 없음)` })),
+  ];
+
+  const togglePetType = (id: string, checked: boolean) => {
+    const selected = new Set(selectedPetTypeIds);
+    if (checked) selected.add(id);
+    else selected.delete(id);
+    const ordered = selectablePetTypes.filter((item) => selected.has(item.id)).map((item) => item.id);
+    handleChange('petType', serializeProductPetTypes(ordered));
   };
 
   /** formData(+옵션 상태)를 순수 payload 빌더가 받는 ProductFormState 로 모은다. */
@@ -325,12 +353,92 @@ export default function ProductForm({ initialData, brands, concerns, sellers }: 
   };
 
   const images = formData.images ?? [];
+  const orderedImages = normalizeImageOrder(formData.image, images);
   const auditPoints = formData.auditPoints ?? [];
   const concernTags = formData.concernTags ?? [];
   const recommendedFor = formData.recommendedFor ?? [];
   const caution = formData.caution ?? [];
   const selectedBrand = brands.find((brand) => brand.id === formData.brandId);
   const selectedSeller = sellers.find((seller) => seller.id === formData.sellerId);
+
+  const handleOrderedImagesChange = (next: string[]) => {
+    const imageFields = setRepresentative(next, 0); // index<=0 → 승격 없이 순수 분리(ordered[0]→image)
+    setFormData((prev) => ({ ...prev, ...imageFields }));
+    if (fieldErrors.image && imageFields.image.trim()) {
+      setFieldErrors((prev) => {
+        const nextErrors = { ...prev };
+        delete nextErrors.image;
+        return nextErrors;
+      });
+    }
+  };
+
+  // 고민 태그 선택칸. 고객에게 보이는(isVisible) 태그만 빠른 선택으로 노출하고, 이 상품에 이미
+  // 연결된 값이 그 목록 밖(숨김 처리됐거나 사전에 없는 값)이면 라벨을 최대한 찾아 덧붙여 보여준다
+  // — petType 의 "카테고리 목록에 없음" 처리와 동일한 원칙(선택을 조용히 잃지 않는다).
+  const visibleTagOptions = tags.filter((tag) => tag.isVisible);
+  const tagLabelBySlug = new Map(tags.map((tag) => [tag.slug, tag.label] as const));
+  const knownVisibleTagSlugs = new Set(visibleTagOptions.map((tag) => tag.slug));
+  const selectableTags = [
+    ...visibleTagOptions,
+    ...concernTags
+      .filter((slug) => !knownVisibleTagSlugs.has(slug))
+      .map((slug) => ({
+        slug,
+        label: tagLabelBySlug.get(slug) ?? slug,
+        isVisible: false,
+        showInShopFilter: false,
+      })),
+  ];
+
+  const toggleConcernTag = (slug: string, checked: boolean) => {
+    handleChange('concernTags', checked ? [...concernTags, slug] : concernTags.filter((item) => item !== slug));
+  };
+
+  const handleCreateConcernTag = async () => {
+    const label = newTagLabel.trim();
+    if (!label) {
+      setTagFeedback({ kind: 'error', text: '새 태그 이름을 입력해주세요.' });
+      return;
+    }
+    setIsCreatingTag(true);
+    setTagFeedback(null);
+    try {
+      const result = await createAdminProductTag(label);
+      if (!result.ok || !result.tag) {
+        const message =
+          result.error === 'persistence-not-ready'
+            ? '태그 저장용 DB가 아직 적용되지 않았습니다. DB 적용 후 다시 시도해주세요.'
+            : result.error === 'invalid-input'
+              ? '태그 이름은 1자 이상 50자 이하로 입력해주세요.'
+              : result.error === 'unauthorized' || result.error === 'forbidden'
+                ? '관리자 권한을 확인한 뒤 다시 시도해주세요.'
+                : '태그를 등록하지 못했습니다. 잠시 후 다시 시도해주세요.';
+        setTagFeedback({ kind: 'error', text: message });
+        return;
+      }
+
+      const tag = result.tag;
+      setTags((prev) => (prev.some((item) => item.slug === tag.slug) ? prev : [...prev, tag]));
+      const alreadySelected = concernTags.includes(tag.slug);
+      if (!alreadySelected) {
+        handleChange('concernTags', [...concernTags, tag.slug]);
+      }
+      setNewTagLabel('');
+      setTagFeedback({
+        kind: 'success',
+        text: alreadySelected
+          ? `'${tag.label}' 태그는 이미 이 상품에 선택되어 있습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`
+          : result.created
+            ? `'${tag.label}' 태그를 공용 목록에 등록하고 이 상품에 선택했습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`
+            : `이미 등록된 '${tag.label}' 태그를 이 상품에 선택했습니다. 상품 저장 버튼을 누르면 연결이 확정됩니다.`,
+      });
+    } catch {
+      setTagFeedback({ kind: 'error', text: '태그를 등록하지 못했습니다. 잠시 후 다시 시도해주세요.' });
+    } finally {
+      setIsCreatingTag(false);
+    }
+  };
 
   return (
     <div className="space-y-6 pb-24">
@@ -484,16 +592,30 @@ export default function ProductForm({ initialData, brands, concerns, sellers }: 
 
               <div className="grid grid-cols-2 gap-4">
                 <FormField label="반려동물">
-                  <select
-                    value={formData.petType || 'both'}
-                    onChange={(e) => handleChange('petType', e.target.value)}
-                    className={INPUT_CLASS}
-                  >
-                    <option value="both">공용</option>
-                    <option value="dog">강아지 전용</option>
-                    <option value="cat">고양이 전용</option>
-                    <option value="small">소동물 전용</option>
-                  </select>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="반려동물 선택">
+                    {selectablePetTypes.map((petType) => {
+                      const checked = selectedPetTypeIds.includes(petType.id);
+                      return (
+                        <label
+                          key={petType.id}
+                          className={`flex min-h-11 items-center gap-2 border px-3 py-2 text-sm transition-colors ${
+                            checked
+                              ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
+                              : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(event) => togglePetType(petType.id, event.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-[#17201B] focus:ring-[#17201B]"
+                          />
+                          <span>{petType.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-2 text-[12px] text-[#8A918B]">현재 {selectedPetTypeIds.length}개 선택</p>
                 </FormField>
 
                 <FormField label="라이프스타일 분류" htmlFor="product-lifestyle" required error={fieldErrors.lifestyleCategory}>
@@ -596,35 +718,88 @@ export default function ProductForm({ initialData, brands, concerns, sellers }: 
                   maxItems={50}
                 />
               </FormField>
-              <FormField label="주요 고민">
+              <FormField
+                label="상품 카드에 보이는 고민 태그"
+                description="홈·스토어·브랜드의 상품 카드에서 가격 아래 둥근 배지로 보입니다. 기존 태그는 아래에서 바로 선택하고, 목록에 없으면 새 태그를 등록하면 이 상품에도 자동 선택됩니다."
+              >
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                  {concerns.map((concern) => {
-                    const selected = concernTags.includes(concern.slug);
+                  {selectableTags.map((tag) => {
+                    const selected = concernTags.includes(tag.slug);
                     return (
                       <button
-                        key={concern.slug}
+                        key={tag.slug}
                         type="button"
                         aria-pressed={selected}
-                        onClick={() =>
-                          handleChange(
-                            'concernTags',
-                            selected
-                              ? concernTags.filter((slug) => slug !== concern.slug)
-                              : [...concernTags, concern.slug],
-                          )
-                        }
+                        onClick={() => toggleConcernTag(tag.slug, !selected)}
                         className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
                           selected
                             ? 'border-[#2F3B34] bg-[#EDF0EC] font-semibold text-[#17201B]'
                             : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
                         }`}
                       >
-                        {concern.title}
+                        {selected ? '✓ ' : '+ '}{tag.label}
                       </button>
                     );
                   })}
                 </div>
-                {concerns.length === 0 && <p className="text-sm text-[#8A918B]">등록된 고민이 없습니다.</p>}
+                {selectableTags.length === 0 && (
+                  <p className="text-sm text-[#8A918B]">등록된 태그가 없습니다. 아래에서 새 태그를 등록해주세요.</p>
+                )}
+
+                <div className="mt-3 rounded border border-[#D7DCD7] bg-white p-4">
+                  <label htmlFor="new-product-tag" className="block text-[13px] font-semibold text-[#17201B]">
+                    목록에 없는 새 태그 등록
+                  </label>
+                  <p className="mt-1 text-[12px] leading-5 text-[#68756D]">
+                    고객에게 보일 이름만 입력하세요. 등록하면 공용 태그 목록에 저장되고 이 상품에도 바로 선택됩니다.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input
+                      id="new-product-tag"
+                      type="text"
+                      maxLength={50}
+                      value={newTagLabel}
+                      onChange={(event) => {
+                        setNewTagLabel(event.target.value);
+                        if (tagFeedback) setTagFeedback(null);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          void handleCreateConcernTag();
+                        }
+                      }}
+                      className={INPUT_CLASS}
+                      placeholder="예: 알레르기"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleCreateConcernTag()}
+                      disabled={isCreatingTag || !newTagLabel.trim()}
+                      className="min-h-10 shrink-0 rounded bg-[#17201B] px-4 text-[13px] font-semibold text-white hover:bg-[#2A3630] disabled:cursor-not-allowed disabled:opacity-45"
+                    >
+                      {isCreatingTag ? '등록 중…' : '등록하고 이 상품에 선택'}
+                    </button>
+                  </div>
+                  {tagFeedback && (
+                    <p
+                      role={tagFeedback.kind === 'error' ? 'alert' : 'status'}
+                      className={`mt-2 text-[12px] font-medium ${
+                        tagFeedback.kind === 'error' ? 'text-red-600' : 'text-emerald-700'
+                      }`}
+                    >
+                      {tagFeedback.text}
+                    </p>
+                  )}
+                </div>
+                <Link
+                  href="/admin/products/tags"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex min-h-10 items-center border border-[#D1D0C8] bg-white px-3 text-xs font-semibold text-[#2F3B34] hover:bg-[#F3EEE6]"
+                >
+                  전체 태그 이름 수정·삭제·순서 변경
+                </Link>
               </FormField>
               <FormField label="성분/원재료">
                 <textarea
@@ -781,29 +956,14 @@ export default function ProductForm({ initialData, brands, concerns, sellers }: 
             </div>
           </SectionCard>
 
-          {/* 대표 이미지 */}
-          <SectionCard title="대표 이미지">
-            <ImageUploader
-              value={formData.image || ''}
-              onChange={(url) => handleChange('image', url)}
-              domain="product"
-              usage="main"
-              entityId={isEdit ? initialData.id : undefined}
-              draftId={!isEdit ? draftId : undefined}
-              aspectRatio="1/1"
-              height="240px"
-              description="정사각형(1:1) 비율, 최소 600x600px 권장"
-            />
-          </SectionCard>
-
-          {/* 추가 이미지 갤러리 */}
+          {/* 상품 이미지 순서 — 1번이 공개 상품 카드와 상세 첫 화면의 대표 이미지 */}
           <SectionCard
-            title="추가 이미지 갤러리"
-            description="상세 상단 갤러리용 이미지입니다. 이미지와 텍스트를 섞은 본문은 상세페이지 편집에서 구성합니다."
+            title="상품 이미지 순서"
+            description="1번 사진이 상품 카드와 상품 상세 첫 화면의 대표 이미지입니다. 위·아래 버튼으로 순서를 바꾸거나 원하는 사진을 바로 대표로 지정할 수 있습니다."
           >
-            <GalleryEditor
-              images={images}
-              onChange={(next) => handleChange('images', next)}
+            <ProductImageOrderEditor
+              images={orderedImages}
+              onChange={handleOrderedImagesChange}
               entityId={isEdit ? initialData.id : undefined}
               draftId={!isEdit ? draftId : undefined}
             />
@@ -1022,8 +1182,12 @@ function OptionEditor({
   );
 }
 
-/** 추가 이미지 갤러리 편집기. 슬롯마다 ImageUploader, 빈 URL 은 저장 단계에서 버려진다. */
-function GalleryEditor({
+/**
+ * 1번을 대표 이미지로 저장하는 통합 상품 이미지 순서 편집기. ordered[0]이 대표(image), 나머지가
+ * 갤러리(images)다 — 상위(ProductForm)가 normalizeImageOrder로 합쳐 넘기고, setRepresentative/
+ * moveImage(둘 다 순수 함수, tests/products/product-image-order.spec.ts)로만 순서를 바꾼다.
+ */
+function ProductImageOrderEditor({
   images,
   onChange,
   entityId,
@@ -1039,32 +1203,76 @@ function GalleryEditor({
   };
   const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
   const add = () => onChange([...images, '']);
+  const move = (idx: number, direction: 'up' | 'down') => onChange(moveImage(images, idx, direction));
+  const promote = (idx: number) => {
+    const fields = setRepresentative(images, idx);
+    onChange([fields.image, ...fields.images]);
+  };
 
   const lastEmpty = images.length > 0 && images[images.length - 1].trim() === '';
 
   return (
     <div className="space-y-3">
       {images.map((img, idx) => (
-        <div key={idx} className="flex items-start gap-2">
-          <div className="flex-1">
-            <ImageUploader
-              value={img}
-              onChange={(url) => update(idx, url)}
-              domain="product"
-              usage="detail"
-              entityId={entityId}
-              draftId={draftId}
-              height="140px"
-            />
+        <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-3">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[13px] font-semibold text-gray-800">{idx + 1}번 사진</span>
+              {idx === 0 && (
+                <span className="rounded-full bg-[#173C32] px-2.5 py-1 text-[11px] font-semibold text-white">
+                  대표 이미지
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {idx > 0 && img.trim() && (
+                <button
+                  type="button"
+                  onClick={() => promote(idx)}
+                  className="mr-1 min-h-9 rounded border border-[#173C32] bg-white px-3 text-[12px] font-semibold text-[#173C32] hover:bg-[#F1F5F3]"
+                >
+                  대표로 지정
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => move(idx, 'up')}
+                disabled={idx === 0 || !img.trim() || !images[idx - 1]?.trim()}
+                aria-label={`${idx + 1}번 이미지 위로 이동`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
+              >
+                <ArrowUp size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => move(idx, 'down')}
+                disabled={idx === images.length - 1 || !img.trim() || !images[idx + 1]?.trim()}
+                aria-label={`${idx + 1}번 이미지 아래로 이동`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
+              >
+                <ArrowDown size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                aria-label={idx === 0 ? '대표 이미지 삭제' : `갤러리 이미지 ${idx} 삭제`}
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => remove(idx)}
-            aria-label={`갤러리 이미지 ${idx + 1} 삭제`}
-            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded shrink-0"
-          >
-            <X size={16} />
-          </button>
+          <ImageUploader
+            value={img}
+            onChange={(url) => update(idx, url)}
+            domain="product"
+            usage={idx === 0 ? 'main' : 'detail'}
+            entityId={entityId}
+            draftId={draftId}
+            aspectRatio="1/1"
+            height={idx === 0 ? '240px' : '140px'}
+            description={idx === 0 ? '정사각형(1:1) 비율, 최소 600x600px 권장' : undefined}
+          />
         </div>
       ))}
       <button

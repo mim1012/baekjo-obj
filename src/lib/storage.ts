@@ -28,6 +28,7 @@ import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
+import type { AdminProductTagsConfig, ProductTagDefinition, ProductTagsConfig } from '@/lib/productTags/config';
 import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
@@ -1160,6 +1161,63 @@ export async function deleteProduct(id: string): Promise<{ ok?: true; error?: st
     return { ok: true };
   } catch {
     return { error: 'network' };
+  }
+}
+
+/**
+ * 상품 폼의 '고민' 태그 빠른 등록. POST /api/admin/product-tags — 라벨만 보내면 서버가 slug를
+ * 만들어(createProductTagSlug) 공용 사전에 저장한다. 이미 같은 라벨이 있으면 created:false로
+ * 기존 태그를 그대로 돌려줘 중복 slug가 생기지 않는다.
+ */
+export async function createAdminProductTag(label: string): Promise<{
+  ok: boolean;
+  tag?: ProductTagDefinition;
+  created?: boolean;
+  error?: string;
+}> {
+  try {
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      tag?: ProductTagDefinition;
+      created?: boolean;
+      error?: string;
+    };
+    return response.ok && body.tag
+      ? { ok: true, tag: body.tag, created: body.created === true }
+      : { ok: false, error: body.error ?? 'server-error' };
+  } catch {
+    return { ok: false, error: 'network-error' };
+  }
+}
+
+/** 태그 관리 화면(/admin/products/tags)용. GET /api/admin/product-tags. 조회 실패 시 쓰기 UI를
+ *  숨겨야 하므로 persistenceReady:false로 안전하게 방어한다(실제 미적용과 조회 실패를 굳이
+ *  구분하지 않는다 — 둘 다 "쓰기를 막는다"는 동작은 같다). */
+export async function getAdminProductTagsConfig(): Promise<AdminProductTagsConfig> {
+  try {
+    const response = await fetch('/api/admin/product-tags', { cache: 'no-store' });
+    if (!response.ok) return { items: [], hiddenSlugs: [], persistenceReady: false };
+    return (await response.json()) as AdminProductTagsConfig;
+  } catch {
+    return { items: [], hiddenSlugs: [], persistenceReady: false };
+  }
+}
+
+/** 태그 관리 화면의 등록/수정/삭제/순서변경을 통째로 반영한다. PUT /api/admin/product-tags. */
+export async function saveAdminProductTagsConfig(config: ProductTagsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
   }
 }
 

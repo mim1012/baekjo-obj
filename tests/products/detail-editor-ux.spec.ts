@@ -20,5 +20,7 @@ test('product detail editor exposes clear block insertion and multi-image upload
   expect(editor).toContain('`텍스트 ${counts.text + 1}`');
   expect(editor).toContain('`이미지 ${counts.image + 1}`');
   expect(form).toContain('상세페이지 본문 편집하기');
-  expect(form).toContain('상세 상단 갤러리용 이미지입니다.');
+  // PR3: 대표 이미지(1장)와 추가 이미지 갤러리가 하나의 이미지 순서 UI로 합쳐지며 안내 문구도
+  // "1번=대표" 설명으로 바뀌었다(구 문구 '상세 상단 갤러리용 이미지입니다.'는 제거됨).
+  expect(form).toContain('1번 사진이 상품 카드와 상품 상세 첫 화면의 대표 이미지입니다.');
 });

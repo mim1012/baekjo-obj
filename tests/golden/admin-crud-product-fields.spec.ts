@@ -149,9 +149,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     categoryValue = await selectProductFormOption(page, '스토어 카테고리 선택');
     lifestyleValue = await selectProductFormOption(page, '라이프스타일 분류 선택');
     await fillProductCompliance(page, sellerId);
-    // 반려동물 select 는 htmlFor 없이 라벨만 — option value="both" 를 가진 유일한 select 로 특정.
-    const petSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
-    await petSelect.selectOption('dog');
+    // PR3: 반려동물이 단일 select 에서 다중 체크박스로 바뀌었다. 기본값 'both'는 강아지+고양이가
+    // 이미 체크된 상태이므로, 고양이만 해제해 강아지 단독 선택(petType='dog')으로 검증한다.
+    await page.getByLabel('고양이').uncheck();
     await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(summary);
     await page
       .getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)')
@@ -302,7 +302,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(
       page.getByRole('group', { name: '라이프스타일 분류 선택' }).getByRole('button', { name: lifestyleValue, exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('select').filter({ has: page.locator('option[value="both"]') })).toHaveValue('dog');
+    // PR3: 반려동물 select가 다중 체크박스 그룹으로 바뀌었다 — 강아지만 체크, 고양이는 해제 상태로
+    // 왕복되어야 petType='dog'가 실제로 저장·재로드됐음을 확인할 수 있다.
+    await expect(page.getByRole('group', { name: '반려동물 선택' }).getByLabel('강아지')).toBeChecked();
+    await expect(page.getByRole('group', { name: '반려동물 선택' }).getByLabel('고양이')).not.toBeChecked();
     await expect(page.getByPlaceholder('상품 카드에 노출될 짧은 설명')).toHaveValue(summary);
     await expect(
       page.getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)'),

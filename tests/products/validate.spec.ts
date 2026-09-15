@@ -346,6 +346,105 @@ test.describe('폼 부분수정 계약 (ProductForm 화이트리스트 회귀 �
   });
 });
 
+test.describe('petType 다중 선택 (isValidProductPetTypeValue로 교체)', () => {
+  // PR3: 고정 Set(['dog','cat','small','both'])을 걷어내고 @/lib/products/petTypes의
+  // isValidProductPetTypeValue로 바꿨다 — categorySettings.petTypes에서 임의 id를 추가해도
+  // 검증이 막지 않아야 한다(고정 유니온이면 새 id마다 여기도 고쳐야 하는 결합을 없앤다).
+  test('레거시 단일값(dog/cat/small)은 그대로 통과한다', () => {
+    for (const petType of ['dog', 'cat', 'small']) {
+      const result = validateProductFields({ petType }, false);
+      expect(result).not.toBeNull();
+      expect(result!.petType).toBe(petType);
+    }
+  });
+
+  test('레거시 both는 그대로 통과한다', () => {
+    const result = validateProductFields({ petType: 'both' }, false);
+    expect(result).not.toBeNull();
+    expect(result!.petType).toBe('both');
+  });
+
+  test('복수 선택 JSON 문자열은 그대로 통과한다', () => {
+    const petType = JSON.stringify(['dog', 'small']);
+    const result = validateProductFields({ petType }, false);
+    expect(result).not.toBeNull();
+    expect(result!.petType).toBe(petType);
+  });
+
+  test('categorySettings에만 있는 커스텀 id(고정 유니온 밖)도 통과한다', () => {
+    const result = validateProductFields({ petType: 'exotic-reptile' }, false);
+    expect(result).not.toBeNull();
+    expect(result!.petType).toBe('exotic-reptile');
+  });
+
+  test('빈 문자열은 거부된다 (선택 0개)', () => {
+    const result = validateProductFields({ petType: '' }, false);
+    expect(result).toBeNull();
+  });
+
+  test('50개 초과 선택은 거부된다', () => {
+    const petType = JSON.stringify(Array.from({ length: 51 }, (_, i) => `pet-${i}`));
+    const result = validateProductFields({ petType }, false);
+    expect(result).toBeNull();
+  });
+
+  test('생성 경로(requireAll=true)에서 petType이 빠지면 여전히 거부된다', () => {
+    const body = minimalRequiredBody();
+    delete (body as Record<string, unknown>).petType;
+    const result = validateProductFields(body, true);
+    expect(result).toBeNull();
+  });
+});
+
+test.describe('concernTags — slug 형식 검증(createProductTagSlug와 동일 문자셋)', () => {
+  // PR3: 자유 텍스트를 그대로 저장하던 것에서 product_tags_config의 slug(영소문자·숫자·단일
+  // 하이픈)만 허용하도록 좁혔다 — 자유 텍스트가 저장되면 태그 사전의 라벨/필터 매칭이 깨진다.
+  test('영소문자·숫자·하이픈 slug는 통과한다', () => {
+    const result = validateProductFields({ concernTags: ['skin', 'joint', 'tag-1'] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.concernTags).toEqual(['skin', 'joint', 'tag-1']);
+  });
+
+  test('빈 배열은 통과한다 (태그 전체 해제)', () => {
+    const result = validateProductFields({ concernTags: [] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.concernTags).toEqual([]);
+  });
+
+  test('대문자가 섞인 값은 거부된다', () => {
+    const result = validateProductFields({ concernTags: ['Skin'] }, false);
+    expect(result).toBeNull();
+  });
+
+  test('한글(자유 텍스트)은 거부된다', () => {
+    const result = validateProductFields({ concernTags: ['피부'] }, false);
+    expect(result).toBeNull();
+  });
+
+  test('공백이 섞인 값은 거부된다', () => {
+    const result = validateProductFields({ concernTags: ['in valid'] }, false);
+    expect(result).toBeNull();
+  });
+
+  test('앞뒤 하이픈(-skin, skin-)은 거부된다', () => {
+    expect(validateProductFields({ concernTags: ['-skin'] }, false)).toBeNull();
+    expect(validateProductFields({ concernTags: ['skin-'] }, false)).toBeNull();
+  });
+
+  test('연속 하이픈(a--b)은 거부된다', () => {
+    const result = validateProductFields({ concernTags: ['a--b'] }, false);
+    expect(result).toBeNull();
+  });
+
+  test('생성(requireAll=true)에서 concernTags를 빼면 결과가 빈 배열로 채워진다', () => {
+    const body = minimalRequiredBody();
+    delete (body as Record<string, unknown>).concernTags;
+    const result = validateProductFields(body, true);
+    expect(result).not.toBeNull();
+    expect(result!.concernTags).toEqual([]);
+  });
+});
+
 test.describe('기존 계약 회귀 방지', () => {
   test('salePrice가 price보다 크면 거부된다', () => {
     const result = validateProductFields({ price: 1000, salePrice: 2000 }, false);

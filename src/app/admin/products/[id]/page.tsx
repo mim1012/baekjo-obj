@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import ProductForm from '@/components/admin-new/products/ProductForm';
 import { getProductById } from '@/lib/products/repo';
 import { listAllBrandsForAdmin } from '@/lib/brands/repo';
-import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
+import { getAdminProductTagsConfig } from '@/lib/productTags/repo';
 import { listSellers } from '@/lib/sellers/repo';
 
 // 관리자 화면은 항상 최신 DB를 봐야 한다(홈/상세와 동일 정책).
@@ -11,10 +11,10 @@ export const dynamic = 'force-dynamic';
 
 export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [product, brands, concernsConfig, sellers] = await Promise.all([
+  const [product, brands, productTagsConfig, sellers] = await Promise.all([
     getProductById(id, { includeHidden: true }),
     listAllBrandsForAdmin(),
-    getConcernsConfigWithFallback(),
+    getAdminProductTagsConfig(),
     listSellers(),
   ]);
 
@@ -25,7 +25,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   return (
     <ProductForm
       brands={brands}
-      concerns={concernsConfig.items}
+      productTags={productTagsConfig.items}
       sellers={sellers}
       initialData={product}
     />

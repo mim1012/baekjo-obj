@@ -69,6 +69,10 @@ const LIVE_COVERED: Record<string, LiveCoverage> = {
   },
   partners: { spec: 'admin-crud-kits-partners.spec.ts', pathNeedle: 'src/app/api/admin/partners/' },
   products: { spec: 'admin-crud-products.spec.ts', pathNeedle: 'src/app/api/admin/products/' },
+  'product-tags': {
+    spec: 'admin-crud-product-tags.spec.ts',
+    pathNeedle: 'src/app/api/admin/product-tags/',
+  },
   qna: { spec: 'admin-crud-qna-config.spec.ts', pathNeedle: 'src/app/api/admin/qna/' },
   reviews: {
     spec: 'admin-crud-reviews-moderation.spec.ts',

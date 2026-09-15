@@ -23,6 +23,8 @@ import {
   Timer,
   Store,
   LayoutTemplate,
+  BookOpen,
+  Tags,
 } from 'lucide-react';
 
 /** 브레드크럼 제목 매핑에 쓰이는 공통 형태(아이콘 불필요). */
@@ -40,6 +42,7 @@ export const ADMIN_MAIN_NAV: AdminSidebarItem[] = [
   { name: '대시보드', href: '/admin', icon: LayoutDashboard },
   { name: '상품 관리', href: '/admin/products', icon: Package },
   { name: '상품 진열 관리', href: '/admin/products/display', icon: LayoutGrid },
+  { name: '상품 태그 관리', href: '/admin/products/tags', icon: Tags },
   { name: '카테고리 관리', href: '/admin/categories', icon: FolderTree },
   { name: '브랜드 관리', href: '/admin/brands', icon: Tag },
   { name: '판매자 관리', href: '/admin/sellers', icon: Store },
@@ -66,6 +69,7 @@ export const ADMIN_ETC_NAV: AdminSidebarItem[] = [
   { name: '공지사항', href: '/admin/notices', icon: Bell },
   { name: '주문 정책', href: '/admin/order-policy', icon: Timer },
   { name: '공개 화면 CMS', href: '/admin/pages', icon: LayoutTemplate },
+  { name: '운영 가이드', href: '/admin/guide', icon: BookOpen },
   { name: '환경 설정', href: '/admin/settings', icon: Settings },
 ];
 

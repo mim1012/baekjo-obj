@@ -1,6 +1,7 @@
 import { Product } from '@/types';
 import { normalizeShopCategory } from '@/data/shopFilters';
 import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
+import { productSupportsPetType } from '@/lib/products/petTypes';
 
 export function filterProducts(
   products: Product[],
@@ -21,8 +22,7 @@ export function filterProducts(
     if (
       filters.petType &&
       filters.petType !== 'all' &&
-      p.petType !== filters.petType &&
-      !(filters.petType !== 'small' && p.petType === 'both')
+      !productSupportsPetType(p.petType, filters.petType)
     ) return false;
     if (
       filters.category &&

@@ -3,6 +3,7 @@
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
 import { normalizeDisclosure, normalizeMadeToOrderPolicy } from '@/lib/products/disclosures';
+import { isValidProductPetTypeValue } from '@/lib/products/petTypes';
 
 const MAX_NAME = 200;
 const MAX_SHORT_TEXT = 100;
@@ -25,8 +26,14 @@ const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
 const MAX_REVIEW_COUNT = 10_000_000;
 const MAX_DISPLAY_ORDER = 100_000;
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * concernTags(고민 태그)는 이제 product_tags_config의 slug와 맺어진다. createProductTagSlug가
+ * 생성하는 형태(영소문자·숫자·단일 하이픈, 앞뒤 하이픈 없음 — 'tag-1' 폴백 포함)만 허용해, 자유
+ * 텍스트가 그대로 저장돼 필터·라벨 매칭이 깨지는 것을 막는다. 기존 저장값(skin·joint 등 영단어)은
+ * 이미 이 형태라 재저장해도 그대로 통과한다.
+ */
+const TAG_SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -51,6 +58,15 @@ function isBool(v: unknown): v is boolean {
 function isStrArray(v: unknown, maxItems: number, maxLen: number): v is string[] {
   if (!Array.isArray(v) || v.length > maxItems) return false;
   return v.every((item) => isStr(item, 0, maxLen));
+}
+
+function isTagSlug(v: unknown): v is string {
+  return typeof v === 'string' && v.length > 0 && v.length <= MAX_SHORT_TEXT && TAG_SLUG_RE.test(v);
+}
+
+function isTagSlugArray(v: unknown, maxItems: number): v is string[] {
+  if (!Array.isArray(v) || v.length > maxItems) return false;
+  return v.every((item) => isTagSlug(item));
 }
 
 function validateOption(raw: unknown): ProductOption | null {
@@ -246,7 +262,7 @@ export function validateProductFields(
   } else if (requireAll) return null;
 
   if (b.concernTags !== undefined) {
-    if (!isStrArray(b.concernTags, MAX_ARRAY_ITEMS, MAX_SHORT_TEXT)) return null;
+    if (!isTagSlugArray(b.concernTags, MAX_ARRAY_ITEMS)) return null;
     out.concernTags = b.concernTags;
   } else if (requireAll) {
     out.concernTags = [];
@@ -258,8 +274,8 @@ export function validateProductFields(
   }
 
   if (b.petType !== undefined) {
-    if (typeof b.petType !== 'string' || !PET_TYPES.has(b.petType)) return null;
-    out.petType = b.petType as Product['petType'];
+    if (!isStr(b.petType, 1, MAX_LONG_TEXT) || !isValidProductPetTypeValue(b.petType)) return null;
+    out.petType = b.petType;
   } else if (requireAll) return null;
 
   if (b.ageGroup !== undefined) {

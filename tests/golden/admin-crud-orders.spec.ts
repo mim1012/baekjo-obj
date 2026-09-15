@@ -110,10 +110,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 주문(안전 �
     await selectProductFormOption(adminPage, '스토어 카테고리 선택');
     await selectProductFormOption(adminPage, '라이프스타일 분류 선택');
     await fillProductCompliance(adminPage, sellerId);
-    const petTypeSelect = adminPage
-      .locator('select')
-      .filter({ has: adminPage.locator('option[value="both"]') });
-    await petTypeSelect.selectOption('dog');
+    // PR3: 반려동물이 단일 select에서 다중 체크박스로 바뀌었다. 기본값 'both'는 강아지+고양이가
+    // 이미 체크된 상태이므로, 고양이만 해제해 강아지 단독 선택(petType='dog')으로 명시 검증한다.
+    await adminPage.getByLabel('고양이').uncheck();
     await adminPage.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill('E2E 주문 테스트용 일회용 상품');
 
     // 재고 넉넉히(주문 생성 시 즉시 1 차감돼도 여유가 크게 남도록) — ProductForm.tsx:414-440,

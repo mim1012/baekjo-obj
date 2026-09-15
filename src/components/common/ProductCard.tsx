@@ -12,6 +12,7 @@ import { useMounted } from '@/lib/useMounted';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
 import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
+import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 
 interface ProductCardProps {
   product: Product;
@@ -19,21 +20,6 @@ interface ProductCardProps {
   density?: 'default' | 'compact';
   mobileLayout?: 'vertical' | 'horizontal';
 }
-
-const concernLabels: Record<string, string> = {
-  tear: '눈물',
-  joint: '관절',
-  skin: '피부',
-  obesity: '체중',
-  picky: '편식',
-  digestion: '배변',
-  stress: '스트레스',
-  senior: '시니어',
-  nutrition: '영양',
-  oral: '구강',
-  grooming: '그루밍',
-  living: '생활',
-};
 
 export default function ProductCard({
   product,
@@ -43,6 +29,7 @@ export default function ProductCard({
 }: ProductCardProps) {
   const router = useRouter();
   const mounted = useMounted();
+  const { labelBySlug, visibleSlugs, hiddenSlugs } = useProductTagSettings();
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
@@ -61,6 +48,11 @@ export default function ProductCard({
     ? `/brands/${encodeURIComponent(product.brandId)}#brand-audit`
     : '/brands';
   const summary = product.summary?.trim();
+  // 관리자가 숨긴(hiddenSlugs) 태그는 완전히 제외하고, 등록된 태그는 isVisible로 노출을 가른다.
+  // 아직 사전에 등록되지 않은 과거 태그(labelBySlug에 없음)는 예전과 동일하게 원문 그대로 보여준다.
+  const visibleConcernTags = (product.concernTags ?? []).filter(
+    (tag) => !hiddenSlugs.includes(tag) && (visibleSlugs.includes(tag) || !(tag in labelBySlug)),
+  );
 
   useEffect(() => {
     if (!mounted || !getCurrentUser()) return;
@@ -225,11 +217,11 @@ export default function ProductCard({
               </div>
             )}
 
-            {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
+            {!isShopCard && visibleConcernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
-                {product.concernTags.slice(0, isHomeCard ? 2 : product.concernTags.length).map((tag) => (
+                {visibleConcernTags.slice(0, isHomeCard ? 2 : visibleConcernTags.length).map((tag) => (
                   <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#59615B] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
-                    {concernLabels[tag] ?? tag}
+                    {labelBySlug[tag] ?? tag}
                   </span>
                 ))}
               </div>

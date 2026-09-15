@@ -24,7 +24,10 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  petType: 'dog' | 'cat' | 'small' | 'both';
+  /** products.pet_type(text) 원문. 단일 id·기존 'both'·복수 선택 JSON 문자열을 그대로 담는다 —
+   *  실제 파싱/직렬화는 @/lib/products/petTypes(parseProductPetTypes 등)가 담당한다. 카테고리
+   *  설정(categorySettings.petTypes)에서 임의 id를 추가할 수 있어 고정 유니온으로 못 좁힌다. */
+  petType: string;
   ageGroup: string;
   image: string;
   images?: string[];

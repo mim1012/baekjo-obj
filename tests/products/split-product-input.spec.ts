@@ -24,3 +24,25 @@ test.describe('splitProductInput — brand_id 정규화', () => {
     expect('brand_id' in columns).toBe(false);
   });
 });
+
+// PR3: petType 다중 선택(JSON 문자열)·concernTags(태그 slug)를 새로 다루지만, 이 파일은 컬럼
+// 매핑만 하는 순수 함수라 두 값 모두 "그 자체로 통째 위임"이면 충분하다 — 직렬화/역직렬화는
+// @/lib/products/petTypes(U5가 호출부에서 미리 처리)가 담당하고, 여긴 관여하지 않는다.
+test.describe('splitProductInput — petType/concernTags 통째 위임(PR3 회귀 방지)', () => {
+  test('petType 복수 선택 JSON 문자열도 pet_type 컬럼에 그대로 담긴다', () => {
+    const petType = JSON.stringify(['dog', 'small']);
+    const { columns } = splitProductInput({ petType });
+    expect(columns.pet_type).toBe(petType);
+  });
+
+  test('petType 레거시 both도 pet_type 컬럼에 그대로 담긴다', () => {
+    const { columns } = splitProductInput({ petType: 'both' });
+    expect(columns.pet_type).toBe('both');
+  });
+
+  test('concernTags는 컬럼이 아니라 detail(jsonb)에 담긴다', () => {
+    const { columns, detail } = splitProductInput({ concernTags: ['skin', 'joint'] });
+    expect('concern_tags' in columns).toBe(false);
+    expect(detail.concernTags).toEqual(['skin', 'joint']);
+  });
+});
