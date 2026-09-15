@@ -2,9 +2,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { COMPANY } from '@/data/company';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
+import type { SiteShellContent } from '@/lib/cms/source/siteShell';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
 
+// site-shell CMS가 아직 게시되지 않았을 때(siteShell === null)의 기본값이다 — pageDefinitions.ts의
+// site-shell defaultContent, lib/cms/source/siteShell.ts의 buildSiteShellContent()와 같은 값을
+// 유지해야 한다(D3: 화면이 정답, 세 곳이 같은 값).
 const footerLinks = [
   { label: '1:1 문의', href: '/mypage?tab=inquiries' },
   { label: '이용약관', href: '/terms' },
@@ -12,10 +16,31 @@ const footerLinks = [
   { label: '배송·교환·환불', href: '/refund-policy' },
 ];
 
-export default function Footer({ variant = 'default' }: { variant?: 'default' | 'home' }) {
+export default function Footer({
+  variant = 'default',
+  siteShell = null,
+}: {
+  variant?: 'default' | 'home';
+  siteShell?: SiteShellContent | null;
+}) {
   const isHome = variant === 'home';
+  const managed = siteShell !== null;
+  const branding = siteShell?.branding ?? {
+    headerLogo: '/images/baekjo-objet-header-logo-v2.png',
+    logoAlt: 'Baekjo Objet',
+  };
+  const company = siteShell?.company ?? COMPANY;
+  const social = siteShell?.social ?? {
+    instagramUrl: INSTAGRAM_URL,
+    instagramLabel: '@BAEKJO OBJET',
+    kakaoTalkUrl: COMPANY.kakaoTalkUrl,
+  };
+  const footerLinkItems: { label: string; href: string; visible: boolean }[] = siteShell
+    ? siteShell.navigation.footerLinks.map((link) => ({ label: link.label, href: link.href, visible: link.visible }))
+    : footerLinks.map((link) => ({ ...link, visible: true }));
+
   return (
-    <footer className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
+    <footer data-cms-managed={managed ? 'site-shell' : undefined} className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
       <div className={isHome ? 'mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8 py-12' : 'site-container-wide py-12'}>
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <Link
@@ -24,8 +49,8 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
             className="relative block h-12 w-[156px] shrink-0"
           >
             <Image
-              src="/images/baekjo-objet-header-logo-v2.png"
-              alt="Baekjo Objet"
+              src={branding.headerLogo}
+              alt={branding.logoAlt}
               fill
               sizes="156px"
               className="object-contain brightness-0 invert"
@@ -34,13 +59,13 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
 
           <div className="flex flex-col gap-5 md:items-end">
             <nav aria-label="푸터 메뉴" className="flex flex-wrap gap-x-5 gap-y-3 text-sm md:justify-end">
-              {footerLinks.map((link) => (
+              {footerLinkItems.filter((link) => link.visible).map((link) => (
                 <Link key={link.href} href={link.href} className="inline-flex min-h-11 items-center transition-colors duration-500 hover:text-[#FBFAF7] md:min-h-0">
                   {link.label}
                 </Link>
               ))}
               <a
-                href={COMPANY.businessLookupUrl}
+                href={company.businessLookupUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center transition-colors duration-500 hover:text-[#FBFAF7] md:min-h-0"
@@ -51,13 +76,13 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
 
             <div className="flex items-center gap-3" aria-label="SNS">
               <span className="text-xs font-semibold tracking-[0.12em] text-[#FBFAF7]/70">SNS</span>
-              <SnsButton href={INSTAGRAM_URL} label="인스타그램" tone="instagram">
+              <SnsButton href={social.instagramUrl} label="인스타그램" tone="instagram">
                 <InstagramIcon />
               </SnsButton>
-              <SnsButton href={COMPANY.kakaoTalkUrl} label="카카오톡" tone="kakao" disabled={!COMPANY.kakaoTalkUrl}>
+              <SnsButton href={social.kakaoTalkUrl} label="카카오톡" tone="kakao" disabled={!social.kakaoTalkUrl}>
                 <KakaoIcon />
               </SnsButton>
-              <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">@BAEKJO OBJET</p>
+              <p className="ml-1 shrink-0 text-xs text-[#FBFAF7]/70">{social.instagramLabel}</p>
             </div>
           </div>
         </div>
@@ -68,10 +93,10 @@ export default function Footer({ variant = 'default' }: { variant?: 'default' | 
           <div>
             <p className="text-[13px] font-semibold tracking-[0.12em] text-[#FBFAF7]">BAEKJO OBJET</p>
             <p className="mt-3 max-w-2xl leading-6 text-[#FBFAF7]/70">
-              {COMPANY.name} · 대표 {COMPANY.ceo} · 사업자등록번호 {COMPANY.businessNumber} · 통신판매업신고 {COMPANY.mailOrderNumber}
+              {company.name} · 대표 {company.ceo} · 사업자등록번호 {company.businessNumber} · 통신판매업신고 {company.mailOrderNumber}
             </p>
             <p className="mt-1 max-w-2xl leading-6 text-[#FBFAF7]/70">
-              사업장주소 {COMPANY.address} · 전화 {COMPANY.tel}
+              사업장주소 {company.address} · 전화 {company.tel}
             </p>
           </div>
         </div>

@@ -73,12 +73,16 @@ export default function HomeClient({
   notices,
   reviews,
   settings,
+  cmsManaged = false,
 }: {
   products: Product[];
   brands: Brand[];
   notices: Notice[];
   reviews: Review[];
   settings: HomeClientSettings;
+  /** 홈 CMS(정식 페이지 관리 시스템)가 게시본을 갖고 있을 때만 true — 페이지 루트에
+   * data-cms-managed="home" 을 심어 어떤 경로로 문구가 왔는지 진단할 수 있게 한다. */
+  cmsManaged?: boolean;
 }) {
   const bestProducts = sortProductsByDisplayOrder(
     sortProducts(products.filter((product) => product.isRecommended), 'popular'),
@@ -110,7 +114,10 @@ export default function HomeClient({
   const auditCriteriaIcons = [Activity, Leaf, Monitor, Heart];
 
   return (
-    <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
+    <main
+      className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20"
+      data-cms-managed={cmsManaged ? 'home' : undefined}
+    >
       <aside
         data-testid="home-soft-open-notice"
         aria-label="가오픈 결제 안내"

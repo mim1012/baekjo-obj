@@ -1,4 +1,8 @@
-import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache';
+import { getCachedPublicProductCountsByBrand, getCachedPageTextSettings, listCachedPublicBrands } from '@/lib/public-read-cache';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { logServerError } from '@/lib/logServerError';
+import { selectBrandsContent, type BrandsContentData } from '@/lib/cms/source/brands';
 import BrandsContent from '@/components/brands/BrandsContent';
 
 export const metadata = {
@@ -16,5 +20,22 @@ export const dynamic = 'force-dynamic';
 export default async function BrandsPage() {
   const brands = await listCachedPublicBrands();
   const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));
-  return <BrandsContent brands={brands} productCounts={productCounts} />;
+
+  // D3: 소비자는 항상 getPublishedPageContent(key) ?? mapper(현재 소스) 2단으로 콘텐츠를 얻는다.
+  const published = await getPublishedPageContent<BrandsContentData>('brands').catch((error: unknown) => {
+    logServerError('[Brands] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Brands] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectBrandsContent(published, settings);
+
+  return <BrandsContent brands={brands} productCounts={productCounts} content={content} managed={managed} />;
 }

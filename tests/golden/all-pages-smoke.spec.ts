@@ -152,6 +152,7 @@ const ADMIN_STATIC_HEADINGS: Record<string, string> = {
   '/admin/order-policy': '주문 정책',
   '/admin/order-requests': '교환·반품 요청',
   '/admin/orders': '주문 관리',
+  '/admin/pages': '공개 화면 CMS',
   '/admin/partner-inquiries': '제휴 문의 접수',
   '/admin/partners': 'B2B 제휴 관리',
   '/admin/products': '상품 관리',
@@ -210,6 +211,10 @@ const ADMIN_DYNAMIC_ANCHORS: Record<string, (page: Page, sample: ResolvedSample)
     await h1Visible(page, '주문 상세');
     await textVisible(page, sample.id);
   },
+  // /api/admin/settings/pages 표본은 항상 CMS_PAGE_DEFINITIONS의 첫 키(home)다(allPagesRoutes.ts
+  // 주석 참고) — 응답 항목에는 label 해석용 name 필드가 없어(title만 있음) sample.label을 쓸 수
+  // 없으므로, 고정된 첫 항목의 PageHeader 제목('홈 화면')을 그대로 앵커로 쓴다.
+  '/admin/pages/[pageKey]': (page) => h1Visible(page, '홈 화면'),
   '/admin/products/[id]': (page) => textVisible(page, '상품 수정'),
   '/admin/products/[id]/editor': (page, sample) => textVisible(page, `${sample.label ?? ''} 상세페이지 편집`),
 };

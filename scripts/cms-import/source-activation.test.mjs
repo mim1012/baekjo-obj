@@ -11,7 +11,7 @@ import ts from 'typescript';
 // stub 없이 그대로 재귀 로드된다(레지스트리 자체가 실 매퍼인지 검증하는 게 이 테스트의 목적이라
 // 매퍼를 다시 손으로 흉내내지 않는다).
 
-function harness() {
+function harness(options = {}) {
   /** @type {{value: unknown, updated_at: string}} */
   const pageTextsRow = {
     value: { version: 1, values: { 'audit.heroDescription': 'harness page-texts value' } },
@@ -132,6 +132,19 @@ function harness() {
     auditBuilder.build({ 'page-texts': state.settings['page-texts'] }),
   );
 
+  // 모든 실 매퍼가 이제 bootstrapReady일 수 있으므로(U3~U9 완료), "매퍼가 준비되지 않았다"/"소스
+  // 행이 없다" 경로는 실 매퍼가 아니라 이 테스트가 주입한 가짜 매퍼로 검증한다 — registry 모듈을
+  // 그대로 stub해 지정한 pageKey만 가짜 매퍼로 바꿔치고, 나머지 키는 실 registry로 위임한다(audit
+  // 계산에 쓴 registry 참조는 이미 위에서 끝났으므로 안전하다).
+  if (options.fakeMapper) {
+    const { pageKey: fakePageKey, mapper } = options.fakeMapper;
+    const realGetCmsSourceBuilder = registry.getCmsSourceBuilder;
+    dependencies['@/lib/cms/source/registry'] = {
+      ...registry,
+      getCmsSourceBuilder: (key) => (key === fakePageKey ? mapper : realGetCmsSourceBuilder(key)),
+    };
+  }
+
   const route = load('src/app/api/admin/settings/pages/[pageKey]/import/route.ts');
   const publicContent = load('src/lib/cms/content.ts');
 
@@ -144,11 +157,32 @@ function harness() {
 }
 
 test('import route rejects a page whose source mapper is not bootstrap-ready, without calling the RPC', async () => {
-  const h = harness();
+  // U3~U9가 끝나 실 매퍼 14개가 전부 bootstrapReady일 수 있으므로, "준비되지 않음" 경로 자체는
+  // 이 테스트가 주입하는 가짜 매퍼로 고정해 검증한다(실 매퍼의 현재 상태와 무관하게 이 계약이
+  // 유지되는지 보는 것이 목적).
+  const h = harness({
+    fakeMapper: { pageKey: 'home', mapper: { siteSettingIds: [], bootstrapReady: false, build: () => ({}) } },
+  });
   const response = await h.call('home', { expectedRevision: h.state.pages.home.draft_revision });
   assert.equal(response.status, 409);
   const body = await response.json();
   assert.equal(body.error, 'source-mapper-not-ready');
+  assert.deepEqual(h.state.rpcCalls, []);
+});
+
+test('import route rejects a ready mapper whose declared source row is missing, as 409 source-missing', async () => {
+  // bootstrapReady:true인데 매퍼가 선언한 site_settings 행이 실제로 없는 경우(운영 데이터 누락 등)
+  // — RPC까지 가지 않고 source-missing 409로 막혀야 한다.
+  const h = harness({
+    fakeMapper: {
+      pageKey: 'home',
+      mapper: { siteSettingIds: ['does-not-exist'], bootstrapReady: true, build: () => ({}) },
+    },
+  });
+  const response = await h.call('home', { expectedRevision: h.state.pages.home.draft_revision });
+  assert.equal(response.status, 409);
+  const body = await response.json();
+  assert.equal(body.error, 'source-missing');
   assert.deepEqual(h.state.rpcCalls, []);
 });
 

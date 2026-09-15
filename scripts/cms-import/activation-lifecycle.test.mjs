@@ -73,7 +73,7 @@ function harness(pageKey, managed = false, conflictCode = 'PT409') {
   const importer = load('src/app/api/admin/settings/pages/[pageKey]/import-publish/route.ts');
   const publicContent = load('src/lib/cms/content.ts');
   const call = (method, body, target = route) => target[method](new Request(`http://localhost/api/admin/settings/pages/${pageKey}`, { method, ...(body ? { body: JSON.stringify(body) } : {}) }), { params: Promise.resolve({ pageKey }) });
-  return { state, call, importer, publicContent };
+  return { state, call, importer, publicContent, load };
 }
 
 test('source changing after real PATCH handler prevents activation and archive creation', async () => {
@@ -116,17 +116,50 @@ test('legacy SQLSTATE 40001 still rejects a stale ordinary publish as a defensiv
 for (const empty of [false, true]) {
   test(`home structural ${empty ? 'empty' : 'extended'} content survives PATCH GET publish and public read`, async () => {
     const h = harness('home', true);
+    // home 정의(pageDefinitions.ts)는 이제 text/textarea 선언 필드(hero.eyebrow, audit.badge,
+    // bestProducts.title 등)를 갖는다(D5) — normalizeCmsPageContent가 그 경로들만 defaultContent로
+    // 채우고, 나머지(futureRoot/futureHero/futureLink/futureCard, curation.cards 같은 미선언 배열)는
+    // 손대지 않고 그대로 통과시킨다. 순수 함수(normalizeCmsPageContent)로 기대값을 직접 계산해
+    // "선언된 필드는 기본값으로 채워지고 미선언 필드는 원본 그대로"라는 계약을 고정한다.
+    const pageDefinitions = h.load('src/lib/cms/pageDefinitions.ts');
+    const normalize = h.load('src/lib/cms/normalize.ts');
+    const homeDefinition = pageDefinitions.getCmsPageDefinition('home');
     const input = {
       futureRoot: { keep: [] },
       hero: { desktopImage: '/desktop.webp', href: '/shop', visible: false, titleLines: [], futureHero: 'keep' },
       quickShop: { links: [{ href: '/shop', icon: 'star', visible: false, futureLink: [] }] },
       curation: { cards: empty ? [] : Array.from({ length: 12 }, (_, i) => ({ title: `${i}`, image: '/card.webp', href: '/brands', visible: false, futureCard: [] })) },
     };
+    const expected = normalize.normalizeCmsPageContent(homeDefinition, input);
+
+    // 미선언 필드는 정규화가 손대지 않았다는 것을 직접 확인한다(계약이 조용히 느슨해지는 것을 방지).
+    assert.deepEqual(expected.futureRoot, { keep: [] });
+    assert.equal(expected.hero.futureHero, 'keep');
+    assert.deepEqual(expected.quickShop.links, [{ href: '/shop', icon: 'star', visible: false, futureLink: [] }]);
+    assert.deepEqual(expected.curation.cards, input.curation.cards);
+    // 선언된 필드(경로 단위)는 입력에 없었으므로 home 정의의 defaultContent로 채워졌다는 것을 직접
+    // 확인한다. audit.criteria처럼 정의에 선언되지 않은 카드 데이터는 입력에도 없었으므로 여전히
+    // 없어야 한다(defaultContent 전체를 통째로 기대하면 안 된다 — 그건 선언되지 않은 필드까지
+    // 채워진다고 잘못 주장하는 것이 된다).
+    assert.equal(expected.hero.eyebrow, homeDefinition.defaultContent.hero.eyebrow);
+    assert.equal(expected.audit.badge, homeDefinition.defaultContent.audit.badge);
+    assert.deepEqual(expected.audit.titleLines, homeDefinition.defaultContent.audit.titleLines);
+    assert.equal(expected.audit.description, homeDefinition.defaultContent.audit.description);
+    assert.equal(expected.audit.linkLabel, homeDefinition.defaultContent.audit.linkLabel);
+    assert.equal(expected.audit.criteria, undefined);
+    assert.equal(expected.bestProducts.title, homeDefinition.defaultContent.bestProducts.title);
+    assert.equal(expected.curation.description, homeDefinition.defaultContent.curation.description);
+
     assert.equal((await h.call('PATCH', { expectedRevision: 4, content: input })).status, 200);
-    assert.deepEqual((await (await h.call('GET')).json()).content, input);
-    assert.deepEqual(await h.publicContent.getPublishedPageContent('home'), {});
+    assert.deepEqual((await (await h.call('GET')).json()).content, expected);
+    // 게시 전에는 published_content가 { __managedVersion: 1 }뿐이라 stripManagedMarker 후 {}가
+    // 되지만, 정의에 선언된 필드는 여기서도 defaultContent로 채워진다({}도 "값이 있는 객체"이므로
+    // normalizeCmsPageContent의 fallback 경로를 그대로 탄다) — 초안(draft)과는 다른 입력이므로
+    // 별도로 계산한다.
+    const publishedBeforePublish = normalize.normalizeCmsPageContent(homeDefinition, {});
+    assert.deepEqual(await h.publicContent.getPublishedPageContent('home'), publishedBeforePublish);
     assert.equal((await h.call('POST', { expectedRevision: 5 })).status, 200);
-    assert.deepEqual(await h.publicContent.getPublishedPageContent('home'), input);
-    assert.deepEqual(h.state.archives, [{ ...input, __managedVersion: 1 }]);
+    assert.deepEqual(await h.publicContent.getPublishedPageContent('home'), expected);
+    assert.deepEqual(h.state.archives, [{ ...expected, __managedVersion: 1 }]);
   });
 }

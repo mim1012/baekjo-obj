@@ -50,7 +50,10 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain('const sortedNotices = getPublicNotices(noticesConfig.items)');
     expect(pageSource).toContain('.sort((a, b) => b.date.localeCompare(a.date));');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('const { solutions, insuranceBanner, ...publicHomeSettings } = settings ?? defaultHomeSettings;');
+    // PR2: 홈이 페이지 관리(CMS)에서 "현재 값 가져오기"로 활성화되면 selectHomeContent 가 그 게시본을
+    // 우선하고, 없으면(cmsHome === null) 기존 site_settings 경로로 그대로 폴백한다(소비자 이중화 없음).
+    expect(pageSource).toContain('const resolvedSettings = selectHomeContent(cmsHome, settings);');
+    expect(pageSource).toContain('const { solutions, insuranceBanner, ...publicHomeSettings } = resolvedSettings;');
     expect(pageSource).toContain('const visibleHomeSettings = FEATURES.insurance');
     expect(pageSource).toContain('settings={visibleHomeSettings}');
     expectNoMutableDataBypass(pageSource);

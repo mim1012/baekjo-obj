@@ -4,15 +4,30 @@
 // CmsPageDefinition 구조로 변환하는 순수 매퍼(build)를 갖는다. 서버(import 라우트)는 이 매퍼로
 // 계산한 값만 활성화 콘텐츠로 신뢰한다 — 클라이언트가 보낸 content는 절대 신뢰하지 않는다(D1).
 //
-// audit만 bootstrapReady:true인 실제 매퍼(auditContentFromPageTexts 포팅, source/audit.ts)를 쓰고,
-// 나머지 14개는 U3~U9가 실제 소스 매퍼로 교체하기 전까지 defaultContent를 그대로 반환하는
-// placeholder이며 bootstrapReady:false로 표시한다 — import 라우트가 이 표시를 보고 409로 막는다.
+// 15개 CMS_PAGE_DEFINITIONS 전부 bootstrapReady:true인 실제 매퍼로 연결되어 있다(U1~U3~U9 완료).
+// 아직 실 매퍼가 없는 신규 페이지를 추가할 때는 bootstrapReady:false placeholder로 시작하고 —
+// import 라우트가 이 표시를 보고 409로 막는다 — cms-source-mapper-contract.spec.ts가 placeholder
+// 존재 자체를 계약으로 검증하니 실 매퍼로 교체할 때 그 스펙도 함께 갱신한다.
 //
 // 'server-only'를 포함한 서버 전용 의존성은 여기서 import하지 않는다 — cms-source-mapper-contract.spec.ts
 // 등 순수 계약 테스트가 이 파일을 그대로 로드해 검증할 수 있어야 한다.
 import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
 import { auditSourceMapper } from '@/lib/cms/source/audit';
+import { siteShellSourceMapper } from '@/lib/cms/source/siteShell';
+import { termsSourceMapper } from '@/lib/cms/source/terms';
+import { privacySourceMapper } from '@/lib/cms/source/privacy';
+import { refundPolicySourceMapper } from '@/lib/cms/source/refundPolicy';
+import { homeSourceMapper } from '@/lib/cms/source/home';
+import { b2bSourceMapper } from '@/lib/cms/source/b2b';
+import { careKitSourceMapper } from '@/lib/cms/source/care-kit';
+import { concernsSourceMapper } from '@/lib/cms/source/concerns';
+import { shopSourceMapper } from '@/lib/cms/source/shop';
+import { brandsSourceMapper } from '@/lib/cms/source/brands';
+import { expertsSourceMapper } from '@/lib/cms/source/experts';
+import { insuranceLandingSourceMapper } from '@/lib/cms/source/insuranceLanding';
+import { reviewsSourceMapper } from '@/lib/cms/source/reviews';
+import { noticesSourceMapper } from '@/lib/cms/source/notices';
 
 /** CMS_PAGE_DEFINITIONS(15개)의 key 리터럴 합집합. pageDefinitions.ts는 key를 string으로만
  * 타이핑하므로(정의가 헬퍼 함수로 조립돼 리터럴 추론이 안 된다), 레지스트리가 전체 키를
@@ -63,20 +78,20 @@ function placeholderMapper(pageKey: CmsPageKey): CmsSourceMapper {
 
 export const CMS_SOURCE_REGISTRY: Record<CmsPageKey, CmsSourceMapper> = {
   audit: auditSourceMapper,
-  home: placeholderMapper('home'),
-  'site-shell': placeholderMapper('site-shell'),
-  shop: placeholderMapper('shop'),
-  brands: placeholderMapper('brands'),
-  reviews: placeholderMapper('reviews'),
-  notices: placeholderMapper('notices'),
-  b2b: placeholderMapper('b2b'),
-  concerns: placeholderMapper('concerns'),
-  experts: placeholderMapper('experts'),
-  'care-kit': placeholderMapper('care-kit'),
-  'insurance-landing': placeholderMapper('insurance-landing'),
-  terms: placeholderMapper('terms'),
-  privacy: placeholderMapper('privacy'),
-  'refund-policy': placeholderMapper('refund-policy'),
+  home: homeSourceMapper,
+  'site-shell': siteShellSourceMapper,
+  shop: shopSourceMapper,
+  brands: brandsSourceMapper,
+  reviews: reviewsSourceMapper,
+  notices: noticesSourceMapper,
+  b2b: b2bSourceMapper,
+  concerns: concernsSourceMapper,
+  experts: expertsSourceMapper,
+  'care-kit': careKitSourceMapper,
+  'insurance-landing': insuranceLandingSourceMapper,
+  terms: termsSourceMapper,
+  privacy: privacySourceMapper,
+  'refund-policy': refundPolicySourceMapper,
 };
 
 function isCmsPageKey(pageKey: string): pageKey is CmsPageKey {
