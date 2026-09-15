@@ -14,6 +14,7 @@ import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/prese
 import { seedAuditReport, seedB1AuditReportField, seedTopField } from '../helpers/brandSeed';
 import { defaultBrandPageCopy } from '@/lib/brands/pageCopy';
 import { defaultKitsConfig } from '@/lib/kits/config';
+import { defaultProductTagsConfig } from '@/lib/productTags/config';
 import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { auditContentFromPageTexts } from '@/components/admin-new/pages/auditContent';
 import { buildB2bContent } from '@/lib/cms/source/b2b';
@@ -174,9 +175,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     for (const label of ['전체', '2만원 미만', '2-5만원', '5-10만원', '10만원 이상']) {
       expect(shopDefinition).toContain(label);
     }
-    for (const label of ['피부', '관절', '체중', '구강', '냄새']) {
-      expect(shop).toContain(`title: '${label}'`);
-    }
+    // PR3부터 '고민' 필터 옵션 집합·순서·이름은 ShopContent의 정적 배열이 아니라 productTags 설정
+    // (showInShopFilter && isVisible)에서 온다 — 정본이 defaultProductTagsConfig로 옮겨졌다(U2).
+    expect(
+      defaultProductTagsConfig.items
+        .filter((item) => item.showInShopFilter && item.isVisible)
+        .map((item) => item.label),
+    ).toEqual(['피부', '관절', '체중', '구강', '냄새']);
+    expect(shop).not.toContain('concernOptions');
     expect(shopDefinition).toContain('소동물');
     expect(shop).not.toContain('title="연령"');
     expect(shopDefinition).toContain('DAILY PICK');

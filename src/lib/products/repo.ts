@@ -7,15 +7,15 @@ import { mergeProductForStorage, splitProductInput } from '@/lib/products/splitP
 import { getSellerById, sellerRowToModel, type SellerRow } from '@/lib/sellers/repo';
 import { isSellerLegallyComplete } from '@/lib/sellers/validate';
 import { isDisclosureComplete, normalizeDisclosure, normalizeMadeToOrderPolicy } from '@/lib/products/disclosures';
+import { parseProductPetTypes, serializeProductPetTypes } from '@/lib/products/petTypes';
 
 export { splitProductInput } from '@/lib/products/splitProductInput';
 
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
-
-/** DB pet_type 은 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 'both'로 정규화해
- *  admin select/필터가 조용히 깨지지 않게 한다. */
+/** DB pet_type(text)의 기존 단일값·'both'·복수 선택 JSON 문자열을 canonical 형태로 정규화한다.
+ *  깨진/빈 값은 'both'(기존 공용값 의미)로 방어해 admin 표시·필터가 조용히 깨지지 않게 한다. */
 function normalizePetType(raw: string): Product['petType'] {
-  return PET_TYPES.has(raw) ? (raw as Product['petType']) : 'both';
+  const normalized = serializeProductPetTypes(parseProductPetTypes(raw));
+  return normalized || 'both';
 }
 
 interface ProductRow {

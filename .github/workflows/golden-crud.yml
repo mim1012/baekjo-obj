@@ -30,6 +30,7 @@ env:
     src/app/api/admin/partner-inquiries/
     src/app/api/admin/partners/
     src/app/api/admin/products/
+    src/app/api/admin/product-tags/
     src/app/api/admin/qna/
     src/app/api/admin/reviews/
     src/app/api/admin/sellers/
@@ -58,6 +59,7 @@ env:
     admin-crud-partner-inquiries.spec.ts
     admin-crud-product-fields.spec.ts
     admin-crud-product-gallery-removal.spec.ts
+    admin-crud-product-tags.spec.ts
     admin-crud-products.spec.ts
     admin-crud-qna-config.spec.ts
     admin-crud-qna-inquiries.spec.ts

@@ -4,12 +4,13 @@ import { FormEvent, Suspense, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronLeft, ChevronRight, Search, SlidersHorizontal, X } from 'lucide-react';
-import { Brand, Concern, Product } from '@/types';
+import { Brand, Product } from '@/types';
 import { getDataBackedShopCategoryOptions, normalizeShopCategory } from '@/data/shopFilters';
 import ProductCard from '@/components/common/ProductCard';
 import { filterProducts, sortProducts, SortOption } from '@/lib/filters';
 import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 import { useCategorySettings } from '@/components/providers/CategorySettingsProvider';
+import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { ShopContentData } from '@/lib/cms/source/shop';
 
@@ -19,13 +20,9 @@ const PRODUCTS_PER_PAGE = 20;
 // label만 CMS 문구(content.filters.*)로 교체한다 — 필터 의미 자체는 옮기지 않는다.
 const priceOptionIds = ['all', 'under-20000', '20000-50000', '50000-100000', '100000-plus'] as const;
 
-const concernOptions = [
-  { slug: 'skin', title: '피부' },
-  { slug: 'joint', title: '관절' },
-  { slug: 'obesity', title: '체중' },
-  { slug: 'oral', title: '구강' },
-  { slug: 'odor', title: '냄새' },
-];
+// '고민' 필터 옵션 집합·순서·이름은 더 이상 정적 배열이 아니라 productTags 설정
+// (showInShopFilter && isVisible)에서 온다 — ProductTagSettingsProvider가 공급한다(PR3 U2).
+// 그룹 제목("고민")·전체 라벨은 여전히 PR2 CMS 문구(content.filters.*) 소유다.
 
 const sortOptionIds: SortOption[] = ['recommended', 'popular', 'newest', 'reviews', 'price-low', 'price-high'];
 
@@ -37,8 +34,6 @@ type LifestyleFilterOption = {
 interface Props {
   products: Product[];
   brands: Brand[];
-  /** 고민 필터 옵션. 서버 wrapper(page.tsx)가 concerns repo 로 읽어 내려준다(콘센트). */
-  concerns: Concern[];
   /** CMS 게시본 또는 현재 화면 소스 매퍼가 계산한 문구(D3: getPublishedPageContent ?? mapper). */
   content: ShopContentData;
   /** true면 관리자 CMS가 게시본을 관리 중 — 페이지 루트에 data-cms-managed를 붙인다. */
@@ -66,6 +61,7 @@ function ShopInner({ products, brands, content }: Props) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { categorySettings } = useCategorySettings();
+  const { filterOptions: concernFilterOptions } = useProductTagSettings();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -307,9 +303,9 @@ function ShopInner({ products, brands, content }: Props) {
         <div className="mt-1">
           <FilterGroup title={content.filters.concernTitle}>
             <FilterLink onClick={onNavigate} href={makeHref('concern', 'all')} active={!params.concern}>{content.filters.allOptionLabel}</FilterLink>
-            {concernOptions.map((concern) => (
+            {concernFilterOptions.map((concern) => (
               <FilterLink onClick={onNavigate} key={concern.slug} href={makeHref('concern', concern.slug)} active={params.concern === concern.slug}>
-                {concern.title}
+                {concern.label}
               </FilterLink>
             ))}
           </FilterGroup>
@@ -528,11 +524,11 @@ function ShopInner({ products, brands, content }: Props) {
   );
 }
 
-export default function ShopContent({ products, brands, concerns, content, managed }: Props) {
+export default function ShopContent({ products, brands, content, managed }: Props) {
   return (
     <main className="shop-page min-h-dvh bg-[#FBFAF7]" data-cms-managed={managed ? 'shop' : undefined}>
       <Suspense fallback={<div className="shop-container mx-auto w-[calc(100%-32px)] max-w-[1280px] py-16"><div className="h-96 animate-pulse rounded-3xl bg-[#E7E0D5]/50" /></div>}>
-        <ShopInner products={products} brands={brands} concerns={concerns} content={content} managed={managed} />
+        <ShopInner products={products} brands={brands} content={content} managed={managed} />
       </Suspense>
     </main>
   );

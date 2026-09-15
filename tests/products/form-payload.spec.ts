@@ -228,6 +228,25 @@ test('normalizeOptions: 신규 행 id 가 기존 보존 id 와 충돌하지 않�
   expect(out[1].id).not.toBe('opt-2');
 });
 
+/* ── petType: ProductForm이 serializeProductPetTypes로 이미 직렬화한 문자열을 그대로 위임 ── */
+// PR3: 반려동물 다중 선택 UI가 생기며 formData.petType은 ProductForm 단계에서 이미
+// serializeProductPetTypes(레거시 단일값·'both'·JSON 배열 문자열)로 직렬화된 채로 들어온다.
+// formPayload는 이 값을 그대로 옮기기만 한다 — 직렬화/역직렬화는 여기서 하지 않는다
+// (그 로직은 @/lib/products/petTypes + tests/products/product-pet-types.spec.ts가 담당).
+
+test('petType 레거시 단일값(dog)은 byte-identical로 그대로 담긴다', () => {
+  expect(buildProductUpdatePayload(form({ petType: 'dog' }), 'x').petType).toBe('dog');
+});
+
+test('petType 레거시 both는 byte-identical로 그대로 담긴다', () => {
+  expect(buildProductUpdatePayload(form({ petType: 'both' }), 'x').petType).toBe('both');
+});
+
+test('petType 복수 선택 JSON 문자열도 그대로 담긴다', () => {
+  const petType = JSON.stringify(['dog', 'small']);
+  expect(buildProductUpdatePayload(form({ petType }), 'x').petType).toBe(petType);
+});
+
 /* ── 생성 payload: ageGroup 기본값 + 봉인 해제 필드 동반 ── */
 
 test('create payload 는 ageGroup 기본값을 포함하고 봉인 해제 필드도 담는다', () => {

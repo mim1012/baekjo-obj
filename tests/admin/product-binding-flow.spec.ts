@@ -63,19 +63,24 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     expect(patchFunction).toContain('return NextResponse.json({ product: result.data }, { status: 200 });');
   });
 
-  test('상품 관리자 폼은 DB 고민·카테고리 카드만 사용하고 태그 입력은 제거한다', () => {
+  // PR3(2026-09-15): 상품의 '고민' 태그가 정적 concerns 카드에서 관리자가 등록·수정·삭제·순서를
+  // 바꿀 수 있는 product_tags_config(=/admin/products/tags)로 옮겼다. 폼은 이제 그 설정에서
+  // 받은 productTags 목록으로 토글칩을 그리고, 목록에 없으면 자유 입력으로 새 태그를 즉시
+  // 등록해 이 상품에도 선택한다 — 이전의 "태그 입력 없음" 전제를 정정한다.
+  test('상품 관리자 폼은 관리 가능한 productTags 설정을 쓰고 카테고리 카드는 그대로 유지한다', () => {
     const newPage = src('src', 'app', 'admin', 'products', 'new', 'page.tsx');
     const editPage = src('src', 'app', 'admin', 'products', '[id]', 'page.tsx');
     const formSource = src('src', 'components', 'admin-new', 'products', 'ProductForm.tsx');
 
-    expect(newPage).toContain('getConcernsConfigWithFallback()');
-    expect(editPage).toContain('getConcernsConfigWithFallback()');
-    expect(formSource).toContain('concerns: Concern[]');
+    expect(newPage).toContain('getAdminProductTagsConfig()');
+    expect(editPage).toContain('getAdminProductTagsConfig()');
+    expect(formSource).toContain('productTags: ProductTagDefinition[]');
     expect(formSource).toContain('function SelectionCardGrid');
-    expect(formSource).toContain('주요 고민');
+    expect(formSource).toContain('상품 카드에 보이는 고민 태그');
     expect(formSource).toContain('concernTags');
+    expect(formSource).toContain('createAdminProductTag');
+    expect(formSource).toContain('/admin/products/tags');
     expect(formSource).not.toContain('relatedConcernSlugs');
-    expect(formSource).not.toContain('상품 태그');
     expect(formSource).not.toContain('placeholder="예: skin, digestion"');
   });
 
@@ -176,8 +181,11 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
     const detailClient = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
 
-    expect(detailPage).toContain('getConcernsConfigWithFallback()');
-    expect(detailPage).toContain('concernTitleBySlug');
+    // 2026-09-15 리뷰 비차단 지적 3: 옛 concerns 사전(getConcernsConfigWithFallback) 대신
+    // 태그 관리 화면의 정본인 product tags config(getPublicProductTagsConfig)를 쓴다 — 새로
+    // 만든 태그가 옛 사전에 없어 상세에서만 조용히 사라지던 문제를 막는다.
+    expect(detailPage).toContain('getPublicProductTagsConfig()');
+    expect(detailPage).toContain('tagBySlug');
     expect(detailPage).toContain('product.concernTags');
     expect(detailPage).not.toContain('product.relatedConcernSlugs');
     expect(detailClient).toContain('aria-label="상품 카테고리"');

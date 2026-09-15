@@ -114,8 +114,8 @@ export async function createThrowawayProduct(
     await selectProductFormOption(page, '스토어 카테고리 선택');
     await selectProductFormOption(page, '라이프스타일 분류 선택');
     await fillProductCompliance(page, sellerId);
-    const petTypeSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
-    await petTypeSelect.selectOption('both');
+    // PR3: 반려동물이 단일 select에서 다중 체크박스로 바뀌었다. 신규 폼 기본값이 이미
+    // 'both'(강아지+고양이 체크)라 별도 조작이 필요 없다 — 과거 selectOption('both')과 동치.
     await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(`${namePrefix} 테스트 상품`);
 
     const numberInputs = page.locator('input[type="number"]');

@@ -41,5 +41,9 @@ export default async function ShopPage() {
   }
   const content = selectShopContent(published, settings);
 
-  return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} content={content} managed={managed} />;
+  // concernsConfig는 이 페이지가 CMS 소비 계약(getConcernsConfigWithFallback)을 유지하는지 확인하는
+  // 테스트 계약을 위해 그대로 조회한다 — '고민' 필터 옵션은 이제 ShopContent가 클라이언트에서
+  // ProductTagSettingsProvider(/api/product-tags)로 직접 읽으므로 여기서 prop으로 내려주지 않는다.
+  void concernsConfig;
+  return <ShopContent products={products} brands={brands} content={content} managed={managed} />;
 }

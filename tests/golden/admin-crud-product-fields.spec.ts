@@ -149,9 +149,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     categoryValue = await selectProductFormOption(page, '스토어 카테고리 선택');
     lifestyleValue = await selectProductFormOption(page, '라이프스타일 분류 선택');
     await fillProductCompliance(page, sellerId);
-    // 반려동물 select 는 htmlFor 없이 라벨만 — option value="both" 를 가진 유일한 select 로 특정.
-    const petSelect = page.locator('select').filter({ has: page.locator('option[value="both"]') });
-    await petSelect.selectOption('dog');
+    // PR3: 반려동물이 단일 select 에서 다중 체크박스로 바뀌었다. 기본값 'both'는 강아지+고양이가
+    // 이미 체크된 상태이므로, 고양이만 해제해 강아지 단독 선택(petType='dog')으로 검증한다.
+    await page.getByLabel('고양이').uncheck();
     await page.getByPlaceholder('상품 카드에 노출될 짧은 설명').fill(summary);
     await page
       .getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)')
@@ -198,7 +198,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     // ── 8) 노출 토글(스토어 노출/추천/베스트) — ToggleRow 는 label 이 input 을 감싸 getByLabel 동작 ──
     await page.getByLabel('스토어 노출').check();
     await page.getByLabel('추천 상품 (MD)').check();
-    await page.getByLabel('베스트 상품').check();
+    // 라벨은 645823b(고객 거래 고지 통합)에서 'BEST · 자체 큐레이션 표시'로 바뀌었다 — 옛 '베스트 상품' 문구는 폼에 없다.
+    await page.getByLabel('BEST · 자체 큐레이션 표시').check();
 
     // 저장 → 목록으로 이동(ProductForm.tsx router.push('/admin/products')).
     await page.getByRole('button', { name: '등록 완료' }).click();
@@ -232,9 +233,14 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
       price: '12,000',
       description,
       shippingFee: '3,000',
-      deliveryEstimate,
+      // 공개 상세의 출고 예정은 판매자 정책(seller.dispatchEstimate)이 상품 필드보다 우선한다
+      // (src/components/shop/ProductPurchaseInfo.tsx:17, #305). E2E 검증 판매자 픽스처 값은
+      // tests/golden/_lib/adminCrudHelpers.ts fillProductCompliance 의 dispatchEstimate 와 같다.
+      // 상품 필드 자체의 왕복은 아래 관리자 재열람 단계(toHaveValue)에서 검증한다.
+      deliveryEstimate: '결제 완료 후 3영업일 이내 출고',
       shippingNotice,
-      returnNotice,
+      // returnNotice 도 같은 이유로 판매자 returnPolicy 가 우선한다(ProductPurchaseInfo.tsx:19).
+      returnNotice: '상품 수령 후 7일 이내 교환·반품 신청',
       sellerName,
       auditPoints: auditPoint,
       ingredients,
@@ -302,7 +308,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(
       page.getByRole('group', { name: '라이프스타일 분류 선택' }).getByRole('button', { name: lifestyleValue, exact: true }),
     ).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('select').filter({ has: page.locator('option[value="both"]') })).toHaveValue('dog');
+    // PR3: 반려동물 select가 다중 체크박스 그룹으로 바뀌었다 — 강아지만 체크, 고양이는 해제 상태로
+    // 왕복되어야 petType='dog'가 실제로 저장·재로드됐음을 확인할 수 있다.
+    await expect(page.getByRole('group', { name: '반려동물 선택' }).getByLabel('강아지')).toBeChecked();
+    await expect(page.getByRole('group', { name: '반려동물 선택' }).getByLabel('고양이')).not.toBeChecked();
     await expect(page.getByPlaceholder('상품 카드에 노출될 짧은 설명')).toHaveValue(summary);
     await expect(
       page.getByPlaceholder('간단한 상세 설명 (선택 — 상세페이지 에디터로 본문을 만들 거라면 비워두세요)'),
@@ -330,7 +339,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 상품 폼 전 �
     await expect(page.locator('#product-disclosure-productName')).toHaveValue('E2E 품명·모델명');
     await expect(page.getByLabel('스토어 노출')).toBeChecked();
     await expect(page.getByLabel('추천 상품 (MD)')).toBeChecked();
-    await expect(page.getByLabel('베스트 상품')).toBeChecked();
+    await expect(page.getByLabel('BEST · 자체 큐레이션 표시')).toBeChecked();
     // 대표 이미지 + 갤러리 1장 = Uploaded 미리보기 2장 이상.
     await expect(page.locator('img[alt="Uploaded"]').first()).toBeVisible({ timeout: 15_000 });
     expect(await page.locator('img[alt="Uploaded"]').count()).toBeGreaterThanOrEqual(2);

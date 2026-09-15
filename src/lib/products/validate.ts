@@ -3,6 +3,8 @@
 import type { Product, ProductOption, ProductDetailBlock } from '@/types';
 import type { ProductInsertInput, ProductPatchInput } from '@/lib/products/repo';
 import { normalizeDisclosure, normalizeMadeToOrderPolicy } from '@/lib/products/disclosures';
+import { isValidProductPetTypeValue } from '@/lib/products/petTypes';
+import { isProductTagSlug } from '@/lib/productTags/config';
 
 const MAX_NAME = 200;
 const MAX_SHORT_TEXT = 100;
@@ -25,8 +27,13 @@ const MAX_PRICE = 100_000_000;
 const MAX_RATING = 5;
 const MAX_REVIEW_COUNT = 10_000_000;
 const MAX_DISPLAY_ORDER = 100_000;
-const PET_TYPES = new Set(['dog', 'cat', 'small', 'both']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * concernTags(고민 태그)는 이제 product_tags_config의 slug와 맺어진다. isProductTagSlug
+ * (src/lib/productTags/config.ts)와 정규식을 공유해, 태그 사전 PUT과 상품 검증기가 서로 다른
+ * 형식을 받아들여 "사전엔 저장되지만 상품은 400"이 되는 계약 불일치를 막는다(2026-09-15 리뷰 B2).
+ * 기존 저장값(skin·joint 등 영단어)은 이미 이 형태라 재저장해도 그대로 통과한다.
+ */
 
 function isStr(v: unknown, min: number, max: number): v is string {
   return typeof v === 'string' && v.length >= min && v.length <= max;
@@ -51,6 +58,15 @@ function isBool(v: unknown): v is boolean {
 function isStrArray(v: unknown, maxItems: number, maxLen: number): v is string[] {
   if (!Array.isArray(v) || v.length > maxItems) return false;
   return v.every((item) => isStr(item, 0, maxLen));
+}
+
+function isTagSlug(v: unknown): v is string {
+  return isProductTagSlug(v) && v.length <= MAX_SHORT_TEXT;
+}
+
+function isTagSlugArray(v: unknown, maxItems: number): v is string[] {
+  if (!Array.isArray(v) || v.length > maxItems) return false;
+  return v.every((item) => isTagSlug(item));
 }
 
 function validateOption(raw: unknown): ProductOption | null {
@@ -178,9 +194,17 @@ export type ValidatedProductFields = Partial<Product>;
  * body에서 허용 필드만 뽑아 검증한다. requireAll=true(생성)면 필수 필드 누락 시 실패,
  * false(수정)면 넘어온 필드만 검증하고 나머지는 건드리지 않는다.
  */
+export interface ValidateProductFieldsOptions {
+  /** categorySettings.petTypes에서 뽑은 허용 id 목록. 넘기면 그 밖의 petType id는 거부한다
+   *  (isValidProductPetTypeValue 참조). 라우트가 categorySettings 조회에 실패하면 넘기지 않아
+   *  기존처럼 형태만 검사한다 — 설정 조회 장애로 상품 저장이 막히지 않게 한다. */
+  allowedPetTypeIds?: readonly string[];
+}
+
 export function validateProductFields(
   body: unknown,
   requireAll: boolean,
+  fieldOptions?: ValidateProductFieldsOptions,
 ): ValidatedProductFields | null {
   if (!body || typeof body !== 'object') return null;
   const b = body as Record<string, unknown>;
@@ -246,7 +270,7 @@ export function validateProductFields(
   } else if (requireAll) return null;
 
   if (b.concernTags !== undefined) {
-    if (!isStrArray(b.concernTags, MAX_ARRAY_ITEMS, MAX_SHORT_TEXT)) return null;
+    if (!isTagSlugArray(b.concernTags, MAX_ARRAY_ITEMS)) return null;
     out.concernTags = b.concernTags;
   } else if (requireAll) {
     out.concernTags = [];
@@ -258,8 +282,11 @@ export function validateProductFields(
   }
 
   if (b.petType !== undefined) {
-    if (typeof b.petType !== 'string' || !PET_TYPES.has(b.petType)) return null;
-    out.petType = b.petType as Product['petType'];
+    if (
+      !isStr(b.petType, 1, MAX_LONG_TEXT) ||
+      !isValidProductPetTypeValue(b.petType, fieldOptions?.allowedPetTypeIds)
+    ) return null;
+    out.petType = b.petType;
   } else if (requireAll) return null;
 
   if (b.ageGroup !== undefined) {

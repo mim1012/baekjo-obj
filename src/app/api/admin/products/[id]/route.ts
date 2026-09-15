@@ -3,6 +3,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { updateProduct, deleteProduct, ProductComplianceError } from '@/lib/products/repo';
 import { validateProductFields, toPatchInput } from '@/lib/products/validate';
+import { getProductPetTypeIds } from '@/lib/categorySettings/repo';
 import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
@@ -24,7 +25,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  const fields = validateProductFields(body, false);
+  const allowedPetTypeIds = await getProductPetTypeIds();
+  const fields = validateProductFields(body, false, { allowedPetTypeIds });
   if (!fields || Object.keys(fields).length === 0) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
