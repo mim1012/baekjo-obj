@@ -8,6 +8,7 @@ import {
   Droplet, Sparkles, Bone, Scale, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse
 } from 'lucide-react';
 import type { HomeSettings } from '@/data/homeContent';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
@@ -282,6 +283,7 @@ export default function HomeClient({
               {curationCards.map((card) => {
             const title = card.title;
             const desc = card.desc;
+            const cardImage = resolveCmsImageProps(card.img);
             return (
               <Link
                 key={card.href}
@@ -289,13 +291,14 @@ export default function HomeClient({
                 className="group relative flex h-[210px] min-w-0 flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#173C32] lg:h-[228px]"
               >
                 <div className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-black">
-                  <Image
-                    src={card.img}
+                  {cardImage && <Image
+                    src={cardImage.src}
+                    unoptimized={cardImage.unoptimized}
                     alt={title}
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                  />}
                 </div>
                 <div className="absolute inset-0 z-10 bg-black/[0.08]" />
                 <div className="absolute inset-x-0 bottom-0 z-10 h-[62%] bg-gradient-to-t from-black/60 via-black/25 to-transparent" />

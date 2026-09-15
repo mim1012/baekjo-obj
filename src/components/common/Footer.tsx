@@ -3,6 +3,7 @@ import Image from 'next/image';
 import { COMPANY } from '@/data/company';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 import type { SiteShellContent } from '@/lib/cms/source/siteShell';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
 
@@ -29,6 +30,7 @@ export default function Footer({
     headerLogo: '/images/baekjo-objet-header-logo-v2.png',
     logoAlt: 'Baekjo Objet',
   };
+  const footerLogoImage = resolveCmsImageProps(branding.headerLogo);
   const company = siteShell?.company ?? COMPANY;
   const social = siteShell?.social ?? {
     instagramUrl: INSTAGRAM_URL,
@@ -48,13 +50,14 @@ export default function Footer({
             aria-label="백조오브제 홈"
             className="relative block h-12 w-[156px] shrink-0"
           >
-            <Image
-              src={branding.headerLogo}
+            {footerLogoImage && <Image
+              src={footerLogoImage.src}
+              unoptimized={footerLogoImage.unoptimized}
               alt={branding.logoAlt}
               fill
               sizes="156px"
               className="object-contain brightness-0 invert"
-            />
+            />}
           </Link>
 
           <div className="flex flex-col gap-5 md:items-end">

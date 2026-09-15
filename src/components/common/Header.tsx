@@ -18,6 +18,7 @@ import { getCartCount } from '@/lib/cart';
 import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
 import { resolveGatedNavLinks, type SiteShellContent } from '@/lib/cms/source/siteShell';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 // 아래 두 배열은 site-shell CMS가 아직 게시되지 않았을 때(siteShell === null)의 기본값이다 —
 // pageDefinitions.ts의 site-shell defaultContent, lib/cms/source/siteShell.ts의
@@ -92,6 +93,7 @@ export default function Header({
   );
   const headerLogoSrc = siteShell?.branding.headerLogo ?? '/images/baekjo-objet-header-logo-v2.png';
   const headerLogoAlt = siteShell?.branding.logoAlt ?? 'Baekjo Objet';
+  const headerLogoImage = resolveCmsImageProps(headerLogoSrc);
   // B3: site-shell CMS가 게시되면 그 라벨을 쓰고, 없으면 아래 기본값을 쓴다(page-texts
   // 'common.brandBrowse'/'common.needBrowse' 덮어쓰기는 buildSiteShellContent가 반영한다).
   const brandBrowseLabel = siteShell?.navigation.shopDropdown.brandBrowseLabel ?? '브랜드로 둘러보기';
@@ -144,15 +146,16 @@ export default function Header({
           className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
           onClick={closeMenu}
         >
-          <Image
-            src={headerLogoSrc}
+          {headerLogoImage && <Image
+            src={headerLogoImage.src}
+            unoptimized={headerLogoImage.unoptimized}
             alt={headerLogoAlt}
             fill
             sizes="(min-width: 1024px) 156px, 143px"
             priority
             className="object-contain"
             data-testid="site-header-logo"
-          />
+          />}
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">

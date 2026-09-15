@@ -6,8 +6,8 @@ import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 // resolveCmsImageProps 순수 계약 — 브라우저·DB 불필요(products 프로젝트).
 // 배경: CMS 이미지 필드(관리자가 자유 입력)에 쿼리스트링이 붙은 로컬 경로나 next.config.ts의
 // remotePatterns에 없는 외부 URL이 들어오면 next/image가 즉시 throw해 공개 페이지 전체가
-// 크래시한다(2026-09-15 /audit에서 실측). 이 스펙은 그 방어 헬퍼와, 여섯 소비자 전부가
-// 그 헬퍼를 실제로 쓰는지를 함께 고정한다.
+// 크래시한다(2026-09-15 /audit에서 실측). 이 스펙은 그 방어 헬퍼와, 아홉 소비자 전부가
+// 그 헬퍼를 실제로 쓰는지를 함께 고정한다(원래 여섯 페이지 + 헤더/푸터 로고 + 홈 큐레이션 카드).
 
 const root = path.resolve(__dirname, '..', '..');
 
@@ -72,7 +72,7 @@ test.describe('resolveCmsImageProps 헬퍼 계약', () => {
   });
 });
 
-test.describe('CMS 이미지 소비자 6종이 resolveCmsImageProps를 실제로 쓴다', () => {
+test.describe('CMS 이미지 소비자 9종이 resolveCmsImageProps를 실제로 쓴다', () => {
   const consumers: ReadonlyArray<{ file: readonly string[]; fields: readonly string[] }> = [
     { file: ['src', 'app', 'audit', 'page.tsx'], fields: ['content.hero.image'] },
     { file: ['src', 'app', 'b2b', 'page.tsx'], fields: ['content.hero.image'] },
@@ -80,6 +80,9 @@ test.describe('CMS 이미지 소비자 6종이 resolveCmsImageProps를 실제로
     { file: ['src', 'app', 'experts', 'page.tsx'], fields: ['content.hero.image'] },
     { file: ['src', 'app', 'landing', 'care-kit', 'page.tsx'], fields: ['content.hero.image', 'content.body.partnerLogo'] },
     { file: ['src', 'components', 'brands', 'BrandsContent.tsx'], fields: ['content.hero.image', 'content.partnership.image'] },
+    { file: ['src', 'components', 'common', 'Header.tsx'], fields: ['headerLogoSrc'] },
+    { file: ['src', 'components', 'common', 'Footer.tsx'], fields: ['branding.headerLogo'] },
+    { file: ['src', 'components', 'home', 'HomeClient.tsx'], fields: ['card.img'] },
   ];
 
   for (const { file, fields } of consumers) {
