@@ -65,9 +65,10 @@ test('placeholder (bootstrapReady:false) source mappers return defaultContent un
 });
 
 test('real (bootstrapReady:true, non-audit) source mappers reproduce defaultContent from default sources', () => {
-  // siteSettingIds가 페이지마다 다르다(page-texts / home / [] 없음 — refund-policy는 DB 소스가
-  // 없다). 각 매퍼는 선언한 소스 행이 없을 때 자신의 기본값으로 폴백하도록 이미 작성돼 있으므로
-  // (audit.build/home.build 등과 동일한 패턴), 빈 sources로 호출해 그 폴백 경로 자체를 검증한다.
+  // siteSettingIds가 페이지마다 다르다(page-texts / home — site-shell·refund-policy도 B3 수정
+  // 이후 page-texts를 원본에 포함한다). 각 매퍼는 선언한 소스 행이 없을 때 자신의 기본값으로
+  // 폴백하도록 이미 작성돼 있으므로(audit.build/home.build 등과 동일한 패턴), 빈 sources로 호출해
+  // 그 폴백 경로 자체를 검증한다.
   for (const definition of CMS_PAGE_DEFINITIONS) {
     if (definition.key === 'audit') continue; // 위 전용 테스트가 별도로 검증한다.
     const builder = getCmsSourceBuilder(definition.key);

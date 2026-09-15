@@ -20,9 +20,12 @@ test.describe('토스페이먼츠 심사 법정 고지 표면', () => {
     expect(footer).toContain('company.businessLookupUrl');
     expect(footer).toContain('사업자정보');
 
-    expect(siteShellSource).toContain("{ label: '이용약관', href: '/terms', visible: true }");
-    expect(siteShellSource).toContain("{ label: '개인정보처리방침', href: '/privacy', visible: true }");
-    expect(siteShellSource).toContain("{ label: '배송·교환·환불', href: '/refund-policy', visible: true }");
+    // B3: 라벨은 이제 page-texts('common.*') 덮어쓰기를 반영하는 overridden() 호출로 계산된다
+    // (기본값은 아래 리터럴과 동일 — buildSiteShellContent()/cms-site-shell-consumer.spec.ts가
+    // 이 등가성을 계약으로 고정한다). href/visible은 상수 그대로다.
+    expect(siteShellSource).toContain("overridden(settings, 'common.footerTerms', '이용약관')");
+    expect(siteShellSource).toContain("overridden(settings, 'common.footerPrivacy', '개인정보처리방침')");
+    expect(siteShellSource).toContain("overridden(settings, 'common.footerRefund', '배송·교환·환불')");
     expect(siteShellSource).toContain('company: { ...COMPANY }');
     expect(company).toContain('https://www.ftc.go.kr/bizCommPop.do?wrkr_no=5240503658');
   });

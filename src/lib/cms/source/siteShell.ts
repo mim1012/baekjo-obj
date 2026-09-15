@@ -1,6 +1,12 @@
 // site-shell 페이지의 소스 매퍼 — Header/Footer/MobileBottomNav가 오늘 렌더링하는 로고·메뉴·회사
-// 정보·SNS 링크를 그대로 옮긴 상수 기반 매퍼다. DB site_settings 소스가 없으므로(siteSettingIds: [])
-// build()는 sources 인자를 쓰지 않고 항상 같은 값을 계산한다(순수 함수, D3).
+// 정보·SNS 링크를 그대로 옮긴 상수 기반 매퍼다.
+//
+// B3: siteSettingIds:[]였을 때는 이 매퍼가 page-texts(site_settings id='page-texts')를 전혀
+// 읽지 않아, 활성화("현재 값 가져오기") 순간 관리자가 옛 환경설정(공통 메뉴·푸터) 편집기에서
+// 저장해둔 'common.*' 덮어쓰기가 조용히 사라지고 이 파일의 하드코딩 라벨로 되돌아갔다.
+// siteSettingIds:['page-texts']로 그 값을 읽어 mainLinks/storyLinks/footerLinks의 라벨과
+// shopDropdown 두 라벨에 반영해야 활성화가 기존 문구를 보존한다(href·visible은 page-texts에
+// 대응 필드가 없어 상수 그대로 — 옛 편집기도 라벨 문자열만 다뤘다).
 //
 // features.insurance/experts는 정보 표시 전용이다(D6) — Header/Footer/MobileBottomNav는 이 값을
 // 절대 읽지 않고 항상 src/config/features.ts(FEATURES)만 신뢰해 메뉴 노출을 결정한다. 여기 값은
@@ -16,9 +22,24 @@
 // resolveGatedNavLinks를 순수 함수로 검증한다.
 import { COMPANY } from '@/data/company';
 import { FEATURES } from '@/config/features';
+import {
+  defaultPageTextSettings,
+  normalizePageTextSettings,
+  type PageTextSettings,
+} from '@/data/pageTextContent';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
 import { getCmsPageDefinition, type CmsLinkItem } from '@/lib/cms/pageDefinitions';
-import type { CmsSourceMapper } from '@/lib/cms/source/registry';
+import type { CmsSourceMapper, CmsSourceRow } from '@/lib/cms/source/registry';
+
+/** terms.ts/privacy.ts/refundPolicy.ts와 동일한 이유(주석 참조) — page-texts 자체 기본값과
+ * 같으면(=관리자가 손댄 적 없음) currentValue(오늘 화면 상수)를 그대로 쓴다. */
+function overridden(settings: PageTextSettings, key: string, currentValue: string): string {
+  const stored = settings.values[key];
+  if (typeof stored !== 'string' || stored.length === 0) return currentValue;
+  const pristineDefault = defaultPageTextSettings.values[key];
+  if (pristineDefault !== undefined && stored === pristineDefault) return currentValue;
+  return stored;
+}
 
 export type SiteShellContent = Record<string, unknown> & {
   readonly branding: {
@@ -34,6 +55,12 @@ export type SiteShellContent = Record<string, unknown> & {
     readonly mainLinks: readonly CmsLinkItem[];
     readonly storyLinks: readonly CmsLinkItem[];
     readonly footerLinks: readonly CmsLinkItem[];
+    /** 데스크톱 헤더의 "셀렉션" 드롭다운 두 칼럼 제목(Header.tsx DropdownColumn) — page-texts
+     * 'common.brandBrowse'/'common.needBrowse'가 여기로 매핑된다(B3). */
+    readonly shopDropdown: {
+      readonly brandBrowseLabel: string;
+      readonly needBrowseLabel: string;
+    };
   };
   readonly company: typeof COMPANY;
   readonly social: {
@@ -43,8 +70,11 @@ export type SiteShellContent = Record<string, unknown> & {
   };
 };
 
-/** 오늘 Header.tsx/Footer.tsx가 렌더링하는 값 그대로(순수 함수) — 어떤 site_settings 행도 읽지 않는다. */
-export function buildSiteShellContent(): SiteShellContent {
+/** 오늘 Header.tsx/Footer.tsx가 렌더링하는 값 그대로(순수 함수) + page-texts 'common.*' 덮어쓰기
+ * (settings 인자, 기본값은 기본 page-texts라 인자를 생략하면 상수 그대로다 — 기존 호출부 불변). */
+export function buildSiteShellContent(
+  settings: PageTextSettings = defaultPageTextSettings,
+): SiteShellContent {
   return {
     branding: {
       headerLogo: '/images/baekjo-objet-header-logo-v2.png',
@@ -53,23 +83,27 @@ export function buildSiteShellContent(): SiteShellContent {
     features: { insurance: FEATURES.insurance, experts: FEATURES.experts },
     navigation: {
       mainLinks: [
-        { label: '브랜드', href: '/brands', visible: true },
-        { label: '케어', href: '/concerns', visible: true },
-        { label: '펫보험', href: '/insurance', visible: false },
-        { label: 'B2B', href: '/b2b', visible: true },
+        { label: overridden(settings, 'common.navBrand', '브랜드'), href: '/brands', visible: true },
+        { label: overridden(settings, 'common.navCare', '케어'), href: '/concerns', visible: true },
+        { label: overridden(settings, 'common.navInsurance', '펫보험'), href: '/insurance', visible: false },
+        { label: overridden(settings, 'common.navB2b', 'B2B'), href: '/b2b', visible: true },
       ],
       storyLinks: [
-        { label: '백조오브제 Audit의 검토 기준', href: '/audit', visible: true },
-        { label: '전문가 칼럼', href: '/experts', visible: false },
-        { label: '보호자 후기', href: '/reviews', visible: true },
-        { label: '소식', href: '/notices', visible: true },
+        { label: overridden(settings, 'common.navAudit', '백조오브제 Audit의 검토 기준'), href: '/audit', visible: true },
+        { label: overridden(settings, 'common.navExperts', '전문가 칼럼'), href: '/experts', visible: false },
+        { label: overridden(settings, 'common.navReviews', '보호자 후기'), href: '/reviews', visible: true },
+        { label: overridden(settings, 'common.navNotices', '소식'), href: '/notices', visible: true },
       ],
       footerLinks: [
-        { label: '1:1 문의', href: '/mypage?tab=inquiries', visible: true },
-        { label: '이용약관', href: '/terms', visible: true },
-        { label: '개인정보처리방침', href: '/privacy', visible: true },
-        { label: '배송·교환·환불', href: '/refund-policy', visible: true },
+        { label: overridden(settings, 'common.footerInquiry', '1:1 문의'), href: '/mypage?tab=inquiries', visible: true },
+        { label: overridden(settings, 'common.footerTerms', '이용약관'), href: '/terms', visible: true },
+        { label: overridden(settings, 'common.footerPrivacy', '개인정보처리방침'), href: '/privacy', visible: true },
+        { label: overridden(settings, 'common.footerRefund', '배송·교환·환불'), href: '/refund-policy', visible: true },
       ],
+      shopDropdown: {
+        brandBrowseLabel: overridden(settings, 'common.brandBrowse', '브랜드로 둘러보기'),
+        needBrowseLabel: overridden(settings, 'common.needBrowse', '필요한 것으로 찾기'),
+      },
     },
     company: { ...COMPANY },
     social: {
@@ -80,18 +114,24 @@ export function buildSiteShellContent(): SiteShellContent {
   };
 }
 
-export function selectSiteShellContent(published: SiteShellContent | null): SiteShellContent {
-  return published ?? buildSiteShellContent();
+export function selectSiteShellContent(
+  published: SiteShellContent | null,
+  settings: PageTextSettings = defaultPageTextSettings,
+): SiteShellContent {
+  return published ?? buildSiteShellContent(settings);
 }
 
 export const siteShellSourceMapper: CmsSourceMapper = {
-  siteSettingIds: [],
+  siteSettingIds: ['page-texts'],
   bootstrapReady: true,
-  // 잠글 site_settings 행이 없다(siteSettingIds: []) — sources 인자를 받지 않는다.
-  build(): Record<string, unknown> {
+  build(sources: Record<string, CmsSourceRow | null>): Record<string, unknown> {
     const definition = getCmsPageDefinition('site-shell');
     if (!definition) throw new Error('cms-source-mapper-definition-missing:site-shell');
-    return normalizeCmsPageContent(definition, buildSiteShellContent());
+    const rawPageTexts = sources['page-texts']?.value ?? defaultPageTextSettings;
+    return normalizeCmsPageContent(
+      definition,
+      buildSiteShellContent(normalizePageTextSettings(rawPageTexts)),
+    );
   },
 };
 

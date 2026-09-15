@@ -47,6 +47,12 @@ export interface CmsFieldDefinition {
   placeholder?: string;
   itemFields?: CmsItemFieldDefinition[];
   addLabel?: string;
+  /** type:'textarea'에서만 의미가 있다. true면 이 필드의 값을 문자열이 아니라 줄 배열(string[])로
+   * 다룬다(예: home hero.titleLines/descriptionLines, audit.titleLines) — normalizeTextareaValue가
+   * defaultContent의 실제 shape(Array.isArray(fallback))로 배열/문자열을 판정하는 것과 동일한
+   * 결론을 내리도록, 편집기(FieldEditor)가 defaultContent에 접근하지 않고도 이 정적 플래그만으로
+   * 판정할 수 있게 한다. */
+  linesArray?: boolean;
 }
 
 export interface CmsSectionDefinition {
@@ -72,11 +78,17 @@ const text = (path: string, label: string, description?: string): CmsFieldDefini
   type: 'text',
   description,
 });
-const textarea = (path: string, label: string, description?: string): CmsFieldDefinition => ({
+const textarea = (
+  path: string,
+  label: string,
+  description?: string,
+  linesArray?: boolean,
+): CmsFieldDefinition => ({
   path,
   label,
   type: 'textarea',
   description,
+  linesArray,
 });
 const image = (path: string, label: string, description?: string): CmsFieldDefinition => ({
   path,
@@ -299,6 +311,10 @@ const siteShell: CmsPageDefinition = {
         { label: '개인정보처리방침', href: '/privacy', visible: true },
         { label: '배송·교환·환불', href: '/refund-policy', visible: true },
       ],
+      shopDropdown: {
+        brandBrowseLabel: '브랜드로 둘러보기',
+        needBrowseLabel: '필요한 것으로 찾기',
+      },
     },
     company: { ...COMPANY },
     social: {
@@ -325,6 +341,8 @@ const siteShell: CmsPageDefinition = {
         links('navigation.mainLinks', '상단 주요 메뉴'),
         links('navigation.storyLinks', '백조오브제 펼침 메뉴'),
         links('navigation.footerLinks', '하단 메뉴'),
+        text('navigation.shopDropdown.brandBrowseLabel', '셀렉션 메뉴 · 브랜드로 둘러보기 칼럼 제목'),
+        text('navigation.shopDropdown.needBrowseLabel', '셀렉션 메뉴 · 필요한 것으로 찾기 칼럼 제목'),
       ],
     },
     {
@@ -1003,8 +1021,8 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         description: '첫 화면 히어로 문구입니다. 제목·설명은 줄 수가 화면 레이아웃에 고정돼 있으니(현재 제목 2줄·설명 1줄) 줄을 추가·삭제하지 마세요.',
         fields: [
           text('hero.eyebrow', '작은 영문 제목'),
-          textarea('hero.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.'),
-          textarea('hero.descriptionLines', '소개 문구', '한 줄에 한 줄씩 입력하세요.'),
+          textarea('hero.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.', true),
+          textarea('hero.descriptionLines', '소개 문구', '한 줄에 한 줄씩 입력하세요.', true),
           text('hero.primaryCtaLabel', '첫 번째 버튼 이름'),
           text('hero.secondaryCtaLabel', '두 번째 버튼 이름'),
           text('hero.trustNote', '신뢰 문구'),
@@ -1044,7 +1062,7 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         description: '백조오브제 Audit 검증 기준 영역의 문구입니다. 기준 카드(아이콘)는 이 화면에서 편집할 수 없습니다.',
         fields: [
           text('audit.badge', '작은 배지 문구'),
-          textarea('audit.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.'),
+          textarea('audit.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.', true),
           textarea('audit.description', '영역 설명'),
           text('audit.linkLabel', '자세히 보기 링크 문구'),
         ],

@@ -6,6 +6,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { substituteCompanyTokensDeep } from '@/lib/cms/companyTokens';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
 import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
+import { getCmsSourceBuilder } from '@/lib/cms/source/registry';
 import { privacyContentFromSettings } from '@/lib/cms/source/privacy';
 import { refundPolicyContent } from '@/lib/cms/source/refundPolicy';
 import { termsContentFromSettings } from '@/lib/cms/source/terms';
@@ -184,5 +185,60 @@ test.describe('terms/privacy/refund-policy CMS 정의 ↔ 소스 매퍼 계약',
       if (!definition) continue;
       expect(JSON.stringify(definition.defaultContent)).not.toContain('010-5683-1725');
     }
+  });
+
+  // B3 회귀 방지 — refund-policy 매퍼가 page-texts('refundPolicy.*') 관리자 덮어쓰기를 무시하고
+  // 활성화 순간 상수로 되돌리던 버그의 계약 스펙.
+  test('refundPolicyContent는 page-texts의 refundPolicy.title 덮어쓰기를 title에 반영한다', () => {
+    const overriddenSettings = {
+      version: 1 as const,
+      values: { 'refundPolicy.title': '배송/환불 정책' },
+    };
+    const content = refundPolicyContent(overriddenSettings);
+    expect(content.title).toBe('배송/환불 정책');
+  });
+
+  test('refundPolicyContent는 page-texts의 refundPolicy.shippingTitle/supportTitle 덮어쓰기를 해당 조항 제목에 반영하고, 나머지 조항은 그대로다', () => {
+    const overriddenSettings = {
+      version: 1 as const,
+      values: {
+        'refundPolicy.shippingTitle': '1. 배송 정책 안내',
+        'refundPolicy.supportTitle': '4. 문의처',
+      },
+    };
+    const content = refundPolicyContent(overriddenSettings);
+    expect(content.articles[0]?.title).toBe('1. 배송 정책 안내');
+    expect(content.articles[1]?.title).toBe('2. 교환·반품 안내');
+    expect(content.articles[2]?.title).toBe('3. 환불 안내');
+    expect(content.articles[3]?.title).toBe('4. 문의처');
+  });
+
+  test('page-texts 값이 refundPolicy 기본값과 같으면(=손댄 적 없음) 상수를 그대로 쓴다', () => {
+    const content = refundPolicyContent({
+      version: 1,
+      values: { 'refundPolicy.eyebrow': 'Commerce Policy' },
+    });
+    expect(content.eyebrow).toBe('Commerce Policy');
+  });
+
+  test('refundPolicySourceMapper.build는 sources[\'page-texts\']를 읽어 활성화 시점 덮어쓰기를 보존한다(siteSettingIds도 page-texts)', () => {
+    const builder = getCmsSourceBuilder('refund-policy');
+    expect(builder).not.toBeNull();
+    if (!builder) return;
+    expect(builder.siteSettingIds).toEqual(['page-texts']);
+    expect(builder.bootstrapReady).toBe(true);
+
+    const definition = getCmsPageDefinition('refund-policy');
+    expect(definition).not.toBeNull();
+    if (!definition) return;
+
+    const built = builder.build({
+      'page-texts': {
+        value: { version: 1, values: { 'refundPolicy.returnTitle': '2. 반품/교환 안내' } },
+        updated_at: '2026-09-15T00:00:00.000Z',
+      },
+    });
+    const normalized = normalizeCmsPageContent(definition, built) as { articles: ReadonlyArray<{ title: string }> };
+    expect(normalized.articles[1]?.title).toBe('2. 반품/교환 안내');
   });
 });

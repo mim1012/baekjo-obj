@@ -22,7 +22,7 @@ function read(...segments: readonly string[]): string {
   return fs.readFileSync(path.join(root, ...segments), 'utf8');
 }
 
-test('siteShellSourceMapper는 siteSettingIds:[]·bootstrapReady:true이고, build({})의 normalize 결과가 definition.defaultContent와 같다', () => {
+test('siteShellSourceMapper는 siteSettingIds:[\'page-texts\']·bootstrapReady:true이고, build({})의 normalize 결과가 definition.defaultContent와 같다', () => {
   const definition = getCmsPageDefinition('site-shell');
   expect(definition).not.toBeNull();
   if (!definition) return;
@@ -31,7 +31,8 @@ test('siteShellSourceMapper는 siteSettingIds:[]·bootstrapReady:true이고, bui
   expect(builder).not.toBeNull();
   if (!builder) return;
 
-  expect(builder.siteSettingIds).toEqual([]);
+  // B3: page-texts('common.*')를 원본에 포함시켜, 활성화 순간 기존 관리자 덮어쓰기를 보존한다.
+  expect(builder.siteSettingIds).toEqual(['page-texts']);
   expect(builder.bootstrapReady).toBe(true);
 
   const built = builder.build({});
@@ -125,4 +126,61 @@ test('AppShell은 Header/Footer에는 siteShell을 넘기지만 MobileBottomNav�
   expect(appShell).toContain("<Footer variant={isHome ? 'home' : 'default'} siteShell={siteShell} />");
   expect(appShell).toContain('<MobileBottomNav />');
   expect(appShell).not.toContain('<MobileBottomNav siteShell');
+});
+
+// B3 회귀 방지 — site-shell 매퍼가 page-texts('common.*') 관리자 덮어쓰기를 무시하고 활성화
+// 순간 상수로 되돌리던 버그의 계약 스펙.
+test('buildSiteShellContent는 page-texts의 common.navBrand 덮어쓰기를 mainLinks 라벨에 반영한다', () => {
+  const overriddenSettings = {
+    version: 1 as const,
+    values: { 'common.navBrand': '브랜드관' },
+  };
+  const content = buildSiteShellContent(overriddenSettings);
+  const brandLink = content.navigation.mainLinks.find((link) => link.href === '/brands');
+  expect(brandLink?.label).toBe('브랜드관');
+});
+
+test('buildSiteShellContent는 page-texts의 common.footerRefund 덮어쓰기를 footerLinks 라벨에 반영한다', () => {
+  const overriddenSettings = {
+    version: 1 as const,
+    values: { 'common.footerRefund': '배송/환불 안내' },
+  };
+  const content = buildSiteShellContent(overriddenSettings);
+  const refundLink = content.navigation.footerLinks.find((link) => link.href === '/refund-policy');
+  expect(refundLink?.label).toBe('배송/환불 안내');
+});
+
+test('buildSiteShellContent는 page-texts의 common.brandBrowse/needBrowse 덮어쓰기를 shopDropdown 라벨에 반영한다', () => {
+  const overriddenSettings = {
+    version: 1 as const,
+    values: { 'common.brandBrowse': '브랜드 탐색', 'common.needBrowse': '카테고리 탐색' },
+  };
+  const content = buildSiteShellContent(overriddenSettings);
+  expect(content.navigation.shopDropdown.brandBrowseLabel).toBe('브랜드 탐색');
+  expect(content.navigation.shopDropdown.needBrowseLabel).toBe('카테고리 탐색');
+});
+
+test('siteShellSourceMapper.build는 sources[\'page-texts\']를 읽어 활성화 시점 덮어쓰기를 보존한다', () => {
+  const builder = getCmsSourceBuilder('site-shell');
+  expect(builder).not.toBeNull();
+  if (!builder) return;
+  const definition = getCmsPageDefinition('site-shell');
+  expect(definition).not.toBeNull();
+  if (!definition) return;
+
+  const built = builder.build({
+    'page-texts': {
+      value: { version: 1, values: { 'common.navCare': '케어관' } },
+      updated_at: '2026-09-15T00:00:00.000Z',
+    },
+  });
+  const normalized = normalizeCmsPageContent(definition, built) as unknown as SiteShellContent;
+  const careLink = normalized.navigation.mainLinks.find((link) => link.href === '/concerns');
+  expect(careLink?.label).toBe('케어관');
+});
+
+test('Header.tsx는 siteShell.navigation.shopDropdown 라벨을 소비한다(B3)', () => {
+  const header = read('src', 'components', 'common', 'Header.tsx');
+  expect(header).toContain('siteShell?.navigation.shopDropdown.brandBrowseLabel');
+  expect(header).toContain('siteShell?.navigation.shopDropdown.needBrowseLabel');
 });

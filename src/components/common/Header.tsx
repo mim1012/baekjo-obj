@@ -92,6 +92,10 @@ export default function Header({
   );
   const headerLogoSrc = siteShell?.branding.headerLogo ?? '/images/baekjo-objet-header-logo-v2.png';
   const headerLogoAlt = siteShell?.branding.logoAlt ?? 'Baekjo Objet';
+  // B3: site-shell CMS가 게시되면 그 라벨을 쓰고, 없으면 아래 기본값을 쓴다(page-texts
+  // 'common.brandBrowse'/'common.needBrowse' 덮어쓰기는 buildSiteShellContent가 반영한다).
+  const brandBrowseLabel = siteShell?.navigation.shopDropdown.brandBrowseLabel ?? '브랜드로 둘러보기';
+  const needBrowseLabel = siteShell?.navigation.shopDropdown.needBrowseLabel ?? '필요한 것으로 찾기';
 
   useEffect(() => {
     getPublicBrandLinks()
@@ -167,8 +171,8 @@ export default function Header({
             </Link>
             <div className="absolute left-1/2 top-full z-40 hidden w-[520px] -translate-x-1/2 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
               <div className="grid grid-cols-2 gap-8 p-8">
-                <DropdownColumn title="브랜드로 둘러보기" links={brandLinks} />
-                <DropdownColumn title="필요한 것으로 찾기" links={SHOP_LINKS.categories} />
+                <DropdownColumn title={brandBrowseLabel} links={brandLinks} />
+                <DropdownColumn title={needBrowseLabel} links={SHOP_LINKS.categories} />
               </div>
               <Link
                 href="/shop"

@@ -6,8 +6,8 @@
 // CMS 소비자는 getPublishedPageContent(key)를 우선하므로(D3) 변경이 고객 화면에 반영되지 않는다.
 // 그래서 옛 편집기는 이 목록에 있는 page-text id를 audit과 똑같이 새 편집기(/admin/pages/<key>)로
 // 안내하고 직접 수정·초기화를 막는다. 목록에 없는 page-text id(예: home처럼 site_settings('home')을
-// 읽는 페이지, refundPolicy처럼 page-texts를 전혀 읽지 않는 페이지, site-shell처럼 아직 매퍼가
-// 없는 페이지)는 옛 편집기가 계속 담당한다.
+// 읽는 페이지)는 옛 편집기가 계속 담당한다. common(site-shell)·refundPolicy(refund-policy)도
+// B3 수정으로 page-texts를 원본에 포함시켜 이 목록으로 들어왔다.
 //
 // 'server-only'를 import하지 않는다 — registry.ts와 그 매퍼들도 순수 함수라 클라이언트 컴포넌트
 // (PageTextSettingsEditor, 'use client')와 순수 스펙(page-text-editor-redirect.spec.ts)이 그대로
@@ -19,6 +19,11 @@ import { CMS_SOURCE_REGISTRY, type CmsPageKey } from '@/lib/cms/source/registry'
 const PAGE_TEXT_ID_TO_CMS_KEY: Record<string, CmsPageKey> = {
   careKit: 'care-kit',
   insuranceLanding: 'insurance-landing',
+  // B3: site-shell/refund-policy 매퍼가 page-texts를 원본으로 잠그게 되면서(siteSettingIds:
+  // ['page-texts']) 이 둘도 새 편집기로 리다이렉트해야 한다. page-text id는 legacy 이름
+  // (common/refundPolicy)이라 CMS 키(site-shell/refund-policy)와 문자 그대로 다르다.
+  common: 'site-shell',
+  refundPolicy: 'refund-policy',
 };
 
 function resolveCmsKey(pageTextId: string): CmsPageKey | null {

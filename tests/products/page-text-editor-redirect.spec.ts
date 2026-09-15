@@ -46,6 +46,10 @@ test.describe('page-text 편집기 → CMS 페이지 편집기 리다이렉트 �
       insuranceLanding: 'insurance-landing',
       terms: 'terms',
       privacy: 'privacy',
+      // B3: site-shell/refund-policy 매퍼가 page-texts를 원본에 포함시키면서(siteSettingIds:
+      // ['page-texts']) legacy id(common/refundPolicy)도 새 편집기로 리다이렉트된다.
+      common: 'site-shell',
+      refundPolicy: 'refund-policy',
     };
     for (const [pageTextId, cmsKey] of Object.entries(expected)) {
       expect(isPageTextIdManagedByCms(pageTextId), pageTextId).toBe(true);
@@ -54,11 +58,10 @@ test.describe('page-text 편집기 → CMS 페이지 편집기 리다이렉트 �
   });
 
   test('page-texts를 원본으로 쓰지 않는 page-text id는 옛 편집기가 그대로 담당한다(리다이렉트 안 함)', () => {
-    // home은 site_settings('home')을 읽고(page-texts 아님), refundPolicy는 상수만 읽는다(D2/D4
-    // 계획) — 둘 다 page-text 편집기 쪽에는 대응하는 실 페이지 id가 있지만 CMS page-texts 소스로
-    // 옮겨가지 않았으므로 리다이렉트되면 안 된다. common/productDetail 등 CMS 페이지 정의 자체가
-    // 없는 id도 마찬가지다.
-    for (const pageTextId of ['refundPolicy', 'common', 'productDetail', 'cart', 'checkout', 'login']) {
+    // home은 site_settings('home')을 읽는다(page-texts 아님). productDetail/cart/checkout/login은
+    // CMS 페이지 정의 자체가 없는 id다. common/refundPolicy는 B3 수정으로 site-shell/refund-policy
+    // 매퍼가 page-texts를 원본에 포함하게 되어 이제 리다이렉트 대상이다(위 테스트 참조).
+    for (const pageTextId of ['productDetail', 'cart', 'checkout', 'login']) {
       expect(isPageTextIdManagedByCms(pageTextId), pageTextId).toBe(false);
       expect(cmsPageKeyForPageTextId(pageTextId), pageTextId).toBeNull();
     }

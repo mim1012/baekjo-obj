@@ -78,7 +78,15 @@ export default function FieldEditor({ field, pageKey, value, onChange }: FieldEd
     );
   }
 
-  const stringValue = typeof value === 'string' ? value : '';
+  // linesArray 필드(예: home hero.titleLines)는 저장값이 string[]다. normalize.ts의
+  // normalizeTextareaValue와 동일한 결론(defaultContent가 배열이면 배열, 아니면 문자열)을
+  // 내리도록 정의의 정적 linesArray 플래그를 따른다. 화면에는 줄바꿈으로 합쳐 보여주고
+  // onChange는 문자열 그대로 올려보내면 normalize가 다시 '\n' 기준으로 split한다(join/split
+  // 라운드트립 — 빈 줄도 보존하기 위해 trim하지 않는다).
+  const isLinesArray = field.type === 'textarea' && field.linesArray === true;
+  const stringValue = isLinesArray
+    ? (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').join('\n') : '')
+    : typeof value === 'string' ? value : '';
 
   return (
     <label className="block">

@@ -103,7 +103,14 @@ export default function ItemListEditor({ field, items, pageKey, onChange }: Item
                     </label>
                   );
                 }
-                const stringValue = typeof itemValue === 'string' ? itemValue : '';
+                // linesArray 항목 필드(예: refund-policy articles[].noticeLines)는 저장값이
+                // string[]다. FieldEditor.tsx와 동일한 join/split 라운드트립: 화면에는 줄바꿈으로
+                // 합쳐 보여주고, onChange는 문자열 그대로 올려 normalizeItems(normalize.ts)가
+                // '\n' 기준으로 다시 split하게 둔다.
+                const isLinesArray = itemField.type === 'textarea' && itemField.linesArray === true;
+                const stringValue = isLinesArray
+                  ? (Array.isArray(itemValue) ? itemValue.filter((entry): entry is string => typeof entry === 'string').join('\n') : '')
+                  : typeof itemValue === 'string' ? itemValue : '';
                 return (
                   <label key={itemField.key} className={itemField.type === 'textarea' ? 'block sm:col-span-2' : 'block'}>
                     <span className="block text-[12px] font-semibold text-gray-600">{itemField.label}</span>
