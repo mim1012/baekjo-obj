@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import ts from 'typescript';
 import { buildSnapshot } from './mapper.mjs';
 
-function harness(pageKey, managed = false) {
+function harness(pageKey, managed = false, conflictCode = 'PT409') {
   const state = {
     row: { page_key: pageKey, draft_revision: 4, draft_content: {}, published_revision: 4, published_content: managed ? { __managedVersion: 1 } : {} },
     sourceValue: { version: 1, values: { 'audit.heroDescription': 'before PATCH' } },
@@ -35,7 +35,7 @@ function harness(pageKey, managed = false) {
         || args.p_expected_source_updated_at !== state.sourceUpdatedAt
         || !isDeepStrictEqual(args.p_expected_content, state.row.draft_content)
       );
-      if (sourceConflict || args.p_expected_revision !== state.row.draft_revision) return { data: null, error: { code: '40001' } };
+      if (sourceConflict || args.p_expected_revision !== state.row.draft_revision) return { data: null, error: { code: conflictCode } };
       state.row.published_content = { ...structuredClone(state.row.draft_content), __managedVersion: 1 };
       state.row.published_revision = state.row.draft_revision;
       state.archives.push(structuredClone(state.row.published_content));
@@ -92,6 +92,17 @@ test('bootstrap leaves normal editing available and stale publish rejected', asy
   assert.equal((await h.call('POST', { expectedRevision: draftRevision })).status, 409);
   assert.equal((await h.call('POST', { expectedRevision: draftRevision + 1 })).status, 200);
   assert.deepEqual(await h.publicContent.getPublishedPageContent('audit'), edited);
+});
+
+test('legacy SQLSTATE 40001 still rejects a stale ordinary publish as a defensive fallback', async () => {
+  const h = harness('audit', false, '40001');
+  const saved = await h.call('PATCH', { expectedRevision: 4, content: buildSnapshot({ id: 'page-texts', value: h.state.sourceValue }) });
+  const { draftRevision, content } = await saved.json();
+  assert.equal((await h.call('POST', { expectedRevision: draftRevision, sourceValue: h.state.sourceValue, sourceUpdatedAt: h.state.sourceUpdatedAt }, h.importer)).status, 200);
+  const edited = { ...content, futureRoot: { keep: [] } };
+  assert.equal((await h.call('PATCH', { expectedRevision: draftRevision, content: edited })).status, 200);
+  assert.equal((await h.call('POST', { expectedRevision: draftRevision })).status, 409);
+  assert.equal((await h.call('POST', { expectedRevision: draftRevision + 1 })).status, 200);
 });
 
 for (const empty of [false, true]) {

@@ -81,7 +81,7 @@ function isRevisionConflict(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const code = 'code' in error ? error.code : null;
   const message = 'message' in error ? error.message : null;
-  return code === '40001' || (typeof message === 'string' && message.includes('cms-revision-conflict'));
+  return code === 'PT409' || code === '40001' || (typeof message === 'string' && message.includes('cms-revision-conflict'));
 }
 
 export async function getCmsPageState<T>(pageKey: string): Promise<CmsPageState<T> | null> {

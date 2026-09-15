@@ -1,10 +1,62 @@
 import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import ts from 'typescript';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
 import { CMS_PAGE_DEFINITIONS, getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 
 const root = path.resolve(__dirname, '..', '..');
+
+// 0164/0165 둘 다 같은 lock/check 순서(source lock -> source/시간 체크 -> page lock -> revision/managed/content
+// 체크 -> archive insert)를 갖는다 — 0165는 errcode만 40001에서 PT409로 바꾼 재발행이라 순서 검증 로직을
+// 그대로 재사용한다(중복 방지).
+function assertActivationLockOrdering(sql: string): void {
+  const [ordinary, guarded] = sql.split('create or replace function public.publish_audit_cms_from_source(');
+  expect(ordinary.indexOf('for update;')).toBeLessThan(ordinary.indexOf("raise exception 'initial-import-required'"));
+  expect(ordinary.indexOf("raise exception 'initial-import-required'")).toBeLessThan(ordinary.indexOf('insert into public.cms_page_versions'));
+  expect(ordinary).toContain('p_expected_revision is null');
+  const sourceLock = guarded.indexOf("where id = 'page-texts'\n  for update;");
+  const sourceCheck = guarded.indexOf('v_source.value is distinct from p_expected_source_value');
+  const timeCheck = guarded.indexOf('v_source.updated_at is distinct from p_expected_source_updated_at');
+  const pageLock = guarded.indexOf("where page_key = 'audit'\n  for update;");
+  const revisionCheck = guarded.indexOf('v_page.draft_revision is distinct from p_expected_revision');
+  const contentCheck = guarded.indexOf('v_page.draft_content is distinct from p_expected_content');
+  const archive = guarded.indexOf('insert into public.cms_page_versions');
+  expect(sourceLock).toBeGreaterThan(0);
+  expect([sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive]).toEqual(
+    [sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive].toSorted((a, b) => a - b),
+  );
+  expect(guarded).not.toContain('from public.publish_cms_page(');
+  expect(sql).toMatch(/publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid\)\s+from public, anon, authenticated, service_role;/);
+  expect(sql).toMatch(/revoke all on function public.publish_cms_page\(text, bigint, uuid\) from public, anon, authenticated;/);
+  expect(sql).toMatch(/grant execute on function public.publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid, jsonb\)\s+to service_role;/);
+  for (const body of [ordinary, guarded]) {
+    expect(body).toContain('on conflict (page_key, revision) do nothing');
+    expect(body).toContain('v_existing_version.content <> v_published_content');
+    expect(body).not.toMatch(/(?:update|delete from)\s+public\.cms_page_versions/i);
+  }
+}
+
+// repo.ts는 'server-only'를 import하므로 이 spec 프로세스에서 그냥 require하면 항상 throw한다
+// (activation-lifecycle.test.mjs와 동일한 transpile-and-stub 패턴으로 회피).
+function loadServerModuleWithStubs(relativePath: string, dependencies: Record<string, unknown>): Record<string, unknown> {
+  const file = path.join(root, relativePath);
+  const { outputText } = ts.transpileModule(fs.readFileSync(file, 'utf8'), {
+    fileName: file,
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  });
+  const loaded = { exports: {} as Record<string, unknown> };
+  const factory = new Function('require', 'module', 'exports', outputText) as (
+    require: (name: string) => unknown,
+    module: typeof loaded,
+    exports: Record<string, unknown>,
+  ) => void;
+  factory((name: string) => {
+    if (!Object.hasOwn(dependencies, name)) throw new Error(`Unstubbed dependency: ${name}`);
+    return dependencies[name];
+  }, loaded, loaded.exports);
+  return loaded.exports;
+}
 
 for (const empty of [false, true]) {
   test(`home CMS preserves structural content with ${empty ? 'empty' : 'extended'} cards`, () => {
@@ -49,30 +101,40 @@ for (const definition of CMS_PAGE_DEFINITIONS) {
 
 test('0164 binds bootstrap content inside both row locks and closes older RPC access', () => {
   const sql = read('supabase', 'migrations', '0164_cms_activation_contract.sql');
-  const [ordinary, guarded] = sql.split('create or replace function public.publish_audit_cms_from_source(');
-  expect(ordinary.indexOf('for update;')).toBeLessThan(ordinary.indexOf("raise exception 'initial-import-required'"));
-  expect(ordinary.indexOf("raise exception 'initial-import-required'")).toBeLessThan(ordinary.indexOf('insert into public.cms_page_versions'));
-  expect(ordinary).toContain('p_expected_revision is null');
-  const sourceLock = guarded.indexOf("where id = 'page-texts'\n  for update;");
-  const sourceCheck = guarded.indexOf('v_source.value is distinct from p_expected_source_value');
-  const timeCheck = guarded.indexOf('v_source.updated_at is distinct from p_expected_source_updated_at');
-  const pageLock = guarded.indexOf("where page_key = 'audit'\n  for update;");
-  const revisionCheck = guarded.indexOf('v_page.draft_revision is distinct from p_expected_revision');
-  const contentCheck = guarded.indexOf('v_page.draft_content is distinct from p_expected_content');
-  const archive = guarded.indexOf('insert into public.cms_page_versions');
-  expect(sourceLock).toBeGreaterThan(0);
-  expect([sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive]).toEqual(
-    [sourceLock, sourceCheck, timeCheck, pageLock, revisionCheck, contentCheck, archive].toSorted((a, b) => a - b),
+  assertActivationLockOrdering(sql);
+});
+
+test('0165 replaces 40001 conflict raises with PT409 and keeps grants', () => {
+  const sql = read('supabase', 'migrations', '0165_cms_conflict_sqlstate.sql');
+  assertActivationLockOrdering(sql);
+  const headers = sql.match(/create or replace function/g) ?? [];
+  expect(headers.length).toBe(2);
+  const pt409Raises = sql.match(/errcode = 'PT409'/g) ?? [];
+  expect(pt409Raises.length).toBeGreaterThanOrEqual(6);
+  expect(sql).not.toContain("'40001'");
+});
+
+test('repo maps SQLSTATE PT409 to CmsRevisionConflictError (defensive 40001 fallback preserved)', async () => {
+  const rpcCalls: unknown[] = [];
+  const repo = loadServerModuleWithStubs('src/lib/cms/repo.ts', {
+    'server-only': {},
+    '@/lib/supabase/server': {
+      getSupabase: () => ({
+        rpc: async (...args: unknown[]) => {
+          rpcCalls.push(args);
+          return { data: null, error: { code: 'PT409' } };
+        },
+      }),
+    },
+  });
+  const { publishCmsPage, CmsRevisionConflictError } = repo as {
+    publishCmsPage: (input: { pageKey: string; expectedRevision: number; actorId: string }) => Promise<unknown>;
+    CmsRevisionConflictError: new () => Error;
+  };
+  await expect(publishCmsPage({ pageKey: 'home', expectedRevision: 1, actorId: 'actor-uuid' })).rejects.toBeInstanceOf(
+    CmsRevisionConflictError,
   );
-  expect(guarded).not.toContain('from public.publish_cms_page(');
-  expect(sql).toMatch(/publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid\)\s+from public, anon, authenticated, service_role;/);
-  expect(sql).toMatch(/revoke all on function public.publish_cms_page\(text, bigint, uuid\) from public, anon, authenticated;/);
-  expect(sql).toMatch(/grant execute on function public.publish_audit_cms_from_source\(bigint, jsonb, timestamptz, uuid, jsonb\)\s+to service_role;/);
-  for (const body of [ordinary, guarded]) {
-    expect(body).toContain('on conflict (page_key, revision) do nothing');
-    expect(body).toContain('v_existing_version.content <> v_published_content');
-    expect(body).not.toMatch(/(?:update|delete from)\s+public\.cms_page_versions/i);
-  }
+  expect(rpcCalls.length).toBe(1);
 });
 
 test('cms foundation migration is additive and does not overwrite existing page content', () => {

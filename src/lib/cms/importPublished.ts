@@ -51,7 +51,7 @@ export async function publishAuditCmsFromSource(input: AuditImportInput & { read
     p_expected_content: expectedContent,
   });
   if (error) {
-    if (error.code === '40001') throw new AuditImportConflictError();
+    if (error.code === 'PT409' || error.code === '40001') throw new AuditImportConflictError();
     throw error;
   }
   const result: unknown = Array.isArray(data) ? data[0] : data;

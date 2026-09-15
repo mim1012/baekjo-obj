@@ -29,7 +29,7 @@ const { getCmsPageDefinition } = load('src/lib/cms/pageDefinitions.ts');
 const { buildSnapshot } = await import('./mapper.mjs');
 const expectedContent = normalizeCmsPageContent(getCmsPageDefinition('audit'), buildSnapshot({ id: 'page-texts', value: input.sourceValue }));
 
-function harness({ authorized = true, conflict = false, draft = expectedContent, sourceValue = input.sourceValue } = {}) {
+function harness({ authorized = true, conflict = false, conflictCode = 'PT409', draft = expectedContent, sourceValue = input.sourceValue } = {}) {
   const rpc = [];
   const audit = [];
   const revalidated = [];
@@ -40,7 +40,7 @@ function harness({ authorized = true, conflict = false, draft = expectedContent,
       const parameters = args[1];
       const mismatch = !isDeepStrictEqual(sourceValue, parameters.p_expected_source_value)
         || (Object.hasOwn(parameters, 'p_expected_content') && !isDeepStrictEqual(draft, parameters.p_expected_content));
-      return conflict || mismatch ? { data: null, error: { code: '40001' } } : { data: [{ published_revision: 5, published_at: '2026-09-15T00:00:01Z' }], error: null };
+      return conflict || mismatch ? { data: null, error: { code: conflictCode } } : { data: [{ published_revision: 5, published_at: '2026-09-15T00:00:01Z' }], error: null };
     } }) },
   });
   const route = load(routeFile, {
@@ -104,8 +104,15 @@ for (const managed of [false, true]) {
   });
 }
 
-test('source/revision SQL40001 becomes 409 with no success audit or invalidation', async () => {
+test('source/revision SQLSTATE PT409 becomes 409 with no success audit or invalidation', async () => {
   const h = harness({ conflict: true });
+  assert.equal((await h.request()).status, 409);
+  assert.deepEqual(h.revalidated, []);
+  assert.deepEqual(h.audit, []);
+});
+
+test('legacy SQLSTATE 40001 still maps to 409 as a defensive fallback', async () => {
+  const h = harness({ conflict: true, conflictCode: '40001' });
   assert.equal((await h.request()).status, 409);
   assert.deepEqual(h.revalidated, []);
   assert.deepEqual(h.audit, []);
