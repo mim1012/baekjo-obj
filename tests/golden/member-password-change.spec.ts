@@ -31,12 +31,18 @@ test.describe('골든플로우: 회원 여정 — 비밀번호 변경', () => {
         petType: 'dog',
         breed: '테스트견',
         mainConcern: 'skin',
+        // 0150 이후 POST /api/members는 이용약관·개인정보 동의 불리언이 없으면 400 consent-required로
+        // 거부한다(route.ts 78행) — 회원가입 화면이 보내는 것과 같은 동의 청구를 함께 보낸다.
+        termsAgree: true,
+        privacyAgree: true,
       },
     });
-    expect(signupResponse.status()).toBe(201);
+    expect(signupResponse.status(), `가입 실패: ${signupResponse.status()} ${await signupResponse.text()}`).toBe(201);
 
     await loginAsAdmin(setupPage);
-    const listResponse = await setupPage.request.get('/api/admin/members');
+    // U2(0173) 이후 /api/admin/members는 페이지당 20건으로 서버 페이지네이션되므로, search로
+    // 좁혀서 조회한다.
+    const listResponse = await setupPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listResponse.ok()).toBe(true);
     const { users } = (await listResponse.json()) as {
       users: Array<{

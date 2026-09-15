@@ -42,6 +42,7 @@ import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
 import type { CheckoutConsentClaims } from '@/lib/orders/compliance';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
+import type { AdminMemberPage } from '@/types';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -1993,23 +1994,38 @@ export async function checkEmailAvailable(email: string): Promise<boolean | null
 }
 
 /**
- * 관리자 회원 목록(전체). GET /api/admin/members(관리자 세션 필요). 화면이 "로그인 필요"와
- * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
- * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
+ * 관리자 회원 목록(서버 페이지네이션). GET /api/admin/members(관리자 세션 필요). 화면이
+ * "로그인 필요"와 "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고
+ * 도메인 에러를 반환한다(updateUserStatus 와 동일한 error 유니온 패턴). query를 생략하면
+ * 기본 1페이지(20건, 무필터)를 받는다 — 기존 호출부(인자 없이 부르던 자리)와 하위호환.
  */
-export async function getAdminMembers(): Promise<{
-  users?: User[];
-  error?: 'unauthorized' | 'forbidden' | 'network';
-}> {
+export async function getAdminMembers(
+  query: { page?: number; pageSize?: number; search?: string; role?: string; status?: string } = {},
+  signal?: AbortSignal,
+): Promise<Partial<AdminMemberPage> & { error?: 'unauthorized' | 'forbidden' | 'network' }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
   try {
-    const response = await fetch('/api/admin/members');
-    if (response.ok) {
-      const { users } = (await response.json()) as { users: User[] };
-      return { users };
-    }
+    const suffix = params.size ? `?${params}` : '';
+    const response = await fetch(`/api/admin/members${suffix}`, { cache: 'no-store', signal });
+    if (response.ok) return (await response.json()) as AdminMemberPage;
     if (response.status === 401) return { error: 'unauthorized' };
     if (response.status === 403) return { error: 'forbidden' };
     return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 목록의 현재 페이지 바깥에 있는 회원도 열 수 있어야 하므로 별도 단건 조회 경로를 둔다.
+ *  GET /api/admin/members/[id]. */
+export async function getAdminMember(id: string): Promise<{ user?: User; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) return { error: response.status === 404 ? 'not-found' : 'member-load-failed' };
+    return (await response.json()) as { user: User };
   } catch {
     return { error: 'network' };
   }

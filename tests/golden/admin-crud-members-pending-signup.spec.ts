@@ -84,9 +84,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     await expect(page.getByRole('heading', { name: '가입 신청 완료' })).toBeVisible({ timeout: 15_000 });
 
     // 2) 관리자 API로 방금 만든 계정을 찾아 pending 상태 확인(신뢰 가능한 진실 소스).
+    // U2(0173) 이후 /api/admin/members는 페이지당 20건으로 서버 페이지네이션되므로, search로
+    // 좁혀서 조회한다.
     const adminPage = await page.context().browser()!.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(adminPage);
-    const listRes = await adminPage.request.get('/api/admin/members');
+    const listRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listRes.ok()).toBe(true);
     const { users } = (await listRes.json()) as {
       users: Array<{ id: string; email: string; status: string; role: string }>;
@@ -127,7 +129,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     // 4) 새로고침 후에도 유지되는지 확인 + API 재조회로 이중 확인.
     await adminPage.reload();
     await expect(adminPage.locator('body')).toContainText('활성 (승인완료)', { timeout: 15_000 });
-    const verifyRes = await adminPage.request.get('/api/admin/members');
+    const verifyRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     const verified = (await verifyRes.json()) as { users: Array<{ id: string; status: string }> };
     expect(verified.users.find((u) => u.id === memberId)?.status).toBe('active');
 
