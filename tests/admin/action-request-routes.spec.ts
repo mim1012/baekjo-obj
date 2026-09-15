@@ -187,13 +187,15 @@ test.describe('관리자 action-requests POST 계약', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 회원 라우트: src/app/api/orders/[id]/action-requests/route.ts — GET만(POST는 U1/기존 계약 유지).
+// 회원 라우트: src/app/api/orders/[id]/action-requests/route.ts — GET(전체) + POST(B4 ACTION_CONFLICT
+// 매핑만, 나머지 POST 계약은 U1 기존 커버리지 유지).
 // ---------------------------------------------------------------------------
 
 interface MemberRouteState {
   member: { ok: true; memberId: string } | { ok: false; response: Response };
   order: (Record<string, unknown> & { memberId: string | null }) | null;
   requests: { id: string }[];
+  createThrows: Error | null;
 }
 
 function loadMemberRoute(state: MemberRouteState) {
@@ -208,14 +210,51 @@ function loadMemberRoute(state: MemberRouteState) {
       getOrderById: async () => state.order,
       listOrderActionRequests: async () => state.requests,
       createOrderActionRequest: async () => {
-        throw new Error('createOrderActionRequest is not exercised by this GET-focused spec');
+        if (state.createThrows) throw state.createThrows;
+        throw new Error('createOrderActionRequest success path is not exercised by this spec');
       },
     },
   };
   return loadServerModuleWithStubs('src/app/api/orders/[id]/action-requests/route.ts', dependencies) as {
     GET: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
+    POST: (request: Request, context: { params: Promise<{ id: string }> }) => Promise<Response>;
   };
 }
+
+function baseMemberState(): MemberRouteState {
+  return {
+    member: { ok: true, memberId: 'member-1' },
+    order: {
+      id: UUID_ORDER,
+      memberId: 'member-1',
+      orderStatus: '주문접수',
+      paymentStatus: '결제완료',
+      deliveryStatus: '배송전',
+      items: [{ productId: 'p1', productName: '상품', brandId: 'brand-a', quantity: 2, price: 1000 }],
+    },
+    requests: [],
+    createThrows: null,
+  };
+}
+
+test.describe('회원 action-requests POST — ACTION_CONFLICT(B4: 40P01 데드락 매핑) 계약', () => {
+  test('createOrderActionRequest가 ACTION_CONFLICT를 던지면 500이 아니라 409로 매핑된다', async () => {
+    const state = baseMemberState();
+    state.createThrows = new Error('ACTION_CONFLICT');
+    const route = loadMemberRoute(state);
+    const response = await route.POST(
+      jsonRequest(`http://localhost/api/orders/${UUID_ORDER}/action-requests`, 'POST', {
+        requestType: 'CANCEL',
+        brandId: 'brand-a',
+        items: [{ lineIndex: 0, quantity: 1 }],
+        reason: '고객 요청',
+      }),
+      { params: Promise.resolve({ id: UUID_ORDER }) },
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toBe('action-request-conflict');
+  });
+});
 
 test.describe('회원 action-requests GET — 종결 주문도 이력을 반환한다', () => {
   test('취소완료 주문도 더 이상 409로 막히지 않고 요청 이력을 반환한다(구 계약 회귀 확인)', async () => {
@@ -223,6 +262,7 @@ test.describe('회원 action-requests GET — 종결 주문도 이력을 반환�
       member: { ok: true, memberId: 'member-1' },
       order: { id: UUID_ORDER, memberId: 'member-1', orderStatus: '취소완료', paymentStatus: '결제취소' },
       requests: [{ id: UUID_REQUEST }],
+      createThrows: null,
     };
     const route = loadMemberRoute(state);
     const response = await route.GET(new Request(`http://localhost/api/orders/${UUID_ORDER}/action-requests`), {
@@ -237,6 +277,7 @@ test.describe('회원 action-requests GET — 종결 주문도 이력을 반환�
       member: { ok: true, memberId: 'member-1' },
       order: { id: UUID_ORDER, memberId: 'member-1', orderStatus: '주문접수', paymentStatus: '환불완료' },
       requests: [],
+      createThrows: null,
     };
     const route = loadMemberRoute(state);
     const response = await route.GET(new Request(`http://localhost/api/orders/${UUID_ORDER}/action-requests`), {
@@ -250,6 +291,7 @@ test.describe('회원 action-requests GET — 종결 주문도 이력을 반환�
       member: { ok: true, memberId: 'member-1' },
       order: { id: UUID_ORDER, memberId: 'someone-else', orderStatus: '취소완료', paymentStatus: '결제취소' },
       requests: [],
+      createThrows: null,
     };
     const route = loadMemberRoute(state);
     const response = await route.GET(new Request(`http://localhost/api/orders/${UUID_ORDER}/action-requests`), {

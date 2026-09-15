@@ -9,7 +9,12 @@ import {
   transitionAdminOrderActionRequest,
 } from '@/lib/storage';
 import { formatDate, formatPrice } from '@/lib/format';
-import type { OrderActionRequestItemStatus, OrderActionRequestRecord } from '@/lib/orders/actionRequests';
+import {
+  ADMIN_ACTION_REQUEST_ITEM_BADGE_STYLE as ITEM_STATUS_BADGE_STYLE,
+  ADMIN_ACTION_REQUEST_ITEM_LABEL as ITEM_STATUS_LABEL,
+  ADMIN_ACTION_REQUEST_STATUS_LABEL as REQUEST_STATUS_LABEL,
+} from '@/lib/orders/actionRequestPresentation';
+import type { OrderActionRequestRecord } from '@/lib/orders/actionRequests';
 import type { Brand, Order } from '@/types';
 import FormSection from '@/components/admin-new/common/FormSection';
 
@@ -19,19 +24,6 @@ interface OrderActionRequestsPanelProps {
 }
 
 type ActionRequestAction = 'approve' | 'reject' | 'complete';
-
-const REQUEST_STATUS_LABEL: Record<OrderActionRequestRecord['status'], string> = {
-  REQUESTED: '접수', APPROVED: '승인', REJECTED: '반려', COMPLETED: '완료',
-};
-
-// 아이템(라인) 상태 배지 — 요청 레벨 라벨과 값 집합은 같지만 뱃지는 상태별로 색을 구분한다.
-const ITEM_STATUS_LABEL: Record<OrderActionRequestItemStatus, string> = REQUEST_STATUS_LABEL;
-const ITEM_STATUS_BADGE_STYLE: Record<OrderActionRequestItemStatus, string> = {
-  REQUESTED: 'bg-[#F2EEE5] text-[#68716C]',
-  APPROVED: 'bg-[#E4ECE6] text-[#2F3B34]',
-  REJECTED: 'bg-[#F7E3DF] text-[#A65348]',
-  COMPLETED: 'bg-[#2F3B34] text-white',
-};
 
 // 미결제(결제대기·입금대기) 주문은 부분완료가 SQL에서 거부된다(ACTION_UNPAID_PARTIAL_NOT_SUPPORTED,
 // 0170 complete_action_request_and_restore) — 서버 message에 이 문구를 덧붙여 왜 막혔는지

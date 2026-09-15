@@ -2,7 +2,14 @@ import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { brandDeliveryFee, brandItems, reservedQuantityByLine } from '../../src/lib/orders/actionRequests';
+import { isDerivedOrderStatus } from '../../src/types';
 import type { Order } from '../../src/types';
+import {
+  ADMIN_ACTION_REQUEST_ITEM_BADGE_STYLE,
+  ADMIN_ACTION_REQUEST_ITEM_LABEL,
+  hasRejectedActionRequestItem,
+  MEMBER_ACTION_REQUEST_ITEM_LABEL,
+} from '../../src/lib/orders/actionRequestPresentation';
 
 const root = path.resolve(__dirname, '..', '..');
 const src = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), 'utf8');
@@ -78,6 +85,32 @@ test.describe('관리자 취소·환불 요청 패널(OrderActionRequestsPanel) 
     expect(page).toContain('ITEM_STATUS_BADGE_STYLE[item.status]');
   });
 
+  // B2 회귀 방지 — 배지가 실제로 렌더할 값(라벨·색 클래스)을 REJECTED에 대해 직접 검증한다.
+  // React Testing이 없는 저장소라 렌더는 못 하지만, 렌더가 참조하는 순수 맵을 직접 검증하면
+  // "REJECTED인데 라벨/클래스가 undefined"(B2가 실제로 냈던 증상)를 그대로 재현·방지한다.
+  test('관리자 패널의 REJECTED 아이템은 "반려" 라벨과 전용 배지 색을 갖는다(undefined가 아니다)', () => {
+    expect(ADMIN_ACTION_REQUEST_ITEM_LABEL.REJECTED).toBe('반려');
+    expect(ADMIN_ACTION_REQUEST_ITEM_BADGE_STYLE.REJECTED).toBe('bg-[#F7E3DF] text-[#A65348]');
+    for (const status of ['REQUESTED', 'APPROVED', 'REJECTED', 'COMPLETED'] as const) {
+      expect(typeof ADMIN_ACTION_REQUEST_ITEM_LABEL[status]).toBe('string');
+      expect(typeof ADMIN_ACTION_REQUEST_ITEM_BADGE_STYLE[status]).toBe('string');
+    }
+  });
+
+  test('마이페이지의 REJECTED 아이템은 "취소반려" 라벨을 갖고, 하나라도 있으면 반려 배지 조건이 참이다', () => {
+    expect(MEMBER_ACTION_REQUEST_ITEM_LABEL.REJECTED).toBe('취소반려');
+    expect(
+      hasRejectedActionRequestItem([
+        { items: [{ status: 'REQUESTED' }, { status: 'REJECTED' }] },
+      ]),
+    ).toBe(true);
+    expect(
+      hasRejectedActionRequestItem([
+        { items: [{ status: 'REQUESTED' }, { status: 'APPROVED' }] },
+      ]),
+    ).toBe(false);
+  });
+
   test('409 실패 시 서버 message를 보여주고, 미결제 부분완료 코드에는 안내 힌트를 덧붙인다', () => {
     const page = src('src', 'components', 'admin-new', 'orders', 'OrderActionRequestsPanel.tsx');
 
@@ -107,12 +140,23 @@ test.describe('관리자 storage 래퍼(transitionAdminOrderActionRequest) — P
 });
 
 test.describe('OrderStatusPanel — 파생 상태(부분취소/부분취소완료)는 읽기 전용, PATCH는 변경분만 — PR4 U4', () => {
-  test('파생 상태면 select 대신 읽기 전용 텍스트를 렌더하고 저장 payload에서 제외한다', () => {
+  // 이전에는 이 판정 로직이 컴포넌트 바디 안의 지역 변수라 소스 텍스트만 grep했다(데이터 모양
+  // 회귀를 못 잡는다) — B1 수정으로 isDerivedOrderStatus를 '@/types'의 순수 함수로 뽑아 실제
+  // 판정 결과를 직접 검증한다.
+  test('부분취소/부분취소완료는 파생 상태로 판정되고, 그 외(수동 화이트리스트)는 아니다', () => {
+    expect(isDerivedOrderStatus('부분취소')).toBe(true);
+    expect(isDerivedOrderStatus('부분취소완료')).toBe(true);
+    expect(isDerivedOrderStatus('주문접수')).toBe(false);
+    expect(isDerivedOrderStatus('취소요청')).toBe(false);
+    expect(isDerivedOrderStatus('취소완료')).toBe(false);
+  });
+
+  test('OrderStatusPanel은 판정을 재구현하지 않고 공용 isDerivedOrderStatus를 그대로 쓴다(select 숨김·PATCH 제외 둘 다)', () => {
     const page = src('src', 'components', 'admin-new', 'orders', 'OrderStatusPanel.tsx');
 
-    expect(page).toContain('DERIVED_ORDER_STATUSES');
     expect(page).toContain('isDerivedOrderStatus');
-    expect(page).toContain('!isDerivedOrderStatus && formData.orderStatus !== order.orderStatus');
+    expect(page).toContain('!orderStatusIsDerived && formData.orderStatus !== order.orderStatus');
+    expect(page).toContain('orderStatusIsDerived ? (');
   });
 
   test('결제/배송/메모 필드도 변경된 값만 PATCH payload에 담는다(무변경 저장이 400을 유발하지 않게)', () => {

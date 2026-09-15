@@ -509,6 +509,14 @@ export const DERIVED_ORDER_STATUSES = ['부분취소', '부분취소완료'] as 
 /** OrderStatus 타입의 SSOT. 수동 화이트리스트(ORDER_STATUSES) + 파생 상태(DERIVED_ORDER_STATUSES). */
 export const ALL_ORDER_STATUSES = [...ORDER_STATUSES, ...DERIVED_ORDER_STATUSES] as const;
 
+/**
+ * 파생 주문 상태 판정 — OrderStatusPanel이 select 대신 읽기 전용 텍스트를 보여줄지 결정하는 조건과
+ * 동일 판정을 모듈 스코프의 순수 함수로 뽑아, 컴포넌트를 렌더하지 않고도(React Testing 미설치)
+ * 유닛 테스트로 직접 검증할 수 있게 한다. */
+export function isDerivedOrderStatus(status: string): boolean {
+  return (DERIVED_ORDER_STATUSES as readonly string[]).includes(status);
+}
+
 export type OrderStatus = (typeof ALL_ORDER_STATUSES)[number];
 
 /**

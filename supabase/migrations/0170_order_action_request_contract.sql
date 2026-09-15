@@ -142,6 +142,7 @@ declare
   v_quantity integer;
   v_order_quantity integer;
   v_active_qty integer;
+  v_completed_qty integer;
   v_refunded_qty integer;
   v_remaining integer;
 begin
@@ -177,12 +178,21 @@ begin
 
     v_order_quantity := ((v_order.items -> v_line_index) ->> 'quantity')::integer;
 
-    -- 잔여 수량 = 라인 주문수량 − (요청 타입 무관) 비-REJECTED 아이템 합 − SUCCEEDED 환불 수량.
-    select coalesce(sum(i.quantity), 0) into v_active_qty
+    -- 잔여 수량 = 라인 주문수량 − (요청 타입 무관) REQUESTED/APPROVED(활성) 아이템 합
+    --   − max(COMPLETED 아이템 합, SUCCEEDED 환불 수량).
+    -- 결제완료 경로에서 아이템이 COMPLETED가 되려면 같은 라인을 덮는 SUCCEEDED 환불이 먼저 있어야
+    -- 한다(complete_action_request_and_restore의 정산 게이트, 아래) — 즉 정산된 수량은
+    -- COMPLETED와 환불 양쪽에 동시에 잡힌다. 둘을 그냥 더해 빼면(active_qty에 COMPLETED를 포함한
+    -- 채 refunded_qty까지 또 빼면) 이중 차감으로 잔여수량이 과소 계산된다 — max()로 겹침을
+    -- 제거한다. APPROVED→REJECTED가 허용되므로(환불이 이미 난 승인건을 반려해도) refunded_qty는
+    -- 아이템 status와 무관하게 order_refunds 원장에서 독립적으로 집계해, 반려 후에도 환불분이
+    -- 계속 잔여에서 빠지게 한다(과다취소 방지).
+    select coalesce(sum(i.quantity) filter (where i.status in ('REQUESTED', 'APPROVED')), 0),
+           coalesce(sum(i.quantity) filter (where i.status = 'COMPLETED'), 0)
+      into v_active_qty, v_completed_qty
       from public.order_action_request_items i
      where i.order_id = p_order_id
-       and i.line_index = v_line_index
-       and i.status <> 'REJECTED';
+       and i.line_index = v_line_index;
 
     select coalesce(sum((line->>'quantity')::integer), 0) into v_refunded_qty
       from public.order_refunds r
@@ -191,7 +201,7 @@ begin
        and r.status = 'SUCCEEDED'
        and (line->>'lineIndex')::integer = v_line_index;
 
-    v_remaining := v_order_quantity - v_active_qty - v_refunded_qty;
+    v_remaining := v_order_quantity - v_active_qty - greatest(v_completed_qty, v_refunded_qty);
     if v_quantity > v_remaining then
       raise exception 'ACTION_QUANTITY_EXCEEDS_REMAINING' using errcode = 'PT409';
     end if;
@@ -256,6 +266,7 @@ security definer
 set search_path = public
 as $$
 declare
+  v_order_id uuid;
   v_request public.order_action_requests%rowtype;
   v_order public.orders%rowtype;
   v_updated integer;
@@ -267,19 +278,29 @@ begin
     raise exception 'ACTION_INVALID_ACTION' using errcode = '22023';
   end if;
 
-  select * into v_request
+  -- order_id만 잠금 없이 먼저 읽어 orders를 order_action_requests보다 먼저 잠글 수 있게 한다
+  -- (create_order_action_request/complete_action_request_and_restore와 동일한 orders-먼저 잠금
+  -- 순서 — 반대 순서였던 이전 버전은 create·complete와 ABBA 데드락을 낼 수 있었다).
+  select order_id into v_order_id
     from public.order_action_requests
-   where id = p_request_id
+   where id = p_request_id;
+  if not found then
+    raise exception 'ACTION_REQUEST_NOT_FOUND' using errcode = 'P0002';
+  end if;
+
+  -- 주문 행을 먼저 선점한다 — REJECT로 잔여 수량이 풀리는 순간과 create_order_action_request의
+  -- 잔여수량 재검증이 같은 트랜잭션 직렬화 순서를 타게 한다.
+  select * into v_order
+    from public.orders
+   where id = v_order_id
    for update;
   if not found then
     raise exception 'ACTION_REQUEST_NOT_FOUND' using errcode = 'P0002';
   end if;
 
-  -- 주문 행도 선점한다 — REJECT로 잔여 수량이 풀리는 순간과 create_order_action_request의
-  -- 잔여수량 재검증이 같은 트랜잭션 직렬화 순서를 타게 한다.
-  select * into v_order
-    from public.orders
-   where id = v_request.order_id
+  select * into v_request
+    from public.order_action_requests
+   where id = p_request_id
    for update;
   if not found then
     raise exception 'ACTION_REQUEST_NOT_FOUND' using errcode = 'P0002';

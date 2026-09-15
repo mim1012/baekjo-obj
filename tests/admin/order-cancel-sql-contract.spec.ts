@@ -105,17 +105,30 @@ test.describe('PR4 취소 SQL 계약 (0169/0170/0171)', () => {
 
   test('create_order_action_request: 잔여 수량 위반은 PT409, 삽입은 이후에만 일어난다', () => {
     const source = extractFunctionSource(sql0170, 'create_order_action_request');
-    expect(source).toContain('v_order_quantity - v_active_qty - v_refunded_qty');
+    // B3: COMPLETED와 그것을 정산한 SUCCEEDED 환불이 겹쳐도 이중 차감하지 않는다 — 활성
+    // (REQUESTED/APPROVED)만 그대로 빼고, COMPLETED/환불은 max()로 겹침을 제거한 뒤 뺀다.
+    expect(source).toContain('v_order_quantity - v_active_qty - greatest(v_completed_qty, v_refunded_qty)');
+    expect(source).not.toContain('v_order_quantity - v_active_qty - v_refunded_qty');
+    expect(source).toMatch(/sum\(i\.quantity\) filter \(where i\.status in \('REQUESTED', 'APPROVED'\)\)/);
+    expect(source).toMatch(/sum\(i\.quantity\) filter \(where i\.status = 'COMPLETED'\)/);
     expect(source).toMatch(/raise exception 'ACTION_QUANTITY_EXCEEDS_REMAINING' using errcode = 'PT409';/);
     expect(source).toMatch(/raise exception 'ACTION_REQUEST_ALREADY_EXISTS' using errcode = 'PT409';/);
   });
 
-  test('transition_action_request: 락 순서 order_action_requests < orders', () => {
+  test('transition_action_request: 락 순서 orders < order_action_requests(create/complete와 동일, B4)', () => {
+    // 이전 버전은 request → orders(create/complete와 반대)라 ABBA 데드락(40P01)이 날 수 있었다.
+    // complete_action_request_and_restore와 같은 패턴으로 order_id를 잠금 없이 먼저 읽고,
+    // orders를 request보다 먼저 잠근다.
     const source = extractFunctionSource(sql0170, 'transition_action_request');
-    const requestLock = source.indexOf('from public.order_action_requests\n   where id = p_request_id\n   for update;');
-    const orderLock = source.indexOf('from public.orders\n   where id = v_request.order_id\n   for update;');
-    expect(requestLock).toBeGreaterThanOrEqual(0);
-    expect(orderLock).toBeGreaterThan(requestLock);
+    const ordersLockMarker = 'from public.orders\n   where id = v_order_id\n   for update;';
+    const requestLockMarker = 'from public.order_action_requests\n   where id = p_request_id\n   for update;';
+    const ordersLock = source.indexOf(ordersLockMarker);
+    const requestLock = source.indexOf(requestLockMarker);
+    expect(ordersLock).toBeGreaterThanOrEqual(0);
+    expect(requestLock).toBeGreaterThan(ordersLock);
+    const unlockedLookup = source.indexOf('select order_id into v_order_id');
+    expect(unlockedLookup).toBeGreaterThanOrEqual(0);
+    expect(unlockedLookup).toBeLessThan(ordersLock);
   });
 
   test('complete_action_request_and_restore: 락 순서 orders < order_action_requests(잠금 select)', () => {

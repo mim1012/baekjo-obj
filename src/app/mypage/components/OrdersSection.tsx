@@ -20,9 +20,12 @@ import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive
 import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
 import type {
   OrderActionRequestItemInput,
-  OrderActionRequestItemStatus,
   OrderActionRequestRecord,
 } from '@/lib/orders/actionRequests';
+import {
+  hasRejectedActionRequestItem,
+  MEMBER_ACTION_REQUEST_ITEM_LABEL as ACTION_ITEM_STATUS_LABEL,
+} from '@/lib/orders/actionRequestPresentation';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
 import { EMPTY_ORDER_DATE_RANGE, matchesOrderDateRange, type OrderDateRange } from '@/lib/orders/orderDateFilters';
@@ -155,11 +158,6 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     );
   }
 
-  // 아이템(라인) 단위 취소·환불 처리 상태 라벨 — "취소·환불 요청 현황" 섹션과 목록 배지가 공유한다.
-  const ACTION_ITEM_STATUS_LABEL: Record<OrderActionRequestItemStatus, string> = {
-    REQUESTED: '취소요청', APPROVED: '취소승인', REJECTED: '취소반려', COMPLETED: '취소완료',
-  };
-
   const getStatusStyle = (status: string) => {
     switch (status) {
       case '구매확정':
@@ -251,7 +249,7 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
           // 취소 반려는 주문 집계 상태(order.orderStatus)를 다시 주문접수로 되돌리므로 목록 상단
           // 배지만으론 회원이 반려 사실을 알 수 없다 — 반려된 요청 아이템이 있으면 목록 레벨에
           // '취소 반려' 배지를 띄운다.
-          const hasRejectedRequest = orderActionRequests.some((request) => request.items.some((item) => item.status === 'REJECTED'));
+          const hasRejectedRequest = hasRejectedActionRequestItem(orderActionRequests);
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">

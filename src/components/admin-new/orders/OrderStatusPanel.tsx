@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DELIVERY_STATUSES, DERIVED_ORDER_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order, type PaymentStatus } from '@/types';
+import { DELIVERY_STATUSES, isDerivedOrderStatus, ORDER_STATUSES, PAYMENT_STATUSES, type Order, type PaymentStatus } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
 import { ALLOWED_MANUAL_PAYMENT_TRANSITIONS } from '@/lib/orders/paymentTransition';
 import { orderUpdateErrorMessage } from './orderUpdateErrorMessage';
@@ -26,7 +26,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
   // 서버(admin/orders/[id]/route.ts validate())가 화이트리스트 밖 값이라 통째로 400 거부한다.
   // 현재 상태가 파생값이면 select 대신 읽기 전용 텍스트로 보여주고, 저장 payload에도 절대
   // 싣지 않는다(§10-9 드리프트 방지 — 관리자가 파생 상태를 수기로 세팅하는 경로를 열지 않는다).
-  const isDerivedOrderStatus = (DERIVED_ORDER_STATUSES as readonly string[]).includes(order.orderStatus);
+  const orderStatusIsDerived = isDerivedOrderStatus(order.orderStatus);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     orderStatus: order.orderStatus,
@@ -86,7 +86,7 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
       const payload: Partial<
         Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier' | 'deliveryMemo'>
       > = {};
-      if (!isDerivedOrderStatus && formData.orderStatus !== order.orderStatus) {
+      if (!orderStatusIsDerived && formData.orderStatus !== order.orderStatus) {
         payload.orderStatus = formData.orderStatus;
       }
       if (formData.paymentStatus !== order.paymentStatus) {
@@ -135,13 +135,13 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
           <FormField
             label="주문 상태"
             description={
-              isDerivedOrderStatus
+              orderStatusIsDerived
                 ? '아이템별 취소 처리에서 자동 계산되는 상태라 수기로 바꿀 수 없습니다.'
                 : '접수와 취소 처리만 관리합니다.'
             }
             className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
           >
-            {isDerivedOrderStatus ? (
+            {orderStatusIsDerived ? (
               <p className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-[#17201B]">
                 {order.orderStatus}
               </p>

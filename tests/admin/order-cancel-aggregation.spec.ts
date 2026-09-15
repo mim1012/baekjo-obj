@@ -304,6 +304,50 @@ test.describe('remainingLineQuantity -- CANCEL/REFUND 요청이 섞여도 같은
     const order = makeOrder();
     expect(remainingLineQuantity(order, 99, [], [])).toBe(0);
   });
+
+  test('COMPLETED 아이템과 그것을 정산한 SUCCEEDED 환불이 겹쳐도 이중 차감하지 않는다(B3)', () => {
+    // line0 수량 4. 2개가 이미 취소완료(COMPLETED)됐고 그 2개를 정산한 SUCCEEDED 환불이 있다 —
+    // 결제완료 경로에서 COMPLETED는 항상 같은 라인의 SUCCEEDED 환불을 선행 조건으로 하므로
+    // (0170 complete_action_request_and_restore 정산 게이트) 두 수량은 같은 2개를 가리킨다.
+    // 단순히 둘 다 빼면(2+2=4) 남은 2개를 고객이 영원히 취소할 수 없게 된다(실제 회귀).
+    const order = makeOrder({
+      items: [
+        { productId: 'p1', productName: 'A', quantity: 4, price: 1000, brandId: 'brand-a' },
+        { productId: 'p2', productName: 'B', quantity: 1, price: 2000, brandId: 'brand-a' },
+      ],
+    });
+    const items: OrderActionRequestItemState[] = [
+      makeItem({ id: 'i1', lineIndex: 0, quantity: 2, status: 'COMPLETED' }),
+    ];
+    const refunds: OrderRefundRecord[] = [
+      makeRefund({
+        status: 'SUCCEEDED',
+        items: [{ lineIndex: 0, productId: 'p1', quantity: 2, productName: 'A', unitPrice: 1000, amount: 2000 }],
+      }),
+    ];
+    expect(remainingLineQuantity(order, 0, items, refunds)).toBe(2);
+  });
+
+  test('APPROVED→REJECTED로 전이돼도 이미 정산된 환불 수량은 잔여수량에서 계속 빠진다(과다취소 방지)', () => {
+    // 승인 후 환불까지 SUCCEEDED로 정산된 라인이 이후 반려(REJECTED)로 전이돼도, 환불 원장은
+    // 아이템 status와 무관하게 독립 집계되므로 그 수량은 계속 잔여에서 제외돼야 한다.
+    const order = makeOrder({
+      items: [
+        { productId: 'p1', productName: 'A', quantity: 4, price: 1000, brandId: 'brand-a' },
+        { productId: 'p2', productName: 'B', quantity: 1, price: 2000, brandId: 'brand-a' },
+      ],
+    });
+    const items: OrderActionRequestItemState[] = [
+      makeItem({ id: 'i1', lineIndex: 0, quantity: 2, status: 'REJECTED' }),
+    ];
+    const refunds: OrderRefundRecord[] = [
+      makeRefund({
+        status: 'SUCCEEDED',
+        items: [{ lineIndex: 0, productId: 'p1', quantity: 2, productName: 'A', unitPrice: 1000, amount: 2000 }],
+      }),
+    ];
+    expect(remainingLineQuantity(order, 0, items, refunds)).toBe(2);
+  });
 });
 
 test.describe('brandDeliveryFee -- 같은 brandId 행 전량 합산(defect i)', () => {

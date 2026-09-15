@@ -208,8 +208,14 @@ export function aggregateOrderCancelStatus({
 
 /**
  * 특정 라인의 잔여(아직 취소·환불 요청/완료로 묶이지 않은) 수량. CANCEL/REFUND 요청 종류를 가리지
- * 않고 REJECTED가 아닌 모든 액션 요청 아이템과, 이미 SUCCEEDED로 정산된 환불 수량을 함께 뺀다 —
- * 두 트랙(액션 요청·환불)이 같은 라인을 동시에 건드릴 수 있어(defect) 어느 한쪽만 보면 초과 요청을 막지 못한다.
+ * 않고 REQUESTED/APPROVED(활성) 아이템 수량과, max(COMPLETED 아이템 수량, SUCCEEDED 환불 수량)을
+ * 함께 뺀다. 결제완료 경로에서 아이템이 COMPLETED가 되려면 같은 라인을 덮는 SUCCEEDED 환불이 먼저
+ * 있어야 하므로(0170 complete_action_request_and_restore의 정산 게이트), 정산된 수량은 COMPLETED와
+ * 환불 양쪽에 동시에 잡힌다 — 단순히 둘을 더해 빼면 이중 차감(defect)이 된다. max()로 겹침을
+ * 제거하되, refundedQty는 아이템 status와 무관하게 환불 원장에서 독립적으로 집계해 APPROVED→REJECTED
+ * 전이(이미 환불된 승인건의 반려)가 일어나도 환불분은 계속 잔여에서 빠지게 한다(과다취소 방지).
+ * 0170:180-198의 create_order_action_request 잔여수량 재계산과 같은 공식이어야 한다(SQL이 최종
+ * 방어선이므로 이 TS 쪽 값과 어긋나면 화면에서 "가능"으로 보였다가 RPC가 거부한다).
  */
 export function remainingLineQuantity(
   order: Pick<Order, 'items'>,
@@ -220,9 +226,13 @@ export function remainingLineQuantity(
   const orderItem = order.items[lineIndex];
   if (!orderItem) return 0;
 
-  const reservedByActionRequest = items
-    .filter((item) => item.lineIndex === lineIndex && item.status !== 'REJECTED')
-    .reduce((sum, item) => sum + item.quantity, 0);
+  let activeQty = 0;
+  let completedQty = 0;
+  for (const item of items) {
+    if (item.lineIndex !== lineIndex) continue;
+    if (item.status === 'REQUESTED' || item.status === 'APPROVED') activeQty += item.quantity;
+    else if (item.status === 'COMPLETED') completedQty += item.quantity;
+  }
 
   let refundedQty = 0;
   for (const refund of refunds) {
@@ -232,5 +242,5 @@ export function remainingLineQuantity(
     }
   }
 
-  return Math.max(0, orderItem.quantity - reservedByActionRequest - refundedQty);
+  return Math.max(0, orderItem.quantity - activeQty - Math.max(completedQty, refundedQty));
 }

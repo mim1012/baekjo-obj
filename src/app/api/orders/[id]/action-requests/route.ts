@@ -104,6 +104,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: 'action-request-quantity-exceeds-remaining' }, { status: 409 });
     }
     if (code === 'ACTION_REQUEST_NOT_FOUND') return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    // ACTION_CONFLICT = repo.ts mapActionRequestRpcError가 40P01(관리자 승인/반려와의 잠금 순서
+    // 경합으로 생기는 실제 데드락)을 매핑한 재시도 무의미 409 — 원인불명 500으로 떨어뜨리지 않는다.
+    if (code === 'ACTION_CONFLICT') return NextResponse.json({ error: 'action-request-conflict' }, { status: 409 });
     logServerError('[POST /api/orders/[id]/action-requests] 생성 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }

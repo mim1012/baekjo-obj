@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { hasRejectedActionRequestItem, MEMBER_ACTION_REQUEST_ITEM_LABEL } from '../../src/lib/orders/actionRequestPresentation';
 
 const root = path.resolve(__dirname, '..', '..');
 const src = (...parts: string[]) => fs.readFileSync(path.join(root, ...parts), 'utf8');
@@ -32,7 +33,14 @@ test.describe('마이페이지 주문 렌더링', () => {
     // 요청(request) 레벨이 아니라 아이템(라인) 레벨 status로 배지를 그린다 — 요청 하나에 상품이
     // 여러 개면 상품별로 승인/반려/완료가 갈릴 수 있어야 한다.
     expect(page).toContain('request.items.map((item) =>');
-    expect(page).toContain("REQUESTED: '취소요청', APPROVED: '취소승인', REJECTED: '취소반려', COMPLETED: '취소완료'");
+    // 라벨 맵 자체는 소스 grep이 아니라 실제 export를 불러와 REJECTED가 undefined로 빠지지
+    // 않는지 데이터로 검증한다(B2가 실제로 냈던 증상 — 이전 버전은 이 리터럴이 소스에
+    // "존재하는지"만 grep해서 REJECTED item.status가 조회 경로에서 사라져도 못 잡았다).
+    expect(page).toContain('ACTION_ITEM_STATUS_LABEL[item.status]');
+    expect(MEMBER_ACTION_REQUEST_ITEM_LABEL.REJECTED).toBe('취소반려');
+    expect(
+      hasRejectedActionRequestItem([{ items: [{ status: 'REQUESTED' }, { status: 'REJECTED' }] }]),
+    ).toBe(true);
     // 반려된 요청이 있으면 목록(접힌 상태)에서도 즉시 알 수 있어야 한다.
     expect(page).toContain('hasRejectedRequest');
     expect(page).toContain('취소 반려');
