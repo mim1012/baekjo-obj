@@ -112,7 +112,10 @@ export default function MemberListPage() {
     );
   }
 
-  if (error) {
+  // 전체 페이지 ErrorState는 "최초 1회 로드"가 실패했을 때만 쓴다(아직 MemberFilters가 렌더된
+  // 적이 없으므로 언마운트 걱정이 없다). initialLoadDone 이후의 조회 실패는 검색 입력창을
+  // 유지해야 하므로 메인 렌더 경로 안에서 인라인 배너로 보여준다.
+  if (!initialLoadDone && error) {
     return (
       <div className="space-y-6">
         <PageHeader title="회원 관리" description="가입된 전체 회원 목록을 조회하고 권한을 관리합니다." />
@@ -151,30 +154,42 @@ export default function MemberListPage() {
           onStatusFilterChange={handleStatusFilterChange}
         />
 
-        {/* PC Table View */}
-        <div className="hidden md:block">
-          <MemberDataTable members={paginatedMembers} isLoading={loading} />
-        </div>
-
-        {/* Mobile Card View */}
-        <div className="md:hidden space-y-3">
-          {paginatedMembers.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-md p-8 text-center text-gray-500 text-[14px]">
-              검색 결과가 없습니다.
+        {/* initialLoadDone 이후의 조회 실패 — MemberFilters는 유지하고 표 자리만 인라인
+            ErrorState로 대체한다(§M2: 전체 페이지 언마운트 금지). */}
+        {error ? (
+          <ErrorState
+            title="목록을 새로 불러오지 못했습니다"
+            message={error.message || '알 수 없는 오류가 발생했습니다.'}
+            onRetry={handleRetry}
+          />
+        ) : (
+          <>
+            {/* PC Table View */}
+            <div className="hidden md:block">
+              <MemberDataTable members={paginatedMembers} isLoading={loading} />
             </div>
-          ) : (
-            paginatedMembers.map((member) => <MemberMobileCard key={member.id} member={member} />)
-          )}
-        </div>
 
-        {total > 0 && (
-          <div className="pt-4">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={setCurrentPage}
-            />
-          </div>
+            {/* Mobile Card View */}
+            <div className="md:hidden space-y-3">
+              {paginatedMembers.length === 0 ? (
+                <div className="bg-white border border-gray-200 rounded-md p-8 text-center text-gray-500 text-[14px]">
+                  검색 결과가 없습니다.
+                </div>
+              ) : (
+                paginatedMembers.map((member) => <MemberMobileCard key={member.id} member={member} />)
+              )}
+            </div>
+
+            {total > 0 && (
+              <div className="pt-4">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

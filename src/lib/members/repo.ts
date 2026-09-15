@@ -1,6 +1,6 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { logServerError } from '@/lib/logServerError';
+import { logServerWarn } from '@/lib/logServerError';
 import { isMemberProfileComplete } from '@/lib/members/profile';
 import type { MemberListQuery } from '@/lib/members/listQuery';
 import type { AdminMemberPage, User } from '@/types';
@@ -446,7 +446,7 @@ export async function findMemberByEmailWithSessionVersion(email: string): Promis
     .maybeSingle();
   if (error) {
     if (isUndefinedColumnError(error)) {
-      logServerError(
+      logServerWarn(
         '[members] session_version 컬럼이 없어 레거시 조회로 폴백합니다 (0172 미적용)',
         error,
       );
@@ -468,7 +468,7 @@ export async function findMemberByIdWithSessionVersion(id: string): Promise<Memb
     .maybeSingle();
   if (error) {
     if (isUndefinedColumnError(error)) {
-      logServerError(
+      logServerWarn(
         '[members] session_version 컬럼이 없어 레거시 조회로 폴백합니다 (0172 미적용)',
         error,
       );

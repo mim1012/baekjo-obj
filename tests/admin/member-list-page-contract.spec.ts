@@ -58,9 +58,28 @@ test('MemberFilters(검색 입력창)는 전체 페이지 LoadingState early-ret
 
   // 로딩 early-return 블록과 error early-return 블록을 제외한, 그 이후의 메인 return 블록에
   // MemberFilters가 있어야 한다 — 즉 loading/error 분기 전용 블록 내부가 아니어야 한다.
-  const errorGuardIndex = source.indexOf('if (error) {');
+  const errorGuardIndex = source.search(/if \(!initialLoadDone && error\)\s*\{\s*\n\s*return\s*\(/);
   expect(errorGuardIndex).toBeGreaterThan(loadingGuardIndex);
   expect(filtersIndex).toBeGreaterThan(errorGuardIndex);
+});
+
+test('initialLoadDone 이후의 조회 실패는 전체 페이지 ErrorState로 빠지지 않고, MemberFilters 아래 인라인 배너로 표시된다', () => {
+  // 전체 페이지 ErrorState early-return은 반드시 "!initialLoadDone && error" 조건에 걸려 있어야
+  // 한다 — initialLoadDone이 true가 되면(최초 로드 완료 후) 이 분기가 다시 참이 될 수 없으므로,
+  // 이후의 조회 실패는 MemberFilters를 언마운트하는 전체 페이지 교체로 새지 않는다.
+  const errorGuardIndex = source.search(/if \(!initialLoadDone && error\)\s*\{\s*\n\s*return\s*\(/);
+  expect(errorGuardIndex).toBeGreaterThan(-1);
+
+  // 메인 렌더 경로(MemberFilters 렌더 이후)에 error를 조건으로 한 인라인 분기가 있어야 한다.
+  const filtersIndex = source.indexOf('<MemberFilters');
+  const inlineErrorIndex = source.indexOf('{error ? (', filtersIndex);
+  expect(inlineErrorIndex).toBeGreaterThan(filtersIndex);
+
+  // 그 인라인 분기 안에 재시도 가능한 ErrorState가 있어야 한다(전체 페이지 교체가 아니라
+  // MemberFilters와 같은 렌더 트리 안의 형제 요소로).
+  const inlineBlock = source.slice(inlineErrorIndex, inlineErrorIndex + 400);
+  expect(inlineBlock).toContain('<ErrorState');
+  expect(inlineBlock).toContain('onRetry={handleRetry}');
 });
 
 test('MemberDataTable는 loading을 isLoading prop으로 계속 전달한다(표 내부 로딩은 유지)', () => {

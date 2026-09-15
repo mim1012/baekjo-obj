@@ -61,12 +61,12 @@ function fakeSupabaseReturning(row: Record<string, unknown> | null) {
 
 function loadRepoModule(
   row: Record<string, unknown> | null,
-  logServerErrorStub: (context: string, error: unknown) => void = () => {},
+  logServerWarnStub: (context: string, error: unknown) => void = () => {},
 ): Record<string, unknown> {
   return loadServerModuleWithStubs(repoPath, {
     '@/lib/supabase/server': fakeSupabaseReturning(row),
     '@/lib/members/profile': { isMemberProfileComplete: () => true },
-    '@/lib/logServerError': { logServerError: logServerErrorStub },
+    '@/lib/logServerError': { logServerWarn: logServerWarnStub },
   });
 }
 
@@ -137,7 +137,7 @@ test('SELECT_COLUMNS stays unchanged (no session_version) until the 0172 migrati
 
 /** select().eq().maybeSingle() 체인에서 첫 호출은 42703(undefined_column)을 던지고, 두 번째
  *  호출(폴백의 findMemberByEmail/findMemberById 재조회)은 정상 행을 돌려주는 fake. N1 — 42703
- *  폴백이 실제로 발동할 때 logServerError가 호출되는지(관측 가능성 확보) 검증하기 위함이다. */
+ *  폴백이 실제로 발동할 때 logServerWarn이 호출되는지(관측 가능성 확보) 검증하기 위함이다. */
 function fakeSupabaseUndefinedColumnThenSuccess(row: Record<string, unknown>) {
   let call = 0;
   return {
@@ -159,12 +159,12 @@ function fakeSupabaseUndefinedColumnThenSuccess(row: Record<string, unknown>) {
   };
 }
 
-test('N1: session_version 42703 폴백이 발동하면 logServerError가 호출된다 (findMemberByEmailWithSessionVersion)', async () => {
+test('N1: session_version 42703 폴백이 발동하면 logServerWarn이 호출된다 (findMemberByEmailWithSessionVersion)', async () => {
   const logCalls: Array<[string, unknown]> = [];
   const repo = loadServerModuleWithStubs(repoPath, {
     '@/lib/supabase/server': fakeSupabaseUndefinedColumnThenSuccess(baseRow),
     '@/lib/members/profile': { isMemberProfileComplete: () => true },
-    '@/lib/logServerError': { logServerError: (context: string, error: unknown) => { logCalls.push([context, error]); } },
+    '@/lib/logServerError': { logServerWarn: (context: string, error: unknown) => { logCalls.push([context, error]); } },
   });
   const findMemberByEmailWithSessionVersion = repo.findMemberByEmailWithSessionVersion as (
     email: string,
@@ -176,12 +176,12 @@ test('N1: session_version 42703 폴백이 발동하면 logServerError가 호출�
   expect(logCalls[0][0]).toContain('0172');
 });
 
-test('N1: session_version 42703 폴백이 발동하면 logServerError가 호출된다 (findMemberByIdWithSessionVersion)', async () => {
+test('N1: session_version 42703 폴백이 발동하면 logServerWarn이 호출된다 (findMemberByIdWithSessionVersion)', async () => {
   const logCalls: Array<[string, unknown]> = [];
   const repo = loadServerModuleWithStubs(repoPath, {
     '@/lib/supabase/server': fakeSupabaseUndefinedColumnThenSuccess(baseRow),
     '@/lib/members/profile': { isMemberProfileComplete: () => true },
-    '@/lib/logServerError': { logServerError: (context: string, error: unknown) => { logCalls.push([context, error]); } },
+    '@/lib/logServerError': { logServerWarn: (context: string, error: unknown) => { logCalls.push([context, error]); } },
   });
   const findMemberByIdWithSessionVersion = repo.findMemberByIdWithSessionVersion as (
     id: string,
