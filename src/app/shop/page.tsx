@@ -1,5 +1,9 @@
-import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
+import { getCachedPageTextSettings, listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { logServerError } from '@/lib/logServerError';
+import { selectShopContent, type ShopContentData } from '@/lib/cms/source/shop';
 import ShopContent from '@/components/shop/ShopContent';
 
 export const metadata = {
@@ -20,5 +24,22 @@ export default async function ShopPage() {
     listCachedPublicBrands(),
     getConcernsConfigWithFallback(),
   ]);
-  return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} />;
+
+  // D3: 소비자는 항상 getPublishedPageContent(key) ?? mapper(현재 소스) 2단으로 콘텐츠를 얻는다.
+  const published = await getPublishedPageContent<ShopContentData>('shop').catch((error: unknown) => {
+    logServerError('[Shop] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Shop] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectShopContent(published, settings);
+
+  return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} content={content} managed={managed} />;
 }

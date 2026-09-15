@@ -1,8 +1,14 @@
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { isCmsContentInput, normalizeCmsPageContent } from '@/lib/cms/content';
 import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
+
+// public-read-cache.ts의 EXPIRE_PUBLIC_READ_CACHE와 값은 같지만 여기서 직접 정의한다 — 그 파일을
+// import하면 브랜드/상품 등 이 라우트와 무관한 리포지토리 그래프 전체가 따라 들어와, transpile-and-
+// stub 패턴의 단위테스트(scripts/cms-import/*.test.mjs)가 재귀 로더로 그 그래프를 전부 태우려다
+// 실패한다(2026-09-15 실측: source-guard.test.mjs가 'next/cache' unstub 에러로 깨짐).
+const EXPIRE_CMS_PUBLIC_READ_CACHE = { expire: 0 } as const;
 import {
   CmsRevisionConflictError,
   getCmsPageState,
@@ -40,6 +46,7 @@ function conflict() {
 function revalidateCmsRoute(pageKey: string, route: string): void {
   revalidatePath(route === '/_site-shell' ? '/' : route);
   if (pageKey === 'site-shell') revalidatePath('/', 'layout');
+  revalidateTag('cmsPages', EXPIRE_CMS_PUBLIC_READ_CACHE);
 }
 
 export async function GET(_request: Request, context: Context) {

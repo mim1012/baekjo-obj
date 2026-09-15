@@ -9,6 +9,7 @@ import {
   pageTextDefinitions,
   type PageTextSettings,
 } from '@/data/pageTextContent';
+import { cmsPageKeyForPageTextId } from '@/lib/cms/source/pageTextPageIds';
 
 export default function PageTextSettingsEditor() {
   const [settings, setSettings] = useState<PageTextSettings>(defaultPageTextSettings);
@@ -51,9 +52,13 @@ export default function PageTextSettingsEditor() {
 
   const selectedPage = pageTextDefinitions.find((page) => page.id === selectedPageId)
     ?? pageTextDefinitions[0];
+  // audit뿐 아니라 이미 CMS 페이지 편집기로 넘어간 모든 페이지(b2b/care-kit/concerns/brands/shop/
+  // reviews/notices/experts/insurance-landing/terms/privacy)에서 옛 편집기의 직접 수정·초기화를
+  // 막는다(U10 일반화) — CMS_SOURCE_REGISTRY 기반 순수 판정(pageTextPageIds.ts).
+  const managedCmsPageKey = cmsPageKeyForPageTextId(selectedPage.id);
 
   const updateValue = (key: string, value: string) => {
-    if (!loaded) return;
+    if (!loaded || managedCmsPageKey) return;
     setDirty(true);
     setMessage('');
     setSettings((current) => ({
@@ -63,7 +68,7 @@ export default function PageTextSettingsEditor() {
   };
 
   const resetSelectedPage = () => {
-    if (!loaded) return;
+    if (!loaded || managedCmsPageKey) return;
     setDirty(true);
     setMessage('');
     setSettings((current) => {
@@ -109,7 +114,7 @@ export default function PageTextSettingsEditor() {
           <button
             type="button"
             onClick={resetSelectedPage}
-            disabled={!loaded}
+            disabled={!loaded || Boolean(managedCmsPageKey)}
             className="inline-flex min-h-11 items-center gap-2 border border-[#D8D0C3] bg-white px-4 text-sm font-semibold text-[#17211D] disabled:opacity-50"
           >
             <RotateCcw className="size-4" /> 현재 페이지 기본값
@@ -181,7 +186,12 @@ export default function PageTextSettingsEditor() {
             )}
           </div>
 
-          <div className="space-y-5">
+          {managedCmsPageKey ? (
+            <div className="space-y-4 text-sm leading-6 text-[#59615B]">
+              <p>이 페이지의 문구는 새 편집기(/admin/pages/{managedCmsPageKey})에서 수정합니다. 여기서는 변경·초기화할 수 없습니다.</p>
+              <Link href={`/admin/pages/${managedCmsPageKey}`} className="inline-flex min-h-11 items-center border border-[#D8D0C3] px-4 font-semibold text-[#17211D]">새 편집기에서 수정</Link>
+            </div>
+          ) : <div className="space-y-5">
             {selectedPage.fields.map((item) => {
               const key = `${selectedPage.id}.${item.id}`;
               const value = settings.values[key] ?? item.defaultValue;
@@ -211,7 +221,7 @@ export default function PageTextSettingsEditor() {
                 </label>
               );
             })}
-          </div>
+          </div>}
         </div>
       </div>
     </section>

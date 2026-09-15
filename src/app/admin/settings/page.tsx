@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Eye, Save, X } from 'lucide-react';
 import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';
 import { HomeSettings } from '@/data/homeContent';
@@ -37,6 +38,28 @@ export default function SiteSettingsPage() {
   const [previewBrands, setPreviewBrands] = useState<Brand[]>([]);
   const [previewNotices, setPreviewNotices] = useState<Notice[]>([]);
   const [previewReviews, setPreviewReviews] = useState<Review[]>([]);
+  // 홈이 페이지 관리(CMS, /admin/pages/home)에서 "현재 값 가져오기"로 이미 활성화됐는지 —
+  // null(조회 전/실패)과 true는 모두 저장을 막는다(fail closed): 활성화 여부를 확실히 false로
+  // 확인한 경우에만 이 구 편집기의 저장 경로를 허용한다. 그래야 CMS가 정본이 된 뒤에도 이
+  // 화면에서 site_settings를 조용히 덮어써 CMS 게시본과 어긋나는 사고를 막는다.
+  const [homeManaged, setHomeManaged] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/settings/pages', { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { pages?: Array<{ key?: string; managed?: boolean }> } | null) => {
+        if (cancelled) return;
+        const homePage = payload?.pages?.find((page) => page.key === 'home');
+        setHomeManaged(Boolean(homePage?.managed));
+      })
+      .catch(() => {
+        if (!cancelled) setHomeManaged(true); // 조회 실패 — fail closed로 저장을 막는다.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // provider 가 GET /api/settings 로 실제 저장값을 받아오면(첫 마운트/하드 리로드) draft 를 그 값에
   // 맞춘다. 단 관리자가 이미 편집 중(dirty)이면 편집 내용을 덮지 않는다.
@@ -77,8 +100,11 @@ export default function SiteSettingsPage() {
   // loaded 이전엔 저장을 막는다 — provider 의 GET 이 resolve 되기 전 저장은 draft 가 여전히
   // defaultHomeSettings 시드일 수 있어, 안 보인 섹션들이 default 값 그대로 실 DB 위에 PUT 된다
   // (전수조사 A-1, 2026-07-18).
+  // homeManaged === false로 확인된 경우에만 저장을 허용한다(fail closed, 위 homeManaged 선언부 참조).
+  const canSaveHome = loaded && homeManaged === false;
+
   const handleSave = async () => {
-    if (!loaded) return;
+    if (!canSaveHome) return;
     const ok = await updateSettings(draft);
     if (ok) {
       setDirty(false);
@@ -178,7 +204,7 @@ export default function SiteSettingsPage() {
           </button>
           <button
             onClick={handleSave}
-            disabled={!loaded}
+            disabled={!canSaveHome}
             className="flex min-h-11 items-center gap-2 bg-[#17211D] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#202521] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Save className="w-4 h-4" />
@@ -186,6 +212,19 @@ export default function SiteSettingsPage() {
           </button>
         </>}
       />
+
+      {homeManaged !== false && (
+        <p role="alert" className="border border-[#D8C4A3] bg-[#F6F1E8] px-5 py-3 text-sm leading-6 text-[#6D522B]">
+          {homeManaged === null
+            ? '홈 화면 페이지 관리 상태를 확인하는 중입니다. 확인 전에는 저장이 차단됩니다.'
+            : '홈 화면은 페이지 관리(CMS)에서 "현재 값 가져오기"로 이미 활성화되어, 공개 화면은 이제 그 게시본을 따릅니다. 이 화면의 저장은 차단되어 있습니다 — '}
+          {homeManaged === true && (
+            <Link href="/admin/pages/home" className="font-semibold underline">
+              홈 페이지 편집 열기
+            </Link>
+          )}
+        </p>
+      )}
 
       <PageTextSettingsEditor />
 
@@ -360,7 +399,7 @@ export default function SiteSettingsPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSave}
-                  disabled={!loaded}
+                  disabled={!canSaveHome}
                   className="flex items-center gap-2 px-4 py-2 bg-[#2F3B34] text-white rounded-md hover:bg-[#1f2823] font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-4 h-4" />

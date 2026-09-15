@@ -4,6 +4,11 @@ import { getNoticesConfigWithFallback } from '@/lib/notices/repo';
 import { formatDate } from '@/lib/format';
 import NoticeCategoryBadge from '@/components/common/NoticeCategoryBadge';
 import { getPublicNotices } from '@/lib/notices/publicVisibility';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { getCachedPageTextSettings } from '@/lib/public-read-cache';
+import { logServerError } from '@/lib/logServerError';
+import { selectNoticesContent, type NoticesContent } from '@/lib/cms/source/notices';
 
 export const metadata = {
   title: '공지사항',
@@ -21,32 +26,48 @@ export default async function NoticesPage() {
   // 맨 아래에 묻힌다). date 는 YYYY-MM-DD 문자열이라 localeCompare 로 비교하고, JS sort 는 안정
   // 정렬이라 같은 날짜는 admin 저장 순서를 유지한다.
   const notices = getPublicNotices(items).sort((a, b) => b.date.localeCompare(a.date));
+
+  const published = await getPublishedPageContent<NoticesContent>('notices').catch((error: unknown) => {
+    logServerError('[Notices] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Notices] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectNoticesContent(published, settings);
+
   return (
-    <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
+    <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12" data-cms-managed={managed ? 'notices' : undefined}>
       <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <p className="font-editorial text-[13px] italic text-[#A8742E]">NEWS &amp; NOTICE</p>
-            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">공지사항</h1>
-            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">백조오브제의 새로운 소식과 안내</p>
+            <p className="font-editorial text-[13px] italic text-[#A8742E]">{content.hero.eyebrow}</p>
+            <h1 className="mt-2 text-[30px] font-bold leading-[1.15] tracking-tight text-[#17211D] sm:text-[42px]">{content.hero.title}</h1>
+            <p className="mt-2 text-[15px] text-[#6F766F] break-keep">{content.hero.description}</p>
           </div>
           <div className="inline-flex items-center gap-2 text-[13px] font-semibold text-[#59615B]">
             <Bell className="size-4 text-[#A8742E]" strokeWidth={1.6} aria-hidden="true" />
-            {notices.length}개의 소식
+            {notices.length}{content.hero.countSuffix}
           </div>
         </div>
 
         <div className="overflow-hidden rounded-xl border border-[#E7E0D5] bg-white">
           <div className="hidden h-[52px] items-center bg-[#FAF8F3] px-4 text-[12px] font-bold text-[#59615B] lg:grid lg:grid-cols-[64px_84px_minmax(0,1fr)_120px] lg:text-center">
-            <div>No</div>
-            <div>분류</div>
-            <div className="text-left">제목</div>
-            <div>작성시간</div>
+            <div>{content.table.numberLabel}</div>
+            <div>{content.table.categoryLabel}</div>
+            <div className="text-left">{content.table.titleLabel}</div>
+            <div>{content.table.dateLabel}</div>
           </div>
-          
+
           <ul className="divide-y divide-[#E1DDD4]">
             {notices.length === 0 ? (
-              <li className="px-4 py-16 text-center text-[15px] text-[#6F766F]">등록된 공지사항이 없습니다.</li>
+              <li className="px-4 py-16 text-center text-[15px] text-[#6F766F]">{content.empty.title}</li>
             ) : (
               notices.map((notice, index) => (
                 <li key={notice.id}>
@@ -60,7 +81,7 @@ export default async function NoticesPage() {
                         {notice.title}
                       </h2>
                       <div className="mt-3 flex items-center text-[12px] text-[#59615B]">
-                        <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">No. {notices.length - index}</span>
+                        <span className="ml-auto text-[11px] tabular-nums text-[#A7AAA4]">{content.table.numberLabel}. {notices.length - index}</span>
                       </div>
                     </div>
 

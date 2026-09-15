@@ -4,6 +4,7 @@ import path from 'node:path';
 import ts from 'typescript';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
 import { CMS_PAGE_DEFINITIONS, getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
+import { defaultHomeSettings } from '@/data/homeContent';
 
 const root = path.resolve(__dirname, '..', '..');
 
@@ -58,21 +59,63 @@ function loadServerModuleWithStubs(relativePath: string, dependencies: Record<st
   return loaded.exports;
 }
 
+// 0164/260d2a9 시점에는 home 정의가 sections:[]라 순수 generic pass-through였다(어떤 값도 그대로
+// 복사). D5(2026-09-15) 이후 home에도 실제 섹션(text/textarea)이 생기면서 계약이 바뀌었다: 다른
+// CMS 페이지(audit·b2b 등)와 동일하게 선언된 필드가 입력에 없으면 definition.defaultContent 값으로
+// 채워지고, 선언되지 않은 필드·미래 필드·구조 배열(빈 배열·긴 배열 포함)은 손대지 않고 그대로
+// 보존된다. 이 테스트는 그 새 계약을 고정한다 — B2 리뷰가 막았던 "이미지/링크/미지 필드/배열 유실"
+// 을 "선언 필드 default-fill"과 구분해서 검증한다. titleLines처럼 string[]이 textarea로 매핑되는
+// 필드 자체의 join/split 라운드트립은 tests/products/cms-home-consumer.spec.ts에서 검증한다.
 for (const empty of [false, true]) {
-  test(`home CMS preserves structural content with ${empty ? 'empty' : 'extended'} cards`, () => {
+  test(`home CMS preserves unknown/structural content and default-fills declared fields with ${empty ? 'empty' : 'extended'} arrays`, () => {
     const definition = getCmsPageDefinition('home');
     if (!definition) throw new Error('home definition missing');
     const input = {
       futureRoot: { nested: ['keep'] },
-      hero: { desktopImage: '/desktop.webp', mobileImage: '/mobile.webp', href: '/shop', visible: false, titleLines: [], futureHero: { keep: true } },
+      hero: { desktopImage: '/desktop.webp', mobileImage: '/mobile.webp', href: '/shop', visible: false, futureHero: { keep: true } },
       quickShop: { links: [{ name: '', href: '/shop', icon: 'star', visible: false, futureLink: [] }] },
       curation: { cards: empty ? [] : Array.from({ length: 12 }, (_, index) => ({ title: `card ${index}`, desc: ' long '.repeat(1500), image: '/card.webp', href: '/brands', visible: false, futureCard: { keep: [] } })) },
       solutions: { cards: [] },
     };
     const saved = normalizeCmsPageContent(definition, input);
-    const readBack = normalizeCmsPageContent(definition, JSON.parse(JSON.stringify(saved)));
-    expect(readBack).toEqual(input);
+    const readBack = normalizeCmsPageContent(definition, JSON.parse(JSON.stringify(saved))) as Record<string, unknown>;
+    const readBackHero = readBack.hero as Record<string, unknown>;
+    const readBackQuickShop = readBack.quickShop as { title: unknown; links: unknown[] };
+    const readBackCuration = readBack.curation as { cards: unknown[] };
+    const readBackSolutions = readBack.solutions as { cards: unknown[] };
+
+    // (1) 알려지지 않은 root/nested 필드는 손대지 않고 그대로 보존된다.
+    expect(readBack.futureRoot).toEqual(input.futureRoot);
+    expect(readBackHero).toMatchObject({
+      desktopImage: '/desktop.webp',
+      mobileImage: '/mobile.webp',
+      href: '/shop',
+      visible: false,
+      futureHero: { keep: true },
+    });
+    expect(readBackQuickShop.links).toEqual(input.quickShop.links);
+    expect((readBackQuickShop.links[0] as Record<string, unknown>).futureLink).toEqual([]);
+
+    // (2) 비어 있던/12개로 늘어난 미지 배열은 길이·내용 모두 그대로 보존된다.
+    expect(readBackCuration.cards).toEqual(input.curation.cards);
+    expect(readBackCuration.cards).toHaveLength(empty ? 0 : 12);
+    expect(readBackSolutions.cards).toEqual([]);
+
+    // (3) 입력에 없던 선언 필드(text/textarea)는 definition.defaultContent 값으로 채워진다 —
+    // audit·bestProducts·trustBoard 는 통째로 없었고, quickShop.title 은 quickShop 객체 안에 없었다.
+    expect(readBackHero.eyebrow).toBe(defaultHomeSettings.hero.eyebrow);
+    expect(readBackHero.titleLines).toEqual(defaultHomeSettings.hero.titleLines);
+    expect(readBack.bestProducts).toEqual(defaultHomeSettings.bestProducts);
+    expect(readBack.trustBoard).toEqual(defaultHomeSettings.trustBoard);
+    expect(readBackQuickShop.title).toBe(defaultHomeSettings.quickShop.title);
+    // 선언되지 않은 하위 구조(예: audit.criteria)는 그 섹션이 새로 채워져도 함께 생기지 않는다.
+    expect(readBack.audit).not.toHaveProperty('criteria');
+
+    // (4) 멱등성 — 이미 정규화된 값을 다시 정규화해도 같은 결과다.
+    expect(normalizeCmsPageContent(definition, readBack)).toEqual(readBack);
+    // (5) 항상 새 객체를 반환한다(원본을 그대로 참조하지 않음).
     expect(readBack).not.toBe(input);
+    expect(saved).not.toBe(input);
   });
 }
 

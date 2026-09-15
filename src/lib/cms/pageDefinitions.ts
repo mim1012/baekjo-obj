@@ -1,5 +1,11 @@
 import { COMPANY, DEFAULT_COMMERCE_POLICY } from '@/data/company';
+import {
+  COMMERCE_LEGAL_EFFECTIVE_DATE,
+  NONCONFORMING_WITHDRAWAL_PERIOD,
+  STANDARD_WITHDRAWAL_PERIOD,
+} from '@/data/commerceLegal';
 import { defaultHomeSettings } from '@/data/homeContent';
+import { FEATURES } from '@/config/features';
 
 export type CmsFieldType =
   | 'text'
@@ -26,6 +32,11 @@ export interface CmsItemFieldDefinition {
   placeholder?: string;
   defaultValue?: string | boolean;
   options?: Array<{ value: string; label: string }>;
+  /** type:'textarea'에서만 의미가 있다. true면 이 항목 필드의 값을 문자열이 아니라 줄 배열
+   * (string[])로 다룬다(예: refund-policy articles의 noticeLines) — 항목 개수가 늘거나 줄어도
+   * (item-list는 추가·삭제·재정렬이 자유롭다) 위치가 아니라 이 정적 선언만으로 배열/문자열을
+   * 판정해야 normalize가 멱등적이다(위치 기반 판정은 배열이 늘어나면 어긋난다). */
+  linesArray?: boolean;
 }
 
 export interface CmsFieldDefinition {
@@ -36,6 +47,12 @@ export interface CmsFieldDefinition {
   placeholder?: string;
   itemFields?: CmsItemFieldDefinition[];
   addLabel?: string;
+  /** type:'textarea'에서만 의미가 있다. true면 이 필드의 값을 문자열이 아니라 줄 배열(string[])로
+   * 다룬다(예: home hero.titleLines/descriptionLines, audit.titleLines) — normalizeTextareaValue가
+   * defaultContent의 실제 shape(Array.isArray(fallback))로 배열/문자열을 판정하는 것과 동일한
+   * 결론을 내리도록, 편집기(FieldEditor)가 defaultContent에 접근하지 않고도 이 정적 플래그만으로
+   * 판정할 수 있게 한다. */
+  linesArray?: boolean;
 }
 
 export interface CmsSectionDefinition {
@@ -61,11 +78,17 @@ const text = (path: string, label: string, description?: string): CmsFieldDefini
   type: 'text',
   description,
 });
-const textarea = (path: string, label: string, description?: string): CmsFieldDefinition => ({
+const textarea = (
+  path: string,
+  label: string,
+  description?: string,
+  linesArray?: boolean,
+): CmsFieldDefinition => ({
   path,
   label,
   type: 'textarea',
   description,
+  linesArray,
 });
 const image = (path: string, label: string, description?: string): CmsFieldDefinition => ({
   path,
@@ -164,6 +187,18 @@ const legalArticleItemFields: CmsItemFieldDefinition[] = [
   { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
 ];
 
+// refund-policy 전용 — StaticLegalDocument가 조항별로 "글머리(-) 목록" 또는 "테두리 안내 상자"로
+// 다르게 그릴 수 있게 하는 필드(bulletList/noticeLines)를 관리자 화면에 노출한다. terms/privacy는
+// 이 필드를 쓰지 않으므로(legalArticleItemFields 그대로) 별도 배열로 둔다 — 공유 배열에 얹으면
+// terms/privacy 편집기에도 쓰지 않는 입력칸이 함께 생긴다.
+const refundPolicyArticleItemFields: CmsItemFieldDefinition[] = [
+  { key: 'title', label: '조항 제목', type: 'text' },
+  { key: 'body', label: '조항 내용', type: 'textarea', description: '목록으로 표시할 줄은 - 로 시작하세요. 회사 정보는 {{company.name}}, {{company.tel}} 같은 표시를 사용할 수 있습니다.' },
+  { key: 'bulletList', label: '글머리 목록으로 표시', type: 'boolean', defaultValue: false, description: '조항 내용을 - 로 시작하는 줄 단위 글머리 목록으로 표시합니다.' },
+  { key: 'noticeLines', label: '안내 상자 문구', type: 'textarea', linesArray: true, description: '한 줄에 한 항목씩 입력하세요. 비워두면 조항 내용이 대신 표시됩니다. 회사 정보는 {{company.tel}} 같은 표시를 사용할 수 있습니다.' },
+  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
+];
+
 const privacyPurposeRowItemFields: CmsItemFieldDefinition[] = [
   { key: 'category', label: '구분', type: 'textarea', description: '두 줄로 표시하려면 Enter를 누르세요.' },
   { key: 'purpose', label: '처리목적', type: 'textarea' },
@@ -252,7 +287,11 @@ const siteShell: CmsPageDefinition = {
       headerLogo: '/images/baekjo-objet-header-logo-v2.png',
       logoAlt: 'Baekjo Objet',
     },
-    features: { insurance: false, experts: false },
+    // D6: 이 값은 관리자에게 "현재 배포 설정"을 보여주는 참고용 스냅샷일 뿐이다 — 아래 'features'
+    // 섹션에 편집 필드가 없으므로 CMS로 바꿀 수 없고, 소비자(Header/Footer/MobileBottomNav)는
+    // 이 값을 절대 읽지 않는다(항상 src/config/features.ts만 신뢰). siteShellSourceMapper의
+    // buildSiteShellContent()도 같은 FEATURES를 읽어 계산하므로 두 값은 항상 같다.
+    features: { insurance: FEATURES.insurance, experts: FEATURES.experts },
     navigation: {
       mainLinks: [
         { label: '브랜드', href: '/brands', visible: true },
@@ -272,6 +311,10 @@ const siteShell: CmsPageDefinition = {
         { label: '개인정보처리방침', href: '/privacy', visible: true },
         { label: '배송·교환·환불', href: '/refund-policy', visible: true },
       ],
+      shopDropdown: {
+        brandBrowseLabel: '브랜드로 둘러보기',
+        needBrowseLabel: '필요한 것으로 찾기',
+      },
     },
     company: { ...COMPANY },
     social: {
@@ -298,16 +341,21 @@ const siteShell: CmsPageDefinition = {
         links('navigation.mainLinks', '상단 주요 메뉴'),
         links('navigation.storyLinks', '백조오브제 펼침 메뉴'),
         links('navigation.footerLinks', '하단 메뉴'),
+        text('navigation.shopDropdown.brandBrowseLabel', '셀렉션 메뉴 · 브랜드로 둘러보기 칼럼 제목'),
+        text('navigation.shopDropdown.needBrowseLabel', '셀렉션 메뉴 · 필요한 것으로 찾기 칼럼 제목'),
       ],
     },
     {
       id: 'features',
-      label: '서비스 노출',
-      description: '준비 중인 서비스를 고객 화면의 메뉴에서 보이거나 숨깁니다.',
-      fields: [
-        toggle('features.insurance', '펫보험 보이기'),
-        toggle('features.experts', '전문가 칼럼 보이기'),
-      ],
+      label: '서비스 노출 상태',
+      // D6: 읽기 전용 안내 — 편집 필드가 없다(fields: []). 펫보험·전문가 칼럼 노출은 코드
+      // 배포(src/config/features.ts)로만 바뀌고, 여기서 값을 바꿔도 화면에는 반영되지 않는다.
+      description: `준비 중인 서비스가 고객 화면에 보이는지 참고로 보여줍니다 — 펫보험: ${
+        FEATURES.insurance ? '노출' : '숨김'
+      }, 전문가 칼럼: ${
+        FEATURES.experts ? '노출' : '숨김'
+      }. 이 값은 여기서 바꿀 수 없고, 코드의 src/config/features.ts 배포로만 바뀝니다.`,
+      fields: [],
     },
     {
       id: 'company',
@@ -588,9 +636,17 @@ const concernsIndex: CmsPageDefinition = {
 
 const experts = simpleEditorial({
   key: 'experts', title: '전문가 칼럼', route: '/experts', group: '소개·콘텐츠', description: '전문가 관점과 추천 상품 화면입니다.',
-  hero: { eyebrow: "Expert's View", title: '전문가 관점으로 살펴보는\n상품 선택 기준', description: '백조오브제가 수의·영양·행동 전문가의 관점을 바탕으로 우리 아이에게 맞는 상품 선택 기준을 정리했습니다.', image: '/images/poodle-pet-food.png', imageAlt: '전문가 추천 강아지', primaryCtaLabel: '고민별 케어 보기', primaryCtaHref: '/concerns' },
+  hero: { eyebrow: "Expert's View", title: '전문가 관점으로 살펴보는\n상품 선택 기준', description: '백조오브제가 수의·영양·행동 전문가의 관점을 바탕으로 우리 아이에게 맞는 상품 선택 기준을 정리했습니다.', image: '/images/poodle-pet-food.png', imageAlt: '전문가 추천 강아지' },
   bodyTitle: '상품은 이렇게 살펴봅니다.', bodyDescription: '전문가의 서로 다른 관점을 함께 확인해 상품을 살펴봅니다.',
 });
+// 현재 화면 히어로에는 CTA 버튼이 없다(primaryCta는 NO-CURRENT-EQUIVALENT) — 공용 heroFields에서
+// 이 화면 몫 복사본만 드롭한다(D1: 없는 문구를 만들지 않는다).
+experts.sections[0].fields = experts.sections[0].fields.filter(
+  (field) => field.path !== 'hero.primaryCtaLabel' && field.path !== 'hero.primaryCtaHref',
+);
+// body.description도 화면에 렌더되는 곳이 없다(NO-CURRENT-EQUIVALENT) — 드롭.
+experts.sections[1].fields = experts.sections[1].fields.filter((field) => field.path !== 'body.description');
+delete (experts.defaultContent.body as Record<string, unknown>).description;
 
 Object.assign(experts.defaultContent.body as Record<string, unknown>, {
   perspectiveItems: [
@@ -688,8 +744,8 @@ const shopIndex: CmsPageDefinition = {
     featured: { visible: true, title: 'DAILY PICK' },
     catalog: { allLabel: '전체', allProductsLabel: '전체 상품', filterLabel: '필터', resetLabel: '필터 초기화', countSuffix: '개', resultsButtonSuffix: '개 상품 보기' },
     filters: {
-      petTypeTitle: '반려동물', categoryTitle: '카테고리', brandTitle: '브랜드', priceTitle: '가격',
-      detailLabel: '상세 필터', concernTitle: '고민', ratingTitle: '평점', allOptionLabel: '전체',
+      petTypeTitle: '반려동물', categoryTitle: '카테고리', lifestyleTitle: '라이프스타일', brandTitle: '브랜드', priceTitle: '가격',
+      detailLabel: '상세 필터 +', concernTitle: '고민', ratingTitle: '평점', allOptionLabel: '전체',
       dogLabel: '강아지', catLabel: '고양이', smallLabel: '소동물', allRatingLabel: '전체 평점',
       ratingFourLabel: '4.0 이상', ratingFourHalfLabel: '4.5 이상',
       priceUnderLabel: '2만원 미만', priceMidLabel: '2-5만원', priceHighLabel: '5-10만원', priceOverLabel: '10만원 이상',
@@ -734,6 +790,7 @@ const shopIndex: CmsPageDefinition = {
       description: '필터 묶음 제목과 정렬 이름을 수정합니다. 반려동물·카테고리·가격·평점 항목은 상품 카테고리 관리에서 수정합니다.',
       fields: [
         text('filters.petTypeTitle', '반려동물 필터 제목'), text('filters.categoryTitle', '카테고리 필터 제목'),
+        text('filters.lifestyleTitle', '라이프스타일 필터 제목'),
         text('filters.brandTitle', '브랜드 필터 제목'), text('filters.priceTitle', '가격 필터 제목'),
         text('filters.detailLabel', '상세 필터 이름'), text('filters.concernTitle', '고민 필터 제목'),
         text('filters.ratingTitle', '평점 필터 제목'), text('filters.allOptionLabel', '전체 선택 이름'),
@@ -754,11 +811,10 @@ const brandsIndex: CmsPageDefinition = {
     hero: {
       eyebrow: 'BRAND CURATION',
       title: '우리 아이를 생각한다면,\n좋은 선택이 필요합니다.',
-      description: '우리 아이와의 일상에 도움이 되길 바라는 마음으로, 백조오브제가 선택한 브랜드를 소개합니다.',
+      description: '백조오브제가 공개 자료와 브랜드 제출 자료를 바탕으로 자체 기준에 따라 살펴본 브랜드입니다.',
       image: '/images/brands-hero-cat-architectural.png',
       imageAlt: '햇살이 드는 공간에 앉아 있는 고양이',
-      countLabel: '검증 브랜드 수',
-      countSuffix: '곳',
+      countSuffix: '곳의 큐레이션 브랜드',
     },
     standards: {
       visible: true,
@@ -767,17 +823,20 @@ const brandsIndex: CmsPageDefinition = {
         { title: 'WHO', description: '반려동물의 행복을 가장 먼저 생각하는 브랜드', visible: true },
         { title: 'VALUE', description: '제품 하나에도 브랜드의 철학과 진심을 담는 브랜드', visible: true },
         { title: 'PRINCIPLE', description: '제품이 만들어지는 과정에서도 타협하지 않는 브랜드', visible: true },
-        { title: 'SAFETY', description: '안심하고 선택할 수 있는 안전성을 갖춘 브랜드', visible: true },
+        { title: 'SAFETY', description: '안전 관련 표시·인증 자료와 사용상 주의사항을 확인합니다', visible: true },
         { title: 'BELIEF', description: '시간이 지나도 흔들리지 않는 가치를 지키는 브랜드', visible: true },
       ],
     },
     spotlight: { visible: true, label: '스포트라이트 브랜드', buttonLabel: '브랜드 자세히 보기', fallbackText: '브랜드 스토리 확인하기' },
-    catalog: { sortDefaultLabel: '기본순', sortAzLabel: '브랜드 A-Z', loadMoreLabel: '더 보기' },
+    catalog: {
+      sortDefaultLabel: '기본순', sortAzLabel: '브랜드 A-Z', loadMoreLabel: '더 보기',
+      filterAllLabel: '전체', filterRecommendedLabel: '백조오브제 추천', filterNewLabel: '새로 만난 브랜드',
+    },
     empty: { title: '조건에 맞는 브랜드가 없어요.', description: '다른 브랜드 이야기도 천천히 둘러보세요.', buttonLabel: '전체 브랜드 보기' },
     partnership: {
       visible: true,
       title: '기준이 같다면, 함께 만들어갑니다.',
-      description: '모든 프로젝트는 백조오브제 Audit을 거친 입점 브랜드에 한해 진행합니다.\n신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.',
+      description: '공개 자료와 브랜드 제출 자료를 바탕으로 백조오브제의 자체 기준을 살펴봅니다.\n신뢰를 바탕으로 브랜드에 가장 적합한 프로젝트를 제안합니다.',
       image: '/images/poodle-pet-food.png',
       imageAlt: '프리미엄 펫푸드 제안',
       buttonLabel: '파트너십 문의하기',
@@ -789,7 +848,7 @@ const brandsIndex: CmsPageDefinition = {
       id: 'hero',
       label: '1. 브랜드관 첫 화면',
       description: '첫 화면의 이미지와 제목·설명·브랜드 수 앞 이름입니다.',
-      fields: [text('hero.eyebrow', '작은 영문 제목'), textarea('hero.title', '큰 제목'), textarea('hero.description', '설명'), image('hero.image', '대표 이미지'), text('hero.imageAlt', '이미지 설명'), text('hero.countLabel', '브랜드 수 설명'), text('hero.countSuffix', '브랜드 수 뒤 단위')],
+      fields: [text('hero.eyebrow', '작은 영문 제목'), textarea('hero.title', '큰 제목'), textarea('hero.description', '설명'), image('hero.image', '대표 이미지'), text('hero.imageAlt', '이미지 설명'), text('hero.countSuffix', '브랜드 수 뒤 문구')],
     },
     {
       id: 'standards',
@@ -806,8 +865,11 @@ const brandsIndex: CmsPageDefinition = {
     {
       id: 'catalog',
       label: '4. 필터·정렬',
-      description: '브랜드 필터 아래의 정렬 버튼과 더 보기 버튼에 고객에게 표시되는 이름입니다.',
-      fields: [text('catalog.sortDefaultLabel', '기본 정렬 이름'), text('catalog.sortAzLabel', '가나다순 정렬 이름'), text('catalog.loadMoreLabel', '더 보기 버튼 이름')],
+      description: '브랜드 필터 아래의 정렬 버튼과 더 보기 버튼, 필터 탭 이름입니다.',
+      fields: [
+        text('catalog.sortDefaultLabel', '기본 정렬 이름'), text('catalog.sortAzLabel', '가나다순 정렬 이름'), text('catalog.loadMoreLabel', '더 보기 버튼 이름'),
+        text('catalog.filterAllLabel', '전체 탭 이름'), text('catalog.filterRecommendedLabel', '추천 탭 이름'), text('catalog.filterNewLabel', '신규 탭 이름'),
+      ],
     },
     {
       id: 'brandRecords',
@@ -863,18 +925,22 @@ const noticesIndex: CmsPageDefinition = {
   defaultContent: {
     hero: { eyebrow: 'NEWS & NOTICE', title: '공지사항', description: '백조오브제의 새로운 소식과 안내', countSuffix: '개의 소식' },
     table: { numberLabel: 'No', categoryLabel: '분류', titleLabel: '제목', dateLabel: '작성시간' },
-    empty: { title: '등록된 소식이 없습니다.', description: '새 소식이 등록되면 이곳에 표시됩니다.' },
+    // 화면은 빈 목록일 때 한 줄 문구만 표시한다(별도 description 문단 없음, NO-CURRENT-EQUIVALENT라
+    // description 필드는 두지 않는다) — title도 현재 화면 문구('등록된 공지사항이 없습니다.')로 맞춘다.
+    empty: { title: '등록된 공지사항이 없습니다.' },
   },
   sections: [
     { id: 'hero', label: '공지 목록 첫 화면', description: '화면 위쪽의 제목·설명과 소식 건수 이름입니다.', fields: [text('hero.eyebrow', '작은 영문 제목'), text('hero.title', '큰 제목'), textarea('hero.description', '설명'), text('hero.countSuffix', '소식 건수 뒤 이름')] },
     { id: 'table', label: '공지 표 이름', description: 'PC 목록 표의 각 열 이름입니다.', fields: [text('table.numberLabel', '번호'), text('table.categoryLabel', '분류'), text('table.titleLabel', '제목'), text('table.dateLabel', '작성시간')] },
-    { id: 'empty', label: '빈 목록 안내', description: '공개 공지가 하나도 없을 때 보이는 문구입니다.', fields: [text('empty.title', '제목'), textarea('empty.description', '설명')] },
+    { id: 'empty', label: '빈 목록 안내', description: '공개 공지가 하나도 없을 때 보이는 문구입니다.', fields: [text('empty.title', '제목')] },
   ],
 };
 
 const insuranceLanding = simpleEditorial({
   key: 'insurance-landing', title: '펫보험 랜딩', route: '/landing/insurance', group: '서비스', description: '무료 보험 분석 신청을 안내하는 화면입니다.',
-  hero: { eyebrow: 'FREE INSURANCE REVIEW', title: '옆집 아이의 정답이\n우리 아이의 정답일까요?', description: '매달 바뀌는 수많은 약관과 보장 조건, 보호자님이 모두 비교하기는 벅찹니다. 백조오브제가 객관적인 시선으로 우리 아이에게 진짜 유리한 선택지를 정리해 드립니다.', image: '', imageAlt: '', primaryCtaLabel: '무료 분석 신청하기', primaryCtaHref: '/insurance/apply' },
+  // 화면 원문 문자열은 'Free Insurance Review'(타이틀케이스)이고 CSS uppercase로 시각적으로만
+  // 대문자 처리된다 — CMS 기본값도 원문 그대로 맞춘다(대문자로 미리 바꿔두면 원문 자체가 달라진다).
+  hero: { eyebrow: 'Free Insurance Review', title: '옆집 아이의 정답이\n우리 아이의 정답일까요?', description: '매달 바뀌는 수많은 약관과 보장 조건, 보호자님이 모두 비교하기는 벅찹니다. 백조오브제가 객관적인 시선으로 우리 아이에게 진짜 유리한 선택지를 정리해 드립니다.', image: '', imageAlt: '', primaryCtaLabel: '무료 분석 신청하기', primaryCtaHref: '/insurance/apply' },
   bodyTitle: '왜 백조오브제의 분석일까요?', bodyDescription: '판매가 목적이 아닌, 아이의 생애 주기와 리스크를 먼저 봅니다.',
 });
 
@@ -916,18 +982,22 @@ const legalPage = (
   route: string,
   effectiveDate: string,
   introduction: string,
-  articles: Array<{ title: string; body: string; visible: boolean }>,
+  articles: Array<{ title: string; body: string; visible: boolean; bulletList?: boolean; noticeLines?: readonly string[] }>,
   footerNote: string,
+  eyebrow: string,
+  // terms/privacy는 legalArticleItemFields(기본값)만 쓰고, refund-policy만 bulletList/noticeLines를
+  // 추가로 선언한다(refundPolicyArticleItemFields) — 호출부에서 명시적으로 넘긴다.
+  articleItemFields: CmsItemFieldDefinition[] = legalArticleItemFields,
 ): CmsPageDefinition => ({
   key,
   title,
   route,
   group: '정책',
   description: `${title}의 제목, 시행일, 모든 조항과 하단 안내를 관리합니다. 게시 이력은 자동 보관됩니다.`,
-  defaultContent: { visible: true, eyebrow: 'Legal', title, effectiveDate, introduction, articles, footerNote, companyBoxVisible: key === 'terms', companyBoxTitle: '사업자 정보' },
+  defaultContent: { visible: true, eyebrow, title, effectiveDate, introduction, articles, footerNote, companyBoxVisible: key === 'terms', companyBoxTitle: '사업자 정보' },
   sections: [
     { id: 'document', label: '문서 기본정보', description: '문서 공개 여부, 제목, 시행일과 상단 안내입니다.', fields: [toggle('visible', '문서 공개'), text('eyebrow', '작은 영문 제목'), text('title', '문서 제목'), text('effectiveDate', '시행일'), textarea('introduction', '상단 안내 문구'), toggle('companyBoxVisible', '사업자 정보 상자 표시'), text('companyBoxTitle', '사업자 정보 상자 제목')] },
-    { id: 'articles', label: '문서 조항', description: '조항을 추가·수정·삭제하고 표시 순서를 바꿉니다. 게시 전 법률 검토 여부를 확인하세요.', fields: [items('articles', '조항 목록', legalArticleItemFields), textarea('footerNote', '문서 하단 안내')] },
+    { id: 'articles', label: '문서 조항', description: '조항을 추가·수정·삭제하고 표시 순서를 바꿉니다. 게시 전 법률 검토 여부를 확인하세요.', fields: [items('articles', '조항 목록', articleItemFields), textarea('footerNote', '문서 하단 안내')] },
   ],
 });
 
@@ -937,9 +1007,95 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
     title: '홈 화면',
     route: '/',
     group: '공통 영역',
-    description: '현재 고객에게 공개되는 홈 화면 콘텐츠입니다.',
+    description: '현재 고객에게 공개되는 홈 화면 콘텐츠입니다. 카드·바로가기 등 항목형 구조는 이 화면에서 다루지 않고 문구만 관리합니다(항목 구조 변경은 별도 범위).',
     defaultContent: { ...defaultHomeSettings },
-    sections: [],
+    // text/textarea 문구만 다룬다(item-list 없음) — string[] 필드(titleLines 등)는 textarea 에
+    // "한 줄에 한 항목"으로 매핑되고, 줄 수는 홈 렌더러(HomeClient)가 고정한다(줄을 더하거나 빼면
+    // 화면 레이아웃이 깨질 수 있다). 카드/바로가기 배열(quickShop.links·curation.cards·
+    // audit.criteria·solutions.cards)은 구조(아이콘·이미지·href)가 HomeClient에 하드코딩돼 있어
+    // 여기서는 편집 대상에서 제외한다.
+    sections: [
+      {
+        id: 'hero',
+        label: '메인 히어로',
+        description: '첫 화면 히어로 문구입니다. 제목·설명은 줄 수가 화면 레이아웃에 고정돼 있으니(현재 제목 2줄·설명 1줄) 줄을 추가·삭제하지 마세요.',
+        fields: [
+          text('hero.eyebrow', '작은 영문 제목'),
+          textarea('hero.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.', true),
+          textarea('hero.descriptionLines', '소개 문구', '한 줄에 한 줄씩 입력하세요.', true),
+          text('hero.primaryCtaLabel', '첫 번째 버튼 이름'),
+          text('hero.secondaryCtaLabel', '두 번째 버튼 이름'),
+          text('hero.trustNote', '신뢰 문구'),
+          text('hero.badgeTitle', '배지 제목'),
+          text('hero.badgeSubtitle', '배지 부제목'),
+        ],
+      },
+      {
+        id: 'quickShop',
+        label: '빠른 카테고리 이동',
+        description: '카테고리 바로가기 영역의 제목입니다. 바로가기 목록(아이콘·이름·링크)은 이 화면에서 편집할 수 없습니다.',
+        fields: [text('quickShop.title', '영역 제목(비워두면 표시하지 않음)')],
+      },
+      {
+        id: 'bestProducts',
+        label: 'Audit 추천 상품',
+        description: '추천 상품 영역의 제목·링크 문구입니다. 상품 목록은 이 화면에서 편집할 수 없습니다.',
+        fields: [
+          text('bestProducts.title', '영역 제목'),
+          text('bestProducts.linkLabel', '전체 보기 링크 문구'),
+        ],
+      },
+      {
+        id: 'curation',
+        label: '고민별 맞춤 큐레이션',
+        description: '고민별 케어 가이드 영역의 문구입니다. 카드(아이콘·이미지·링크)는 이 화면에서 편집할 수 없습니다.',
+        fields: [
+          text('curation.title', '영역 제목'),
+          textarea('curation.description', '영역 설명'),
+          text('curation.diagnosisLinkLabel', '진단 링크 문구'),
+          text('curation.allConcernsLinkLabel', '전체 보기 링크 문구'),
+        ],
+      },
+      {
+        id: 'audit',
+        label: 'Audit 검증 기준',
+        description: '백조오브제 Audit 검증 기준 영역의 문구입니다. 기준 카드(아이콘)는 이 화면에서 편집할 수 없습니다.',
+        fields: [
+          text('audit.badge', '작은 배지 문구'),
+          textarea('audit.titleLines', '큰 제목', '한 줄에 한 줄씩 입력하세요. 줄 수는 화면 레이아웃에 맞춰 고정되어 있습니다.', true),
+          textarea('audit.description', '영역 설명'),
+          text('audit.linkLabel', '자세히 보기 링크 문구'),
+        ],
+      },
+      {
+        id: 'solutions',
+        label: '3가지 솔루션',
+        description: '3가지 솔루션 영역의 제목입니다. 카드(이미지·링크)는 이 화면에서 편집할 수 없습니다.',
+        fields: [text('solutions.title', '영역 제목')],
+      },
+      {
+        id: 'insuranceBanner',
+        label: '펫보험 안내 배너',
+        description: '펫보험 안내 배너 문구입니다. 보험 기능이 꺼져 있으면(features.insurance) 화면에 노출되지 않습니다.',
+        fields: [
+          text('insuranceBanner.eyebrow', '작은 문구'),
+          text('insuranceBanner.title', '제목'),
+          textarea('insuranceBanner.description', '설명'),
+          text('insuranceBanner.buttonLabel', '버튼 문구'),
+        ],
+      },
+      {
+        id: 'trustBoard',
+        label: '후기·소식',
+        description: '후기·소식 영역의 제목·링크 문구입니다. 후기·소식 목록은 이 화면에서 편집할 수 없습니다.',
+        fields: [
+          text('trustBoard.reviewsTitle', '후기 제목'),
+          text('trustBoard.reviewsLinkLabel', '후기 전체 보기 링크 문구'),
+          text('trustBoard.noticesTitle', '소식 제목'),
+          text('trustBoard.noticesLinkLabel', '소식 전체 보기 링크 문구'),
+        ],
+      },
+    ],
   },
   siteShell,
   shopIndex,
@@ -956,7 +1112,7 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
     'terms',
     '이용약관',
     '/terms',
-    '2026년 9월 1일',
+    COMMERCE_LEGAL_EFFECTIVE_DATE,
     '',
     [
       { title: '제1장 총칙', body: '', visible: true },
@@ -977,7 +1133,7 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
       { title: '제13조 (판매자 정보 및 거래책임)', body: '① 회사는 구매자가 청약하기 전까지 판매자의 상호·대표자, 주소, 연락처, 사업자등록번호 및 관계 법령상 해당하는 경우 통신판매업 신고번호 등 법령에서 정한 신원정보를 상품 상세페이지 또는 주문·결제화면에서 쉽게 확인할 수 있도록 제공합니다.\n② 상품의 등록·판매, 가격, 표시·광고, 품질·안전, 재고, 배송, 청약철회, 교환·반품·환급, 하자 및 A/S에 관한 거래상 책임은 해당 상품을 판매한 판매자에게 있습니다.\n③ 판매자가 제공한 상품정보와 거래조건이 이 약관과 다르거나 소비자에게 불리한 경우에는 관계 법령과 이 약관이 우선합니다.', visible: true },
       { title: '제14조 (상품의 공급 및 공급불능)', body: '① 판매자는 상품 상세페이지에 안내한 시기와 방법에 따라 상품을 공급하고, 상품의 포장·출고·배송 및 배송정보의 정확성에 책임을 부담합니다. 회사는 구매자가 공급 절차와 진행상황을 확인할 수 있도록 지원합니다.\n② 품절, 생산중단 등으로 상품을 공급하기 곤란한 경우 판매자는 지체 없이 그 사유를 구매자에게 알리고, 선지급식 거래에서는 구매자가 대금의 전부 또는 일부를 지급한 날부터 3영업일 이내에 환급하거나 환급에 필요한 조치를 하여야 합니다. 회사는 통지, 결제 취소, 환급 및 정산 보류 등 필요한 절차를 지원합니다.', visible: true },
       { title: '제4장 청약철회·교환·반품 및 환급', body: '', visible: true },
-      { title: '제15조 (청약철회)', body: '① 소비자인 구매자는 계약내용과 거래조건을 기재한 서면을 받은 날부터 7일 이내에 청약철회할 수 있습니다. 여기서 서면은 전자문서를 포함하고 회사 또는 판매자가 발송한 주문확인 통지를 포함합니다. 그 서면을 받은 때보다 상품의 공급이 늦게 이루어진 경우에는 상품을 공급받거나 공급이 시작된 날부터 7일 이내로 합니다.\n② 상품이 표시·광고와 다르거나 계약내용과 다르게 이행된 경우에는 상품을 공급받은 날부터 3개월 이내, 또는 그 사실을 안 날이나 알 수 있었던 날부터 30일 이내에 청약철회할 수 있습니다.\n③ 구매자는 몰의 주문내역, 고객센터, 전자우편 또는 판매자가 안내한 방법으로 청약철회를 신청할 수 있습니다. 회사가 공식 접수창구로 제공한 채널에 접수된 경우 회사가 접수한 때 판매자에게 도달한 것으로 보며 회사는 이를 지체 없이 전달합니다.', visible: true },
+      { title: '제15조 (청약철회)', body: `① 소비자인 구매자는 ${STANDARD_WITHDRAWAL_PERIOD} 여기서 서면은 전자문서를 포함하고 회사 또는 판매자가 발송한 주문확인 통지를 포함합니다.\n② ${NONCONFORMING_WITHDRAWAL_PERIOD}\n③ 구매자는 몰의 주문내역, 고객센터, 전자우편 또는 판매자가 안내한 방법으로 청약철회를 신청할 수 있습니다. 회사가 공식 접수창구로 제공한 채널에 접수된 경우 회사가 접수한 때 판매자에게 도달한 것으로 보며 회사는 이를 지체 없이 전달합니다.`, visible: true },
       { title: '제16조 (청약철회의 제한)', body: '① 구매자의 책임으로 상품이 멸실·훼손된 경우, 사용·소비로 가치가 현저히 감소한 경우, 시간이 지나 재판매가 곤란해진 경우, 복제 가능한 상품의 포장을 훼손한 경우 또는 용역·디지털콘텐츠의 제공이 개시된 경우 등 관계 법령이 정한 사유가 있으면 청약철회가 제한될 수 있습니다. 다만, 상품의 내용을 확인하기 위한 포장 훼손 등 법령상 예외는 제외합니다.\n② 주문제작 상품 등 법령상 별도 고지와 동의가 필요한 경우 판매자는 결제 전에 청약철회 제한 사실을 명확히 알리고 구매자의 서면 또는 전자문서 동의를 받아야 합니다. 필요한 조치를 하지 않은 경우 그 사유만으로 청약철회를 제한할 수 없습니다.\n③ 표시·광고와 다르거나 계약내용과 다르게 이행된 경우에는 제1항의 제한에도 불구하고 제15조 제2항에 따라 청약철회할 수 있습니다.', visible: true },
       { title: '제17조 (환급)', body: '① 판매자는 재화를 반환받은 날부터 3영업일 이내에 대금을 환급합니다. 용역·디지털콘텐츠 또는 상품 공급 전 청약철회는 청약철회 의사표시를 받은 날부터 3영업일 이내에 환급하며, 지연 시 관계 법령에서 정한 지연배상금을 지급합니다.\n② 회사가 판매자를 대신하여 상품대금을 수령한 경우에는 환급사유가 확인되는 즉시 결제 취소 또는 대금 반환 절차를 진행합니다.\n③ 판매자, 상품대금을 받은 자 또는 계약을 체결한 자가 동일인이 아닌 경우에는 관계 법령에 따라 환급 관련 의무의 이행에 관하여 연대하여 책임을 부담합니다.', visible: true },
       { title: '제18조 (교환·반품 및 비용부담)', body: '① 구매자는 청약철회 후 상품을 지체 없이 판매자가 지정한 반품지와 방법에 따라 반환합니다. 판매자별 반품지, 배송비, 품질보증 및 A/S 기준은 상품 상세페이지와 배송·교환·환불 안내에서 확인할 수 있습니다.\n② 단순변심에 따른 반환 비용은 구매자가 부담하고, 상품이 표시·광고와 다르거나 계약내용과 다르게 이행되는 등 판매자의 책임 있는 사유가 있는 경우에는 판매자가 부담합니다.\n③ 판매자와 회사는 적법한 청약철회를 이유로 위약금 또는 손해배상을 청구하지 않습니다. 교환은 재고 등 사정에 따라 환급 후 재주문 방식으로 처리될 수 있습니다.', visible: true },
@@ -991,38 +1147,53 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
       { title: '제24조 (불만처리, 분쟁해결 및 책임)', body: '① 구매자는 판매자 또는 회사의 고객센터를 통하여 상품, 주문, 결제, 배송, 청약철회, 교환·반품·환급 및 서비스 이용에 관한 불만이나 피해구제를 신청할 수 있습니다. 판매자는 상품 거래에 관한 불만을 우선 처리하고 회사는 사실관계 파악과 분쟁 해결을 지원합니다.\n② 회사는 소비자 불만이나 분쟁의 원인을 조사하여 접수일부터 3영업일 이내에 진행 경과를 알리고, 10영업일 이내에 조사 결과 또는 처리방안을 알립니다. 부득이하게 지연되는 경우에는 사유와 예상 일정을 안내합니다.\n③ 분쟁이 해결되지 않는 경우 이용자는 1372소비자상담센터(국번 없이 1372, www.ccn.go.kr), 한국소비자원(www.kca.go.kr) 또는 전자문서·전자거래분쟁조정위원회(1661-5714, www.ecmc.or.kr) 등에 상담 또는 조정을 신청할 수 있습니다.\n④ 이 약관은 회사 또는 판매자의 고의·중과실, 개인정보 침해, 인적 손해나 관계 법령상 배제할 수 없는 책임을 면제하거나 소비자의 법정 권리를 제한하지 않습니다.\n⑤ 판매자와 구매자 사이의 거래에 관한 책임은 판매자가 부담합니다. 회사는 판매자가 제공한 상품정보 또는 판매자의 행위로 발생한 손해에 대하여 회사에 고의 또는 과실이 없는 경우 책임을 부담하지 않습니다. 다만, 제4항 및 회사가 제22조에 따라 직접 부담하는 의무와 책임은 제외합니다.\n⑥ 천재지변, 전국적 통신장애, 정부의 조치 등 합리적으로 통제할 수 없는 사유로 의무를 이행하지 못한 경우에는 고의 또는 과실이 없는 범위에서 책임을 부담하지 않습니다. 다만, 사유 발생을 지체 없이 알리고 손해를 줄이기 위한 합리적인 조치를 하여야 합니다.', visible: true },
       { title: '제25조 (준거법 및 관할)', body: '① 이 약관과 통신판매중개서비스 및 몰을 통하여 이루어지는 거래에는 대한민국 법령이 적용됩니다.\n② 소비자인 이용자와 회사 또는 판매자 사이의 소송은 민사소송법 등 관계 법령에 따른 관할법원에 제기합니다. 이 약관은 소비자의 주소지 관할 등 법령상 인정되는 관할을 배제하지 않습니다.', visible: true },
       { title: '부칙', body: '', visible: true },
-      { title: '제1조 (시행일)', body: '이 약관은 2026년 9월 1일부터 시행합니다.', visible: true },
+      { title: '제1조 (시행일)', body: `이 약관은 ${COMMERCE_LEGAL_EFFECTIVE_DATE}부터 시행합니다.`, visible: true },
     ],
     '',
+    'Legal',
   ),
   legalPage(
     'privacy',
     '개인정보 처리방침',
     '/privacy',
-    '2026년 9월 1일',
+    COMMERCE_LEGAL_EFFECTIVE_DATE,
     '백조 오브제(이하 ‘회사’)는 개인정보 보호법 등 관계 법령을 준수하고, 이용자의 개인정보를 안전하게 보호하며 관련 고충을 신속하게 처리하기 위하여 다음과 같이 개인정보처리방침을 수립·공개합니다. 회사는 입점 판매자와 구매자 사이의 거래를 연결하는 통신판매중개자로서, 주문 이행에 필요한 개인정보를 결제 단계에서 특정된 판매자에게 제공합니다. 해당 판매자는 회사와 별개의 개인정보처리자로서 제공받은 개인정보를 자신의 책임으로 처리합니다.',
     [
+      { title: '※핵심 안내', body: '필수정보는 회원관리와 주문 중개에 필요한 최소 범위에서 처리하고, 마케팅 및 반려동물 맞춤정보는 선택적으로 처리합니다. 판매자 제공은 주문별로 별도 동의를 받으며, 회사는 만 14세 미만 아동의 회원가입을 받지 않습니다.', visible: true },
+      { title: '1. 개인정보의 처리 목적 및 항목', body: '회사는 다음 목적에 필요한 최소한의 개인정보를 처리합니다. 선택항목을 입력하거나 선택 동의 하지 않아도 해당 선택 기능 외의 기본 서비스는 이용할 수 있습니다.\n· 회원가입 · 관리: 회원 식별, 가입 의사 확인, 본인 및 만 14세 이상 확인, 부정이용 방지, 고지·통지\n· 필수 : 이름, 이메일 주소, 비밀번호, 휴대전화번호, 만 14세 이상 확인값\n· 주문 · 통신판매중개: 구매신청, 주문 전달, 배송·취소·교환·반품·환급 지원, 거래 기록 관리\n· 필수 : 구매자 이름·연락처·이메일, 수령인 이름·연락처·배송지, 주문상품·수량·금액\n· 선택 : 배송요청사항\n· 결제 · 환급 지원: 결제 승인·취소, 대금 정산 지원, 부정결제 방지, 환급 처리\n결제수단, 결제 승인·취소정보, 환급이 필요한 경우 예금주·은행명·계좌번호\n※카드번호 등 원결제 정보는 회사가 직접 저장하지 않음\n· 고객상담 · 분쟁처리: 문의자 확인, 문의·불만 처리, 사실관계 확인, 결과 통지\n· 필수 : 이름, 연락처, 이메일, 주문번호, 문의내용\n· 선택 : 첨부파일·이미지\n· 후기 · 게시물: 구매후기 운영, 게시물 관리, 부정게시물 방지\n회원 식별정보, 주문내역, 게시물 내용, 첨부 이미지\n· 케어가이드 · 맞춤추천: 반려동물 생활관리 정보와 상품·콘텐츠 추천\n· 선택 : 반려동물 이름, 종류, 품종, 나이, 체중, 생활·케어 관심사항\n· 입점 · B2B 문의: 입점·제휴 검토, 담당자 연락, 계약 및 업무 협의\n· 필수 : 상호, 사업자등록번호, 대표자명, 담당자 이름·연락처·이메일, 문의내용\n· 선택 : 제안서·증빙서류\n· 마케팅: 이벤트·혜택·신규 서비스 안내\n· 선택 : 이름, 휴대전화번호, 이메일, 수신동의 일시·방법\n· 자동생성정보: 접속 유지, 보안, 부정이용 방지, 서비스 이용 통계와 품질 개선\nIP 주소, 쿠키, 접속 일시, 서비스 이용기록, 기기·브라우저 정보\n회사는 주민등록번호 등 고유식별정보 또는 이용자 본인의 건강정보 등 민감정보를 원칙적으로 수집하지 않습니다. 이용자가 문의·게시물 등에 불필요한 개인정보나 민감정보를 기재하지 않도록 유의해 주시기 바랍니다.', visible: true },
+      { title: '2. 개인정보의 수집 방법', body: '· 회원가입, 주문·결제, 고객센터, 후기 작성, 케어가이드, 입점·제휴 문의 과정에서 이용자가 직접 입력하는 방법\n· 서비스 이용 과정에서 쿠키, 접속기록 등 정보가 자동으로 생성·수집되는 방법\n· 전자결제대행사 등 서비스 제공 과정에서 이용자의 동의를 받은 사업자로부터 제공받는 방법', visible: true },
+      { title: '3. 개인정보의 처리 및 보유기간', body: '회사는 개인정보의 처리 목적이 달성되거나 보유기간이 끝나면 지체 없이 파기합니다. 다만, 관계 법령에 따른 보존의무가 있거나 이용자에게 별도로 동의받은 경우에는 해당 기간 동안 분리하여 보관합니다.\n· 회원정보: 회원 탈퇴 시까지. 다만 진행 중인 거래·분쟁 또는 법령상 보존의무가 있으면 해당 종료 시까지\n· 케어가이드·맞춤추천 정보: 이용자가 삭제하거나 동의를 철회한 때 또는 회원 탈퇴 시까지\n· 마케팅 수신정보: 동의 철회 또는 회원 탈퇴 시까지\n· 입점·B2B 문의: 문의 처리 완료 후 3년. 계약이 체결된 경우 계약 및 관계 법령상 보존기간까지', visible: true },
+      { title: '법정 보존기록', body: '· 표시·광고에 관한 기록: 6개월 (전자상거래 등에서의 소비자보호에 관한 법률)\n· 계약 또는 청약철회 등에 관한 기록: 5년 (전자상거래 등에서의 소비자보호에 관한 법률)\n· 대금결제 및 재화 등의 공급에 관한 기록: 5년 (전자상거래 등에서의 소비자보호에 관한 법률)\n· 소비자 불만 또는 분쟁처리에 관한 기록: 3년 (전자상거래 등에서의 소비자보호에 관한 법률)\n· 웹사이트 접속기록: 3개월 (통신비밀보호법 등 관계 법령)\n· 세금계산서 등 거래 증빙: 5년 (국세기본법 등 세법)', visible: true },
+      { title: '4. 개인정보의 제3자 제공', body: '회사는 원칙적으로 이용자의 개인정보를 처리 목적 범위 내에서만 이용하며, 이용자의 동의 없이 제3자에게 제공하지 않습니다. 다만, 법률에 특별한 규정이 있거나 법령상 요건을 충족하는 경우에는 예외로 합니다.\n회사는 통신판매중개 서비스를 위해 결제 단계에서 제공받는 자를 특정하고 별도의 동의를 받은 후, 해당 주문의 판매자에게 다음 정보를 제공합니다.\n· 제공받는 자: 해당 주문의 상품 상세페이지 및 주문·결제 화면에 표시된 판매자\n· 제공 목적: 주문 확인, 상품 배송, 청약철회·취소·교환·반품·환급, A/S, 고객상담 및 분쟁처리\n· 제공 항목: 구매자 이름·연락처·이메일, 수령인 이름·연락처·배송지, 주문상품 정보, 배송 요청사항\n· 보유·이용기간: 거래 목적 달성 시까지. 다만 제공받는 자가 관계 법령에 따라 보존할 의무가 있는 경우 해당 기간까지\n※동의 거부 안내\n이용자는 판매자에 대한 개인정보 제공 동의를 거부할 수 있습니다. 다만 주문·배송 이행에 반드시 필요한 정보이므로 동의를 거부하면 해당 상품을 구매할 수 없습니다.', visible: true },
+      { title: '5. 개인정보 처리업무의 위탁', body: '회사는 원활한 서비스 제공을 위하여 다음과 같이 개인정보 처리업무를 위탁합니다. 회사는 위탁계약에서 처리 목적 외 이용금지, 안전성 확보조치, 재위탁 제한, 관리·감독 및 손해배상 등 관계 법령상 필요한 사항을 정하고 수탁자를 관리·감독합니다.\n· 토스페이먼츠(주): 전자결제, 결제취소·환급 지원, 결제대금예치 및 부정결제 방지 / 위탁계약 종료 또는 처리 목적 달성 시까지. 다만 관계 법령상 보존기간은 해당 기간까지\n수탁자 또는 위탁업무가 추가·변경되는 경우 회사는 지체 없이 이 방침을 통해 공개합니다. 입점 판매자는 회사의 수탁자가 아니라 구매자와 직접 거래하는 별도의 개인정보처리자입니다.', visible: true },
       { title: '6. 개인정보의 파기절차 및 방법', body: '· 회사는 보유기간이 지나거나 처리 목적이 달성되어 개인정보가 불필요하게 되면 지체 없이 파기합니다.\n· 관계 법령에 따라 보존해야 하는 개인정보는 다른 개인정보와 분리하여 보관하고, 보존기간이 끝나면 파기합니다.\n· 전자적 파일은 복구 또는 재생할 수 없도록 안전하게 삭제하고, 종이 문서는 분쇄하거나 소각하는 방법으로 파기합니다.', visible: true },
       { title: '7. 정보주체와 법정대리인의 권리 및 행사방법', body: '· 이용자는 회사에 자신의 개인정보에 대한 열람, 정정·삭제, 처리정지, 동의 철회 및 회원 탈퇴를 요구할 수 있습니다.\n· 권리행사는 마이페이지, 고객센터, 전자우편 또는 전화를 통해 할 수 있습니다. 회사는 본인 또는 정당한 대리인 여부를 확인한 후 관계 법령에서 정한 기간 내에 조치합니다.\n· 이용자는 법정대리인이나 위임을 받은 사람을 통해 권리를 행사할 수 있으며, 회사는 필요한 경우 위임장 등 증빙을 요청할 수 있습니다.\n· 법령에서 열람·삭제·처리정지 등을 제한하는 경우 회사는 그 사유와 이의제기 방법을 안내합니다.\n· 마케팅 수신동의와 선택정보 제공동의는 언제든지 철회할 수 있으며, 철회 전의 적법한 처리에는 영향을 미치지 않습니다.', visible: true },
       { title: '8. 만 14세 미만 아동의 개인정보', body: '회사는 만 14세 미만 아동의 회원가입을 받지 않으며, 법정대리인의 동의 없이 만 14세 미만 아동의 개인정보를 수집하지 않습니다. 회사가 이를 알게 된 경우 해당 정보를 지체 없이 삭제하는 등 필요한 조치를 합니다.', visible: true },
       { title: '9. 쿠키 등 자동 수집 장치의 설치·운영 및 거부', body: '· 회사는 로그인 상태 유지, 보안, 이용환경 개선 및 서비스 이용 통계를 위하여 쿠키(cookie)를 사용할 수 있습니다.\n· 쿠키는 웹사이트 서버가 이용자의 브라우저에 보내는 소량의 정보로서 이용자의 기기에 저장될 수 있습니다.\n· 이용자는 브라우저 설정에서 쿠키 저장을 허용하거나 차단할 수 있습니다. 쿠키를 차단하면 로그인 유지 등 일부 기능 이용이 제한될 수 있습니다.\n- Chrome : 설정 → 개인정보 및 보안 → 서드 파티 쿠키\n- Edge : 설정 → 쿠키 및 사이트 권한 → 쿠키 및 사이트 데이터 관리\n- Safari : 설정(또는 환경설정) → 개인정보 보호 → 쿠키 및 웹사이트 데이터', visible: true },
       { title: '10. 맞춤형 추천 및 자동화된 처리', body: '· 회사는 이용자가 선택적으로 입력한 반려동물 정보와 서비스 이용기록을 활용하여 상품·콘텐츠를 추천할 수 있습니다.\n· 추천 결과는 생활관리와 상품 탐색을 돕기 위한 참고정보이며, 이용자의 법적 권리 또는 의무에 중대한 영향을 미치는 자동화된 결정을 하지 않습니다.\n· 이용자는 마이페이지 또는 고객센터를 통해 맞춤정보의 수정·삭제나 추천 이용 중단을 요청할 수 있습니다.', visible: true },
+      { title: '11. 개인정보의 안전성 확보조치', body: '회사는 개인정보가 분실·도난·유출·위조·변조 또는 훼손되지 않도록 다음 조치를 시행합니다.\n· 관리적 조치: 개인정보 보호책임자 지정, 내부관리계획 수립·시행, 취급자 최소화 및 교육, 수탁자 관리·감독\n· 기술적 조치: 접근권한 관리, 비밀번호 등 중요정보 암호화, 접속기록 보관 및 위·변조 방지, 보안프로그램 설치·갱신\n· 물리적 조치: 개인정보 보관장소 및 서류에 대한 접근통제', visible: true },
+      { title: '12. 개인정보 보호책임자 및 열람청구 접수처', body: '회사는 개인정보 처리에 관한 업무를 총괄하고 관련 문의, 불만처리, 피해구제 및 열람청구를 처리하기 위하여 아래와 같이 개인정보 보호책임자와 접수처를 지정합니다.\n· 개인정보 보호책임자: 백보윤 / 대표\n· 담당·접수부서: 백조 오브제 고객센터\n· 전화: {{company.tel}}\n· 전자우편: {{company.email}}\n이용자는 서비스 이용 중 발생한 모든 개인정보 보호 관련 문의와 권리행사를 위 연락처로 요청할 수 있으며, 회사는 지체 없이 답변하고 처리하겠습니다.', visible: true },
+      { title: '13. 권익침해 구제방법', body: '이용자는 회사의 자체 처리 결과에 만족하지 않거나 별도의 상담·분쟁조정이 필요한 경우 다음 기관에 문의할 수 있습니다.\n· 개인정보침해 신고센터: 국번 없이 118 / privacy.kisa.or.kr\n· 개인정보분쟁조정위원회: 1833-6972 / www.kopico.go.kr\n· 대검찰청 1301 검찰콜센터: 국번 없이 1301 / www.spo.go.kr\n· 경찰청 사이버범죄 신고시스템: 국번 없이 182 / ecrm.police.go.kr', visible: true },
+      { title: '14. 개인정보처리방침의 변경', body: `· 이 방침은 ${COMMERCE_LEGAL_EFFECTIVE_DATE}부터 시행합니다.\n· 방침이 변경되는 경우 회사는 시행일 7일 전부터 홈페이지 공지사항 등을 통해 알립니다. 이용자의 권리에 중대한 영향을 미치는 변경은 시행일 30일 전부터 알립니다.\n· 회사는 이전 방침을 이용자가 확인할 수 있도록 개정 이력을 공개합니다.`, visible: true },
     ],
     '',
+    'Legal',
   ),
   legalPage(
     'refund-policy',
     '배송·교환·환불 안내',
     '/refund-policy',
-    '2026년 7월 16일',
+    COMMERCE_LEGAL_EFFECTIVE_DATE,
     '',
     [
-      { title: '1. 배송 안내', body: `- 배송지역: 대한민국 전 지역으로 배송합니다. 단, 도서·산간 지역은 배송 기간이 추가로 소요되거나 추가 배송비가 발생할 수 있습니다.\n- 배송비: ${DEFAULT_COMMERCE_POLICY.shippingLabel}. 상품별 배송비가 다른 경우 각 상품 상세 페이지의 안내를 우선합니다.\n- 출고 일정: ${DEFAULT_COMMERCE_POLICY.deliveryEstimate}\n- 배송조회: 상품 발송 후 마이페이지 또는 고객센터를 통해 운송장 번호와 배송 진행 상황을 확인할 수 있습니다.`, visible: true },
-      { title: '2. 교환·반품 안내', body: '- 교환·반품 신청기간: 상품 수령일로부터 7일 이내 고객센터 또는 상품 문의를 통해 신청할 수 있습니다.\n- 단순 변심에 따른 교환·반품 배송비는 고객 부담입니다. 상품 불량 또는 오배송의 경우 배송비는 판매자가 부담합니다.\n- 반품 주소는 교환·반품 접수 시 고객센터에서 개별 안내합니다.\n- 상품을 사용했거나 훼손·오염된 경우, 구성품이 누락된 경우, 맞춤제작·신선식품 등 재판매가 어려운 상품은 교환·반품이 제한될 수 있습니다.', visible: true },
-      { title: '3. 환불 안내', body: '- 반품 상품 회수 및 검수 완료 후 결제수단에 따라 환불이 진행됩니다.\n- 신용카드 결제 취소는 카드사 정책에 따라 영업일 기준 3–7일 정도 소요될 수 있습니다.\n- 무통장입금 주문은 환불 계좌 확인 후 영업일 기준 3일 이내 환불 처리합니다.\n- 표시·광고 내용과 다르거나 계약 내용과 다르게 이행된 경우 관련 법령에 따라 교환·반품·환불을 처리합니다.', visible: true },
-      { title: '4. 고객센터', body: '고객센터: {{company.tel}}\n이메일: {{company.email}}\n운영시간: {{company.supportHours}}', visible: true },
+      { title: '1. 배송 안내', body: `- 배송지역: 대한민국 전 지역으로 배송합니다. 단, 도서·산간 지역은 배송 기간이 추가로 소요되거나 추가 배송비가 발생할 수 있습니다.\n- 배송비: ${DEFAULT_COMMERCE_POLICY.shippingLabel}. 상품별 배송비가 다른 경우 각 상품 상세 페이지의 안내를 우선합니다.\n- 출고 일정: ${DEFAULT_COMMERCE_POLICY.deliveryEstimate}\n- 배송조회: 상품 발송 후 마이페이지 또는 고객센터를 통해 운송장 번호와 배송 진행 상황을 확인할 수 있습니다.`, visible: true, bulletList: true },
+      { title: '2. 교환·반품 안내', body: `- 청약철회 및 교환·반품 신청기간: ${STANDARD_WITHDRAWAL_PERIOD}\n- ${NONCONFORMING_WITHDRAWAL_PERIOD}\n- 단순 변심에 따른 교환·반품 배송비는 고객 부담입니다. 상품 불량 또는 오배송의 경우 배송비는 판매자가 부담합니다.\n- 반품 주소는 교환·반품 접수 시 고객센터에서 개별 안내합니다.\n- 상품을 사용했거나 훼손·오염된 경우, 구성품이 누락된 경우 등 관계 법령상 청약철회 제한 사유에 해당하면 교환·반품이 제한될 수 있습니다. 맞춤제작 상품은 사전 고지와 별도 동의 등 관계 법령에서 정한 요건을 갖춘 경우에만 제한됩니다.`, visible: true, bulletList: true },
+      { title: '3. 환불 안내', body: '- 반품 상품 회수 및 검수 완료 후 결제수단에 따라 환불이 진행됩니다.\n- 신용카드 결제 취소는 카드사 정책에 따라 영업일 기준 3–7일 정도 소요될 수 있습니다.\n- 무통장입금 주문은 환불 계좌 확인 후 영업일 기준 3일 이내 환불 처리합니다.\n- 판매자 또는 회사의 책임이 있는 상품 불량·오배송·계약내용 불일치의 경우 관계 법령과 이용약관에 따라 환불하며, 소비자의 법정 권리를 제한하지 않습니다.', visible: true, bulletList: true },
+      { title: '4. 고객센터', body: '', visible: true, noticeLines: ['고객센터: {{company.tel}}', '이메일: {{company.email}}', '운영시간: {{company.supportHours}}'] },
     ],
     '',
+    'Commerce Policy',
+    refundPolicyArticleItemFields,
   ),
 ];
 
@@ -1220,7 +1391,7 @@ if (privacyDefinition) {
       rows: [
         { category: '개인정보 보호책임자', content: '백보윤 / 대표', visible: true },
         { category: '담당·접수부서', content: '백조 오브제 고객센터', visible: true },
-        { category: '전화', content: '010-5683-1725', visible: true },
+        { category: '전화', content: COMPANY.tel, visible: true },
         { category: '전자우편', content: 'thebaekjo@naver.com', visible: true },
       ],
       footerNote: '이용자는 서비스 이용 중 발생한 모든 개인정보 보호 관련 문의와 권리행사를 위 연락처로 요청할 수 있으며, 회사는 지체 없이 답변하고 처리하겠습니다.',

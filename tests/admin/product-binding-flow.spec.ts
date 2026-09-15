@@ -210,7 +210,10 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
     const publicCache = src('src', 'lib', 'public-read-cache.ts');
 
-    expect(shopPage).toContain("import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache'");
+    // PR2: shop/page.tsx가 getCachedPageTextSettings 도 같은 import 문에서 들여오면서 리터럴 import
+    // 문자열이 바뀌었다 — 정확한 순서에 의존하지 않고 두 심볼이 같은 import 안에 있는지로 데이터
+    // 로딩 콘센트(공개 repo 캐시)가 유지됐는지를 확인한다.
+    expect(shopPage).toMatch(/import\s+\{[^}]*\blistCachedPublicBrands\b[^}]*\blistCachedPublicProducts\b[^}]*\}\s+from '@\/lib\/public-read-cache';/);
     // concerns DB화(2026-07-17)로 고민 필터 옵션도 서버에서 함께 읽어 내려준다.
     expect(shopPage).toContain('const [products, brands, concernsConfig] = await Promise.all([');
     expect(shopPage).toContain('listCachedPublicProducts(),');

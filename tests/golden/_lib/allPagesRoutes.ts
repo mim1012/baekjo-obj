@@ -206,6 +206,7 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
   { route: '/admin/qna', kind: 'static', auth: 'admin', note: 'QnA 게시판 관리' },
   { route: '/admin/reviews', kind: 'static', auth: 'admin', note: '전시 후기 관리' },
   { route: '/admin/sellers', kind: 'static', auth: 'admin', note: '실제 판매자 사업자정보 관리' },
+  { route: '/admin/pages', kind: 'static', auth: 'admin', note: '공개 화면 CMS 목록' },
   { route: '/admin/settings', kind: 'static', auth: 'admin', note: '사이트 콘텐츠 설정' },
   { route: '/admin/survey', kind: 'static', auth: 'admin', note: '맞춤 진단 설계' },
   { route: '/admin/survey-results', kind: 'static', auth: 'admin', note: '진단 참여 내역' },
@@ -238,6 +239,16 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     auth: 'admin',
     paramSource: { from: 'admin-api', endpoint: '/api/admin/orders', listKey: 'orders', idKey: 'id' },
     note: '주문 상세',
+  },
+  {
+    route: '/admin/pages/[pageKey]',
+    kind: 'dynamic',
+    auth: 'admin',
+    // /api/admin/settings/pages는 정의된 15개 CMS 페이지를 항상 고정 순서(CMS_PAGE_DEFINITIONS)로
+    // 반환한다 — DB 상태와 무관하게 목록이 비지 않으므로 다른 admin-api 표본과 달리 "목록이 비어
+    // 있어 skip"될 일이 없다. 표본으로 뽑히는 첫 항목은 audit이 아니라 정의 배열의 첫 키(home)다.
+    paramSource: { from: 'admin-api', endpoint: '/api/admin/settings/pages', listKey: 'pages', idKey: 'key' },
+    note: '공개 화면 CMS 편집(표본: CMS_PAGE_DEFINITIONS 첫 키 — home)',
   },
   {
     route: '/admin/products/[id]',
