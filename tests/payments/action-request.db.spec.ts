@@ -337,7 +337,17 @@ test.describe.serial('PR4 상품별 취소 요청 DB 계약 (0169/0170/0171)', (
         [{ productId: P1, productName: P1, quantity: 2, price: 1000, brandId: BRAND }],
         { paymentStatus: '결제완료', paymentKey: TK, deliveryFee: 3000 },
       );
-      // 상품 라인은 이미 SUCCEEDED 환불로 전량 정산됐다고 심어둔다(배송비는 아직 미포함).
+      // 실제 운영 순서(요청 → 승인 → 환불 → 완료)를 따른다. 환불을 요청보다 먼저 심으면
+      // create RPC의 잔여수량 규칙(라인수량 − 활성 − max(완료, 성공환불))이 이미 정산된 라인의
+      // 신규 취소 요청을 정당하게 거부한다(ACTION_QUANTITY_EXCEEDS_REMAINING).
+      requestId = await createActionRequest(
+        orderId,
+        BRAND,
+        [{ lineIndex: 0, productId: P1, productName: P1, quantity: 2, unitPrice: 1000, amount: 2000 }],
+        2000,
+      );
+      await approve(requestId);
+      // 승인 뒤 상품 라인만 SUCCEEDED 환불로 정산됐다고 심어둔다(배송비는 아직 미포함).
       await q(`update public.products set stock = stock + 2 where id='${P1}';`);
       await insertSucceededRefund(
         orderId,
@@ -346,13 +356,6 @@ test.describe.serial('PR4 상품별 취소 요청 DB 계약 (0169/0170/0171)', (
         false,
         2000,
       );
-      requestId = await createActionRequest(
-        orderId,
-        BRAND,
-        [{ lineIndex: 0, productId: P1, productName: P1, quantity: 2, unitPrice: 1000, amount: 2000 }],
-        2000,
-      );
-      await approve(requestId);
     });
 
     test.afterAll(async () => {
@@ -423,9 +426,14 @@ test.describe.serial('PR4 상품별 취소 요청 DB 계약 (0169/0170/0171)', (
 
     test.beforeAll(async () => {
       await insertProduct(P1, 10);
+      // 라인 수량(4)을 요청 수량(1)보다 크게 둔다. 두 호출이 같은 전량을 요청하면 뒤에 온 호출은
+      // orders 행 잠금 해제 후 앞 호출의 활성 아이템을 보게 되어 잔여수량 규칙
+      // (ACTION_QUANTITY_EXCEEDS_REMAINING)에 먼저 걸린다 — 그 경로는 시나리오 3·4가 이미 덮는다.
+      // 여기서는 잔여수량이 남아 있어도 (order_id, brand_id) 활성 unique 인덱스가 두 번째 요청을
+      // 막는지를 검증한다.
       orderId = await insertOrder(
         CUSTOMER,
-        [{ productId: P1, productName: P1, quantity: 2, price: 1000, brandId: BRAND }],
+        [{ productId: P1, productName: P1, quantity: 4, price: 1000, brandId: BRAND }],
         { paymentStatus: '결제대기' },
       );
     });
@@ -438,11 +446,11 @@ test.describe.serial('PR4 상품별 취소 요청 DB 계약 (0169/0170/0171)', (
     test('동시에 들어온 두 create 호출 중 하나만 성공하고 나머지는 ACTION_REQUEST_ALREADY_EXISTS로 빠르게 거부된다', async () => {
       const started = Date.now();
       const items: RequestItemInput[] = [
-        { lineIndex: 0, productId: P1, productName: P1, quantity: 2, unitPrice: 1000, amount: 2000 },
+        { lineIndex: 0, productId: P1, productName: P1, quantity: 1, unitPrice: 1000, amount: 1000 },
       ];
       const results = await Promise.allSettled([
-        createActionRequest(orderId, BRAND, items, 2000),
-        createActionRequest(orderId, BRAND, items, 2000),
+        createActionRequest(orderId, BRAND, items, 1000),
+        createActionRequest(orderId, BRAND, items, 1000),
       ]);
       const elapsedMs = Date.now() - started;
       // PT409(어플리케이션 레벨 충돌)는 PostgREST가 투명 재시도하는 40001과 달리 즉시 실패한다 —

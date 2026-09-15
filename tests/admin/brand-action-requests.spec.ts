@@ -68,7 +68,7 @@ test.describe('브랜드별 취소·환불 요청 계산', () => {
 });
 
 test.describe('관리자 취소·환불 요청 패널(OrderActionRequestsPanel) 렌더링 — PR4 U4', () => {
-  test('요청 상태별로 승인/반려(REQUESTED), 완료(APPROVED) 버튼만 노출한다', () => {
+  test('요청 상태별로 승인/반려(REQUESTED), 완료·반려(APPROVED) 버튼을 노출한다', () => {
     const page = src('src', 'components', 'admin-new', 'orders', 'OrderActionRequestsPanel.tsx');
 
     expect(page).toContain("request.status === 'REQUESTED'");
@@ -76,6 +76,37 @@ test.describe('관리자 취소·환불 요청 패널(OrderActionRequestsPanel) 
     expect(page).toContain("'처리 중...' : '승인'");
     expect(page).toContain("'처리 중...' : '반려'");
     expect(page).toContain("'처리 중...' : '완료'");
+  });
+
+  // 미결제 부분취소 고착 탈출 — SQL 계약(0170_order_action_request_contract.sql
+  // transition_action_request)은 APPROVED→REJECTED 전이를 허용하는데, 이전에는 패널이
+  // REQUESTED에서만 반려 버튼을 그려 관리자가 승인된 요청을 되돌릴 UI 경로가 없었다.
+  test('APPROVED 상태에서도 완료 옆에 반려 버튼이 렌더된다', () => {
+    const page = src('src', 'components', 'admin-new', 'orders', 'OrderActionRequestsPanel.tsx');
+
+    // "{request.status === 'APPROVED' && (" 단독 조건(선행 '{' — 위쪽 "(REQUESTED ||
+    // APPROVED) &&" 결합 조건과 구분)만 골라 그 마커 이후 구간을 잘라 완료·반려 버튼이
+    // 함께 있는지 확인한다. 창 길이는 3000자로 넉넉히 잡아, 실제 블록 길이(2026-09-16 실측
+    // 약 1100자)가 포맷팅 등으로 다소 늘어나도 여유가 205자뿐인 이전 1300자 고정값처럼
+    // 쉽게 깨지지 않게 한다.
+    const marker = "{request.status === 'APPROVED' && (";
+    const markerIndex = page.indexOf(marker);
+    expect(markerIndex, 'APPROVED 조건 렌더 블록을 찾을 수 없다').toBeGreaterThan(-1);
+    const approvedBlock = page.slice(markerIndex, markerIndex + 3000);
+    expect(approvedBlock).toContain("runAction(request.id, 'complete')");
+    expect(approvedBlock).toContain("runAction(request.id, 'reject')");
+    expect(approvedBlock).toContain("'처리 중...' : '완료'");
+    expect(approvedBlock).toContain("'처리 중...' : '반려'");
+  });
+
+  // APPROVED 반려는 회원에게 이미 보여진 결정(승인)을 번복하는 되돌리기라 확인창을 거친다.
+  // REQUESTED 반려는 확정된 변화가 없어 확인창 없이 그대로 진행해야 한다(회귀 방지).
+  test('APPROVED 반려는 confirm을 거치고, REQUESTED 반려는 확인창 없이 진행한다', () => {
+    const page = src('src', 'components', 'admin-new', 'orders', 'OrderActionRequestsPanel.tsx');
+
+    expect(page).toContain("action === 'reject' &&");
+    expect(page).toContain("?.status === 'APPROVED'");
+    expect(page).toContain('예약된 취소 수량이 풀리고 주문 상태가 되돌아갑니다');
   });
 
   test('아이템(상품/수량) 단위 상태 배지를 보여준다', () => {

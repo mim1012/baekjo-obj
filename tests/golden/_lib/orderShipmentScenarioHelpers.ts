@@ -51,6 +51,7 @@ export type BrandScenario = {
   productName: string;
   brandId?: string;
   productId?: string;
+  sellerId?: string;
 };
 
 export const BRAND_PREFIX = 'E2E-배송브랜드-';
@@ -107,6 +108,14 @@ export async function createBankTransferOrder(
     return { productId: scenario.productId, quantity: 1 };
   });
 
+  // 645823b로 들어온 동의 계약(validateCheckoutConsentClaims): thirdPartySellerKeys는
+  // 주문 상품들의 sellerGroupKey 집합과 정확히 일치해야 400 consent-required를 피한다.
+  // 헬퍼가 만드는 상품은 주문제작이 아니므로 madeToOrderProductIds는 항상 빈 배열이다.
+  const thirdPartySellerKeys = [...new Set(scenarios.map((scenario) => {
+    if (!scenario.sellerId) throw new Error(`${scenario.name} sellerId가 없습니다.`);
+    return `seller:${scenario.sellerId}`;
+  }))].sort();
+
   const response = await page.request.post('/api/orders', {
     data: {
       customerName: recipientName,
@@ -115,6 +124,11 @@ export async function createBankTransferOrder(
       items: cartItems,
       paymentMethod: '무통장입금',
       deliveryMemo: `브랜드별 배송 검증 ${runId}`,
+      consents: {
+        orderTerms: true,
+        thirdPartySellerKeys,
+        madeToOrderProductIds: [],
+      },
     },
   });
   expect(response.ok(), `주문 생성 실패: ${response.status()} ${await response.text()}`).toBe(true);
@@ -262,6 +276,7 @@ async function createBrand(page: Page, scenario: BrandScenario): Promise<string>
 async function createProduct(page: Page, scenario: BrandScenario): Promise<string> {
   if (!scenario.brandId) throw new Error(`${scenario.name} brandId가 없습니다.`);
   const sellerId = await ensureGoldenVerifiedSeller(page);
+  scenario.sellerId = sellerId;
   const response = await page.request.post('/api/admin/products', {
     data: {
       brandId: scenario.brandId,

@@ -30,6 +30,11 @@ type ActionRequestAction = 'approve' | 'reject' | 'complete';
 // 관리자가 곧바로 이해하게 한다.
 const UNPAID_PARTIAL_HINT = '결제 전 주문은 전량 취소만 완료할 수 있습니다';
 
+// APPROVED에서도 반려를 노출하는 이유: 미결제 주문은 부분완료가 위 힌트로 거부되므로, 승인만
+// 하고 나머지 브랜드를 처리할 수 없으면 부분취소에 고착된다(관리자가 UI로 빠져나올 길이 없음).
+// SQL 계약(0170_order_action_request_contract.sql 187·323~341행 transition_action_request)은
+// APPROVED→REJECTED 전이를 허용하므로, 관리자 직접 제어 원칙에 맞춰 UI도 이를 반영한다.
+
 export default function OrderActionRequestsPanel({ order, onUpdate }: OrderActionRequestsPanelProps) {
   const [requests, setRequests] = useState<OrderActionRequestRecord[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
@@ -69,6 +74,18 @@ export default function OrderActionRequestsPanel({ order, onUpdate }: OrderActio
       ) {
         return;
       }
+      // 승인된 요청의 반려는 회원에게 이미 보여진 결정을 번복하는 것이라(예약된 취소 수량이
+      // 풀리고 주문 상태가 되돌아감) 한 번 더 확인한다. REQUESTED 반려는 아직 회원에게 확정된
+      // 변화가 없으므로 확인창 없이 그대로 진행한다.
+      if (
+        action === 'reject' &&
+        requests.find((request) => request.id === requestId)?.status === 'APPROVED' &&
+        !window.confirm(
+          '승인된 요청을 반려하면 예약된 취소 수량이 풀리고 주문 상태가 되돌아갑니다. 계속하시겠습니까?',
+        )
+      ) {
+        return;
+      }
       setPendingId(requestId);
       setActionError(null);
       try {
@@ -86,7 +103,7 @@ export default function OrderActionRequestsPanel({ order, onUpdate }: OrderActio
         setPendingId(null);
       }
     },
-    [order.id, onUpdate],
+    [order.id, onUpdate, requests],
   );
 
   return (
@@ -160,14 +177,24 @@ export default function OrderActionRequestsPanel({ order, onUpdate }: OrderActio
                       </>
                     )}
                     {request.status === 'APPROVED' && (
-                      <button
-                        type="button"
-                        onClick={() => void runAction(request.id, 'complete')}
-                        disabled={isPending}
-                        className="min-h-9 rounded-md bg-[#2F3B34] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#17201B] disabled:cursor-not-allowed disabled:bg-gray-300"
-                      >
-                        {isPending ? '처리 중...' : '완료'}
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => void runAction(request.id, 'complete')}
+                          disabled={isPending}
+                          className="min-h-9 rounded-md bg-[#2F3B34] px-3 py-1.5 text-[12px] font-semibold text-white transition-colors hover:bg-[#17201B] disabled:cursor-not-allowed disabled:bg-gray-300"
+                        >
+                          {isPending ? '처리 중...' : '완료'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void runAction(request.id, 'reject')}
+                          disabled={isPending}
+                          className="min-h-9 rounded-md border border-[#C9C8C0] bg-white px-3 py-1.5 text-[12px] font-medium text-[#17201B] transition-colors hover:bg-[#F4F2EC] disabled:cursor-not-allowed disabled:text-gray-400"
+                        >
+                          {isPending ? '처리 중...' : '반려'}
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
