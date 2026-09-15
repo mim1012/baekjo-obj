@@ -40,6 +40,7 @@ env:
     admin-crud-brand-fields.spec.ts
     admin-crud-brands.spec.ts
     admin-crud-category-settings.spec.ts
+    admin-crud-cms-foundation.spec.ts
     admin-crud-concerns.spec.ts
     admin-crud-home-settings.spec.ts
     admin-crud-insurance.spec.ts
