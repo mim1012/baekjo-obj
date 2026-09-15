@@ -45,6 +45,9 @@ export async function getProductTagsConfig(): Promise<ProductTagsConfig | null> 
     .eq('id', CONFIG_ROW_ID)
     .maybeSingle();
   if (error) throw error;
+  if (data && !isProductTagsConfig(data.value)) {
+    logServerError('[productTags] 저장된 product_tags_config 값이 계약을 위반해 기본 사전으로 폴백합니다', new Error('invalid product_tags_config value'));
+  }
   return data && isProductTagsConfig(data.value) ? data.value : null;
 }
 

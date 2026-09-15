@@ -220,4 +220,14 @@ test.describe('B2 회귀 잠금 — 소스 grep (isTag·validate.ts·PUT 라우�
     expect(routeSrc).toContain("error: 'invalid-slug'");
     expect(routeSrc).toContain('items[');
   });
+
+  test('getProductTagsConfig에서 invalid product_tags_config을 거부할 때 logServerError를 호출한다', () => {
+    const repoSrc = fs.readFileSync(
+      path.join(root, 'src', 'lib', 'productTags', 'repo.ts'),
+      'utf8',
+    );
+    expect(repoSrc).toContain("logServerError('[productTags] 저장된 product_tags_config 값이 계약을 위반해 기본 사전으로 폴백합니다'");
+    expect(repoSrc).toContain("new Error('invalid product_tags_config value')");
+    expect(repoSrc).toContain('!isProductTagsConfig(data.value)');
+  });
 });
