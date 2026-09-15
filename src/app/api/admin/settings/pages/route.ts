@@ -27,6 +27,7 @@ export async function GET() {
             ? state.draftRevision !== state.publishedRevision
             : false,
           available: Boolean(state),
+          managed: state?.managed ?? false,
         };
       }),
     });

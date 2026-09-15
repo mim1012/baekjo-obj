@@ -54,6 +54,7 @@ export const ALL_ADMIN_API_ROUTES: string[] = [
   '/api/admin/settings',
   '/api/admin/settings/pages',
   '/api/admin/settings/pages/[pageKey]',
+  '/api/admin/settings/pages/[pageKey]/import',
   '/api/admin/settings/pages/[pageKey]/import-publish',
   '/api/admin/showcase-reviews',
   '/api/admin/survey',

@@ -44,11 +44,19 @@ function harness(pageKey, managed = false, conflictCode = 'PT409') {
   };
   const dependencies = {
     'server-only': {},
-    'next/cache': { revalidatePath: () => {} },
+    'next/cache': { revalidatePath: () => {}, revalidateTag: () => {}, unstable_cache: (fn) => fn },
     'next/server': { NextResponse: { json: (body, options) => Response.json(body, options) } },
     '@/lib/supabase/server': { getSupabase: () => db },
     '@/lib/admin/requireAdmin': { requireAdmin: async () => ({ ok: true, requester: { id: 'actor' } }) },
     '@/lib/logServerError': { logServerError: () => {} },
+    // public-read-cache.ts는 브랜드/상품 등 이 테스트와 무관한 리포지토리를 다수 import한다 —
+    // 재귀 transpile 로더가 그 전체 그래프를 끌고 들어오지 않도록, content.ts가 실제로 쓰는
+    // cachedPublishedCmsPage 하나만 stub해 getPublishedCmsPage(repo.ts)로 바로 위임한다(next/cache의
+    // unstable_cache를 그대로 통과시키는 위 stub과 동일하게, 캐시 자체는 이 단위테스트의 관심사가
+    // 아니다 — 동작 동일성만 유지한다).
+    '@/lib/public-read-cache': {
+      cachedPublishedCmsPage: (pageKey) => load('src/lib/cms/repo.ts').getPublishedCmsPage(pageKey),
+    },
   };
   function load(relative) {
     const file = new URL(`../../${relative}`, import.meta.url);

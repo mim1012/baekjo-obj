@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache';
 import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo';
 import { getCategorySettings } from '@/lib/categorySettings/repo';
+import { getPublishedCmsPage } from '@/lib/cms/repo';
 import {
   countVisibleProductsByBrand,
   getProductById,
@@ -31,6 +32,9 @@ export const PUBLIC_READ_CACHE_TAGS = {
   categorySettings: 'public-category-settings',
   siteSettings: 'public-site-settings',
   pageTexts: 'public-page-texts',
+  // 리터럴 그대로 'cmsPages' — [pageKey]/route.ts, import/route.ts의 revalidateTag('cmsPages') 및
+  // publish-cms-page-from-source 계약 문서(0166)와 문자열이 정확히 일치해야 무효화가 걸린다.
+  cmsPages: 'cmsPages',
 } as const;
 
 export const EXPIRE_PUBLIC_READ_CACHE = { expire: 0 } as const;
@@ -120,6 +124,12 @@ const cachedCategorySettings = unstable_cache(
   { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.categorySettings] },
 );
 
+const cachedPublishedCmsPageByKey = unstable_cache(
+  async (pageKey: string) => getPublishedCmsPage<unknown>(pageKey),
+  ['public-cms-page-by-key-v1'],
+  { revalidate: PUBLIC_READ_REVALIDATE_SECONDS, tags: [PUBLIC_READ_CACHE_TAGS.cmsPages] },
+);
+
 export function listCachedPublicProducts(filter: PublicProductListFilter = {}) {
   return withDevelopmentPublicReadFallback(
     () => cachedPublicProducts(filter.categorySlug, filter.brandId, filter.petType),
@@ -199,4 +209,13 @@ export function getCachedPublicBrandBySlug(slug: string) {
     () => getCanonicalPublicBrandBySlug(slug),
     '[public-read-cache] Supabase 개발환경 미설정 — 운영 공개 브랜드 상세로 렌더',
   );
+}
+
+/**
+ * CMS 게시본 읽기 캐시. getPublishedCmsPage(repo.ts)는 __managedVersion 마커로 이미 게이트돼
+ * 있으므로 여기서는 캐시 계층만 얹는다 — 개발환경 빈 폴백을 두지 않는 이유는 getPublishedPageContent
+ * (lib/cms/content.ts)가 CmsSchemaUnavailable을 이미 null로 흡수하기 때문이다(이중 흡수 방지).
+ */
+export function cachedPublishedCmsPage(pageKey: string): Promise<unknown> {
+  return cachedPublishedCmsPageByKey(pageKey);
 }

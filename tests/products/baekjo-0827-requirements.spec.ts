@@ -14,6 +14,8 @@ import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/prese
 import { seedAuditReport, seedB1AuditReportField, seedTopField } from '../helpers/brandSeed';
 import { defaultBrandPageCopy } from '@/lib/brands/pageCopy';
 import { defaultKitsConfig } from '@/lib/kits/config';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { auditContentFromPageTexts } from '@/components/admin-new/pages/auditContent';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -60,7 +62,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('Audit·보호자 후기·소식 화면이 최신 콘텐츠 정본과 일치한다', () => {
-    const audit = read('src/app/audit/page.tsx');
+    const audit = JSON.stringify(auditContentFromPageTexts(defaultPageTextSettings));
     const reviews = read('src/app/reviews/page.tsx');
     const notices = read('src/app/notices/page.tsx');
     const reviewsAdmin = read('src/app/admin/reviews/page.tsx');

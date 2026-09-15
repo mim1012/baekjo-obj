@@ -46,6 +46,7 @@ export default function PageTextRuntime() {
     const markedElements = [...document.querySelectorAll<HTMLElement>('[data-page-text-key]')];
     const markedChanges = new Map<HTMLElement, string>();
     for (const element of markedElements) {
+      if (element.closest('[data-cms-managed]')) continue;
       const key = element.dataset.pageTextKey;
       if (!key) continue;
       const replacement = settings.values[key];
@@ -60,7 +61,7 @@ export default function PageTextRuntime() {
 
     const replaceTextNode = (node: Text) => {
       const parent = node.parentElement;
-      if (!parent || parent.closest('script, style, textarea, [data-page-text-editor]')) return;
+      if (!parent || parent.closest('script, style, textarea, [data-page-text-editor], [data-cms-managed]')) return;
       const replacement = replacements.get(normalizeComparableText(node.data));
       if (replacement === undefined) return;
       const leading = node.data.match(/^\s*/)?.[0] ?? '';
@@ -73,7 +74,7 @@ export default function PageTextRuntime() {
     };
 
     const replaceAttributes = (element: Element) => {
-      if (element.closest('[data-page-text-editor]')) return;
+      if (element.closest('[data-page-text-editor], [data-cms-managed]')) return;
       for (const attribute of EDITABLE_ATTRIBUTES) {
         const current = element.getAttribute(attribute);
         if (!current) continue;

@@ -85,7 +85,7 @@ for (const managed of [false, true]) {
   test(`ordinary publication ${managed ? 'allows revision-guarded edits after bootstrap' : 'refuses initial activation'}`, async () => {
     const published = [];
     const route = load('src/app/api/admin/settings/pages/[pageKey]/route.ts', {
-      'next/cache': { revalidatePath: () => {} },
+      'next/cache': { revalidatePath: () => {}, revalidateTag: () => {} },
       'next/server': { NextResponse: { json: (body, options) => Response.json(body, options) } },
       '@/lib/admin/requireAdmin': { requireAdmin: async () => ({ ok: true, requester: { id: 'actor-uuid' } }) },
       '@/lib/cms/content': { normalizeCmsPageContent },

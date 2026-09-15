@@ -13,6 +13,9 @@ export interface CmsPageState<T> {
   readonly publishedRevision: number | null;
   readonly updatedAt: string;
   readonly publishedAt: string | null;
+  /** published_content.__managedVersion === 1 — "현재 값 가져오기(최초 활성화)" 이후에만 true.
+   * 읽기 전용 파생값이며 PATCH/POST/PUT 어느 요청 바디도 이 값을 바꿀 수 없다. */
+  readonly managed: boolean;
 }
 
 export interface CmsPageVersionSummary {
@@ -62,6 +65,10 @@ function stripManagedMarker<T>(value: T): T {
   return content as T;
 }
 
+function isManagedPublishedContent(value: unknown): boolean {
+  return isObject(value) && value.__managedVersion === CMS_MANAGED_VERSION;
+}
+
 function rowToState<T>(row: CmsPageRow): CmsPageState<T> {
   return {
     pageKey: row.page_key,
@@ -73,6 +80,7 @@ function rowToState<T>(row: CmsPageRow): CmsPageState<T> {
     publishedRevision: row.published_revision === null ? null : Number(row.published_revision),
     updatedAt: row.updated_at,
     publishedAt: row.published_at,
+    managed: isManagedPublishedContent(row.published_content),
   };
 }
 

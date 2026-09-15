@@ -53,7 +53,7 @@ export default function PageTextSettingsEditor() {
     ?? pageTextDefinitions[0];
 
   const updateValue = (key: string, value: string) => {
-    if (!loaded) return;
+    if (!loaded || selectedPage.id === 'audit') return;
     setDirty(true);
     setMessage('');
     setSettings((current) => ({
@@ -63,7 +63,7 @@ export default function PageTextSettingsEditor() {
   };
 
   const resetSelectedPage = () => {
-    if (!loaded) return;
+    if (!loaded || selectedPage.id === 'audit') return;
     setDirty(true);
     setMessage('');
     setSettings((current) => {
@@ -109,7 +109,7 @@ export default function PageTextSettingsEditor() {
           <button
             type="button"
             onClick={resetSelectedPage}
-            disabled={!loaded}
+            disabled={!loaded || selectedPage.id === 'audit'}
             className="inline-flex min-h-11 items-center gap-2 border border-[#D8D0C3] bg-white px-4 text-sm font-semibold text-[#17211D] disabled:opacity-50"
           >
             <RotateCcw className="size-4" /> 현재 페이지 기본값
@@ -181,7 +181,12 @@ export default function PageTextSettingsEditor() {
             )}
           </div>
 
-          <div className="space-y-5">
+          {selectedPage.id === 'audit' ? (
+            <div className="space-y-4 text-sm leading-6 text-[#59615B]">
+              <p>Audit 문구는 페이지 관리에서 초안을 작성하고 발행합니다. 기존 문구 이관이 완료되기 전에는 현재 고객 화면이 유지됩니다.</p>
+              <Link href="/admin/pages/audit" className="inline-flex min-h-11 items-center border border-[#D8D0C3] px-4 font-semibold text-[#17211D]">Audit 페이지 편집 열기</Link>
+            </div>
+          ) : <div className="space-y-5">
             {selectedPage.fields.map((item) => {
               const key = `${selectedPage.id}.${item.id}`;
               const value = settings.values[key] ?? item.defaultValue;
@@ -211,7 +216,7 @@ export default function PageTextSettingsEditor() {
                 </label>
               );
             })}
-          </div>
+          </div>}
         </div>
       </div>
     </section>
