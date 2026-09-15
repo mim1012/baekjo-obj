@@ -112,22 +112,6 @@ export default function MemberListPage() {
     );
   }
 
-  // 전체 페이지 ErrorState는 "최초 1회 로드"가 실패했을 때만 쓴다(아직 MemberFilters가 렌더된
-  // 적이 없으므로 언마운트 걱정이 없다). initialLoadDone 이후의 조회 실패는 검색 입력창을
-  // 유지해야 하므로 메인 렌더 경로 안에서 인라인 배너로 보여준다.
-  if (!initialLoadDone && error) {
-    return (
-      <div className="space-y-6">
-        <PageHeader title="회원 관리" description="가입된 전체 회원 목록을 조회하고 권한을 관리합니다." />
-        <ErrorState
-          title="데이터를 불러오지 못했습니다"
-          message={error.message || '알 수 없는 오류가 발생했습니다.'}
-          onRetry={handleRetry}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
@@ -154,8 +138,9 @@ export default function MemberListPage() {
           onStatusFilterChange={handleStatusFilterChange}
         />
 
-        {/* initialLoadDone 이후의 조회 실패 — MemberFilters는 유지하고 표 자리만 인라인
-            ErrorState로 대체한다(§M2: 전체 페이지 언마운트 금지). */}
+        {/* 최초 로드를 포함해 조회가 실패하면 MemberFilters는 유지하고 표+Pagination 자리를
+            인라인 ErrorState로 대체한다(§M2: 전체 페이지 언마운트 금지). Pagination도 이 분기
+            아래에 있어 에러 중에는 함께 숨는다. */}
         {error ? (
           <ErrorState
             title="목록을 새로 불러오지 못했습니다"

@@ -55,20 +55,15 @@ test('MemberFilters(검색 입력창)는 전체 페이지 LoadingState early-ret
   // MemberFilters 렌더 지점이 로딩 early-return 블록보다 뒤에 있어야, 그 early-return이 실행될
   // 때 MemberFilters는 아직 렌더되지 않은(=별도의 나중 return에 속한) 것이 보장된다.
   expect(filtersIndex).toBeGreaterThan(loadingGuardIndex);
-
-  // 로딩 early-return 블록과 error early-return 블록을 제외한, 그 이후의 메인 return 블록에
-  // MemberFilters가 있어야 한다 — 즉 loading/error 분기 전용 블록 내부가 아니어야 한다.
-  const errorGuardIndex = source.search(/if \(!initialLoadDone && error\)\s*\{\s*\n\s*return\s*\(/);
-  expect(errorGuardIndex).toBeGreaterThan(loadingGuardIndex);
-  expect(filtersIndex).toBeGreaterThan(errorGuardIndex);
 });
 
-test('initialLoadDone 이후의 조회 실패는 전체 페이지 ErrorState로 빠지지 않고, MemberFilters 아래 인라인 배너로 표시된다', () => {
-  // 전체 페이지 ErrorState early-return은 반드시 "!initialLoadDone && error" 조건에 걸려 있어야
-  // 한다 — initialLoadDone이 true가 되면(최초 로드 완료 후) 이 분기가 다시 참이 될 수 없으므로,
-  // 이후의 조회 실패는 MemberFilters를 언마운트하는 전체 페이지 교체로 새지 않는다.
-  const errorGuardIndex = source.search(/if \(!initialLoadDone && error\)\s*\{\s*\n\s*return\s*\(/);
-  expect(errorGuardIndex).toBeGreaterThan(-1);
+test('최초 로드 실패를 포함한 모든 조회 실패는 전체 페이지 early-return이 아니라 인라인 ErrorState로 처리된다', () => {
+  // 전체 페이지 ErrorState early-return이 없어야 한다 — error를 가드로 한 "if (...) { return (" 블록이
+  // 없다. (과거에는 "!initialLoadDone && error"로 걸린 도달 불가능한 죽은 분기가 있었다: setError는
+  // catch 한 곳뿐이고 같은 finally 가드가 setInitialLoadDone(true)를 항상 함께 실행하므로, error가
+  // 보이는 첫 렌더에서 이미 initialLoadDone === true였다.)
+  const deadBranchMatch = source.match(/if \([^)]*error[^)]*\)\s*\{\s*\n\s*return\s*\(/);
+  expect(deadBranchMatch).toBeNull();
 
   // 메인 렌더 경로(MemberFilters 렌더 이후)에 error를 조건으로 한 인라인 분기가 있어야 한다.
   const filtersIndex = source.indexOf('<MemberFilters');
@@ -76,7 +71,8 @@ test('initialLoadDone 이후의 조회 실패는 전체 페이지 ErrorState로 
   expect(inlineErrorIndex).toBeGreaterThan(filtersIndex);
 
   // 그 인라인 분기 안에 재시도 가능한 ErrorState가 있어야 한다(전체 페이지 교체가 아니라
-  // MemberFilters와 같은 렌더 트리 안의 형제 요소로).
+  // MemberFilters·Pagination과 같은 렌더 트리 안의 형제 요소로 — 즉 error 중에는 Pagination도
+  // 함께 숨는다).
   const inlineBlock = source.slice(inlineErrorIndex, inlineErrorIndex + 400);
   expect(inlineBlock).toContain('<ErrorState');
   expect(inlineBlock).toContain('onRetry={handleRetry}');
