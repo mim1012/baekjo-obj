@@ -86,6 +86,31 @@ test.describe('ShopContent — 고민 필터 옵션은 provider filterOptions, �
   });
 });
 
+// 2026-09-15 리뷰 비차단 지적 3: 상품 상세('관련 고민')가 옛 concerns 사전(getConcernsConfigWithFallback)
+// 을 써서, 새 태그 관리 화면에서 만든 태그(사전에 없는 slug)가 상세에서만 조용히 사라졌다.
+// ProductCard와 같은 정본(product tags config)을 쓰도록 고쳤다 — 마크업(ProductDetailClient에 넘기는
+// relatedConcernLabels prop 등)은 그대로 두고 라벨의 출처만 바꾼다.
+test.describe('상품 상세(shop/[id]) — 관련 고민 라벨은 옛 concerns 사전이 아니라 product tags config를 쓴다', () => {
+  const detailSource = read('src', 'app', 'shop', '[id]', 'page.tsx');
+
+  test('getConcernsConfigWithFallback(concerns 사전) 대신 getPublicProductTagsConfig를 쓴다', () => {
+    expect(detailSource).not.toContain('getConcernsConfigWithFallback');
+    expect(detailSource).not.toContain("from '@/lib/concerns/repo'");
+    expect(detailSource).toContain(
+      "import { getPublicProductTagsConfig } from '@/lib/productTags/repo';",
+    );
+    expect(detailSource).toContain('getPublicProductTagsConfig()');
+  });
+
+  test('ProductCard와 동일한 규칙(hiddenSlugs 제외, 미등록 태그는 원문 유지)으로 relatedConcernLabels를 만든다', () => {
+    expect(detailSource).toContain('relatedConcernLabels');
+    expect(detailSource).toContain('hiddenTagSlugs');
+    // 미등록(사전에 없는) slug를 버리지 않고 원문을 label로 쓴다 — ProductCard의 `labelBySlug[tag] ?? tag`
+    // 와 동등한 폴백이다. 옛 구현은 concernTitleBySlug.get(slug)만 쓰고 없으면 filter(Boolean)로 버렸다.
+    expect(detailSource).toContain('tagBySlug.get(slug)?.label ?? slug');
+  });
+});
+
 test.describe('공개 필터 옵션 기본값 = productTags 설정 기본값', () => {
   test('기본 필터 옵션은 config 기본값과 동일하고, showInShopFilter && isVisible인 5개뿐이다', () => {
     const expected = defaultProductTagsConfig.items

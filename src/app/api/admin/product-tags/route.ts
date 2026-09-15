@@ -8,7 +8,11 @@ import {
   isProductTagsConfig,
   saveProductTagsConfig,
 } from '@/lib/productTags/repo';
-import { createProductTagSlug, type ProductTagDefinition } from '@/lib/productTags/config';
+import {
+  createProductTagSlug,
+  isProductTagSlug,
+  type ProductTagDefinition,
+} from '@/lib/productTags/config';
 import { logServerError } from '@/lib/logServerError';
 
 export async function GET() {
@@ -78,6 +82,21 @@ export async function PUT(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+  // slug 형식은 상품 검증기(src/lib/products/validate.ts)와 동일한 규칙(isProductTagSlug)이다.
+  // isProductTagsConfig도 결국 이 규칙으로 거부하지만, 여기서 먼저 걸러 어느 항목의 slug가
+  // 문제인지 필드 단위로 알려준다(리뷰 B2 — 사전 저장은 되는데 상품 저장만 400 나던 계약 불일치).
+  const items = (body as { items?: unknown } | null)?.items;
+  if (Array.isArray(items)) {
+    const invalidIndex = items.findIndex(
+      (item) => !isProductTagSlug((item as { slug?: unknown } | null)?.slug),
+    );
+    if (invalidIndex !== -1) {
+      return NextResponse.json(
+        { error: 'invalid-slug', field: `items[${invalidIndex}].slug` },
+        { status: 400 },
+      );
+    }
   }
   if (!isProductTagsConfig(body)) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });

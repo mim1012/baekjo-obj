@@ -128,3 +128,56 @@ test.describe('0168 마이그레이션 계약', () => {
     expect(sql).not.toContain('40001');
   });
 });
+
+// 2026-09-15 리뷰 비차단 지적 2: normalizePetType(src/lib/products/repo.ts)가 유니온 밖 id를
+// 이제 그대로 통과시킨다(예전엔 전부 'both'로 접혀 모든 펫 필터에 잡혔다). 0168이 CHECK 제약을
+// 풀어 앞으로 자유 텍스트 pet_type이 들어올 수 있으므로, 그런 상품이 "펫 필터 없음"·"전체" 보기에서
+// 조용히 사라지지 않아야 한다(단, 특정 펫 필터에는 당연히 안 걸린다).
+function buildProduct(petType: string): Product {
+  return {
+    id: `p-${petType}`,
+    brandId: 'b-test',
+    brandName: '테스트 브랜드',
+    name: '알 수 없는 펫타입 상품',
+    price: 10_000,
+    rating: 4,
+    reviewCount: 0,
+    category: '푸드',
+    categorySlug: 'food',
+    lifestyleCategory: '식사와 영양',
+    concernTags: [],
+    petType: petType as Product['petType'],
+    ageGroup: 'all',
+    image: '',
+    stock: 1,
+    description: '',
+    tags: [],
+    isBest: false,
+    isRecommended: false,
+  };
+}
+
+test.describe('공개 필터(filterProducts) — 유니온 밖 pet_type 값은 숨겨지지 않는다', () => {
+  test('알려진 펫 id가 하나도 없는 상품도 필터 미지정(펫 필터 없음)에서는 보인다', () => {
+    const product = buildProduct('exotic-reptile');
+    expect(filterProducts([product], {}).map((p) => p.id)).toEqual([product.id]);
+  });
+
+  test('알려진 펫 id가 하나도 없는 상품도 "전체"(petType=all) 보기에서는 보인다', () => {
+    const product = buildProduct('exotic-reptile');
+    expect(filterProducts([product], { petType: 'all' }).map((p) => p.id)).toEqual([product.id]);
+  });
+
+  test('알려진 펫 id가 하나도 없는 상품은 특정 펫 필터(dog)에는 걸리지 않는다', () => {
+    const product = buildProduct('exotic-reptile');
+    expect(filterProducts([product], { petType: 'dog' })).toEqual([]);
+  });
+
+  test('빈 문자열 pet_type(both 폴백 대상)도 필터 미지정·전체 보기에서 사라지지 않는다', () => {
+    // normalizePetType은 빈/깨진 원문을 'both'로 방어하지만, 이 스펙은 그 정규화 이전 값(빈 문자열)이
+    // filterProducts 단계에서도 안전한지(예외 없이 '보임' 처리) 직접 확인한다.
+    const product = buildProduct('');
+    expect(filterProducts([product], {}).map((p) => p.id)).toEqual([product.id]);
+    expect(filterProducts([product], { petType: 'all' }).map((p) => p.id)).toEqual([product.id]);
+  });
+});

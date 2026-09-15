@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { validateProductFields, toInsertInput } from '@/lib/products/validate';
+import { createProductTagSlug, isProductTagSlug } from '@/lib/productTags/config';
+import { isValidProductPetTypeValue } from '@/lib/products/petTypes';
 
 // 상품 입력 검증 순수 함수 스펙 — DB/브라우저/네트워크 불필요.
 // 회귀 배경: detailBlocks 분기 누락 → 상세 에디터 PATCH가 빈 객체가 되어 400 (상세 본문 영구 미저장),
@@ -442,6 +444,74 @@ test.describe('concernTags — slug 형식 검증(createProductTagSlug와 동일
     const result = validateProductFields(body, true);
     expect(result).not.toBeNull();
     expect(result!.concernTags).toEqual([]);
+  });
+});
+
+// 2026-09-15 리뷰 B2: 이 파일의 concernTags slug 검사가 productTags/config의 isProductTagSlug와
+// 다른 정규식을 갖고 있으면, 태그 사전 PUT은 저장을 허용하고 상품 저장만 400이 나는 계약
+// 불일치가 재발한다. 두 정의가 항상 같은 판정을 내리는지 이 파일에서도 직접 잠근다.
+test.describe('concernTags — productTags/config의 isProductTagSlug와 판정이 항상 같다(B2)', () => {
+  const cases = ['skin', 'tag-1', 'a-b-c', '피부_관리', 'Skin', 'in valid', '-skin', 'skin-', 'a--b', ''];
+
+  for (const slug of cases) {
+    test(`'${slug}' — validateProductFields(concernTags)와 isProductTagSlug의 통과/거부가 일치한다`, () => {
+      const expected = isProductTagSlug(slug);
+      const result = validateProductFields({ concernTags: [slug] }, false);
+      expect(result !== null).toBe(expected);
+    });
+  }
+
+  test('createProductTagSlug가 만든 slug는 concernTags로도 그대로 저장된다', () => {
+    const slug = createProductTagSlug('피부 관리', []);
+    const result = validateProductFields({ concernTags: [slug] }, false);
+    expect(result).not.toBeNull();
+    expect(result!.concernTags).toEqual([slug]);
+  });
+});
+
+// 비차단 지적 2: categorySettings.petTypes에서 뽑은 허용 id 목록을 넘기면 그 밖의 id는 거부한다.
+// 관리자 라우트(admin/partner products)가 실제로 넘기는 조건이라, 여기서는 순수 함수 계약만
+// 잠근다 — 옵션을 안 넘기면(라우트가 categorySettings 조회에 실패한 경우) 기존처럼 형태만 본다.
+test.describe('petType — 허용 id 목록(allowedPetTypeIds)이 있으면 그 밖의 id를 거부한다', () => {
+  test('옵션을 넘기지 않으면 categorySettings 밖의 커스텀 id도 그대로 통과한다(기존 계약)', () => {
+    const result = validateProductFields({ petType: 'exotic-reptile' }, false);
+    expect(result).not.toBeNull();
+  });
+
+  test('allowedPetTypeIds에 있는 id는 통과한다', () => {
+    const result = validateProductFields(
+      { petType: 'dog' },
+      false,
+      { allowedPetTypeIds: ['dog', 'cat', 'small'] },
+    );
+    expect(result).not.toBeNull();
+    expect(result!.petType).toBe('dog');
+  });
+
+  test('allowedPetTypeIds 밖의 id는 거부된다', () => {
+    const result = validateProductFields(
+      { petType: 'exotic-reptile' },
+      false,
+      { allowedPetTypeIds: ['dog', 'cat', 'small'] },
+    );
+    expect(result).toBeNull();
+  });
+
+  test('복수 선택 중 하나라도 허용 목록 밖이면 전체가 거부된다', () => {
+    const petType = JSON.stringify(['dog', 'exotic-reptile']);
+    const result = validateProductFields(
+      { petType },
+      false,
+      { allowedPetTypeIds: ['dog', 'cat', 'small'] },
+    );
+    expect(result).toBeNull();
+  });
+
+  test('isValidProductPetTypeValue도 동일하게 allowedIds 밖의 id를 거부한다', () => {
+    expect(isValidProductPetTypeValue('dog', ['dog', 'cat'])).toBe(true);
+    expect(isValidProductPetTypeValue('exotic-reptile', ['dog', 'cat'])).toBe(false);
+    // 빈 배열은 "허용 없음"이 아니라 "제한 없음"으로 취급한다(조회 실패 시 안전한 기본값).
+    expect(isValidProductPetTypeValue('exotic-reptile', [])).toBe(true);
   });
 });
 

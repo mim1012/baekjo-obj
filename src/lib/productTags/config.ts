@@ -23,6 +23,25 @@ export interface AdminProductTagsConfig extends ProductTagsConfig {
 }
 
 /**
+ * 상품 concernTags(src/lib/products/validate.ts)와 태그 사전 저장 경로
+ * (src/lib/productTags/repo.ts의 isTag, PUT /api/admin/product-tags)가 공유하는 단일 slug
+ * 형식 규칙. createProductTagSlug가 항상 만들어내는 형태(영소문자·숫자·단일 하이픈, 앞뒤
+ * 하이픈 없음)와 정확히 같아야 한다 — 두 곳이 서로 다른 규칙을 쓰면 사전에는 저장되는데
+ * 상품 저장은 400으로 막히는 계약 불일치가 생긴다(2026-09-15 리뷰 B2).
+ */
+export const PRODUCT_TAG_SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const MAX_PRODUCT_TAG_SLUG_LENGTH = 100;
+
+export function isProductTagSlug(value: unknown): value is string {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    value.length <= MAX_PRODUCT_TAG_SLUG_LENGTH &&
+    PRODUCT_TAG_SLUG_RE.test(value)
+  );
+}
+
+/**
  * 현재 고객 홈페이지의 상품 카드 표기와 스토어 필터를 그대로 옮긴 기준값.
  * 관리자 기능을 배포하기 전/후의 고객 화면이 달라지지 않도록 문구와 순서를 바꾸지 않는다.
  */

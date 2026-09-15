@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   createProductTagSlug,
   defaultProductTagsConfig,
+  isProductTagSlug,
   resolveProductTagsConfig,
 } from '@/lib/productTags/config';
 
@@ -121,5 +122,72 @@ test.describe('0167_product_tags_config_reconcile.sql — staging 재실행 안�
 
   test('40001(serialization_failure) SQLSTATE를 쓰지 않는다', () => {
     expect(migrationSql).not.toContain('40001');
+  });
+});
+
+// 2026-09-15 리뷰 B2: PUT /api/admin/product-tags(태그 사전 저장)가 상품 검증기(validate.ts)보다
+// 느슨한 slug 형식을 받아들여, 사전에는 저장되는데 그 태그를 고른 상품 저장은 400으로 막히는
+// 계약 불일치가 있었다. isProductTagSlug(이 파일)를 단일 정의로 두고 validate.ts·
+// productTags/repo.ts(isTag)·PUT 라우트가 모두 이걸 쓰도록 고쳤다.
+// repo.ts는 'server-only'를 import하므로(위 39번째 줄 근처 주석과 동일한 이유) 이 spec 프로세스에서
+// 그냥 require하면 항상 throw한다 — repo.ts/route.ts 쪽 검증은 소스 grep으로 잠근다.
+test.describe('isProductTagSlug — 상품 검증기·태그 사전 저장이 공유하는 단일 slug 규칙(B2)', () => {
+  test('createProductTagSlug가 만든 slug(한글 라벨의 tag-N 폴백 포함)는 항상 통과한다', () => {
+    expect(isProductTagSlug(createProductTagSlug('피부 관리', []))).toBe(true);
+    expect(isProductTagSlug(createProductTagSlug('New Tag', []))).toBe(true);
+    expect(isProductTagSlug('skin')).toBe(true);
+    expect(isProductTagSlug('tag-1')).toBe(true);
+  });
+
+  test('한글 자유 텍스트·대문자·공백이 섞인 slug는 거부된다(사전에만 저장되고 상품은 400 나던 값)', () => {
+    expect(isProductTagSlug('피부_관리')).toBe(false);
+    expect(isProductTagSlug('Skin')).toBe(false);
+    expect(isProductTagSlug('in valid')).toBe(false);
+  });
+
+  test('앞뒤/연속 하이픈은 거부된다', () => {
+    expect(isProductTagSlug('-skin')).toBe(false);
+    expect(isProductTagSlug('skin-')).toBe(false);
+    expect(isProductTagSlug('a--b')).toBe(false);
+  });
+
+  test('빈 문자열·비문자열은 거부된다', () => {
+    expect(isProductTagSlug('')).toBe(false);
+    expect(isProductTagSlug(undefined)).toBe(false);
+    expect(isProductTagSlug(null)).toBe(false);
+    expect(isProductTagSlug(123)).toBe(false);
+  });
+});
+
+test.describe('B2 회귀 잠금 — 소스 grep (isTag·validate.ts·PUT 라우트가 같은 규칙을 쓴다)', () => {
+  test('productTags/repo.ts의 isTag가 isProductTagSlug로 slug 형식을 검사한다', () => {
+    const repoSrc = fs.readFileSync(
+      path.join(root, 'src', 'lib', 'productTags', 'repo.ts'),
+      'utf8',
+    );
+    expect(repoSrc).toContain("isProductTagSlug,");
+    expect(repoSrc).toContain("from '@/lib/productTags/config'");
+    expect(repoSrc).toContain('isProductTagSlug(tag.slug)');
+    // 예전의 "공백만 아니면 통과" 체크로 되돌아가지 않았는지 잠근다.
+    expect(repoSrc).not.toContain('tag.slug.trim().length > 0');
+  });
+
+  test('products/validate.ts가 자체 TAG_SLUG_RE 대신 productTags/config의 isProductTagSlug를 쓴다', () => {
+    const validateSrc = fs.readFileSync(
+      path.join(root, 'src', 'lib', 'products', 'validate.ts'),
+      'utf8',
+    );
+    expect(validateSrc).toContain("import { isProductTagSlug } from '@/lib/productTags/config'");
+    expect(validateSrc).not.toContain('const TAG_SLUG_RE');
+  });
+
+  test('PUT /api/admin/product-tags가 형식이 틀린 slug를 필드 단위 에러 코드로 거절한다', () => {
+    const routeSrc = fs.readFileSync(
+      path.join(root, 'src', 'app', 'api', 'admin', 'product-tags', 'route.ts'),
+      'utf8',
+    );
+    expect(routeSrc).toContain('isProductTagSlug');
+    expect(routeSrc).toContain("error: 'invalid-slug'");
+    expect(routeSrc).toContain('items[');
   });
 });

@@ -7,6 +7,7 @@ import { listProducts } from '@/lib/products/repo';
 import { logServerError } from '@/lib/logServerError';
 import {
   defaultProductTagsConfig,
+  isProductTagSlug,
   resolveProductTagsConfig,
   type AdminProductTagsConfig,
   type ProductTagDefinition,
@@ -15,11 +16,13 @@ import {
 
 const CONFIG_ROW_ID = 'default';
 
+// slug 형식은 isProductTagSlug(단일 정의: src/lib/productTags/config.ts)로 검사한다 — 상품
+// 검증기(src/lib/products/validate.ts)와 정규식을 공유해, PUT으로 형식에 안 맞는 slug가
+// 사전에 저장된 뒤 그 태그를 고른 상품 저장이 400으로 막히는 계약 불일치를 막는다(리뷰 B2).
 function isTag(value: unknown): value is ProductTagDefinition {
   if (!value || typeof value !== 'object') return false;
   const tag = value as Record<string, unknown>;
-  return typeof tag.slug === 'string'
-    && tag.slug.trim().length > 0
+  return isProductTagSlug(tag.slug)
     && typeof tag.label === 'string'
     && tag.label.trim().length > 0
     && typeof tag.isVisible === 'boolean'

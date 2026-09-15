@@ -181,8 +181,11 @@ test.describe('상품 관리자 저장 → 공개 페이지 바인딩 경로', (
     const detailPage = src('src', 'app', 'shop', '[id]', 'page.tsx');
     const detailClient = src('src', 'components', 'shop', 'ProductDetailClient.tsx');
 
-    expect(detailPage).toContain('getConcernsConfigWithFallback()');
-    expect(detailPage).toContain('concernTitleBySlug');
+    // 2026-09-15 리뷰 비차단 지적 3: 옛 concerns 사전(getConcernsConfigWithFallback) 대신
+    // 태그 관리 화면의 정본인 product tags config(getPublicProductTagsConfig)를 쓴다 — 새로
+    // 만든 태그가 옛 사전에 없어 상세에서만 조용히 사라지던 문제를 막는다.
+    expect(detailPage).toContain('getPublicProductTagsConfig()');
+    expect(detailPage).toContain('tagBySlug');
     expect(detailPage).toContain('product.concernTags');
     expect(detailPage).not.toContain('product.relatedConcernSlugs');
     expect(detailClient).toContain('aria-label="상품 카테고리"');

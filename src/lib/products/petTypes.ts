@@ -55,9 +55,22 @@ export function productSupportsPetType(value: string | null | undefined, petType
   return parseProductPetTypes(value).includes(petTypeId);
 }
 
-export function isValidProductPetTypeValue(value: string): boolean {
+/**
+ * allowedIds를 넘기면(관리자 라우트가 categorySettings.petTypes에서 뽑은 id 목록) 그 밖의
+ * id는 거부한다 — 넘기지 않으면(undefined/null) 기존처럼 형태(개수·길이)만 검사한다.
+ * 빈 배열은 "허용 id 없음"이 아니라 "제한 없음"으로 취급해, categorySettings 조회가
+ * 비어있는 배열로 실패해도 기존 상품 저장이 전부 막히는 사고를 막는다.
+ */
+export function isValidProductPetTypeValue(
+  value: string,
+  allowedIds?: readonly string[] | null,
+): boolean {
   const ids = parseProductPetTypes(value);
-  return ids.length > 0 &&
+  const shapeValid = ids.length > 0 &&
     ids.length <= MAX_PRODUCT_PET_TYPES &&
     ids.every((id) => id.length <= MAX_PET_TYPE_ID_LENGTH);
+  if (!shapeValid) return false;
+  if (!allowedIds || allowedIds.length === 0) return true;
+  const allowed = new Set(allowedIds);
+  return ids.every((id) => allowed.has(id));
 }

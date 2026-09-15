@@ -730,6 +730,7 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
                         key={tag.slug}
                         type="button"
                         aria-pressed={selected}
+                        aria-label={tag.label}
                         onClick={() => toggleConcernTag(tag.slug, !selected)}
                         className={`min-h-11 border px-3 py-2 text-left text-sm transition-colors ${
                           selected
@@ -737,7 +738,8 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
                             : 'border-[#D1D0C8] bg-white text-[#59615B] hover:border-[#68776C] hover:bg-[#FAF9F5]'
                         }`}
                       >
-                        {selected ? '✓ ' : '+ '}{tag.label}
+                        <span aria-hidden="true">{selected ? '✓ ' : '+ '}</span>
+                        {tag.label}
                       </button>
                     );
                   })}
@@ -1198,7 +1200,17 @@ function ProductImageOrderEditor({
   entityId?: string;
   draftId?: string;
 }) {
+  // 대표 이미지는 필수(REQUIRED_FIELDS 'image')이므로, 아직 이미지가 하나도 없는 신규 상품이라도
+  // 대표 이미지용 업로더 슬롯 1개는 항상 보여준다 — images가 완전히 비어 있으면 빈 문자열 placeholder
+  // 1개짜리 표시용 배열(rows)을 대신 그린다(images 자체는 여전히 빈 배열로 유지, 실제 상태는
+  // update()가 append로 처리).
+  const rows = images.length > 0 ? images : [''];
+
   const update = (idx: number, url: string) => {
+    if (idx >= images.length) {
+      onChange([...images, url]);
+      return;
+    }
     onChange(images.map((img, i) => (i === idx ? url : img)));
   };
   const remove = (idx: number) => onChange(images.filter((_, i) => i !== idx));
@@ -1209,11 +1221,11 @@ function ProductImageOrderEditor({
     onChange([fields.image, ...fields.images]);
   };
 
-  const lastEmpty = images.length > 0 && images[images.length - 1].trim() === '';
+  const lastEmpty = rows.length > 0 && rows[rows.length - 1].trim() === '';
 
   return (
     <div className="space-y-3">
-      {images.map((img, idx) => (
+      {rows.map((img, idx) => (
         <div key={idx} className="rounded-md border border-gray-200 bg-gray-50 p-3">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -1237,7 +1249,7 @@ function ProductImageOrderEditor({
               <button
                 type="button"
                 onClick={() => move(idx, 'up')}
-                disabled={idx === 0 || !img.trim() || !images[idx - 1]?.trim()}
+                disabled={idx === 0 || !img.trim() || !rows[idx - 1]?.trim()}
                 aria-label={`${idx + 1}번 이미지 위로 이동`}
                 className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
               >
@@ -1246,7 +1258,7 @@ function ProductImageOrderEditor({
               <button
                 type="button"
                 onClick={() => move(idx, 'down')}
-                disabled={idx === images.length - 1 || !img.trim() || !images[idx + 1]?.trim()}
+                disabled={idx === rows.length - 1 || !img.trim() || !rows[idx + 1]?.trim()}
                 aria-label={`${idx + 1}번 이미지 아래로 이동`}
                 className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-600 disabled:opacity-30"
               >
@@ -1255,8 +1267,9 @@ function ProductImageOrderEditor({
               <button
                 type="button"
                 onClick={() => remove(idx)}
+                disabled={idx === 0 && images.length === 0}
                 aria-label={idx === 0 ? '대표 이미지 삭제' : `갤러리 이미지 ${idx} 삭제`}
-                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                className="inline-flex size-9 items-center justify-center rounded border border-gray-200 bg-white text-gray-400 hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
               >
                 <X size={16} />
               </button>
