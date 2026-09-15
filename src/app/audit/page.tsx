@@ -93,9 +93,9 @@ export default function AuditPage() {
           <PageIntro
             className="lg:col-span-6"
             eyebrow="BAEKJO OBJET AUDIT STANDARD"
-            title={<>선택보다 먼저,<br />확인하는 기준이 있습니다.</>}
+            title={<>선택보다 먼저,<br /><span className="whitespace-nowrap">확인하는 기준이 있습니다.</span></>}
             description={
-              <p>
+              <p data-page-text-key="audit.heroDescription">
                 백조오브제는 많이 소개하는 것보다 왜 선택했는지 설명할 수 있는 것을 중요하게 생각합니다.
                 브랜드의 철학과 제품의 특성, 실제 사용에서 확인되는 부분까지 각 브랜드와 제품에 맞춰 살펴봅니다.
               </p>
@@ -105,7 +105,7 @@ export default function AuditPage() {
             }
           />
 
-          <div className="relative h-[300px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
+          <div className="relative h-[230px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
             <Image
               src="/images/brand-curation-hero.webp"
               alt="반려생활 상품 자료를 살펴보는 백조오브제 Audit"
@@ -116,8 +116,9 @@ export default function AuditPage() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#17211D]/80 via-[#17211D]/10 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 p-6 text-[#FBFAF7] sm:p-8">
-              <p className="mt-2 max-w-md text-[20px] font-bold leading-[1.35] text-[#FBFAF7] sm:text-[24px]">
-                모든 브랜드를 소개하지 않습니다. 확인하고 선택한 브랜드만 소개합니다.
+              <p className="mt-2 max-w-md text-[18px] font-bold leading-[1.4] text-[#FBFAF7] sm:text-[24px] sm:leading-[1.35]">
+                <span data-page-text-key="audit.heroImageCaptionLine1" className="block whitespace-nowrap">모든 브랜드를 소개하지 않습니다.</span>
+                <span data-page-text-key="audit.heroImageCaptionLine2" className="block whitespace-nowrap">확인하고 선택한 브랜드만 소개합니다.</span>
               </p>
             </div>
           </div>
@@ -129,7 +130,7 @@ export default function AuditPage() {
           <div className="max-w-3xl">
             <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">AUDIT CHECKPOINTS</p>
             <h2 className="mt-3 text-[24px] font-bold tracking-tight text-[#17211D] sm:text-[30px]">브랜드를 바라보는 기준</h2>
-            <p className="mt-3 break-keep text-[15px] leading-[1.8] text-[#6F766F]">
+            <p data-page-text-key="audit.checkpointDescription" className="mt-3 break-keep text-[15px] leading-[1.8] text-[#6F766F]">
               브랜드마다 제품과 이야기가 다른 만큼 확인하는 내용도 달라집니다. 브랜드의 특성에 맞춰 필요한 자료와 내용을 함께 검토합니다.
             </p>
           </div>
@@ -145,7 +146,7 @@ export default function AuditPage() {
                 <article key={pillar.number} className="group flex min-h-[360px] w-[82vw] max-w-[352px] shrink-0 snap-start flex-col rounded-[20px] border border-[#E7E0D5] bg-white p-5 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-[#D8C4A3] hover:shadow-[0_20px_40px_-15px_rgba(23,33,29,0.08)] md:min-h-0 md:w-auto md:max-w-none md:p-6">
                   <div className="flex items-start justify-between">
                     <EditorialIconBadge icon={Icon} />
-                    <span className="font-editorial text-lg italic text-[#A8742E]">{pillar.number}</span>
+                    <span data-page-text-key={`audit.pillar${pillar.number.replace(/^0/u, '')}Number`} className="font-editorial text-lg italic text-[#A8742E]">{pillar.number}</span>
                   </div>
                   <h2 className="mt-5 text-[18px] font-bold tracking-tight text-[#17211D]">{pillar.title}</h2>
                   <p className="mt-3 break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">{pillar.description}</p>
@@ -169,7 +170,7 @@ export default function AuditPage() {
           <SectionHeading
             eyebrow="AUDIT PROCESS"
             title="Audit은 완료된 뒤에도 이어집니다"
-            description={<p>새롭게 확인되는 내용과 변화가 있다면 다시 살펴보고, 필요한 내용을 더해 기록을 보완합니다.</p>}
+            description={<p data-page-text-key="audit.ongoingDescription">새롭게 확인되는 내용과 변화가 있다면 다시 살펴보고, 필요한 내용을 더해 기록을 보완합니다.</p>}
           />
 
           <ol
@@ -178,7 +179,7 @@ export default function AuditPage() {
           >
             {auditSteps.map((step, index) => (
               <li key={step.title} className="flex min-h-[220px] w-[82vw] max-w-[352px] shrink-0 snap-start flex-col gap-4 rounded-[20px] border border-[#E7E0D5] bg-white p-5 md:grid md:min-h-0 md:w-auto md:max-w-none md:grid-cols-[64px_1fr] md:gap-3 md:rounded-none md:border-x-0 md:border-t-0 md:bg-transparent md:px-0 md:py-6">
-                <span className="font-editorial text-xl italic text-[#A8742E]">0{index + 1}</span>
+                <span data-page-text-key={`audit.process${index + 1}Number`} className="font-editorial text-xl italic text-[#A8742E]">0{index + 1}</span>
                 <div>
                   <h3 className="text-[18px] font-bold text-[#17211D]">{step.title}</h3>
                   <p className="mt-2 break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">{step.description}</p>
@@ -194,7 +195,7 @@ export default function AuditPage() {
           <SectionHeading
             eyebrow="HOW TO READ"
             title="화면에서는 이렇게 표시됩니다."
-            description={<p>Audit 완료 후 추가 확인이나 업데이트가 필요한 경우, 상태를 구분해 표시합니다.</p>}
+            description={<p data-page-text-key="audit.statusDescription">Audit 완료 후 추가 확인이나 업데이트가 필요한 경우, 상태를 구분해 표시합니다.</p>}
           />
 
           <div className="mt-8 grid gap-4 md:grid-cols-3 md:gap-5">
@@ -210,19 +211,19 @@ export default function AuditPage() {
             })}
           </div>
 
-          <p className="mt-5 break-keep text-[14px] leading-[1.8] text-[#59615B]">
+          <p data-page-text-key="audit.statusNote" className="mt-5 break-keep text-[14px] leading-[1.8] text-[#59615B]">
             ※ 추가 확인 중 및 업데이트 예정은 Audit 완료 이후의 추가 확인·보완 상태를 의미하며, 입점 및 제품 판매는 기존과 동일하게 유지됩니다.
           </p>
 
           <aside className="mt-6 rounded-[20px] border border-[#E7E0D5] bg-white p-5 sm:p-6" aria-label="백조오브제 Audit 안내">
-            <p className="break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">
+            <p data-page-text-key="audit.disclaimer" className="break-keep text-[15px] leading-[1.8] text-[#6F766F] md:text-[14px] md:leading-[1.7]">
               백조오브제 Audit은 브랜드가 제공한 자료와 공개 정보를 바탕으로 한 큐레이션 기준입니다.
               수의학적 진단, 법정 인증 또는 개별 반려동물에 대한 의료 판단을 대신하지 않습니다.
               질환이나 알레르기가 있다면 구매 전 수의사와 상담해 주세요.
             </p>
           </aside>
 
-          <p className="mt-5 break-keep text-[15px] leading-[1.8] text-[#59615B] md:text-[14px] md:leading-[1.7]">
+          <p data-page-text-key="audit.closingDescription" className="mt-5 break-keep text-[15px] leading-[1.8] text-[#59615B] md:text-[14px] md:leading-[1.7]">
             백조오브제 Audit은 브랜드와 제품에 대해 확인할 수 있는 자료와 내용을 바탕으로 진행하는 백조오브제의 자체 검토 시스템입니다. 법적 인증기관의 인증이나 개별 반려동물에 대한 의료적 판단을 의미하지 않습니다.
           </p>
         </div>

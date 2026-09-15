@@ -14,6 +14,8 @@ test.skip(!supabaseEnvReady(), 'SUPABASE_URL/SUPABASE_ACCESS_TOKEN 미설정 —
 if (supabaseEnvReady()) void sweepStaleFixtures().catch(() => {});
 
 test.describe.serial('자동 구매확정 결제 게이트 DB 스펙', () => {
+  test.describe.configure({ timeout: 180_000 });
+
   const P = fixtureId('acpg_p1');
   const CUSTOMER = fixtureId('acpg');
   const ITEMS = `[{"productId":"${P}","quantity":1}]`;

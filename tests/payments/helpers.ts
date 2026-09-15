@@ -23,6 +23,39 @@ export function fixtureId(name: string): string {
   return `__test_${RUN_ID}_${name}`;
 }
 
+export const PAYMENT_FIXTURE_DISCLOSURE_SQL = `jsonb_build_object(
+  'disclosure', jsonb_build_object(
+    'categoryCode', 'food',
+    'schemaVersion', '2026-09-06',
+    'values', jsonb_build_object(
+      'productName', '결제 통합 테스트 상품',
+      'foodType', '반려동물용 단미사료',
+      'manufacturer', '테스트 제조업체',
+      'countryOfOrigin', '대한민국',
+      'manufacturedAndExpiry', '제조일로부터 24개월',
+      'content', '200g',
+      'ingredients', '테스트 원재료',
+      'feedingAndStorage', '서늘한 곳에 보관',
+      'caution', '반려동물에게 맞지 않으면 급여를 중단하세요',
+      'support', '02-0000-0000'
+    )
+  )
+)`;
+
+export async function createPaymentFixtureSeller(): Promise<string> {
+  const sellerName = fixtureId('seller');
+  const rows = await q(`insert into public.sellers
+    (display_name, legal_name, representative_name, business_registration_number,
+     mail_order_registration_number, business_address, phone, email, return_address,
+     status, shipping_fee, dispatch_estimate, return_policy)
+    values ('${sellerName}', '결제 테스트 법인', '테스트 담당자', '000-00-00000',
+            '테스트-0000호', '서울특별시 테스트구 검증로 1', '02-0000-0000',
+            'payment-fixture@example.test', '서울특별시 테스트구 반품로 2',
+            'verified', 3000, '영업일 2일 이내 출고', '수령 후 7일 이내 교환·반품')
+    returning id;`);
+  return rows[0].id as string;
+}
+
 /**
  * 1시간 넘게 남아있는 고아 __test_* 레코드를 정리한다 — 중단/크래시된 과거 실행의 잔여물 청소용.
  * created_at 시간 게이트 덕에 현재 동시에 도는 다른 워커·실행의 살아있는 픽스처는 절대 건드리지
