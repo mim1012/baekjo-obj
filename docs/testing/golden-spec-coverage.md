@@ -150,6 +150,7 @@
 | 상품 폼 페이로드·검증·분할 | products/form-payload · validate · split-product-input · form-modal-reset-deps · detail-editor-ux · admin-product-edit-visibility · product-points · product-policy-fallback · no-html-sink · next-image-supabase-host | 🟡 ×10 |
 | 상품 바인딩·일괄 처리 | admin/product-binding-flow · product-bulk-actions · product-brand-field-coverage | 🟡 |
 | 주문 관리(검색·목록·전이·에러) | golden/admin-crud-orders / admin/order-search · order-funnel · order-list-status-controls · order-update-error-message · apply-order-updates | 🟢 / 🟡 |
+| 상품 수량 기반 취소 승인/반려/완료(PR4) | golden/admin-crud-order-cancellation.spec.ts / admin/order-cancel-aggregation · order-cancel-sql-contract · action-request-routes | 🟢 / 🟡 |
 | 리뷰 검수(moderation) | golden/admin-crud-reviews-moderation.spec.ts / admin/admin-reviews-moderation-contract.spec.ts | 🟢 (2026-07-23 G1 해소) / 🟡 |
 | 카테고리 설정 | golden/admin-crud-category-settings / admin/category-binding-flow | 🟢 / 🟡 |
 | 업로드 정책 | admin/admin-upload-policy.spec.ts | 🟡 |

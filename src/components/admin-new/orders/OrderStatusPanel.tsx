@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { DELIVERY_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order, type PaymentStatus } from '@/types';
+import { DELIVERY_STATUSES, DERIVED_ORDER_STATUSES, ORDER_STATUSES, PAYMENT_STATUSES, type Order, type PaymentStatus } from '@/types';
 import { updateOrderStatus } from '@/lib/storage';
 import { ALLOWED_MANUAL_PAYMENT_TRANSITIONS } from '@/lib/orders/paymentTransition';
 import { orderUpdateErrorMessage } from './orderUpdateErrorMessage';
@@ -21,6 +21,12 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
   // brandId 스냅샷이 있으면 'per-brand'(브랜드 주문) — 이 경우 송장은 업체별 카드에서만 입력받고
   // 하단 패널의 택배사/운송장 입력은 숨겨 이중 입력(및 고객 조회 미노출) 함정을 막는다.
   const isBrandOrder = groupItemsByBrand(order.items, []).mode === 'per-brand';
+  // 부분취소/부분취소완료는 아이템 레벨 취소 처리에서 파생되는 상태다(ORDER_STATUSES 관리자
+  // 화이트리스트 밖) — select에 이 값을 올리면 옵션 목록에 없는 값이라 표시가 깨지고, 저장 시
+  // 서버(admin/orders/[id]/route.ts validate())가 화이트리스트 밖 값이라 통째로 400 거부한다.
+  // 현재 상태가 파생값이면 select 대신 읽기 전용 텍스트로 보여주고, 저장 payload에도 절대
+  // 싣지 않는다(§10-9 드리프트 방지 — 관리자가 파생 상태를 수기로 세팅하는 경로를 열지 않는다).
+  const isDerivedOrderStatus = (DERIVED_ORDER_STATUSES as readonly string[]).includes(order.orderStatus);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     orderStatus: order.orderStatus,
@@ -72,18 +78,40 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
 
     try {
       setIsSaving(true);
-      // 브랜드 주문은 이 패널의 택배사/운송장 입력을 숨기지만, formData에는 초기값이 여전히
-      // 실려 있을 수 있다 — 저장 payload에서 명시적으로 제외해 shipments 테이블과 무관한
-      // orders 테이블 필드로 조용히 새어나가는 걸 막는다(관리자 이중 입력 함정 방지).
-      const payload = isBrandOrder
-        ? {
-            orderStatus: formData.orderStatus,
-            paymentStatus: formData.paymentStatus,
-            deliveryStatus: formData.deliveryStatus,
-            deliveryMemo: formData.deliveryMemo,
-          }
-        : { ...formData, trackingNumber: trimmedTracking };
-      await updateOrderStatus(order.id, payload);
+      // 변경된 필드만 payload에 싣는다 — admin/orders/[id]/route.ts의 validate()는 orderStatus가
+      // 오면 ORDER_STATUSES(파생 상태 제외) 화이트리스트로 검사하므로, 파생 상태(부분취소/
+      // 부분취소완료)인 주문을 무변경으로 저장할 때 orderStatus를 그대로 다시 보내면 통째로
+      // 400을 받는다(위 isDerivedOrderStatus 코멘트와 같은 함정). 브랜드 주문은 이 패널의
+      // 택배사/운송장 입력을 아예 숨기므로 그 두 필드는 원천 제외한다(관리자 이중 입력 함정 방지).
+      const payload: Partial<
+        Pick<Order, 'orderStatus' | 'paymentStatus' | 'deliveryStatus' | 'trackingNumber' | 'carrier' | 'deliveryMemo'>
+      > = {};
+      if (!isDerivedOrderStatus && formData.orderStatus !== order.orderStatus) {
+        payload.orderStatus = formData.orderStatus;
+      }
+      if (formData.paymentStatus !== order.paymentStatus) {
+        payload.paymentStatus = formData.paymentStatus;
+      }
+      if (formData.deliveryStatus !== order.deliveryStatus) {
+        payload.deliveryStatus = formData.deliveryStatus;
+      }
+      if (formData.deliveryMemo !== (order.deliveryMemo || '')) {
+        payload.deliveryMemo = formData.deliveryMemo;
+      }
+      if (!isBrandOrder) {
+        // 서버 검증은 트래킹 번호가 있으면 반드시 carrier도 같은 요청에 있어야 한다고 요구한다
+        // (택배사 없이 운송장만 저장되는 걸 막는 가드) — 둘 중 하나만 바뀌어도 항상 함께 보내
+        // "변경분만 전송" 규칙과 그 페어링 요구를 동시에 지킨다.
+        const trackingChanged = trimmedTracking !== (order.trackingNumber || '');
+        const carrierChanged = formData.carrier !== (order.carrier || '');
+        if (trackingChanged || carrierChanged) {
+          payload.trackingNumber = trimmedTracking;
+          payload.carrier = formData.carrier;
+        }
+      }
+      if (Object.keys(payload).length > 0) {
+        await updateOrderStatus(order.id, payload);
+      }
       await onUpdate();
     } catch (error) {
       alert(orderUpdateErrorMessage(error));
@@ -106,20 +134,30 @@ export default function OrderStatusPanel({ order, onUpdate }: OrderStatusPanelPr
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <FormField
             label="주문 상태"
-            description="접수와 취소 처리만 관리합니다."
+            description={
+              isDerivedOrderStatus
+                ? '아이템별 취소 처리에서 자동 계산되는 상태라 수기로 바꿀 수 없습니다.'
+                : '접수와 취소 처리만 관리합니다.'
+            }
             className="rounded-lg border border-[#E7E0D3] bg-[#FBFAF6] p-4"
           >
-            <select
-              value={formData.orderStatus}
-              onChange={(e) => handleChange('orderStatus', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
-            >
-              {ORDER_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+            {isDerivedOrderStatus ? (
+              <p className="w-full rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-[#17201B]">
+                {order.orderStatus}
+              </p>
+            ) : (
+              <select
+                value={formData.orderStatus}
+                onChange={(e) => handleChange('orderStatus', e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:border-[#2F3B34] focus:ring-1 focus:ring-[#2F3B34]"
+              >
+                {ORDER_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            )}
           </FormField>
 
           <FormField

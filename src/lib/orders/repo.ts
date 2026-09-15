@@ -22,9 +22,12 @@ import {
   type RefundStatus,
 } from '@/lib/orders/refund';
 import {
+  ORDER_ACTION_REQUEST_ERROR_CODES,
   ORDER_ACTION_REQUEST_STATUSES,
   ORDER_ACTION_REQUEST_TYPES,
+  OrderActionRequestError,
   type OrderActionRequestItem,
+  type OrderActionRequestItemState,
   type OrderActionRequestRecord,
   type OrderActionRequestStatus,
   type OrderActionRequestType,
@@ -606,7 +609,7 @@ function parseActionRequest(raw: unknown): OrderActionRequestRecord {
   return {
     id: row.id, orderId: row.order_id, memberId: row.member_id,
     requestType: row.request_type as OrderActionRequestType, brandId: row.brand_id,
-    items: row.items as OrderActionRequestItem[], requestedAmount: row.requested_amount,
+    items: row.items as OrderActionRequestItemState[], requestedAmount: row.requested_amount,
     reason: row.reason, status: row.status as OrderActionRequestStatus,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
@@ -620,6 +623,38 @@ export async function listOrderActionRequests(orderId: string, memberId?: string
   return (data as unknown[]).map(parseActionRequest);
 }
 
+// transition_action_request/complete_action_request_and_restore가 안 쓰는 나머지 PT409 메시지도
+// 여기 열거해, ORDER_ACTION_REQUEST_ERROR_CODES(actionRequests.ts, OrderActionRequestError 타입
+// 유니온) 밖의 SQL 예외 텍스트를 뭉개지 않고 그대로 보존한다 — 호출부(관리자/회원 라우트)가
+// 각자 필요한 코드만 골라 매핑하고, 나머지는 안전한 기본값(ACTION_CONFLICT)으로 떨어진다.
+const KNOWN_ACTION_REQUEST_PT409_CODES = [
+  ...ORDER_ACTION_REQUEST_ERROR_CODES,
+  'ACTION_INVALID_TRANSITION',
+  'ACTION_REQUEST_ALREADY_EXISTS',
+  'ACTION_QUANTITY_EXCEEDS_REMAINING',
+] as const;
+
+/**
+ * 0169/0170 RPC(create_order_action_request/transition_action_request/
+ * complete_action_request_and_restore) 공용 에러 매핑. PT409 = 도메인 충돌(재시도 금지),
+ * P0002 = not-found — cms/repo.ts의 isRevisionConflict, refund.ts의 RefundValidationError와
+ * 같은 관용구다. 알려진 3코드(ORDER_ACTION_REQUEST_ERROR_CODES)는 타입이 있는
+ * OrderActionRequestError로, 나머지 알려진 SQL 코드는 그 텍스트를 그대로 담은 일반 Error로,
+ * 전혀 모르는 메시지는 'ACTION_CONFLICT'로 떨어진다(SQL이 나중에 새 코드를 추가해도 500이 아니라
+ * 안전한 409 폴백을 유지).
+ */
+function mapActionRequestRpcError(error: { code?: string | null; message?: string | null }): Error {
+  if (error.code === 'P0002') return new Error('ACTION_REQUEST_NOT_FOUND');
+  if (error.code === 'PT409') {
+    const message = error.message ?? '';
+    const domainCode = ORDER_ACTION_REQUEST_ERROR_CODES.find((code) => message.includes(code));
+    if (domainCode) return new OrderActionRequestError(domainCode);
+    const knownCode = KNOWN_ACTION_REQUEST_PT409_CODES.find((code) => message.includes(code));
+    return new Error(knownCode ?? 'ACTION_CONFLICT');
+  }
+  return new Error(error.message || 'action-request-error');
+}
+
 export async function createOrderActionRequest(input: {
   orderId: string;
   memberId: string;
@@ -629,11 +664,48 @@ export async function createOrderActionRequest(input: {
   requestedAmount: number;
   reason: string;
 }): Promise<OrderActionRequestRecord> {
-  const { data, error } = await getSupabase().from('order_action_requests').insert({
-    order_id: input.orderId, member_id: input.memberId, request_type: input.requestType,
-    brand_id: input.brandId, items: input.items, requested_amount: input.requestedAmount, reason: input.reason,
-  }).select(ACTION_REQUEST_COLUMNS).single();
-  if (error) throw new Error(error.code === '23505' ? 'action-request-already-exists' : error.message);
+  const { data, error } = await getSupabase().rpc('create_order_action_request', {
+    p_order_id: input.orderId,
+    p_member_id: input.memberId,
+    p_request_type: input.requestType,
+    p_brand_id: input.brandId,
+    p_items: input.items,
+    p_requested_amount: input.requestedAmount,
+    p_reason: input.reason,
+  });
+  if (error) throw mapActionRequestRpcError(error);
+  return parseActionRequest(data);
+}
+
+/** 관리자 승인/반려(0170 transition_action_request). orderId/actorId는 호출부(라우트)가 이미
+ *  requestId↔주문 소속을 검증했다는 것과 "누가 눌렀는지"를 나타내는 계약상의 자리다 — SQL
+ *  함수 자체는 감사 컬럼이 없어 p_request_id/p_action만 RPC에 실제로 전달된다. */
+export async function transitionOrderActionRequest(input: {
+  orderId: string;
+  requestId: string;
+  action: 'approve' | 'reject';
+  actorId: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('transition_action_request', {
+    p_request_id: input.requestId,
+    p_action: input.action === 'approve' ? 'APPROVE' : 'REJECT',
+  });
+  if (error) throw mapActionRequestRpcError(error);
+  return parseActionRequest(data);
+}
+
+/** 관리자 취소완료(0170 complete_action_request_and_restore) — 미결제 전량은 0031, 결제완료는
+ *  0072 환불 원장 증빙을 SQL 쪽에서 판정한다. 이 함수는 restore_stock_for_order를 직접 호출하지
+ *  않는다(그 책임은 항상 SQL 함수가 위임한 0031/0072가 진다). */
+export async function completeOrderActionRequest(input: {
+  orderId: string;
+  requestId: string;
+  actorId: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('complete_action_request_and_restore', {
+    p_request_id: input.requestId,
+  });
+  if (error) throw mapActionRequestRpcError(error);
   return parseActionRequest(data);
 }
 

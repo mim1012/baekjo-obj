@@ -32,7 +32,7 @@ export async function POST(request: Request) {
   try {
     const order = await getOrderById(body.orderId);
     if (!order || order.memberId !== member.memberId) return NextResponse.json({ error: 'not-found' }, { status: 404 });
-    if (['취소요청', '취소완료'].includes(order.orderStatus) || order.paymentStatus !== '결제완료') {
+    if (['취소요청', '부분취소', '취소완료'].includes(order.orderStatus) || order.paymentStatus !== '결제완료') {
       return NextResponse.json({ error: 'request-not-allowed' }, { status: 409 });
     }
     if (!(order.sellerGroups ?? []).some((group) => group.key === body.sellerKey)) {

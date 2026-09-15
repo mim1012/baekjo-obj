@@ -499,7 +499,17 @@ export const ORDER_STATUSES = [
   '취소완료',
 ] as const;
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+/**
+ * 파생(자동) 주문 상태 — 상품별 취소 요청 수량을 집계(aggregateOrderCancelStatus)해서만 만들어지며
+ * 관리자가 직접 선택하지 않는다. ORDER_STATUSES(관리자 PATCH·OrderStatusPanel select 화이트리스트)에는
+ * 절대 섞지 않는다 — 섞으면 관리자가 부분취소/부분취소완료를 수기로 세팅하는 경로가 열린다(§10-9 드리프트 방지).
+ */
+export const DERIVED_ORDER_STATUSES = ['부분취소', '부분취소완료'] as const;
+
+/** OrderStatus 타입의 SSOT. 수동 화이트리스트(ORDER_STATUSES) + 파생 상태(DERIVED_ORDER_STATUSES). */
+export const ALL_ORDER_STATUSES = [...ORDER_STATUSES, ...DERIVED_ORDER_STATUSES] as const;
+
+export type OrderStatus = (typeof ALL_ORDER_STATUSES)[number];
 
 /**
  * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.

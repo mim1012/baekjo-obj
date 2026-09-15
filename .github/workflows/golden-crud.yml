@@ -52,6 +52,7 @@ env:
     admin-crud-members.spec.ts
     admin-crud-members-pending-signup.spec.ts
     admin-crud-notices.spec.ts
+    admin-crud-order-cancellation.spec.ts
     admin-crud-order-policy.spec.ts
     admin-crud-page-texts.spec.ts
     admin-crud-orders.spec.ts

@@ -236,7 +236,7 @@ export default function OrderDetailPage({ id }: OrderDetailPageProps) {
           </FormSection>
 
           <OrderRefundPanel order={order} onUpdate={loadOrder} />
-          <OrderActionRequestsPanel order={order} />
+          <OrderActionRequestsPanel order={order} onUpdate={loadOrder} />
 
           <OrderSellerAcceptancePanel order={order} onUpdate={setOrder} />
 
