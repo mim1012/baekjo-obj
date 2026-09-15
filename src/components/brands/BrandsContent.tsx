@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import type { BrandsContentData } from '@/lib/cms/source/brands';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 interface Props {
   brands: Brand[];
@@ -103,20 +104,23 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
 
 
   const heroTitleLines = content.hero.title.split('\n');
+  const heroImage = resolveCmsImageProps(content.hero.image);
+  const partnershipImage = resolveCmsImageProps(content.partnership.image);
 
   return (
     <main className="brand-page bg-[#FFFEFB] pb-16 md:pb-24" data-cms-managed={managed ? 'brands' : undefined}>
       {/* 1. 브랜드관 히어로 */}
       <section data-testid="brands-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
-        <Image
-          src={content.hero.image}
+        {heroImage && <Image
+          src={heroImage.src}
+          unoptimized={heroImage.unoptimized}
           alt={content.hero.imageAlt}
           fill
           priority
           sizes="100vw"
           className="object-cover object-[72%_center] md:object-center"
           data-testid="brands-hero-image"
-        />
+        />}
         <div
           aria-hidden="true"
           className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.82)_0%,rgba(249,246,239,0.64)_54%,rgba(249,246,239,0.08)_76%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.68)_0%,rgba(249,246,239,0.34)_44%,rgba(249,246,239,0)_64%)]"
@@ -299,7 +303,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
           <div className="bg-[#F7F4ED] border border-[#E4DDD1] rounded-[20px] overflow-hidden flex flex-col md:flex-row items-center h-auto md:h-[180px] lg:h-[200px]">
              {/* Left Image */}
              <div className="w-full md:w-[28%] lg:w-[24%] h-[160px] md:h-full relative bg-[#E4DDD1]">
-               <Image src={content.partnership.image} alt={content.partnership.imageAlt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 30vw" />
+               {partnershipImage && <Image src={partnershipImage.src} unoptimized={partnershipImage.unoptimized} alt={content.partnership.imageAlt} fill className="object-cover" sizes="(max-width: 768px) 100vw, 30vw" />}
              </div>
              {/* Center Text */}
              <div className="w-full md:flex-1 flex flex-col justify-center px-6 md:px-10 py-8 md:py-0 text-center md:text-left">

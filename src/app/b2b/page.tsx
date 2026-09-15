@@ -15,6 +15,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectB2bContent, type B2bContent } from '@/lib/cms/source/b2b';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: 'B2B 파트너십',
@@ -39,6 +40,7 @@ export default async function B2BPage() {
     }
   }
   const content = selectB2bContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
 
   return (
     <div className="page-canvas" data-cms-managed={managed ? 'b2b' : undefined}>
@@ -62,8 +64,9 @@ export default async function B2BPage() {
           />
 
           <div className="relative h-[300px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
-            {content.hero.image && <Image
-              src={content.hero.image}
+            {heroImage && <Image
+              src={heroImage.src}
+              unoptimized={heroImage.unoptimized}
               alt={content.hero.imageAlt}
               fill
               priority

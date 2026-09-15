@@ -8,6 +8,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectExpertsContent, type ExpertsContent } from '@/lib/cms/source/experts';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '전문가 추천 | 백조오브제',
@@ -50,6 +51,7 @@ export default async function ExpertsPage({
     }
   }
   const content = selectExpertsContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
 
   const matchedRule = content.body.perspectiveItems.find((item) => item.filterValue === filter)?.productRule;
   const filteredProducts = products.filter(p => {
@@ -75,9 +77,9 @@ export default async function ExpertsPage({
                     <MultilineText text={content.hero.description} />
                  </p>
               </div>
-              {content.hero.image && <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
+              {heroImage && <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
                  <div className="relative w-full h-full max-w-[400px]">
-                    <Image src={content.hero.image} alt={content.hero.imageAlt} fill className="object-contain object-bottom" />
+                    <Image src={heroImage.src} unoptimized={heroImage.unoptimized} alt={content.hero.imageAlt} fill className="object-contain object-bottom" />
                  </div>
               </div>}
            </div>

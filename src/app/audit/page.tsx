@@ -16,6 +16,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectAuditContent, type AuditContent } from '@/components/admin-new/pages/auditContent';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '백조오브제 Audit의 검토 기준',
@@ -40,6 +41,7 @@ export default async function AuditPage() {
     }
   }
   const content = selectAuditContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
   return (
     <div data-audit-content={managed ? 'cms' : 'page-texts'} data-cms-managed={managed ? 'audit' : undefined} className="page-canvas [overflow-wrap:anywhere] [&_*]:min-w-0 [&_p]:whitespace-pre-wrap">
       {content.hero.visible && <section className="bg-noise border-b border-[#E7E0D5] bg-[#F7F4ED] py-12 md:py-14 lg:py-16">
@@ -62,8 +64,9 @@ export default async function AuditPage() {
           />
 
           <div className="relative min-h-[230px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:min-h-[360px] lg:col-span-6 lg:min-h-[410px]">
-            {content.hero.image && <Image
-              src={content.hero.image}
+            {heroImage && <Image
+              src={heroImage.src}
+              unoptimized={heroImage.unoptimized}
               alt={content.hero.imageAlt}
               fill
               priority

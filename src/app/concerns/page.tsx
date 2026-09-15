@@ -10,6 +10,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectConcernsContent, type ConcernsContent } from '@/lib/cms/source/concerns';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '케어 가이드',
@@ -38,13 +39,16 @@ export default async function ConcernsPage() {
     }
   }
   const content = selectConcernsContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
+  const insuranceImage = resolveCmsImageProps(content.insurance.image);
 
   return (
     <main className="flex flex-col bg-[#F8F6F0] w-full" data-cms-managed={managed ? 'concerns' : undefined}>
       {/* 2. 케어 가이드 인트로 — 홈과 같은 전체 배경형 히어로 */}
       {content.hero.visible && <section className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
-        {content.hero.image && <Image
-          src={content.hero.image}
+        {heroImage && <Image
+          src={heroImage.src}
+          unoptimized={heroImage.unoptimized}
           alt={content.hero.imageAlt}
           fill
           sizes="100vw"
@@ -118,8 +122,9 @@ export default async function ConcernsPage() {
               </Link>
             </div>
             <div className="w-full md:w-[25%] h-[200px] md:h-full relative mt-auto md:mt-0">
-              {content.insurance.image && <Image
-                src={content.insurance.image}
+              {insuranceImage && <Image
+                src={insuranceImage.src}
+                unoptimized={insuranceImage.unoptimized}
                 alt={content.insurance.imageAlt}
                 fill
                 className="object-cover object-[center_30%] md:object-center"

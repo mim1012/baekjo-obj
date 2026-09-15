@@ -11,6 +11,7 @@ import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectCareKitContent, type CareKitContent } from '@/lib/cms/source/care-kit';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '케어 키트 | 백조오브제',
@@ -59,6 +60,8 @@ export default async function CareKitLandingPage() {
     }
   }
   const content = selectCareKitContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
+  const partnerLogo = resolveCmsImageProps(content.body.partnerLogo);
 
   return (
     <div className="page-canvas" data-cms-managed={managed ? 'care-kit' : undefined}>
@@ -77,8 +80,9 @@ export default async function CareKitLandingPage() {
           />
 
           <div className="relative h-[300px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
-            {content.hero.image && <Image
-              src={content.hero.image}
+            {heroImage && <Image
+              src={heroImage.src}
+              unoptimized={heroImage.unoptimized}
               alt={content.hero.imageAlt}
               fill
               priority
@@ -141,8 +145,9 @@ export default async function CareKitLandingPage() {
           {content.body.partnerVisible && <div className="mt-8 grid gap-6 rounded-[24px] border border-[#E7E0D5] bg-[#FAF8F3] p-5 sm:p-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
             <div>
               <p className="font-editorial text-sm italic tracking-wide text-[#A8742E]">{content.body.partnerEyebrow}</p>
-              {content.body.partnerLogo && <Image
-                src={content.body.partnerLogo}
+              {partnerLogo && <Image
+                src={partnerLogo.src}
+                unoptimized={partnerLogo.unoptimized}
                 alt={content.body.partnerLogoAlt}
                 width={178}
                 height={43}
