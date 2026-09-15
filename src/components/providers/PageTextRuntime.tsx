@@ -10,7 +10,7 @@ import {
   type PageTextSettings,
 } from '@/data/pageTextContent';
 
-const EDITABLE_ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
+const EDITABLE_ATTRIBUTES = ['placeholder', 'title', 'aria-label', 'alt'] as const;
 
 /**
  * 공개 화면의 기존 마크업 구조를 바꾸지 않고, 환경설정에서 바꾼 평문만 고객 화면에 반영한다.
@@ -43,7 +43,17 @@ export default function PageTextRuntime() {
   useEffect(() => {
     if (!pathname || pathname.startsWith('/admin') || pathname.startsWith('/api')) return;
     const replacements = pageTextReplacementMap(pathname, settings);
-    if (replacements.size === 0) return;
+    const markedElements = [...document.querySelectorAll<HTMLElement>('[data-page-text-key]')];
+    const markedChanges = new Map<HTMLElement, string>();
+    for (const element of markedElements) {
+      const key = element.dataset.pageTextKey;
+      if (!key) continue;
+      const replacement = settings.values[key];
+      if (replacement === undefined || replacement === element.textContent) continue;
+      markedChanges.set(element, element.textContent ?? '');
+      element.textContent = replacement;
+    }
+    if (replacements.size === 0 && markedChanges.size === 0) return;
 
     const changedTexts = new Map<Text, { before: string; after: string }>();
     const changedAttributes = new Map<Element, Map<string, { before: string; after: string }>>();
@@ -122,6 +132,11 @@ export default function PageTextRuntime() {
           if (element.getAttribute(attribute) === record.after) {
             element.setAttribute(attribute, record.before);
           }
+        }
+      }
+      for (const [element, before] of markedChanges) {
+        if (element.isConnected && element.textContent === settings.values[element.dataset.pageTextKey ?? '']) {
+          element.textContent = before;
         }
       }
     };
