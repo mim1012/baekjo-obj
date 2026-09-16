@@ -199,70 +199,6 @@ const refundPolicyArticleItemFields: CmsItemFieldDefinition[] = [
   { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
 ];
 
-const privacyPurposeRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'category', label: '구분', type: 'textarea', description: '두 줄로 표시하려면 Enter를 누르세요.' },
-  { key: 'purpose', label: '처리목적', type: 'textarea' },
-  { key: 'requiredItems', label: '필수 처리항목', type: 'textarea' },
-  { key: 'optionalItems', label: '선택 처리항목', type: 'textarea', description: '선택항목이 없으면 비워두세요.' },
-  { key: 'note', label: '추가 안내', type: 'textarea', description: '카드번호 저장 여부처럼 함께 표시할 안내가 없으면 비워두세요.' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyCollectionMethodItemFields: CmsItemFieldDefinition[] = [
-  { key: 'body', label: '수집 방법', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyRetentionRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'information', label: '처리정보', type: 'text' },
-  { key: 'period', label: '원칙적 보유기간', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyStatutoryRetentionRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'record', label: '보존기록', type: 'textarea' },
-  { key: 'period', label: '보존기간', type: 'text' },
-  { key: 'basis', label: '근거', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyThirdPartyRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'category', label: '구분', type: 'text' },
-  { key: 'content', label: '내용', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyOutsourcingRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'trustee', label: '수탁자', type: 'text' },
-  { key: 'work', label: '위탁업무', type: 'textarea' },
-  { key: 'period', label: '보유·이용기간', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacySecurityMeasureRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'category', label: '구분', type: 'text' },
-  { key: 'measure', label: '주요 조치', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyContactRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'category', label: '구분', type: 'text' },
-  { key: 'content', label: '내용', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyReliefAgencyRowItemFields: CmsItemFieldDefinition[] = [
-  { key: 'agency', label: '기관', type: 'text' },
-  { key: 'phone', label: '전화', type: 'text' },
-  { key: 'homepage', label: '홈페이지', type: 'text', description: '예: privacy.kisa.or.kr' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
-const privacyPolicyChangeItemFields: CmsItemFieldDefinition[] = [
-  { key: 'body', label: '변경 안내', type: 'textarea' },
-  { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
-];
-
 const heroFields: CmsFieldDefinition[] = [
   toggle('hero.visible', '첫 화면 표시'),
   text('hero.eyebrow', '작은 영문 제목'),
@@ -362,17 +298,15 @@ const siteShell: CmsPageDefinition = {
       label: '회사·고객센터 정보',
       description: '푸터와 정책 화면에 공통으로 표시되는 사업자 정보입니다.',
       fields: [
-        text('company.serviceName', '서비스 이름'),
+        // 서비스명·이메일·운영시간·개인정보책임자·호스팅제공자는 편집 필드였으나 어느 렌더러도
+        // 소비하지 않았다(푸터는 아래 7필드만 렌더, 법무 {{company.*}} 토큰은 CMS가 아니라
+        // COMPANY 상수(src/data/company.ts)를 치환) — 죽은 노브라 편집기에서 제거한다.
         text('company.name', '상호'),
         text('company.ceo', '대표자'),
         text('company.businessNumber', '사업자등록번호'),
         text('company.mailOrderNumber', '통신판매업 신고번호'),
         textarea('company.address', '사업장 주소'),
         text('company.tel', '고객센터 전화'),
-        text('company.email', '고객센터 이메일'),
-        textarea('company.supportHours', '고객센터 운영시간'),
-        text('company.privacyOfficer', '개인정보 보호책임자'),
-        text('company.hostingProvider', '호스팅 제공자'),
         url('company.businessLookupUrl', '사업자정보 조회 주소'),
       ],
     },
@@ -569,7 +503,6 @@ const concernsIndex: CmsPageDefinition = {
       description: '일상에서 함께 확인하면 좋은 관리 주제입니다.',
     },
     insurance: {
-      visible: true,
       title: '우리 아이에게 필요한 보장은 무엇일까요?',
       description: '나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.',
       buttonLabel: '보험 분석하기',
@@ -616,7 +549,6 @@ const concernsIndex: CmsPageDefinition = {
       label: '보험 안내 배너',
       description: '공통 설정에서 펫보험을 켠 경우에만 표시되는 배너입니다.',
       fields: [
-        toggle('insurance.visible', '배너 표시'),
         textarea('insurance.title', '제목'),
         textarea('insurance.description', '설명'),
         text('insurance.buttonLabel', '버튼 이름'),
@@ -1068,12 +1000,6 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         ],
       },
       {
-        id: 'solutions',
-        label: '3가지 솔루션',
-        description: '3가지 솔루션 영역의 제목입니다. 카드(이미지·링크)는 이 화면에서 편집할 수 없습니다.',
-        fields: [text('solutions.title', '영역 제목')],
-      },
-      {
         id: 'insuranceBanner',
         label: '펫보험 안내 배너',
         description: '펫보험 안내 배너 문구입니다. 보험 기능이 꺼져 있으면(features.insurance) 화면에 노출되지 않습니다.',
@@ -1196,384 +1122,6 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
     refundPolicyArticleItemFields,
   ),
 ];
-
-const privacyDefinition = CMS_PAGE_DEFINITIONS.find((definition) => definition.key === 'privacy');
-if (privacyDefinition) {
-  Object.assign(privacyDefinition.defaultContent, {
-    featuredNotice: {
-      visible: true,
-      title: '※핵심 안내',
-      body: '필수정보는 회원관리와 주문 중개에 필요한 최소 범위에서 처리하고, 마케팅 및 반려동물 맞춤정보는 선택적으로 처리합니다. 판매자 제공은 주문별로 별도 동의를 받으며, 회사는 만 14세 미만 아동의 회원가입을 받지 않습니다.',
-    },
-    purposeTable: {
-      visible: true,
-      title: '1. 개인정보의 처리 목적 및 항목',
-      description: '회사는 다음 목적에 필요한 최소한의 개인정보를 처리합니다. 선택항목을 입력하거나 선택 동의 하지 않아도 해당 선택 기능 외의 기본 서비스는 이용할 수 있습니다.',
-      footerNote: '회사는 주민등록번호 등 고유식별정보 또는 이용자 본인의 건강정보 등 민감정보를 원칙적으로 수집하지 않습니다. 이용자가 문의·게시물 등에 불필요한 개인정보나 민감정보를 기재하지 않도록 유의해 주시기 바랍니다.',
-      headers: {
-        category: '구분',
-        purpose: '처리목적',
-        items: '처리항목',
-      },
-      rows: [
-        {
-          category: '· 회원가입\n· 관리',
-          purpose: '회원 식별, 가입 의사 확인, 본인 및 만 14세 이상 확인, 부정이용 방지, 고지·통지',
-          requiredItems: '· 필수 : 이름, 이메일 주소, 비밀번호, 휴대전화번호, 만 14세 이상 확인값',
-          optionalItems: '',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 주문\n· 통신판매중개',
-          purpose: '구매신청, 주문 전달, 배송·취소·교환·반품·환급 지원, 거래 기록 관리',
-          requiredItems: '· 필수 : 구매자 이름·연락처·이메일, 수령인 이름·연락처·배송지, 주문상품·수량·금액',
-          optionalItems: '· 선택 : 배송요청사항',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 결제\n· 환급 지원',
-          purpose: '결제 승인·취소, 대금 정산 지원, 부정결제 방지, 환급 처리',
-          requiredItems: '결제수단, 결제 승인·취소정보, 환급이 필요한 경우 예금주·은행명·계좌번호',
-          optionalItems: '',
-          note: '※카드번호 등 원결제 정보는 회사가 직접 저장하지 않음',
-          visible: true,
-        },
-        {
-          category: '· 고객상담\n· 분쟁처리',
-          purpose: '문의자 확인, 문의·불만 처리, 사실관계 확인, 결과 통지',
-          requiredItems: '· 필수 : 이름, 연락처, 이메일, 주문번호, 문의내용',
-          optionalItems: '· 선택 : 첨부파일·이미지',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 후기\n· 게시물',
-          purpose: '구매후기 운영, 게시물 관리, 부정게시물 방지',
-          requiredItems: '회원 식별정보, 주문내역, 게시물 내용, 첨부 이미지',
-          optionalItems: '',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 케어가이드\n· 맞춤추천',
-          purpose: '반려동물 생활관리 정보와 상품·콘텐츠 추천',
-          requiredItems: '',
-          optionalItems: '· 선택 : 반려동물 이름, 종류, 품종, 나이, 체중, 생활·케어 관심사항',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 입점\n· B2B 문의',
-          purpose: '입점·제휴 검토, 담당자 연락, 계약 및 업무 협의',
-          requiredItems: '· 필수 : 상호, 사업자등록번호, 대표자명, 담당자 이름·연락처·이메일, 문의내용',
-          optionalItems: '· 선택 : 제안서·증빙서류',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 마케팅',
-          purpose: '이벤트·혜택·신규 서비스 안내',
-          requiredItems: '',
-          optionalItems: '· 선택 : 이름, 휴대전화번호, 이메일, 수신동의 일시·방법',
-          note: '',
-          visible: true,
-        },
-        {
-          category: '· 자동생성정보',
-          purpose: '접속 유지, 보안, 부정이용 방지, 서비스 이용 통계와 품질 개선',
-          requiredItems: 'IP 주소, 쿠키, 접속 일시, 서비스 이용기록, 기기·브라우저 정보',
-          optionalItems: '',
-          note: '',
-          visible: true,
-        },
-      ],
-    },
-    collectionMethods: {
-      visible: true,
-      title: '2. 개인정보의 수집 방법',
-      items: [
-        { body: '회원가입, 주문·결제, 고객센터, 후기 작성, 케어가이드, 입점·제휴 문의 과정에서 이용자가 직접 입력하는 방법', visible: true },
-        { body: '서비스 이용 과정에서 쿠키, 접속기록 등 정보가 자동으로 생성·수집되는 방법', visible: true },
-        { body: '전자결제대행사 등 서비스 제공 과정에서 이용자의 동의를 받은 사업자로부터 제공받는 방법', visible: true },
-      ],
-    },
-    retentionTable: {
-      visible: true,
-      title: '3. 개인정보의 처리 및 보유기간',
-      description: '회사는 개인정보의 처리 목적이 달성되거나 보유기간이 끝나면 지체 없이 파기합니다. 다만, 관계 법령에 따른 보존의무가 있거나 이용자에게 별도로 동의받은 경우에는 해당 기간 동안 분리하여 보관합니다.',
-      headers: {
-        information: '처리정보',
-        period: '원칙적 보유기간',
-      },
-      rows: [
-        { information: '회원정보', period: '회원 탈퇴 시까지. 다만 진행 중인 거래·분쟁 또는 법령상 보존의무가 있으면 해당 종료 시까지', visible: true },
-        { information: '케어가이드·맞춤추천 정보', period: '이용자가 삭제하거나 동의를 철회한 때 또는 회원 탈퇴 시까지', visible: true },
-        { information: '마케팅 수신정보', period: '동의 철회 또는 회원 탈퇴 시까지', visible: true },
-        { information: '입점·B2B 문의', period: '문의 처리 완료 후 3년. 계약이 체결된 경우 계약 및 관계 법령상 보존기간까지', visible: true },
-      ],
-    },
-    statutoryRetentionTable: {
-      visible: true,
-      headers: {
-        record: '보존기록',
-        period: '보존기간',
-        basis: '근거',
-      },
-      rows: [
-        { record: '표시·광고에 관한 기록', period: '6개월', basis: '전자상거래 등에서의 소비자보호에 관한 법률', visible: true },
-        { record: '계약 또는 청약철회 등에 관한 기록', period: '5년', basis: '전자상거래 등에서의 소비자보호에 관한 법률', visible: true },
-        { record: '대금결제 및 재화 등의 공급에 관한 기록', period: '5년', basis: '전자상거래 등에서의 소비자보호에 관한 법률', visible: true },
-        { record: '소비자 불만 또는 분쟁처리에 관한 기록', period: '3년', basis: '전자상거래 등에서의 소비자보호에 관한 법률', visible: true },
-        { record: '웹사이트 접속기록', period: '3개월', basis: '통신비밀보호법 등 관계 법령', visible: true },
-        { record: '세금계산서 등 거래 증빙', period: '5년', basis: '국세기본법 등 세법', visible: true },
-      ],
-    },
-    thirdPartyProvision: {
-      visible: true,
-      title: '4. 개인정보의 제3자 제공',
-      introduction: '회사는 원칙적으로 이용자의 개인정보를 처리 목적 범위 내에서만 이용하며, 이용자의 동의 없이 제3자에게 제공하지 않습니다. 다만, 법률에 특별한 규정이 있거나 법령상 요건을 충족하는 경우에는 예외로 합니다.\n회사는 통신판매중개 서비스를 위해 결제 단계에서 제공받는 자를 특정하고 별도의 동의를 받은 후, 해당 주문의 판매자에게 다음 정보를 제공합니다.',
-      headers: {
-        category: '구분',
-        content: '내용',
-      },
-      rows: [
-        { category: '제공받는 자', content: '해당 주문의 상품 상세페이지 및 주문·결제 화면에 표시된 판매자', visible: true },
-        { category: '제공 목적', content: '주문 확인, 상품 배송, 청약철회·취소·교환·반품·환급, A/S, 고객상담 및 분쟁처리', visible: true },
-        { category: '제공 항목', content: '구매자 이름·연락처·이메일, 수령인 이름·연락처·배송지, 주문상품 정보, 배송 요청사항', visible: true },
-        { category: '보유·이용기간', content: '거래 목적 달성 시까지. 다만 제공받는 자가 관계 법령에 따라 보존할 의무가 있는 경우 해당 기간까지', visible: true },
-      ],
-      refusalTitle: '※동의 거부 안내',
-      refusalBody: '이용자는 판매자에 대한 개인정보 제공 동의를 거부할 수 있습니다. 다만 주문·배송 이행에 반드시 필요한 정보이므로 동의를 거부하면 해당 상품을 구매할 수 없습니다.',
-    },
-    outsourcing: {
-      visible: true,
-      title: '5. 개인정보 처리업무의 위탁',
-      introduction: '회사는 원활한 서비스 제공을 위하여 다음과 같이 개인정보 처리업무를 위탁합니다. 회사는 위탁계약에서 처리 목적 외 이용금지, 안전성 확보조치, 재위탁 제한, 관리·감독 및 손해배상 등 관계 법령상 필요한 사항을 정하고 수탁자를 관리·감독합니다.',
-      headers: {
-        trustee: '수탁자',
-        work: '위탁업무',
-        period: '보유·이용기간',
-      },
-      rows: [
-        {
-          trustee: '토스페이먼츠(주)',
-          work: '전자결제, 결제취소·환급 지원, 결제대금예치 및 부정결제 방지',
-          period: '위탁계약 종료 또는 처리 목적 달성 시까지. 다만 관계 법령상 보존기간은 해당 기간까지',
-          visible: true,
-        },
-      ],
-      footerNote: '수탁자 또는 위탁업무가 추가·변경되는 경우 회사는 지체 없이 이 방침을 통해 공개합니다. 입점 판매자는 회사의 수탁자가 아니라 구매자와 직접 거래하는 별도의 개인정보처리자입니다.',
-    },
-    securityMeasuresTable: {
-      visible: true,
-      title: '11. 개인정보의 안전성 확보조치',
-      introduction: '회사는 개인정보가 분실·도난·유출·위조·변조 또는 훼손되지 않도록 다음 조치를 시행합니다.',
-      headers: {
-        category: '구분',
-        measure: '주요 조치',
-      },
-      rows: [
-        { category: '관리적 조치', measure: '개인정보 보호책임자 지정, 내부관리계획 수립·시행, 취급자 최소화 및 교육, 수탁자 관리·감독', visible: true },
-        { category: '기술적 조치', measure: '접근권한 관리, 비밀번호 등 중요정보 암호화, 접속기록 보관 및 위·변조 방지, 보안프로그램 설치·갱신', visible: true },
-        { category: '물리적 조치', measure: '개인정보 보관장소 및 서류에 대한 접근통제', visible: true },
-      ],
-    },
-    privacyContactTable: {
-      visible: true,
-      title: '12. 개인정보 보호책임자 및 열람청구 접수처',
-      introduction: '회사는 개인정보 처리에 관한 업무를 총괄하고 관련 문의, 불만처리, 피해구제 및 열람청구를 처리하기 위하여 아래와 같이 개인정보 보호책임자와 접수처를 지정합니다.',
-      headers: {
-        category: '구분',
-        content: '내용',
-      },
-      rows: [
-        { category: '개인정보 보호책임자', content: '백보윤 / 대표', visible: true },
-        { category: '담당·접수부서', content: '백조 오브제 고객센터', visible: true },
-        { category: '전화', content: COMPANY.tel, visible: true },
-        { category: '전자우편', content: 'thebaekjo@naver.com', visible: true },
-      ],
-      footerNote: '이용자는 서비스 이용 중 발생한 모든 개인정보 보호 관련 문의와 권리행사를 위 연락처로 요청할 수 있으며, 회사는 지체 없이 답변하고 처리하겠습니다.',
-    },
-    rightsReliefTable: {
-      visible: true,
-      title: '13. 권익침해 구제방법',
-      introduction: '이용자는 회사의 자체 처리 결과에 만족하지 않거나 별도의 상담·분쟁조정이 필요한 경우 다음 기관에 문의할 수 있습니다.',
-      headers: {
-        agency: '기관',
-        phone: '전화',
-        homepage: '홈페이지',
-      },
-      rows: [
-        { agency: '개인정보침해 신고센터', phone: '국번 없이 118', homepage: 'privacy.kisa.or.kr', visible: true },
-        { agency: '개인정보분쟁조정위원회', phone: '1833-6972', homepage: 'www.kopico.go.kr', visible: true },
-        { agency: '대검찰청 1301 검찰콜센터', phone: '국번 없이 1301', homepage: 'www.spo.go.kr', visible: true },
-        { agency: '경찰청 사이버범죄 신고시스템', phone: '국번 없이 182', homepage: 'ecrm.police.go.kr', visible: true },
-      ],
-    },
-    policyChanges: {
-      visible: true,
-      title: '14. 개인정보처리방침의 변경',
-      items: [
-        { body: '이 방침은 2026년 9월 1일부터 시행합니다.', visible: true },
-        { body: '방침이 변경되는 경우 회사는 시행일 7일 전부터 홈페이지 공지사항 등을 통해 알립니다. 이용자의 권리에 중대한 영향을 미치는 변경은 시행일 30일 전부터 알립니다.', visible: true },
-        { body: '회사는 이전 방침을 이용자가 확인할 수 있도록 개정 이력을 공개합니다.', visible: true },
-      ],
-      effectiveDateLabel: '시행일',
-      effectiveDate: '2026년 9월 1일',
-    },
-  });
-  privacyDefinition.sections.splice(
-    1,
-    0,
-    {
-      id: 'featured-notice',
-      label: '핵심 안내 상자',
-      description: '개인정보 처리방침 첫 설명 아래의 테두리 안내 상자입니다.',
-      fields: [
-        toggle('featuredNotice.visible', '핵심 안내 표시'),
-        text('featuredNotice.title', '안내 제목'),
-        textarea('featuredNotice.body', '안내 내용'),
-      ],
-    },
-    {
-      id: 'purpose-table',
-      label: '개인정보 처리 목적 및 항목 표',
-      description: '고객 화면의 3열 표입니다. 행을 추가·수정·삭제하고 순서를 바꿀 수 있습니다.',
-      fields: [
-        toggle('purposeTable.visible', '표 표시'),
-        text('purposeTable.title', '표 위 제목'),
-        textarea('purposeTable.description', '표 위 설명'),
-        text('purposeTable.headers.category', '첫 번째 열 제목'),
-        text('purposeTable.headers.purpose', '두 번째 열 제목'),
-        text('purposeTable.headers.items', '세 번째 열 제목'),
-        items('purposeTable.rows', '처리 목적 및 항목', privacyPurposeRowItemFields, '각 행이 고객 화면의 표 한 줄과 모바일 카드 하나로 표시됩니다.'),
-        textarea('purposeTable.footerNote', '표 아래 민감정보 안내'),
-      ],
-    },
-    {
-      id: 'collection-methods',
-      label: '2. 개인정보 수집 방법',
-      description: '개인정보를 어떤 경로로 받는지 목록으로 표시합니다.',
-      fields: [
-        toggle('collectionMethods.visible', '수집 방법 표시'),
-        text('collectionMethods.title', '제목'),
-        items('collectionMethods.items', '수집 방법 목록', privacyCollectionMethodItemFields, '항목을 추가·수정·삭제하고 순서를 바꿀 수 있습니다.'),
-      ],
-    },
-    {
-      id: 'retention-table',
-      label: '3. 개인정보 처리 및 보유기간',
-      description: '처리정보별 보유기간을 데스크톱 표와 모바일 카드로 표시합니다.',
-      fields: [
-        toggle('retentionTable.visible', '보유기간 표 표시'),
-        text('retentionTable.title', '표 위 제목'),
-        textarea('retentionTable.description', '표 위 설명'),
-        text('retentionTable.headers.information', '첫 번째 열 제목'),
-        text('retentionTable.headers.period', '두 번째 열 제목'),
-        items('retentionTable.rows', '처리정보별 보유기간', privacyRetentionRowItemFields, '각 행이 고객 화면의 표 한 줄과 모바일 카드 하나로 표시됩니다.'),
-      ],
-    },
-    {
-      id: 'statutory-retention-table',
-      label: '법정 보존기록 표',
-      description: '3번 보유기간 표 바로 아래에 법령상 보존기록·기간·근거를 표시합니다.',
-      fields: [
-        toggle('statutoryRetentionTable.visible', '법정 보존기록 표 표시'),
-        text('statutoryRetentionTable.headers.record', '첫 번째 열 제목'),
-        text('statutoryRetentionTable.headers.period', '두 번째 열 제목'),
-        text('statutoryRetentionTable.headers.basis', '세 번째 열 제목'),
-        items('statutoryRetentionTable.rows', '법정 보존기록', privacyStatutoryRetentionRowItemFields, '행을 추가·수정·삭제하고 순서를 바꿀 수 있습니다.'),
-      ],
-    },
-    {
-      id: 'third-party-provision',
-      label: '4. 개인정보의 제3자 제공',
-      description: '판매자에게 제공되는 개인정보와 동의 거부 안내를 관리합니다.',
-      fields: [
-        toggle('thirdPartyProvision.visible', '제3자 제공 영역 표시'),
-        text('thirdPartyProvision.title', '제목'),
-        textarea('thirdPartyProvision.introduction', '제3자 제공 설명'),
-        text('thirdPartyProvision.headers.category', '첫 번째 열 제목'),
-        text('thirdPartyProvision.headers.content', '두 번째 열 제목'),
-        items('thirdPartyProvision.rows', '제3자 제공 내역', privacyThirdPartyRowItemFields, '행을 추가·수정·삭제하고 순서를 바꿀 수 있습니다.'),
-        text('thirdPartyProvision.refusalTitle', '동의 거부 안내 제목'),
-        textarea('thirdPartyProvision.refusalBody', '동의 거부 안내 내용'),
-      ],
-    },
-    {
-      id: 'outsourcing',
-      label: '5. 개인정보 처리업무의 위탁',
-      description: '수탁자별 위탁업무와 보유기간을 관리합니다. 각 행은 PC 표 한 줄과 모바일 카드 하나로 연결됩니다.',
-      fields: [
-        toggle('outsourcing.visible', '위탁 영역 표시'),
-        text('outsourcing.title', '제목'),
-        textarea('outsourcing.introduction', '위탁 설명'),
-        text('outsourcing.headers.trustee', '첫 번째 열 제목'),
-        text('outsourcing.headers.work', '두 번째 열 제목'),
-        text('outsourcing.headers.period', '세 번째 열 제목'),
-        items('outsourcing.rows', '수탁자 및 위탁업무', privacyOutsourcingRowItemFields, '수탁자를 추가·수정·삭제하고 표시 순서를 바꿀 수 있습니다.'),
-        textarea('outsourcing.footerNote', '표 아래 안내'),
-      ],
-    },
-  );
-  privacyDefinition.sections.push(
-    {
-      id: 'security-measures-table',
-      label: '11. 개인정보의 안전성 확보조치',
-      description: '안전성 확보조치를 PC 표와 모바일 카드로 관리합니다.',
-      fields: [
-        toggle('securityMeasuresTable.visible', '안전조치 영역 표시'),
-        text('securityMeasuresTable.title', '제목'),
-        textarea('securityMeasuresTable.introduction', '표 위 설명'),
-        text('securityMeasuresTable.headers.category', '첫 번째 열 제목'),
-        text('securityMeasuresTable.headers.measure', '두 번째 열 제목'),
-        items('securityMeasuresTable.rows', '안전성 확보조치', privacySecurityMeasureRowItemFields, '조치를 추가·수정·삭제하고 표시 순서를 바꿀 수 있습니다.'),
-      ],
-    },
-    {
-      id: 'privacy-contact-table',
-      label: '12. 개인정보 보호책임자 및 열람청구 접수처',
-      description: '개인정보 보호책임자와 접수처를 PC 표와 모바일 카드로 관리합니다.',
-      fields: [
-        toggle('privacyContactTable.visible', '책임자·접수처 영역 표시'),
-        text('privacyContactTable.title', '제목'),
-        textarea('privacyContactTable.introduction', '표 위 설명'),
-        text('privacyContactTable.headers.category', '첫 번째 열 제목'),
-        text('privacyContactTable.headers.content', '두 번째 열 제목'),
-        items('privacyContactTable.rows', '책임자 및 접수처', privacyContactRowItemFields, '담당자나 접수처를 추가·수정·삭제하고 표시 순서를 바꿀 수 있습니다.'),
-        textarea('privacyContactTable.footerNote', '표 아래 문의 안내'),
-      ],
-    },
-    {
-      id: 'rights-relief-table',
-      label: '13. 권익침해 구제방법',
-      description: '상담·분쟁조정 기관의 전화와 홈페이지를 PC 표와 모바일 카드로 관리합니다.',
-      fields: [
-        toggle('rightsReliefTable.visible', '구제기관 영역 표시'),
-        text('rightsReliefTable.title', '제목'),
-        textarea('rightsReliefTable.introduction', '표 위 설명'),
-        text('rightsReliefTable.headers.agency', '첫 번째 열 제목'),
-        text('rightsReliefTable.headers.phone', '두 번째 열 제목'),
-        text('rightsReliefTable.headers.homepage', '세 번째 열 제목'),
-        items('rightsReliefTable.rows', '권익침해 구제기관', privacyReliefAgencyRowItemFields, '기관을 추가·수정·삭제하고 표시 순서를 바꿀 수 있습니다.'),
-      ],
-    },
-    {
-      id: 'policy-changes',
-      label: '14. 개인정보처리방침의 변경',
-      description: '방침의 시행일과 변경 공지 기준을 관리합니다.',
-      fields: [
-        toggle('policyChanges.visible', '방침 변경 안내 표시'),
-        text('policyChanges.title', '제목'),
-        items('policyChanges.items', '변경 안내 목록', privacyPolicyChangeItemFields, '안내를 추가·수정·삭제하고 표시 순서를 바꿀 수 있습니다.'),
-        text('policyChanges.effectiveDateLabel', '시행일 이름'),
-        text('policyChanges.effectiveDate', '시행일'),
-      ],
-    },
-  );
-}
 
 export const CMS_PAGE_DEFINITION_MAP = new Map(
   CMS_PAGE_DEFINITIONS.map((definition) => [definition.key, definition]),

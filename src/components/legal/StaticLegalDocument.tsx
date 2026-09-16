@@ -18,6 +18,8 @@ interface StaticLegalDocumentProps {
     readonly effectiveDate: string;
     readonly introduction: string;
     readonly articles: readonly LegalArticle[];
+    readonly companyBoxTitle?: string;
+    readonly footerNote?: string;
   };
   readonly showCompany: boolean;
   /** 하단 "부칙 — 이 문서는 …부터 시행합니다." 문구 표시 여부. 기존 호출자(terms/privacy)는 항상
@@ -84,7 +86,7 @@ export default function StaticLegalDocument({
 
           {showCompany && (
             <div className="mt-14 rounded-2xl border border-[#D8D6CE] bg-white/60 p-6 text-sm leading-7 text-[#4A514A]">
-              <p className="font-semibold text-[#202521]">사업자 정보</p>
+              <p className="font-semibold text-[#202521]">{document.companyBoxTitle || '사업자 정보'}</p>
               <p className="mt-2">
                 상호: {COMPANY.name} · 대표자: {COMPANY.ceo}
                 <br />
@@ -95,6 +97,12 @@ export default function StaticLegalDocument({
                 고객센터: {COMPANY.tel} · {COMPANY.email}
               </p>
             </div>
+          )}
+
+          {document.footerNote && (
+            <p className="mt-10 whitespace-pre-line break-keep text-sm leading-7 text-[#4A514A]">
+              {document.footerNote}
+            </p>
           )}
 
           {showAppendixNote && (

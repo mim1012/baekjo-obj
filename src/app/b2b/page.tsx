@@ -122,10 +122,24 @@ export default async function B2BPage() {
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {content.programs.items.filter((program) => program.visible).map((program, index) => {
               const Icon = programIcons[index % programIcons.length] ?? PackageCheck;
+              const programImage = resolveCmsImageProps(program.image);
               return (
                 <article key={program.title} className="group flex h-full flex-col rounded-[20px] border border-[#E7E0D5] bg-white p-5 transition-all duration-700 ease-out hover:-translate-y-1 hover:border-[#D8C4A3] hover:shadow-[0_20px_40px_-15px_rgba(23,33,29,0.08)] md:p-6">
                   <div className="flex items-start justify-between">
-                    <EditorialIconBadge icon={Icon} />
+                    {programImage ? (
+                      <span className="relative size-11 shrink-0 overflow-hidden rounded-2xl bg-[#F3EEE6]">
+                        <Image
+                          src={programImage.src}
+                          unoptimized={programImage.unoptimized}
+                          alt={program.imageAlt || program.title}
+                          fill
+                          sizes="44px"
+                          className="object-cover"
+                        />
+                      </span>
+                    ) : (
+                      <EditorialIconBadge icon={Icon} />
+                    )}
                     <span className="font-editorial text-sm italic text-[#A8742E]">{program.eyebrow}</span>
                   </div>
                   <h2 className="mt-5 text-[20px] font-bold tracking-tight text-[#17211D]">{program.title}</h2>

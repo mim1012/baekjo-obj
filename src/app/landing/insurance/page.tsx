@@ -1,10 +1,12 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { ShieldCheck, FileText, ArrowRight, HeartPulse } from 'lucide-react';
 import { getPublishedPageContent } from '@/lib/cms/content';
 import { defaultPageTextSettings } from '@/data/pageTextContent';
 import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectInsuranceLandingContent, type InsuranceLandingContent } from '@/lib/cms/source/insuranceLanding';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '펫보험 무료 분석 | 백조오브제',
@@ -28,6 +30,7 @@ export default async function InsuranceLandingPage() {
     }
   }
   const content = selectInsuranceLandingContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
 
   return (
     <div className="bg-[#FAF9F5] min-h-dvh" data-cms-managed={managed ? 'insurance-landing' : undefined}>
@@ -41,11 +44,25 @@ export default async function InsuranceLandingPage() {
           <p className="text-[#D8DCD9] max-w-2xl mx-auto leading-relaxed text-lg">
             <MultilineText text={content.hero.description} />
           </p>
-          {content.hero.primaryCtaLabel && <div className="mt-10">
-            <Link href={content.hero.primaryCtaHref} className="inline-flex items-center gap-2 bg-[#F3F1EB] px-8 py-4 text-sm font-semibold text-[#2B352E] transition hover:bg-white rounded-sm">
-              {content.hero.primaryCtaLabel} <ArrowRight className="size-4" />
-            </Link>
-          </div>}
+          {heroImage && (
+            <div className="relative mx-auto mt-10 h-[220px] w-full max-w-md overflow-hidden rounded-sm md:h-[280px]">
+              <Image src={heroImage.src} unoptimized={heroImage.unoptimized} alt={content.hero.imageAlt} fill className="object-cover" />
+            </div>
+          )}
+          {(content.hero.primaryCtaLabel || content.hero.secondaryCtaLabel) && (
+            <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
+              {content.hero.primaryCtaLabel && (
+                <Link href={content.hero.primaryCtaHref} className="inline-flex items-center gap-2 bg-[#F3F1EB] px-8 py-4 text-sm font-semibold text-[#2B352E] transition hover:bg-white rounded-sm">
+                  {content.hero.primaryCtaLabel} <ArrowRight className="size-4" />
+                </Link>
+              )}
+              {content.hero.secondaryCtaLabel && (
+                <Link href={content.hero.secondaryCtaHref} className="inline-flex items-center gap-2 border border-white/40 px-8 py-4 text-sm font-semibold text-white transition hover:bg-white/10 rounded-sm">
+                  {content.hero.secondaryCtaLabel} <ArrowRight className="size-4" />
+                </Link>
+              )}
+            </div>
+          )}
         </div>
       </section>}
 

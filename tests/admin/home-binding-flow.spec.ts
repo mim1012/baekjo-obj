@@ -53,7 +53,7 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     // PR2: 홈이 페이지 관리(CMS)에서 "현재 값 가져오기"로 활성화되면 selectHomeContent 가 그 게시본을
     // 우선하고, 없으면(cmsHome === null) 기존 site_settings 경로로 그대로 폴백한다(소비자 이중화 없음).
     expect(pageSource).toContain('const resolvedSettings = selectHomeContent(cmsHome, settings);');
-    expect(pageSource).toContain('const { solutions, insuranceBanner, ...publicHomeSettings } = resolvedSettings;');
+    expect(pageSource).toContain('const { insuranceBanner, ...publicHomeSettings } = resolvedSettings;');
     expect(pageSource).toContain('const visibleHomeSettings = FEATURES.insurance');
     expect(pageSource).toContain('settings={visibleHomeSettings}');
     expectNoMutableDataBypass(pageSource);
@@ -64,7 +64,7 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
 
     // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
     expect(clientSource).toContain('export default function HomeClient({');
-    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {");
+    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'insuranceBanner'> & {");
     expect(clientSource).toContain('products: Product[];');
     expect(clientSource).toContain('brands: Brand[];');
     expect(clientSource).toContain('notices: Notice[];');
