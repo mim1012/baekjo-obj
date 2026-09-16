@@ -76,6 +76,16 @@ export default async function ExpertsPage({
                  <p className="text-[14px] md:text-[15px] text-[#5F6761] leading-[1.65] break-keep min-w-0">
                     <MultilineText text={content.hero.description} />
                  </p>
+                 {content.hero.secondaryCtaLabel && (
+                   <div className="mt-6">
+                     <Link
+                       href={content.hero.secondaryCtaHref}
+                       className="inline-flex h-[44px] items-center justify-center rounded-full border border-[#1A221E] px-6 text-[14px] font-bold text-[#1A221E] transition-colors hover:bg-[#1A221E] hover:text-white"
+                     >
+                       {content.hero.secondaryCtaLabel}
+                     </Link>
+                   </div>
+                 )}
               </div>
               {heroImage && <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
                  <div className="relative w-full h-full max-w-[400px]">
@@ -135,6 +145,9 @@ export default async function ExpertsPage({
                     <Icon className="size-6 md:size-7 text-[#5F6761]" strokeWidth={1.5} />
                   </div>
                   <h3 className="mt-auto w-full break-keep text-left text-[16px] font-bold leading-snug text-[#1A1D1B] md:mt-0 md:w-[70%] md:text-center md:text-[15px]">{step.title}</h3>
+                  {step.description && (
+                    <p className="w-full break-keep text-left text-[13px] leading-[1.6] text-[#5F6761] md:w-[80%] md:text-center">{step.description}</p>
+                  )}
 
                   {idx < content.body.processItems.length - 1 && (
                      <div className="hidden md:block absolute right-[-15%] top-[50%] -translate-y-1/2 text-[#D8D6CE]">

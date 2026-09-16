@@ -32,7 +32,6 @@ export type ConcernsContent = Record<string, unknown> & {
     readonly description: string;
   };
   readonly insurance: {
-    readonly visible: boolean;
     readonly title: string;
     readonly description: string;
     readonly buttonLabel: string;
@@ -68,7 +67,6 @@ export function buildConcernsContent(settings: PageTextSettings): ConcernsConten
       description: text('moreCareDescription'),
     },
     insurance: {
-      visible: true,
       title: '우리 아이에게 필요한 보장은 무엇일까요?',
       description: '나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.',
       buttonLabel: '보험 분석하기',

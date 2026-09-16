@@ -47,8 +47,7 @@ export default async function Home() {
   const sortedNotices = getPublicNotices(noticesConfig.items)
     .sort((a, b) => b.date.localeCompare(a.date));
   const resolvedSettings = selectHomeContent(cmsHome, settings);
-  const { solutions, insuranceBanner, ...publicHomeSettings } = resolvedSettings;
-  void solutions;
+  const { insuranceBanner, ...publicHomeSettings } = resolvedSettings;
   // 보험 기능을 다시 켤 때는 저장된 설정을 그대로 복원한다. 비활성 중에는 클라이언트
   // props에서도 제외해 화면뿐 아니라 공개 HTML/RSC payload에도 보험 문구가 노출되지 않게 한다.
   const visibleHomeSettings = FEATURES.insurance

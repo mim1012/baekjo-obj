@@ -153,10 +153,10 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
               {content.standards.title}
             </h2>
             <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 pb-4 md:pb-0">
-              {content.standards.items.map((item, idx) => {
+              {content.standards.items.filter((item) => item.visible !== false).map((item, idx, visibleItems) => {
                 const Icon = standardsIcons[idx % standardsIcons.length] ?? Leaf;
                 return (
-                <div key={item.title} className={`w-[70vw] sm:w-[280px] shrink-0 snap-start flex flex-col p-5 bg-[#F7F4ED] rounded-xl md:w-auto md:shrink md:flex-1 md:bg-transparent md:p-0 md:rounded-none md:px-5 first:md:pl-0 last:md:pr-0 ${idx !== content.standards.items.length - 1 ? 'md:border-r md:border-[#E4DDD1]' : ''}`}>
+                <div key={item.title} className={`w-[70vw] sm:w-[280px] shrink-0 snap-start flex flex-col p-5 bg-[#F7F4ED] rounded-xl md:w-auto md:shrink md:flex-1 md:bg-transparent md:p-0 md:rounded-none md:px-5 first:md:pl-0 last:md:pr-0 ${idx !== visibleItems.length - 1 ? 'md:border-r md:border-[#E4DDD1]' : ''}`}>
                    <div className="flex items-center gap-3 mb-3 md:mb-4">
                       <span className="flex items-center justify-center text-[#B48A4A]">
                         <Icon className="w-5 h-5 stroke-[2]" />

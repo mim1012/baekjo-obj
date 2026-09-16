@@ -19,7 +19,7 @@ import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
 
-type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {
+type HomeClientSettings = Omit<HomeSettings, 'insuranceBanner'> & {
   insuranceBanner?: HomeSettings['insuranceBanner'];
 };
 
@@ -151,6 +151,21 @@ export default function HomeClient({
             className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
           />
 
+          {hero.badgeTitle && (
+            <div
+              data-testid="home-hero-badge"
+              className="absolute right-5 top-5 z-10 hidden items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:flex md:right-8 md:top-8"
+            >
+              <ShieldCheck className="size-4 text-[#7A4E1D]" strokeWidth={2} />
+              <div className="flex flex-col leading-tight">
+                <span className="text-[12px] font-bold text-[#17231E]">{hero.badgeTitle}</span>
+                {hero.badgeSubtitle && (
+                  <span className="text-[10px] font-medium text-[#68716C]">{hero.badgeSubtitle}</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
             <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
@@ -196,7 +211,7 @@ export default function HomeClient({
             />
 
             <div className="relative z-10 order-1 flex min-h-0 max-w-[680px] flex-col justify-center bg-[#F6F3ED] p-6 md:min-h-[360px] md:bg-transparent md:p-8 lg:min-h-[380px] lg:p-10">
-              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">{audit.badge}</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
               </h2>
@@ -274,6 +289,11 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            {curation.diagnosisLinkLabel && (
+              <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] md:text-[14px] font-semibold text-white transition-colors hover:bg-[#2F3B34]">
+                {curation.diagnosisLinkLabel} <ArrowRight className="ml-1.5 size-4" />
+              </Link>
+            )}
             <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
