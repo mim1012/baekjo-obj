@@ -85,7 +85,9 @@ export default function FieldEditor({ field, pageKey, value, onChange }: FieldEd
   // 라운드트립 — 빈 줄도 보존하기 위해 trim하지 않는다).
   const isLinesArray = field.type === 'textarea' && field.linesArray === true;
   const stringValue = isLinesArray
-    ? (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string').join('\n') : '')
+    ? (Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string').join('\n')
+        : typeof value === 'string' ? value : '')
     : typeof value === 'string' ? value : '';
 
   return (

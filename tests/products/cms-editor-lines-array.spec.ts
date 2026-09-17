@@ -107,6 +107,28 @@ test('ItemListEditor renders string[] textarea item values by joining with newli
   expect(source).toMatch(/\.join\(['"`]\\n['"`]\)/);
 });
 
+test('FieldEditor linesArray branch does not clear the field when the in-progress value is already a string (B1 regression)', () => {
+  // onChange for a textarea always sends a string, so after the first keystroke on a linesArray
+  // field the in-memory value is string, not string[]. If the linesArray branch only handles the
+  // Array.isArray(value) case and falls back to '' otherwise, every keystroke wipes the textarea.
+  // Assert the fallback branch explicitly preserves an in-progress string instead of blanking it.
+  const source = read('src', 'components', 'admin-new', 'pages', 'FieldEditor.tsx');
+  const ternaryMatch = source.match(/isLinesArray\s*\n?\s*\?\s*\(Array\.isArray\(value\)[\s\S]*?\n\s*:\s*typeof value === 'string' \? value : ''\)/);
+  expect(
+    ternaryMatch,
+    "FieldEditor의 linesArray 분기가 Array.isArray(value) 거짓일 때 typeof value === 'string' 폴백 없이 ''로 떨어지면 타이핑 중 입력칸이 비워진다",
+  ).not.toBeNull();
+});
+
+test('ItemListEditor linesArray branch does not clear the field when the in-progress item value is already a string (B1 regression)', () => {
+  const source = read('src', 'components', 'admin-new', 'pages', 'ItemListEditor.tsx');
+  const ternaryMatch = source.match(/isLinesArray\s*\n?\s*\?\s*\(Array\.isArray\(itemValue\)[\s\S]*?\n\s*:\s*typeof itemValue === 'string' \? itemValue : ''\)/);
+  expect(
+    ternaryMatch,
+    "ItemListEditor의 linesArray 분기가 Array.isArray(itemValue) 거짓일 때 typeof itemValue === 'string' 폴백 없이 ''로 떨어지면 타이핑 중 입력칸이 비워진다",
+  ).not.toBeNull();
+});
+
 test('normalize round-trip: a joined newline string from the editor for home hero.titleLines becomes an array again', () => {
   const definition = getCmsPageDefinition('home');
   expect(definition).not.toBeNull();

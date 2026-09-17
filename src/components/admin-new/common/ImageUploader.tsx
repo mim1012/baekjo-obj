@@ -110,23 +110,43 @@ export default function ImageUploader({
         ) : value ? (
           <div className="w-full h-full relative group">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src={value} 
-              alt="Uploaded" 
-              className="w-full h-full object-cover" 
+            <img
+              src={value}
+              alt="Uploaded"
+              className="w-full h-full object-cover"
             />
-            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+            {/* 호버 오버레이: 데스크톱에서 이미지를 가리지 않다가 마우스를 올리면 강조 표시 */}
+            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 pointer-events-none">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
-                className="px-3 py-1.5 bg-white text-gray-700 text-[12px] font-medium rounded hover:bg-gray-100"
+                className="pointer-events-auto px-3 py-1.5 bg-white text-gray-700 text-[12px] font-medium rounded hover:bg-gray-100"
               >
                 변경
               </button>
               <button
                 type="button"
                 onClick={handleRemove}
-                className="p-1.5 bg-white text-red-600 rounded hover:bg-red-50"
+                className="pointer-events-auto p-1.5 bg-white text-red-600 rounded hover:bg-red-50"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {/* 상시 노출 버튼: 호버가 불가능한 환경(터치/키보드)에서도 항상 클릭 가능해야 함 */}
+            <div className="absolute bottom-2 right-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                aria-label="이미지 변경"
+                className="px-3 py-1.5 bg-white/95 text-gray-700 text-[12px] font-medium rounded shadow hover:bg-gray-100"
+              >
+                이미지 변경
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                aria-label="이미지 삭제"
+                className="p-1.5 bg-white/95 text-red-600 rounded shadow hover:bg-red-50"
               >
                 <X size={16} />
               </button>

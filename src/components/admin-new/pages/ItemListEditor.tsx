@@ -109,7 +109,9 @@ export default function ItemListEditor({ field, items, pageKey, onChange }: Item
                 // '\n' 기준으로 다시 split하게 둔다.
                 const isLinesArray = itemField.type === 'textarea' && itemField.linesArray === true;
                 const stringValue = isLinesArray
-                  ? (Array.isArray(itemValue) ? itemValue.filter((entry): entry is string => typeof entry === 'string').join('\n') : '')
+                  ? (Array.isArray(itemValue)
+                      ? itemValue.filter((entry): entry is string => typeof entry === 'string').join('\n')
+                      : typeof itemValue === 'string' ? itemValue : '')
                   : typeof itemValue === 'string' ? itemValue : '';
                 return (
                   <label key={itemField.key} className={itemField.type === 'textarea' ? 'block sm:col-span-2' : 'block'}>
