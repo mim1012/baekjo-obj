@@ -51,4 +51,14 @@ test.describe('관리자 업로드 정책 — 이미지 첨부·삭제 미검증
     expect(uploaderSource).toContain('await deleteTemporaryAdminImage(currentPath);');
     expect(uploaderSource).toContain("onChange('', undefined);");
   });
+
+  // B3 회귀 방지 — 기존 이미지가 있을 때 "변경"·"삭제" 버튼이 opacity-0 group-hover:opacity-100
+  // 오버레이 안에만 있으면 호버가 불가능한 터치/키보드 사용자는 로고처럼 기본값이 있는 필드를
+  // 교체할 수 없다. 호버 오버레이는 유지해도 되지만, 호버 없이도 항상 클릭 가능한 버튼이 별도로
+  // 있어야 한다.
+  test('ImageUploader는 값이 있을 때도 호버 없이 항상 보이는 이미지 변경/삭제 버튼을 노출한다', () => {
+    expect(uploaderSource).toContain('aria-label="이미지 변경"');
+    expect(uploaderSource).toContain('aria-label="이미지 삭제"');
+    expect(uploaderSource).toContain('fileInputRef.current?.click()');
+  });
 });
