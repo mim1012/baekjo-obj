@@ -181,7 +181,9 @@ function CheckoutForm() {
         brandName: brand?.name ?? item.product.brandName,
         sellerName: item.product.seller?.displayName,
         totalPrice: item.totalPrice,
-        shippingFee: item.product.seller?.shippingFee,
+        // 실제 판매자가 있으면 판매자 배송비를 우선 적용한다. 배송비가 선택값이 된 뒤로는
+        // 판매자는 있는데 배송비만 없는 경우 브랜드 기본값(3000원)이 아니라 0원(무료)으로 간주한다.
+        shippingFee: item.product.seller ? (item.product.seller.shippingFee ?? 0) : undefined,
         freeShippingThreshold: item.product.seller?.freeShippingThreshold,
       };
     }),

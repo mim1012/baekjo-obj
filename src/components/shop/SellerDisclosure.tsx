@@ -10,7 +10,8 @@ interface SellerDisclosureProps {
 export default function SellerDisclosure({ seller, className = '' }: SellerDisclosureProps) {
   const sellerName = seller.legalName || seller.displayName;
   const contact = [seller.phone, seller.email].filter(Boolean).join(' · ');
-  const shippingLabel = seller.shippingFee > 0 ? formatPrice(seller.shippingFee) : '무료 배송';
+  const shippingFee = seller.shippingFee ?? 0;
+  const shippingLabel = shippingFee > 0 ? formatPrice(shippingFee) : '무료 배송';
   const shippingDescription = seller.freeShippingThreshold
     ? `${shippingLabel} · ${formatPrice(seller.freeShippingThreshold)} 이상 무료`
     : shippingLabel;
@@ -55,7 +56,8 @@ export default function SellerDisclosure({ seller, className = '' }: SellerDiscl
   );
 }
 
-function SellerRow({ label, value }: { label: string; value: string }) {
+function SellerRow({ label, value }: { label: string; value?: string }) {
+  if (!value || !value.trim()) return null;
   return (
     <div className="grid grid-cols-[110px_minmax(0,1fr)] gap-3">
       <dt>{label}</dt>
