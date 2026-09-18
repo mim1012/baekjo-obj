@@ -68,21 +68,28 @@ export type SellerStatus = 'draft' | 'verified' | 'suspended';
 
 export interface Seller {
   id: string;
+  /** 브랜드/고객 표시명 — 상호명과 함께 필수 4개 항목 중 하나. */
   displayName: string;
+  /** 상호명 — displayName과 함께 필수. */
   legalName: string;
   representativeName: string;
   businessRegistrationNumber: string;
-  mailOrderRegistrationNumber: string;
-  businessAddress: string;
-  phone: string;
+  /** 통신판매업신고번호. 전자상거래법상 고지 항목이나 값이 없으면 공개 화면에서 해당 항목만 숨긴다. */
+  mailOrderRegistrationNumber?: string;
+  /** 사업장주소. 값이 없으면 공개 화면에서 해당 항목만 숨긴다. */
+  businessAddress?: string;
+  /** 고객센터 연락처. 값이 없으면 공개 화면에서 해당 항목만 숨긴다. */
+  phone?: string;
   email?: string;
   returnAddress?: string;
-  /** 이 판매자가 한 주문 묶음에 적용하는 기본 배송비. */
-  shippingFee: number;
+  /** 이 판매자가 한 주문 묶음에 적용하는 기본 배송비. 미설정 시 DB 기본값(3000원)을 사용한다. */
+  shippingFee?: number;
   /** 미설정이면 금액과 무관하게 자동 무료배송을 적용하지 않는다. */
   freeShippingThreshold?: number;
-  dispatchEstimate: string;
-  returnPolicy: string;
+  /** 값이 없으면 공개 화면에서 해당 항목만 숨긴다. */
+  dispatchEstimate?: string;
+  /** 값이 없으면 공개 화면에서 해당 항목만 숨긴다. */
+  returnPolicy?: string;
   status: SellerStatus;
   createdAt: string;
   updatedAt: string;

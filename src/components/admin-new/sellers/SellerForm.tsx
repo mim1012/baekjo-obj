@@ -8,8 +8,9 @@ import FormField from '@/components/admin-new/common/FormField';
 
 const INPUT = 'w-full rounded border border-gray-300 px-3 py-2 text-sm outline-none focus:border-[#17201B] focus:ring-1 focus:ring-[#17201B]';
 
-type SellerDraft = Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'freeShippingThreshold'> & {
+type SellerDraft = Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'freeShippingThreshold' | 'shippingFee'> & {
   freeShippingThreshold: number | null;
+  shippingFee: number;
 };
 
 const EMPTY: SellerDraft = {
@@ -39,15 +40,15 @@ export default function SellerForm({ seller, onClose, onSaved }: {
     legalName: seller.legalName,
     representativeName: seller.representativeName,
     businessRegistrationNumber: seller.businessRegistrationNumber,
-    mailOrderRegistrationNumber: seller.mailOrderRegistrationNumber,
-    businessAddress: seller.businessAddress,
-    phone: seller.phone,
+    mailOrderRegistrationNumber: seller.mailOrderRegistrationNumber ?? '',
+    businessAddress: seller.businessAddress ?? '',
+    phone: seller.phone ?? '',
     email: seller.email ?? '',
     returnAddress: seller.returnAddress ?? '',
-    shippingFee: seller.shippingFee,
+    shippingFee: seller.shippingFee ?? 3000,
     freeShippingThreshold: seller.freeShippingThreshold ?? null,
-    dispatchEstimate: seller.dispatchEstimate,
-    returnPolicy: seller.returnPolicy,
+    dispatchEstimate: seller.dispatchEstimate ?? '',
+    returnPolicy: seller.returnPolicy ?? '',
     status: seller.status,
   } : EMPTY);
   const [saving, setSaving] = useState(false);
@@ -63,11 +64,12 @@ export default function SellerForm({ seller, onClose, onSaved }: {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    // 필수는 사업자등록번호·브랜드&상호명(표시명+상호명)·대표자 4개뿐이다. 나머지는 선택이며
+    // 미입력 시 공개 화면에서 해당 항목만 숨긴다.
     const required = [draft.displayName, draft.legalName, draft.representativeName,
-      draft.businessRegistrationNumber, draft.mailOrderRegistrationNumber, draft.businessAddress, draft.phone,
-      draft.dispatchEstimate, draft.returnPolicy];
+      draft.businessRegistrationNumber];
     if (required.some((value) => !value.trim())) {
-      setError('필수 사업자 정보를 모두 입력해주세요.');
+      setError('필수 사업자 정보(표시명, 상호명, 대표자, 사업자등록번호)를 모두 입력해주세요.');
       return;
     }
     setSaving(true);
@@ -99,15 +101,15 @@ export default function SellerForm({ seller, onClose, onSaved }: {
           <FormField label="상호(법인명)" htmlFor="seller-legal-name" required><input id="seller-legal-name" className={INPUT} value={draft.legalName} onChange={(e) => set('legalName', e.target.value)} /></FormField>
           <FormField label="대표자명" htmlFor="seller-representative-name" required><input id="seller-representative-name" className={INPUT} value={draft.representativeName} onChange={(e) => set('representativeName', e.target.value)} /></FormField>
           <FormField label="사업자등록번호" htmlFor="seller-registration-number" required><input id="seller-registration-number" className={INPUT} value={draft.businessRegistrationNumber} onChange={(e) => set('businessRegistrationNumber', e.target.value)} placeholder="000-00-00000" /></FormField>
-          <FormField label="통신판매업 신고번호" htmlFor="seller-mail-order-number" required><input id="seller-mail-order-number" className={INPUT} value={draft.mailOrderRegistrationNumber} onChange={(e) => set('mailOrderRegistrationNumber', e.target.value)} /></FormField>
-          <FormField label="고객센터 연락처" htmlFor="seller-phone" required><input id="seller-phone" className={INPUT} value={draft.phone} onChange={(e) => set('phone', e.target.value)} /></FormField>
-          <div className="sm:col-span-2"><FormField label="사업장 주소" htmlFor="seller-address" required><input id="seller-address" className={INPUT} value={draft.businessAddress} onChange={(e) => set('businessAddress', e.target.value)} /></FormField></div>
+          <FormField label="통신판매업 신고번호" htmlFor="seller-mail-order-number"><input id="seller-mail-order-number" className={INPUT} value={draft.mailOrderRegistrationNumber} onChange={(e) => set('mailOrderRegistrationNumber', e.target.value)} placeholder="미입력 시 공개 화면에 표시하지 않습니다" /></FormField>
+          <FormField label="고객센터 연락처" htmlFor="seller-phone"><input id="seller-phone" className={INPUT} value={draft.phone} onChange={(e) => set('phone', e.target.value)} placeholder="미입력 시 공개 화면에 표시하지 않습니다" /></FormField>
+          <div className="sm:col-span-2"><FormField label="사업장 주소" htmlFor="seller-address"><input id="seller-address" className={INPUT} value={draft.businessAddress} onChange={(e) => set('businessAddress', e.target.value)} placeholder="미입력 시 공개 화면에 표시하지 않습니다" /></FormField></div>
           <div className="sm:col-span-2"><FormField label="반품지 주소" htmlFor="seller-return-address"><input id="seller-return-address" className={INPUT} value={draft.returnAddress} onChange={(e) => set('returnAddress', e.target.value)} placeholder="미입력 시 사업장 주소를 사용합니다" /></FormField></div>
           <FormField label="고객센터 이메일" htmlFor="seller-email"><input id="seller-email" type="email" className={INPUT} value={draft.email} onChange={(e) => set('email', e.target.value)} /></FormField>
-          <FormField label="기본 배송비" htmlFor="seller-shipping-fee" required><input id="seller-shipping-fee" type="number" min="0" step="1" className={INPUT} value={draft.shippingFee} onChange={(e) => set('shippingFee', Number(e.target.value))} /></FormField>
+          <FormField label="기본 배송비" htmlFor="seller-shipping-fee"><input id="seller-shipping-fee" type="number" min="0" step="1" className={INPUT} value={draft.shippingFee} onChange={(e) => set('shippingFee', Number(e.target.value))} /></FormField>
           <FormField label="무료배송 기준" htmlFor="seller-free-shipping-threshold"><input id="seller-free-shipping-threshold" type="number" min="0" step="1" className={INPUT} value={draft.freeShippingThreshold ?? ''} onChange={(e) => set('freeShippingThreshold', e.target.value === '' ? null : Number(e.target.value))} placeholder="미입력 시 자동 무료배송 없음" /></FormField>
-          <div className="sm:col-span-2"><FormField label="출고 예정" htmlFor="seller-dispatch-estimate" required><input id="seller-dispatch-estimate" className={INPUT} value={draft.dispatchEstimate} onChange={(e) => set('dispatchEstimate', e.target.value)} placeholder="예: 결제 완료 후 3영업일 이내 출고" /></FormField></div>
-          <div className="sm:col-span-2"><FormField label="교환·반품 조건" htmlFor="seller-return-policy" required><textarea id="seller-return-policy" className={`${INPUT} min-h-24 resize-y`} value={draft.returnPolicy} onChange={(e) => set('returnPolicy', e.target.value)} placeholder="신청기간, 비용, 제한 조건을 입력합니다" /></FormField></div>
+          <div className="sm:col-span-2"><FormField label="출고 예정" htmlFor="seller-dispatch-estimate"><input id="seller-dispatch-estimate" className={INPUT} value={draft.dispatchEstimate} onChange={(e) => set('dispatchEstimate', e.target.value)} placeholder="예: 결제 완료 후 3영업일 이내 출고 (미입력 시 공개 화면에 표시하지 않습니다)" /></FormField></div>
+          <div className="sm:col-span-2"><FormField label="교환·반품 조건" htmlFor="seller-return-policy"><textarea id="seller-return-policy" className={`${INPUT} min-h-24 resize-y`} value={draft.returnPolicy} onChange={(e) => set('returnPolicy', e.target.value)} placeholder="신청기간, 비용, 제한 조건을 입력합니다 (미입력 시 공개 화면에 표시하지 않습니다)" /></FormField></div>
           <FormField label="운영 상태" htmlFor="seller-status">
             <select id="seller-status" className={INPUT} value={draft.status} onChange={(e) => set('status', e.target.value as SellerDraft['status'])}>
               <option value="draft">작성 중</option>

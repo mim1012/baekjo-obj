@@ -16,7 +16,7 @@ import {
   normalizeDisclosure,
 } from '@/lib/products/disclosures';
 import { isMadeToOrderProduct } from '@/lib/products/madeToOrder';
-import { validateSellerInput } from '@/lib/sellers/validate';
+import { isSellerLegallyComplete, validateSellerInput } from '@/lib/sellers/validate';
 import type { Brand, MadeToOrderPolicy, Product, ProductDisclosure, Seller } from '@/types';
 
 const root = path.resolve(__dirname, '..', '..');
@@ -114,12 +114,35 @@ test('상품고시는 상품군의 모든 필수값과 현재 스키마 버전�
   expect(normalizeDisclosure({ ...complete, schemaVersion: 'old' })).toBeNull();
 });
 
-test('검증 상태 판매자는 법정 필수 사업자정보가 모두 있어야 저장된다', () => {
+test('필수는 사업자등록번호·브랜드&상호명(표시명+상호명)·대표자 4개뿐이다', () => {
   const complete = seller('s1');
   expect(validateSellerInput(complete, true)).not.toBeNull();
+  // 필수 4개 — 하나라도 비면 저장 실패한다.
   expect(validateSellerInput({ ...complete, businessRegistrationNumber: '' }, true)).toBeNull();
-  expect(validateSellerInput({ ...complete, dispatchEstimate: '' }, true)).toBeNull();
+  expect(validateSellerInput({ ...complete, displayName: '' }, true)).toBeNull();
+  expect(validateSellerInput({ ...complete, legalName: '' }, true)).toBeNull();
+  expect(validateSellerInput({ ...complete, representativeName: '' }, true)).toBeNull();
   expect(validateSellerInput({ ...complete, status: 'unknown' }, true)).toBeNull();
+
+  // 통신판매업신고번호·사업장주소·전화·출고안내·반품정책·배송비는 선택 — 비우거나 아예
+  // 빼도 저장·검증완료 전환 모두 통과한다.
+  const minimal = {
+    displayName: complete.displayName,
+    legalName: complete.legalName,
+    representativeName: complete.representativeName,
+    businessRegistrationNumber: complete.businessRegistrationNumber,
+    status: 'verified' as const,
+  };
+  const saved = validateSellerInput(minimal, true);
+  expect(saved).not.toBeNull();
+  expect(saved?.mailOrderRegistrationNumber).toBeUndefined();
+  expect(saved?.businessAddress).toBeUndefined();
+  expect(saved?.phone).toBeUndefined();
+  expect(saved?.dispatchEstimate).toBeUndefined();
+  expect(saved?.returnPolicy).toBeUndefined();
+  expect(saved?.shippingFee).toBeUndefined();
+  expect(validateSellerInput({ ...complete, dispatchEstimate: '', businessAddress: '', phone: '' }, true)).not.toBeNull();
+  expect(isSellerLegallyComplete(minimal)).toBe(true);
 });
 
 test('같은 브랜드라도 실제 판매자가 다르면 배송비와 주문 그룹을 분리한다', () => {
@@ -208,4 +231,9 @@ test('DB 마이그레이션은 주문·재고·동의·판매자 수락을 한 �
   expect(guards).toContain('TERMINAL_ORDER_ACCEPTANCE_LOCKED');
   expect(sellerFulfillment).toContain('shipping_fee int not null');
   expect(sellerFulfillment).toContain('free_shipping_threshold int');
+
+  const optionalContactFields = source('supabase', 'migrations', '0175_sellers_optional_contact_fields.sql');
+  expect(optionalContactFields).toContain('mail_order_registration_number drop not null');
+  expect(optionalContactFields).toContain('business_address drop not null');
+  expect(optionalContactFields).toContain('phone drop not null');
 });
