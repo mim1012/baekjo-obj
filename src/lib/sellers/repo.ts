@@ -9,9 +9,9 @@ export interface SellerRow {
   legal_name: string;
   representative_name: string;
   business_registration_number: string;
-  mail_order_registration_number: string;
-  business_address: string;
-  phone: string;
+  mail_order_registration_number: string | null;
+  business_address: string | null;
+  phone: string | null;
   email: string | null;
   return_address: string | null;
   shipping_fee: number;
@@ -33,9 +33,9 @@ export function sellerRowToModel(row: SellerRow): Seller {
     legalName: row.legal_name,
     representativeName: row.representative_name,
     businessRegistrationNumber: row.business_registration_number,
-    mailOrderRegistrationNumber: row.mail_order_registration_number,
-    businessAddress: row.business_address,
-    phone: row.phone,
+    mailOrderRegistrationNumber: row.mail_order_registration_number ?? undefined,
+    businessAddress: row.business_address ?? undefined,
+    phone: row.phone ?? undefined,
     email: row.email ?? undefined,
     returnAddress: row.return_address ?? undefined,
     shippingFee: row.shipping_fee,
@@ -54,9 +54,9 @@ function toRow(input: SellerPatchInput): Record<string, unknown> {
   if (input.legalName !== undefined) row.legal_name = input.legalName;
   if (input.representativeName !== undefined) row.representative_name = input.representativeName;
   if (input.businessRegistrationNumber !== undefined) row.business_registration_number = input.businessRegistrationNumber;
-  if (input.mailOrderRegistrationNumber !== undefined) row.mail_order_registration_number = input.mailOrderRegistrationNumber;
-  if (input.businessAddress !== undefined) row.business_address = input.businessAddress;
-  if (input.phone !== undefined) row.phone = input.phone;
+  if (input.mailOrderRegistrationNumber !== undefined) row.mail_order_registration_number = input.mailOrderRegistrationNumber || null;
+  if (input.businessAddress !== undefined) row.business_address = input.businessAddress || null;
+  if (input.phone !== undefined) row.phone = input.phone || null;
   if (input.email !== undefined) row.email = input.email || null;
   if (input.returnAddress !== undefined) row.return_address = input.returnAddress || null;
   if (input.shippingFee !== undefined) row.shipping_fee = input.shippingFee;

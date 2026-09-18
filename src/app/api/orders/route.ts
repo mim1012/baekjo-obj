@@ -113,7 +113,9 @@ function validate(
         brandName: brands.find((brand) => brand.id === item.brandId)?.name,
         sellerName: seller?.displayName,
         totalPrice: item.price * item.quantity,
-        shippingFee: seller?.shippingFee,
+        // 실제 판매자가 있으면 판매자 배송비를 우선 적용한다. 판매자는 있는데 배송비만 없으면
+        // 브랜드 기본값이 아니라 0원(무료)으로 간주한다.
+        shippingFee: seller ? (seller.shippingFee ?? 0) : undefined,
         freeShippingThreshold: seller?.freeShippingThreshold,
       };
     }),

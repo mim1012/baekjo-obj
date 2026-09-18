@@ -19,22 +19,16 @@ function text(value: unknown, max: number, required = false): string | undefined
 export type SellerWriteInput = Omit<Seller, 'id' | 'createdAt' | 'updatedAt'>;
 export type SellerPatchInput = Partial<SellerWriteInput>;
 
+// 필수 4개(브랜드&상호명·대표자·사업자등록번호)만 검사한다. 통신판매업신고번호·사업장주소·전화·
+// 출고안내·반품정책·배송비는 전자상거래법상 통신판매중개 고지 항목이지만, 요청에 따라 선택으로
+// 완화한다(값이 있으면 공개, 없으면 공개 화면에서 해당 항목만 숨긴다).
 export function isSellerLegallyComplete(seller: Partial<Seller>): boolean {
-  const requiredTextComplete = [
+  return [
     seller.displayName,
     seller.legalName,
     seller.representativeName,
     seller.businessRegistrationNumber,
-    seller.mailOrderRegistrationNumber,
-    seller.businessAddress,
-    seller.phone,
-    seller.dispatchEstimate,
-    seller.returnPolicy,
   ].every((value) => typeof value === 'string' && value.trim().length > 0);
-  return requiredTextComplete
-    && typeof seller.shippingFee === 'number'
-    && Number.isSafeInteger(seller.shippingFee)
-    && seller.shippingFee >= 0;
 }
 
 export function validateSellerInput(raw: unknown, requireAll: boolean): SellerPatchInput | null {
@@ -47,11 +41,6 @@ export function validateSellerInput(raw: unknown, requireAll: boolean): SellerPa
     ['legalName', MAX_NAME],
     ['representativeName', MAX_NAME],
     ['businessRegistrationNumber', MAX_NUMBER],
-    ['mailOrderRegistrationNumber', MAX_NUMBER],
-    ['businessAddress', MAX_TEXT],
-    ['phone', MAX_PHONE],
-    ['dispatchEstimate', MAX_TEXT],
-    ['returnPolicy', MAX_TEXT],
   ] as const;
 
   for (const [field, max] of requiredFields) {
@@ -60,17 +49,28 @@ export function validateSellerInput(raw: unknown, requireAll: boolean): SellerPa
     if (value !== undefined) out[field] = value;
   }
 
-  for (const [field, max] of [['email', MAX_EMAIL], ['returnAddress', MAX_TEXT]] as const) {
+  const optionalTextFields = [
+    ['mailOrderRegistrationNumber', MAX_NUMBER],
+    ['businessAddress', MAX_TEXT],
+    ['phone', MAX_PHONE],
+    ['dispatchEstimate', MAX_TEXT],
+    ['returnPolicy', MAX_TEXT],
+    ['email', MAX_EMAIL],
+    ['returnAddress', MAX_TEXT],
+  ] as const;
+
+  for (const [field, max] of optionalTextFields) {
     const value = text(body[field], max);
     if (value === null) return null;
     if (value !== undefined) out[field] = value;
   }
 
+  // 배송비는 선택이다 — 미입력이면 DB 기본값(3000원)에 맡긴다.
   if (body.shippingFee !== undefined) {
     if (typeof body.shippingFee !== 'number' || !Number.isSafeInteger(body.shippingFee)
       || body.shippingFee < 0 || body.shippingFee > MAX_PRICE) return null;
     out.shippingFee = body.shippingFee;
-  } else if (requireAll) return null;
+  }
 
   if (body.freeShippingThreshold !== undefined && body.freeShippingThreshold !== null) {
     if (typeof body.freeShippingThreshold !== 'number' || !Number.isSafeInteger(body.freeShippingThreshold)
