@@ -1,20 +1,34 @@
 // 카테고리 설정 타입 + 기본값. 서버(API route)와 클라이언트(Provider) 양쪽에서 안전하게 import 할 수
 // 있도록 'use client' 가 없는 순수 모듈로 둔다. — CategorySettingsProvider.tsx('use client')에서
 // import 하면 Next.js 가 client-reference 프록시로 치환해 서버(JSON.stringify)에서 {} 로 죽는다.
+import { normalizeShopCategory } from '@/data/shopFilters';
 
 export interface BrandFilter {
   id: string;
   label: string;
 }
 
+/** 관리자 설정에 쓰이는 {id,label} 항목. petTypes 처럼 상품과 id로 연결되는 필드에 쓴다. */
+export interface StoreFilterOption {
+  id: string;
+  label: string;
+}
+
 export interface CategorySettings {
   productCategories: string[];
+  /** 상품 등록 화면·스토어 반려동물 필터의 선택 항목. id는 products.pet_type과 연결된다. */
+  petTypes: StoreFilterOption[];
   lifestyleCategories: string[];
   brandFilters: BrandFilter[];
 }
 
 export const defaultCategorySettings: CategorySettings = {
   productCategories: ['푸드', '영양', '케어', '패션', '펫로스', '라이프'],
+  petTypes: [
+    { id: 'dog', label: '강아지' },
+    { id: 'cat', label: '고양이' },
+    { id: 'small', label: '소동물' },
+  ],
   lifestyleCategories: ['식사와 영양', '건강과 관리', '향기와 위생', '주거와 미학', '놀이와 활동', '기록과 소품'],
   brandFilters: [
     { id: 'all', label: '전체 브랜드' },
@@ -36,15 +50,75 @@ const LEGACY_PRODUCT_CATEGORY_LABELS: ReadonlySet<string> = new Set([
 
 const MERGED_PRODUCT_CATEGORIES = ['식품·영양', '케어', '패션', '펫로스', '라이프'];
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeLabel(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (isRecord(value) && typeof value.label === 'string') return value.label;
+  return null;
+}
+
+function normalizeLabelList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const label = normalizeLabel(item);
+    return label === null ? [] : [label];
+  });
+}
+
+function normalizeBrandFilters(value: unknown): BrandFilter[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!isRecord(item) || typeof item.id !== 'string' || typeof item.label !== 'string') return [];
+    return [{ id: item.id, label: item.label }];
+  });
+}
+
+/**
+ * petTypes 등 {id,label} 항목 하나를 관용적으로 읽는다. 이미 {id,label} 객체면 그대로 쓰고,
+ * 평문 문자열이면 label로 두고 id는 normalizeShopCategory로 얻는다(알려진 슬러그면 그 슬러그,
+ * 모르면 원문 그대로) — 과거에 문자열 목록으로 저장됐을 가능성에 대비한 하위 호환용이다.
+ */
+function normalizeStoreFilterOption(value: unknown): StoreFilterOption | null {
+  if (typeof value === 'string') {
+    const label = value.trim();
+    if (!label) return null;
+    return { id: normalizeShopCategory(label) ?? label, label };
+  }
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' ? value.id.trim() : '';
+  const label = typeof value.label === 'string' ? value.label.trim() : '';
+  return id && label ? { id, label } : null;
+}
+
+function normalizePetTypes(value: unknown): StoreFilterOption[] {
+  if (!Array.isArray(value)) return defaultCategorySettings.petTypes.map((item) => ({ ...item }));
+  const normalized = value.flatMap((item) => {
+    const option = normalizeStoreFilterOption(item);
+    return option ? [option] : [];
+  });
+  return normalized.length > 0 ? normalized : defaultCategorySettings.petTypes.map((item) => ({ ...item }));
+}
+
 export function normalizeStoredCategorySettings(settings: CategorySettings): CategorySettings {
+  const rawSettings = settings as unknown as Record<string, unknown>;
+  const normalizedSettings: CategorySettings = {
+    ...settings,
+    productCategories: normalizeLabelList(rawSettings.productCategories),
+    petTypes: normalizePetTypes(rawSettings.petTypes),
+    lifestyleCategories: normalizeLabelList(rawSettings.lifestyleCategories),
+    brandFilters: normalizeBrandFilters(rawSettings.brandFilters),
+  };
   const isLegacyProductCategorySet =
-    settings.productCategories.length > 0 &&
-    settings.productCategories.every((category) => LEGACY_PRODUCT_CATEGORY_LABELS.has(category));
+    normalizedSettings.productCategories.length > 0 &&
+    normalizedSettings.productCategories.every((category) => LEGACY_PRODUCT_CATEGORY_LABELS.has(category));
   const isMergedProductCategorySet =
-    settings.productCategories.length === MERGED_PRODUCT_CATEGORIES.length &&
-    settings.productCategories.every((category, index) => category === MERGED_PRODUCT_CATEGORIES[index]);
+    normalizedSettings.productCategories.length === MERGED_PRODUCT_CATEGORIES.length &&
+    normalizedSettings.productCategories.every((category, index) => category === MERGED_PRODUCT_CATEGORIES[index]);
 
   return isLegacyProductCategorySet || isMergedProductCategorySet
-    ? { ...settings, productCategories: [...defaultCategorySettings.productCategories] }
-    : settings;
+    ? { ...normalizedSettings, productCategories: [...defaultCategorySettings.productCategories] }
+    : normalizedSettings;
 }

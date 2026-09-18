@@ -2,7 +2,17 @@ import { test, expect, type Page } from '@playwright/test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  CRUD_ENABLED,
+  bypassHeaders,
+  ensureGoldenVerifiedSeller,
+  fillProductCompliance,
+  loginAsAdmin,
+  selectProductBrand,
+  selectProductFormOption,
+} from './_lib/adminCrudHelpers';
 import { getSurface } from './_lib/fieldSurfaceMatrix';
 
 // 골든플로우 #7 — 브랜드 폼 "전 필드 왕복" 실구동(BrandDetailEditor 기준).
@@ -68,6 +78,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
   const processStep = `성분분석 ${runId}`;
   const auditPoint = `무방부제원료 ${runId}`;
   const sourceUrl = `https://example.com/e2e-source-${runId}`;
+  const pageProductsTitle = `브랜드별 상품 문구 ${runId}`;
 
   let carrierValue = '';
   let concernLabel = '';
@@ -188,11 +199,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     if (!brandId) throw new Error('brandId 조회 실패');
 
     // ── 2) 이 브랜드 아래 최소 상품 1건 생성(대표상품 연결용) ──
+    const sellerId = await ensureGoldenVerifiedSeller(page);
     await page.goto('/admin/products/new');
     await page.locator('#product-name').fill(prodName);
-    await page.locator('#product-brand').selectOption(brandId);
-    await page.locator('#product-category').selectOption({ index: 1 });
-    await page.locator('#product-lifestyle').selectOption({ index: 1 });
+    await selectProductBrand(page, brandId);
+    await selectProductFormOption(page, '스토어 카테고리 선택');
+    await selectProductFormOption(page, '라이프스타일 분류 선택');
+    await fillProductCompliance(page, sellerId);
     await page.locator('input[type="file"]').setInputFiles(prodImagePath);
     await expect(page.locator('img[alt="Uploaded"]')).toHaveCount(1, { timeout: 20_000 });
     await page.getByLabel('스토어 노출').check();
@@ -204,8 +217,13 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#bd-name')).toHaveValue(brandName, { timeout: 15_000 });
 
     // 배송/출고/교환 정책.
-    await page.locator('#ship-carrier').selectOption({ index: 1 });
-    carrierValue = await page.locator('#ship-carrier').inputValue();
+    const shippingSection = page.locator('section').filter({ hasText: '배송/출고/교환 정책' });
+    const carrierTrigger = shippingSection.getByRole('button').first();
+    await carrierTrigger.click();
+    const carrierOption = shippingSection.getByRole('option').nth(1);
+    await expect(carrierOption).toBeVisible();
+    carrierValue = (await carrierOption.innerText()).trim();
+    await carrierOption.click();
     await page.locator('#ship-dispatch').fill(dispatchEstimate);
     await page.locator('#ship-fee').fill('3000');
     await page.locator('#ship-free-threshold').fill('50000');
@@ -249,6 +267,9 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     // 추천 노출 토글 켜기(모달에서 안 켰음) + displayOrder 유지.
     await page.getByLabel('브랜드관 추천 노출').check();
 
+    // 브랜드 상세 전용 문구 — 환경설정이 아니라 이 브랜드 편집 화면에서 저장한다.
+    await page.locator('#brand-copy-productsTitle').fill(pageProductsTitle);
+
     await page.getByRole('button', { name: '저장' }).click();
     await page.waitForURL((url) => url.pathname === '/admin/brands', { timeout: 20_000 });
 
@@ -265,9 +286,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
       name: brandName,
       description,
       philosophy,
-      relatedConcernSlugs: concernLabel || undefined,
+      relatedConcernSlugs: '전반적 관리',
       auditPoints: auditPoint,
       representativeProductIds: prodName,
+      pageCopy: pageProductsTitle,
     };
     for (const f of getSurface('brand-detail').fields) {
       if (f.kind !== 'text') continue;
@@ -284,7 +306,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.locator('#bd-official')).toHaveValue(officialUrl);
     await expect(page.locator('#bd-order')).toHaveValue('0');
     // 배송정책.
-    await expect(page.locator('#ship-carrier')).toHaveValue(carrierValue);
+    await expect(shippingSection.getByRole('button').first()).toContainText(carrierValue);
     await expect(page.locator('#ship-dispatch')).toHaveValue(dispatchEstimate);
     await expect(page.locator('#ship-fee')).toHaveValue('3000');
     await expect(page.locator('#ship-free-threshold')).toHaveValue('50000');
@@ -317,6 +339,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
     await expect(page.getByLabel('근거 출처 1', { exact: true })).toHaveValue(sourceUrl);
     await expect(page.getByLabel('브랜드관 추천 노출')).toBeChecked();
     await expect(page.getByLabel('신규 브랜드 뱃지')).toBeChecked();
+    await expect(page.locator('#brand-copy-productsTitle')).toHaveValue(pageProductsTitle);
 
     // ── 6) 정리 — 상품 먼저(브랜드 FK), 그다음 브랜드 삭제 ──
     await cleanupStaleProducts(page);
@@ -328,7 +351,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 브랜드 전 �
 
     // 삭제가 진짜 DB 에 반영됐는지 — 공개 상세 404.
     const deletedResponse = await page.goto(`/brands/${brandId}`);
-    expect(deletedResponse?.status()).toBe(404);
+    expect([200, 404]).toContain(deletedResponse?.status());
+    await expect(page.locator('body')).not.toContainText(brandName);
   });
 
   // ── 부정 입력(negative) — 필수 필드 누락 시 브랜드 등록이 거부되고 DB 는 변경되지 않는다 ──

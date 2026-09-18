@@ -73,9 +73,10 @@ export default function CategoryManagerPage() {
       setDirty(true);
     };
 
-    const commitItemName = () => {
-      if (!dirty) return;
-      void commit(settings);
+    const commitItemName = (index: number, event: React.FocusEvent<HTMLInputElement>) => {
+      const nextList = [...list];
+      nextList[index] = event.currentTarget.value;
+      void commit(withList(nextList));
     };
 
     const removeItem = (index: number) => {
@@ -103,7 +104,8 @@ export default function CategoryManagerPage() {
           </div>
           <button
             onClick={addItem}
-            className="px-3 py-1.5 bg-[#17201B] text-white text-[12px] font-medium rounded flex items-center gap-1.5 hover:bg-[#2F3B34]"
+            disabled={!loaded || loadError}
+            className="px-3 py-1.5 bg-[#17201B] text-white text-[12px] font-medium rounded flex items-center gap-1.5 hover:bg-[#2F3B34] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Plus size={14} /> 추가
           </button>
@@ -118,22 +120,24 @@ export default function CategoryManagerPage() {
             list.map((item, index) => (
               <div key={index} className="flex items-center gap-3 bg-white p-2 border border-gray-200 rounded group">
                 <div className="flex flex-col gap-1 text-gray-300">
-                  <button onClick={() => moveItem(index, -1)} disabled={index === 0} className="hover:text-gray-600 disabled:opacity-30 leading-none">▲</button>
-                  <button onClick={() => moveItem(index, 1)} disabled={index === list.length - 1} className="hover:text-gray-600 disabled:opacity-30 leading-none">▼</button>
+                  <button onClick={() => moveItem(index, -1)} disabled={index === 0 || !loaded || loadError} className="hover:text-gray-600 disabled:opacity-30 leading-none">▲</button>
+                  <button onClick={() => moveItem(index, 1)} disabled={index === list.length - 1 || !loaded || loadError} className="hover:text-gray-600 disabled:opacity-30 leading-none">▼</button>
                 </div>
 
                 <input
                   type="text"
                   value={item}
                   onChange={(e) => updateItemLocal(index, e.target.value)}
-                  onBlur={commitItemName}
-                  className="flex-1 border-0 border-b border-transparent focus:border-[#17201B] focus:ring-0 text-[14px] px-1 py-1.5"
+                  onBlur={(event) => commitItemName(index, event)}
+                  disabled={!loaded || loadError}
+                  className="flex-1 border-0 border-b border-transparent focus:border-[#17201B] focus:ring-0 text-[14px] px-1 py-1.5 disabled:cursor-not-allowed disabled:opacity-60"
                   placeholder="항목 이름"
                 />
 
                 <button
                   onClick={() => removeItem(index)}
-                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  disabled={!loaded || loadError}
+                  className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded opacity-0 group-hover:opacity-100 transition-opacity disabled:cursor-not-allowed"
                 >
                   <Trash2 size={16} />
                 </button>

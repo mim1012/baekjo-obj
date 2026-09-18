@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useMounted } from '@/lib/useMounted';
 import { LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { logout } from '@/lib/storage';
 import {
   ADMIN_MAIN_NAV,
   ADMIN_CS_NAV,
@@ -120,7 +120,12 @@ export default function AdminSidebar({ user, collapsed, setCollapsed }: AdminSid
             </div>
           )}
           <button
-            onClick={() => signOut({ callbackUrl: '/' })}
+            type="button"
+            onClick={() => {
+              void logout().finally(() => {
+                window.location.assign('/');
+              });
+            }}
             className={`p-2 rounded-md text-gray-500 hover:bg-gray-200 hover:text-red-600 transition-colors`}
             title={collapsed ? '로그아웃' : undefined}
           >

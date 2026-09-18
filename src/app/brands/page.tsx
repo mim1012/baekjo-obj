@@ -1,9 +1,13 @@
-import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache';
+import { getCachedPublicProductCountsByBrand, getCachedPageTextSettings, listCachedPublicBrands } from '@/lib/public-read-cache';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { logServerError } from '@/lib/logServerError';
+import { selectBrandsContent, type BrandsContentData } from '@/lib/cms/source/brands';
 import BrandsContent from '@/components/brands/BrandsContent';
 
 export const metadata = {
-  title: '검증 브랜드',
-  description: '브랜드 철학부터 성분과 제조 과정까지 백조오브제가 살펴본 반려동물 브랜드를 소개합니다.',
+  title: '큐레이션 브랜드',
+  description: '공개 자료와 브랜드 제출 자료를 바탕으로 백조오브제의 자체 기준에 따라 살펴본 반려동물 브랜드를 소개합니다.',
   alternates: { canonical: '/brands' },
   openGraph: { url: '/brands' },
 };
@@ -16,5 +20,22 @@ export const dynamic = 'force-dynamic';
 export default async function BrandsPage() {
   const brands = await listCachedPublicBrands();
   const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));
-  return <BrandsContent brands={brands} productCounts={productCounts} />;
+
+  // D3: 소비자는 항상 getPublishedPageContent(key) ?? mapper(현재 소스) 2단으로 콘텐츠를 얻는다.
+  const published = await getPublishedPageContent<BrandsContentData>('brands').catch((error: unknown) => {
+    logServerError('[Brands] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Brands] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectBrandsContent(published, settings);
+
+  return <BrandsContent brands={brands} productCounts={productCounts} content={content} managed={managed} />;
 }

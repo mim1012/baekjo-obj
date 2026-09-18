@@ -23,6 +23,13 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain("export const dynamic = 'force-dynamic'");
     expect(pageSource).toContain('listCachedPublicProducts()');
     expect(pageSource).toContain('listCachedPublicBrands()');
+    // DB 환경파일이 없는 로컬 개발에서는 공개 캐시가 빈 결과로 접혀 홈 자체가 500이 되지 않는다.
+    // production의 설정 누락/DB 장애까지 삼키지 않도록 development + 정확한 오류문구만 허용한다.
+    expect(publicCache).toContain('withDevelopmentPublicReadFallback');
+    expect(publicCache).toContain("process.env.NODE_ENV !== 'development'");
+    expect(publicCache).toContain('isMissingSupabaseEnvironmentError(error)');
+    expect(publicCache).toContain('listCanonicalPublicProducts(filter)');
+    expect(publicCache).toContain('listCanonicalPublicBrands()');
     expect(publicCache).toContain("import { getBrandById, getBrandBySlug, listBrands } from '@/lib/brands/repo'");
     const productsRepoImport = publicCache.match(
       /import\s*\{([\s\S]*?)\}\s*from ['"]@\/lib\/products\/repo['"]/,
@@ -43,7 +50,10 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
     expect(pageSource).toContain('const sortedNotices = getPublicNotices(noticesConfig.items)');
     expect(pageSource).toContain('.sort((a, b) => b.date.localeCompare(a.date));');
     // PR #112: 홈 문구 정본이 관리자 설정으로 이관되며 settings prop 이 추가됐다(옵셔널·기본값 폴백).
-    expect(pageSource).toContain('const { solutions, insuranceBanner, ...publicHomeSettings } = settings ?? defaultHomeSettings;');
+    // PR2: 홈이 페이지 관리(CMS)에서 "현재 값 가져오기"로 활성화되면 selectHomeContent 가 그 게시본을
+    // 우선하고, 없으면(cmsHome === null) 기존 site_settings 경로로 그대로 폴백한다(소비자 이중화 없음).
+    expect(pageSource).toContain('const resolvedSettings = selectHomeContent(cmsHome, settings);');
+    expect(pageSource).toContain('const { insuranceBanner, ...publicHomeSettings } = resolvedSettings;');
     expect(pageSource).toContain('const visibleHomeSettings = FEATURES.insurance');
     expect(pageSource).toContain('settings={visibleHomeSettings}');
     expectNoMutableDataBypass(pageSource);
@@ -54,12 +64,13 @@ test.describe('홈 공개 화면 데이터 바인딩', () => {
 
     // PR #112: settings prop 추가로 시그니처가 멀티라인이 됐다 — 구성 요소별로 검증한다.
     expect(clientSource).toContain('export default function HomeClient({');
-    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {");
+    expect(clientSource).toContain("type HomeClientSettings = Omit<HomeSettings, 'insuranceBanner'> & {");
     expect(clientSource).toContain('products: Product[];');
     expect(clientSource).toContain('brands: Brand[];');
     expect(clientSource).toContain('notices: Notice[];');
     expect(clientSource).toContain('settings: HomeClientSettings;');
-    expect(clientSource).toContain('products.filter((product) => product.isBest || product.isRecommended)');
+    expect(clientSource).toContain('sortProducts(products.filter((product) => product.isRecommended)');
+    expect(clientSource).toContain("'homeDisplayOrder'");
     expect(clientSource).toContain('brands.filter(b => b.isVisible !== false)');
     // notices 는 DB 정본으로 이관 — 정적 import 금지, 서버 wrapper 가 props 로 주입한다.
     expect(clientSource).not.toMatch(/from ['"]@\/data\/notices['"]/);

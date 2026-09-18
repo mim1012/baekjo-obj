@@ -11,8 +11,17 @@ import {
   TEAR_CONCERN_FAQ,
 } from '@/lib/concerns/config';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
-import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
+import { seedAuditReport, seedB1AuditReportField, seedTopField } from '../helpers/brandSeed';
+import { defaultBrandPageCopy } from '@/lib/brands/pageCopy';
 import { defaultKitsConfig } from '@/lib/kits/config';
+import { defaultProductTagsConfig } from '@/lib/productTags/config';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { auditContentFromPageTexts } from '@/components/admin-new/pages/auditContent';
+import { buildB2bContent } from '@/lib/cms/source/b2b';
+import { buildCareKitContent } from '@/lib/cms/source/care-kit';
+import { buildConcernsContent } from '@/lib/cms/source/concerns';
+import { buildReviewsContent } from '@/lib/cms/source/reviews';
+import { buildNoticesContent } from '@/lib/cms/source/notices';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -59,15 +68,20 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('Audit·보호자 후기·소식 화면이 최신 콘텐츠 정본과 일치한다', () => {
-    const audit = read('src/app/audit/page.tsx');
+    const audit = JSON.stringify(auditContentFromPageTexts(defaultPageTextSettings));
     const reviews = read('src/app/reviews/page.tsx');
     const notices = read('src/app/notices/page.tsx');
     const reviewsAdmin = read('src/app/admin/reviews/page.tsx');
+    // reviews/notices가 CMS 소비(getPublishedPageContent ?? buildXContent)로 배선된 뒤에는 이 문구가
+    // page.tsx 원문이 아니라 순수 매퍼의 기본 산출값에 들어있다(D3, care-kit과 동일 패턴).
+    const reviewsContent = JSON.stringify(buildReviewsContent(defaultPageTextSettings));
+    const noticesContent = JSON.stringify(buildNoticesContent(defaultPageTextSettings));
 
     for (const copy of [
       '확인하는 기준이 있습니다.',
       '브랜드 둘러보기',
-      '모든 브랜드를 소개하지 않습니다. 확인하고 선택한 브랜드만 소개합니다.',
+      '모든 브랜드를 소개하지 않습니다.',
+      '확인하고 선택한 브랜드만 소개합니다.',
       '브랜드를 바라보는 기준',
       'Audit은 완료된 뒤에도 이어집니다',
       '추가 확인 중',
@@ -80,9 +94,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(audit).not.toContain('검증 브랜드 보기');
     expect(audit).not.toContain('검토 기준 살펴보기');
 
-    for (const copy of ['REAL EXPERIENCES', '보호자 후기', "['small', '소동물']", "['other', '기타']"]) {
-      expect(reviews).toContain(copy);
+    for (const copy of ['REAL EXPERIENCES', '보호자 후기', "small", "소동물", "other", "기타"]) {
+      expect(reviewsContent).toContain(copy);
     }
+    expect(reviews).toContain("getPublishedPageContent<ReviewsContent>('reviews')");
     expect(reviews).toContain('return review.petType === filter;');
     expect(reviews).not.toContain('반려가족의 리얼 후기');
     expect(reviews).not.toContain('reviewConcernTagsByProductId');
@@ -90,17 +105,21 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(reviewsAdmin).toContain('required: true');
     expect(reviewsAdmin).toContain("{ value: '', label: '종류를 선택해 주세요' }");
 
-    expect(notices).toContain('NEWS &amp; NOTICE');
-    expect(notices).toContain('백조오브제의 새로운 소식과 안내');
+    expect(noticesContent).toContain('NEWS & NOTICE');
+    expect(noticesContent).toContain('백조오브제의 새로운 소식과 안내');
+    expect(notices).toContain("getPublishedPageContent<NoticesContent>('notices')");
     for (const hiddenColumn of ['<div>글쓴이</div>', '<div>조회수</div>', '<div>좋아요</div>']) {
       expect(notices).not.toContain(hiddenColumn);
     }
   });
 
   test('케어키트 프로젝트와 협업 문의 문구가 최신 시안과 일치한다', () => {
+    // care-kit이 CMS 소비(getPublishedPageContent ?? buildCareKitContent)로 배선된 뒤에는 이 문구가
+    // src/app/landing/care-kit/page.tsx 원문이 아니라 순수 매퍼의 기본 산출값에 들어있다(D3).
     const careKit = read('src/app/landing/care-kit/page.tsx');
     const inquiryForm = read('src/components/care-kit/PartnerInquiryForm.tsx');
     const migration = read('supabase/migrations/0110_care_kit_project_content.sql');
+    const careKitContent = JSON.stringify(buildCareKitContent(defaultPageTextSettings));
 
     for (const copy of [
       '필요한 순간에 맞는',
@@ -112,11 +131,12 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '현재 상세 구성 및 디자인 이미지는 공개하지 않습니다.',
       '협업·제휴 문의',
     ]) {
-      expect(careKit).toContain(copy);
+      expect(careKitContent).toContain(copy);
     }
-    expect(careKit).toContain('src="/brands/penefit-official.png"');
-    expect(careKit).toContain('alt="페네핏 로고"');
-    expect(careKit).not.toContain('src="/brands/penefit-wordmark-green.png"');
+    expect(careKitContent).toContain('/brands/penefit-official.png');
+    expect(careKitContent).toContain('페네핏 로고');
+    expect(careKitContent).not.toContain('/brands/penefit-wordmark-green.png');
+    expect(careKit).toContain("getPublishedPageContent<CareKitContent>('care-kit')");
     expect(careKit).toContain("legacyDefaultKitNames");
     expect(inquiryForm).toContain('협업·제휴 문의하기');
     expect(defaultKitsConfig.items.map((kit) => kit.name)).toEqual([
@@ -144,22 +164,31 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('셀렉션 필터, 배지, 빈 상태가 0827 계약과 일치한다', () => {
+    // ShopContent.tsx는 PR2에서 CMS 소비로 전환됐다 — 필터·정렬·빈 상태 문구는 이제 컴포넌트에
+    // 하드코딩되지 않고 pageDefinitions.ts의 shop defaultContent에서 props로 내려온다. 화면
+    // 리터럴이 아닌 정본(값 자체는 바뀌지 않았다)에서 같은 문구를 확인한다.
     const shop = read('src/components/shop/ShopContent.tsx');
+    const shopDefinition = read('src/lib/cms/pageDefinitions.ts');
     expect(shopCategoryFilters.map((category) => category.label)).toEqual([
       '푸드', '영양', '케어', '패션', '펫로스', '라이프',
     ]);
     for (const label of ['전체', '2만원 미만', '2-5만원', '5-10만원', '10만원 이상']) {
-      expect(shop).toContain(label);
+      expect(shopDefinition).toContain(label);
     }
-    for (const label of ['피부', '관절', '체중', '구강', '냄새']) {
-      expect(shop).toContain(`title: '${label}'`);
-    }
-    expect(shop).toContain('소동물');
+    // PR3부터 '고민' 필터 옵션 집합·순서·이름은 ShopContent의 정적 배열이 아니라 productTags 설정
+    // (showInShopFilter && isVisible)에서 온다 — 정본이 defaultProductTagsConfig로 옮겨졌다(U2).
+    expect(
+      defaultProductTagsConfig.items
+        .filter((item) => item.showInShopFilter && item.isVisible)
+        .map((item) => item.label),
+    ).toEqual(['피부', '관절', '체중', '구강', '냄새']);
+    expect(shop).not.toContain('concernOptions');
+    expect(shopDefinition).toContain('소동물');
     expect(shop).not.toContain('title="연령"');
-    expect(shop).toContain('DAILY PICK');
+    expect(shopDefinition).toContain('DAILY PICK');
     expect(shop).not.toContain('지금 백조오브제가 가장 주목하는 제품');
     expect(shop).not.toContain('조건을 조금 넓혀 다시 살펴볼까요?');
-    expect(shop).toContain('필터 초기화');
+    expect(shopDefinition).toContain('필터 초기화');
     expect(shop).not.toContain('선택한 조건 모두 지우기');
     // ProductCard.tsx(SELECTED/잠시 품절/reviewCount 배지) 관련 단언은 옵션재고 묶음 B에서
     // 함께 바뀌는 파일이라 A묶음에서는 제외했다 — bundle B에서 ProductCard와 함께 복원한다.
@@ -169,7 +198,9 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const overview = read('src/app/concerns/page.tsx');
     const detail = read('src/app/concerns/[slug]/page.tsx');
     const tear = defaultConcernsConfig.items.find((concern) => concern.slug === 'tear');
-    expect(overview).toContain('/images/care-guide-hero-pet-family.png');
+    // concerns가 CMS 소비(getPublishedPageContent ?? buildConcernsContent)로 배선된 뒤에는 히어로
+    // 이미지 경로가 overview 원문이 아니라 순수 매퍼의 기본 산출값에 들어있다(D3).
+    expect(JSON.stringify(buildConcernsContent(defaultPageTextSettings))).toContain('/images/care-guide-hero-pet-family.png');
     expect(overview).toContain('h-[640px]');
     expect(overview).toContain('md:h-[480px]');
     for (const slug of ['tear', 'joint', 'skin', 'obesity', 'stress', 'oral']) {
@@ -217,9 +248,13 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const skin = defaultConcernsConfig.items.find((concern) => concern.slug === 'skin');
     const stress = defaultConcernsConfig.items.find((concern) => concern.slug === 'stress');
 
-    expect(overview).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.');
-    expect(overview).toContain('일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
-    expect(overview).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.<br />');
+    // concerns가 CMS 소비(getPublishedPageContent ?? buildConcernsContent)로 배선된 뒤에는 히어로
+    // 설명·FAQ 문구가 overview 원문이 아니라 순수 매퍼의 기본 산출값에 들어있다(D3). 두 줄이 여전히
+    // '\n'로 이어진 하나의 문자열임을 확인해 예전 <br /> 분리와 같은 줄바꿈을 보존했는지 검증한다.
+    const overviewContent = JSON.stringify(buildConcernsContent(defaultPageTextSettings));
+    expect(overviewContent).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.');
+    expect(overviewContent).toContain('일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
+    expect(overviewContent).toContain('우리 아이가 보내는 작은 신호부터 살펴보세요.\\n일상에서 알아두면 좋은 케어 기준을 정리했습니다.');
     expect(overview).not.toContain('<br className="hidden sm:block" />');
     expect(overview).not.toContain('/* 4. 핵심 정보 요약 바 */');
     expect(stress?.shortDescription).toBe('평소보다 불안하거나 예민해졌나요?');
@@ -266,7 +301,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
       '이 정보만으로 건강 상태를 판단해도 되나요?',
       '이 내용은 보호자가 일상에서 변화를 알아차리는 데 도움을 주기 위한 참고 정보입니다. 같은 변화도 원인이 다를 수 있으므로 특정 질환을 판단하거나 진단하는 기준으로 사용하지 않습니다.',
     ]) {
-      expect(overview).toContain(faq);
+      expect(overviewContent).toContain(faq);
     }
     for (const text of [
       "title: '원인 살펴보기'",
@@ -306,10 +341,14 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     expect(overview).not.toContain('더 궁금한 점이 있으신가요?');
     expect(overview).not.toContain('1:1 문의하기');
     expect(overview).not.toContain('사랑하는 아이를 위한 든든한 준비');
-    expect(overview).toContain('우리 아이에게 필요한 보장은 무엇일까요?');
-    expect(overview).toContain('나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.');
-    expect(overview).toContain('보험 분석하기');
-    expect(overview).toContain('<Link href="/insurance"');
+    // concerns가 CMS 소비로 배선된 뒤에는 보험 배너 문구가 overview 원문이 아니라 순수 매퍼의 기본
+    // 산출값에 들어있다(D3). 배너 표시 게이트 자체는 여전히 FEATURES.insurance 하나뿐이다(D6).
+    const overviewContentForInsurance = JSON.stringify(buildConcernsContent(defaultPageTextSettings));
+    expect(overviewContentForInsurance).toContain('우리 아이에게 필요한 보장은 무엇일까요?');
+    expect(overviewContentForInsurance).toContain('나이와 건강 상태를 바탕으로 우리 아이에게 맞는 보험을 살펴보세요.');
+    expect(overviewContentForInsurance).toContain('보험 분석하기');
+    expect(overviewContentForInsurance).toContain('"buttonHref":"/insurance"');
+    expect(overview).toContain('{FEATURES.insurance && (');
     expect(overview).not.toContain('href="/insurance/recommend"');
 
     expect(detail).toContain("title: '우리 아이의 체중,\\n괜찮은 걸까요?'");
@@ -392,9 +431,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('브랜드 8개 표시 문구를 이름 변형과 무관하게 정규화한다', () => {
-    const brandsPage = read('src/components/brands/BrandsContent.tsx');
     const brandCard = read('src/components/common/BrandCard.tsx');
-    expect(brandsPage).toContain('/images/brands-hero-cat-architectural.png');
+    // 히어로 이미지 경로는 PR2에서 CMS 소비로 전환돼 pageDefinitions.ts의 brands
+    // defaultContent(content.hero.image)에서 props로 내려온다 — 컴포넌트에는 더 이상 리터럴이 없다.
+    expect(read('src/lib/cms/pageDefinitions.ts')).toContain('/images/brands-hero-cat-architectural.png');
     expect(brandCard).toContain('{presentation.displayName}');
     expect(brandCard).toContain('min-h-[24px]');
     const cases = [
@@ -430,12 +470,11 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     } as const;
 
     for (const [id, values] of Object.entries(expected)) {
-      const source = getSourceBrandContent({ id, philosophy: '', highlights: [], auditPoints: [] });
       expect([
-        source.summaryCategoryLabel,
-        source.summaryCategoryNote,
-        source.summaryConcernLabel,
-        source.summaryConcernNote,
+        seedTopField(id, 'summaryCategoryLabel'),
+        seedTopField(id, 'summaryCategoryNote'),
+        seedTopField(id, 'summaryConcernLabel'),
+        seedTopField(id, 'summaryConcernNote'),
       ], id).toEqual(values);
     }
 
@@ -455,33 +494,28 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     } as const;
 
     for (const [id, counts] of Object.entries(expected)) {
-      const report = getSourceAuditReport({ id, auditReport: undefined });
+      const report = seedAuditReport(id) as {
+        selectionReason: string;
+        process: string[];
+        materialReview: string[];
+        curatorNote: string[];
+        auditConclusion?: string[];
+      };
       expect(report, `${id} Audit 원문`).toBeDefined();
-      expect(report!.selectionReason.trim().length, `${id} Selection Reason`).toBeGreaterThan(0);
-      expect(report!.process, `${id} Audit Process`).toHaveLength(counts.process);
-      expect(report!.materialReview, `${id} Material & Quality Review`).toHaveLength(counts.material);
-      expect(report!.curatorNote, `${id} Curator's Note`).toHaveLength(counts.curator);
-      expect(report!.auditConclusion ?? [], `${id} Audit Conclusion`).toHaveLength(counts.conclusion);
+      expect(report.selectionReason.trim().length, `${id} Selection Reason`).toBeGreaterThan(0);
+      expect(report.process, `${id} Audit Process`).toHaveLength(counts.process);
+      expect(report.materialReview, `${id} Material & Quality Review`).toHaveLength(counts.material);
+      expect(report.curatorNote, `${id} Curator's Note`).toHaveLength(counts.curator);
+      expect(report.auditConclusion ?? [], `${id} Audit Conclusion`).toHaveLength(counts.conclusion);
     }
 
-    const penefitReport = {
-      reportNo: 'BOA-2026-004',
-      auditedAt: '2026.06',
-      status: 'Audit Completed',
-      headline: '반려동물의 식탁을 넓히는 영양 설계',
-      summaryTitle: '성분을 감추지 않는 자신감',
-      summary: '페네핏 Audit 요약',
-      selectionReason: '페네핏 Selection Reason',
-      process: ['페네핏 Audit Process'],
-    };
-    const resolvedPenefitReport = getSourceAuditReport({ id: 'b1', auditReport: penefitReport });
-    expect(resolvedPenefitReport).toMatchObject(penefitReport);
-    expect(resolvedPenefitReport?.headline).toBe(penefitReport.headline);
-    expect(resolvedPenefitReport?.selectionReason).toBe(penefitReport.selectionReason);
-    expect(resolvedPenefitReport?.process).toEqual(penefitReport.process);
-    expect(resolvedPenefitReport?.checkpoints).toHaveLength(9);
-    expect(resolvedPenefitReport?.materialReview).toHaveLength(7);
-    expect(resolvedPenefitReport?.curatorNote).toHaveLength(5);
+    // b1(페네핏)은 getSourceAuditReport 런타임 병합 대신, 0161 시드가 auditReport 스텁이
+    // 이미 있을 때 비어있는 필드만 채운다(신규 스텁이면 전체가 비어 있으므로 전부 채워짐).
+    expect(seedB1AuditReportField('headline')).toBe('성분을 감추지 않는 자신감');
+    expect(seedB1AuditReportField('process')).toHaveLength(10);
+    expect(seedB1AuditReportField('checkpoints')).toHaveLength(9);
+    expect(seedB1AuditReportField('materialReview')).toHaveLength(7);
+    expect(seedB1AuditReportField('curatorNote')).toHaveLength(5);
   });
 
   test('The Audit Checkpoints는 상세 Audit 7개에 서로 다른 브랜드별 정본을 표시한다', () => {
@@ -497,7 +531,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
 
     const serialized = new Set<string>();
     for (const [id, checkpoints] of Object.entries(expected)) {
-      const report = getSourceAuditReport({ id, auditReport: undefined });
+      const report = seedAuditReport(id) as { checkpoints: string[] };
       expect(report?.checkpoints, id).toEqual(checkpoints);
       serialized.add(JSON.stringify(report?.checkpoints));
     }
@@ -505,7 +539,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('챠콜스토리 Selection Reason은 제공된 5개 문단을 그대로 표시한다', () => {
-    const report = getSourceAuditReport({ id: 'b8', auditReport: undefined });
+    const report = seedAuditReport('b8') as { selectionReason: string };
     expect(report?.selectionReason.split('\n\n')).toEqual([
       '반려동물과 함께하는 공간에서 냄새와 습기는 쉽게 반복되는 문제입니다. 그때마다 무언가를 더해 잠시 가릴 수도 있지만, 챠콜스토리는 문제를 만드는 환경 자체에 주목했습니다.',
       '챠콜스토리는 펫 제품을 위해 새롭게 숯을 선택한 브랜드가 아닙니다. 19년에 걸쳐 숯을 연구하고 다양한 제품과 기술로 개발해온 경험을 바탕으로, 그 전문성을 반려동물의 생활환경까지 확장하고 있습니다.',
@@ -516,11 +550,11 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('노블독 검토 완료 4개와 상세 Checkpoints 7개·Selection Reason 5개 문단을 구분한다', () => {
-    const source = getSourceBrandContent({ id: 'b3', philosophy: '', highlights: [], auditPoints: [] });
-    const report = getSourceAuditReport({ id: 'b3', auditReport: undefined });
+    const auditPoints = seedTopField('b3', 'auditPoints') as string[];
+    const report = seedAuditReport('b3') as { checkpoints: string[]; selectionReason: string };
     const paragraphs = report?.selectionReason.split('\n\n') ?? [];
 
-    expect(source.auditPoints).toEqual([
+    expect(auditPoints).toEqual([
       '동물용의약외품 신고 정보 확인',
       '제품 성분 및 시험성적서 확인',
       '스프레이·칫솔 구조 및 사용 방식 확인',
@@ -537,10 +571,10 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('알로밍 검토 완료 6개와 상세 PDF의 11개 Checkpoints·6개 Selection Reason 문단을 구분한다', () => {
-    const source = getSourceBrandContent({ id: 'b5', philosophy: '', highlights: [], auditPoints: [] });
-    const report = getSourceAuditReport({ id: 'b5', auditReport: undefined });
+    const auditPoints = seedTopField('b5', 'auditPoints') as string[];
+    const report = seedAuditReport('b5') as { checkpoints: string[]; selectionReason: string };
 
-    expect(source.auditPoints).toEqual([
+    expect(auditPoints).toEqual([
       '약 4년에 걸친 연구 및 개발 과정 확인',
       '펫브러시 구조 관련 등록 특허 확인',
       '유아용 식기 등급 실리콘 소재 확인',
@@ -578,7 +612,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const migration = read('supabase/migrations/0112_sunny_side_up_audit_source_copy.sql');
     const sourceCopy = read('supabase/migrations/0132_sunny_side_up_audit_detail_source_copy.sql');
     const conclusionRemoval = read('supabase/migrations/0133_remove_sunny_side_up_audit_conclusion.sql');
-    const report = getSourceAuditReport({ id: 'b9', auditReport: undefined });
+    const report = seedAuditReport('b9') as { materialReview: string[]; curatorNote: string[]; auditConclusion?: string[] };
     expect(detail.indexOf('<BrandShippingInfo brand={brand} />')).toBeLessThan(detail.indexOf('<BrandAuditReport brand={publicBrand} />'));
     expect(migration).toContain("'reportNo', 'BOA-2026-005'");
     expect(migration).toContain("'headline', '존중을 증명하는 기준'");
@@ -626,16 +660,18 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0120_omipro_summary_and_review_source_copy.sql');
     const detailMigration = read('supabase/migrations/0134_omipro_audit_checkpoints_source_copy.sql');
-    const source = getSourceBrandContent({ id: 'b2', philosophy: '', highlights: [], auditPoints: [] });
-    const report = getSourceAuditReport({ id: 'b2', auditReport: undefined });
+    const auditPoints = seedTopField('b2', 'auditPoints') as string[];
+    const report = seedAuditReport('b2') as { checkpoints: string[] };
 
-    expect(detail).toContain('title="백조오브제 검토 완료"');
-    expect(detail).toContain('아래 항목을 중심으로 검토를 완료하였습니다.');
-    expect(source.summaryCategoryNote).toBe('냄새 문제에서 시작해 장과 뼈 건강을 고려한 영양 제품을 소개합니다.');
-    expect(source.summaryConcernNote).toBe('먹는 영양으로 배변 냄새 관리에 도움을 줍니다.');
-    expect(source.auditPoints).toHaveLength(6);
+    expect(defaultBrandPageCopy.auditTitle).toBe('백조오브제 검토 완료');
+    expect(defaultBrandPageCopy.auditIntro).toBe('아래 항목을 중심으로 검토를 완료하였습니다.');
+    expect(detail).toContain('title={pageCopy.auditTitle}');
+    expect(detail).toContain('{pageCopy.auditIntro}');
+    expect(seedTopField('b2', 'summaryCategoryNote')).toBe('냄새 문제에서 시작해 장과 뼈 건강을 고려한 영양 제품을 소개합니다.');
+    expect(seedTopField('b2', 'summaryConcernNote')).toBe('먹는 영양으로 배변 냄새 관리에 도움을 줍니다.');
+    expect(auditPoints).toHaveLength(6);
     expect(report?.checkpoints).toHaveLength(7);
-    expect(report?.checkpoints).not.toEqual(source.auditPoints);
+    expect(report?.checkpoints).not.toEqual(auditPoints);
     expect(migration).toContain('오미자 발효 부산물 활용 제조방법 등록 특허 확인');
     expect(migration).toContain('미국 FDA·중국 MARA 등 해외 등록 자료 확인');
     expect(migration).toContain('실제 급여 경험 확인');
@@ -644,7 +680,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('오미프로 상세 Audit에는 Audit Conclusion을 표시하지 않는다', () => {
-    const report = getSourceAuditReport({ id: 'b2', auditReport: undefined });
+    const report = seedAuditReport('b2') as { auditConclusion?: string[] };
     const migration = read('supabase/migrations/0121_remove_omipro_audit_conclusion.sql');
 
     expect(report?.auditConclusion ?? []).toEqual([]);
@@ -664,13 +700,12 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('메종슈슈 브랜드 스토리는 착용감과 패턴 설계 내용을 표시한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0090_maison_chouchou_brand_story.sql');
-    const source = getSourceBrandContent({ id: 'b7', philosophy: '', highlights: [], auditPoints: [] });
     expect(detail).toContain('{presentation.displayName}');
-    expect(detail).toContain('sourceContent.summaryCategoryLabel ?? brand.summaryCategoryLabel');
-    expect(source.summaryCategoryLabel).toBe('패션 · 라이프');
-    expect(source.summaryCategoryNote).toBe('체형과 움직임을 고려해 직접 디자인한 반려견 의류를 소개합니다.');
-    expect(source.summaryConcernLabel).toBe('체형 · 착용감');
-    expect(source.summaryConcernNote).toBe('다양한 사이즈와 직접 피팅으로 편안한 옷 선택을 돕습니다.');
+    expect(detail).toContain('brand.summaryCategoryLabel');
+    expect(seedTopField('b7', 'summaryCategoryLabel')).toBe('패션 · 라이프');
+    expect(seedTopField('b7', 'summaryCategoryNote')).toBe('체형과 움직임을 고려해 직접 디자인한 반려견 의류를 소개합니다.');
+    expect(seedTopField('b7', 'summaryConcernLabel')).toBe('체형 · 착용감');
+    expect(seedTopField('b7', 'summaryConcernNote')).toBe('다양한 사이즈와 직접 피팅으로 편안한 옷 선택을 돕습니다.');
     expect(migration).toContain('그 옷을 편안하게 입고 움직이는 순간까지 중요하게 생각합니다.');
     expect(migration).toContain('체형과 움직임을 고려한 패턴 설계');
     expect(migration).toContain('제품 특성에 맞춰 선택한 소재와 신축성');
@@ -679,9 +714,11 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   test('메종슈슈 Audit 요약은 완료 상태와 확정 검토 항목을 표시한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0091_maison_chouchou_audit_points.sql');
-    expect(detail).toContain('title="백조오브제 검토 완료"');
-    expect(detail).toContain("const auditStatusText = hasCompletedAudit ? 'Audit Completed' : ''");
-    expect(detail).toContain('Audit 자세히 보기 <ArrowRight');
+    expect(defaultBrandPageCopy.auditTitle).toBe('백조오브제 검토 완료');
+    expect(defaultBrandPageCopy.auditCompletedLabel).toBe('Audit Completed');
+    expect(defaultBrandPageCopy.auditLinkLabel).toBe('Audit 자세히 보기');
+    expect(detail).toContain('const auditStatusText = hasCompletedAudit ? pageCopy.auditCompletedLabel :');
+    expect(detail).toContain('{pageCopy.auditLinkLabel} <ArrowRight');
     for (const point of [
       '제품별 소재 및 혼용률 확인',
       '사이즈 구성 및 착용 방식 확인',
@@ -696,7 +733,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0092_maison_chouchou_audit_report.sql');
     const removal = read('supabase/migrations/0126_remove_maison_chouchou_audit_conclusion.sql');
-    const report = getSourceAuditReport({ id: 'b7', auditReport: undefined });
+    const report = seedAuditReport('b7') as { auditConclusion?: string[] };
     expect(detail.indexOf('<BrandShippingInfo brand={brand} />')).toBeLessThan(detail.indexOf('<BrandAuditReport brand={publicBrand} />'));
     expect(migration).toContain("'reportNo', 'BOA-2026-006'");
     expect(migration).toContain("'headline', '편안함으로 완성되는 아름다움의 기준'");
@@ -732,7 +769,7 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
     const migration = read('supabase/migrations/0094_repet_audit_report.sql');
     const removal = read('supabase/migrations/0140_remove_repet_audit_conclusion.sql');
-    const report = getSourceAuditReport({ id: 'b6', auditReport: undefined });
+    const report = seedAuditReport('b6') as { auditConclusion?: string[] };
     expect(detail.indexOf('<BrandShippingInfo brand={brand} />')).toBeLessThan(detail.indexOf('<BrandAuditReport brand={publicBrand} />'));
     expect(migration).toContain("'reportNo', 'BOA-2026-007'");
     expect(migration).toContain("'headline', '그리운 모습을 다시 마주하는 시간'");
@@ -744,21 +781,25 @@ test.describe('2026-08-27 고객 요구사항 표시 계약', () => {
   });
 
   test('B2B·보험 CTA와 RE:펫 결정 문서 연결이 정본과 일치한다', () => {
+    // b2b가 CMS 소비(getPublishedPageContent ?? buildB2bContent)로 배선된 뒤에는 이 문구가
+    // src/app/b2b/page.tsx 원문이 아니라 순수 매퍼의 기본 산출값에 들어있다(D3).
     const b2b = read('src/app/b2b/page.tsx');
     const brands = read('src/components/brands/BrandsContent.tsx');
     const insurance = read('src/app/insurance/page.tsx');
     const matrix = read('docs/baekjo-0827/source-matrix.md');
-    expect(b2b).toContain('BAEKJO OBJET FOR BUSINESS');
-    expect(b2b).toContain('백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.');
-    expect(b2b).toContain('목적에 따라 협업의 방식도 달라집니다.');
-    expect(b2b).toContain('필요에 맞는 협업 방식을 제안합니다.');
-    expect(b2b).toContain('프로젝트는 충분한 협의와 준비를 거쳐 공개하며');
-    expect(b2b).toContain('협업은 이렇게 진행됩니다.');
-    expect(b2b).toContain('진행 중인 프로젝트와 검토 일정에 따라 기획 및 제안까지');
-    expect(b2b).toContain('필요한 순간과 목적을 들려주세요.');
-    expect(b2b).toContain('서로의 가치를 지키며 함께 성장할 수 있는 관계를 만들어갑니다.');
-    expect(b2b).toContain('B2B 문의하기');
-    expect(b2b).not.toContain('파트너십 문의하기');
+    const b2bContent = JSON.stringify(buildB2bContent(defaultPageTextSettings));
+    expect(b2bContent).toContain('BAEKJO OBJET FOR BUSINESS');
+    expect(b2bContent).toContain('백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.');
+    expect(b2bContent).toContain('목적에 따라 협업의 방식도 달라집니다.');
+    expect(b2bContent).toContain('필요에 맞는 협업 방식을 제안합니다.');
+    expect(b2bContent).toContain('프로젝트는 충분한 협의와 준비를 거쳐 공개하며');
+    expect(b2bContent).toContain('협업은 이렇게 진행됩니다.');
+    expect(b2bContent).toContain('진행 중인 프로젝트와 검토 일정에 따라 기획 및 제안까지');
+    expect(b2bContent).toContain('필요한 순간과 목적을 들려주세요.');
+    expect(b2bContent).toContain('서로의 가치를 지키며 함께 성장할 수 있는 관계를 만들어갑니다.');
+    expect(b2bContent).toContain('B2B 문의하기');
+    expect(b2bContent).not.toContain('파트너십 문의하기');
+    expect(b2b).toContain("getPublishedPageContent<B2bContent>('b2b')");
     expect(brands).toContain('self-center items-center justify-center whitespace-nowrap');
     expect(brands).toContain('md:self-start');
     expect(insurance).toContain('보험 분석 시작하기');

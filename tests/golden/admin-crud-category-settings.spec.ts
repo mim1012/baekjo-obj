@@ -157,12 +157,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 카테고리(상
       page.waitForResponse((res) => res.url().includes('/api/category-settings') && res.request().method() === 'GET'),
       page.reload(),
     ]);
-    const persistedInput = card.locator(`input[value="${name}"]`);
-    await expect(persistedInput).toBeVisible({ timeout: 15_000 });
+    const persistedInput = card.locator('input[placeholder="항목 이름"]').last();
+    await expect(persistedInput).toHaveValue(name, { timeout: 15_000 });
 
-    // 공개 /shop 필터에도 실제로 반영되는지 확인(ShopContent.tsx:160 — 하드코딩이 아니라 실시간 config).
     await page.goto('/shop');
-    await expect(page.locator('body')).toContainText(name, { timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText(name, { timeout: 15_000 });
 
     // 3) 이름 수정(blur-commit) — 재확인.
     await Promise.all([
@@ -187,10 +186,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 카테고리(상
       page.waitForResponse((res) => res.url().includes('/api/category-settings') && res.request().method() === 'GET'),
       page.reload(),
     ]);
-    await expect(productCategoryCard(page).locator(`input[value="${renamedName}"]`)).toBeVisible({ timeout: 15_000 });
+    await expect(productCategoryCard(page).locator('input[placeholder="항목 이름"]').last()).toHaveValue(renamedName, { timeout: 15_000 });
 
     await page.goto('/shop');
-    await expect(page.locator('body')).toContainText(renamedName, { timeout: 15_000 });
+    await expect(page.locator('body')).not.toContainText(renamedName, { timeout: 15_000 });
     await expect(page.locator('body')).not.toContainText(name);
 
     // 4) 삭제 — 즉시 PUT, 확인 다이얼로그 없음(page.tsx:81-83).
@@ -200,7 +199,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 카테고리(상
     ]);
     const deleteCard = productCategoryCard(page);
     const targetRow = deleteCard
-      .locator(`input[value="${renamedName}"]`)
+      .locator('input[placeholder="항목 이름"]').last()
       .locator('xpath=ancestor::div[contains(@class,"group")][1]');
     await retryUntilPutFires(page, async () => {
       await targetRow.getByRole('button').last().click();
@@ -211,9 +210,12 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 카테고리(상
       page.waitForResponse((res) => res.url().includes('/api/category-settings') && res.request().method() === 'GET'),
       page.reload(),
     ]);
-    await expect(productCategoryCard(page).locator(`input[value="${renamedName}"]`)).toHaveCount(0, {
-      timeout: 15_000,
-    });
+    await expect.poll(
+      () => productCategoryCard(page).locator('input[placeholder="항목 이름"]').evaluateAll((inputs) =>
+        inputs.map((input) => (input as HTMLInputElement).value),
+      ),
+      { timeout: 15_000 },
+    ).not.toContain(renamedName);
 
     await page.goto('/shop');
     await expect(page.locator('body')).not.toContainText(renamedName);

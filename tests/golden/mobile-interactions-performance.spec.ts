@@ -164,6 +164,7 @@ test.describe('모바일 상호작용 성능', () => {
     if (!productName) throw new Error('상품 상세 h1에서 상품명을 읽지 못함');
     const wishlistButton = page.getByRole('button', { name: `${productName} 찜하기` });
     await expect(wishlistButton).toBeVisible();
+    await expect.poll(() => wishlistGets.length).toBeGreaterThan(0);
     const getCountAfterInitialSync = wishlistGets.length;
 
     await wishlistButton.click();

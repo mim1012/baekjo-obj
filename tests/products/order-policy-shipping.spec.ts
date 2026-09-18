@@ -60,3 +60,14 @@ test('브랜드 정책이 없으면 기존 전역 5만원 무료배송 정책으
   expect(belowThreshold.deliveryFee).toBe(3_000);
   expect(aboveThreshold.deliveryFee).toBe(0);
 });
+
+test('실제 판매자 정책은 브랜드 정책보다 우선하고 여러 브랜드 상품도 판매자당 한 번 계산한다', () => {
+  const result = calcBrandDeliveryFee([
+    { brandId: 'b1', sellerKey: 'seller:s1', brandName: '판매자 1', totalPrice: 30_000, shippingFee: 4_000, freeShippingThreshold: 50_000 },
+    { brandId: 'b7', sellerKey: 'seller:s1', brandName: '판매자 1', totalPrice: 25_000, shippingFee: 4_000, freeShippingThreshold: 50_000 },
+  ], [brand('b1', 9_000), brand('b7', 8_000)]);
+
+  expect(result.deliveryFee).toBe(0);
+  expect(result.breakdown).toHaveLength(1);
+  expect(result.breakdown[0]).toMatchObject({ sellerKey: 'seller:s1', subtotal: 55_000, shippingFee: 4_000, isFreeShipping: true });
+});

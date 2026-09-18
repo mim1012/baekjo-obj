@@ -2,7 +2,12 @@ import { test, expect, type Page, type APIRequestContext } from '@playwright/tes
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { ADMIN_EMAIL, ADMIN_PASSWORD, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
+import {
+  ADMIN_EMAIL,
+  ADMIN_PASSWORD,
+  bypassHeaders,
+  loginAsAdminReadOnly,
+} from './_lib/adminCrudHelpers';
 import { ALL_APP_ROUTES, type RouteEntry } from './_lib/allPagesRoutes';
 import { ALL_ADMIN_API_ROUTES, fillApiRoute } from './_lib/allAdminApiRoutes';
 
@@ -121,7 +126,7 @@ const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/login': (page) => h1Visible(page, '다시 만나 반가워요.'),
   '/notices': (page) => h1Visible(page, '공지사항'),
   '/order-complete': (page) => h1Visible(page, '주문이 완료되었습니다'),
-  '/privacy': (page) => h1Visible(page, '개인정보처리방침'),
+  '/privacy': (page) => h1Visible(page, '개인정보 처리방침'),
   '/refund-policy': (page) => h1Visible(page, '배송·교환·환불 안내'),
   '/reviews': (page) => h1Visible(page, '보호자 후기'),
   '/shop': (page) => h1Visible(page, '우리 아이를 위한 좋은 선택'),
@@ -138,6 +143,7 @@ const ADMIN_STATIC_HEADINGS: Record<string, string> = {
   '/admin/brands': '브랜드 관리',
   '/admin/categories': '카테고리 관리',
   '/admin/concerns': '고민 관리',
+  '/admin/guide': '관리자 사용 안내',
   '/admin/inquiries': '상품문의 관리',
   '/admin/insurance': '펫보험 상담 관리',
   '/admin/insurance-content': '보험 동의 문서',
@@ -145,14 +151,18 @@ const ADMIN_STATIC_HEADINGS: Record<string, string> = {
   '/admin/members': '회원 관리',
   '/admin/notices': '공지사항 관리',
   '/admin/order-policy': '주문 정책',
+  '/admin/order-requests': '교환·반품 요청',
   '/admin/orders': '주문 관리',
+  '/admin/pages': '공개 화면 CMS',
   '/admin/partner-inquiries': '제휴 문의 접수',
   '/admin/partners': 'B2B 제휴 관리',
   '/admin/products': '상품 관리',
   '/admin/products/display': '진열 관리',
   '/admin/products/new': '새 상품 등록',
+  '/admin/products/tags': '상품 태그 관리',
   '/admin/qna': '상품 및 일반 문의 관리',
   '/admin/reviews': '후기 관리',
+  '/admin/sellers': '판매자 관리',
   '/admin/settings': '사이트 콘텐츠 설정',
   '/admin/survey': '맞춤 진단 설계',
   '/admin/survey-results': '진단 참여 내역',
@@ -203,6 +213,10 @@ const ADMIN_DYNAMIC_ANCHORS: Record<string, (page: Page, sample: ResolvedSample)
     await h1Visible(page, '주문 상세');
     await textVisible(page, sample.id);
   },
+  // /api/admin/settings/pages 표본은 항상 CMS_PAGE_DEFINITIONS의 첫 키(home)다(allPagesRoutes.ts
+  // 주석 참고) — 응답 항목에는 label 해석용 name 필드가 없어(title만 있음) sample.label을 쓸 수
+  // 없으므로, 고정된 첫 항목의 PageHeader 제목('홈 화면')을 그대로 앵커로 쓴다.
+  '/admin/pages/[pageKey]': (page) => h1Visible(page, '홈 화면'),
   '/admin/products/[id]': (page) => textVisible(page, '상품 수정'),
   '/admin/products/[id]/editor': (page, sample) => textVisible(page, `${sample.label ?? ''} 상세페이지 편집`),
 };
@@ -314,7 +328,7 @@ test.describe('전 페이지 스모크 검수(읽기 전용)', () => {
 
     test.beforeAll(async ({ browser }) => {
       const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
-      await loginAsAdmin(page);
+      await loginAsAdminReadOnly(page);
       storageStatePath = path.join(os.tmpdir(), `all-pages-smoke-admin-state-${Date.now()}.json`);
       await page.context().storageState({ path: storageStatePath });
       await page.close();

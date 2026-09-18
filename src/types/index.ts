@@ -6,6 +6,9 @@
 export interface Product {
   id: string;
   brandId: string;
+  /** 실제 통신판매 계약의 판매자. 브랜드(전시/제조 주체)와 분리해 관리한다. */
+  sellerId?: string;
+  seller?: Seller;
   name: string;
   /** 브랜드 페이지는 상품 정보 수집용으로만 보관하며 고객 화면에는 노출하지 않습니다. */
   sourceUrl?: string;
@@ -21,7 +24,10 @@ export interface Product {
   lifestyleCategory: string;
   concernTags: string[];
   relatedConcernSlugs?: string[];
-  petType: 'dog' | 'cat' | 'small' | 'both';
+  /** products.pet_type(text) 원문. 단일 id·기존 'both'·복수 선택 JSON 문자열을 그대로 담는다 —
+   *  실제 파싱/직렬화는 @/lib/products/petTypes(parseProductPetTypes 등)가 담당한다. 카테고리
+   *  설정(categorySettings.petTypes)에서 임의 id를 추가할 수 있어 고정 유니온으로 못 좁힌다. */
+  petType: string;
   ageGroup: string;
   image: string;
   images?: string[];
@@ -34,6 +40,10 @@ export interface Product {
   deliveryEstimate?: string;
   returnNotice?: string;
   sellerName?: string;
+  /** 전자상거래 상품정보제공고시의 상품군별 스냅샷. */
+  disclosure?: ProductDisclosure;
+  /** 주문제작 상품만 사용하는 제작·검수·사진 처리 정책. */
+  madeToOrderPolicy?: MadeToOrderPolicy;
   tags?: string[];
   brandName?: string;
   auditPoints?: string[];
@@ -45,6 +55,56 @@ export interface Product {
   isVisible?: boolean;
   isBest: boolean;
   isRecommended: boolean;
+  /** 홈 화면 '오늘의 추천' 안에서의 관리자 지정 순서. 숫자가 작을수록 먼저 노출한다. */
+  homeDisplayOrder?: number;
+  /** 스토어 'DAILY PICK' 안에서의 관리자 지정 순서. 숫자가 작을수록 먼저 노출한다. */
+  dailyPickDisplayOrder?: number;
+  /** 스토어 전체 상품 기본 정렬에서의 관리자 지정 순서. 숫자가 작을수록 먼저 노출한다. */
+  storeDisplayOrder?: number;
+}
+
+/* ── 판매자·상품 고시 ─────────────────────────── */
+export type SellerStatus = 'draft' | 'verified' | 'suspended';
+
+export interface Seller {
+  id: string;
+  displayName: string;
+  legalName: string;
+  representativeName: string;
+  businessRegistrationNumber: string;
+  mailOrderRegistrationNumber: string;
+  businessAddress: string;
+  phone: string;
+  email?: string;
+  returnAddress?: string;
+  /** 이 판매자가 한 주문 묶음에 적용하는 기본 배송비. */
+  shippingFee: number;
+  /** 미설정이면 금액과 무관하게 자동 무료배송을 적용하지 않는다. */
+  freeShippingThreshold?: number;
+  dispatchEstimate: string;
+  returnPolicy: string;
+  status: SellerStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductDisclosure {
+  categoryCode: string;
+  schemaVersion: string;
+  values: Record<string, string>;
+}
+
+export interface MadeToOrderPolicy {
+  active: boolean;
+  productionPeriod: string;
+  proofMethod: string;
+  revisionCount: string;
+  revisionScope: string;
+  photoPurpose: string;
+  photoRetentionPeriod: string;
+  photoDeletionMethod: string;
+  cancellationRestriction: string;
+  policyVersion: string;
 }
 
 export interface ProductOption {
@@ -89,6 +149,34 @@ export interface Brand {
   shipping?: BrandShippingPolicy;
   wordmarkColor?: string;
   wordmarkImage?: string;
+  /** 브랜드 상세 화면의 공통 문구. 브랜드별 관리자 화면에서 편집한다. */
+  pageCopy?: BrandPageCopy;
+}
+
+export interface BrandPageCopy {
+  backToBrandsLabel: string;
+  auditCompletedLabel: string;
+  categoryLabel: string;
+  concernLabel: string;
+  storyEyebrow: string;
+  auditTitle: string;
+  auditSubtitle: string;
+  auditIntro: string;
+  auditLinkLabel: string;
+  sourceLinkLabel: string;
+  productsTitle: string;
+  productsDescription: string;
+  allProductsLabel: string;
+  emptyProductsTitle: string;
+  emptyProductsDescription: string;
+  reviewsTitle: string;
+  reviewsDescription: string;
+  allReviewsLabel: string;
+  emptyReviewsTitle: string;
+  emptyReviewsDescription: string;
+  otherBrandsTitle: string;
+  otherBrandsDescription: string;
+  otherBrandsButtonLabel: string;
 }
 export interface BrandShippingPolicy {
   carrierLabel?: string;
@@ -237,6 +325,11 @@ export interface Order {
   totalPrice: number;
   deliveryFee: number;
   deliveryFeeBreakdown?: DeliveryFeeBreakdown[];
+  /** 주문 시점 판매자·배송/반품 조건의 변경 불가능한 스냅샷. */
+  sellerGroups?: OrderSellerGroup[];
+  /** 주문 화면에서 별도로 받은 동의의 증적(버전·해시·시각 포함). */
+  consentRecords?: OrderConsentRecord[];
+  sellerAcceptances?: SellerAcceptance[];
   paymentMethod: string;
   bankTransferAccount?: BankTransferAccount;
   orderStatus: OrderStatus;
@@ -257,6 +350,9 @@ export interface Order {
 
 export interface DeliveryFeeBreakdown {
   brandId: string;
+  /** 같은 브랜드 안에 실제 판매자가 여러 곳이면 배송비를 판매자별로 구분한다. */
+  sellerKey?: string;
+  sellerName?: string;
   brandName?: string;
   subtotal: number;
   shippingFee: number;
@@ -285,7 +381,87 @@ export interface OrderItem {
    * 레거시 폴백(조인) 구조로 바꾸는 것은 후속 과제다.
    */
   brandId?: string;
+  /** 판매자 변경과 무관하게 과거 주문 귀속을 보존하는 주문 시점 스냅샷. */
+  sellerId?: string;
+  sellerName?: string;
 }
+
+export interface SellerSnapshot {
+  id?: string;
+  displayName: string;
+  legalName?: string;
+  representativeName?: string;
+  businessRegistrationNumber?: string;
+  mailOrderRegistrationNumber?: string;
+  businessAddress?: string;
+  phone?: string;
+  email?: string;
+  returnAddress?: string;
+}
+
+export interface OrderSellerGroup {
+  key: string;
+  seller: SellerSnapshot;
+  productIds: string[];
+  subtotal: number;
+  shippingFee: number;
+  dispatchEstimate?: string;
+  returnPolicy?: string;
+  acceptanceStatus: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+}
+
+export interface SellerAcceptance {
+  id: string;
+  orderId: string;
+  sellerKey: string;
+  sellerId?: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  note?: string;
+  updatedAt: string;
+}
+
+export type OrderConsentType = 'order_terms' | 'third_party_provision' | 'made_to_order';
+
+export interface OrderConsentRecord {
+  type: OrderConsentType;
+  subjectKey: string;
+  policyVersion: string;
+  contentHash: string;
+  contentSnapshot: string;
+  agreedAt: string;
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export type CustomerServiceRequestType = 'exchange' | 'return';
+export type CustomerServiceRequestStatus =
+  | 'received'
+  | 'reviewing'
+  | 'approved'
+  | 'rejected'
+  | 'completed';
+
+export interface CustomerServiceRequest {
+  id: string;
+  orderId: string;
+  memberId: string;
+  sellerKey: string;
+  sellerName?: string;
+  type: CustomerServiceRequestType;
+  reason: string;
+  status: CustomerServiceRequestStatus;
+  adminNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MarketingPreferences {
+  email: boolean;
+  sms: boolean;
+  policyVersion: string;
+  updatedAt?: string;
+}
+
 
 /**
  * 입점업체(브랜드)별 배송 정보 — 한 주문이 여러 브랜드 상품을 포함할 때 업체마다 독립된
@@ -323,7 +499,25 @@ export const ORDER_STATUSES = [
   '취소완료',
 ] as const;
 
-export type OrderStatus = (typeof ORDER_STATUSES)[number];
+/**
+ * 파생(자동) 주문 상태 — 상품별 취소 요청 수량을 집계(aggregateOrderCancelStatus)해서만 만들어지며
+ * 관리자가 직접 선택하지 않는다. ORDER_STATUSES(관리자 PATCH·OrderStatusPanel select 화이트리스트)에는
+ * 절대 섞지 않는다 — 섞으면 관리자가 부분취소/부분취소완료를 수기로 세팅하는 경로가 열린다(§10-9 드리프트 방지).
+ */
+export const DERIVED_ORDER_STATUSES = ['부분취소', '부분취소완료'] as const;
+
+/** OrderStatus 타입의 SSOT. 수동 화이트리스트(ORDER_STATUSES) + 파생 상태(DERIVED_ORDER_STATUSES). */
+export const ALL_ORDER_STATUSES = [...ORDER_STATUSES, ...DERIVED_ORDER_STATUSES] as const;
+
+/**
+ * 파생 주문 상태 판정 — OrderStatusPanel이 select 대신 읽기 전용 텍스트를 보여줄지 결정하는 조건과
+ * 동일 판정을 모듈 스코프의 순수 함수로 뽑아, 컴포넌트를 렌더하지 않고도(React Testing 미설치)
+ * 유닛 테스트로 직접 검증할 수 있게 한다. */
+export function isDerivedOrderStatus(status: string): boolean {
+  return (DERIVED_ORDER_STATUSES as readonly string[]).includes(status);
+}
+
+export type OrderStatus = (typeof ALL_ORDER_STATUSES)[number];
 
 /**
  * 결제 상태 — DB(orders.payment_status)에 실제로 들어가는 값의 전수.
@@ -407,6 +601,15 @@ export interface User {
   /** 운영자가 발급한 초기 비밀번호 사용 중 — 로그인 후 비밀번호 변경을 유도한다(강제 아님) */
   mustChangePassword?: boolean;
   signupData?: Record<string, unknown>;
+}
+
+/** Server-paginated member management response; summary is unfiltered. */
+export interface AdminMemberPage {
+  users: User[];
+  total: number;
+  page: number;
+  pageSize: number;
+  summary: { total: number; recent: number; pending: number; partners: number };
 }
 
 export interface MemberAddress {

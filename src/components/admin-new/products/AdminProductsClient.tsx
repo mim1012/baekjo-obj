@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus, Edit, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
 
@@ -23,24 +23,21 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
   const router = useRouter();
   const searchParams = useSearchParams();
   const { categorySettings } = useCategorySettings();
+  const [bestUpdatingId, setBestUpdatingId] = useState<string | null>(null);
   
   const {
-    products,
     brands,
     loading,
-    error,
     filters,
     setFilters,
     currentPage,
     setCurrentPage,
     totalPages,
     paginatedProducts,
-    totalFiltered,
     selectedIds,
     toggleSelection,
     toggleSelectAll,
     clearSelection,
-    refreshData,
     performBulkDelete,
     performBulkUpdate,
   } = useProductList(20, { products: initialProducts, brands: initialBrands });
@@ -71,6 +68,20 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
 
   const handleEditDetails = (id: string) => {
     router.push(`/admin/products/${id}/editor`);
+  };
+
+  const handleEditSeller = (id: string) => {
+    router.push(`/admin/products/${id}#actual-seller`);
+  };
+
+  const handleBestToggle = async (product: Product) => {
+    setBestUpdatingId(product.id);
+    try {
+      const { failedItems } = await performBulkUpdate([product.id], { isBest: !product.isBest });
+      if (failedItems.length > 0) window.alert('BEST 표시를 변경하지 못했습니다. 다시 시도해주세요.');
+    } finally {
+      setBestUpdatingId(null);
+    }
   };
 
   const columns = [
@@ -106,6 +117,30 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
       }
     },
     {
+      key: 'seller',
+      header: '실제 판매자',
+      width: '220px',
+      render: (p: Product) => (
+        <div className="space-y-2">
+          {p.seller ? (
+            <div>
+              <p className="font-medium text-[#17201B]">{p.seller.displayName}</p>
+              <p className="mt-1 text-[12px] text-gray-500">{p.seller.legalName}</p>
+            </div>
+          ) : (
+            <Badge label="판매자 미지정" variant="error" />
+          )}
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); handleEditSeller(p.id); }}
+            className="text-[12px] font-semibold text-[#9A5B20] underline underline-offset-4"
+          >
+            {p.seller ? '판매자 변경' : '판매자 지정'}
+          </button>
+        </div>
+      ),
+    },
+    {
       key: 'price',
       header: '판매가 / 재고',
       render: (p: Product) => (
@@ -122,6 +157,27 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
           </div>
         </div>
       )
+    },
+    {
+      key: 'bestCuration',
+      header: 'BEST · 자체 큐레이션',
+      width: '190px',
+      render: (p: Product) => (
+        <div className="space-y-2">
+          <button
+            type="button"
+            aria-pressed={p.isBest}
+            disabled={bestUpdatingId === p.id}
+            onClick={(event) => { event.stopPropagation(); void handleBestToggle(p); }}
+            className={`min-w-20 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-wait disabled:opacity-60 ${p.isBest ? 'border-[#17211D] bg-[#17211D] text-white' : 'border-gray-300 bg-white text-gray-500 hover:border-[#17211D]'}`}
+          >
+            {bestUpdatingId === p.id ? '저장 중…' : p.isBest ? '표시 중' : '표시 안 함'}
+          </button>
+          <p className="max-w-44 whitespace-normal text-[11px] leading-4 text-gray-500">
+            켜면 고객 상품카드에 BEST와 기준 보기 링크가 함께 표시됩니다.
+          </p>
+        </div>
+      ),
     },
     {
       key: 'status',
@@ -141,6 +197,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
             {p.isBest && <Badge label="베스트" variant="warning" />}
             {p.isRecommended && <Badge label="추천" variant="primary" />}
             {missingDetail && <Badge label="상세 미작성" variant="error" />}
+            {!p.sellerId && <Badge label="판매자 미지정" variant="error" />}
           </div>
         );
       }
@@ -230,6 +287,16 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
           <option value="false">숨김</option>
         </select>
 
+        <select
+          value={filters.isBest}
+          onChange={(e) => setFilters(prev => ({ ...prev, isBest: e.target.value }))}
+          className="border border-gray-300 rounded-md text-[13px] px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#2F3B34] focus:border-[#2F3B34]"
+        >
+          <option value="all">BEST 표시 (전체)</option>
+          <option value="true">BEST 표시 중</option>
+          <option value="false">BEST 표시 안 함</option>
+        </select>
+
         <select 
           value={filters.missing} 
           onChange={(e) => setFilters(prev => ({ ...prev, missing: e.target.value }))}
@@ -240,6 +307,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
           <option value="price">가격 미등록</option>
           <option value="image">이미지 미등록</option>
           <option value="detail">상세 미작성</option>
+          <option value="seller">판매자 미지정</option>
           <option value="any">조치 필요 (전체)</option>
         </select>
       </FilterBar>

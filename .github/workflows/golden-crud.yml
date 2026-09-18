@@ -23,13 +23,17 @@ env:
     src/app/api/admin/kits/
     src/app/api/admin/members/
     src/app/api/admin/notices/
+    src/app/api/admin/order-requests/
     src/app/api/admin/order-policy/
+    src/app/api/admin/page-texts/
     src/app/api/admin/orders/
     src/app/api/admin/partner-inquiries/
     src/app/api/admin/partners/
     src/app/api/admin/products/
+    src/app/api/admin/product-tags/
     src/app/api/admin/qna/
     src/app/api/admin/reviews/
+    src/app/api/admin/sellers/
     src/app/api/admin/settings/
     src/app/api/admin/showcase-reviews/
     src/app/api/admin/survey/
@@ -37,6 +41,8 @@ env:
     admin-crud-brand-fields.spec.ts
     admin-crud-brands.spec.ts
     admin-crud-category-settings.spec.ts
+    admin-crud-cms-audit-fields.spec.ts
+    admin-crud-cms-foundation.spec.ts
     admin-crud-concerns.spec.ts
     admin-crud-home-settings.spec.ts
     admin-crud-insurance.spec.ts
@@ -46,16 +52,20 @@ env:
     admin-crud-members.spec.ts
     admin-crud-members-pending-signup.spec.ts
     admin-crud-notices.spec.ts
+    admin-crud-order-cancellation.spec.ts
     admin-crud-order-policy.spec.ts
+    admin-crud-page-texts.spec.ts
     admin-crud-orders.spec.ts
     admin-crud-order-shipments.spec.ts
     admin-crud-partner-inquiries.spec.ts
     admin-crud-product-fields.spec.ts
     admin-crud-product-gallery-removal.spec.ts
+    admin-crud-product-tags.spec.ts
     admin-crud-products.spec.ts
     admin-crud-qna-config.spec.ts
     admin-crud-qna-inquiries.spec.ts
     admin-crud-reviews-moderation.spec.ts
+    admin-crud-sellers.spec.ts
     admin-crud-showcase-reviews.spec.ts
     admin-crud-survey.spec.ts
     member-admin-edit-propagation.spec.ts

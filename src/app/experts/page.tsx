@@ -3,6 +3,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { listCachedPublicProducts } from '@/lib/public-read-cache';
 import ProductCard from '@/components/common/ProductCard';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { getCachedPageTextSettings } from '@/lib/public-read-cache';
+import { logServerError } from '@/lib/logServerError';
+import { selectExpertsContent, type ExpertsContent } from '@/lib/cms/source/experts';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
 export const metadata = {
   title: '전문가 추천 | 백조오브제',
@@ -11,6 +17,18 @@ export const metadata = {
 
 export const dynamic = 'force-dynamic';
 
+const perspectiveIcons = [Stethoscope, Utensils, Activity];
+const processIcons = [Search, ShieldCheck, ListChecks, FileText];
+
+// 관점 카드의 filterValue(관리자 편집 가능 텍스트)와 실제 상품 필터링 기준은 분리한다 —
+// productRule은 CMS 필드(상품 관리 '전문가 콘텐츠 연결'과 짝을 맞춘 식별자)이고, 아래 기준은
+// 상품 카테고리 로직(카피가 아니라 라우팅 규칙)이라 CMS 필드로 옮기지 않는다.
+const productRuleFilters: Record<string, (p: { recommendedFor?: string[]; category?: string }) => boolean> = {
+  veterinary: (p) => Boolean(p.recommendedFor?.includes('veterinary')) || p.category === '영양제' || p.category === '간식',
+  nutrition: (p) => p.category === '사료' || p.category === '간식',
+  lifestyle: (p) => p.category === '장난감' || p.category === '용품',
+};
+
 export default async function ExpertsPage({
   searchParams,
 }: {
@@ -18,146 +36,127 @@ export default async function ExpertsPage({
 }) {
   const { filter = 'all' } = await searchParams;
   const products = await listCachedPublicProducts();
-  
+
+  const published = await getPublishedPageContent<ExpertsContent>('experts').catch((error: unknown) => {
+    logServerError('[Experts] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Experts] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectExpertsContent(published, settings);
+  const heroImage = resolveCmsImageProps(content.hero.image);
+
+  const matchedRule = content.body.perspectiveItems.find((item) => item.filterValue === filter)?.productRule;
   const filteredProducts = products.filter(p => {
     if (!p.isRecommended) return false;
-    if (filter === 'all') return true;
-    if (filter === '수의 관점') return p.recommendedFor?.includes('veterinary') || p.category === '영양제' || p.category === '간식';
-    if (filter === '영양 관점') return p.category === '사료' || p.category === '간식';
-    if (filter === '행동·생활 관점') return p.category === '장난감' || p.category === '용품';
-    return true;
+    if (filter === 'all' || !matchedRule) return filter === 'all';
+    return productRuleFilters[matchedRule]?.(p) ?? true;
   }).slice(0, 12);
 
   return (
-    <div className="bg-[#FAF9F5] min-h-dvh pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }}>
+    <div className="bg-[#FAF9F5] min-h-dvh pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }} data-cms-managed={managed ? 'experts' : undefined}>
       {/* 1. 전문가 추천 인트로 (박스 없음) */}
-      <section className="pt-16 pb-12 overflow-hidden">
+      {content.hero.visible && <section className="pt-16 pb-12 overflow-hidden">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
            <div className="flex flex-col md:flex-row items-center relative">
               <div className="relative z-10 w-full md:w-[58%] pt-4 pb-6 md:py-0">
                  <p className="font-editorial text-[12px] tracking-widest text-[#A8742E] font-semibold uppercase mb-4">
-                    Expert&apos;s View
+                    {content.hero.eyebrow}
                  </p>
                  <h1 className="text-[32px] md:text-[38px] lg:text-[46px] font-bold text-[#1A1D1B] leading-[1.25] tracking-[-0.035em] break-keep mb-5 min-w-0">
-                    전문가 관점으로 살펴보는<br />
-                    상품 선택 기준
+                    <MultilineText text={content.hero.title} />
                  </h1>
                  <p className="text-[14px] md:text-[15px] text-[#5F6761] leading-[1.65] break-keep min-w-0">
-                    백조오브제가 수의·영양·행동 전문가의 관점을 바탕으로<br />
-                    우리 아이에게 맞는 상품 선택 기준을 정리했습니다.
+                    <MultilineText text={content.hero.description} />
                  </p>
+                 {content.hero.secondaryCtaLabel && (
+                   <div className="mt-6">
+                     <Link
+                       href={content.hero.secondaryCtaHref}
+                       className="inline-flex h-[44px] items-center justify-center rounded-full border border-[#1A221E] px-6 text-[14px] font-bold text-[#1A221E] transition-colors hover:bg-[#1A221E] hover:text-white"
+                     >
+                       {content.hero.secondaryCtaLabel}
+                     </Link>
+                   </div>
+                 )}
               </div>
-              <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
-                 {/* 우측 이미지 - 시안의 강아지 이미지 */}
+              {heroImage && <div className="relative z-0 w-full md:w-[42%] flex justify-center md:justify-end mt-6 md:mt-0 h-[260px] md:h-[340px]">
                  <div className="relative w-full h-full max-w-[400px]">
-                    {/* 이미지가 없을 경우를 대비한 구조. 실제 프로젝트에 전문가 이미지 에셋이 있다면 교체. 
-                        현재 에셋이 확실치 않아 투명 배경의 강아지 이미지라고 가정합니다. */}
-                    {/* TODO(dad): experts-dog.png 원본이 dad 레포에 미커밋 상태 — 확보되면 교체 */}
-                    <Image src="/images/poodle-pet-food.png" alt="전문가 추천 강아지" fill className="object-contain object-bottom" />
+                    <Image src={heroImage.src} unoptimized={heroImage.unoptimized} alt={content.hero.imageAlt} fill className="object-contain object-bottom" />
                  </div>
-              </div>
+              </div>}
            </div>
         </div>
-      </section>
+      </section>}
 
-      {/* 2. 전문가 관점 카드 3개 */}
+      {content.body.visible && <>
+      {/* 2. 전문가 관점 카드 */}
       <section className="mt-4">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* 수의 관점 */}
-            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
-              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
-                <Stethoscope className="size-8" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">수의 관점</h2>
-              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
-                건강 상태와 안전성을<br />
-                중심으로 확인합니다.
-              </p>
-              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 대상 연령과 건강 상태</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 성분과 사용상 주의사항</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 질환·복용약과의 관계</li>
-              </ul>
-              <Link href="/experts?filter=수의+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
-                수의 관점 상품 보기
-              </Link>
-            </div>
-
-            {/* 영양 관점 */}
-            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
-              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
-                <Utensils className="size-8" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">영양 관점</h2>
-              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
-                원료와 영양 균형을<br />
-                꼼꼼하게 확인합니다.
-              </p>
-              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 주요 원료, 영양 성분</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 알레르기 유발 가능성</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 급여 목적과 영양 균형</li>
-              </ul>
-              <Link href="/experts?filter=영양+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
-                영양 관점 상품 보기
-              </Link>
-            </div>
-
-            {/* 행동·생활 관점 */}
-            <div className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
-              <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
-                <Activity className="size-8" strokeWidth={1.5} />
-              </div>
-              <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">행동·생활 관점</h2>
-              <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
-                생활 환경과 습관을<br />
-                함께 고려합니다.
-              </p>
-              <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 스트레스 완화에 도움</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 활동량과 생활 패턴</li>
-                <li className="flex gap-2"><span className="text-[#A8742E]">•</span> 관리의 편의성과 지속성</li>
-              </ul>
-              <Link href="/experts?filter=행동·생활+관점" scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
-                행동·생활 관점 상품 보기
-              </Link>
-            </div>
+            {content.body.perspectiveItems.filter((item) => item.visible).map((perspective, index) => {
+              const Icon = perspectiveIcons[index % perspectiveIcons.length] ?? Stethoscope;
+              return (
+                <div key={perspective.filterValue} className="bg-white border border-[#EBE8E1] rounded-[24px] p-8 lg:p-10 flex flex-col items-center text-center shadow-sm">
+                  <div className="flex size-[64px] items-center justify-center rounded-full bg-[#FAF9F5] text-[#1A221E] mb-6 border border-[#F4F2EC]">
+                    <Icon className="size-8" strokeWidth={1.5} />
+                  </div>
+                  <h2 className="text-[18px] font-bold text-[#1A1D1B] mb-3">{perspective.title}</h2>
+                  <p className="text-[14px] leading-[1.65] text-[#5F6761] mb-6 break-keep">
+                    <MultilineText text={perspective.description} />
+                  </p>
+                  <ul className="text-left text-[13px] leading-[2.2] text-[#5F6761] mb-10 w-full">
+                    {perspective.bullets.split('\n').filter(Boolean).map((bullet, bulletIndex) => (
+                      <li key={bulletIndex} className="flex gap-2"><span className="text-[#A8742E]">•</span> {bullet}</li>
+                    ))}
+                  </ul>
+                  <Link href={`/experts?filter=${encodeURIComponent(perspective.filterValue)}`} scroll={false} className="mt-auto flex h-[46px] w-[80%] mx-auto items-center justify-center rounded-full bg-[#1A221E] text-[14px] font-bold text-white transition-colors hover:bg-black">
+                    {perspective.linkLabel}
+                  </Link>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* 3. 상품 선정 과정 4단계 (시안처럼 투명/화이트 배경에 둥근 아이콘, 화살표) */}
+      {/* 3. 상품 선정 과정 4단계 */}
       <section className="mt-20">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
-          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">상품은 이렇게 살펴봅니다.</h2>
+          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">{content.body.title}</h2>
           <div
             className="hide-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 items-stretch gap-4 overflow-x-auto px-5 pb-4 md:mx-0 md:items-center md:justify-between md:overflow-visible md:px-2 md:pb-0"
             role="region"
             aria-label="상품 선정 과정 네 단계"
           >
-            
-            {[
-              { icon: Search, title: '반려동물 상태 확인', num: '01' },
-              { icon: ShieldCheck, title: '성분·원료 확인', num: '02' },
-              { icon: ListChecks, title: '제조·사용 기준 확인', num: '03' },
-              { icon: FileText, title: '실제 사용 목적과 적합성 정리', num: '04' }
-            ].map((step, idx) => (
-              <div key={idx} className="relative z-10 flex min-h-[176px] w-[78vw] max-w-[316px] shrink-0 snap-start flex-col items-start gap-4 rounded-[20px] border border-[#E7E0D5] bg-white p-5 md:min-h-0 md:w-[22%] md:max-w-none md:items-center md:border-0 md:bg-transparent md:p-0">
-                <div className="font-editorial text-[14px] font-semibold text-[#1A1D1B]">{step.num}</div>
-                <div className="flex size-[56px] shrink-0 items-center justify-center rounded-full border border-[#EBE8E1] bg-[#FAF8F3] text-[#1A221E] shadow-sm md:size-[72px] md:bg-white">
-                  <step.icon className="size-6 md:size-7 text-[#5F6761]" strokeWidth={1.5} />
+            {content.body.processItems.filter((item) => item.visible).map((step, idx) => {
+              const Icon = processIcons[idx % processIcons.length] ?? Search;
+              return (
+                <div key={step.title} className="relative z-10 flex min-h-[176px] w-[78vw] max-w-[316px] shrink-0 snap-start flex-col items-start gap-4 rounded-[20px] border border-[#E7E0D5] bg-white p-5 md:min-h-0 md:w-[22%] md:max-w-none md:items-center md:border-0 md:bg-transparent md:p-0">
+                  <div className="font-editorial text-[14px] font-semibold text-[#1A1D1B]">{String(idx + 1).padStart(2, '0')}</div>
+                  <div className="flex size-[56px] shrink-0 items-center justify-center rounded-full border border-[#EBE8E1] bg-[#FAF8F3] text-[#1A221E] shadow-sm md:size-[72px] md:bg-white">
+                    <Icon className="size-6 md:size-7 text-[#5F6761]" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="mt-auto w-full break-keep text-left text-[16px] font-bold leading-snug text-[#1A1D1B] md:mt-0 md:w-[70%] md:text-center md:text-[15px]">{step.title}</h3>
+                  {step.description && (
+                    <p className="w-full break-keep text-left text-[13px] leading-[1.6] text-[#5F6761] md:w-[80%] md:text-center">{step.description}</p>
+                  )}
+
+                  {idx < content.body.processItems.length - 1 && (
+                     <div className="hidden md:block absolute right-[-15%] top-[50%] -translate-y-1/2 text-[#D8D6CE]">
+                        <ArrowRight className="size-5" />
+                     </div>
+                  )}
                 </div>
-                <h3 className="mt-auto w-full break-keep text-left text-[16px] font-bold leading-snug text-[#1A1D1B] md:mt-0 md:w-[70%] md:text-center md:text-[15px]">{step.title}</h3>
-                
-                {/* 화살표 */}
-                {idx < 3 && (
-                   <div className="hidden md:block absolute right-[-15%] top-[50%] -translate-y-1/2 text-[#D8D6CE]">
-                      <ArrowRight className="size-5" />
-                   </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>
@@ -165,30 +164,28 @@ export default async function ExpertsPage({
       {/* 4. 추천 상품 섹션 */}
       <section className="mt-20 border-t border-[#EBE8E1] pt-16">
         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
-          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">전문가 기준으로 엄선한 추천 상품</h2>
-          
-          {/* 필터 - 윤곽선 있는 알약 형태, 활성화시 짙은 녹색 */}
+          <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">{content.body.productsTitle}</h2>
+
           <div className="flex gap-2 overflow-x-auto pb-2 mb-8 scrollbar-hide">
-            {['all', '수의 관점', '영양 관점', '행동·생활 관점'].map((f) => {
+            {['all', ...content.body.perspectiveItems.filter((item) => item.visible).map((item) => item.filterValue)].map((f) => {
               const isSelected = filter === f || (filter === 'all' && f === 'all');
               return (
                 <Link
                   key={f}
-                  href={f === 'all' ? '/experts' : `/experts?filter=${f}`}
+                  href={f === 'all' ? '/experts' : `/experts?filter=${encodeURIComponent(f)}`}
                   scroll={false}
                   className={`flex h-[40px] shrink-0 items-center rounded-full border px-6 text-[14px] font-semibold whitespace-nowrap transition-colors ${
-                    isSelected 
-                      ? 'border-[#1A221E] bg-[#1A221E] text-white' 
+                    isSelected
+                      ? 'border-[#1A221E] bg-[#1A221E] text-white'
                       : 'border-[#EBE8E1] bg-white text-[#5F6761] hover:border-[#D8D6CE] hover:text-[#1A1D1B]'
                   }`}
                 >
-                  {f === 'all' ? '전체' : f}
+                  {f === 'all' ? content.body.allFilterLabel : f}
                 </Link>
               )
             })}
           </div>
 
-          {/* 상품 그리드 */}
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
               {filteredProducts.map(product => (
@@ -198,7 +195,7 @@ export default async function ExpertsPage({
           ) : (
             <div className="flex flex-col items-center justify-center rounded-[20px] border border-[#EBE8E1] bg-white h-[180px]">
               <Search className="size-8 text-[#D8D6CE] mb-3" />
-              <p className="text-[#5F6761] text-[15px] font-medium">선택한 관점의 추천 상품이 없습니다.</p>
+              <p className="text-[#5F6761] text-[15px] font-medium">{content.body.emptyText}</p>
             </div>
           )}
         </div>
@@ -214,20 +211,25 @@ export default async function ExpertsPage({
               </div>
               <div>
                 <p className="text-[14px] md:text-[15px] font-bold text-[#1A1D1B] mb-1 break-keep">
-                  추천 결과는 반려동물의 상태와 사용 목적에 따라 달라질 수 있습니다.
+                  {content.body.noticeTitle}
                 </p>
                 <p className="text-[13px] text-[#5F6761] break-keep">
-                  질환·복용 약·알레르기 등이 있는 경우 전문가 상담이 필요합니다.
+                  {content.body.noticeDescription}
                 </p>
               </div>
             </div>
-            <Link href="/concerns" className="shrink-0 w-full md:w-auto flex h-[44px] items-center justify-center rounded-full bg-white border border-[#EBE8E1] px-5 text-[13px] font-bold text-[#1A1D1B] transition-colors hover:bg-[#FAF9F5]">
-              케어 가이드 더 보기
+            <Link href={content.body.noticeLinkHref} className="shrink-0 w-full md:w-auto flex h-[44px] items-center justify-center rounded-full bg-white border border-[#EBE8E1] px-5 text-[13px] font-bold text-[#1A1D1B] transition-colors hover:bg-[#FAF9F5]">
+              {content.body.noticeLinkLabel}
               <ArrowRight className="ml-2 size-4 text-[#5F6761]" />
             </Link>
           </div>
         </div>
       </section>
+      </>}
     </div>
   );
+}
+
+function MultilineText({ text }: { text: string }) {
+  return <>{text.split('\n').map((line, index) => <span key={`${line}-${index}`}>{index > 0 && <br />}{line}</span>)}</>;
 }

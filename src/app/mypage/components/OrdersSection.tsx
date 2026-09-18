@@ -3,18 +3,38 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Order, OrderItem, ProductReview, Product, Brand, Shipment } from '@/types';
+import { Order, OrderItem, ProductReview, Product, Brand, Shipment, CustomerServiceRequest } from '@/types';
 import { formatPrice, formatDate } from '@/lib/format';
-import { buildReviewTargetKey, getPublicBrands, requestOrderCancellation } from '@/lib/storage';
+import {
+  buildReviewTargetKey,
+  createCustomerServiceRequest,
+  createOrderActionRequest,
+  getMyCustomerServiceRequests,
+  getOrderActionRequests,
+  getPublicBrands,
+  requestOrderCancellation,
+} from '@/lib/storage';
 import { groupOrderItemsByBundle, type OrderBundle } from '@/lib/shipments/timeline';
 import { canReviewOrderItem } from '@/lib/reviews/purchaseEligibility';
 import { deriveOrderDeliveryStatus, orderBrandIds } from '@/lib/shipments/derive';
 import { customerPaymentStatusLabel, customerPaymentStatusStyle } from '@/lib/orders/customerPaymentLabels';
+import type {
+  OrderActionRequestItemInput,
+  OrderActionRequestRecord,
+} from '@/lib/orders/actionRequests';
+import {
+  hasRejectedActionRequestItem,
+  MEMBER_ACTION_REQUEST_ITEM_LABEL as ACTION_ITEM_STATUS_LABEL,
+} from '@/lib/orders/actionRequestPresentation';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
+import { OrderDateRangeFilter } from '@/components/orders/OrderDateRangeFilter';
+import { EMPTY_ORDER_DATE_RANGE, matchesOrderDateRange, type OrderDateRange } from '@/lib/orders/orderDateFilters';
 import Pagination from './Pagination';
 import TrackingModal from './TrackingModal';
+import OrderActionRequestSheet from './OrderActionRequestSheet';
 import EmptyState from '@/components/common/EmptyState';
 import { ChevronDown, CircleAlert, PackageSearch, Truck } from 'lucide-react';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 
 interface OrdersSectionProps {
   orders: Order[];
@@ -29,7 +49,10 @@ const ITEMS_PER_PAGE = 20;
 
 export default function OrdersSection({ orders, shipmentsByOrder, reviews, products, onWriteReview, onOrderUpdated }: OrdersSectionProps) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<OrderDateRange>(EMPTY_ORDER_DATE_RANGE);
+  const [actionRequestKey, setActionRequestKey] = useState<string | null>(null);
+  const [actionRequests, setActionRequests] = useState<OrderActionRequestRecord[]>([]);
+  const [actionOrder, setActionOrder] = useState<Order | null>(null);
   // 배송정책 폴백용 공개 브랜드 목록을 콘센트로 읽는다(§4 — 컴포넌트 직접 fetch 금지). 실패 시 [].
   const [brands, setBrands] = useState<Brand[]>([]);
   // 배송조회 모달 대상: 주문 + 조회할 번들(브랜드 또는 레거시 null).
@@ -38,19 +61,76 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
   // href="#"로 죽어 있던 링크를 배송지·결제수단·금액 요약을 펼쳐 보여주는 토글로 대체한다
   // (order-complete 페이지의 OrderDetailCard와 같은 정보를 이 카드 안에서 보여주는 최소 침습 방식).
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [serviceRequests, setServiceRequests] = useState<CustomerServiceRequest[]>([]);
+  const [requestingKey, setRequestingKey] = useState<string | null>(null);
 
   useEffect(() => {
-    getPublicBrands().then(setBrands);
+    getPublicBrands().then(setBrands).catch(() => setBrands([]));
+    getMyCustomerServiceRequests().then(setServiceRequests).catch(() => setServiceRequests([]));
   }, []);
 
+  const handleServiceRequest = async (order: Order, sellerKey: string, type: CustomerServiceRequest['type']) => {
+    const typeLabel = type === 'exchange' ? '교환' : '반품';
+    const reason = window.prompt(`${typeLabel} 사유를 5자 이상 입력해주세요.\n접수 후 판매자 확인을 거쳐 처리됩니다.`);
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+      window.alert('사유를 5자 이상 입력해주세요.');
+      return;
+    }
+    const busyKey = `${order.id}:${sellerKey}:${type}`;
+    setRequestingKey(busyKey);
+    try {
+      const created = await createCustomerServiceRequest({ orderId: order.id, sellerKey, type, reason: reason.trim() });
+      setServiceRequests((current) => [created, ...current]);
+      window.alert(`${typeLabel} 요청이 접수되었습니다.`);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      window.alert(code === 'request-already-open' ? `이미 처리 중인 ${typeLabel} 요청이 있습니다.` : code === 'request-not-allowed' ? '결제 완료된 주문만 요청할 수 있습니다.' : `${typeLabel} 요청을 접수하지 못했습니다.`);
+    } finally {
+      setRequestingKey(null);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    void Promise.all(orders.map(async (order) => {
+      try {
+        return await getOrderActionRequests(order.id);
+      } catch {
+        return [];
+      }
+    })).then((requestGroups) => {
+      if (!active) return;
+      setActionRequests(requestGroups.flat());
+    });
+    return () => { active = false; };
+  }, [orders]);
+
   // 주문 역순 정렬 (최신순)
-  const sortedOrders = [...orders].sort(
+  const sortedOrders = orders.filter((order) => matchesOrderDateRange(order, dateRange)).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
   const totalItems = sortedOrders.length;
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const paginatedOrders = sortedOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  const hasDateFilter = Boolean(dateRange.createdFrom || dateRange.createdTo);
+  const dateRangeFilter = (
+    <div className="mb-6 rounded-md border border-[#EBE6DC] bg-[#FBF9F4] p-3" aria-label="주문내역 기간 필터">
+      <div className="flex flex-wrap items-center gap-3">
+        <OrderDateRangeFilter
+          createdFrom={dateRange.createdFrom}
+          createdTo={dateRange.createdTo}
+          onChange={(range) => {
+            setDateRange(range);
+            setCurrentPage(1);
+            setExpandedOrderId(null);
+          }}
+          ariaLabel="주문내역 빠른 기간 선택"
+        />
+      </div>
+    </div>
+  );
 
   if (totalItems === 0) {
     return (
@@ -58,13 +138,22 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-[#18231F]">주문내역</h2>
         </div>
-        <EmptyState
-          icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
-          title="주문 내역이 없어요."
-          description="최근 구매하신 상품이 없습니다."
-          actionLabel="쇼핑하러 가기"
-          actionHref="/shop"
-        />
+        {dateRangeFilter}
+        {hasDateFilter ? (
+          <EmptyState
+            icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
+            title="선택한 기간에 해당하는 주문 내역이 없습니다."
+            description="다른 기간을 선택해 주문 내역을 확인해보세요."
+          />
+        ) : (
+          <EmptyState
+            icon={<PackageSearch className="h-8 w-8 text-[#68716C]" />}
+            title="주문 내역이 없어요."
+            description="최근 구매하신 상품이 없습니다."
+            actionLabel="쇼핑하러 가기"
+            actionHref="/shop"
+          />
+        )}
       </section>
     );
   }
@@ -107,19 +196,38 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
     return shipment?.deliveryStatus || '배송전';
   };
 
-  const handleCancelRequest = async (order: Order) => {
+  const handleActionRequest = async (
+    requestType: 'CANCEL' | 'REFUND',
+    brandId: string,
+    items: OrderActionRequestItemInput[],
+    reason: string,
+  ) => {
+    if (!actionOrder) return;
+    try {
+      const created = await createOrderActionRequest(actionOrder.id, { requestType, brandId, items, reason });
+      setActionRequests((current) => [...current, created]);
+      await onOrderUpdated();
+    } catch (error) {
+      if (error instanceof Error && error.message === 'action-request-already-exists') {
+        throw new Error('같은 브랜드의 요청이 이미 접수되어 있습니다.');
+      }
+      if (error instanceof Error && error.message === 'action-request-quantity-exceeds-remaining') {
+        throw new Error('이미 처리 중이거나 취소된 수량이 포함되어 있습니다. 주문을 새로고침한 뒤 다시 선택해주세요.');
+      }
+      throw new Error('브랜드별 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.');
+    }
+  };
+
+  const handleLegacyCancelRequest = async (order: Order) => {
     if (!window.confirm('주문 취소를 요청하시겠습니까?\n\n관리자가 결제·배송 상태를 확인한 뒤 최종 처리합니다.')) return;
-    setCancellingOrderId(order.id);
+    setActionRequestKey(order.id);
     try {
       await requestOrderCancellation(order.id);
       await onOrderUpdated();
     } catch (error) {
-      const message = error instanceof Error && error.message === 'cancel-request-not-allowed'
-        ? '현재 상태에서는 주문 취소를 요청할 수 없습니다.'
-        : '주문 취소 요청에 실패했습니다. 주문 상태를 새로고침한 뒤 다시 시도해주세요.';
-      window.alert(message);
+      window.alert(error instanceof Error && error.message === 'cancel-request-not-allowed' ? '현재 상태에서는 주문 취소를 요청할 수 없습니다.' : '주문 취소 요청에 실패했습니다.');
     } finally {
-      setCancellingOrderId(null);
+      setActionRequestKey(null);
     }
   };
 
@@ -128,11 +236,20 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-[#18231F]">주문내역</h2>
       </div>
+      {dateRangeFilter}
+
+      <MarketplaceNotice className="mb-6" />
 
       <div className="flex flex-col gap-6">
         {paginatedOrders.map((order) => {
           // 업체(브랜드)별 번들. 레거시 주문(brandId 없는 아이템)은 하나의 null 번들로 접혀 최소 1개 버튼을 갖는다.
           const bundles = groupOrderItemsByBundle(order.items);
+          const sellerGroups = order.sellerGroups ?? [];
+          const orderActionRequests = actionRequests.filter((request) => request.orderId === order.id);
+          // 취소 반려는 주문 집계 상태(order.orderStatus)를 다시 주문접수로 되돌리므로 목록 상단
+          // 배지만으론 회원이 반려 사실을 알 수 없다 — 반려된 요청 아이템이 있으면 목록 레벨에
+          // '취소 반려' 배지를 띄운다.
+          const hasRejectedRequest = hasRejectedActionRequestItem(orderActionRequests);
 
           return (
           <div key={order.id} className="mypage-card p-0 overflow-hidden">
@@ -153,6 +270,11 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                 <span className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusStyle(getOrderDeliveryLabel(order))}`}>
                   {getOrderDeliveryLabel(order)}
                 </span>
+                {hasRejectedRequest && (
+                  <span className="rounded-full bg-[#A65348] px-3 py-1 text-xs font-bold text-white">
+                    취소 반려
+                  </span>
+                )}
                 <button
                   type="button"
                   onClick={() => setExpandedOrderId((current) => (current === order.id ? null : order.id))}
@@ -164,15 +286,14 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                     className={`h-4 w-4 transition-transform ${expandedOrderId === order.id ? 'rotate-180' : ''}`}
                   />
                 </button>
-                {isCancellationRequestAllowed(order) && (
+                {bundles.some((bundle) => Boolean(bundle.brandId)) && order.orderStatus !== '취소완료' && (
                   <button
                     type="button"
-                    onClick={() => handleCancelRequest(order)}
-                    disabled={cancellingOrderId === order.id}
-                    className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
+                    onClick={() => setActionOrder(order)}
+                    className="mp-btn-secondary h-11 gap-1 px-3 text-xs"
                   >
                     <CircleAlert className="h-3.5 w-3.5" />
-                    {cancellingOrderId === order.id ? '요청 중...' : '주문 취소 요청'}
+                    취소·환불 요청
                   </button>
                 )}
               </div>
@@ -199,7 +320,14 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
               </dl>
             )}
 
-            <div className="flex flex-col divide-y divide-[#EBE6DC]">
+            {expandedOrderId !== order.id && (
+              <div className="flex items-center justify-between gap-4 border-b border-[#EBE6DC] px-6 py-4 text-sm">
+                <span className="truncate text-[#17201B]">{order.items[0]?.productName ?? '주문 상품'}</span>
+                {order.items.length > 1 && <span className="shrink-0 text-xs text-[#8A918B]">외 {order.items.length - 1}개 상품</span>}
+              </div>
+            )}
+
+            {expandedOrderId === order.id && <div className="flex flex-col divide-y divide-[#EBE6DC]">
               {order.items.map((item, idx) => {
                 const product = products.find((p) => p.id === item.productId);
                 const canOpenProduct = Boolean(product && product.isVisible !== false);
@@ -231,8 +359,8 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                         </div>
                       )}
                       <div className="flex flex-col justify-center">
-                        {product?.brandName && (
-                          <span className="text-xs font-semibold text-[#68716C]">{product.brandName}</span>
+                        {(item.sellerName || product?.seller?.displayName || product?.brandName) && (
+                          <span className="text-xs font-semibold text-[#68716C]">판매자 · {item.sellerName || product?.seller?.displayName || product?.brandName}</span>
                         )}
                         {canOpenProduct ? (
                           <Link href={`/shop/${item.productId}`} className="mt-1 text-sm font-semibold text-[#18231F] line-clamp-1 hover:underline">
@@ -267,13 +395,64 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                   </div>
                 );
               })}
-            </div>
+            </div>}
+
+            {expandedOrderId === order.id && orderActionRequests.length > 0 && (
+              <div className="border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">
+                <h3 className="text-sm font-semibold text-[#18231F]">취소·환불 요청 현황</h3>
+                <div className="mt-3 space-y-2">
+                  {orderActionRequests.map((request) => (
+                    <div key={request.id} className="rounded-md border border-[#EBE6DC] bg-white px-4 py-3 text-sm">
+                      <p className="text-xs font-semibold text-[#68716C]">{request.requestType === 'CANCEL' ? '취소 요청' : '환불 요청'}</p>
+                      <div className="mt-2 space-y-1">
+                        {request.items.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between gap-3 text-[#18231F]">
+                            <span className="min-w-0 truncate">{item.productName}{item.optionName ? ` (${item.optionName})` : ''} × {item.quantity}개</span>
+                            <span className="shrink-0 text-xs font-semibold text-[#68716C]">{ACTION_ITEM_STATUS_LABEL[item.status]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {sellerGroups.length > 0 && (
+              <div className="border-t border-[#EBE6DC] bg-white px-6 py-4">
+                <h3 className="text-sm font-bold text-[#18231F]">판매자별 취소·교환·반품</h3>
+                <p className="mt-1 text-xs leading-5 text-[#68716C]">주문 취소는 주문 상단 버튼, 교환·반품은 아래 실제 판매자별 버튼으로 접수합니다.</p>
+                <div className="mt-3 space-y-3">
+                  {sellerGroups.map((group) => {
+                    const requests = serviceRequests.filter((request) => request.orderId === order.id && request.sellerKey === group.key);
+                    // 부분취소는 취소요청과 동일하게 교환·반품을 막는다(취소 처리 중 상태) — 서버
+                    // 측 최종 게이트(src/app/api/orders/requests/route.ts 제외 목록)와 정렬. 부분취소완료는
+                    // 남은 아이템에 대해 계속 허용한다(제외 목록에 없음).
+                    const canRequest = order.paymentStatus === '결제완료' && !['취소요청', '부분취소', '취소완료'].includes(order.orderStatus);
+                    const acceptance = order.sellerAcceptances?.find((item) => item.sellerKey === group.key);
+                    return (
+                      <div key={group.key} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#EBE6DC] bg-[#FBF9F4] p-3">
+                        <div><p className="text-sm font-semibold text-[#18231F]">{group.seller.displayName}</p><p className="mt-0.5 text-xs text-[#68716C]">{group.productIds.length}종 · 판매자 처리 상태 {acceptance?.status === 'accepted' ? '수락' : acceptance?.status === 'rejected' ? '거절' : acceptance?.status === 'cancelled' ? '묶음 취소' : '접수 대기'}{acceptance?.note ? ` · ${acceptance.note}` : ''}</p>{requests.map((request) => <p key={request.id} className="mt-1 text-xs font-semibold text-[#A8742E]">{request.type === 'exchange' ? '교환' : '반품'} · {request.status === 'received' ? '접수' : request.status === 'reviewing' ? '검토 중' : request.status === 'approved' ? '승인' : request.status === 'rejected' ? '반려' : '완료'}{request.adminNote ? ` · ${request.adminNote}` : ''}</p>)}</div>
+                        <div className="flex gap-2">
+                          {(['exchange', 'return'] as const).map((type) => {
+                            const busyKey = `${order.id}:${group.key}:${type}`;
+                            const hasOpen = requests.some((request) => request.type === type && ['received', 'reviewing', 'approved'].includes(request.status));
+                            return <button key={type} type="button" disabled={!canRequest || hasOpen || requestingKey === busyKey} onClick={() => void handleServiceRequest(order, group.key, type)} className="mp-btn-secondary h-9 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50">{hasOpen ? `${type === 'exchange' ? '교환' : '반품'} 처리 중` : `${type === 'exchange' ? '교환' : '반품'} 요청`}</button>;
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* 업체별 배송조회 — 버튼은 항상 살아 있게 한다(숨기면 CS 문의가 는다). 레거시 단일 번들은 "배송조회"로 표기. */}
             <div className="flex flex-col gap-2 border-t border-[#EBE6DC] bg-[#FBF9F4] px-6 py-4">
               {bundles.map((bundle) => {
                 const brand = bundle.brandId ? brands.find((b) => b.id === bundle.brandId) : null;
                 const label = brand?.name ?? (bundle.brandId ? '배송 정보' : '배송조회');
+                const brandId = bundle.brandId;
                 return (
                   <div
                     key={bundle.brandId ?? '__legacy__'}
@@ -283,13 +462,10 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
                       {label}
                       <span className="ml-1 text-xs text-[#A29E93]">· {bundle.items.length}개 상품</span>
                     </span>
-                    <button
-                      onClick={() => setTracking({ order, bundle })}
-                      className="mp-btn-secondary h-9 gap-1 px-3 text-xs"
-                    >
-                      <Truck className="h-3.5 w-3.5" />
-                      배송조회
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button onClick={() => setTracking({ order, bundle })} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><Truck className="h-3.5 w-3.5" />배송조회</button>
+                      {!brandId && isCancellationRequestAllowed(order) && <button onClick={() => void handleLegacyCancelRequest(order)} disabled={Boolean(actionRequestKey)} className="mp-btn-secondary h-9 gap-1 px-3 text-xs"><CircleAlert className="h-3.5 w-3.5" />{actionRequestKey === order.id ? '요청 중...' : '주문 취소 요청'}</button>}
+                    </div>
                   </div>
                 );
               })}
@@ -313,6 +489,18 @@ export default function OrdersSection({ orders, shipmentsByOrder, reviews, produ
           order={tracking.order}
           bundle={tracking.bundle}
           brands={brands}
+        />
+      )}
+
+      {actionOrder && (
+        <OrderActionRequestSheet
+          order={actionOrder}
+          bundles={groupOrderItemsByBundle(actionOrder.items)}
+          brands={brands}
+          shipments={shipmentsByOrder[actionOrder.id] ?? []}
+          requests={actionRequests.filter((request) => request.orderId === actionOrder.id)}
+          onClose={() => setActionOrder(null)}
+          onSubmit={handleActionRequest}
         />
       )}
     </section>

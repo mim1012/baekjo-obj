@@ -46,8 +46,8 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
     expect(pageSource).toContain('onUpdateRow={ready ? handleUpdate : undefined}');
     expect(pageSource).toContain("formFields={[");
     expect(pageSource).not.toContain('disableEdit');
-    expect(resourcePage).toContain('onCreateRow?: (draft: ResourceRow) => void;');
-    expect(resourcePage).toContain('onUpdateRow?: (id: string | number, draft: ResourceRow) => void;');
+    expect(resourcePage).toContain('onCreateRow?: (draft: ResourceRow) => void | Promise<void>;');
+    expect(resourcePage).toContain('onUpdateRow?: (id: string | number, draft: ResourceRow) => void | Promise<void>;');
     expect(resourcePage).toContain('const canCreateRows = !readOnly && Boolean(actionLabel) && onCreateRow != null;');
     expect(resourcePage).toContain('const canEditRows = !readOnly && !disableEdit && onUpdateRow != null;');
     expect(resourcePage).toContain('onCreateRow(createDraft);');
@@ -173,7 +173,7 @@ test.describe('파트너/케어키트 관리자 저장 → 공개 랜딩 바인�
 
     expect(repoSource).toContain(".from('kits_config')");
     expect(repoSource).toContain(".select('value')");
-    expect(repoSource).toContain('return data ? (data.value as KitsConfig) : null;');
+    expect(repoSource).toContain('return data ? normalizeStoredKitsConfig(data.value) : null;');
     expect(repoSource).toContain('upsert({ id: CONFIG_ROW_ID, value, updated_at: new Date().toISOString() });');
   });
 

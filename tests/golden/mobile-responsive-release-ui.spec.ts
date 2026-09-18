@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import { loginAsMemberReadOnly } from './_lib/memberCrudHelpers';
+import { FEATURES } from '../../src/config/features';
 
 type JsonValue = null | boolean | number | string | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
@@ -150,7 +151,8 @@ test.describe('release UI 모바일 반응형 검증', () => {
 
           const bottomNav = page.getByRole('navigation', { name: '하단 메뉴' });
           await expect(bottomNav).toBeVisible();
-          for (const label of ['홈', '케어', '쇼핑', '보험', '마이']) {
+          const bottomNavLabels = ['홈', '케어', '쇼핑', ...(FEATURES.insurance ? ['보험'] : []), '마이'];
+          for (const label of bottomNavLabels) {
             await expectTouchTarget(bottomNav.getByRole('link', { name: label }), `${width}px ${route.slug} ${label}`);
           }
 

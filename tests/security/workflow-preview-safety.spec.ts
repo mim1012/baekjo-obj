@@ -144,6 +144,7 @@ test.describe('Preview workflow fail-closed policy', () => {
   test('CI는 production release contract를 실행한다', () => {
     const ci = readWorkflow('ci.yml');
 
+    expect(ci).toContain('branches: [main, develop]');
     expect(ci).toContain('release-contract:');
     expect(ci).toContain('npx playwright test tests/security/workflow-preview-safety.spec.ts --project=security --workers=1 --retries=0 --reporter=line');
   });

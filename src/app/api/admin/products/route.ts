@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { requireAdmin } from '@/lib/admin/requireAdmin';
-import { insertProduct, listAllProductsForAdmin } from '@/lib/products/repo';
+import { insertProduct, listAllProductsForAdmin, ProductComplianceError } from '@/lib/products/repo';
 import { validateProductFields, toInsertInput } from '@/lib/products/validate';
+import { getProductPetTypeIds } from '@/lib/categorySettings/repo';
 import { EXPIRE_PUBLIC_READ_CACHE, PUBLIC_READ_CACHE_TAGS } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 
@@ -44,7 +45,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
   }
 
-  const fields = validateProductFields(body, true);
+  const allowedPetTypeIds = await getProductPetTypeIds();
+  const fields = validateProductFields(body, true, { allowedPetTypeIds });
   const input = fields ? toInsertInput(fields) : null;
   if (!input) {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
@@ -56,6 +58,9 @@ export async function POST(request: NextRequest) {
     revalidatePath('/shop');
     return NextResponse.json({ product }, { status: 201 });
   } catch (error) {
+    if (error instanceof ProductComplianceError) {
+      return NextResponse.json({ error: 'product-compliance-incomplete' }, { status: 400 });
+    }
     if (error && typeof error === 'object' && isForeignKeyViolation(error as { code?: string })) {
       return NextResponse.json({ error: 'invalid-brand' }, { status: 400 });
     }

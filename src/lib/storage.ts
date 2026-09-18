@@ -2,12 +2,16 @@ import {
   AdminDashboardSummary,
   Brand,
   ConfirmedOrderSummary,
+  CustomerServiceRequest,
   InsuranceApplication,
   MemberAddress,
+  MarketingPreferences,
   Order,
   PartnerInquiry,
   Product,
   Review,
+  Seller,
+  SellerAcceptance,
   Shipment,
   User,
 } from '@/types';
@@ -24,13 +28,21 @@ import type { PartnersConfig } from '@/lib/partners/config';
 import { defaultQnaConfig, type QnaConfig } from '@/lib/qna/config';
 import { defaultInsuranceContentConfig, type InsuranceContentConfig } from '@/lib/insuranceContent/config';
 import { defaultConcernsConfig, type ConcernsConfig } from '@/lib/concerns/config';
+import type { AdminProductTagsConfig, ProductTagDefinition, ProductTagsConfig } from '@/lib/productTags/config';
 import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { type OrderPolicyConfig } from '@/lib/orderPolicy/config';
 import type { OrderRefundRecord, RefundItemInput } from '@/lib/orders/refund';
+import type {
+  OrderActionRequestItemInput,
+  OrderActionRequestRecord,
+  OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 import type { AdminOrderFilters } from '@/lib/orders/adminOrderFilters';
+import type { CheckoutConsentClaims } from '@/lib/orders/compliance';
 import { adminOrderFiltersToSearchParams } from '@/lib/orders/adminOrderFilters';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
+import type { AdminMemberPage } from '@/types';
 
 function cloneFallback<T>(fallback: T): T {
   return JSON.parse(JSON.stringify(fallback)) as T;
@@ -400,7 +412,7 @@ const LAST_ORDER_KEY = 'baekjo_last_order';
 export type CreateOrderInput = Pick<
   Order,
   'customerName' | 'phone' | 'address' | 'items' | 'paymentMethod' | 'deliveryMemo'
->;
+> & { consents: CheckoutConsentClaims };
 
 /**
  * 주문 생성. POST /api/orders(회원 전용). 서버가 id·createdAt·member_id 및
@@ -422,7 +434,13 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
     if (response.status === 409) {
       const { error } = (await response.json().catch(() => ({}))) as { error?: string };
       if (error === 'profile-incomplete') throw new Error('profile-incomplete');
+      if (error === 'seller-information-missing') throw new Error('seller-information-missing');
+      if (error === 'product-compliance-incomplete') throw new Error('product-compliance-incomplete');
       throw new Error('out-of-stock');
+    }
+    if (response.status === 400) {
+      const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+      if (error === 'consent-required') throw new Error('consent-required');
     }
     throw new Error('order-create-failed');
   }
@@ -446,6 +464,50 @@ export async function getMyOrders(): Promise<Order[]> {
   } catch {
     return [];
   }
+}
+
+export async function getMyCustomerServiceRequests(): Promise<CustomerServiceRequest[]> {
+  try {
+    const response = await fetch('/api/orders/requests', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { requests } = (await response.json()) as { requests: CustomerServiceRequest[] };
+    return Array.isArray(requests) ? requests : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createCustomerServiceRequest(input: Pick<CustomerServiceRequest, 'orderId' | 'sellerKey' | 'type' | 'reason'>): Promise<CustomerServiceRequest> {
+  const response = await fetch('/api/orders/requests', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'request-create-failed');
+  }
+  return ((await response.json()) as { request: CustomerServiceRequest }).request;
+}
+
+export async function getAdminCustomerServiceRequests(): Promise<CustomerServiceRequest[]> {
+  try {
+    const response = await fetch('/api/admin/order-requests', { cache: 'no-store' });
+    if (!response.ok) return [];
+    return ((await response.json()) as { requests: CustomerServiceRequest[] }).requests;
+  } catch {
+    return [];
+  }
+}
+
+export async function updateAdminCustomerServiceRequest(id: string, status: CustomerServiceRequest['status'], adminNote?: string): Promise<CustomerServiceRequest> {
+  const response = await fetch(`/api/admin/order-requests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, adminNote }),
+  });
+  if (!response.ok) throw new Error('request-update-failed');
+  return ((await response.json()) as { request: CustomerServiceRequest }).request;
 }
 
 /**
@@ -483,6 +545,17 @@ export async function getOrderById(id: string): Promise<Order | null> {
     return null;
   }
 }
+
+export async function updateOrderSellerAcceptance(orderId: string, sellerKey: string, status: SellerAcceptance['status'], note?: string): Promise<SellerAcceptance> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/seller-acceptances/${encodeURIComponent(sellerKey)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, note }),
+  });
+  if (!response.ok) throw new Error('seller-acceptance-update-failed');
+  return ((await response.json()) as { acceptance: SellerAcceptance }).acceptance;
+}
+
 
 /**
  * 최근 주문 스냅샷. sessionStorage 에 저장된 createOrder 응답만 파싱한다
@@ -546,6 +619,69 @@ export async function requestOrderCancellation(orderId: string): Promise<void> {
     const code = body && typeof body.error === 'string' ? body.error : 'cancel-request-failed';
     throw new Error(code);
   }
+}
+
+export async function createOrderActionRequest(
+  orderId: string,
+  input: { requestType: OrderActionRequestType; brandId: string; items: OrderActionRequestItemInput[]; reason: string },
+): Promise<OrderActionRequestRecord> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/action-requests`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input),
+  });
+  const body = (await response.json().catch(() => null)) as { error?: unknown; request?: unknown } | null;
+  if (!response.ok || !body || !body.request || typeof body.request !== 'object') {
+    throw new Error(body && typeof body.error === 'string' ? body.error : 'action-request-failed');
+  }
+  return body.request as OrderActionRequestRecord;
+}
+
+export async function getOrderActionRequests(orderId: string): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/orders/${encodeURIComponent(orderId)}/action-requests`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('action-request-history-failed');
+  const body = (await response.json()) as { requests?: unknown };
+  return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
+}
+
+export async function getAdminOrderActionRequests(orderId: string): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/action-requests`, { cache: 'no-store' });
+  if (!response.ok) throw new Error('action-request-history-failed');
+  const body = (await response.json()) as { requests?: unknown };
+  return Array.isArray(body.requests) ? (body.requests as OrderActionRequestRecord[]) : [];
+}
+
+/** 관리자 승인/반려/완료 409(action-requests/route.ts, ORDER_ACTION_REQUEST_ERROR_CODES 등)를
+ *  코드+한국어 문구 그대로 실어 던진다 — 호출부(OrderActionRequestsPanel)가 code로 힌트를 분기하고
+ *  message를 그대로 보여줄 수 있게 한다. */
+export class AdminActionRequestConflictError extends Error {
+  constructor(public readonly code: string, message: string) {
+    super(message);
+    this.name = 'AdminActionRequestConflictError';
+  }
+}
+
+/** 관리자 상품별 취소·환불 요청 승인/반려/완료(POST /api/admin/orders/[id]/action-requests,
+ *  0170 RPC 경유). 성공 시 그 라우트가 함께 돌려주는 최신 요청 목록을 그대로 반환한다 — 패널이
+ *  별도로 재조회하지 않고 이 응답으로 상태를 갱신한다. */
+export async function transitionAdminOrderActionRequest(
+  orderId: string,
+  requestId: string,
+  action: 'approve' | 'reject' | 'complete',
+): Promise<OrderActionRequestRecord[]> {
+  const response = await fetch(`/api/admin/orders/${encodeURIComponent(orderId)}/action-requests`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, action }),
+  });
+  const body = (await response.json().catch(() => null)) as
+    | { ok?: boolean; requests?: unknown; error?: unknown; message?: unknown }
+    | null;
+  if (!response.ok) {
+    const code = body && typeof body.error === 'string' ? body.error : 'action-request-update-failed';
+    const message = body && typeof body.message === 'string' ? body.message : '요청 처리에 실패했습니다.';
+    throw new AdminActionRequestConflictError(code, message);
+  }
+  if (!body || !Array.isArray(body.requests)) throw new Error('action-request-update-failed');
+  return body.requests as OrderActionRequestRecord[];
 }
 
 export async function getAdminOrderRefunds(orderId: string): Promise<OrderRefundRecord[]> {
@@ -906,7 +1042,7 @@ export async function getPublicProductsOrNull(filter?: {
     if (filter?.brandId) params.set('brandId', filter.brandId);
     if (filter?.petType) params.set('petType', filter.petType);
     const query = params.toString();
-    const response = await fetch(`/api/products${query ? `?${query}` : ''}`);
+    const response = await fetch(`/api/products${query ? `?${query}` : ''}`, { cache: 'no-store' });
     if (!response.ok) return null;
     const { products } = (await response.json()) as { products: Product[] };
     return products;
@@ -1065,6 +1201,63 @@ export async function deleteProduct(id: string): Promise<{ ok?: true; error?: st
 }
 
 /**
+ * 상품 폼의 '고민' 태그 빠른 등록. POST /api/admin/product-tags — 라벨만 보내면 서버가 slug를
+ * 만들어(createProductTagSlug) 공용 사전에 저장한다. 이미 같은 라벨이 있으면 created:false로
+ * 기존 태그를 그대로 돌려줘 중복 slug가 생기지 않는다.
+ */
+export async function createAdminProductTag(label: string): Promise<{
+  ok: boolean;
+  tag?: ProductTagDefinition;
+  created?: boolean;
+  error?: string;
+}> {
+  try {
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      tag?: ProductTagDefinition;
+      created?: boolean;
+      error?: string;
+    };
+    return response.ok && body.tag
+      ? { ok: true, tag: body.tag, created: body.created === true }
+      : { ok: false, error: body.error ?? 'server-error' };
+  } catch {
+    return { ok: false, error: 'network-error' };
+  }
+}
+
+/** 태그 관리 화면(/admin/products/tags)용. GET /api/admin/product-tags. 조회 실패 시 쓰기 UI를
+ *  숨겨야 하므로 persistenceReady:false로 안전하게 방어한다(실제 미적용과 조회 실패를 굳이
+ *  구분하지 않는다 — 둘 다 "쓰기를 막는다"는 동작은 같다). */
+export async function getAdminProductTagsConfig(): Promise<AdminProductTagsConfig> {
+  try {
+    const response = await fetch('/api/admin/product-tags', { cache: 'no-store' });
+    if (!response.ok) return { items: [], hiddenSlugs: [], persistenceReady: false };
+    return (await response.json()) as AdminProductTagsConfig;
+  } catch {
+    return { items: [], hiddenSlugs: [], persistenceReady: false };
+  }
+}
+
+/** 태그 관리 화면의 등록/수정/삭제/순서변경을 통째로 반영한다. PUT /api/admin/product-tags. */
+export async function saveAdminProductTagsConfig(config: ProductTagsConfig): Promise<{ ok: boolean }> {
+  try {
+    const response = await fetch('/api/admin/product-tags', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(config),
+    });
+    return { ok: response.ok };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
  * 파트너/관리자 본인 관리 브랜드의 상품 목록(비노출 포함). GET /api/partner/products.
  * 실패를 error로 구분해 반환한다 — 호출부(BrandProductsClient)가 실패를 빈 배열과 혼동해
  * 기존에 보여주던 목록을 조용히 비우지 않도록(§4) getAdminProducts와 다르게 설계했다.
@@ -1213,6 +1406,57 @@ export async function deleteBrand(id: string): Promise<{ ok?: true; error?: stri
     return { ok: true };
   } catch {
     return { error: 'network' };
+  }
+}
+
+/* ── 실제 판매자(관리자) ─────────────────────────────────── */
+export type CreateSellerInput = Omit<Seller, 'id' | 'createdAt' | 'updatedAt' | 'freeShippingThreshold'> & {
+  freeShippingThreshold?: number | null;
+};
+export type UpdateSellerInput = Partial<CreateSellerInput>;
+
+export async function getAdminSellers(): Promise<Seller[]> {
+  try {
+    const response = await fetch('/api/admin/sellers', { cache: 'no-store' });
+    if (!response.ok) return [];
+    const { sellers } = (await response.json()) as { sellers: Seller[] };
+    return Array.isArray(sellers) ? sellers : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function createSeller(input: CreateSellerInput): Promise<Seller> {
+  const response = await fetch('/api/admin/sellers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-create-failed');
+  }
+  return ((await response.json()) as { seller: Seller }).seller;
+}
+
+export async function updateSeller(id: string, input: UpdateSellerInput): Promise<Seller> {
+  const response = await fetch(`/api/admin/sellers/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-update-failed');
+  }
+  return ((await response.json()) as { seller: Seller }).seller;
+}
+
+export async function deleteSeller(id: string): Promise<void> {
+  const response = await fetch(`/api/admin/sellers/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!response.ok) {
+    const { error } = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(error ?? 'seller-delete-failed');
   }
 }
 
@@ -1668,7 +1912,9 @@ export async function registerUser(input: {
   petType?: string;
   breed?: string;
   mainConcern?: string;
-}): Promise<{ user?: User; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
+  termsAgree: boolean;
+  privacyAgree: boolean;
+}): Promise<{ user?: User; verificationPending?: true; error?: 'duplicate-email' | 'invalid-input' | 'network' | 'session' }> {
   try {
     const response = await fetch('/api/members', {
       method: 'POST',
@@ -1676,15 +1922,24 @@ export async function registerUser(input: {
       body: JSON.stringify(input),
     });
     if (response.status === 201) {
-      const loginResult = await login(input.email, input.password);
-      // 가입(201)은 성공했지만 후속 로그인이 실패한 경우 — 조용히 넘기면
-      // 로그아웃 상태로 /mypage에 보내게 되므로 명시적으로 알린다.
-      if (!loginResult.user) return { error: 'session' };
-      return { user: loginResult.user };
+      return { verificationPending: true };
     }
     if (response.status === 409) return { error: 'duplicate-email' };
     if (response.status === 400) return { error: 'invalid-input' };
     return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+export async function requestEmailVerificationByEmail(email: string): Promise<{ ok?: true; error?: 'network' }> {
+  try {
+    const response = await fetch('/api/members/verify/public-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    return response.ok ? { ok: true } : { error: 'network' };
   } catch {
     return { error: 'network' };
   }
@@ -1739,23 +1994,38 @@ export async function checkEmailAvailable(email: string): Promise<boolean | null
 }
 
 /**
- * 관리자 회원 목록(전체). GET /api/admin/members(관리자 세션 필요). 화면이 "로그인 필요"와
- * "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고 도메인 에러를
- * 반환한다(updateUserStatus 와 동일한 error 유니온 패턴).
+ * 관리자 회원 목록(서버 페이지네이션). GET /api/admin/members(관리자 세션 필요). 화면이
+ * "로그인 필요"와 "일반 실패"를 구분해 다른 UX를 보여주므로, orders 처럼 빈 배열로 접지 않고
+ * 도메인 에러를 반환한다(updateUserStatus 와 동일한 error 유니온 패턴). query를 생략하면
+ * 기본 1페이지(20건, 무필터)를 받는다 — 기존 호출부(인자 없이 부르던 자리)와 하위호환.
  */
-export async function getAdminMembers(): Promise<{
-  users?: User[];
-  error?: 'unauthorized' | 'forbidden' | 'network';
-}> {
+export async function getAdminMembers(
+  query: { page?: number; pageSize?: number; search?: string; role?: string; status?: string } = {},
+  signal?: AbortSignal,
+): Promise<Partial<AdminMemberPage> & { error?: 'unauthorized' | 'forbidden' | 'network' }> {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== '') params.set(key, String(value));
+  }
   try {
-    const response = await fetch('/api/admin/members');
-    if (response.ok) {
-      const { users } = (await response.json()) as { users: User[] };
-      return { users };
-    }
+    const suffix = params.size ? `?${params}` : '';
+    const response = await fetch(`/api/admin/members${suffix}`, { cache: 'no-store', signal });
+    if (response.ok) return (await response.json()) as AdminMemberPage;
     if (response.status === 401) return { error: 'unauthorized' };
     if (response.status === 403) return { error: 'forbidden' };
     return { error: 'network' };
+  } catch {
+    return { error: 'network' };
+  }
+}
+
+/** 목록의 현재 페이지 바깥에 있는 회원도 열 수 있어야 하므로 별도 단건 조회 경로를 둔다.
+ *  GET /api/admin/members/[id]. */
+export async function getAdminMember(id: string): Promise<{ user?: User; error?: string }> {
+  try {
+    const response = await fetch(`/api/admin/members/${encodeURIComponent(id)}`, { cache: 'no-store' });
+    if (!response.ok) return { error: response.status === 404 ? 'not-found' : 'member-load-failed' };
+    return (await response.json()) as { user: User };
   } catch {
     return { error: 'network' };
   }
@@ -1855,6 +2125,22 @@ export async function updateMyProfile(input: {
   } catch {
     return { error: 'network' };
   }
+}
+
+export async function getMyMarketingPreferences(): Promise<MarketingPreferences> {
+  const response = await fetch('/api/members/me/marketing-preferences', { cache: 'no-store' });
+  if (!response.ok) throw new Error('marketing-preferences-load-failed');
+  return ((await response.json()) as { preferences: MarketingPreferences }).preferences;
+}
+
+export async function updateMyMarketingPreferences(input: Pick<MarketingPreferences, 'email' | 'sms'>): Promise<MarketingPreferences> {
+  const response = await fetch('/api/members/me/marketing-preferences', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error('marketing-preferences-update-failed');
+  return ((await response.json()) as { preferences: MarketingPreferences }).preferences;
 }
 
 export async function getMyAddresses(): Promise<MemberAddress[]> {

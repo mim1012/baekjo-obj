@@ -39,9 +39,9 @@ interface AdminResourcePageProps {
   /** 등록/수정 폼 필드. key 는 rows 의 key 와 일치해야 한다. */
   formFields?: FormField[];
   /** 등록 폼 저장을 부모 draft 에 반영한다. 지정하지 않으면 등록 UI 자체를 숨긴다. */
-  onCreateRow?: (draft: ResourceRow) => void;
+  onCreateRow?: (draft: ResourceRow) => void | Promise<void>;
   /** 수정 폼 저장을 부모 draft 에 반영한다. 지정하지 않으면 수정 UI를 숨긴다. */
-  onUpdateRow?: (id: string | number, draft: ResourceRow) => void;
+  onUpdateRow?: (id: string | number, draft: ResourceRow) => void | Promise<void>;
   /** 관리 셀(수정/삭제 앞)에 행별 커스텀 액션(승인/반려 버튼 등)을 렌더링한다. */
   customActions?: (row: ResourceRow) => React.ReactNode;
   /** 지정 시 행 클릭으로 상세 내용을 펼쳐 보여주는 확장 행을 렌더링한다. */
@@ -176,7 +176,7 @@ export default function AdminResourcePage({
     }
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!onCreateRow) return;
     const missingField = editableFields.find(
       (field) => field.required && String(createDraft[field.key] ?? '').trim() === '',
@@ -185,12 +185,17 @@ export default function AdminResourcePage({
       setSaveMessage(`${missingField.label}을(를) 선택하거나 입력해 주세요.`);
       return;
     }
-    onCreateRow(createDraft);
-    setCreateOpen(false);
-    resetCreateDraft();
+    setSaving(true);
+    try {
+      await onCreateRow(createDraft);
+      setCreateOpen(false);
+      resetCreateDraft();
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!onUpdateRow || !editingRow) return;
     const missingField = editableFields.find(
       (field) => field.required && String(editingDraft[field.key] ?? '').trim() === '',
@@ -199,8 +204,13 @@ export default function AdminResourcePage({
       setSaveMessage(`${missingField.label}을(를) 선택하거나 입력해 주세요.`);
       return;
     }
-    onUpdateRow(editingRow.id, editingDraft);
-    closeEdit();
+    setSaving(true);
+    try {
+      await onUpdateRow(editingRow.id, editingDraft);
+      closeEdit();
+    } finally {
+      setSaving(false);
+    }
   };
 
   const renderField = (

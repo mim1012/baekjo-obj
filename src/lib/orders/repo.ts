@@ -1,10 +1,14 @@
 // orders 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
 import {
-  ORDER_STATUSES,
+  ALL_ORDER_STATUSES,
   type DeliveryFeeBreakdown,
   type Order,
+  type OrderConsentRecord,
   type OrderItem,
+  type OrderSellerGroup,
+  type SellerSnapshot,
+  type SellerAcceptance,
   type OrderStatus,
 } from '@/types';
 import { normalizeBankTransferAccount } from '@/lib/orderPolicy/config';
@@ -17,8 +21,20 @@ import {
   type RefundItemSnapshot,
   type RefundStatus,
 } from '@/lib/orders/refund';
+import {
+  deriveRequestStatus,
+  ORDER_ACTION_REQUEST_ERROR_CODES,
+  ORDER_ACTION_REQUEST_STATUSES,
+  ORDER_ACTION_REQUEST_TYPES,
+  OrderActionRequestError,
+  type OrderActionRequestItem,
+  type OrderActionRequestItemState,
+  type OrderActionRequestItemStatus,
+  type OrderActionRequestRecord,
+  type OrderActionRequestType,
+} from '@/lib/orders/actionRequests';
 
-const ORDER_STATUS_SET = new Set<string>(ORDER_STATUSES);
+const ORDER_STATUS_SET = new Set<string>(ALL_ORDER_STATUSES);
 
 /** DB order_status 는 자유 text 라 유니온 밖 값이 들어올 수 있다. 미지값은 '주문접수'로 정규화해
  *  admin select/필터/통계가 조용히 깨지지 않게 한다. */
@@ -43,6 +59,9 @@ interface OrderRow {
   total_price: number;
   delivery_fee: number;
   delivery_fee_breakdown: unknown;
+  seller_groups: unknown;
+  consent_records: unknown;
+  seller_acceptances: unknown;
   payment_method: string;
   bank_transfer_account: unknown;
   order_status: string;
@@ -61,7 +80,7 @@ interface OrderRow {
 }
 
 const SELECT_COLUMNS =
-  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead';
+  'id, member_id, customer_name, phone, address, items, total_price, delivery_fee, delivery_fee_breakdown, seller_groups, consent_records, payment_method, bank_transfer_account, order_status, payment_status, delivery_status, tracking_number, delivery_memo, created_at, carrier, payment_key, paid_at, expires_at, reclaim_attempts, last_reclaim_error, reclaim_dead, seller_acceptances:order_seller_acceptances(id, order_id, seller_key, seller_id, status, note, updated_at)';
 
 /** jsonb items를 OrderItem[]로 안전 파싱. 배열이 아니면 빈 배열로 방어한다. */
 function parseItems(raw: unknown): OrderItem[] {
@@ -83,10 +102,87 @@ function parseDeliveryFeeBreakdown(raw: unknown): DeliveryFeeBreakdown[] {
       typeof row.appliedDeliveryFee === 'number' &&
       Number.isSafeInteger(row.appliedDeliveryFee) &&
       typeof row.isFreeShipping === 'boolean' &&
+      (row.sellerKey === undefined || typeof row.sellerKey === 'string') &&
+      (row.sellerName === undefined || typeof row.sellerName === 'string') &&
       (row.brandName === undefined || typeof row.brandName === 'string') &&
       (row.freeShippingThreshold === undefined ||
         (typeof row.freeShippingThreshold === 'number' && Number.isSafeInteger(row.freeShippingThreshold)))
     );
+  });
+}
+
+function parseSellerGroups(raw: unknown): OrderSellerGroup[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): OrderSellerGroup[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (typeof row.key !== 'string' || !Array.isArray(row.productIds)
+      || !row.productIds.every((id) => typeof id === 'string')
+      || typeof row.subtotal !== 'number' || !Number.isSafeInteger(row.subtotal)
+      || typeof row.shippingFee !== 'number' || !Number.isSafeInteger(row.shippingFee)
+      || !row.seller || typeof row.seller !== 'object' || Array.isArray(row.seller)) return [];
+    const rawSeller = row.seller as Record<string, unknown>;
+    if (typeof rawSeller.displayName !== 'string') return [];
+    const seller: SellerSnapshot = { displayName: rawSeller.displayName };
+    for (const field of ['id', 'legalName', 'representativeName', 'businessRegistrationNumber',
+      'mailOrderRegistrationNumber', 'businessAddress', 'phone', 'email', 'returnAddress'] as const) {
+      if (rawSeller[field] !== undefined && typeof rawSeller[field] !== 'string') return [];
+      if (typeof rawSeller[field] === 'string') seller[field] = rawSeller[field];
+    }
+    const status = row.acceptanceStatus;
+    if (status !== 'pending' && status !== 'accepted' && status !== 'rejected' && status !== 'cancelled') return [];
+    return [{
+      key: row.key,
+      seller,
+      productIds: row.productIds as string[],
+      subtotal: row.subtotal,
+      shippingFee: row.shippingFee,
+      ...(typeof row.dispatchEstimate === 'string' ? { dispatchEstimate: row.dispatchEstimate } : {}),
+      ...(typeof row.returnPolicy === 'string' ? { returnPolicy: row.returnPolicy } : {}),
+      acceptanceStatus: status,
+    }];
+  });
+}
+
+function parseConsentRecords(raw: unknown): OrderConsentRecord[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): OrderConsentRecord[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (!['order_terms', 'third_party_provision', 'made_to_order'].includes(String(row.type))
+      || typeof row.subjectKey !== 'string' || typeof row.policyVersion !== 'string'
+      || typeof row.contentHash !== 'string' || typeof row.contentSnapshot !== 'string'
+      || typeof row.agreedAt !== 'string') return [];
+    return [{
+      type: row.type as OrderConsentRecord['type'],
+      subjectKey: row.subjectKey,
+      policyVersion: row.policyVersion,
+      contentHash: row.contentHash,
+      contentSnapshot: row.contentSnapshot,
+      agreedAt: row.agreedAt,
+      ...(typeof row.ipAddress === 'string' ? { ipAddress: row.ipAddress } : {}),
+      ...(typeof row.userAgent === 'string' ? { userAgent: row.userAgent } : {}),
+    }];
+  });
+}
+
+function parseSellerAcceptances(raw: unknown): SellerAcceptance[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((value): SellerAcceptance[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+    const row = value as Record<string, unknown>;
+    if (typeof row.id !== 'string' || typeof row.order_id !== 'string' || typeof row.seller_key !== 'string'
+      || typeof row.status !== 'string' || !['pending', 'accepted', 'rejected', 'cancelled'].includes(row.status)
+      || typeof row.updated_at !== 'string') return [];
+    return [{
+      id: row.id,
+      orderId: row.order_id,
+      sellerKey: row.seller_key,
+      sellerId: typeof row.seller_id === 'string' ? row.seller_id : undefined,
+      status: row.status as SellerAcceptance['status'],
+      note: typeof row.note === 'string' ? row.note : undefined,
+      updatedAt: row.updated_at,
+    }];
   });
 }
 
@@ -102,6 +198,9 @@ function rowToRecord(row: OrderRow): OrderRecord {
     totalPrice: row.total_price,
     deliveryFee: row.delivery_fee,
     deliveryFeeBreakdown: parseDeliveryFeeBreakdown(row.delivery_fee_breakdown),
+    sellerGroups: parseSellerGroups(row.seller_groups),
+    consentRecords: parseConsentRecords(row.consent_records),
+    sellerAcceptances: parseSellerAcceptances(row.seller_acceptances),
     paymentMethod: row.payment_method,
     ...(bankTransferAccount ? { bankTransferAccount } : {}),
     orderStatus: normalizeOrderStatus(row.order_status),
@@ -213,6 +312,8 @@ export type InsertOrderInput = Pick<
   | 'totalPrice'
   | 'deliveryFee'
   | 'deliveryFeeBreakdown'
+  | 'sellerGroups'
+  | 'consentRecords'
   | 'paymentMethod'
   | 'orderStatus'
   | 'paymentStatus'
@@ -238,6 +339,8 @@ export async function insertOrder(
       total_price: input.totalPrice,
       delivery_fee: input.deliveryFee,
       delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
+      seller_groups: input.sellerGroups ?? [],
+      consent_records: input.consentRecords ?? [],
       payment_method: input.paymentMethod,
       bank_transfer_account: input.bankTransferAccount ?? null,
       order_status: input.orderStatus,
@@ -251,6 +354,36 @@ export async function insertOrder(
     .single();
   if (error) throw error;
   return rowToRecord(data as OrderRow);
+}
+
+/** 주문·판매자/동의 스냅샷 insert와 상품 재고 차감을 단일 DB 트랜잭션으로 수행한다(0152). */
+export async function createOrderWithInventory(
+  input: InsertOrderInput,
+  memberId: string,
+): Promise<OrderRecord> {
+  const { data, error } = await getSupabase().rpc('create_order_with_inventory', {
+    p_member_id: memberId,
+    p_customer_name: input.customerName,
+    p_phone: input.phone,
+    p_address: input.address,
+    p_items: input.items,
+    p_total_price: input.totalPrice,
+    p_delivery_fee: input.deliveryFee,
+    p_delivery_fee_breakdown: input.deliveryFeeBreakdown ?? [],
+    p_payment_method: input.paymentMethod,
+    p_bank_transfer_account: input.bankTransferAccount ?? null,
+    p_order_status: input.orderStatus,
+    p_payment_status: input.paymentStatus,
+    p_delivery_status: input.deliveryStatus,
+    p_tracking_number: input.trackingNumber ?? null,
+    p_delivery_memo: input.deliveryMemo ?? null,
+    p_expires_at: input.expiresAt ?? null,
+    p_seller_groups: input.sellerGroups ?? [],
+    p_consent_records: input.consentRecords ?? [],
+  });
+  if (error) throw new Error(error.message);
+  const created = rowToRecord(data as OrderRow);
+  return (await getOrderById(created.id)) ?? created;
 }
 
 /** 재고 차감 실패 시 방금 만든 주문을 되돌리는 보상용. 생성 직후 자기 주문에만 사용한다. */
@@ -459,6 +592,218 @@ export async function requestOrderCancellation(id: string, memberId: string): Pr
     .select('id');
   if (error) throw error;
   return (data?.length ?? 0) > 0;
+}
+
+const ACTION_REQUEST_COLUMNS = 'id, order_id, member_id, request_type, brand_id, items, requested_amount, reason, status, created_at, updated_at';
+/** listOrderActionRequests 전용: 진실 소스인 order_action_request_items를 관계 임베딩으로 함께
+ *  가져온다. B2 수정 — 이전에는 order_action_requests.items(생성 시점 jsonb 스냅샷, id/status 없음)만
+ *  읽어 아이템별 상태가 조회 경로에 전혀 실리지 않았다. */
+const ACTION_REQUEST_COLUMNS_WITH_ITEMS =
+  `${ACTION_REQUEST_COLUMNS}, order_action_request_items(id, line_index, product_id, product_name, quantity, unit_price, amount, option_name, status)`;
+
+/** id/status가 이미 부여된 아이템(RPC jsonb 반환, 또는 임베딩 조회를 camelCase로 변환한 행)을
+ *  검증한다. repo.ts:612의 무검증 캐스트(`row.items as OrderActionRequestItemState[]`)를 대체 — 타입만
+ *  status가 있다고 말하고 런타임 값엔 없는 거짓 캐스트를 여기서 제거한다. */
+function parseActionRequestItemState(raw: unknown): OrderActionRequestItemState {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request-item');
+  const row = raw as Record<string, unknown>;
+  if (
+    typeof row.id !== 'string' ||
+    typeof row.lineIndex !== 'number' || !Number.isSafeInteger(row.lineIndex) ||
+    typeof row.productId !== 'string' || typeof row.productName !== 'string' ||
+    typeof row.quantity !== 'number' || !Number.isSafeInteger(row.quantity) ||
+    typeof row.unitPrice !== 'number' || !Number.isSafeInteger(row.unitPrice) ||
+    typeof row.amount !== 'number' || !Number.isSafeInteger(row.amount) ||
+    typeof row.status !== 'string' || !ORDER_ACTION_REQUEST_STATUSES.includes(row.status as OrderActionRequestItemStatus)
+  ) throw new Error('invalid-order-action-request-item');
+  return {
+    id: row.id, lineIndex: row.lineIndex, productId: row.productId, productName: row.productName,
+    quantity: row.quantity, unitPrice: row.unitPrice, amount: row.amount,
+    ...(typeof row.optionName === 'string' ? { optionName: row.optionName } : {}),
+    status: row.status as OrderActionRequestItemStatus,
+  };
+}
+
+/** order_action_request_items가 아직 없는 레거시 요청(0169 백필 이전/누락)에서만 쓰는 폴백 — 생성
+ *  시점 스냅샷(id/status 없음)에 합성 id와 요청 레벨 status(advisory 컬럼)를 상속시켜 0169 백필이
+ *  실제로 쓰는 규칙과 같은 모양으로 맞춘다. */
+function synthesizeLegacyItemState(
+  raw: unknown,
+  requestId: string,
+  requestStatus: OrderActionRequestItemStatus,
+  index: number,
+): OrderActionRequestItemState {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request-item');
+  const row = raw as Record<string, unknown>;
+  if (
+    typeof row.lineIndex !== 'number' || !Number.isSafeInteger(row.lineIndex) ||
+    typeof row.productId !== 'string' || typeof row.productName !== 'string' ||
+    typeof row.quantity !== 'number' || !Number.isSafeInteger(row.quantity) ||
+    typeof row.unitPrice !== 'number' || !Number.isSafeInteger(row.unitPrice) ||
+    typeof row.amount !== 'number' || !Number.isSafeInteger(row.amount)
+  ) throw new Error('invalid-order-action-request-item');
+  return {
+    id: `${requestId}:legacy:${index}`,
+    lineIndex: row.lineIndex, productId: row.productId, productName: row.productName,
+    quantity: row.quantity, unitPrice: row.unitPrice, amount: row.amount,
+    ...(typeof row.optionName === 'string' ? { optionName: row.optionName } : {}),
+    status: requestStatus,
+  };
+}
+
+/** RPC(create/transition/complete)가 돌려주는 jsonb, 그리고 listOrderActionRequests가 만든
+ *  파싱 가능 행(toParsableActionRequestRow) 양쪽 모두를 받는 단일 파서. status는 DB의 advisory
+ *  status 컬럼을 신뢰하지 않고 아이템 상태에서 항상 재파생한다(deriveRequestStatus가 진실 소스 —
+ *  요청 1건에 상품이 여러 개면 상품별로 승인·반려·완료가 갈릴 수 있다). */
+function parseActionRequest(raw: unknown): OrderActionRequestRecord {
+  if (!raw || typeof raw !== 'object') throw new Error('invalid-order-action-request');
+  const row = raw as Record<string, unknown>;
+  if (
+    typeof row.id !== 'string' || typeof row.order_id !== 'string' || typeof row.member_id !== 'string' ||
+    typeof row.request_type !== 'string' || !ORDER_ACTION_REQUEST_TYPES.includes(row.request_type as OrderActionRequestType) ||
+    typeof row.brand_id !== 'string' || !Array.isArray(row.items) || typeof row.requested_amount !== 'number' ||
+    !Number.isSafeInteger(row.requested_amount) || typeof row.reason !== 'string' ||
+    typeof row.created_at !== 'string' || typeof row.updated_at !== 'string'
+  ) throw new Error('invalid-order-action-request');
+  const items = row.items.map(parseActionRequestItemState).sort((a, b) => a.lineIndex - b.lineIndex);
+  return {
+    id: row.id, orderId: row.order_id, memberId: row.member_id,
+    requestType: row.request_type as OrderActionRequestType, brandId: row.brand_id,
+    items, requestedAmount: row.requested_amount,
+    reason: row.reason, status: deriveRequestStatus(items),
+    createdAt: row.created_at, updatedAt: row.updated_at,
+  };
+}
+
+/** listOrderActionRequests 전용: PostgREST가 내려주는 embedded snake_case 행을
+ *  parseActionRequestItemState가 기대하는 camelCase 모양으로 변환한다. */
+function toCamelCaseItem(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const row = raw as Record<string, unknown>;
+  return {
+    id: row.id, lineIndex: row.line_index, productId: row.product_id, productName: row.product_name,
+    quantity: row.quantity, unitPrice: row.unit_price, amount: row.amount,
+    optionName: row.option_name ?? undefined, status: row.status,
+  };
+}
+
+/** listOrderActionRequests 전용: 임베딩된 order_action_request_items 행이 있으면 그것을(camelCase로
+ *  변환해) items로 쓰고, 없을 때만(레거시 요청) 생성 시점 스냅샷에서 합성한다. */
+function toParsableActionRequestRow(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const row = raw as Record<string, unknown>;
+  const embeddedItems = Array.isArray(row.order_action_request_items) ? row.order_action_request_items : [];
+  if (embeddedItems.length > 0) {
+    return { ...row, items: embeddedItems.map(toCamelCaseItem) };
+  }
+  const requestId = typeof row.id === 'string' ? row.id : '';
+  const requestStatus = typeof row.status === 'string' && ORDER_ACTION_REQUEST_STATUSES.includes(row.status as OrderActionRequestItemStatus)
+    ? (row.status as OrderActionRequestItemStatus)
+    : 'REQUESTED';
+  const snapshotItems = Array.isArray(row.items) ? row.items : [];
+  return {
+    ...row,
+    items: snapshotItems.map((item, index) => synthesizeLegacyItemState(item, requestId, requestStatus, index)),
+  };
+}
+
+export async function listOrderActionRequests(orderId: string, memberId?: string): Promise<OrderActionRequestRecord[]> {
+  let query = getSupabase().from('order_action_requests').select(ACTION_REQUEST_COLUMNS_WITH_ITEMS).eq('order_id', orderId);
+  if (memberId) query = query.eq('member_id', memberId);
+  const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data as unknown[]).map((row) => parseActionRequest(toParsableActionRequestRow(row)));
+}
+
+// transition_action_request/complete_action_request_and_restore가 안 쓰는 나머지 PT409 메시지도
+// 여기 열거해, ORDER_ACTION_REQUEST_ERROR_CODES(actionRequests.ts, OrderActionRequestError 타입
+// 유니온) 밖의 SQL 예외 텍스트를 뭉개지 않고 그대로 보존한다 — 호출부(관리자/회원 라우트)가
+// 각자 필요한 코드만 골라 매핑하고, 나머지는 안전한 기본값(ACTION_CONFLICT)으로 떨어진다.
+const KNOWN_ACTION_REQUEST_PT409_CODES = [
+  ...ORDER_ACTION_REQUEST_ERROR_CODES,
+  'ACTION_INVALID_TRANSITION',
+  'ACTION_REQUEST_ALREADY_EXISTS',
+  'ACTION_QUANTITY_EXCEEDS_REMAINING',
+] as const;
+
+/**
+ * 0169/0170 RPC(create_order_action_request/transition_action_request/
+ * complete_action_request_and_restore) 공용 에러 매핑. PT409 = 도메인 충돌(재시도 금지),
+ * P0002 = not-found — cms/repo.ts의 isRevisionConflict, refund.ts의 RefundValidationError와
+ * 같은 관용구다. 알려진 3코드(ORDER_ACTION_REQUEST_ERROR_CODES)는 타입이 있는
+ * OrderActionRequestError로, 나머지 알려진 SQL 코드는 그 텍스트를 그대로 담은 일반 Error로,
+ * 전혀 모르는 메시지는 'ACTION_CONFLICT'로 떨어진다(SQL이 나중에 새 코드를 추가해도 500이 아니라
+ * 안전한 409 폴백을 유지).
+ */
+function mapActionRequestRpcError(error: { code?: string | null; message?: string | null }): Error {
+  if (error.code === 'P0002') return new Error('ACTION_REQUEST_NOT_FOUND');
+  if (error.code === 'PT409') {
+    const message = error.message ?? '';
+    const domainCode = ORDER_ACTION_REQUEST_ERROR_CODES.find((code) => message.includes(code));
+    if (domainCode) return new OrderActionRequestError(domainCode);
+    const knownCode = KNOWN_ACTION_REQUEST_PT409_CODES.find((code) => message.includes(code));
+    return new Error(knownCode ?? 'ACTION_CONFLICT');
+  }
+  // 40P01 = PostgreSQL 데드락 중단(serialization_failure 클래스와 달리 PostgREST가 재시도하지
+  // 않는다). transition_action_request의 잠금 순서를 orders→request로 통일해도(B4) 동시 처리
+  // 경합 자체는 여전히 가능하므로, 원인불명 500이 아니라 재시도 없는 409류 도메인 에러로 떨어뜨려
+  // 호출부(관리자/회원 라우트)가 "다시 시도해 달라"로 안내할 수 있게 한다.
+  if (error.code === '40P01') return new Error('ACTION_CONFLICT');
+  return new Error(error.message || 'action-request-error');
+}
+
+export async function createOrderActionRequest(input: {
+  orderId: string;
+  memberId: string;
+  requestType: OrderActionRequestType;
+  brandId: string;
+  items: OrderActionRequestItem[];
+  requestedAmount: number;
+  reason: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('create_order_action_request', {
+    p_order_id: input.orderId,
+    p_member_id: input.memberId,
+    p_request_type: input.requestType,
+    p_brand_id: input.brandId,
+    p_items: input.items,
+    p_requested_amount: input.requestedAmount,
+    p_reason: input.reason,
+  });
+  if (error) throw mapActionRequestRpcError(error);
+  return parseActionRequest(data);
+}
+
+/** 관리자 승인/반려(0170 transition_action_request). orderId/actorId는 호출부(라우트)가 이미
+ *  requestId↔주문 소속을 검증했다는 것과 "누가 눌렀는지"를 나타내는 계약상의 자리다 — SQL
+ *  함수 자체는 감사 컬럼이 없어 p_request_id/p_action만 RPC에 실제로 전달된다. */
+export async function transitionOrderActionRequest(input: {
+  orderId: string;
+  requestId: string;
+  action: 'approve' | 'reject';
+  actorId: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('transition_action_request', {
+    p_request_id: input.requestId,
+    p_action: input.action === 'approve' ? 'APPROVE' : 'REJECT',
+  });
+  if (error) throw mapActionRequestRpcError(error);
+  return parseActionRequest(data);
+}
+
+/** 관리자 취소완료(0170 complete_action_request_and_restore) — 미결제 전량은 0031, 결제완료는
+ *  0072 환불 원장 증빙을 SQL 쪽에서 판정한다. 이 함수는 restore_stock_for_order를 직접 호출하지
+ *  않는다(그 책임은 항상 SQL 함수가 위임한 0031/0072가 진다). */
+export async function completeOrderActionRequest(input: {
+  orderId: string;
+  requestId: string;
+  actorId: string;
+}): Promise<OrderActionRequestRecord> {
+  const { data, error } = await getSupabase().rpc('complete_action_request_and_restore', {
+    p_request_id: input.requestId,
+  });
+  if (error) throw mapActionRequestRpcError(error);
+  return parseActionRequest(data);
 }
 
 /**

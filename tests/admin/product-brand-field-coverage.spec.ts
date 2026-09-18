@@ -80,6 +80,7 @@ function parseColumnMapKeys(): Set<string> {
 const PRODUCT_VERIFIED: readonly string[] = [
   'name',
   'brandId',
+  'sellerId',
   'category',
   'lifestyleCategory',
   'petType',
@@ -103,6 +104,8 @@ const PRODUCT_VERIFIED: readonly string[] = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
+  'disclosure',
+  'madeToOrderPolicy',
   'isVisible',
   'isBest',
   'isRecommended',
@@ -122,6 +125,12 @@ const PRODUCT_EXCLUDED: Record<string, string> = {
     '관리자 UI 없음 — formPayload.ts 가 항상 "all" 로 하드코딩 전송(사용자 편집 불가).',
   brandName:
     '역정규화 값 — ProductForm 이 선택한 brandId 로부터 파생 전송, 독립 입력 아님.',
+  homeDisplayOrder:
+    '상품 폼이 아닌 진열 관리 전용 필드 — product-binding-flow와 실제 진열 관리 브라우저 검증에서 다룬다.',
+  dailyPickDisplayOrder:
+    '상품 폼이 아닌 진열 관리 전용 필드 — product-binding-flow와 실제 진열 관리 브라우저 검증에서 다룬다.',
+  storeDisplayOrder:
+    '상품 폼이 아닌 진열 관리 전용 필드 — product-binding-flow와 실제 진열 관리 브라우저 검증에서 다룬다.',
 };
 
 // ── 브랜드 필드 분류 ──────────────────────────────────────────────────────
@@ -140,12 +149,18 @@ const BRAND_VERIFIED: readonly string[] = [
   'shipping',
   'auditPoints',
   'auditReport',
+  'highlights',
+  'summaryCategoryLabel',
+  'summaryCategoryNote',
+  'summaryConcernLabel',
+  'summaryConcernNote',
   'representativeProductIds',
   'relatedConcernSlugs',
   'isRecommended',
   'isNew',
   'isVisible',
   'displayOrder',
+  'pageCopy',
 ];
 
 const BRAND_EXCLUDED: Record<string, string> = {
@@ -279,6 +294,7 @@ const BRAND_SURFACE_ASSERTED = new Set<string>([
   'relatedConcernSlugs',
   'auditPoints',
   'representativeProductIds',
+  'pageCopy',
 ]);
 
 function symmetricDiff(a: Set<string>, b: Set<string>): { onlyA: string[]; onlyB: string[] } {

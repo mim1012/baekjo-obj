@@ -1,11 +1,12 @@
 // members 테이블 접근 계층. 이 파일 밖에서는 Supabase를 직접 호출하지 않는다.
 import { getSupabase } from '@/lib/supabase/server';
-import { buildWithdrawalPatch } from '@/lib/members/withdrawalPatch';
+import { logServerWarn } from '@/lib/logServerError';
 import { isMemberProfileComplete } from '@/lib/members/profile';
-import type { User } from '@/types';
+import type { MemberListQuery } from '@/lib/members/listQuery';
+import type { AdminMemberPage, User } from '@/types';
 
 /** DB 레코드 + 내부 전용 필드(비밀번호 해시). toUser()를 거치지 않고는 클라이언트로 반환하지 않는다. */
-export type MemberRecord = User & { passwordHash: string | null };
+export type MemberRecord = User & { passwordHash: string | null; sessionVersion: number };
 
 /** 이메일 unique 제약(Postgres 23505) 위반 시 던지는 타입드 에러. */
 export class DuplicateEmailError extends Error {
@@ -37,10 +38,23 @@ interface MemberRow {
   signup_data: Record<string, unknown>;
   managed_brand_ids: string[] | null;
   must_change_password: boolean;
+  /** 0172 마이그레이션 적용 전까지 staging에는 컬럼이 없다 — SELECT_COLUMNS에는 아직 넣지 않으므로
+   *  항상 undefined/null로 온다. rowToRecord가 ?? 0으로 흡수한다. */
+  session_version: number | null;
 }
+
+/** 세션 무효화(F1)용 컬럼명. 0172 마이그레이션이 컬럼을 만들기 전까지는 SELECT_COLUMNS에
+ *  넣지 않는다 — staging에 컬럼이 없는 상태로 SELECT하면 전 로그인이 500이 난다.
+ *  U1이 마이그레이션 적용 후 memberSelectColumns(true)로 호출부를 전환한다. */
+export const SESSION_VERSION_COLUMN = 'session_version';
 
 const SELECT_COLUMNS =
   'id, email, name, phone, password_hash, provider, provider_id, pet_type, breed, main_concern, role, status, profile_image, email_verified, created_at, company_name, business_number, reject_reason, signup_data, managed_brand_ids, must_change_password';
+
+/** DB에 session_version 컬럼이 존재하는 배포 이후에만 true로 호출한다. */
+export function memberSelectColumns(withSessionVersion: boolean): string {
+  return withSessionVersion ? `${SELECT_COLUMNS}, ${SESSION_VERSION_COLUMN}` : SELECT_COLUMNS;
+}
 
 function rowToRecord(row: MemberRow): MemberRecord {
   return {
@@ -58,6 +72,7 @@ function rowToRecord(row: MemberRow): MemberRecord {
     profileImage: row.profile_image ?? undefined,
     emailVerified: row.email_verified,
     passwordHash: row.password_hash,
+    sessionVersion: row.session_version ?? 0,
     companyName: row.company_name ?? undefined,
     businessNumber: row.business_number ?? undefined,
     rejectReason: row.reject_reason ?? undefined,
@@ -139,6 +154,10 @@ export interface InsertEmailMemberInput {
   petType?: string;
   breed?: string;
   mainConcern?: string;
+  termsAgreedAt: string;
+  privacyAgreedAt: string;
+  termsVersion: string;
+  privacyVersion: string;
 }
 
 export async function insertEmailMember(input: InsertEmailMemberInput): Promise<MemberRecord> {
@@ -153,6 +172,10 @@ export async function insertEmailMember(input: InsertEmailMemberInput): Promise<
       pet_type: input.petType ?? null,
       breed: input.breed ?? null,
       main_concern: input.mainConcern ?? null,
+      terms_agreed_at: input.termsAgreedAt,
+      privacy_agreed_at: input.privacyAgreedAt,
+      terms_version: input.termsVersion,
+      privacy_version: input.privacyVersion,
       role: 'user',
     })
     .select(SELECT_COLUMNS)
@@ -387,26 +410,108 @@ export async function approvePartnerMember(
 
 /**
  * 본인 탈퇴(소프트 탈퇴). status='withdrawn' + PII 익명화(이름·연락처·이메일·프로필사진·가입폼 데이터·
- * 비밀번호 해시·소셜 provider_id·b2b 컬럼 — buildWithdrawalPatch 참고).
+ * 비밀번호 해시·소셜 provider_id·b2b 컬럼).
  * 주문 이력은 삭제하지 않는다 — 전자상거래법 등 거래기록 보존 의무 때문에 소프트 탈퇴로만 처리한다.
  * 이미 탈퇴한 회원(status가 이미 'withdrawn')을 다시 호출해도 멱등하게 true를 반환한다.
  * 이메일은 unique 제약이 있으므로 회원 id를 박아 재사용 불가능한 고정 문자열로 치환한다.
  *
- * member_tokens(0002_email_tokens.sql — 이메일 인증/비밀번호 재설정 토큰)의 잔존 행도 함께
- * 지운다. 탈퇴 후에는 로그인 자체가 불가하니 악용 경로는 아니지만, PII 잔존을 남기지 않는다
- * (§HIGH-2 — opus 리뷰).
+ * withdraw_member RPC가 개인정보 익명화, member_tokens 삭제, 마케팅 수신 철회와 이력 기록을
+ * 같은 트랜잭션에서 실행한다. 중간 단계가 실패하면 모두 롤백된다.
  */
 export async function withdrawMember(id: string): Promise<boolean> {
+  const { data, error } = await getSupabase().rpc('withdraw_member', { p_member_id: id });
+  if (error) throw error;
+  return data === true;
+}
+
+/** 42703 = undefined_column. 0172 마이그레이션이 아직 적용되지 않아 session_version 컬럼이
+ *  DB에 없는 상태에서 그 컬럼을 SELECT하면 Postgres가 이 코드로 에러를 낸다. */
+function isUndefinedColumnError(error: { code?: string }): boolean {
+  return error.code === '42703';
+}
+
+/**
+ * 로그인(credentials authorize)·기존 토큰 재검증(jwt 콜백)에서만 쓰는 세션버전 인식 조회.
+ * session_version 컬럼을 포함해 먼저 시도하고, 0172 미적용으로 컬럼이 없으면(42703) 레거시
+ * 컬럼만으로 재조회해 폴백한다 — rowToRecord가 없는 session_version을 0으로 흡수하므로 이 경우
+ * 모든 회원이 버전 0으로 취급된다(로그인은 막히지 않되, 세션 무효화 기능은 마이그레이션 적용
+ * 이후에만 실제로 작동함). 코드/마이그레이션 배포 순서를 서로 강제하지 않기 위한 과도기 설계 —
+ * U1이 마이그레이션을 먼저 적용하면 곧바로 정확한 버전을 읽기 시작한다.
+ */
+export async function findMemberByEmailWithSessionVersion(email: string): Promise<MemberRecord | null> {
   const { data, error } = await getSupabase()
     .from('members')
-    .update(buildWithdrawalPatch(id))
-    .eq('id', id)
-    .select('id')
+    .select(memberSelectColumns(true))
+    .eq('email', email)
     .maybeSingle();
-  if (error) throw error;
+  if (error) {
+    if (isUndefinedColumnError(error)) {
+      logServerWarn(
+        '[members] session_version 컬럼이 없어 레거시 조회로 폴백합니다 (0172 미적용)',
+        error,
+      );
+      return findMemberByEmail(email);
+    }
+    throw error;
+  }
+  // memberSelectColumns()는 위젠된 string을 반환해 supabase-js가 리터럴 오버로드로 컬럼을
+  // 추론하지 못한다(SELECT_COLUMNS 상수를 직접 넘기는 기존 함수들과의 차이) — unknown을 거쳐 캐스팅한다.
+  return data ? rowToRecord(data as unknown as MemberRow) : null;
+}
 
-  const { error: tokensError } = await getSupabase().from('member_tokens').delete().eq('member_id', id);
-  if (tokensError) throw tokensError;
+/** id 기반 버전. src/lib/auth.ts의 jwt 콜백이 기존 토큰 재검증(else 분기)에 사용한다. */
+export async function findMemberByIdWithSessionVersion(id: string): Promise<MemberRecord | null> {
+  const { data, error } = await getSupabase()
+    .from('members')
+    .select(memberSelectColumns(true))
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    if (isUndefinedColumnError(error)) {
+      logServerWarn(
+        '[members] session_version 컬럼이 없어 레거시 조회로 폴백합니다 (0172 미적용)',
+        error,
+      );
+      return findMemberById(id);
+    }
+    throw error;
+  }
+  return data ? rowToRecord(data as unknown as MemberRow) : null;
+}
 
-  return data !== null;
+/** listMemberPage()가 list_admin_member_page RPC(0173)의 검증 실패(SQLSTATE PT409,
+ *  'INVALID_MEMBER_QUERY')를 매핑해 던지는 타입드 에러. 정상 동작에서는 발생하지 않는다 —
+ *  parseMemberListQuery(listQuery.ts)가 이미 같은 화이트리스트로 라우트 진입 전에 걸러내고,
+ *  이건 DB 쪽 이중 방어가 걸렸을 때만 나온다. */
+export class InvalidMemberQueryError extends Error {
+  constructor() {
+    super('invalid-member-query');
+    this.name = 'InvalidMemberQueryError';
+  }
+}
+
+function isInvalidMemberQuery(error: { code?: string; message?: string }): boolean {
+  return error.code === 'PT409' || (typeof error.message === 'string' && error.message.includes('INVALID_MEMBER_QUERY'));
+}
+
+/**
+ * 관리자 회원 목록(서버 페이지네이션·검색·역할/상태 필터). list_admin_member_page RPC(0173)가
+ * 이미 password_hash를 뺀 화이트리스트 컬럼만 담아 행을 돌려준다 — rowToRecord는 없는
+ * password_hash를 그냥 undefined로 흡수하고, toUser()가 클라이언트로 나가기 전 마지막
+ * 차단선을 한 번 더 긋는다(§R3 — 이중 방어).
+ */
+export async function listMemberPage(query: MemberListQuery): Promise<AdminMemberPage> {
+  const { data, error } = await getSupabase().rpc('list_admin_member_page', {
+    p_page: query.page,
+    p_page_size: query.pageSize,
+    p_search: query.search,
+    p_role: query.role,
+    p_status: query.status,
+  });
+  if (error) {
+    if (isInvalidMemberQuery(error)) throw new InvalidMemberQueryError();
+    throw error;
+  }
+  const result = data as Omit<AdminMemberPage, 'users'> & { users: MemberRow[] };
+  return { ...result, users: result.users.map((row) => toUser(rowToRecord(row))) };
 }

@@ -18,6 +18,8 @@ interface SignupBody {
   petType?: unknown;
   breed?: unknown;
   mainConcern?: unknown;
+  termsAgree?: unknown;
+  privacyAgree?: unknown;
 }
 
 interface ValidatedSignup {
@@ -28,10 +30,12 @@ interface ValidatedSignup {
   petType?: string;
   breed?: string;
   mainConcern?: string;
+  termsAgree: true;
+  privacyAgree: true;
 }
 
 function validate(body: SignupBody): ValidatedSignup | null {
-  const { name, email, password, phone, petType, breed, mainConcern } = body;
+  const { name, email, password, phone, petType, breed, mainConcern, termsAgree, privacyAgree } = body;
 
   if (typeof name !== 'string' || name.length < 1 || name.length > 50) return null;
   if (typeof email !== 'string' || !EMAIL_PATTERN.test(email)) return null;
@@ -44,6 +48,7 @@ function validate(body: SignupBody): ValidatedSignup | null {
   )
     return null;
   if (typeof phone !== 'string') return null;
+  if (termsAgree !== true || privacyAgree !== true) return null;
   if (petType !== undefined && typeof petType !== 'string') return null;
   if (breed !== undefined && typeof breed !== 'string') return null;
   if (mainConcern !== undefined && typeof mainConcern !== 'string') return null;
@@ -56,6 +61,8 @@ function validate(body: SignupBody): ValidatedSignup | null {
     ...(petType ? { petType } : {}),
     ...(breed ? { breed } : {}),
     ...(mainConcern ? { mainConcern } : {}),
+    termsAgree: true,
+    privacyAgree: true,
   };
 }
 
@@ -66,6 +73,10 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'invalid-input' }, { status: 400 });
+  }
+
+  if (body.termsAgree !== true || body.privacyAgree !== true) {
+    return NextResponse.json({ error: 'consent-required' }, { status: 400 });
   }
 
   const validated = validate(body);
@@ -79,6 +90,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const baseUrl = getBaseUrl(request);
+    const consentedAt = new Date().toISOString();
     const passwordHash = await hashPassword(validated.password);
     const member = await insertEmailMember({
       name: validated.name,
@@ -88,6 +100,10 @@ export async function POST(request: NextRequest) {
       petType: validated.petType,
       breed: validated.breed,
       mainConcern: validated.mainConcern,
+      termsAgreedAt: consentedAt,
+      privacyAgreedAt: consentedAt,
+      termsVersion: '2026-09-01',
+      privacyVersion: '2026-09-01',
     });
 
     // 인증 메일 발송 실패가 가입 성공(201)을 막으면 안 되므로 응답 이후에 보낸다.

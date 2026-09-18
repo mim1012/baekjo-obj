@@ -33,6 +33,10 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
   // beforeAll에서 찍은 스냅샷을 afterAll이 그대로 되돌린다 — 두 훅 모두 별도 page를 열어
   // 세션에 의존하지 않는다.
   let originalSettings: unknown;
+  // 홈이 CMS(페이지 관리)에서 이미 활성화된 뒤에는 실제로 쓰기(PUT)를 시도하지 않았으므로
+  // afterAll도 원복 PUT을 건너뛴다 — managed 상태에서 site_settings('home')를 조용히 다시 써서
+  // CMS 게시본과 불일치를 만들지 않기 위함(page.tsx의 fail-closed 가드와 같은 의도).
+  let didWrite = false;
 
   test.beforeAll(async ({ browser }) => {
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
@@ -54,7 +58,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
   });
 
   test.afterAll(async ({ browser }) => {
-    if (!originalSettings) return;
+    if (!originalSettings || !didWrite) return;
     const page = await browser.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(page);
     const restoreRes = await page.request.put('/api/admin/settings', { data: originalSettings });
@@ -83,6 +87,16 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     }
 
     await loginAsAdmin(page);
+
+    // 홈이 이미 페이지 관리(CMS, /admin/pages/home)에서 "현재 값 가져오기"로 활성화됐는지 먼저
+    // 확인한다(page.tsx의 homeManaged 판정과 같은 API) — managed:true면 이 구 편집기의 저장은
+    // fail-closed로 차단되어 있으므로, 쓰기/원복 플로우를 실행하는 대신 차단 안내와 저장 버튼
+    // 비활성화만 확인한다.
+    const pagesResponse = await page.request.get('/api/admin/settings/pages');
+    expect(pagesResponse.ok()).toBe(true);
+    const pagesBody = (await pagesResponse.json()) as { pages?: Array<{ key?: string; managed?: boolean }> };
+    const homeManaged = Boolean(pagesBody.pages?.find((entry) => entry.key === 'home')?.managed);
+
     // ⚠️ #149 로드게이트 — SiteSettingsProvider의 GET /api/settings가 resolve(loaded=true)되기
     // 전에는 updateDraft/handleSave가 조용히 no-op한다(draft가 아직 defaultHomeSettings 시드일 때
     // 저장하면 안 보이는 다른 섹션까지 기본값으로 실 DB를 덮어쓰는 걸 막기 위한 의도된 가드,
@@ -94,17 +108,45 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
       page.goto('/admin/settings'),
     ]);
 
+    if (homeManaged) {
+      // 조용한 skip이 아니라 test.info().annotations에 명시적으로 이유를 남긴다 — CI 리포트에서
+      // "왜 쓰기 검증을 안 했는지"가 바로 보이도록 한다.
+      test.info().annotations.push({
+        type: 'skip-reason',
+        description:
+          '홈이 페이지 관리(CMS)에서 이미 활성화됨(managed:true) — 구 편집기(/admin/settings)의 ' +
+          '저장이 fail-closed로 차단되어 있어 쓰기(PUT /api/admin/settings)/원복 플로우는 건너뛴다. ' +
+          '이 실행은 차단 안내 문구와 저장 버튼 비활성화만 확인한다.',
+      });
+      // Next의 route announcer(div[role=alert])도 함께 매치돼 strict mode에 걸리므로 안내문 텍스트로 좁힌다.
+      await expect(page.getByRole('alert').filter({ hasText: '홈 화면' })).toContainText('홈 화면은 페이지 관리(CMS)에서', {
+        timeout: 15_000,
+      });
+      await expect(page.getByRole('button', { name: '변경사항 저장' })).toBeDisabled({ timeout: 15_000 });
+      await expect(page.getByRole('link', { name: '홈 페이지 편집 열기' })).toBeVisible({ timeout: 15_000 });
+      return;
+    }
+
     // ⚠️ admin/settings/page.tsx의 renderInput()은 <label>과 <input>을 형제 요소로만 렌더한다
     // (htmlFor/id 연결도, label로 감싸지도 않음 — AdminResourcePage의 폼과 다른 패턴이다).
     // getByLabel은 이 구조에서 매치되지 않으므로, 라벨 텍스트를 담은 div.mb-4 블록을 먼저 찾고
     // 그 안의 input을 스코핑한다.
     const eyebrowField = page.locator('div.mb-4', { hasText: '상단 영문 뱃지 (eyebrow)' }).locator('input');
     await expect(eyebrowField).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: '변경사항 저장' })).toBeEnabled({ timeout: 15_000 });
     await eyebrowField.fill(eyebrow);
+    didWrite = true;
     await saveAndExpectSuccessAlert();
 
+    const savedSettingsResponse = await page.request.get('/api/settings', {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+    expect(savedSettingsResponse.ok()).toBe(true);
+    const savedSettings = (await savedSettingsResponse.json()) as { settings: { hero: { eyebrow: string } } };
+    expect(savedSettings.settings.hero.eyebrow).toBe(eyebrow);
+
     // 공개 홈에 반영되는지 확인 — HomeClient.tsx:102 `{hero.eyebrow}`.
-    await page.goto('/');
+    await page.goto(`/?e2e-home-settings=${runId}`);
     await expect(page.locator('body')).toContainText(eyebrow);
 
     // 원본으로 복원(afterAll과 별개로 테스트 본문에서도 즉시 복원 — afterAll은 안전망).
@@ -116,7 +158,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 홈 문구(사�
     await saveAndExpectSuccessAlert();
 
     // 공개 홈에서도 원본 문구로 되돌아왔는지 확인 — 이 스펙이 공유 staging 상태를 깨지 않았다는 증거.
-    await page.goto('/');
+    await page.goto(`/?e2e-home-settings-restore=${runId}`);
     await expect(page.locator('body')).toContainText(originalEyebrow);
     await expect(page.locator('body')).not.toContainText(eyebrow);
   });

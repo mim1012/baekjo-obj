@@ -12,40 +12,35 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { shopCategoryFilters } from '@/data/shopFilters';
-import { FEATURES } from '@/config/features';
 import { getCartCount } from '@/lib/cart';
 import { getCurrentUser, getPublicBrandLinks, logout } from '@/lib/storage';
 import { useMounted } from '@/lib/useMounted';
+import { resolveGatedNavLinks, type SiteShellContent } from '@/lib/cms/source/siteShell';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 
-type NavLinkDef = { label: string; href: string; feature?: keyof typeof FEATURES };
+// 아래 두 배열은 site-shell CMS가 아직 게시되지 않았을 때(siteShell === null)의 기본값이다 —
+// pageDefinitions.ts의 site-shell defaultContent, lib/cms/source/siteShell.ts의
+// buildSiteShellContent()와 같은 라벨·href를 유지해야 한다(D3: 화면이 정답, 세 곳이 같은 값).
+type NavLinkDef = { label: string; href: string };
 
 const ALL_MAIN_LINKS: NavLinkDef[] = [
   { label: '브랜드', href: '/brands' },
   { label: '케어', href: '/concerns' },
-  { label: '펫보험', href: '/insurance', feature: 'insurance' },
+  { label: '펫보험', href: '/insurance' },
   { label: 'B2B', href: '/b2b' },
 ];
-
-// 미노출 기능은 GNB 자체에서 제외 — 배열이 정적이라 조건부 렌더가 아니라 필터로 처리.
-const MAIN_LINKS = ALL_MAIN_LINKS.filter(
-  (link) => !link.feature || FEATURES[link.feature],
-);
 
 const DESKTOP_NAV_TEXT_CLASS =
   'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
 
 const ALL_STORY_LINKS: NavLinkDef[] = [
   { label: '백조오브제 Audit의 검토 기준', href: '/audit' },
-  { label: '전문가 칼럼', href: '/experts', feature: 'experts' },
+  { label: '전문가 칼럼', href: '/experts' },
   { label: '보호자 후기', href: '/reviews' },
   { label: '소식', href: '/notices' },
 ];
-
-const STORY_LINKS = ALL_STORY_LINKS.filter(
-  (link) => !link.feature || FEATURES[link.feature],
-);
 
 const SHOP_LINKS = {
   categories: shopCategoryFilters.map((category) => ({
@@ -65,7 +60,9 @@ const subscribeToCart = (callback: () => void) => {
 
 type MobilePanel = 'shop' | 'story' | null;
 
-export default function Header() {
+export default function Header({
+  siteShell = null,
+}: { siteShell?: SiteShellContent | null } = {}) {
   const headerRef = useRef<HTMLElement>(null);
   const pathname = usePathname();
   const mounted = useMounted();
@@ -77,6 +74,31 @@ export default function Header() {
   const accountHref = currentUser?.role === 'partner' ? '/partner/orders' : '/mypage';
   const accountLabel = currentUser?.role === 'partner' ? '파트너 주문 관리' : '마이페이지';
 
+  // site-shell CMS가 게시되면 그 라벨/href를 쓰고, 없으면 위 ALL_MAIN_LINKS/ALL_STORY_LINKS
+  // 기본값을 쓴다. 어느 쪽이든 펫보험·전문가 칼럼 노출은 resolveGatedNavLinks 내부에서 항상
+  // FEATURES로만 결정한다(D6) — CMS content.visible은 이 두 항목에 대해 무시된다.
+  const managed = siteShell !== null;
+  const mainLinks = useMemo(
+    () => resolveGatedNavLinks(siteShell?.navigation.mainLinks, ALL_MAIN_LINKS),
+    [siteShell],
+  );
+  const primaryMainLinks = useMemo(
+    () => mainLinks.filter((link) => link.href !== '/b2b'),
+    [mainLinks],
+  );
+  const b2bLink = useMemo(() => mainLinks.find((link) => link.href === '/b2b'), [mainLinks]);
+  const storyLinks = useMemo(
+    () => resolveGatedNavLinks(siteShell?.navigation.storyLinks, ALL_STORY_LINKS),
+    [siteShell],
+  );
+  const headerLogoSrc = siteShell?.branding.headerLogo ?? '/images/baekjo-objet-header-logo-v2.png';
+  const headerLogoAlt = siteShell?.branding.logoAlt ?? 'Baekjo Objet';
+  const headerLogoImage = resolveCmsImageProps(headerLogoSrc);
+  // B3: site-shell CMS가 게시되면 그 라벨을 쓰고, 없으면 아래 기본값을 쓴다(page-texts
+  // 'common.brandBrowse'/'common.needBrowse' 덮어쓰기는 buildSiteShellContent가 반영한다).
+  const brandBrowseLabel = siteShell?.navigation.shopDropdown.brandBrowseLabel ?? '브랜드로 둘러보기';
+  const needBrowseLabel = siteShell?.navigation.shopDropdown.needBrowseLabel ?? '필요한 것으로 찾기';
+
   useEffect(() => {
     getPublicBrandLinks()
       .then(setBrandLinks)
@@ -84,7 +106,7 @@ export default function Header() {
   }, []);
 
   const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
-  const storyActive = STORY_LINKS.some((link) => isActive(link.href));
+  const storyActive = storyLinks.some((link) => isActive(link.href));
 
   const closeMenu = () => {
     setMenuOpen(false);
@@ -116,7 +138,7 @@ export default function Header() {
   }, [menuOpen]);
 
   return (
-    <header ref={headerRef} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
+    <header ref={headerRef} data-cms-managed={managed ? 'site-shell' : undefined} className="sticky top-0 z-40 w-full border-b border-[#E7E0D5]/80 bg-[#FBFAF7]/95 backdrop-blur-xl">
       <div className="site-container-wide relative z-10 flex h-16 items-center justify-between lg:h-[72px]">
         <Link
           href="/"
@@ -124,15 +146,16 @@ export default function Header() {
           className="relative block h-11 w-[143px] shrink-0 lg:h-12 lg:w-[156px]"
           onClick={closeMenu}
         >
-          <Image
-            src="/images/baekjo-objet-header-logo-v2.png"
-            alt="Baekjo Objet"
+          {headerLogoImage && <Image
+            src={headerLogoImage.src}
+            unoptimized={headerLogoImage.unoptimized}
+            alt={headerLogoAlt}
             fill
             sizes="(min-width: 1024px) 156px, 143px"
             priority
             className="object-contain"
             data-testid="site-header-logo"
-          />
+          />}
         </Link>
 
         <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">
@@ -151,8 +174,8 @@ export default function Header() {
             </Link>
             <div className="absolute left-1/2 top-full z-40 hidden w-[520px] -translate-x-1/2 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
               <div className="grid grid-cols-2 gap-8 p-8">
-                <DropdownColumn title="브랜드로 둘러보기" links={brandLinks} />
-                <DropdownColumn title="필요한 것으로 찾기" links={SHOP_LINKS.categories} />
+                <DropdownColumn title={brandBrowseLabel} links={brandLinks} />
+                <DropdownColumn title={needBrowseLabel} links={SHOP_LINKS.categories} />
               </div>
               <Link
                 href="/shop"
@@ -164,7 +187,7 @@ export default function Header() {
             </div>
           </div>
 
-          {MAIN_LINKS.slice(0, 3).map((link) => (
+          {primaryMainLinks.map((link) => (
             <NavLink key={link.href} {...link} active={isActive(link.href)} />
           ))}
 
@@ -182,7 +205,7 @@ export default function Header() {
               <ChevronDown className="size-3.5 transition-transform duration-500 group-hover:rotate-180 group-focus-within:rotate-180" />
             </button>
             <div className="absolute right-0 top-full z-40 hidden w-80 overflow-hidden rounded-b-3xl border border-[#E7E0D5] bg-white p-3 shadow-[0_24px_60px_-24px_rgba(23,33,29,0.18)] group-hover:block group-focus-within:block">
-              {STORY_LINKS.map((link) => (
+              {storyLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
@@ -194,9 +217,8 @@ export default function Header() {
             </div>
           </div>
 
-          {/* 기능 플래그로 펫보험이 빠질 수 있어 4번째 링크가 없을 수 있다 — 가드 렌더. */}
-          {MAIN_LINKS[3] && (
-            <NavLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} />
+          {b2bLink && (
+            <NavLink {...b2bLink} active={isActive(b2bLink.href)} />
           )}
         </nav>
 
@@ -307,7 +329,7 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS.slice(0, 3).map((link) => (
+            {primaryMainLinks.map((link) => (
               <MobileLink key={link.href} {...link} active={isActive(link.href)} onClick={closeMenu} />
             ))}
 
@@ -318,7 +340,7 @@ export default function Header() {
               onToggle={() => setMobilePanel((panel) => (panel === 'story' ? null : 'story'))}
             >
               <div className="space-y-3">
-                {STORY_LINKS.map((link) => (
+                {storyLinks.map((link) => (
                   <Link key={link.href} href={link.href} onClick={closeMenu} className="flex min-h-11 flex-col justify-center">
                     <span className="block text-sm font-semibold text-[#17211D]">{link.label}</span>
                   </Link>
@@ -326,8 +348,8 @@ export default function Header() {
               </div>
             </MobileAccordion>
 
-            {MAIN_LINKS[3] && (
-              <MobileLink {...MAIN_LINKS[3]} active={isActive(MAIN_LINKS[3].href)} onClick={closeMenu} />
+            {b2bLink && (
+              <MobileLink {...b2bLink} active={isActive(b2bLink.href)} onClick={closeMenu} />
             )}
 
             <div className="mt-5 grid grid-cols-2 gap-3 border-t border-[#E7E0D5] pt-5">

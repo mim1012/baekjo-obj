@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { getSupabase } from '@/lib/supabase/server';
 import type { Brand, BrandAuditReport, BrandShippingPolicy } from '@/types';
 import { isCarrierCode } from '@/lib/carriers';
+import { normalizeBrandPageCopy } from '@/lib/brands/pageCopy';
 
 // 되읽기 방어 — 무검증 캐스트 금지. 공개 BrandAuditReport 컴포넌트가 report.headline·
 // report.process.map(...) 등으로 필드에 바로 접근하므로, 필수 필드가 없는 부분 객체를
@@ -141,6 +142,7 @@ function rowToBrand(row: BrandRow): Brand {
     shipping: detailShipping(d.shipping),
     wordmarkColor: typeof d.wordmarkColor === 'string' ? d.wordmarkColor : undefined,
     wordmarkImage: typeof d.wordmarkImage === 'string' ? d.wordmarkImage : undefined,
+    pageCopy: normalizeBrandPageCopy(d.pageCopy),
   };
 }
 

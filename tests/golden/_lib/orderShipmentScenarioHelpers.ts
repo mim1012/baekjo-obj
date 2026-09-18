@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { assertLocalhostAppRuntimeSupabaseRefMatchesTestRef } from '../../_lib/supabaseSafety';
+import { ensureGoldenVerifiedSeller } from './adminCrudHelpers';
 
 type AdminBrand = {
   id: string;
@@ -50,6 +51,7 @@ export type BrandScenario = {
   productName: string;
   brandId?: string;
   productId?: string;
+  sellerId?: string;
 };
 
 export const BRAND_PREFIX = 'E2E-배송브랜드-';
@@ -106,6 +108,14 @@ export async function createBankTransferOrder(
     return { productId: scenario.productId, quantity: 1 };
   });
 
+  // 645823b로 들어온 동의 계약(validateCheckoutConsentClaims): thirdPartySellerKeys는
+  // 주문 상품들의 sellerGroupKey 집합과 정확히 일치해야 400 consent-required를 피한다.
+  // 헬퍼가 만드는 상품은 주문제작이 아니므로 madeToOrderProductIds는 항상 빈 배열이다.
+  const thirdPartySellerKeys = [...new Set(scenarios.map((scenario) => {
+    if (!scenario.sellerId) throw new Error(`${scenario.name} sellerId가 없습니다.`);
+    return `seller:${scenario.sellerId}`;
+  }))].sort();
+
   const response = await page.request.post('/api/orders', {
     data: {
       customerName: recipientName,
@@ -114,6 +124,11 @@ export async function createBankTransferOrder(
       items: cartItems,
       paymentMethod: '무통장입금',
       deliveryMemo: `브랜드별 배송 검증 ${runId}`,
+      consents: {
+        orderTerms: true,
+        thirdPartySellerKeys,
+        madeToOrderProductIds: [],
+      },
     },
   });
   expect(response.ok(), `주문 생성 실패: ${response.status()} ${await response.text()}`).toBe(true);
@@ -260,9 +275,12 @@ async function createBrand(page: Page, scenario: BrandScenario): Promise<string>
 
 async function createProduct(page: Page, scenario: BrandScenario): Promise<string> {
   if (!scenario.brandId) throw new Error(`${scenario.name} brandId가 없습니다.`);
+  const sellerId = await ensureGoldenVerifiedSeller(page);
+  scenario.sellerId = sellerId;
   const response = await page.request.post('/api/admin/products', {
     data: {
       brandId: scenario.brandId,
+      sellerId,
       name: scenario.productName,
       price: 12000,
       rating: 0,
@@ -275,6 +293,22 @@ async function createProduct(page: Page, scenario: BrandScenario): Promise<strin
       image: PRODUCT_IMAGE,
       stock: 999,
       description: `${scenario.productName} 주문 배송 검증용 상품`,
+      disclosure: {
+        categoryCode: 'life',
+        schemaVersion: '2026-09-06',
+        values: {
+          productName: scenario.productName,
+          material: 'E2E 테스트 재질',
+          sizeAndWeight: 'E2E 테스트 크기와 중량',
+          color: 'E2E 테스트 색상',
+          manufacturer: 'E2E 테스트 제조자',
+          countryOfOrigin: '대한민국',
+          manufacturedAt: '테스트 실행 시점',
+          safety: 'E2E 테스트 안전 주의',
+          maintenance: 'E2E 테스트 관리 방법',
+          qualityAndSupport: '관련 법령 및 02-0000-0000',
+        },
+      },
       isVisible: true,
       isBest: false,
       isRecommended: false,

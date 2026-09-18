@@ -94,9 +94,8 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
   test('공개 API 라우트는 절대 500 을 내지 않고 빈 목록으로 폴백한다', () => {
     const routeSource = src('src', 'app', 'api', 'notices', 'route.ts');
 
-    expect(routeSource).toContain('emptyNoticesConfig');
+    expect(routeSource).toContain('getNoticesConfigWithFallback');
     expect(routeSource).not.toContain('defaultNoticesConfig');
-    expect(routeSource).toContain('logServerError');
   });
 
   test('repo 는 notices_config 싱글턴 행을 upsert 하고 서버 폴백 조회를 제공한다', () => {
@@ -150,15 +149,20 @@ test.describe('공지사항(notices) 관리자 저장 → 공개 화면 바인�
     const repoSource = src('src', 'lib', 'notices', 'repo.ts');
     const listPageSource = src('src', 'app', 'notices', 'page.tsx');
     const homeSource = src('src', 'components', 'home', 'HomeClient.tsx');
+    // PR2: 목록 페이지는 CMS 소비로 전환됐다 — 빈 목록 문구 리터럴이 페이지에서 소스 매퍼(정본)로
+    // 옮겨졌고, 페이지는 이제 그 매퍼가 만든 content.empty.title 을 렌더한다.
+    const noticesSourceMapper = src('src', 'lib', 'cms', 'source', 'notices.ts');
 
     expect(configSource).toContain('export const emptyNoticesConfig: NoticesConfig = { items: [] };');
     expect(configSource).not.toContain('백조오브제 프리미엄 펫쇼핑몰 오픈 안내');
     expect(configSource).not.toContain('개인정보 처리방침 변경 사전 안내');
-    expect(publicRouteSource).toContain('emptyNoticesConfig');
+    expect(publicRouteSource).toContain('getNoticesConfigWithFallback');
     expect(publicRouteSource).not.toContain('defaultNoticesConfig');
     expect(repoSource).toContain('emptyNoticesConfig');
     expect(repoSource).not.toContain('defaultNoticesConfig');
-    expect(listPageSource).toContain('등록된 공지사항이 없습니다.');
+    expect(noticesSourceMapper).toContain("empty: { title: '등록된 공지사항이 없습니다.' }");
+    expect(listPageSource).toContain('{content.empty.title}');
+    // 홈은 notices CMS 페이지 소비자가 아니다 — 자체 빈 상태 문구를 여전히 하드코딩으로 유지한다.
     expect(homeSource).toContain('등록된 공지사항이 없습니다.');
   });
 });

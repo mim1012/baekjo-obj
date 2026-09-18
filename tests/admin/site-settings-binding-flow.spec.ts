@@ -29,7 +29,7 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     expect(providerSource).toContain('loadError: boolean;');
     expect(providerSource).toContain('const [loaded, setLoaded] = useState(false);');
     expect(providerSource).toContain('const [loadError, setLoadError] = useState(false);');
-    expect(hydrationEffect).toContain("fetch('/api/settings')");
+    expect(hydrationEffect).toContain("fetch('/api/settings', { cache: 'no-store' })");
     expect(hydrationEffect).toContain('setSettings(data.settings);');
     expect(hydrationEffect).toContain('setLoaded(true);');
     expect(hydrationEffect).toContain('setLoadError(true);');
@@ -44,18 +44,25 @@ test.describe('SiteSettingsProvider(admin/settings) 로드 게이트 — 전수�
     expect(pageSource).toContain("import { useSiteSettings } from '@/components/providers/SiteSettingsProvider';");
     expect(pageSource).toContain('const { settings, updateSettings, loaded, loadError } = useSiteSettings();');
 
+    // PR2: 홈이 페이지 관리(CMS)에서 활성화됐는지도 저장 게이트에 들어갔다 — loaded 만으로는
+    // 부족해 canSaveHome(=loaded && homeManaged === false)이 저장을 가드한다(fail closed: 홈이
+    // CMS로 이미 넘어갔으면 이 구 편집기의 저장을 막아 CMS 게시본과 어긋나는 사고를 막는다).
+    expect(pageSource).toContain('const canSaveHome = loaded && homeManaged === false;');
+
     const saveFunction = sliceBetween(pageSource, 'const handleSave = async () => {', 'const updateDraft = ');
-    expect(saveFunction).toContain('if (!loaded) return;');
+    expect(saveFunction).toContain('if (!canSaveHome) return;');
     expect(saveFunction).toContain('const ok = await updateSettings(draft);');
 
+    // 편집(dirty 락)은 여전히 loaded 만으로 가드한다 — GET 이 resolve 되기 전 편집을 막는 원래
+    // 목적(전수조사 A-1)은 canSaveHome 도입과 별개로 그대로 유지된다.
     const updateDraftFunction = sliceBetween(pageSource, 'const updateDraft = (section:', 'const updateArrayField = ');
     expect(updateDraftFunction).toContain('if (!loaded) return;');
 
     const updateArrayFieldFunction = sliceBetween(pageSource, 'const updateArrayField = (section:', 'const renderInput = ');
     expect(updateArrayFieldFunction).toContain('if (!loaded) return;');
 
-    // 헤더 저장 버튼과 미리보기 모달의 저장 버튼 둘 다 loaded 로 비활성화된다.
-    expect((pageSource.match(/disabled=\{!loaded\}/g) ?? []).length).toBe(2);
+    // 헤더 저장 버튼과 미리보기 모달의 저장 버튼 둘 다 canSaveHome 으로 비활성화된다.
+    expect((pageSource.match(/disabled=\{!canSaveHome\}/g) ?? []).length).toBe(2);
   });
 
   test('loadError 는 헤더 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {

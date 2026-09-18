@@ -11,6 +11,8 @@ import { getCurrentUser, getSessionUser, getWishlist, isWishlisted, STORAGE_EVEN
 import { useMounted } from '@/lib/useMounted';
 import { formatBrandDisplayName } from '@/lib/brands/presentation';
 import type { Product } from '@/types';
+import { isProductCommerceReady } from '@/lib/products/commerceReadiness';
+import { useProductTagSettings } from '@/components/providers/ProductTagSettingsProvider';
 
 interface ProductCardProps {
   product: Product;
@@ -18,21 +20,6 @@ interface ProductCardProps {
   density?: 'default' | 'compact';
   mobileLayout?: 'vertical' | 'horizontal';
 }
-
-const concernLabels: Record<string, string> = {
-  tear: '눈물',
-  joint: '관절',
-  skin: '피부',
-  obesity: '체중',
-  picky: '편식',
-  digestion: '배변',
-  stress: '스트레스',
-  senior: '시니어',
-  nutrition: '영양',
-  oral: '구강',
-  grooming: '그루밍',
-  living: '생활',
-};
 
 export default function ProductCard({
   product,
@@ -42,12 +29,14 @@ export default function ProductCard({
 }: ProductCardProps) {
   const router = useRouter();
   const mounted = useMounted();
+  const { labelBySlug, visibleSlugs, hiddenSlugs } = useProductTagSettings();
   const [wishlisted, setWishlisted] = useState(false);
   const [wishlistBusy, setWishlistBusy] = useState(false);
   const [cartMessage, setCartMessage] = useState('');
   const brandName = formatBrandDisplayName(product.brandName ?? product.brandId);
   const hasPrice = product.price !== null && product.price !== undefined;
-  const isSellable = hasPrice && product.stock > 0;
+  const commerceReady = isProductCommerceReady(product);
+  const isSellable = hasPrice && product.stock > 0 && commerceReady;
   const isShopCard = variant === 'shop';
   const isHomeCard = variant === 'home';
   const isBrandDetailHorizontal = variant === 'brand-detail-horizontal';
@@ -55,7 +44,15 @@ export default function ProductCard({
   const isMobileHorizontal = mobileLayout === 'horizontal';
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
   const detailHref = `/shop/${product.id}`;
+  const brandAuditHref = product.brandId
+    ? `/brands/${encodeURIComponent(product.brandId)}#brand-audit`
+    : '/brands';
   const summary = product.summary?.trim();
+  // 관리자가 숨긴(hiddenSlugs) 태그는 완전히 제외하고, 등록된 태그는 isVisible로 노출을 가른다.
+  // 아직 사전에 등록되지 않은 과거 태그(labelBySlug에 없음)는 예전과 동일하게 원문 그대로 보여준다.
+  const visibleConcernTags = (product.concernTags ?? []).filter(
+    (tag) => !hiddenSlugs.includes(tag) && (visibleSlugs.includes(tag) || !(tag in labelBySlug)),
+  );
 
   useEffect(() => {
     if (!mounted || !getCurrentUser()) return;
@@ -104,7 +101,7 @@ export default function ProductCard({
     window.setTimeout(() => setCartMessage(''), 1800);
   };
 
-  const availabilityLabel = !hasPrice ? '판매 준비 중' : product.stock <= 0 ? '잠시 품절' : null;
+  const availabilityLabel = !hasPrice || !commerceReady ? '판매 준비 중' : product.stock <= 0 ? '잠시 품절' : null;
 
   return (
     <article className={`group relative flex h-full min-w-0 flex-col overflow-hidden transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-0.5 ${isHomeCard ? 'rounded-[16px] border border-[#E7E2D9] bg-white hover:border-[#173C32] shadow-none' : 'rounded-[18px] border border-[#E3DCCF] bg-[#FFFEFB] hover:border-[#CFC3B1] hover:shadow-[0_8px_24px_rgba(23,37,31,0.05)]'}`}>
@@ -125,9 +122,19 @@ export default function ProductCard({
               : "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
         }>
           {product.isBest && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
-              BEST
-            </span>
+            <>
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
+                BEST
+              </span>
+              <Link
+                href={brandAuditHref}
+                prefetch={false}
+                aria-label={`${brandName} 자체 큐레이션 기준 보기`}
+                className="pointer-events-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-[#59615B] underline underline-offset-2 md:text-[10px]"
+              >
+                자체 큐레이션 · 기준 보기
+              </Link>
+            </>
           )}
           {availabilityLabel && (
             <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[9px] font-bold leading-none text-[#59615B] md:px-2.5 md:text-[11px]">
@@ -197,6 +204,9 @@ export default function ProductCard({
                 <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isHomeCard ? 'text-[17px] lg:text-[18px]' : isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>가격 협의</p>
               )}
             </div>
+            <p className="mt-2 line-clamp-1 text-[10px] font-semibold text-[#68716C] md:text-[11px]">
+              실제 판매자 · {product.seller?.legalName || product.seller?.displayName || '판매자 정보 확인 중'}
+            </p>
 
             {product.reviewCount > 0 && (
               <div className={`flex items-center text-[#59615B] ${isHomeCard ? 'mt-[6px] text-[12px]' : isCompact ? 'mt-2 text-[11px]' : 'mt-[8px] text-[11px] md:mt-[12px] md:text-[13px]'}`}>
@@ -207,11 +217,11 @@ export default function ProductCard({
               </div>
             )}
 
-            {!isShopCard && product.concernTags && product.concernTags.length > 0 && (
+            {!isShopCard && visibleConcernTags.length > 0 && (
               <div className={`mt-[10px] flex flex-wrap gap-[6px] ${isHomeCard ? '' : isCompact ? 'min-h-6' : 'min-h-[28px]'}`}>
-                {product.concernTags.slice(0, isHomeCard ? 2 : product.concernTags.length).map((tag) => (
+                {visibleConcernTags.slice(0, isHomeCard ? 2 : visibleConcernTags.length).map((tag) => (
                   <span key={tag} className={`flex items-center justify-center rounded-full bg-[#FAF8F3] text-[#59615B] ${isHomeCard ? 'px-[8px] h-[22px] text-[11px]' : 'px-[9px] md:px-[11px] h-[24px] md:h-[28px] text-[11px] md:text-[12px]'}`}>
-                    {concernLabels[tag] ?? tag}
+                    {labelBySlug[tag] ?? tag}
                   </span>
                 ))}
               </div>

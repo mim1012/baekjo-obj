@@ -71,4 +71,20 @@ test.describe('serializeAdminOrdersCsv', () => {
     expect(csv).toContain('"상품 정보 없음"');
     expect(csv.split('\r\n').filter(Boolean)).toHaveLength(2);
   });
+
+  test('같은 브랜드의 판매자별 배송비는 sellerKey로 각 상품 행에 연결한다', () => {
+    const csv = serializeAdminOrdersCsv([makeOrder({
+      items: [
+        { productId: 'p1', productName: '판매자1 상품', quantity: 1, price: 10_000, brandId: 'brand-a', sellerId: 's1' },
+        { productId: 'p2', productName: '판매자2 상품', quantity: 1, price: 20_000, brandId: 'brand-a', sellerId: 's2' },
+      ],
+      deliveryFeeBreakdown: [
+        { brandId: 'brand-a', brandName: '백조식기', sellerKey: 'seller:s1', subtotal: 10_000, shippingFee: 3_000, appliedDeliveryFee: 3_000, isFreeShipping: false },
+        { brandId: 'brand-a', brandName: '백조식기', sellerKey: 'seller:s2', subtotal: 20_000, shippingFee: 4_000, appliedDeliveryFee: 4_000, isFreeShipping: false },
+      ],
+    })], brands);
+
+    expect(csv).toContain('"p1","판매자1 상품","","1","10000","10000","brand-a","백조식기","10000","3000","3000"');
+    expect(csv).toContain('"p2","판매자2 상품","","1","20000","20000","brand-a","백조식기","20000","4000","4000"');
+  });
 });

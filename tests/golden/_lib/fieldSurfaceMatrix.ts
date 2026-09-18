@@ -158,6 +158,12 @@ export const FIELD_SURFACE_MATRIX: Surface[] = [
       { field: 'description', render: 'src/app/brands/[id]/page.tsx:70', kind: 'text', note: '히어로 본문.' },
       { field: 'philosophy', render: 'src/app/brands/[id]/page.tsx:143-145', kind: 'text', note: 'BRAND STORY(philosophy||description).' },
       {
+        field: 'pageCopy',
+        render: 'src/app/brands/[id]/page.tsx',
+        kind: 'text',
+        note: '브랜드별 상세 화면 제목·설명·버튼 문구. admin-crud-brand-fields에서 productsTitle 왕복·공개 검증.',
+      },
+      {
         field: 'relatedConcernSlugs',
         render: 'src/app/brands/[id]/page.tsx:74-79',
         kind: 'text',

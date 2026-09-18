@@ -58,6 +58,25 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
     expect(updateItemLocalFunction).toContain('if (!loaded) return;');
   });
 
+  // 2026-09-15 회귀: commit()이 `!loaded` 가드로 조용히 no-op 하는데도 추가/이동/삭제/이름 입력
+  // 컨트롤이 항상 활성 상태였다 — GET 이 resolve 되기 전에 클릭하면 PUT 이 전혀 안 뜨는데도
+  // 성공한 것처럼 보였다(golden admin-crud-category-settings.spec.ts의 waitForResponse 타임아웃
+  // 회귀). 로드 전에는 컨트롤 자체를 disabled 로 막아 클릭이 조용히 드롭되지 않게 한다.
+  test('로드 전(!loaded)·조회 실패(loadError) 시 추가·이동·삭제·이름 입력 컨트롤이 전부 disabled 된다', () => {
+    const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
+    const editorFunction = sliceBetween(
+      adminPage,
+      'const renderStringListEditor = (',
+      '<div className="space-y-6 pb-24',
+    );
+
+    expect(editorFunction).toContain('disabled={!loaded || loadError}');
+    expect(editorFunction).toContain("disabled={index === 0 || !loaded || loadError}");
+    expect(editorFunction).toContain("disabled={index === list.length - 1 || !loaded || loadError}");
+    // input과 삭제 버튼도 같은 가드를 쓴다(추가 버튼과 동일한 `disabled={!loaded || loadError}` 표현).
+    expect(editorFunction.match(/disabled=\{!loaded \|\| loadError\}/g)?.length).toBeGreaterThanOrEqual(3);
+  });
+
   test('loadError 는 PageHeader 설명 문구로 소비되어 차단 사유를 알린다(opus 리뷰 MEDIUM)', () => {
     const adminPage = src('src', 'app', 'admin', 'categories', 'page.tsx');
 
@@ -75,7 +94,7 @@ test.describe('카테고리 관리자 저장 → 공개 필터 바인딩 경로'
 
     expect(providerSource).toContain("import { defaultCategorySettings, type CategorySettings } from '@/lib/categorySettings/config';");
     expect(providerSource).toContain('const [categorySettings, setCategorySettings] = useState<CategorySettings>(defaultCategorySettings);');
-    expect(hydrationEffect).toContain("fetch('/api/category-settings')");
+    expect(hydrationEffect).toContain("fetch('/api/category-settings', { cache: 'no-store' })");
     expect(hydrationEffect).toContain('setCategorySettings(data.settings);');
     expect(updateFunction).toContain("fetch('/api/admin/category-settings', {");
     expect(updateFunction).toContain("method: 'PUT'");

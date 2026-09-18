@@ -6,7 +6,7 @@ const read = (filePath: string) => fs.readFileSync(path.resolve(__dirname, '../.
 
 test('파트너는 일반 마이페이지 대신 브랜드 주문 운영 화면으로 이동한다', () => {
   const header = read('src/components/common/Header.tsx');
-  const mypage = read('src/app/mypage/page.tsx');
+  const mypage = read('src/app/mypage/MypageClient.tsx');
   const partnerOrders = read('src/components/partner/PartnerOrdersClient.tsx');
 
   expect(header).toContain("currentUser?.role === 'partner' ? '/partner/orders' : '/mypage'");

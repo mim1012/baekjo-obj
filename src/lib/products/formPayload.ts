@@ -14,6 +14,7 @@ import type { CreateProductInput, UpdateProductInput } from '@/lib/storage';
 export const PRODUCT_FORM_FIELDS = [
   'name',
   'brandId',
+  'sellerId',
   'brandName',
   'category',
   'lifestyleCategory',
@@ -37,6 +38,8 @@ export const PRODUCT_FORM_FIELDS = [
   'shippingNotice',
   'returnNotice',
   'sellerName',
+  'disclosure',
+  'madeToOrderPolicy',
   'isVisible',
   'isBest',
   'isRecommended',
@@ -96,6 +99,7 @@ export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[
 export interface ProductFormState {
   name?: string;
   brandId?: string;
+  sellerId?: string;
   category?: string;
   lifestyleCategory?: string;
   petType?: Product['petType'];
@@ -119,6 +123,8 @@ export interface ProductFormState {
   shippingNotice?: string;
   returnNotice?: string;
   sellerName?: string;
+  disclosure?: Product['disclosure'];
+  madeToOrderPolicy?: Product['madeToOrderPolicy'];
   isVisible?: boolean;
   isBest?: boolean;
   isRecommended?: boolean;
@@ -137,6 +143,7 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
   const fields: Partial<Product> = {
     name: form.name,
     brandId: form.brandId,
+    sellerId: form.sellerId || undefined,
     category: form.category,
     lifestyleCategory: form.lifestyleCategory,
     petType: form.petType,
@@ -157,7 +164,12 @@ function buildEditableFields(form: ProductFormState): Partial<Product> {
     deliveryEstimate: form.deliveryEstimate?.trim() ?? '',
     shippingNotice: form.shippingNotice?.trim() ?? '',
     returnNotice: form.returnNotice?.trim() ?? '',
-    sellerName: form.sellerName?.trim() ?? '',
+    // sellerName 은 sellerId 에서 파생돼 저장 때마다 재계산된다. sellerId 미해결(레거시 sellerName-only
+    // 상품)이면 폼이 '' 로 계산하는데, 무조건 전송하면 무관한 필드만 고쳐도 기존 sellerName 이 지워진다.
+    // 빈값이면 undefined 로 두어 JSON 에서 드롭 → 서버 validate 가 기존값을 보존한다(create 에선 선택필드).
+    sellerName: form.sellerName?.trim() ? form.sellerName.trim() : undefined,
+    disclosure: form.disclosure?.categoryCode ? form.disclosure : undefined,
+    madeToOrderPolicy: form.madeToOrderPolicy,
     isVisible: form.isVisible ?? false,
     isBest: form.isBest ?? false,
     isRecommended: form.isRecommended ?? false,

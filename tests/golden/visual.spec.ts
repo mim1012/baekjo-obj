@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { FEATURES } from '@/config/features';
 
 // 시각 회귀 게이트 — 골든플로우(§7) 7경로 × 데스크톱/모바일 = 14장 (상한 고정).
 // 목적: 병합에서 dad 표현(마크업·스타일)이 유실되면 사람 전수조사 없이 CI가 픽셀 diff로 잡는다(§8-1).
@@ -89,7 +90,7 @@ const PUBLIC_PAGES: Array<{
       page.locator('div.fixed.rounded-full'),
     ],
   },
-  { flow: '#3 보험', path: '/insurance', slug: 'insurance' },
+  ...(FEATURES.insurance ? [{ flow: '#3 보험', path: '/insurance', slug: 'insurance' }] : []),
   { flow: '#4 브랜드', path: '/brands/b1', slug: 'brand-detail' },
   { flow: '#5 B2B', path: '/landing/care-kit', slug: 'care-kit' },
   { flow: '#6 회원', path: '/login', slug: 'login' },

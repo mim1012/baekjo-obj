@@ -8,15 +8,18 @@ import {
   Droplet, Sparkles, Bone, Scale, Dog, Cat, Rabbit, Utensils, Bath, HeartPulse
 } from 'lucide-react';
 import type { HomeSettings } from '@/data/homeContent';
+import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
+import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 import { FEATURES } from '@/config/features';
 import { sortProducts } from '@/lib/filters';
+import { sortProductsByDisplayOrder } from '@/lib/products/displayOrder';
 import { formatDate } from '@/lib/format';
 import type { Brand, Notice, Product, Review } from '@/types';
 
-type HomeClientSettings = Omit<HomeSettings, 'solutions' | 'insuranceBanner'> & {
+type HomeClientSettings = Omit<HomeSettings, 'insuranceBanner'> & {
   insuranceBanner?: HomeSettings['insuranceBanner'];
 };
 
@@ -71,16 +74,20 @@ export default function HomeClient({
   notices,
   reviews,
   settings,
+  cmsManaged = false,
 }: {
   products: Product[];
   brands: Brand[];
   notices: Notice[];
   reviews: Review[];
   settings: HomeClientSettings;
+  /** 홈 CMS(정식 페이지 관리 시스템)가 게시본을 갖고 있을 때만 true — 페이지 루트에
+   * data-cms-managed="home" 을 심어 어떤 경로로 문구가 왔는지 진단할 수 있게 한다. */
+  cmsManaged?: boolean;
 }) {
-  const bestProducts = sortProducts(
-    products.filter((product) => product.isBest || product.isRecommended),
-    'popular',
+  const bestProducts = sortProductsByDisplayOrder(
+    sortProducts(products.filter((product) => product.isRecommended), 'popular'),
+    'homeDisplayOrder',
   ).slice(0, 3);
   const recentNotices = notices.slice(0, 4);
   const displayBrands = brands.filter(b => b.isVisible !== false);
@@ -108,7 +115,10 @@ export default function HomeClient({
   const auditCriteriaIcons = [Activity, Leaf, Monitor, Heart];
 
   return (
-    <main className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20">
+    <main
+      className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20"
+      data-cms-managed={cmsManaged ? 'home' : undefined}
+    >
       <aside
         data-testid="home-soft-open-notice"
         aria-label="가오픈 결제 안내"
@@ -141,6 +151,21 @@ export default function HomeClient({
             className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
           />
 
+          {hero.badgeTitle && (
+            <div
+              data-testid="home-hero-badge"
+              className="absolute right-5 top-5 z-10 hidden items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:flex md:right-8 md:top-8"
+            >
+              <ShieldCheck className="size-4 text-[#7A4E1D]" strokeWidth={2} />
+              <div className="flex flex-col leading-tight">
+                <span className="text-[12px] font-bold text-[#17231E]">{hero.badgeTitle}</span>
+                {hero.badgeSubtitle && (
+                  <span className="text-[10px] font-medium text-[#68716C]">{hero.badgeSubtitle}</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
             <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
@@ -165,13 +190,6 @@ export default function HomeClient({
           </div>
           </div>
 
-          <div className="absolute right-5 top-5 z-20 inline-flex items-center gap-2 rounded-xl border border-white/80 bg-white/90 px-3 py-2 shadow-sm backdrop-blur-md sm:right-8 sm:top-8 lg:right-12 xl:right-14">
-            <ShieldCheck className="size-4 text-[#2E7D32]" strokeWidth={2} />
-            <div className="flex flex-col">
-              <span className="text-[12px] font-bold leading-none text-[#18231F]">{hero.badgeTitle}</span>
-              <span className="mt-0.5 text-[10px] text-[#68716C]">{hero.badgeSubtitle}</span>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -193,7 +211,7 @@ export default function HomeClient({
             />
 
             <div className="relative z-10 order-1 flex min-h-0 max-w-[680px] flex-col justify-center bg-[#F6F3ED] p-6 md:min-h-[360px] md:bg-transparent md:p-8 lg:min-h-[380px] lg:p-10">
-              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">BAEKJO OBJET AUDIT</span>
+              <span className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#7A4E1D]">{audit.badge}</span>
               <h2 className="mt-3 break-keep text-[28px] font-bold leading-[1.22] tracking-tight text-[#17231E] md:text-[36px] lg:text-[42px]">
                 {renderLines(audit.titleLines)}
               </h2>
@@ -259,6 +277,7 @@ export default function HomeClient({
         <Link href="/shop" className="mt-8 flex w-full h-[48px] items-center justify-center rounded-xl border border-[#DED8CC] text-[14px] font-bold text-[#18231F] sm:hidden">
           {bestProductsCopy.linkLabel}
         </Link>
+        <MarketplaceNotice className="mt-6 md:mt-8" />
       </section>
 
       <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
@@ -270,6 +289,11 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            {curation.diagnosisLinkLabel && (
+              <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] md:text-[14px] font-semibold text-white transition-colors hover:bg-[#2F3B34]">
+                {curation.diagnosisLinkLabel} <ArrowRight className="ml-1.5 size-4" />
+              </Link>
+            )}
             <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
@@ -279,6 +303,7 @@ export default function HomeClient({
               {curationCards.map((card) => {
             const title = card.title;
             const desc = card.desc;
+            const cardImage = resolveCmsImageProps(card.img);
             return (
               <Link
                 key={card.href}
@@ -286,13 +311,14 @@ export default function HomeClient({
                 className="group relative flex h-[210px] min-w-0 flex-col overflow-hidden rounded-[18px] bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#173C32] lg:h-[228px]"
               >
                 <div className="absolute inset-0 z-0 h-full w-full overflow-hidden bg-black">
-                  <Image
-                    src={card.img}
+                  {cardImage && <Image
+                    src={cardImage.src}
+                    unoptimized={cardImage.unoptimized}
                     alt={title}
                     fill
                     sizes="(max-width: 768px) 50vw, 25vw"
                     className="object-cover transition-transform duration-700 group-hover:scale-105"
-                  />
+                  />}
                 </div>
                 <div className="absolute inset-0 z-10 bg-black/[0.08]" />
                 <div className="absolute inset-x-0 bottom-0 z-10 h-[62%] bg-gradient-to-t from-black/60 via-black/25 to-transparent" />

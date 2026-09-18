@@ -37,6 +37,8 @@ Production domains are blocked by default for Playwright, release QA, layout sna
 
 `src/app/robots.ts` also blocks high-cost AI crawlers (`meta-externalagent`, Meta fetch/index agents, `GPTBot`, `Amazonbot`) while leaving normal public crawling and link previews available.
 
+`scripts/capture-admin-screen-audit.mjs` and `scripts/capture-public-screen-audit.mjs` are localhost-only dev tools that screenshot the admin and public screens for manual review; they reject non-loopback base URLs and write results under `artifacts/` (git-ignored).
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.

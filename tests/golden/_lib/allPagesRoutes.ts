@@ -14,6 +14,8 @@
 // - 'member'    — 로그인 회원만 의미 있게 렌더(비로그인 시 클라이언트가 /login 으로 보냄).
 //
 // kind: 'static' | 'dynamic' — dynamic 은 런타임에 공개/관리자 API 로 표본 id 를 골라야 한다.
+import { FEATURES } from '../../../src/config/features';
+
 export type RouteAuth = 'none' | 'redirect' | 'admin' | 'member';
 export type RouteKind = 'static' | 'dynamic';
 
@@ -40,21 +42,63 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
   { route: '/audit', kind: 'static', auth: 'none', note: 'Audit 기준 소개' },
   { route: '/b2b', kind: 'static', auth: 'none', note: 'B2B 케어키트 랜딩' },
   { route: '/brands', kind: 'static', auth: 'none', note: '브랜드관 목록' },
-  { route: '/cart', kind: 'static', auth: 'none', note: '장바구니(빈 상태)' },
+  {
+    route: '/cart',
+    kind: 'static',
+    auth: 'redirect',
+    expectedRedirect: '/login',
+    note: '회원 전용 장바구니 — 비로그인은 /login?redirect=/cart 로 이동',
+  },
   { route: '/concerns', kind: 'static', auth: 'none', note: '고민별 케어 목록' },
   { route: '/diagnosis', kind: 'static', auth: 'none', note: '1분 맞춤 진단 설문' },
-  { route: '/experts', kind: 'static', auth: 'none', note: '전문가 콘텐츠' },
+  {
+    route: '/experts',
+    kind: 'static',
+    auth: FEATURES.experts ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.experts ? undefined : '/',
+    note: FEATURES.experts ? '전문가 콘텐츠' : '미노출 기능 — 메인으로 이동',
+  },
   { route: '/forgot-password', kind: 'static', auth: 'none', note: '비밀번호 찾기' },
-  { route: '/insurance', kind: 'static', auth: 'none', note: '펫보험 안내' },
-  { route: '/insurance/apply', kind: 'static', auth: 'none', note: '보험 분석 신청 폼' },
-  { route: '/insurance/complete', kind: 'static', auth: 'none', note: '보험 신청 완료' },
-  { route: '/insurance/recommend', kind: 'static', auth: 'none', note: '실시간 보험 분석(1단계)' },
+  {
+    route: '/insurance',
+    kind: 'static',
+    auth: FEATURES.insurance ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.insurance ? undefined : '/',
+    note: FEATURES.insurance ? '펫보험 안내' : '미노출 기능 — 메인으로 이동',
+  },
+  {
+    route: '/insurance/apply',
+    kind: 'static',
+    auth: FEATURES.insurance ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.insurance ? undefined : '/',
+    note: FEATURES.insurance ? '보험 분석 신청 폼' : '미노출 기능 — 메인으로 이동',
+  },
+  {
+    route: '/insurance/complete',
+    kind: 'static',
+    auth: FEATURES.insurance ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.insurance ? undefined : '/',
+    note: FEATURES.insurance ? '보험 신청 완료' : '미노출 기능 — 메인으로 이동',
+  },
+  {
+    route: '/insurance/recommend',
+    kind: 'static',
+    auth: FEATURES.insurance ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.insurance ? undefined : '/',
+    note: FEATURES.insurance ? '실시간 보험 분석(1단계)' : '미노출 기능 — 메인으로 이동',
+  },
   { route: '/landing/care-kit', kind: 'static', auth: 'none', note: '케어키트 B2B 랜딩' },
-  { route: '/landing/insurance', kind: 'static', auth: 'none', note: '보험 랜딩' },
+  {
+    route: '/landing/insurance',
+    kind: 'static',
+    auth: FEATURES.insurance ? 'none' : 'redirect',
+    expectedRedirect: FEATURES.insurance ? undefined : '/',
+    note: FEATURES.insurance ? '보험 랜딩' : '미노출 기능 — 메인으로 이동',
+  },
   { route: '/login', kind: 'static', auth: 'none', note: '로그인' },
   { route: '/notices', kind: 'static', auth: 'none', note: '공지사항 목록' },
   { route: '/order-complete', kind: 'static', auth: 'none', note: '주문완료(쿼리 없는 cold visit)' },
-  { route: '/privacy', kind: 'static', auth: 'none', note: '개인정보처리방침' },
+  { route: '/privacy', kind: 'static', auth: 'none', note: '개인정보 처리방침' },
   { route: '/refund-policy', kind: 'static', auth: 'none', note: '배송·교환·환불 안내' },
   { route: '/reviews', kind: 'static', auth: 'none', note: '구매후기 목록' },
   { route: '/shop', kind: 'static', auth: 'none', note: '스토어 목록' },
@@ -131,7 +175,6 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     paramSource: { from: 'public-api', endpoint: '/api/products', listKey: 'products', idKey: 'id' },
     note: '상품 상세',
   },
-
   // ── 회원 전용 ────────────────────────────────────────────────
   { route: '/mypage', kind: 'static', auth: 'member', note: '마이페이지(개요 탭)' },
   {
@@ -146,6 +189,7 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
   { route: '/admin/brands', kind: 'static', auth: 'admin', note: '브랜드 관리 목록' },
   { route: '/admin/categories', kind: 'static', auth: 'admin', note: '카테고리 관리' },
   { route: '/admin/concerns', kind: 'static', auth: 'admin', note: '고민 관리' },
+  { route: '/admin/guide', kind: 'static', auth: 'admin', note: '운영 가이드 — 공개 화면↔관리 위치 기준표' },
   { route: '/admin/inquiries', kind: 'static', auth: 'admin', note: '상품문의 관리' },
   { route: '/admin/insurance', kind: 'static', auth: 'admin', note: '펫보험 상담 관리 목록' },
   { route: '/admin/insurance-content', kind: 'static', auth: 'admin', note: '보험 동의문서·FAQ 관리' },
@@ -153,14 +197,18 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
   { route: '/admin/members', kind: 'static', auth: 'admin', note: '회원 관리 목록' },
   { route: '/admin/notices', kind: 'static', auth: 'admin', note: '공지사항 관리' },
   { route: '/admin/order-policy', kind: 'static', auth: 'admin', note: '주문 정책 관리' },
+  { route: '/admin/order-requests', kind: 'static', auth: 'admin', note: '교환·반품 요청 관리' },
   { route: '/admin/orders', kind: 'static', auth: 'admin', note: '주문 관리 목록' },
   { route: '/admin/partner-inquiries', kind: 'static', auth: 'admin', note: '제휴 문의 접수함' },
   { route: '/admin/partners', kind: 'static', auth: 'admin', note: 'B2B 제휴 관리' },
   { route: '/admin/products', kind: 'static', auth: 'admin', note: '상품 관리 목록' },
   { route: '/admin/products/display', kind: 'static', auth: 'admin', note: '상품 진열 관리' },
   { route: '/admin/products/new', kind: 'static', auth: 'admin', note: '신규 상품 등록 폼' },
+  { route: '/admin/products/tags', kind: 'static', auth: 'admin', note: '상품 고민 태그 관리' },
   { route: '/admin/qna', kind: 'static', auth: 'admin', note: 'QnA 게시판 관리' },
   { route: '/admin/reviews', kind: 'static', auth: 'admin', note: '전시 후기 관리' },
+  { route: '/admin/sellers', kind: 'static', auth: 'admin', note: '실제 판매자 사업자정보 관리' },
+  { route: '/admin/pages', kind: 'static', auth: 'admin', note: '공개 화면 CMS 목록' },
   { route: '/admin/settings', kind: 'static', auth: 'admin', note: '사이트 콘텐츠 설정' },
   { route: '/admin/survey', kind: 'static', auth: 'admin', note: '맞춤 진단 설계' },
   { route: '/admin/survey-results', kind: 'static', auth: 'admin', note: '진단 참여 내역' },
@@ -193,6 +241,16 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     auth: 'admin',
     paramSource: { from: 'admin-api', endpoint: '/api/admin/orders', listKey: 'orders', idKey: 'id' },
     note: '주문 상세',
+  },
+  {
+    route: '/admin/pages/[pageKey]',
+    kind: 'dynamic',
+    auth: 'admin',
+    // /api/admin/settings/pages는 정의된 15개 CMS 페이지를 항상 고정 순서(CMS_PAGE_DEFINITIONS)로
+    // 반환한다 — DB 상태와 무관하게 목록이 비지 않으므로 다른 admin-api 표본과 달리 "목록이 비어
+    // 있어 skip"될 일이 없다. 표본으로 뽑히는 첫 항목은 audit이 아니라 정의 배열의 첫 키(home)다.
+    paramSource: { from: 'admin-api', endpoint: '/api/admin/settings/pages', listKey: 'pages', idKey: 'key' },
+    note: '공개 화면 CMS 편집(표본: CMS_PAGE_DEFINITIONS 첫 키 — home)',
   },
   {
     route: '/admin/products/[id]',

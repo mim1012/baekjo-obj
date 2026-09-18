@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { assertLocalhostAppRuntimeSupabaseRefMatchesTestRef } from '../../_lib/supabaseSafety';
+import { PRODUCT_DISCLOSURE_CATEGORIES } from '../../../src/lib/products/disclosures';
 
 // admin-crud-*.spec.ts 전용 헬퍼. 파일명이 *.spec.ts 가 아니라 Playwright 테스트로 수집되지 않는다.
 //
@@ -22,7 +23,17 @@ export async function assertGoldenWritePreflight(): Promise<void> {
   await assertLocalhostAppRuntimeSupabaseRefMatchesTestRef('golden');
 }
 
-export async function loginWithCredentials(page: Page, email: string, password: string): Promise<void> {
+type ExpectedSession = Readonly<{
+  role?: string;
+  status?: string;
+}>;
+
+export async function loginWithCredentials(
+  page: Page,
+  email: string,
+  password: string,
+  expectedSession: ExpectedSession = {},
+): Promise<void> {
   let lastError: unknown;
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -54,9 +65,17 @@ export async function loginWithCredentials(page: Page, email: string, password: 
       if (!sessionResponse.ok()) {
         throw new Error(`로그인 세션 확인 실패: ${sessionResponse.status()} ${await sessionResponse.text()}`);
       }
-      const { user } = (await sessionResponse.json()) as { user?: { email?: string } };
+      const { user } = (await sessionResponse.json()) as {
+        user?: { email?: string; role?: string; status?: string };
+      };
       if (user?.email !== email) {
         throw new Error(`로그인 계정 불일치: expected=${email} actual=${user?.email ?? 'unknown'}`);
+      }
+      if (expectedSession.role && user?.role !== expectedSession.role) {
+        throw new Error(`로그인 권한 불일치: expected=${expectedSession.role} actual=${user?.role ?? 'unknown'}`);
+      }
+      if (expectedSession.status && user?.status !== expectedSession.status) {
+        throw new Error(`로그인 상태 불일치: expected=${expectedSession.status} actual=${user?.status ?? 'unknown'}`);
       }
       return;
     } catch (error) {
@@ -71,7 +90,89 @@ export async function loginWithCredentials(page: Page, email: string, password: 
 /** visual.spec.ts 의 관리자 로그인 시퀀스와 동일(§8-6 bypass 헤더는 test.use extraHTTPHeaders로 별도 주입). */
 export async function loginAsAdmin(page: Page): Promise<void> {
   await assertGoldenWritePreflight();
-  await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
+  await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!, {
+    role: 'admin',
+    status: 'active',
+  });
+}
+
+/** DB를 변경하지 않는 페이지/API 스모크에서만 사용하는 관리자 로그인. */
+export async function loginAsAdminReadOnly(page: Page): Promise<void> {
+  await loginWithCredentials(page, ADMIN_EMAIL!, ADMIN_PASSWORD!, {
+    role: 'admin',
+    status: 'active',
+  });
+}
+
+const GOLDEN_SELLER_NAME = 'E2E 전용 검증 판매자';
+
+/**
+ * 공개 상품 테스트가 법정 판매자 정보를 우회하지 않도록 staging에 한 건만 유지하는 검증 판매자.
+ * 주문 이력이 판매자 삭제를 막을 수 있어 실행마다 늘리지 않고 표시명으로 재사용한다.
+ */
+export async function ensureGoldenVerifiedSeller(page: Page): Promise<string> {
+  await assertGoldenWritePreflight();
+  const listResponse = await page.request.get('/api/admin/sellers');
+  expect(listResponse.ok(), `판매자 목록 조회 실패: ${listResponse.status()}`).toBe(true);
+  const list = (await listResponse.json()) as { sellers: Array<{ id: string; displayName: string; status: string }> };
+  const existing = list.sellers.find((seller) => seller.displayName === GOLDEN_SELLER_NAME);
+  if (existing?.status === 'verified') return existing.id;
+
+  const data = {
+    displayName: GOLDEN_SELLER_NAME,
+    legalName: '이투이테스트 주식회사',
+    representativeName: '테스트관리자',
+    businessRegistrationNumber: '000-00-00000',
+    mailOrderRegistrationNumber: '테스트-0000호',
+    businessAddress: '서울특별시 테스트구 검증로 1',
+    returnAddress: '서울특별시 테스트구 반품로 2',
+    phone: '02-0000-0000',
+    email: 'seller-e2e@example.test',
+    shippingFee: 3000,
+    freeShippingThreshold: 50000,
+    dispatchEstimate: '결제 완료 후 3영업일 이내 출고',
+    returnPolicy: '상품 수령 후 7일 이내 교환·반품 신청',
+    status: 'verified',
+  };
+  const response = existing
+    ? await page.request.patch(`/api/admin/sellers/${encodeURIComponent(existing.id)}`, { data })
+    : await page.request.post('/api/admin/sellers', { data });
+  expect(response.ok(), `검증 판매자 준비 실패: ${response.status()} ${await response.text()}`).toBe(true);
+  const payload = (await response.json()) as { seller: { id: string } };
+  return payload.seller.id;
+}
+
+/** 공개 상품에 필요한 실제 판매자와 상품군별 고시 항목을 관리자 폼에서 모두 입력한다. */
+export async function fillProductCompliance(
+  page: Page,
+  sellerId: string,
+  categoryCode = 'life',
+): Promise<void> {
+  await page.locator('#product-seller').selectOption(sellerId);
+  await page.locator('#product-disclosure-category').selectOption(categoryCode);
+  const definition = PRODUCT_DISCLOSURE_CATEGORIES.find((category) => category.code === categoryCode);
+  if (!definition) throw new Error(`알 수 없는 상품 고시 분류: ${categoryCode}`);
+  for (const field of definition.fields) {
+    await page.locator(`#product-disclosure-${field.key}`).fill(`E2E ${field.label}`);
+  }
+}
+
+export async function selectProductBrand(page: Page, brandId: string): Promise<void> {
+  const select = page.locator('#product-brand');
+  await expect(select).toBeVisible({ timeout: 15_000 });
+  await expect(select.locator(`option[value="${brandId}"]`)).toBeAttached({ timeout: 15_000 });
+  await select.selectOption(brandId);
+}
+
+export async function selectProductFormOption(page: Page, groupName: string, optionIndex = 0): Promise<string> {
+  const group = page.getByRole('group', { name: groupName });
+  await expect(group).toBeVisible({ timeout: 15_000 });
+  const option = group.getByRole('button').nth(optionIndex);
+  await expect(option).toBeVisible({ timeout: 15_000 });
+  const label = (await option.innerText()).trim();
+  await option.click();
+  await expect(option).toHaveAttribute('aria-pressed', 'true');
+  return label;
 }
 
 /**

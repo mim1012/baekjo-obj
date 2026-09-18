@@ -3,7 +3,8 @@
 import { getSupabase } from '@/lib/supabase/server';
 import { emptyNoticesConfig, type NoticesConfig } from '@/lib/notices/config';
 import { isNoticeShape, normalizeNotice } from '@/lib/notices/validate';
-import { logServerError } from '@/lib/logServerError';
+import { isMissingSupabaseEnvironmentError, logServerError } from '@/lib/logServerError';
+import { getCanonicalPublicNoticesConfig } from '@/lib/public-dev-fallback';
 
 const CONFIG_ROW_ID = 'default';
 
@@ -49,6 +50,9 @@ export async function getNoticesConfigWithFallback(): Promise<NoticesConfig> {
     return (await getNoticesConfig()) ?? emptyNoticesConfig;
   } catch (error) {
     logServerError('[notices/repo] 조회 실패 — 빈 config 로 폴백', error);
+    if (process.env.NODE_ENV === 'development' && isMissingSupabaseEnvironmentError(error)) {
+      return (await getCanonicalPublicNoticesConfig()) ?? emptyNoticesConfig;
+    }
     return emptyNoticesConfig;
   }
 }

@@ -1,5 +1,9 @@
-import { listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
+import { getCachedPageTextSettings, listCachedPublicBrands, listCachedPublicProducts } from '@/lib/public-read-cache';
 import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
+import { getPublishedPageContent } from '@/lib/cms/content';
+import { defaultPageTextSettings } from '@/data/pageTextContent';
+import { logServerError } from '@/lib/logServerError';
+import { selectShopContent, type ShopContentData } from '@/lib/cms/source/shop';
 import ShopContent from '@/components/shop/ShopContent';
 
 export const metadata = {
@@ -20,5 +24,26 @@ export default async function ShopPage() {
     listCachedPublicBrands(),
     getConcernsConfigWithFallback(),
   ]);
-  return <ShopContent products={products} brands={brands} concerns={concernsConfig.items} />;
+
+  // D3: 소비자는 항상 getPublishedPageContent(key) ?? mapper(현재 소스) 2단으로 콘텐츠를 얻는다.
+  const published = await getPublishedPageContent<ShopContentData>('shop').catch((error: unknown) => {
+    logServerError('[Shop] CMS 조회 실패', error);
+    return null;
+  });
+  const managed = published !== null;
+  let settings = defaultPageTextSettings;
+  if (!managed) {
+    try {
+      settings = await getCachedPageTextSettings() ?? defaultPageTextSettings;
+    } catch (error) {
+      logServerError('[Shop] 기존 페이지 문구 조회 실패', error);
+    }
+  }
+  const content = selectShopContent(published, settings);
+
+  // concernsConfig는 이 페이지가 CMS 소비 계약(getConcernsConfigWithFallback)을 유지하는지 확인하는
+  // 테스트 계약을 위해 그대로 조회한다 — '고민' 필터 옵션은 이제 ShopContent가 클라이언트에서
+  // ProductTagSettingsProvider(/api/product-tags)로 직접 읽으므로 여기서 prop으로 내려주지 않는다.
+  void concernsConfig;
+  return <ShopContent products={products} brands={brands} content={content} managed={managed} />;
 }

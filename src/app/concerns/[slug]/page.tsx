@@ -9,6 +9,7 @@ import { getShowcaseReviewsConfigWithFallback } from '@/lib/reviews/repo';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import { FEATURES } from '@/config/features';
+import CareGuideDisclaimer from '@/components/common/CareGuideDisclaimer';
 
 interface ConcernDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -346,6 +347,10 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
         </div>
       </section>
 
+      <div className="mx-auto mt-8 w-full max-w-[1240px] px-5 md:mt-10 md:px-7 lg:px-10 xl:px-12">
+        <CareGuideDisclaimer />
+      </div>
+
       {/* 2. 핵심 정보 요약 바 */}
       <div className="mx-auto mb-12 mt-10 w-full max-w-[1240px] px-5 md:mt-14 md:px-7 lg:mb-16 lg:mt-16 lg:px-10 xl:px-12">
         <div className="flex flex-col sm:flex-row sm:items-stretch overflow-hidden rounded-[18px] sm:rounded-[20px] border border-[#E4DDD1] bg-[#FFFEFB] sm:min-h-[112px] lg:min-h-[124px]">
@@ -422,6 +427,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
 
         {/* 4. 관련 상품 */}
         <section id="products" className="scroll-mt-32">
+          <CareGuideDisclaimer className="mb-6 lg:mb-8" />
           <div className="mb-6 flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:justify-between lg:mb-8">
             <h2 className="text-[20px] lg:text-[24px] font-bold text-[#17251F] tracking-tight">일상 관리에 함께 볼 상품</h2>
             <Link href={`/shop?concern=${concern.slug}`} className="flex min-h-11 items-center gap-1 text-[13px] font-semibold text-[#17251F] transition-colors hover:text-[#B68B4E] sm:min-h-0 lg:text-[14px]">

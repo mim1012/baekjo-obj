@@ -16,13 +16,16 @@ import {
 test.describe('메뉴 스냅샷', () => {
   // 메뉴를 의도적으로 바꿨다면 이 기대값도 같이 고쳐라 — 그 순간이 유실을 자각하는 지점이다.
   const EXPECTED_HREFS = [
-    // main (7)
+    // main (10)
     '/admin',
     '/admin/products',
     '/admin/products/display',
+    '/admin/products/tags',
     '/admin/categories',
     '/admin/brands',
+    '/admin/sellers',
     '/admin/orders',
+    '/admin/order-requests',
     '/admin/members',
     // cs (7)
     '/admin/insurance',
@@ -39,19 +42,21 @@ test.describe('메뉴 스냅샷', () => {
     '/admin/partner-inquiries',
     '/admin/notices',
     '/admin/order-policy',
+    '/admin/pages',
+    '/admin/guide',
     '/admin/settings',
   ];
 
-  test('전체 사이드바 href 목록이 21개이고 순서까지 일치한다', () => {
+  test('전체 사이드바 href 목록이 26개이고 순서까지 일치한다', () => {
     const all = [...ADMIN_MAIN_NAV, ...ADMIN_CS_NAV, ...ADMIN_ETC_NAV];
-    expect(all).toHaveLength(21);
+    expect(all).toHaveLength(26);
     expect(all.map((i) => i.href)).toEqual(EXPECTED_HREFS);
   });
 
-  test('그룹별 개수 — main=7, cs=7, etc=7', () => {
-    expect(ADMIN_MAIN_NAV).toHaveLength(7);
+  test('그룹별 개수 — main=10, cs=7, etc=9', () => {
+    expect(ADMIN_MAIN_NAV).toHaveLength(10);
     expect(ADMIN_CS_NAV).toHaveLength(7);
-    expect(ADMIN_ETC_NAV).toHaveLength(7);
+    expect(ADMIN_ETC_NAV).toHaveLength(9);
   });
 
   test('사이드바 3배열의 모든 항목에 icon이 존재한다', () => {

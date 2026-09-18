@@ -22,7 +22,8 @@ test.describe('RE:펫 주문제작 안내 계약', () => {
     for (const copy of [
       '주문제작 안내',
       '본 상품은 주문 후 제작자와의 확인 과정이 필요한 주문제작 상품입니다.',
-      '본 상품은 1:1 주문제작 상품으로, 제작이 시작된 이후에는 주문 취소가 어렵습니다. 제작 일정에 따라 최대 3개월까지 소요될 수 있으니 충분히 확인하신 후 주문해주세요.',
+      '제작이 시작된 이후에는 단순 변심에 따른 주문 취소가 제한될 수 있습니다.',
+      '제작 일정에 따라 최대 3개월',
       '주문 완료 후 원활한 제작 진행을 위해',
       '‘백조오브제 주문제작’ 카카오톡 채널',
       '주문자명과 주문번호를 남겨주세요.',
@@ -31,7 +32,8 @@ test.describe('RE:펫 주문제작 안내 계약', () => {
       expect(notice).toContain(copy);
     }
     expect(detail).toContain('isRepetMadeToOrder && <RepetMadeToOrderNotice');
-    expect(checkout).toContain('hasRepetMadeToOrderItem && <RepetMadeToOrderNotice');
+    expect(checkout).toContain('madeToOrderProducts.map((product) => <RepetMadeToOrderNotice');
+    expect(checkout).toContain('madeToOrderConsentContent(product)');
     expect(notice).toContain('href={COMPANY.kakaoTalkUrl}');
     expect(COMPANY.kakaoTalkUrl).toBe('http://pf.kakao.com/_jxnxjxaX');
   });

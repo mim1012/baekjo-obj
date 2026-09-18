@@ -10,8 +10,9 @@ import ProductCard from '@/components/common/ProductCard';
 import ProductDetailClient from '@/components/shop/ProductDetailClient';
 import ProductPublicDetails from '@/components/shop/ProductPublicDetails';
 import ProductPurchaseInfo from '@/components/shop/ProductPurchaseInfo';
+import ProductDisclosureInfo from '@/components/shop/ProductDisclosureInfo';
 import ProductTabsClient from '@/components/shop/ProductTabsClient';
-import { getConcernsConfigWithFallback } from '@/lib/concerns/repo';
+import { getPublicProductTagsConfig } from '@/lib/productTags/repo';
 
 // DB를 읽는 서버 컴포넌트라 빌드타임 프리렌더 대신 요청 시 렌더한다(관리자 편집 즉시 반영).
 export const dynamic = 'force-dynamic';
@@ -47,15 +48,20 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
   const product = await getCachedPublicProductById(id);
   if (!product) notFound();
 
-  const [brand, allProducts, concernsConfig] = await Promise.all([
+  const [brand, allProducts, productTagsConfig] = await Promise.all([
     getCachedPublicBrandById(product.brandId),
     listCachedPublicProducts(),
-    getConcernsConfigWithFallback(),
+    getPublicProductTagsConfig(),
   ]);
-  const concernTitleBySlug = new Map(concernsConfig.items.map((concern) => [concern.slug, concern.title]));
+  // 옛 concerns 사전(concernsConfig)이 아니라 태그 관리 화면(product_tags_config)을 정본으로
+  // 쓴다 — 새로 만든 태그는 옛 사전에 없어 조용히 빠졌었다(2026-09-15 리뷰 비차단 지적 3).
+  // ProductCard.tsx의 visibleConcernTags와 동일한 규칙: 관리자가 숨긴(hiddenSlugs) 태그만
+  // 제외하고, 사전에 없는(아직 미등록) 태그는 원문 그대로 보여준다(누락 대신 보존).
+  const tagBySlug = new Map(productTagsConfig.items.map((tag) => [tag.slug, tag] as const));
+  const hiddenTagSlugs = new Set(productTagsConfig.hiddenSlugs);
   const relatedConcernLabels = product.concernTags
-    .map((slug) => concernTitleBySlug.get(slug))
-    .filter((label): label is string => Boolean(label));
+    .filter((slug) => !hiddenTagSlugs.has(slug) && (tagBySlug.get(slug)?.isVisible ?? true))
+    .map((slug) => tagBySlug.get(slug)?.label ?? slug);
   const relatedProducts = allProducts
     .filter((candidate) => candidate.id !== product.id && (
       candidate.category === product.category
@@ -118,6 +124,7 @@ export default async function ProductPage({ params }: { params: Promise<{ id: st
           </section>
 
           <ProductPublicDetails product={product} />
+          <ProductDisclosureInfo product={product} />
           <ProductPurchaseInfo product={product} />
         </ProductTabsClient>
 

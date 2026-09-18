@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { FEATURES } from '@/config/features';
-import { getSourceAuditReport, getSourceBrandContent } from '@/lib/brands/sourceContent';
+import { seedAuditReport, seedTopField } from '../helpers/brandSeed';
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const read = (relativePath: string) => fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
@@ -27,9 +27,9 @@ test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
     expect(publicNotices).toContain("/보험|insurance/i");
   });
 
-  test('8개 브랜드 공개 문구는 제공받은 정본 모듈만 사용한다', () => {
+  test('8개 브랜드 공개 문구는 DB 시드 정본(0161)만 사용한다', () => {
     const detail = read('src/app/brands/[id]/page.tsx');
-    const source = read('src/lib/brands/sourceContent.ts');
+    const seed = read('supabase/migrations/0161_brand_audit_content_db_seed.sql');
     const migration = read('supabase/migrations/0113_penefit_brand_story_audit_source_copy.sql');
     const exactCopy = [
       '페네핏은 알레르기나 원료의 차이로 기존 제품을 먹기 어려운 아이를 외면하지 않습니다.',
@@ -45,12 +45,12 @@ test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
     ];
 
     for (const copy of exactCopy) {
-      expect(source).toContain(copy);
+      expect(seed).toContain(copy);
       expect(migration).toContain(copy);
     }
 
     for (const brandId of ['b1', 'b2', 'b3', 'b5', 'b6', 'b7', 'b8', 'b9']) {
-      expect(source).toContain(`${brandId}: {`);
+      expect(seed).toContain(`id = '${brandId}'`);
     }
     expect(detail).toContain("hasDetailedAudit ? '#brand-audit-report' : '/audit'");
     expect(detail).not.toContain('꼼꼼한 원료 선별');
@@ -60,7 +60,7 @@ test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
 
   test('Audit 상세는 Summary를 만들지 않고 제공 문서의 Checkpoints를 표시한다', () => {
     const report = read('src/components/common/BrandAuditReport.tsx');
-    const source = read('src/lib/brands/sourceContent.ts');
+    const seed = read('supabase/migrations/0161_brand_audit_content_db_seed.sql');
 
     expect(report).toContain('The Audit Checkpoints');
     expect(report).not.toContain('The Audit Summary');
@@ -76,53 +76,28 @@ test.describe('공개 콘텐츠 비노출 및 브랜드 정본 계약', () => {
       '동물의 입장에서 시작하는 브랜드 철학',
       '2024 벤처기업부 장관 표창',
     ]) {
-      expect(source).toContain(exactCopy);
+      expect(seed).toContain(exactCopy);
     }
-    expect(source).toContain("brand.id === 'b1'");
-    expect(source).toContain("headline: brand.auditReport.headline || '성분을 감추지 않는 자신감'");
+    // b1은 getSourceAuditReport 런타임 병합 로직 대신, 0161 시드가 필드별 기본값을
+    // (auditReport 스텁이 이미 있을 때만) DB에 직접 채워 동일 결과를 낸다.
+    expect(seed).toContain("'{auditReport,headline}'");
+    expect(seed).toContain('성분을 감추지 않는 자신감');
   });
 
-  test('관리자 DB 문구가 290 정본보다 우선해 공개 화면 데이터로 전달된다', () => {
-    const brandContent = getSourceBrandContent({
-      id: 'b1',
-      philosophy: 'DB 브랜드 철학',
-      highlights: ['DB 하이라이트'],
-      auditPoints: ['DB 확인 항목'],
-      summaryCategoryLabel: 'DB 카테고리',
-      summaryCategoryNote: 'DB 카테고리 설명',
-      summaryConcernLabel: 'DB 고민',
-      summaryConcernNote: 'DB 고민 설명',
+  test('브랜드 콘텐츠·Audit 리포트는 애플리케이션 코드가 아니라 DB(0161 시드)에만 존재한다', () => {
+    expect(seedTopField('b1', 'philosophy')).toContain('페네핏은 알레르기나 원료의 차이로');
+    expect(seedTopField('b1', 'highlights')).toEqual([
+      '하나의 레시피를 정답으로 두지 않는 제품 개발',
+      '기호성뿐 아니라 필요한 영양까지 함께 고려하는 설계',
+      '성분과 영양 정보를 투명하게 공개하는 기준',
+    ]);
+    const report = seedAuditReport('b2');
+    expect(report).toMatchObject({
+      headline: '사라진 냄새가 남긴 변화',
     });
-    expect(brandContent).toMatchObject({
-      philosophy: 'DB 브랜드 철학',
-      highlights: ['DB 하이라이트'],
-      auditPoints: ['DB 확인 항목'],
-      summaryCategoryLabel: 'DB 카테고리',
-      summaryConcernLabel: 'DB 고민',
-    });
-
-    const auditReport = getSourceAuditReport({
-      id: 'b2',
-      auditReport: {
-        reportNo: 'DB-REPORT',
-        auditedAt: '2026.08',
-        status: 'Audit Completed',
-        headline: 'DB 헤드라인',
-        summaryTitle: 'DB 요약 제목',
-        summary: 'DB 요약',
-        selectionReason: 'DB 선정 이유',
-        process: ['DB 프로세스'],
-        checkpoints: ['DB 체크포인트'],
-        materialReview: ['DB 소재 검토'],
-        curatorNote: ['DB 큐레이터 노트'],
-      },
-    });
-    expect(auditReport).toMatchObject({
-      headline: 'DB 헤드라인',
-      process: ['DB 프로세스'],
-      checkpoints: ['DB 체크포인트'],
-      materialReview: ['DB 소재 검토'],
-      curatorNote: ['DB 큐레이터 노트'],
-    });
+    expect(Array.isArray((report as { process?: unknown[] })?.process)).toBe(true);
+    expect(Array.isArray((report as { checkpoints?: unknown[] })?.checkpoints)).toBe(true);
+    expect(Array.isArray((report as { materialReview?: unknown[] })?.materialReview)).toBe(true);
+    expect(Array.isArray((report as { curatorNote?: unknown[] })?.curatorNote)).toBe(true);
   });
 });

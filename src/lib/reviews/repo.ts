@@ -4,7 +4,8 @@ import { getSupabase } from '@/lib/supabase/server';
 import type { AdminProductReview, ProductReview } from '@/types';
 import { defaultShowcaseReviewsConfig, type ShowcaseReviewsConfig } from '@/lib/reviews/showcaseConfig';
 import { isShowcaseReviewShape, normalizeShowcaseReview } from '@/lib/reviews/showcaseValidate';
-import { logServerError } from '@/lib/logServerError';
+import { isMissingSupabaseEnvironmentError, logServerError } from '@/lib/logServerError';
+import { getCanonicalPublicShowcaseReviewsConfig } from '@/lib/public-dev-fallback';
 import { listProductsByIds } from '@/lib/products/repo';
 
 interface ReviewRow {
@@ -255,6 +256,9 @@ export async function getShowcaseReviewsConfigWithFallback(): Promise<ShowcaseRe
     return (await getShowcaseReviewsConfig()) ?? defaultShowcaseReviewsConfig;
   } catch (error) {
     logServerError('[reviews/repo] 조회 실패 — defaultShowcaseReviewsConfig 로 폴백', error);
+    if (process.env.NODE_ENV === 'development' && isMissingSupabaseEnvironmentError(error)) {
+      return (await getCanonicalPublicShowcaseReviewsConfig()) ?? defaultShowcaseReviewsConfig;
+    }
     return defaultShowcaseReviewsConfig;
   }
 }

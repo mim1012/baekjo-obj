@@ -91,8 +91,7 @@ test.describe('전시용 후기(showcase reviews) 관리자 저장 → 공개 �
   test('공개 API 라우트는 절대 500 을 내지 않고 default 로 폴백한다', () => {
     const routeSource = src('src', 'app', 'api', 'showcase-reviews', 'route.ts');
 
-    expect(routeSource).toContain('defaultShowcaseReviewsConfig');
-    expect(routeSource).toContain('logServerError');
+    expect(routeSource).toContain('getShowcaseReviewsConfigWithFallback');
   });
 
   test('repo 는 showcase_reviews_config 싱글턴 행을 upsert 하고 서버 폴백 조회를 제공하며 빈 items 를 허용한다', () => {

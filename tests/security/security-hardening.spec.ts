@@ -76,4 +76,25 @@ test.describe('보안 경계 회귀 계약', () => {
       expect(source).toContain('revalidateTag(PUBLIC_READ_CACHE_TAGS.products, EXPIRE_PUBLIC_READ_CACHE)');
     }
   });
+
+  test('판매자·주문 후속처리 API는 관리자와 주문 소유자 경계를 각각 강제한다', () => {
+    const sellerAdmin = read('src', 'app', 'api', 'admin', 'sellers', 'route.ts');
+    const requestAdmin = read('src', 'app', 'api', 'admin', 'order-requests', '[id]', 'route.ts');
+    const acceptanceAdmin = read('src', 'app', 'api', 'admin', 'orders', '[id]', 'seller-acceptances', '[sellerKey]', 'route.ts');
+    const memberRequests = read('src', 'app', 'api', 'orders', 'requests', 'route.ts');
+    const marketing = read('src', 'app', 'api', 'members', 'me', 'marketing-preferences', 'route.ts');
+    const migration = read('supabase', 'migrations', '0157_compliance_write_guards.sql');
+
+    expect(sellerAdmin).toContain('requireAdmin()');
+    expect(requestAdmin).toContain('requireAdmin()');
+    expect(acceptanceAdmin).toContain('requireAdmin()');
+    expect(acceptanceAdmin).toContain("return NextResponse.json({ error: 'terminal-order' }, { status: 409 })");
+    expect(memberRequests).toContain('requireActiveMember()');
+    expect(memberRequests).toContain('order.memberId !== member.memberId');
+    expect(memberRequests).toContain("order.paymentStatus !== '결제완료'");
+    expect(marketing).toContain('requireActiveMember()');
+    expect(migration).toContain('o.member_id = new.member_id');
+    expect(migration).toContain("o.payment_status = '결제완료'");
+    expect(migration).toContain("revoke execute on function public.guard_customer_service_request_insert()");
+  });
 });

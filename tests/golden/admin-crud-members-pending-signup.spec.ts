@@ -1,4 +1,7 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { ADMIN_EMAIL, ADMIN_PASSWORD, CRUD_ENABLED, bypassHeaders, loginAsAdmin } from './_lib/adminCrudHelpers';
 
 // 골든플로우 #7 — 관리자 콘솔 CRUD 실구동: /signup(B2B 업체 탭) → 관리자 승인(pending → active).
@@ -33,6 +36,18 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
   const runId = Date.now();
   const email = `e2e-b2b-${runId}@test.baekjo`;
   const companyName = `E2E B2B 테스트 업체 ${runId}`;
+  const documentPath = path.join(os.tmpdir(), `e2e-b2b-license-${runId}.png`);
+
+  test.beforeAll(() => {
+    fs.writeFileSync(
+      documentPath,
+      Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64'),
+    );
+  });
+
+  test.afterAll(() => {
+    fs.rmSync(documentPath, { force: true });
+  });
 
   test('B2B 신규가입(즉시 pending) → 관리자 승인 → 새로고침 후 영속성 확인', async ({ page }) => {
     // 1) B2B 탭으로 가입 신청.
@@ -56,6 +71,8 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     await page.getByLabel('백조오브제와 함께하고 싶은 이유를 알려주세요. *').fill('E2E 테스트 사유');
 
     await page.getByLabel('사업자등록증 (필수)').check();
+    await page.locator('input[type="file"]').first().setInputFiles(documentPath);
+    await expect(page.getByText(/업로드됨/)).toBeVisible({ timeout: 20_000 });
 
     await page.getByLabel('운영 시간 *').fill('평일 09:00-18:00');
     await page.getByLabel('제공 서비스 *').fill('E2E 테스트 서비스 제공');
@@ -67,9 +84,11 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     await expect(page.getByRole('heading', { name: '가입 신청 완료' })).toBeVisible({ timeout: 15_000 });
 
     // 2) 관리자 API로 방금 만든 계정을 찾아 pending 상태 확인(신뢰 가능한 진실 소스).
+    // U2(0173) 이후 /api/admin/members는 페이지당 20건으로 서버 페이지네이션되므로, search로
+    // 좁혀서 조회한다.
     const adminPage = await page.context().browser()!.newPage({ extraHTTPHeaders: bypassHeaders() });
     await loginAsAdmin(adminPage);
-    const listRes = await adminPage.request.get('/api/admin/members');
+    const listRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     expect(listRes.ok()).toBe(true);
     const { users } = (await listRes.json()) as {
       users: Array<{ id: string; email: string; status: string; role: string }>;
@@ -110,7 +129,7 @@ test.describe('골든플로우 #7: 관리자 CRUD 실구동 — 회원 승인(B2
     // 4) 새로고침 후에도 유지되는지 확인 + API 재조회로 이중 확인.
     await adminPage.reload();
     await expect(adminPage.locator('body')).toContainText('활성 (승인완료)', { timeout: 15_000 });
-    const verifyRes = await adminPage.request.get('/api/admin/members');
+    const verifyRes = await adminPage.request.get(`/api/admin/members?search=${encodeURIComponent(email)}`);
     const verified = (await verifyRes.json()) as { users: Array<{ id: string; status: string }> };
     expect(verified.users.find((u) => u.id === memberId)?.status).toBe('active');
 

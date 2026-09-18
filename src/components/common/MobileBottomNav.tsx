@@ -48,6 +48,11 @@ export default function MobileBottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={(event) => {
+                // 현재 탭을 다시 누를 때 같은 RSC를 재요청하지 않는다. 화면과 스크롤 위치도
+                // 그대로 유지해 모바일 탭바가 네이티브 앱처럼 반응하게 한다.
+                if (active) event.preventDefault();
+              }}
               aria-current={active ? 'page' : undefined}
               className={`flex h-full w-full flex-col items-center justify-center gap-1 ${
                 active ? 'text-[#17211D]' : 'text-[#8A918B]'

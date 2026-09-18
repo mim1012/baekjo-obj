@@ -1,5 +1,14 @@
 import { test, expect, type APIRequestContext } from '@playwright/test';
-import { q, stockOf, orderRow, supabaseEnvReady, fixtureId, sweepStaleFixtures } from './helpers';
+import {
+  createPaymentFixtureSeller,
+  PAYMENT_FIXTURE_DISCLOSURE_SQL,
+  q,
+  stockOf,
+  orderRow,
+  supabaseEnvReady,
+  fixtureId,
+  sweepStaleFixtures,
+} from './helpers';
 import { bypassHeaders } from '../golden/_lib/adminCrudHelpers';
 import { MEMBER_EMAIL, MEMBER_PASSWORD, loginAsMember } from '../golden/_lib/memberCrudHelpers';
 import { resolvePaymentsWriteBaseUrl } from '../_lib/envSafety';
@@ -98,20 +107,24 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
       address: '테스트',
       items: [{ productId: P, quantity: qty }],
       paymentMethod: '신용카드',
+      consents: { orderTerms: true, thirdPartySellerKeys: [`seller:${sellerId}`], madeToOrderProductIds: [] },
     });
 
   let orderId: string;
+  let sellerId: string;
 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${P}';`);
-    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${P}','${P}', 'b1', 'etc', 1000, 5, true);`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id, detail)
+             values ('${P}','${P}', 'b1', 'etc', 1000, 5, true, '${sellerId}', ${PAYMENT_FIXTURE_DISCLOSURE_SQL});`);
   });
 
   test.afterAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${P}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
   });
 
   test('카드 주문 생성 시 재고를 차감하고 결제대기로 선점한다', async () => {
@@ -149,6 +162,38 @@ test.describe.serial('결제 라우트 — 주문 선점/불명 상태(claim 잔
   });
 });
 
+test.describe.serial('주문 상품고시 게이트', () => {
+  const P = fixtureId('missing_disclosure');
+  const CUSTOMER = fixtureId('missing_disclosure_customer');
+  let sellerId: string;
+
+  test.beforeAll(async () => {
+    await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
+    await q(`delete from public.products where id='${P}';`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id)
+             values ('${P}','${P}', 'b1', 'etc', 1000, 5, true, '${sellerId}');`);
+  });
+
+  test.afterAll(async () => {
+    await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
+    await q(`delete from public.products where id='${P}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
+  });
+
+  test('필수고시가 없으면 검증 판매자 상품이어도 주문을 차단한다', async () => {
+    const response = await callApi('/api/orders', {
+      customerName: CUSTOMER,
+      phone: '010-0000-0000',
+      address: '테스트',
+      items: [{ productId: P, quantity: 1 }],
+      paymentMethod: '무통장입금',
+    });
+    expect(response.status).toBe(409);
+    expect(response.json?.error).toBe('product-compliance-incomplete');
+  });
+});
+
 // claim(승인중 전이)을 겪지 않은 별도 주문으로 취소/재확인/멱등 흐름을 검증한다 — 위 describe에서
 // order-A가 claim 이후 이 API 표면으로는 취소 불가능한 상태(승인중)에 고정되므로, 체인을 이어가면
 // 이 시나리오들이 모두 무의미하게 실패/스킵된다(2026-07-13 team-lead 지적: serial 1건 실패 시 5건
@@ -169,15 +214,18 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입
       address: '테스트',
       items: [{ productId: Q, quantity: qty }],
       paymentMethod: '무통장입금',
+      consents: { orderTerms: true, thirdPartySellerKeys: [`seller:${sellerId}`], madeToOrderProductIds: [] },
     });
 
   let orderId: string;
+  let sellerId: string;
 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${Q}';`);
-    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${Q}','${Q}', 'b1', 'etc', 1000, 5, true);`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id, detail)
+             values ('${Q}','${Q}', 'b1', 'etc', 1000, 5, true, '${sellerId}', ${PAYMENT_FIXTURE_DISCLOSURE_SQL});`);
     const res = await mkOrder(1);
     orderId = (res.json?.order?.id ?? res.json?.id) as string;
   });
@@ -185,6 +233,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입
   test.afterAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${Q}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
   });
 
   test('무통장입금 결제대기 주문에 cancel을 호출하면 원자적으로 취소 처리하고 재고를 복원한다(토스 무관, 200)', async () => {
@@ -218,6 +267,7 @@ test.describe.serial('결제 라우트 — 취소/재확인/멱등 (무통장입
 test.describe('결제 라우트 — 카드 주문 취소 안전 수렴 (프리뷰 통합)', () => {
   const S = fixtureId('route_wave1_s2');
   const CUSTOMER = fixtureId('route_wave1_cancel_card');
+  let sellerId: string;
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,
@@ -225,18 +275,21 @@ test.describe('결제 라우트 — 카드 주문 취소 안전 수렴 (프리�
       address: '테스트',
       items: [{ productId: S, quantity: qty }],
       paymentMethod: '신용카드',
+      consents: { orderTerms: true, thirdPartySellerKeys: [`seller:${sellerId}`], madeToOrderProductIds: [] },
     });
 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
-    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true);`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id, detail)
+             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true, '${sellerId}', ${PAYMENT_FIXTURE_DISCLOSURE_SQL});`);
   });
 
   test.afterAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
   });
 
   test('카드 주문 취소는 토스 권위 조회 결과에 맞춰 보류하거나 안전 취소한다', async () => {
@@ -270,6 +323,7 @@ test.describe('결제 라우트 — 카드 주문 취소 안전 수렴 (프리�
 test.describe('결제 라우트 — 오버셀 (독립 시나리오, 프리뷰 통합)', () => {
   const R = fixtureId('route_wave1_r1');
   const CUSTOMER = fixtureId('route_wave1_oversell');
+  let sellerId: string;
   // 무통장입금 — 이 테스트의 목적은 오버셀 차단(재고 원자성)이지 결제수단이 아니다. 신용카드로
   // 두면 cancel 정리 단계가 fail-closed(202, HIGH-1)에 걸려 재고가 안 풀리므로, 토스와 무관하게
   // 즉시 취소되는 무통장입금으로 정리 단계를 단순하게 유지한다.
@@ -280,18 +334,21 @@ test.describe('결제 라우트 — 오버셀 (독립 시나리오, 프리뷰 �
       address: '테스트',
       items: [{ productId: R, quantity: qty }],
       paymentMethod: '무통장입금',
+      consents: { orderTerms: true, thirdPartySellerKeys: [`seller:${sellerId}`], madeToOrderProductIds: [] },
     });
 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${R}';`);
-    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${R}','${R}', 'b1', 'etc', 1000, 1, true);`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id, detail)
+             values ('${R}','${R}', 'b1', 'etc', 1000, 1, true, '${sellerId}', ${PAYMENT_FIXTURE_DISCLOSURE_SQL});`);
   });
 
   test.afterAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${R}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
   });
 
   test('재고 1개에 동시 2주문이 들어오면 정확히 1건만 성공한다 (오버셀 차단)', async () => {
@@ -331,6 +388,7 @@ test('cron 시크릿 미설정 시 fail-closed로 500을 반환한다 (Bearer un
 test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + status 읽기전용 (R4 라운드2, 프리뷰 통합)', () => {
   const S = fixtureId('route_wave1_s1');
   const CUSTOMER = fixtureId('route_wave1_return');
+  let sellerId: string;
   const mkOrder = (qty: number) =>
     callApi('/api/orders', {
       customerName: CUSTOMER,
@@ -338,6 +396,7 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
       address: '테스트',
       items: [{ productId: S, quantity: qty }],
       paymentMethod: '신용카드',
+      consents: { orderTerms: true, thirdPartySellerKeys: [`seller:${sellerId}`], madeToOrderProductIds: [] },
     });
 
   // /api/payments/return은 302 리다이렉트라 fetch 기본 동작(자동 추적)으로는 최종 목적지의
@@ -354,13 +413,15 @@ test.describe('결제 라우트 — GET /api/payments/return 바인딩 검증 + 
   test.beforeAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
-    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible)
-             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true);`);
+    sellerId = await createPaymentFixtureSeller();
+    await q(`insert into public.products (id, name, brand_id, category, price, stock, is_visible, seller_id, detail)
+             values ('${S}','${S}', 'b1', 'etc', 1000, 5, true, '${sellerId}', ${PAYMENT_FIXTURE_DISCLOSURE_SQL});`);
   });
 
   test.afterAll(async () => {
     await q(`delete from public.orders where customer_name='${CUSTOMER}';`);
     await q(`delete from public.products where id='${S}';`);
+    await q(`delete from public.sellers where id='${sellerId}';`);
   });
 
   test('위조된 paymentKey로 /api/payments/return을 호출해도 결제대기 주문·재고를 건드리지 않는다', async ({ request }) => {

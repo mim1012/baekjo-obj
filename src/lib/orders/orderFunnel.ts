@@ -35,8 +35,10 @@ export const FUNNEL_STAGE_ORDER: readonly FunnelStage[] = [
 /**
  * 취소로 묶는 주문상태. `readonly OrderStatus[]` 로
  * 타입을 강제하므로, ORDER_STATUSES 유니온에서 값이 사라지면 빌드가 깨져 드리프트를 잡는다.
+ * 부분취소/부분취소완료(DERIVED_ORDER_STATUSES)도 취소요청/취소완료와 같은 취소반품 버킷으로 접는다 —
+ * 결제/배송이 무엇이든 취소가 진행 중이거나 일부 완료된 주문은 진행 중 탭에 남지 않아야 한다.
  */
-const CANCEL_RETURN_ORDER_STATUSES: readonly OrderStatus[] = ['취소요청', '취소완료'];
+const CANCEL_RETURN_ORDER_STATUSES: readonly OrderStatus[] = ['취소요청', '취소완료', '부분취소', '부분취소완료'];
 /**
  * 결제상태만으로도 취소·반품으로 접는 값. 상세(OrderStatusPanel)는 세 축을 독립 편집할 수 있어
  * orderStatus 는 그대로 두고 paymentStatus 만 결제취소/환불완료로 바꾸는 운영이 가능한데,

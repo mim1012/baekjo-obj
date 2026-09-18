@@ -2,7 +2,12 @@ import NextAuth from 'next-auth';
 import { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { authConfig } from '@/lib/auth.config';
-import { findMemberByEmail, upsertSocialMember } from '@/lib/members/repo';
+import {
+  findMemberByEmailWithSessionVersion,
+  findMemberByIdWithSessionVersion,
+  upsertSocialMember,
+} from '@/lib/members/repo';
+import { isCurrentSession } from '@/lib/members/sessionVersion';
 import { verifyPassword } from '@/lib/members/password';
 import { checkAuthRateLimit, resetAuthRateLimit } from '@/lib/security/authRateLimit';
 
@@ -52,7 +57,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const normalizedEmail = email.trim().toLowerCase();
         if (!checkAuthRateLimit('login', normalizedEmail)) return null;
 
-        const member = await findMemberByEmail(normalizedEmail);
+        // session_version까지 함께 읽는다 — 0172 미적용 시엔 repo.ts의 42703 폴백이 0으로 흡수한다.
+        const member = await findMemberByEmailWithSessionVersion(normalizedEmail);
         const isValid = await verifyPassword(password, member?.passwordHash ?? DUMMY_PASSWORD_HASH);
         if (!member || !member.passwordHash || !isValid) return null;
         if (member.role !== 'partner' && !member.emailVerified) throw new EmailNotVerifiedError();
@@ -75,6 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: member.email,
           name: member.name,
           role: member.role,
+          sessionVersion: member.sessionVersion,
         };
         return authorizedUser;
       },
@@ -112,23 +119,36 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === 'kakao' || account?.provider === 'naver') {
         // signIn 콜백이 이미 upsert+active 검증을 통과시켰다 — 여기서 다시 upsert해도 멱등이라
         // 안전하지만(같은 값 재기록), 이미 active로 확인된 행이므로 name/image 갱신 로직도 다시 탄다.
-        const member = await upsertSocialMember({
+        const socialMember = await upsertSocialMember({
           provider: account.provider,
           providerId: account.providerAccountId,
           email: typeof token.email === 'string' ? token.email : null,
           name: typeof token.name === 'string' ? token.name : null,
           profileImage: typeof token.picture === 'string' ? token.picture : null,
         });
+        // upsertSocialMember는 (기존 함수라 손대지 않음) session_version 없는 SELECT_COLUMNS를
+        // 쓴다 — 정확한 버전을 토큰에 싣기 위해 방금 확정된 id로 한 번 더(폴백 내장) 조회한다.
+        const member = (await findMemberByIdWithSessionVersion(socialMember.id)) ?? socialMember;
         token.memberId = member.id;
+        token.sessionVersion = member.sessionVersion;
         // 소셜 로그인은 관리자 승격 경로가 아니다 — 항상 'user'로 고정.
         token.role = 'user';
         token.provider = account.provider;
       } else if (user) {
         token.memberId = user.id;
+        token.sessionVersion = (user as { sessionVersion?: number }).sessionVersion;
         token.role = (
           user as { role?: 'user' | 'admin' | 'b2b' | 'insurance' | 'partner' }
         ).role;
         token.provider = 'email';
+      } else {
+        // 기존 토큰 재검증 경로 — DB 값을 토큰에 되쓰지 않는다(그러면 폐기된 JWT가 되살아난다).
+        // 버전이 일치하지 않거나(비밀번호/role 변경, 정지·탈퇴·반려) member를 못 찾으면 무효화(null)
+        // 해서 next-auth가 세션을 끊게 한다. 일치하면 token을 그대로(불변) 반환한다.
+        const member = typeof token.memberId === 'string'
+          ? await findMemberByIdWithSessionVersion(token.memberId)
+          : null;
+        if (!isCurrentSession(token.sessionVersion, member)) return null;
       }
       return token;
     },

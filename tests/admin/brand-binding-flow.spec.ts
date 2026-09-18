@@ -91,6 +91,15 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(patchFunction).toContain('return NextResponse.json({ brand }, { status: 200 });');
   });
 
+  test('공개 브랜드 API 는 DB 환경파일이 없는 로컬 개발에서 헤더를 빈 목록으로 유지한다', () => {
+    const route = src('src', 'app', 'api', 'brands', 'route.ts');
+
+    expect(route).toContain("process.env.NODE_ENV === 'development'");
+    expect(route).toContain('isMissingSupabaseEnvironmentError(error)');
+    expect(route).toContain('NextResponse.json({ brands: [] }, { status: 200 })');
+    expect(route).toContain("NextResponse.json({ error: 'server-error' }, { status: 500 })");
+  });
+
   test('repo 브랜드 목록/update 는 DB 행을 rowToBrand 로 되읽는다', () => {
     const repoSource = src('src', 'lib', 'brands', 'repo.ts');
     const updateFunction = sliceBetween(
@@ -126,11 +135,18 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     const brandsContent = src('src', 'components', 'brands', 'BrandsContent.tsx');
     const productsClient = src('src', 'components', 'brands', 'BrandProductsClient.tsx');
 
-    expect(brandsPage).toContain("import { getCachedPublicProductCountsByBrand, listCachedPublicBrands } from '@/lib/public-read-cache'");
+    // PR2: brands/page.tsx가 getCachedPageTextSettings 도 같은 import 문에서 들여오면서 리터럴
+    // import 문자열이 바뀌었다 — 정확한 순서에 의존하지 않고 두 심볼이 같은 import 안에 있는지로
+    // 데이터 로딩 콘센트(공개 repo 캐시)가 유지됐는지를 확인한다.
+    expect(brandsPage).toMatch(/import\s+\{[^}]*\bgetCachedPublicProductCountsByBrand\b[^}]*\blistCachedPublicBrands\b[^}]*\}\s+from '@\/lib\/public-read-cache';/);
     expect(brandsPage).toContain("export const dynamic = 'force-dynamic'");
     expect(brandsPage).toContain('const brands = await listCachedPublicBrands();');
     expect(brandsPage).toContain('const productCounts = await getCachedPublicProductCountsByBrand(brands.map((brand) => brand.id));');
-    expect(brandsPage).toContain('<BrandsContent brands={brands} productCounts={productCounts} />');
+    // 브랜드 페이지 문구도 CMS 소비로 전환됐다 — selectBrandsContent 로 얻은 content 가 props 로
+    // 전달되는지 확인한다(브랜드 목록/카운트는 여전히 공개 repo 캐시에서 옴 — 위 두 줄이 그 증거).
+    expect(brandsPage).toContain("import { selectBrandsContent, type BrandsContentData } from '@/lib/cms/source/brands';");
+    expect(brandsPage).toContain('const content = selectBrandsContent(published, settings);');
+    expect(brandsPage).toContain('<BrandsContent brands={brands} productCounts={productCounts} content={content} managed={managed} />');
     expectPublicBrandSource(brandsPage);
 
     expect(detailPage).toContain('getCachedPublicBrandById,');
@@ -164,7 +180,9 @@ test.describe('브랜드 관리자 저장 → 공개 페이지 바인딩 경로'
     expect(shippingInfoSource).toContain('if (!shipping) return null;');
     expect(shippingInfoSource).toContain('if (rows.length === 0) return null;');
 
-    expect(brandsContent).toContain('export default function BrandsContent({ brands, productCounts, initialSpotlightBrand }: Props)');
+    // PR2: BrandsContent도 CMS 소비로 전환돼 content/managed 가 Props 에 추가됐다 — 데이터 props
+    // (brands/productCounts/initialSpotlightBrand) 자체는 그대로 유지된다.
+    expect(brandsContent).toContain('export default function BrandsContent({ brands, productCounts, initialSpotlightBrand, content, managed }: Props)');
     expect(brandsContent).toContain('productCounts: Record<string, number>;');
     expect(brandsContent).toContain('.filter((brand) => brand.isVisible !== false)');
     expect(brandsContent).toContain('<BrandCard key={brand.id} brand={brand} productCount={productCounts[brand.id] ?? 0} variant="brand-page" />');
