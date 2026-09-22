@@ -87,6 +87,7 @@ export function buildSiteShellContent(
         { label: overridden(settings, 'common.navCare', '케어'), href: '/concerns', visible: true },
         { label: overridden(settings, 'common.navInsurance', '펫보험'), href: '/insurance', visible: false },
         { label: overridden(settings, 'common.navB2b', 'B2B'), href: '/b2b', visible: true },
+        { label: '회사소개', href: '/about', visible: true },
       ],
       storyLinks: [
         { label: overridden(settings, 'common.navAudit', '백조오브제 Audit의 검토 기준'), href: '/audit', visible: true },

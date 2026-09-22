@@ -7,6 +7,7 @@ import { Plus, Edit, Trash2, Eye, EyeOff, LayoutTemplate } from 'lucide-react';
 import { useProductList } from '@/hooks/admin-new/useProductList';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
+import MobileDataCard from '@/components/admin-new/common/MobileDataCard';
 import FilterBar from '@/components/admin-new/common/FilterBar';
 import Badge from '@/components/admin-new/common/Badge';
 import { formatPrice } from '@/lib/format';
@@ -314,6 +315,17 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
 
       <div className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden">
         <DataTable
+          renderMobileRow={(product) => (
+            <MobileDataCard
+              title={<button type="button" onClick={() => handleEdit(product.id)} className="text-left underline-offset-4 hover:underline">{product.name}</button>}
+              image={product.image}
+              subtitle={brands.find(brand => brand.id === product.brandId)?.name}
+              selected={selectedIds.includes(product.id)}
+              onSelect={(checked) => toggleSelection(product.id, checked)}
+              details={columns.filter(column => !['image', 'name', 'actions'].includes(column.key)).map(column => ({ label: column.header, value: column.render(product) }))}
+              action={columns.find(column => column.key === 'actions')?.render(product)}
+            />
+          )}
           columns={columns}
           data={paginatedProducts}
           isLoading={loading}
@@ -325,7 +337,7 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
         
         {totalPages > 1 && (
           <div className="px-5 py-4 border-t border-gray-200 flex justify-center">
-            <nav className="flex items-center gap-1">
+            <nav aria-label="상품 목록 페이지" className="flex flex-wrap justify-center items-center gap-1">
               <button 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
@@ -365,13 +377,13 @@ export default function AdminProductsClient({ initialProducts, initialBrands }: 
       </div>
 
       {selectedIds.length > 0 && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px] transition-all duration-300">
-          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-            <div className="text-[14px] font-medium text-gray-600 hidden sm:block flex-1">
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[var(--admin-sidebar-width,236px)] pb-[env(safe-area-inset-bottom)] transition-all duration-300">
+          <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center justify-between gap-2">
+            <div className="text-[14px] font-medium text-gray-600 flex-1">
               {selectedIds.length}개 상품 선택됨
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end shrink-0">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto justify-end [&>button]:min-h-11 [&>button]:justify-center">
               <button
                 type="button"
                 onClick={async () => {

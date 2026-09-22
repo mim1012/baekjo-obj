@@ -44,7 +44,7 @@ export default async function NoticesPage() {
 
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12" data-cms-managed={managed ? 'notices' : undefined}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
+      <div className="site-container-wide">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-editorial text-[13px] italic text-[#A8742E]">{content.hero.eyebrow}</p>
@@ -77,7 +77,7 @@ export default async function NoticesPage() {
                         <NoticeCategoryBadge category={notice.category} />
                         <time className="font-editorial text-[12px] tracking-wide text-[#8A7A64]">{formatDate(notice.date)}</time>
                       </div>
-                      <h2 className="mt-3 line-clamp-2 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
+                      <h2 className="mt-3 text-[15px] font-semibold leading-[1.5] text-[#17211D] group-hover:text-[#A8742E]">
                         {notice.title}
                       </h2>
                       <div className="mt-3 flex items-center text-[12px] text-[#59615B]">

@@ -114,30 +114,30 @@ export default function ProductCard({
           : "pointer-events-none relative z-10 flex flex-1 flex-col"
       }>
         <div className={isBrandDetailHorizontal
-          ? "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:col-span-2 md:row-start-1 md:hidden"
+          ? "flex min-h-12 shrink-0 flex-wrap items-center gap-1 overflow-visible bg-[#FFFEFB] px-2 py-2 md:col-span-2 md:row-start-1 md:hidden"
           : isMobileHorizontal
-            ? "col-span-2 row-start-1 flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
+            ? "col-span-2 row-start-1 flex min-h-11 shrink-0 flex-wrap items-center gap-1 overflow-visible bg-[#FFFEFB] px-3 py-2"
             : isCompact
-              ? "flex h-10 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-3 py-2"
-              : "flex h-12 shrink-0 flex-nowrap items-center gap-1 overflow-hidden bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
+              ? "flex min-h-11 shrink-0 flex-wrap items-center gap-1 overflow-visible bg-[#FFFEFB] px-3 py-2"
+              : "flex min-h-12 shrink-0 flex-wrap items-center gap-1 overflow-visible bg-[#FFFEFB] px-2 py-2 md:h-auto md:min-h-12 md:flex-wrap md:gap-1.5 md:px-4"
         }>
           {product.isBest && (
             <>
-              <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[9px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
+              <span className="shrink-0 whitespace-nowrap rounded-full bg-[#17211D] px-1.5 py-1 text-[11px] font-bold leading-none text-[#FBFAF7] md:px-2.5 md:text-[11px]">
                 BEST
               </span>
               <Link
                 href={brandAuditHref}
                 prefetch={false}
                 aria-label={`${brandName} 자체 큐레이션 기준 보기`}
-                className="pointer-events-auto shrink-0 whitespace-nowrap text-[9px] font-semibold text-[#59615B] underline underline-offset-2 md:text-[10px]"
+                className="pointer-events-auto shrink-0 whitespace-nowrap text-[11px] font-semibold text-[#59615B] underline underline-offset-2 md:text-[10px]"
               >
                 자체 큐레이션 · 기준 보기
               </Link>
             </>
           )}
           {availabilityLabel && (
-            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[9px] font-bold leading-none text-[#59615B] md:px-2.5 md:text-[11px]">
+            <span className="shrink-0 whitespace-nowrap rounded-full bg-[#FAF8F3] px-1.5 py-1 text-[11px] font-bold leading-none text-[#59615B] md:px-2.5 md:text-[11px]">
               {availabilityLabel}
             </span>
           )}
@@ -178,12 +178,12 @@ export default function ProductCard({
             ? "col-start-2 row-start-2 flex min-w-0 flex-col p-3 md:p-4"
             : `flex flex-1 flex-col ${isHomeCard ? 'p-[18px]' : isCompact ? 'p-4' : 'p-4 md:p-6'}`
         }>
-          <p className={`break-keep leading-[1.5] text-[#59615B] ${isHomeCard ? 'text-[12px]' : 'text-[11px] md:text-[12px]'}`}>{brandName}</p>
-          <h3 className={`break-keep font-bold leading-[1.55] text-[#26332D] ${isHomeCard ? 'line-clamp-2 mt-[6px] text-[15px] lg:text-[16px]' : isCompact ? 'mt-1.5 text-[14px]' : 'mt-1.5 text-[13px] md:mt-2 md:text-[15px]'}`}>
+          <p className="break-keep text-[13px] leading-[1.6] text-[#59615B]">{brandName}</p>
+          <h3 className="mt-1.5 break-keep text-[15px] font-bold leading-[1.6] text-[#26332D] md:text-[16px]">
             {product.name}
           </h3>
           {summary && (
-            <p className={`mt-2 break-keep text-[#59615B] ${isHomeCard ? 'line-clamp-2 text-[12px] leading-[1.55]' : isCompact ? 'line-clamp-1 text-[11px] leading-[1.5]' : 'line-clamp-2 text-[11px] leading-[1.55] md:text-[12px]'}`}>
+            <p className="mt-2 break-keep text-sm leading-[1.7] text-[#59615B]">
               {summary}
             </p>
           )}
@@ -204,7 +204,7 @@ export default function ProductCard({
                 <p className={`font-bold tracking-[-0.02em] text-[#17251F] ${isHomeCard ? 'text-[17px] lg:text-[18px]' : isCompact ? 'text-[17px]' : 'text-[15px] md:text-[19px]'}`}>가격 협의</p>
               )}
             </div>
-            <p className="mt-2 line-clamp-1 text-[10px] font-semibold text-[#68716C] md:text-[11px]">
+            <p className="mt-2 break-keep text-xs font-medium leading-[1.6] text-[#59615B]">
               실제 판매자 · {product.seller?.legalName || product.seller?.displayName || '판매자 정보 확인 중'}
             </p>
 
@@ -248,7 +248,7 @@ export default function ProductCard({
                 void handleCart();
               }}
               disabled={!isSellable}
-              className={`flex min-w-[72px] flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] h-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-10 text-[12px]' : 'min-h-[42px] text-[11px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
+              className={`flex min-w-[72px] flex-1 items-center justify-center gap-1 bg-white font-semibold transition-colors duration-300 disabled:cursor-not-allowed disabled:opacity-50 ${isHomeCard ? 'rounded-[10px] min-h-11 border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white px-2 text-[13px]' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] px-1.5 ${isCompact ? 'min-h-11 text-[13px]' : 'min-h-11 text-[13px] sm:min-h-[44px] sm:gap-1.5 sm:px-2 sm:text-sm'}`}`}
             >
               <ShoppingBag className="hidden size-3.5 shrink-0 min-[361px]:block sm:size-4" />
               <span className="whitespace-nowrap">{isSellable ? '장바구니' : (availabilityLabel ?? '구매 불가')}</span>
@@ -261,7 +261,7 @@ export default function ProductCard({
                 void handleWishlist();
               }}
               disabled={wishlistBusy}
-              className={`flex shrink-0 items-center justify-center bg-white transition-colors duration-300 ${isHomeCard ? 'rounded-[10px] h-[40px] w-[40px] border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] ${isCompact ? 'size-10' : 'size-[42px] sm:size-[44px]'}`}`}
+              className={`flex shrink-0 items-center justify-center bg-white transition-colors duration-300 ${isHomeCard ? 'rounded-[10px] min-h-11 w-11 border border-[#E7E2D9] text-[#17211D] hover:border-[#173C32] hover:bg-[#173C32] hover:text-white' : `rounded-xl border border-[#E7E0D5] text-[#17211D] hover:bg-[#F3EEE6] ${isCompact ? 'size-11' : 'size-11 sm:size-[44px]'}`}`}
             >
               <Heart className={`size-4 ${wishlisted ? 'fill-[#9E3939] text-[#9E3939]' : ''}`} />
             </button>

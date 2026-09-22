@@ -15,7 +15,7 @@ export default function AdminShell({ children, user }: AdminShellProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#F7F8F6] text-[#17201B] font-sans">
+    <div className="min-h-screen bg-[#F7F8F6] text-[#17201B] font-sans" style={{ '--admin-sidebar-width': sidebarCollapsed ? '68px' : '236px' } as React.CSSProperties}>
       <AdminSidebar 
         user={user} 
         collapsed={sidebarCollapsed} 
@@ -29,16 +29,17 @@ export default function AdminShell({ children, user }: AdminShellProps) {
       />
 
       <div 
-        className={`flex flex-col min-h-screen transition-all duration-300 ease-in-out ${
+        className={`flex min-w-0 flex-col min-h-screen transition-all duration-300 ease-in-out ${
           sidebarCollapsed ? 'md:ml-[68px]' : 'md:ml-[236px]'
         }`}
       >
         <AdminHeader 
+          menuOpen={mobileMenuOpen}
           onMenuClick={() => setMobileMenuOpen(true)} 
           user={user} 
         />
         
-        <main className="flex-1 p-4 md:p-6 w-full max-w-[1600px] mx-auto">
+        <main className="admin-content min-w-0 flex-1 p-4 pb-40 md:p-6 md:pb-32 w-full max-w-[1600px] mx-auto">
           {children}
         </main>
       </div>

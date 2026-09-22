@@ -234,6 +234,7 @@ const siteShell: CmsPageDefinition = {
         { label: '케어', href: '/concerns', visible: true },
         { label: '펫보험', href: '/insurance', visible: false },
         { label: 'B2B', href: '/b2b', visible: true },
+        { label: '회사소개', href: '/about', visible: true },
       ],
       storyLinks: [
         { label: '백조오브제 Audit의 검토 기준', href: '/audit', visible: true },
@@ -335,7 +336,7 @@ const audit: CmsPageDefinition = {
       eyebrow: 'BAEKJO OBJET AUDIT STANDARD',
       title: '선택보다 먼저,\n확인하는 기준이 있습니다.',
       description: '백조오브제는 많이 소개하는 것보다 왜 선택했는지 설명할 수 있는 것을 중요하게 생각합니다. 브랜드의 철학과 제품의 특성, 실제 사용에서 확인되는 부분까지 각 브랜드와 제품에 맞춰 살펴봅니다.',
-      image: '/images/brand-curation-hero.webp',
+      image: '/images/audit-review-hero-v1.png',
       imageAlt: '반려생활 상품 자료를 살펴보는 백조오브제 Audit',
       imageCaptionLine1: '모든 브랜드를 소개하지 않습니다.',
       imageCaptionLine2: '확인하고 선택한 브랜드만 소개합니다.',
@@ -412,7 +413,7 @@ const b2b: CmsPageDefinition = {
   group: '서비스',
   description: '기관·브랜드 파트너십과 협업 프로그램을 소개하는 화면입니다.',
   defaultContent: {
-    hero: { visible: true, eyebrow: 'BAEKJO OBJET FOR BUSINESS', title: '반려가족과 만나는 순간을\n함께 설계합니다.', description: '백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.', image: '/images/care_guide_hero.png', imageAlt: '반려생활 기관을 위한 백조오브제 B2B 파트너십', primaryCtaLabel: 'B2B 문의하기', primaryCtaHref: '/landing/care-kit#partner', secondaryCtaLabel: '협업 프로그램 보기', secondaryCtaHref: '#programs', overlayEyebrow: 'Care in every touchpoint', overlayText: '기관의 목적과 보호자의 필요가 만나는 구성을 제안합니다.' },
+    hero: { visible: true, eyebrow: 'BAEKJO OBJET FOR BUSINESS', title: '반려가족과 만나는 순간을\n함께 설계합니다.', description: '백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.', image: '/images/b2b-partnership-hero-v1.png', imageAlt: '반려생활 기관을 위한 백조오브제 B2B 파트너십', primaryCtaLabel: 'B2B 문의하기', primaryCtaHref: '/landing/care-kit#partner', secondaryCtaLabel: '협업 프로그램 보기', secondaryCtaHref: '#programs', overlayEyebrow: 'Care in every touchpoint', overlayText: '기관의 목적과 보호자의 필요가 만나는 구성을 제안합니다.' },
     partners: {
       visible: true, eyebrow: 'FOR PARTNERS', title: '목적에 따라 협업의 방식도 달라집니다.', description: '기관과 브랜드의 목적에 맞춰 필요한 협업 방식을 함께 찾습니다.',
       items: [

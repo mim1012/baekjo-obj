@@ -100,7 +100,7 @@ export default function BrandShowcaseSlider({ brands }: Props) {
                 <span className="break-keep text-[16px] font-semibold leading-[1.55] text-[#26332D] md:text-[17px]">
                   {formatBrandDisplayName(brand.name)}
                 </span>
-                <p className="mt-2 line-clamp-2 break-keep text-[13px] leading-[1.6] text-[#6F766F]">
+                <p className="mt-2 break-keep text-sm leading-[1.6] text-[#6F766F]">
                   {presentation.cardDescription}
                 </p>
                 <span className="mt-auto inline-flex pt-3 text-[12px] font-bold text-[#173C32] md:text-[13px]">

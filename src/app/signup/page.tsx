@@ -173,14 +173,14 @@ export default function SignupPage() {
 
   if (businessResult === 'success') {
     return (
-      <div className="min-h-dvh bg-[#E9E7E0] px-5 py-16 flex flex-col items-center justify-center">
+      <div className="page-section min-h-dvh bg-[#FBFAF7] px-5 flex flex-col items-center justify-center">
         <div className="max-w-md w-full border border-[#D1D0C8] bg-[#FAF9F5] p-10 text-center shadow-sm">
           <h2 className="text-2xl font-bold text-[#202521] mb-4">가입 신청 완료</h2>
           <p className="text-[#59615B] mb-6">
             가입 신청이 완료되었습니다.<br />
             관리자 승인 후 이용 가능합니다.
           </p>
-          <ul className="mb-8 space-y-2 rounded-sm border border-[#D8D6CE] bg-white/60 p-4 text-left text-xs leading-6 text-[#5F6761]">
+          <ul className="mb-8 space-y-2 rounded-sm border border-[#D8D6CE] bg-white/60 p-4 text-left text-sm leading-6 text-[#5F6761]">
             <li>· 제출하신 신청서는 관리자 심사 후 승인됩니다.</li>
             <li>· 승인 완료 후 가입 시 등록한 이메일과 비밀번호로 로그인하실 수 있습니다.</li>
             <li>· 승인 전에는 로그인이 제한되며, 심사 관련 문의는 고객센터(카카오톡·인스타그램)로 가능합니다.</li>
@@ -220,10 +220,10 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-[#E9E7E0] px-5 py-16">
-      <div className="mx-auto max-w-2xl border border-[#D1D0C8] bg-[#FAF9F5] p-7 sm:p-12">
+    <div className="page-section min-h-dvh bg-[#FBFAF7] px-5">
+      <div className="mx-auto w-full max-w-2xl sm:border sm:border-[#E7E0D5] sm:bg-white sm:p-10">
         <p className="font-editorial text-lg italic text-[#667368]">Join Baekjo Objet</p>
-        <h1 className="mt-3 text-4xl font-normal text-[#202521]">회원가입</h1>
+        <h1 className="page-title mt-3">회원가입</h1>
         <p className="mt-3 text-sm text-[#59615B]">
           {signupTab === 'user'
             ? '반려생활 정보를 등록하면 더 가까운 기준을 제안할 수 있습니다.'
@@ -310,7 +310,7 @@ export default function SignupPage() {
               </Field>
 
               <div className="space-y-4 border-t border-[#D8D6CE] pt-6">
-                <div className="rounded-sm border border-[#D8D6CE] bg-white/55 p-4 text-xs leading-6 text-[#59615B]">
+                <div className="rounded-sm border border-[#D8D6CE] bg-white/55 p-4 text-sm leading-6 text-[#59615B]">
                   회원 식별, 가입/로그인, 맞춤 큐레이션 제공을 위해 이름, 이메일, 비밀번호, 연락처,
                   반려동물 정보와 주요 고민을 수집·이용합니다. 회원정보는 회원 탈퇴 시까지 보관하며,
                   법령상 보존이 필요한 기록은 정해진 기간 동안 분리 보관됩니다.

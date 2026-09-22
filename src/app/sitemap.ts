@@ -8,6 +8,7 @@ import { getPublicNotices } from '@/lib/notices/publicVisibility';
 
 const PUBLIC_ROUTES = [
   '',
+  '/about',
   '/shop',
   '/brands',
   '/concerns',

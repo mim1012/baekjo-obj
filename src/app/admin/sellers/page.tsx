@@ -6,6 +6,7 @@ import type { Seller } from '@/types';
 import { deleteSeller, getAdminSellers } from '@/lib/storage';
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
+import MobileDataCard from '@/components/admin-new/common/MobileDataCard';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
 import SellerForm from '@/components/admin-new/sellers/SellerForm';
@@ -59,7 +60,7 @@ export default function SellersPage() {
       <PageHeader title="판매자 관리" description="브랜드와 별개로 실제 계약·배송·반품을 책임지는 사업자를 관리합니다."><button onClick={() => setEditing(null)} className="flex items-center gap-2 rounded bg-[#17201B] px-4 py-2 text-sm font-semibold text-white"><Plus size={16} />새 판매자 등록</button></PageHeader>
       <SummaryStrip items={[{ label: '전체 판매자', value: sellers.length }, { label: '검증 완료', value: sellers.filter((seller) => seller.status === 'verified').length }, { label: '작성 중', value: sellers.filter((seller) => seller.status === 'draft').length }, { label: '판매 중지', value: sellers.filter((seller) => seller.status === 'suspended').length }]} />
       <div className="relative max-w-sm"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" /><input value={keyword} onChange={(e) => setKeyword(e.target.value)} className="w-full rounded border border-gray-300 py-2 pl-9 pr-3 text-sm" placeholder="판매자명·사업자번호 검색" /></div>
-      <DataTable data={filtered} columns={columns} keyExtractor={(seller) => seller.id} isLoading={loading} />
+      <DataTable renderMobileRow={(seller) => <MobileDataCard title={seller.displayName} subtitle={seller.legalName} details={columns.filter(column => !['displayName', 'actions'].includes(column.key)).map(column => ({ label: column.header, value: column.render(seller) }))} action={columns.find(column => column.key === 'actions')?.render(seller)} />} data={filtered} columns={columns} keyExtractor={(seller) => seller.id} isLoading={loading} />
       {editing !== undefined && <SellerForm seller={editing} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await load(); }} />}
     </div>
   );

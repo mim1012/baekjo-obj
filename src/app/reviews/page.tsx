@@ -52,7 +52,7 @@ export default async function ReviewsPage({
 
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12" data-cms-managed={managed ? 'reviews' : undefined}>
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-8 lg:px-10">
+      <div className="site-container-wide">
         <div className="mb-5 flex flex-col gap-4 border-b border-[#D8D6CE] pb-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-editorial text-[13px] italic text-[#A8742E]">{content.hero.eyebrow}</p>

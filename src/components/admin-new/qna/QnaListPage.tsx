@@ -222,7 +222,7 @@ export default function QnaListPage() {
 
       {/* Right Detail Panel */}
       {selectedItem && (
-        <div className="w-full lg:w-1/3 min-w-[320px] max-w-md h-full flex-shrink-0 z-20">
+        <div className="w-full lg:w-1/3 min-w-0 max-w-md h-full flex-shrink-0 z-20">
           <QnaDetailPanel
             key={selectedItem.id}
             item={selectedItem}

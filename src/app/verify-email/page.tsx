@@ -41,8 +41,8 @@ export default function VerifyEmailPage() {
   const isSuccess = confirmResult === 'success';
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
-      <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-7 text-center shadow-sm sm:p-10">
+    <div className="auth-page">
+      <div className="auth-panel text-center">
         <BrandMark />
         {isSuccess ? (
           <>
@@ -62,7 +62,7 @@ export default function VerifyEmailPage() {
               링크가 만료됐거나 올바르지 않아요.
             </div>
             {isLoggedIn && (
-              <p className="mt-4 text-xs text-[#8D938E]">
+              <p className="mt-4 text-sm text-[#8D938E]">
                 마이페이지에서 인증 메일을 다시 보낼 수 있어요.
               </p>
             )}

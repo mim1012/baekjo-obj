@@ -44,13 +44,13 @@ export default function MainConcernCard({ concern, index = "01" }: Props) {
       <div className="flex flex-col mt-4">
         <h3 className="text-[17px] md:text-[19px] font-bold tracking-tight text-[#17231E] mb-1.5 md:mb-2">{concern.title}</h3>
         {/* 설명은 2줄 고정(line-clamp) — 카드 높이·줄 수를 동일하게 정렬 */}
-        <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px] line-clamp-2 min-h-[41.6px] md:min-h-[44.8px]">
+        <p className="break-keep text-sm leading-[1.6] text-[#72766F]  min-h-[41.6px] md:min-h-[44.8px]">
           {concern.shortDescription}
         </p>
       </div>
 
       <div className="flex items-center gap-1.5 mt-4 md:mt-5">
-        <span className="text-[12px] md:text-[13px] font-bold text-[#17231E]">살펴보기</span>
+        <span className="text-sm font-bold text-[#17231E]">살펴보기</span>
         <ArrowRight className="size-3.5 md:size-4 text-[#17231E] transition-transform duration-300 group-hover:translate-x-1" strokeWidth={2} />
       </div>
     </Link>
@@ -80,7 +80,7 @@ export function SubConcernCard({ concern }: Props) {
           <h3 className="mb-1 break-keep text-[16px] font-bold tracking-tight text-[#17231E] md:text-[17px]">
             {concern.title}
           </h3>
-          <p className="break-keep text-[13px] leading-[1.6] text-[#72766F] md:text-[14px] line-clamp-2">
+          <p className="break-keep text-sm leading-[1.6] text-[#72766F]  ">
             {concern.shortDescription}
           </p>
         </div>

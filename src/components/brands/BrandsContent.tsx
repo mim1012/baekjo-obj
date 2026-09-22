@@ -147,7 +147,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
       {/* 2. 백조오브제의 5가지 브랜드 오디트 기준 */}
       {content.standards.visible && (
       <section className="bg-[#F7F4ED] pb-16 md:pb-[72px]">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 -mt-6 md:-mt-10 relative z-10">
+        <div className="brand-page-container -mt-6 md:-mt-10 relative z-10">
           <div className="bg-[#FFFEFB] rounded-[20px] border border-[#E4DDD1] p-6 md:px-9 md:py-8 shadow-[0_4px_24px_rgba(23,37,31,0.04)]">
             <h2 className="text-[18px] md:text-[20px] font-bold text-[#17251F] mb-6 md:mb-8 tracking-[0.08em]">
               {content.standards.title}
@@ -163,7 +163,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
                       </span>
                       <h3 className="text-[15px] md:text-[16px] font-bold text-[#17251F]">{item.title}</h3>
                    </div>
-                   <p className="text-[12px] md:text-[13px] text-[#6F756F] leading-[1.6] break-keep">
+                   <p className="text-sm text-[#6F756F] leading-[1.6] break-keep">
                      {item.description}
                    </p>
                 </div>
@@ -178,7 +178,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
       {/* 3. 스포트라이트 브랜드 */}
       {content.spotlight.visible && spotlightBrand && (
         <section className="mb-16 md:mb-[72px]">
-          <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+          <div className="brand-page-container">
             <div 
               className="bg-[#FFFEFB] border border-[#D8C9B4] rounded-[20px] p-6 md:p-8 lg:p-10 flex min-h-[300px]"
               onMouseEnter={() => setIsSpotlightHovered(true)}
@@ -204,7 +204,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
                     <p className="text-[14px] md:text-[15px] leading-[1.7] text-[#6F756F] break-keep mb-8 max-w-[480px]">
                       {spotlightCustomDetails?.finalDescription || spotlightBrand.description}
                     </p>
-                    <Link href={`/brands/${spotlightBrand.slug}`} className="mt-auto self-start inline-flex items-center justify-center h-[42px] md:h-[46px] px-6 bg-[#17382D] text-white text-[13px] md:text-[14px] font-semibold rounded-md transition-colors hover:bg-[#10291F]">
+                    <Link href={`/brands/${spotlightBrand.slug}`} className="mt-auto self-start inline-flex items-center justify-center min-h-12 px-6 bg-[#17382D] text-white text-sm  font-semibold rounded-md transition-colors hover:bg-[#10291F]">
                       {content.spotlight.buttonLabel} <ArrowRight className="ml-2 w-4 h-4" />
                     </Link>
                   </div>
@@ -228,7 +228,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
 
       {/* 4. 필터 및 정렬 */}
       <section className="mb-8 md:mb-10">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="brand-page-container flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="overflow-x-auto pb-2 md:pb-0 hide-scrollbar">
             <nav aria-label="브랜드 분류" className="flex flex-nowrap gap-2 min-w-max">
               {categorySettings.brandFilters.map((tab) => {
@@ -239,7 +239,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
                     href={makeHref(tab.id)}
                     scroll={false}
                     aria-current={active ? 'page' : undefined}
-                    className={`flex h-[38px] md:h-[42px] items-center rounded-full px-[18px] text-[13px] md:text-[14px] font-semibold transition-colors duration-300 ${
+                    className={`flex min-h-11 items-center rounded-full px-[18px] text-sm  font-semibold transition-colors duration-300 ${
                       active
                         ? 'bg-[#17382D] text-white border border-[#17382D]'
                         : 'bg-[#FFFEFB] text-[#6F756F] border border-[#E4DDD1] hover:bg-[#F7F4ED]'
@@ -266,7 +266,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
 
       {/* 5. 전체 브랜드 카드 그리드 */}
       <section className="mb-16 md:mb-[72px]">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <div className="brand-page-container">
           {displayedBrands.length > 0 ? (
             <div data-testid="brand-grid" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {displayedBrands.map((brand) => (
@@ -299,7 +299,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
       {/* 6. 브랜드 입점 안내 CTA */}
       {content.partnership.visible && (
       <section>
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <div className="brand-page-container">
           <div className="bg-[#F7F4ED] border border-[#E4DDD1] rounded-[20px] overflow-hidden flex flex-col md:flex-row items-center h-auto md:h-[180px] lg:h-[200px]">
              {/* Left Image */}
              <div className="w-full md:w-[28%] lg:w-[24%] h-[160px] md:h-full relative bg-[#E4DDD1]">
@@ -335,7 +335,7 @@ export default function BrandsContent({ brands, productCounts, initialSpotlightB
     <Suspense
       fallback={(
         <main className="brand-page bg-[#FFFEFB] min-h-[60dvh] pt-16 pb-20" aria-label="브랜드 목록을 불러오는 중">
-          <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 animate-pulse">
+          <div className="brand-page-container animate-pulse">
             <div className="h-[400px] w-full rounded-2xl bg-[#F7F4ED] mb-16" />
             <div className="h-[180px] w-full rounded-2xl bg-[#F7F4ED] mb-[72px]" />
             <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
