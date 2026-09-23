@@ -36,7 +36,7 @@ export default async function NoticeDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="min-h-dvh bg-[#F4F2EC] bg-noise py-10 lg:py-12">
-      <div className="mx-auto max-w-[900px] px-4 sm:px-8">
+      <div className="site-container max-w-[900px]">
         
         <Link href="/notices" className="mb-5 inline-flex items-center text-sm font-semibold text-[#6F766F] transition-colors hover:text-[#17211D] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#A8742E] focus-visible:ring-offset-2">
           <ArrowLeft className="mr-2 h-4 w-4" aria-hidden="true" /> 목록으로

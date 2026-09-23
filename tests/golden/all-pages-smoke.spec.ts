@@ -109,6 +109,7 @@ async function textVisible(page: Page, text: string | RegExp): Promise<void> {
 /** 공개 정적(auth:'none') 페이지의 앵커. 키는 allPagesRoutes.ts 의 route 와 정확히 같아야 한다. */
 const PUBLIC_STATIC_ANCHORS: Record<string, AnchorCheck> = {
   '/': (page) => h1Visible(page),
+  '/about': (page) => h1Visible(page, /BAEKJO OBJET/),
   '/audit': (page) => h1Visible(page),
   '/b2b': (page) => h1Visible(page),
   '/brands': (page) => h1Visible(page, /우리 아이를 생각한다면/),

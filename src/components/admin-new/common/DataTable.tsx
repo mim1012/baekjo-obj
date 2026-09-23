@@ -18,6 +18,7 @@ interface DataTableProps<T> {
   onSelect?: (id: string, checked: boolean) => void;
   onSelectAll?: (checked: boolean) => void;
   isLoading?: boolean;
+  renderMobileRow?: (row: T) => ReactNode;
 }
 
 export default function DataTable<T>({ 
@@ -27,6 +28,7 @@ export default function DataTable<T>({
   selectedIds = [], 
   onSelect, 
   onSelectAll,
+  renderMobileRow,
   isLoading = false 
 }: DataTableProps<T>) {
   
@@ -41,8 +43,19 @@ export default function DataTable<T>({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="min-w-0 bg-white border border-gray-200 rounded-md overflow-hidden">
+      {renderMobileRow && (
+        <div className="md:hidden p-3">
+          {onSelectAll && data.length > 0 && (
+            <label className="flex min-h-11 items-center gap-3 mb-2 text-sm">
+              <input type="checkbox" checked={allSelected} onChange={(event) => onSelectAll(event.target.checked)} className="size-5" />
+              현재 페이지 전체 선택
+            </label>
+          )}
+          {data.length === 0 ? <p className="py-8 text-center text-sm text-gray-500">데이터가 없습니다.</p> : data.map(row => <React.Fragment key={keyExtractor(row)}>{renderMobileRow(row)}</React.Fragment>)}
+        </div>
+      )}
+      <div className={renderMobileRow ? 'hidden md:block overflow-x-auto' : 'overflow-x-auto'}>
         <table className="w-full text-left border-collapse whitespace-nowrap">
           <thead>
             <tr className="bg-[#F7F8F6] border-b border-gray-200 text-[13px] font-semibold text-gray-600">

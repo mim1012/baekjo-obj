@@ -44,12 +44,12 @@ export default function BrandCard({ brand, productCount, variant = 'default' }: 
           <h3 className="mb-2 min-h-[24px] break-keep text-[16px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:min-h-[26px] md:text-[18px]">
             {presentation.displayName}
           </h3>
-          <p className="break-keep text-[12px] leading-[1.6] text-[#6F756F] md:text-[13px]">
+          <p className="break-keep text-sm leading-[1.6] text-[#6F756F] ">
             {presentation.cardDescription}
           </p>
 
           {/* Bottom CTA */}
-          <span className="mt-auto pt-6 flex items-center justify-between text-[12px] md:text-[13px] font-semibold text-[#17251F]">
+          <span className="mt-auto pt-6 flex items-center justify-between text-sm font-semibold text-[#17251F]">
             {linkedProductCount > 0 
               ? `상품 ${linkedProductCount}개 · 둘러보기`
               : '브랜드 이야기 보기'}
@@ -72,7 +72,7 @@ export default function BrandCard({ brand, productCount, variant = 'default' }: 
           <h3 className="mb-2 break-keep text-[18px] font-bold leading-[1.35] tracking-tight text-[#18231F] md:text-[20px]">
             {fullBrandName}
           </h3>
-          <p className="line-clamp-2 text-[14px] leading-[1.65] text-[#68716C]">
+          <p className="text-[14px] leading-[1.65] text-[#68716C]">
             {brand.description}
           </p>
 

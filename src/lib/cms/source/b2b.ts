@@ -76,7 +76,7 @@ export function buildB2bContent(settings: PageTextSettings): B2bContent {
       eyebrow: 'BAEKJO OBJET FOR BUSINESS',
       title: [text('heroTitleLine1'), text('heroTitleLine2')].join('\n'),
       description: '백조오브제 B2B는 기관과 브랜드의 목적에 맞춰 상품과 콘텐츠, 필요한 구성을 함께 제안합니다.',
-      image: '/images/care_guide_hero.png',
+      image: '/images/b2b-partnership-hero-v1.webp',
       imageAlt: '반려생활 기관을 위한 백조오브제 B2B 파트너십',
       primaryCtaLabel: text('inquiryButton'),
       primaryCtaHref: '/landing/care-kit#partner',

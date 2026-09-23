@@ -411,7 +411,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
             <h3 className="break-keep text-[18px] lg:text-[20px] font-bold tracking-tight text-[#17251F]">
               병원 진료를 고려해야 할 신호
             </h3>
-            <p className="mt-2.5 break-keep text-[13px] lg:text-[14px] leading-[1.65] text-[#72766F]">
+            <p className="mt-2.5 break-keep text-sm leading-[1.65] text-[#72766F]">
               아래 증상이 보인다면 집에서 관리하기보다 수의사와 상담해보세요.
             </p>
             <ol className="mt-7 space-y-3 lg:space-y-3.5">
@@ -534,7 +534,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
                         aria-hidden="true"
                       />
                     </summary>
-                    <p className="ml-[22px] mt-3 max-w-[90%] break-keep text-[13px] lg:text-[14px] leading-[1.7] text-[#72766F] pb-1">
+                    <p className="ml-[22px] mt-3 max-w-[90%] break-keep text-sm leading-[1.7] text-[#72766F] pb-1">
                       {item.answer}
                     </p>
                   </details>

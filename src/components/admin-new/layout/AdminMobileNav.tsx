@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { X, LogOut } from 'lucide-react';
@@ -70,17 +70,35 @@ function NavGroup({
 
 export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNavProps) {
   const pathname = usePathname();
+  const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    const focusable = () => Array.from(drawerRef.current?.querySelectorAll<HTMLElement>('a[href], button:not([disabled])') ?? []);
+    focusable()[0]?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+      if (event.key === 'Tab') {
+        const items = focusable();
+        const first = items[0], last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }
     };
-  }, [isOpen]);
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const onResize = () => { if (desktop.matches) onClose(); };
+    desktop.addEventListener('change', onResize);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+      desktop.removeEventListener('change', onResize);
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   const activeHref = resolveActiveHref(pathname, ADMIN_ALL_NAV);
   const isActive = (href: string) => href === activeHref;
@@ -97,8 +115,15 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
       )}
 
       {/* Drawer */}
-      <div 
-        className={`fixed inset-y-0 left-0 w-[280px] bg-[#F7F8F6] shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
+      <div
+        ref={drawerRef}
+        id="admin-mobile-menu"
+        role="dialog"
+        aria-modal={isOpen || undefined}
+        aria-label="관리자 메뉴"
+        aria-hidden={!isOpen}
+        inert={!isOpen}
+        className={`fixed inset-y-0 left-0 w-[280px] max-w-[calc(100vw-32px)] bg-[#F7F8F6] shadow-xl z-50 transform transition-transform duration-300 ease-in-out md:hidden flex flex-col ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -108,7 +133,8 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
           </Link>
           <button 
             onClick={onClose}
-            className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-md"
+            aria-label="메뉴 닫기"
+            className="min-h-11 min-w-11 p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-md"
           >
             <X size={20} />
           </button>
@@ -120,7 +146,7 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
           <NavGroup items={etcNavItems} title="기타" isActive={isActive} onNavigate={onClose} />
         </div>
 
-        <div className="p-4 border-t border-gray-200 bg-white shrink-0">
+        <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] border-t border-gray-200 bg-white shrink-0">
           <div className="flex items-center justify-between">
             <div className="truncate pr-2">
               <p className="text-[14px] font-semibold text-[#17201B] truncate">{user.name || '관리자'}</p>
@@ -128,6 +154,7 @@ export default function AdminMobileNav({ isOpen, onClose, user }: AdminMobileNav
             </div>
             <button
               type="button"
+              aria-label="로그아웃"
               onClick={() => {
                 void logout().finally(() => {
                   window.location.assign('/');

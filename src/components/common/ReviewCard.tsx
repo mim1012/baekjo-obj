@@ -36,7 +36,7 @@ export default function ReviewCard({ review, productName, variant = 'default', c
               />
             ))}
           </div>
-          <p className="mt-2 text-[12px] md:text-[13px] text-[#59615B] break-keep">
+          <p className="mt-2 text-sm text-[#59615B] break-keep">
             {review.breed} · {review.age} · {review.usePeriod}
           </p>
         </div>
@@ -46,7 +46,7 @@ export default function ReviewCard({ review, productName, variant = 'default', c
       </div>
 
       {productName && (
-        <p className="border-l-2 border-[#D8C4A3] pl-3 text-[12px] md:text-[13px] font-medium leading-snug text-[#59615B] break-keep">
+        <p className="border-l-2 border-[#D8C4A3] pl-3 text-sm font-medium leading-snug text-[#59615B] break-keep">
           {productName}
         </p>
       )}

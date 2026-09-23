@@ -325,12 +325,12 @@ function ShopInner({ products, brands, content }: Props) {
   );
 
   return (
-    <div className="shop-container mx-auto w-[calc(100%-32px)] max-w-[1280px] pb-20 pt-10 md:w-[calc(100%-64px)] lg:pt-14">
+    <div className="shop-container site-container-wide pb-16 pt-10 lg:pt-14">
       {/* 1. 상단 인트로 및 검색 */}
       <div className="shop-intro mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="mb-2 text-xs font-bold uppercase tracking-widest text-[#7A4E1D]">{content.hero.eyebrow}</p>
-          <h1 className="text-[36px] font-bold leading-tight text-[#17211D] md:text-[42px]">{content.hero.title}</h1>
+          <h1 className="page-title">{content.hero.title}</h1>
           <p className="mt-2 text-[15px] text-[#59615B]">{content.hero.description}</p>
         </div>
         <form onSubmit={handleSearchSubmit} role="search" className="flex h-12 w-full shrink-0 items-center rounded-full border border-[#E7E0D5] bg-white px-4 transition-colors duration-500 focus-within:border-[#A8742E] focus-within:ring-2 focus-within:ring-[#A8742E]/10 md:w-[420px]">
@@ -375,7 +375,7 @@ function ShopInner({ products, brands, content }: Props) {
           </div>
           <div className="flex w-full min-w-0 snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain pb-4 hide-scrollbar">
             {recommendedProducts.map(product => (
-              <div key={product.id} className="min-w-0 basis-[calc(50%-0.5rem)] shrink-0 snap-start sm:basis-[18.75rem] lg:basis-[calc(25%-0.75rem)]">
+              <div key={product.id} className="min-w-0 basis-[min(80vw,18rem)] shrink-0 snap-start sm:basis-[18.75rem] lg:basis-[calc(25%-0.75rem)]">
                 <ProductCard product={product} variant="shop" />
               </div>
             ))}
@@ -458,7 +458,7 @@ function ShopInner({ products, brands, content }: Props) {
         <div className="min-w-0 flex-1">
           {paginatedProducts.length > 0 ? (
             <>
-              <div className="shop-product-grid grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
+              <div className="shop-product-grid grid grid-cols-1 min-[480px]:grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 xl:grid-cols-4 xl:gap-6">
                 {paginatedProducts.map((product) => (
                   <ProductCard key={product.id} product={product} variant="shop" />
                 ))}

@@ -13,6 +13,7 @@ import {
 
 interface AdminHeaderProps {
   onMenuClick: () => void;
+  menuOpen: boolean;
   user: { name?: string | null; role?: string | null };
 }
 
@@ -24,7 +25,7 @@ const routeNames: Record<string, string> = Object.fromEntries(
   ]),
 );
 
-export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
+export default function AdminHeader({ onMenuClick, menuOpen, user }: AdminHeaderProps) {
   const pathname = usePathname();
   
   // 간단한 브레드크럼 로직
@@ -52,21 +53,23 @@ export default function AdminHeader({ onMenuClick, user }: AdminHeaderProps) {
   };
 
   const breadcrumbs = getBreadcrumbs();
-  const title = breadcrumbs.length > 0 ? breadcrumbs[breadcrumbs.length - 1].name : '관리자';
+
 
   return (
     <header className="h-[60px] bg-white border-b border-gray-200 flex items-center justify-between px-4 sticky top-0 z-10 w-full">
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onMenuClick}
           aria-label="메뉴 열기"
-          className="md:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"
+          aria-expanded={menuOpen}
+          aria-controls="admin-mobile-menu"
+          className="md:hidden min-h-11 min-w-11 shrink-0 p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-md"
         >
           <Menu size={20} />
         </button>
         
-        <div className="flex items-center">
+        <div className="flex min-w-0 flex-wrap items-center gap-y-1">
           {breadcrumbs.map((crumb, idx) => (
             <React.Fragment key={crumb.path}>
               {idx > 0 && <ChevronRight size={14} className="mx-2 text-gray-400 shrink-0" />}

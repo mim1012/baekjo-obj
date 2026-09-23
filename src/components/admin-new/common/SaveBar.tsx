@@ -37,13 +37,13 @@ export default function SaveBar({
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[236px] transition-all duration-300">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+    <div className="fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] md:left-[var(--admin-sidebar-width,236px)] pb-[env(safe-area-inset-bottom)] transition-all duration-300">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="text-[14px] font-medium text-gray-600 hidden sm:block flex-1">
           {message || '저장되지 않은 변경사항이 있습니다.'}
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-end shrink-0">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end min-w-0 [&>button]:min-h-11">
           {children}
           {onCancel && (
             <button

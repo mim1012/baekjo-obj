@@ -33,12 +33,13 @@ export default function MobileDataCard({
     >
       <div className="flex items-start gap-3">
         {onSelect && (
-          <div className="shrink-0 mt-1" onClick={(e) => e.stopPropagation()}>
+          <div className="shrink-0 mt-1 min-h-11 flex items-start" onClick={(e) => e.stopPropagation()}>
             <input 
               type="checkbox"
+              aria-label="항목 선택"
               checked={selected}
               onChange={(e) => onSelect(e.target.checked)}
-              className="rounded border-gray-300 text-[#2F3B34] focus:ring-[#2F3B34] cursor-pointer"
+              className="size-5 rounded border-gray-300 text-[#2F3B34] focus:ring-[#2F3B34] cursor-pointer"
             />
           </div>
         )}
@@ -52,28 +53,28 @@ export default function MobileDataCard({
         )}
         
         <div className="flex-1 min-w-0" onClick={onClick}>
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <h4 className="text-[15px] font-semibold text-[#17201B] truncate">{title}</h4>
+          <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+            <h4 className="text-[15px] font-semibold text-[#17201B] break-words">{title}</h4>
             {status && <div className="shrink-0">{status}</div>}
           </div>
           
           {subtitle && (
-            <div className="text-[13px] text-gray-500 mb-2 truncate">{subtitle}</div>
+            <div className="text-[13px] text-gray-500 mb-2 break-words">{subtitle}</div>
           )}
-          
-          <div className="space-y-1 mt-3">
-            {details.map((detail, idx) => (
-              <div key={idx} className="flex justify-between text-[13px]">
-                <span className="text-gray-500">{detail.label}</span>
-                <span className="font-medium text-[#17201B]">{detail.value}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
-      
+
+      <div className="space-y-3 mt-4" onClick={onClick}>
+        {details.map((detail, idx) => (
+          <div key={idx} className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[13px]">
+            <span className="text-gray-500">{detail.label}</span>
+            <div className="min-w-0 max-w-full break-words font-medium text-[#17201B]">{detail.value}</div>
+          </div>
+        ))}
+      </div>
+
       {action && (
-        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-4 pt-3 border-t border-gray-100 flex flex-wrap justify-end gap-2 [&_button]:min-h-11 [&_button]:min-w-11 [&_a]:min-h-11" onClick={(e) => e.stopPropagation()}>
           {action}
         </div>
       )}

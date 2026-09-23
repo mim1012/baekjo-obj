@@ -140,7 +140,7 @@ export default async function ConcernsPage() {
         <section className="mb-[48px] md:mb-[60px]">
           <div className="mb-4 md:mb-5">
             <h2 className="text-[18px] md:text-[20px] font-bold text-[#17231E] tracking-tight">{content.secondary.title}</h2>
-            <p className="mt-1 text-[13px] md:text-[14px] text-[#72766F]">{content.secondary.description}</p>
+            <p className="mt-1 text-sm  text-[#72766F]">{content.secondary.description}</p>
           </div>
           <div className="flex md:grid md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5 overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
             {subConcerns.map((concern, index) => (
@@ -171,7 +171,7 @@ export default async function ConcernsPage() {
                       <ChevronDown className="shrink-0 size-5 text-[#72766F] transition-transform duration-300 group-open:rotate-180" />
                     </summary>
                     <div className="px-4 md:px-5 pb-4 md:pb-5 pt-1">
-                      <p className="text-[13px] md:text-[14px] text-[#72766F] leading-[1.6] break-keep">{faq.description}</p>
+                      <p className="text-sm  text-[#72766F] leading-[1.6] break-keep">{faq.description}</p>
                     </div>
                   </details>
                 ))}

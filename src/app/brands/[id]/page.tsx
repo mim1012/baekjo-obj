@@ -172,7 +172,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <Leaf className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.categoryLabel}</div>
+                  <div className="text-sm font-bold text-[#6F756F] mb-1">{pageCopy.categoryLabel}</div>
                   <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryCategoryLabel ?? (categoryNames || '종합 케어')}</div>
                   {brand.summaryCategoryNote && (
                     <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryCategoryNote}</div>
@@ -186,7 +186,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <Heart className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="text-[12px] md:text-[13px] font-bold text-[#6F756F] mb-1">{pageCopy.concernLabel}</div>
+                  <div className="text-sm font-bold text-[#6F756F] mb-1">{pageCopy.concernLabel}</div>
                   <div className="text-[14px] md:text-[15px] font-bold text-[#17251F] mb-2">{brand.summaryConcernLabel ?? relatedConcernNames ?? '전반적 관리'}</div>
                   {brand.summaryConcernNote && (
                     <div className="text-[12px] text-[#6F756F] leading-[1.5] break-keep">{brand.summaryConcernNote}</div>
@@ -209,7 +209,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                <h2 className="mb-3 text-balance break-keep text-[18px] font-bold leading-[1.3] tracking-tight text-[#17251F] md:text-[20px]">
                  {presentation.displayName}
                </h2>
-               <p className="mb-6 whitespace-pre-line text-pretty break-keep text-[13px] leading-[1.75] text-[#6F756F] md:text-[14px]">
+               <p className="mb-6 whitespace-pre-line text-pretty break-keep text-sm leading-[1.75] text-[#6F756F] ">
                  {storyBody}
                </p>
                
@@ -232,13 +232,13 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   theme="light"
                   density="compact"
                 >
-                  <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
+                  <p className="mb-4 break-keep text-sm leading-[1.7] text-[#6F756F] ">
                      {pageCopy.auditIntro}
                   </p>
 
                   <div className="mb-6 flex flex-col gap-2.5">
                     {auditPoints.map((point, idx) => (
-                         <div key={idx} className="flex items-start gap-3 rounded-lg bg-[#F8F6F0] px-4 py-3 text-[13px] md:text-[14px] text-[#17251F]">
+                         <div key={idx} className="flex items-start gap-3 rounded-lg bg-[#F8F6F0] px-4 py-3 text-sm  text-[#17251F]">
                            <Check className="w-4 h-4 mt-0.5 text-[#B58A4C] shrink-0" />
                            <span className="break-keep leading-snug">{point}</span>
                          </div>
@@ -280,7 +280,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">{pageCopy.productsTitle}</h2>
-               <p className="text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{renderBrandPageCopy(pageCopy.productsDescription, fullBrandName)}</p>
+               <p className="text-sm leading-[1.7] text-[#6F756F] ">{renderBrandPageCopy(pageCopy.productsDescription, fullBrandName)}</p>
              </div>
               {publicProductCount > 0 && (
                <Link href={`/shop?brandId=${brand.id}`} className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
@@ -305,7 +305,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           ) : (
             <div className="rounded-[20px] border border-dashed border-[#E2DACD] bg-[#FFFEFB] px-6 py-12 md:py-16 text-center">
                <p className="text-[15px] md:text-[16px] font-semibold text-[#17251F]">{pageCopy.emptyProductsTitle}</p>
-               <p className="mt-2 text-[13px] md:text-[14px] text-[#6F756F]">{pageCopy.emptyProductsDescription}</p>
+               <p className="mt-2 text-sm  text-[#6F756F]">{pageCopy.emptyProductsDescription}</p>
             </div>
           )}
         </div>
@@ -317,7 +317,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">{pageCopy.reviewsTitle}</h2>
-               <p className="break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">{renderBrandPageCopy(pageCopy.reviewsDescription, fullBrandName)}</p>
+               <p className="break-keep text-sm leading-[1.7] text-[#6F756F] ">{renderBrandPageCopy(pageCopy.reviewsDescription, fullBrandName)}</p>
              </div>
              {brandReviews.length > 0 && (
                <Link href="/reviews" className="inline-flex items-center justify-center h-[36px] md:h-[40px] px-4 md:px-5 bg-[#FFFEFB] border border-[#E2DACD] rounded-full text-[13px] font-semibold text-[#17251F] transition-colors hover:bg-[#F8F6F0]">
@@ -341,7 +341,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
             <div className="flex min-h-[120px] flex-col items-center justify-center rounded-[16px] border border-[#E2DACD] bg-[#FFFEFB] px-6 py-6 text-center md:min-h-[136px]">
               <MessageSquare className="w-8 h-8 text-[#D8C4A3] mb-3 opacity-60" />
               <p className="text-[14px] md:text-[15px] font-semibold text-[#17251F]">{pageCopy.emptyReviewsTitle}</p>
-              <p className="mt-1 text-[12px] md:text-[13px] text-[#6F756F]">{pageCopy.emptyReviewsDescription}</p>
+              <p className="mt-1 text-sm text-[#6F756F]">{pageCopy.emptyReviewsDescription}</p>
             </div>
           )}
         </div>
@@ -357,7 +357,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <h2 className="mb-2 break-keep text-[18px] font-bold tracking-tight text-[#17251F] md:text-[21px]">
                     {pageCopy.otherBrandsTitle}
                   </h2>
-                  <p className="mb-4 break-keep text-[13px] leading-[1.7] text-[#6F756F] md:text-[14px]">
+                  <p className="mb-4 break-keep text-sm leading-[1.7] text-[#6F756F] ">
                     {pageCopy.otherBrandsDescription}
                   </p>
                   <Link href="/brands" className="inline-flex h-[38px] self-start items-center justify-center rounded-md bg-[#16382D] px-5 text-[13px] font-semibold text-white transition-colors hover:bg-[#10291F]">

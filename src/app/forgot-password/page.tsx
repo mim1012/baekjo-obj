@@ -28,8 +28,8 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-[#E9E7E0] px-5 py-20">
-      <div className="w-full max-w-md border border-[#D1D0C8] bg-[#FAF9F5] p-7 shadow-sm sm:p-10">
+    <div className="auth-page">
+      <div className="auth-panel">
         <BrandMark />
         <h1 className="mt-8 text-2xl font-normal text-[#202521]">비밀번호를 잊으셨나요?</h1>
         <p className="mt-2 text-sm text-[#59615B]">
@@ -43,12 +43,12 @@ export default function ForgotPasswordPage() {
         ) : (
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
             {error && (
-              <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-600">
+              <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-600">
                 {error}
               </div>
             )}
             <label className="block">
-              <span className="mb-2 block text-xs font-medium text-[#5F6761]">이메일</span>
+              <span className="mb-2 block text-sm font-medium text-[#5F6761]">이메일</span>
               <input
                 type="email"
                 autoComplete="email"
@@ -69,7 +69,7 @@ export default function ForgotPasswordPage() {
           </form>
         )}
 
-        <div className="mt-8 border-t border-[#DEDCD5] pt-6 text-center text-xs text-[#59615B]">
+        <div className="mt-8 border-t border-[#DEDCD5] pt-6 text-center text-sm text-[#59615B]">
           <Link href="/login" className="hover:text-[#2F3B34]">로그인으로 돌아가기</Link>
         </div>
       </div>

@@ -27,7 +27,7 @@ export default function MarketplaceNotice({
           <p className={`text-[13px] font-bold ${isDark ? 'text-[#FBFAF7]' : 'text-[#17211D]'}`}>
             통신판매중개 안내
           </p>
-          <p className="mt-1.5 break-keep text-[12px] leading-6 md:text-[13px]">{MARKETPLACE_NOTICE}</p>
+          <p className="mt-1.5 break-keep text-sm leading-6 ">{MARKETPLACE_NOTICE}</p>
           <Link
             href="/terms"
             className={`mt-2 inline-flex min-h-8 items-center text-[12px] font-semibold underline underline-offset-4 ${
