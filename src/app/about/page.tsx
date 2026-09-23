@@ -105,7 +105,8 @@ export default async function AboutPage() {
               return (
                 <section
                   key={section.id}
-                  aria-labelledby={section.id + '-heading'}
+                  // lead가 비면 그 id를 가진 heading이 렌더되지 않으므로 참조를 걸지 않는다.
+                  aria-labelledby={section.lead ? section.id + '-heading' : undefined}
                   className={sectionIndex === visibleSections.length - 1 ? 'bg-white' : ''}
                 >
                   <div className={'mx-6 grid gap-5 py-9 sm:mx-8 md:mx-12 md:grid-cols-[72px_minmax(0,1fr)] md:gap-8 md:py-14 lg:mx-16 lg:grid-cols-[120px_minmax(0,1fr)] lg:gap-12 lg:py-16' + (sectionIndex > 0 ? ' border-t border-[#E4DDD1]' : '')}>

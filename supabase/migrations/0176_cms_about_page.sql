@@ -6,10 +6,13 @@
 -- 폴더 전체를 매 push 재실행) 이미 등록된 행은 건드리지 않아 멱등적이다.
 --
 -- about 원문은 어떤 site_settings 행에도 없다(src/lib/cms/source/about.ts 참고 — 정본 기본값에서
--- 직접 파생). 그래서 published_content를 0162와 동일하게 빈 객체('{}'::jsonb)로 두면,
--- getPublishedPageContent가 normalizeCmsPageContent(definition, {})를 호출해 선언된 모든 필드를
--- CMS_PAGE_DEFINITIONS의 about.defaultContent(= 현재 /about 원문 그대로)로 채운다 — 별도의 데이터
--- 백필 없이도 활성화 즉시 현재 화면과 동일한 게시본을 갖는다.
+-- 직접 파생).
+--
+-- published_content는 0162와 동일하게 빈 객체('{}'::jsonb)로 둔다. 이 행은 아직 "관리 중"이
+-- 아니다 — repo.ts는 published_content.__managedVersion === 1 일 때만 관리 중으로 보고,
+-- 그렇지 않으면 게시본 조회가 null을 반환한다. 따라서 이 마이그레이션만 적용한 직후의 /about은
+-- 코드의 defaultContent로 렌더되며(현재 화면과 동일), 관리자가 CMS에서 "현재 값 가져오기"를
+-- 눌러 활성화한 뒤부터 게시본이 화면을 결정한다. 데이터 백필은 필요하지 않다.
 with registered_pages(page_key, route, title) as (
   values
     ('about', '/about', '회사소개')
