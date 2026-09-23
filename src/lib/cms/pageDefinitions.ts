@@ -324,6 +324,62 @@ const siteShell: CmsPageDefinition = {
   ],
 };
 
+const about: CmsPageDefinition = {
+  key: 'about',
+  title: '회사소개',
+  route: '/about',
+  group: '소개·콘텐츠',
+  description: '백조오브제라는 이름과 브랜드 철학, 사업 방향을 소개하는 화면입니다.',
+  defaultContent: {
+    hero: {
+      visible: true,
+      eyebrow: 'ABOUT',
+      title: 'BAEKJO OBJET',
+      intro: "백조오브제라는 이름에는 우리가 이 공간을 대하는 태도가 담겨 있습니다.",
+      image: '/images/about-hero-botanical-v1.webp',
+      imageAlt: "꽃과 나비가 있는 정원에서 평화롭게 잠든 고양이 수채화",
+    },
+    sections: {
+      visible: true,
+      items: [
+          { id: "name", lead: "백조는 저의 반려묘 이름입니다.이 이름은 한 아이의 이야기를 사업으로 만들기 위해 붙인 것이 아닙니다.", body: "시작하는 힘만큼, 시작한 것을 끝까지 책임지는 힘이 중요하다고 생각했습니다. 그래서 이 일을 오래 이어가기 위해 제가 결코 잊을 수 없는 이름을 빌렸습니다.\n백조라는 이름은 이 사업의 주인공이라기보다, 시작한 일을 끝까지 책임지겠다는 약속에 가깝습니다.", visible: true },
+          { id: "objet", lead: "그리고 그 뒤에 ‘오브제’를 붙였습니다.", body: "제가 생각하는 오브제는 단순히 아름다운 물건을 의미하지 않습니다. 하나의 생명도, 누군가에게 깊은 의미를 가진 물건도, 자신의 철학을 지키며 만들어온 브랜드와 제품도 저마다의 시간과 이야기를 가지고 있습니다.\n백조오브제는 그런 것들을 쉽게 소비하고 지나가는 대상으로 바라보고 싶지 않았습니다. 가치 있는 것은 그 가치를 잃지 않은 채 존중받아야 한다고 생각합니다.\n좋은 브랜드가 마케팅 경쟁에서 밀려 사라지지 않기를 바랍니다. 좋은 제품이 가격만으로 평가되지 않기를 바랍니다.\n반려동물과 함께하는 시간이 길지 않다는 사실도 외면하지 않습니다. 함께 살아가는 순간뿐 아니라 언젠가 찾아오는 이별의 순간에도, 누군가의 마음 곁에 머물 수 있는 방법을 고민합니다.", visible: true },
+          { id: "connections", lead: "그래서 백조오브제에는 셀렉션만 있는 것이 아닙니다.", body: "브랜드의 철학과 제품을 살펴보고 기록하는 Audit,,예상하지 못한 의료비에 대비할 수 있도록 연결하는 보험,브랜드와 기관이 새로운 기회를 만들 수 있는 B2B와 파트너십,그리고 언젠가는 더 깊게 이어가고 싶은 위로와 기억의 영역까지.\n처음부터 각각의 사업을 만들고 한곳에 모은 것은 아닙니다. 하나의 생각을 따라가다 보니 지금의 백조오브제가 되었습니다.", visible: true },
+          { id: "purpose", lead: "좋은 브랜드가 자신의 가치를 지키며 오래 살아남을 수 있고,보호자는 좋은 선택을 위해 불필요한 부담을 떠안지 않고,제품과 철학의 가치가 제대로 전해질 수 있는 곳.", body: "백조오브제는 그런 구조를 만들고자 합니다.\n우리가 선택한 브랜드의 가치를 제대로 소개하고, 실제 판매와 협업으로 이어질 수 있는 구조를 지향합니다. 하나의 판매 방식만으로 가능성을 제한하지 않고 다양한 협업의 길도 함께 만들어갑니다.\n경쟁을 만들어내는 플랫폼보다, 각자의 가치가 오래 남을 수 있는 구조를 만들고 싶습니다.", visible: true },
+          { id: "promise", lead: "백조의 이름에서 시작한 책임 역시 한 생명의 시간에 머무르지 않습니다.", body: "언젠가 백조와의 시간이 끝난 뒤에도 이 이름이 의미를 잃지 않도록.또 다른 수많은 생명과 보호자, 그리고 자신의 철학을 지키는 좋은 브랜드들이 이 공간 안에서 존중받을 수 있도록.\n백조오브제는 하나의 플랫폼을 만드는 데서 멈추지 않습니다.\n반려생활과 펫산업이 무엇을 중요하게 바라봐야 하는지,그 기준이 되는 곳을 만들어가고자 합니다.", visible: true },
+      ],
+    },
+  },
+  sections: [
+    {
+      id: 'hero',
+      label: '첫 화면',
+      description: '회사소개 화면에 들어오면 가장 먼저 보이는 영역입니다.',
+      fields: [
+        toggle('hero.visible', '첫 화면 표시'),
+        text('hero.eyebrow', '작은 영문 제목'),
+        text('hero.title', '큰 제목'),
+        textarea('hero.intro', '첫 화면 소개 문구'),
+        image('hero.image', '대표 이미지'),
+        text('hero.imageAlt', '이미지 설명', '검색과 화면 읽기 기능에 사용됩니다.'),
+      ],
+    },
+    {
+      id: 'sections',
+      label: '소개 본문',
+      description: '첫 화면 아래에 순서대로 표시되는 소개 구간입니다. 각 구간의 첫 문장은 제목처럼, 나머지 문장은 본문으로 표시됩니다.',
+      fields: [
+        toggle('sections.visible', '본문 영역 전체 표시'),
+        items('sections.items', '소개 구간', [
+          { key: 'lead', label: '구간 제목 문장', type: 'textarea' },
+          { key: 'body', label: '구간 본문', type: 'textarea', description: '한 줄에 한 문단씩 입력하세요.' },
+          { key: 'visible', label: '표시', type: 'boolean', defaultValue: true },
+        ]),
+      ],
+    },
+  ],
+};
+
 const audit: CmsPageDefinition = {
   key: 'audit',
   title: 'Audit 소개',
@@ -1022,6 +1078,7 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
     ],
   },
   siteShell,
+  about,
   shopIndex,
   brandsIndex,
   reviewsIndex,
