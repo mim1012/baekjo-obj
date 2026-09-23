@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 
-// 배경(다시 조사하지 말 것 — fix/home-drift-removal 브랜치 작업 지시서 참고):
+// 배경:
 // dad가 홈에서 의도적으로 지운 UI 2개가, "CMS 편집기 노출 필드 ↔ 렌더러 소비 필드 정합" 작업인
 // a1d8ab0 에서 되살아났다. dad는 JSX만 지우고 CMS 필드·기본값을 남겨뒀고, a1d8ab0 은 그걸
 // "편집기엔 있는데 렌더러가 안 읽는 필드"로 오판해 필드를 지우는 대신 UI를 되살리는 방향으로
