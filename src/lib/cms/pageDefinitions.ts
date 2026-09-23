@@ -959,8 +959,6 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
           text('hero.primaryCtaLabel', '첫 번째 버튼 이름'),
           text('hero.secondaryCtaLabel', '두 번째 버튼 이름'),
           text('hero.trustNote', '신뢰 문구'),
-          text('hero.badgeTitle', '배지 제목'),
-          text('hero.badgeSubtitle', '배지 부제목'),
         ],
       },
       {
@@ -985,7 +983,6 @@ export const CMS_PAGE_DEFINITIONS: CmsPageDefinition[] = [
         fields: [
           text('curation.title', '영역 제목'),
           textarea('curation.description', '영역 설명'),
-          text('curation.diagnosisLinkLabel', '진단 링크 문구'),
           text('curation.allConcernsLinkLabel', '전체 보기 링크 문구'),
         ],
       },

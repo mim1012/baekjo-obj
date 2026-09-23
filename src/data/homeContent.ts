@@ -19,8 +19,6 @@ export interface HomeSettings {
     primaryCtaLabel: string;
     secondaryCtaLabel: string;
     trustNote: string;
-    badgeTitle: string;
-    badgeSubtitle: string;
   };
   quickShop: {
     title: string;
@@ -35,7 +33,6 @@ export interface HomeSettings {
   curation: {
     title: string;
     description: string;
-    diagnosisLinkLabel: string;
     allConcernsLinkLabel: string;
     cards: Array<{ title: string; desc: string }>;
   };
@@ -76,8 +73,6 @@ export const defaultHomeSettings: HomeSettings = {
     primaryCtaLabel: '검증 상품 보기',
     secondaryCtaLabel: '고민별 찾아보기',
     trustNote: '백조오브제 Audit을 통과한 브랜드만 소개합니다.',
-    badgeTitle: 'Audit Passed',
-    badgeSubtitle: '검증 기준 통과',
   },
   quickShop: {
     title: '',
@@ -91,13 +86,12 @@ export const defaultHomeSettings: HomeSettings = {
     ],
   },
   bestProducts: {
-    title: 'Audit를 통과한 오늘의 추천',
+    title: 'Audit을 통과한 오늘의 추천',
     linkLabel: '전체 셀렉션 보기',
   },
   curation: {
     title: '우리 아이 고민에 맞는 케어 가이드',
     description: '우리 아이는 매일 작은 신호를 보냅니다. 그 신호를 이해하는 것부터 케어는 시작됩니다.',
-    diagnosisLinkLabel: '1분 맞춤 진단 시작',
     allConcernsLinkLabel: '모든 고민 살펴보기',
     cards: [
       { title: '눈물', desc: '눈물 자국이 신경 쓰일 때' },
@@ -222,8 +216,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
       primaryCtaLabel: asString(hero.primaryCtaLabel, d.hero.primaryCtaLabel),
       secondaryCtaLabel: asString(hero.secondaryCtaLabel, d.hero.secondaryCtaLabel),
       trustNote: asString(hero.trustNote, d.hero.trustNote),
-      badgeTitle: asString(hero.badgeTitle, d.hero.badgeTitle),
-      badgeSubtitle: asString(hero.badgeSubtitle, d.hero.badgeSubtitle),
     },
     quickShop: {
       title: asString(quickShop.title, d.quickShop.title),
@@ -236,7 +228,6 @@ export function normalizeHomeSettings(input: unknown): HomeSettings {
     curation: {
       title: asString(curation.title, d.curation.title),
       description: asString(curation.description, d.curation.description),
-      diagnosisLinkLabel: asString(curation.diagnosisLinkLabel, d.curation.diagnosisLinkLabel),
       allConcernsLinkLabel: asString(curation.allConcernsLinkLabel, d.curation.allConcernsLinkLabel),
       cards: asObjectArray(curation.cards, d.curation.cards, (item, fallback) => ({
         title: asString(item.title, fallback.title),
