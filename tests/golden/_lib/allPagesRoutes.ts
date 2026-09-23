@@ -247,7 +247,7 @@ export const ALL_APP_ROUTES: RouteEntry[] = [
     route: '/admin/pages/[pageKey]',
     kind: 'dynamic',
     auth: 'admin',
-    // /api/admin/settings/pages는 정의된 15개 CMS 페이지를 항상 고정 순서(CMS_PAGE_DEFINITIONS)로
+    // /api/admin/settings/pages는 정의된 16개 CMS 페이지를 항상 고정 순서(CMS_PAGE_DEFINITIONS)로
     // 반환한다 — DB 상태와 무관하게 목록이 비지 않으므로 다른 admin-api 표본과 달리 "목록이 비어
     // 있어 skip"될 일이 없다. 표본으로 뽑히는 첫 항목은 audit이 아니라 정의 배열의 첫 키(home)다.
     paramSource: { from: 'admin-api', endpoint: '/api/admin/settings/pages', listKey: 'pages', idKey: 'key' },
