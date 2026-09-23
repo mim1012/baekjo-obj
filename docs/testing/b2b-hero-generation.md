@@ -1,7 +1,7 @@
 # B2B hero photography
 
 - Mode: built-in image_gen
-- Asset: public/images/b2b-partnership-hero-v1.png
+- Asset: public/images/b2b-partnership-hero-v1.webp
 
 ## Prompt
 

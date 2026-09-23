@@ -59,7 +59,7 @@ export default function AboutPage() {
         </div>
         <div className="relative aspect-[3/2] w-full md:absolute md:inset-0 md:aspect-auto">
         <Image
-          src="/images/about-hero-botanical-v1.png"
+          src="/images/about-hero-botanical-v1.webp"
           alt="꽃과 나비가 있는 정원에서 평화롭게 잠든 고양이 수채화"
           fill
           preload

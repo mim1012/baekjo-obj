@@ -2,7 +2,7 @@
 
 - Mode: built-in image_gen
 - Reference: public/images/about-baekjo-objet.png (user supplied)
-- Output: public/images/about-hero-botanical-v1.png
+- Output: public/images/about-hero-botanical-v1.webp
 - Layout: full-bleed background; heading and original copy remain HTML.
 
 ## Generation prompt

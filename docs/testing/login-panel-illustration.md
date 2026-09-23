@@ -1,7 +1,7 @@
 # Login panel illustration
 
 - Mode: built-in image_gen
-- Asset: public/images/login-cat-botanical-v1.png
+- Asset: public/images/login-cat-botanical-v1.webp
 - Layout: full illustration between the logo and original copy on the desktop sage panel; compact decoration next to the mobile brand mark. No crop or text baked into the image.
 
 ## Prompt

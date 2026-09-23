@@ -1,7 +1,7 @@
 # Login full-width photo layout
 
 - Mode: built-in image_gen
-- Asset: public/images/login-cat-window-v1.png
+- Asset: public/images/login-cat-window-v1.webp
 - Desktop: full viewport width, photograph on the left, login form on the right.
 - Mobile: form first, followed by the complete square photograph and all original introduction text.
 - Logos consume the home header branding through the existing BrandMark component.

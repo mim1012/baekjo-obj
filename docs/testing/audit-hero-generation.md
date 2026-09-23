@@ -1,7 +1,7 @@
 # AUDIT hero photography
 
 - Mode: built-in image_gen
-- Asset: public/images/audit-review-hero-v1.png
+- Asset: public/images/audit-review-hero-v1.webp
 
 ## Prompt
 

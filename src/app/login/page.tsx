@@ -92,7 +92,7 @@ export default function LoginPage() {
       <section aria-label="백조오브제와 함께하는 반려생활" className="relative order-2 min-w-0 lg:order-1">
         <div className="relative aspect-square w-full lg:absolute lg:inset-0 lg:aspect-auto">
           <Image
-            src="/images/login-cat-window-v1.png"
+            src="/images/login-cat-window-v1.webp"
             alt="햇살이 들어오는 창가의 리넨 위에서 편안하게 잠든 고양이"
             fill
             preload
