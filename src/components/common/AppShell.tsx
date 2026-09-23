@@ -5,9 +5,10 @@ import Header from './Header';
 import Footer from './Footer';
 import MobileBottomNav from './MobileBottomNav';
 import FocusHeader from './FocusHeader';
+import { SiteBrandingContext } from './BrandMark';
 import type { SiteShellContent } from '@/lib/cms/source/siteShell';
 
-export default function AppShell({
+function ShellContent({
   children,
   siteShell = null,
 }: {
@@ -35,7 +36,7 @@ export default function AppShell({
     return (
       <>
         <FocusHeader />
-        <main className="public-main min-w-0 flex-1 overflow-x-clip pb-[calc(96px+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+        <main className="public-main min-w-0 flex-1">{children}</main>
       </>
     );
   }
@@ -52,5 +53,13 @@ export default function AppShell({
           동일 원칙), 편집 가능한 CMS 문구가 없으므로 siteShell을 전달하지 않는다. */}
       <MobileBottomNav />
     </>
+  );
+}
+
+export default function AppShell(props: { children: React.ReactNode; siteShell?: SiteShellContent | null }) {
+  return (
+    <SiteBrandingContext.Provider value={props.siteShell?.branding ?? null}>
+      <ShellContent {...props} />
+    </SiteBrandingContext.Provider>
   );
 }

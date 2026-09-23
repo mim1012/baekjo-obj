@@ -9,6 +9,7 @@ import { formatBrandDisplayName } from '@/lib/brands/presentation';
 
 import PageHeader from '@/components/admin-new/common/PageHeader';
 import DataTable from '@/components/admin-new/common/DataTable';
+import MobileDataCard from '@/components/admin-new/common/MobileDataCard';
 import StatusBadge from '@/components/admin-new/common/StatusBadge';
 import SummaryStrip from '@/components/admin-new/common/SummaryStrip';
 import BrandForm from '@/components/admin-new/brands/BrandForm';
@@ -257,6 +258,15 @@ export default function BrandListPage() {
 
       <div className="bg-white border border-gray-200 rounded-md shadow-sm overflow-hidden">
         <DataTable
+        renderMobileRow={(brand) => (
+          <MobileDataCard
+            title={<button type="button" onClick={() => handleEdit(brand)} className="text-left">{formatBrandDisplayName(brand.name)}</button>}
+            image={brand.logo}
+            subtitle={brand.description}
+            details={columns.filter(column => ['products', 'visible'].includes(column.key)).map(column => ({ label: column.header, value: column.render(brand) }))}
+            action={columns.find(column => column.key === 'actions')?.render(brand)}
+          />
+        )}
           columns={columns}
           data={filteredBrands}
           isLoading={loading}

@@ -59,7 +59,7 @@ export default function MobileBottomNav() {
               }`}
             >
               <Icon className="size-5" strokeWidth={active ? 2.25 : 1.75} />
-              <span className="text-[10px] font-semibold">{item.label}</span>
+              <span className="text-xs font-semibold">{item.label}</span>
             </Link>
           );
         })}

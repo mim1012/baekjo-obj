@@ -36,7 +36,7 @@ export default function SellerDisclosure({ seller, className = '' }: SellerDiscl
       </summary>
 
       <div className="border-t border-[#E7E0D5] px-4 py-4">
-        <p className="text-xs leading-5 text-[#59615B]">
+        <p className="text-sm leading-6 text-[#59615B]">
           관리자 판매자 관리에 등록된 실제 계약 판매자의 사업자·배송·반품 정보입니다.
         </p>
         <dl className="mt-4 grid gap-x-8 gap-y-3 text-xs leading-5 text-[#59615B] sm:grid-cols-2">

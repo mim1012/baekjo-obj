@@ -30,10 +30,11 @@ const ALL_MAIN_LINKS: NavLinkDef[] = [
   { label: '케어', href: '/concerns' },
   { label: '펫보험', href: '/insurance' },
   { label: 'B2B', href: '/b2b' },
+  { label: '회사소개', href: '/about' },
 ];
 
 const DESKTOP_NAV_TEXT_CLASS =
-  'flex h-full items-center border-b-2 text-[15px] font-semibold leading-none text-[#59615B] transition-colors duration-500 hover:text-[#17211D]';
+  'relative inline-flex h-full shrink-0 items-center justify-center whitespace-nowrap px-1 text-[16px] font-semibold leading-6 tracking-[-0.01em] text-[#59615B] transition-colors duration-300 hover:text-[#17211D] after:absolute after:inset-x-1 after:bottom-0 after:h-0.5 after:transition-colors';
 
 const ALL_STORY_LINKS: NavLinkDef[] = [
   { label: '백조오브제 Audit의 검토 기준', href: '/audit' },
@@ -83,10 +84,15 @@ export default function Header({
     [siteShell],
   );
   const primaryMainLinks = useMemo(
-    () => mainLinks.filter((link) => link.href !== '/b2b'),
+    () => mainLinks.filter((link) => link.href !== '/b2b' && link.href !== '/about'),
     [mainLinks],
   );
   const b2bLink = useMemo(() => mainLinks.find((link) => link.href === '/b2b'), [mainLinks]);
+  // 기존 게시본에 아직 없는 신규 메뉴만 보완하며, CMS의 명시적 숨김은 존중한다.
+  const aboutLink = mainLinks.find((link) => link.href === '/about')
+    ?? (!siteShell?.navigation.mainLinks.some((link) => link.href === '/about')
+      ? { label: '회사소개', href: '/about' }
+      : undefined);
   const storyLinks = useMemo(
     () => resolveGatedNavLinks(siteShell?.navigation.storyLinks, ALL_STORY_LINKS),
     [siteShell],
@@ -158,15 +164,15 @@ export default function Header({
           />}
         </Link>
 
-        <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-6 lg:flex">
+        <nav aria-label="주요 메뉴" className="hidden h-full items-center gap-4 font-['Pretendard_Variable',Pretendard,'Noto_Sans_KR',sans-serif] lg:flex xl:gap-5">
           <div className="group relative flex h-full items-center">
             <Link
               href="/shop"
               aria-current={isActive('/shop') ? 'page' : undefined}
-              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
+              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1.5 ${
                 isActive('/shop')
-                  ? 'border-[#A8742E]'
-                  : 'border-transparent'
+                  ? 'after:bg-[#A8742E]'
+                  : 'after:bg-transparent'
               }`}
             >
               셀렉션
@@ -195,10 +201,10 @@ export default function Header({
             <button
               type="button"
               aria-label="백조오브제 메뉴"
-              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1 ${
+              className={`${DESKTOP_NAV_TEXT_CLASS} gap-1.5 ${
                 storyActive
-                  ? 'border-[#A8742E]'
-                  : 'border-transparent'
+                  ? 'after:bg-[#A8742E]'
+                  : 'after:bg-transparent'
               }`}
             >
               백조오브제
@@ -217,6 +223,7 @@ export default function Header({
             </div>
           </div>
 
+          {aboutLink && <NavLink {...aboutLink} active={isActive(aboutLink.href)} />}
           {b2bLink && (
             <NavLink {...b2bLink} active={isActive(b2bLink.href)} />
           )}
@@ -348,6 +355,7 @@ export default function Header({
               </div>
             </MobileAccordion>
 
+            {aboutLink && <MobileLink {...aboutLink} active={isActive(aboutLink.href)} onClick={closeMenu} />}
             {b2bLink && (
               <MobileLink {...b2bLink} active={isActive(b2bLink.href)} onClick={closeMenu} />
             )}
@@ -401,8 +409,8 @@ function NavLink({ label, href, active }: NavLinkProps) {
       aria-current={active ? 'page' : undefined}
       className={`${DESKTOP_NAV_TEXT_CLASS} ${
         active
-          ? 'border-[#A8742E]'
-          : 'border-transparent'
+          ? 'after:bg-[#A8742E]'
+          : 'after:bg-transparent'
       }`}
     >
       {label}

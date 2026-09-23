@@ -594,7 +594,7 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
                 />
               </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField label="반려동물">
                   <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="반려동물 선택">
                     {selectablePetTypes.map((petType) => {
@@ -655,7 +655,7 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
 
           {/* 가격 및 재고 */}
           <SectionCard title="가격 및 재고">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField label="판매가 (원)" required>
                 <input
                   type="number"

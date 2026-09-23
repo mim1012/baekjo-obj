@@ -109,6 +109,19 @@ export const PUBLIC_PAGE_GROUPS: PublicPageGroup[] = [
 
 export const PUBLIC_PAGE_REGISTRY: PublicPageRegistryEntry[] = [
   {
+    key: 'about',
+    title: '회사소개',
+    publicRoute: '/about',
+    previewRoute: '/about',
+    routePattern: '/about',
+    group: '공통·홈',
+    screenType: '콘텐츠 화면',
+    description: '백조오브제의 이름과 철학, 사업 방향을 소개합니다.',
+    editableAreas: ['공통 메뉴의 회사소개 연결'],
+    systemAreas: ['회사소개 원문과 히어로 이미지 — 코드에서 관리'],
+    actions: [{ label: '공통 메뉴로 이동', adminRoute: '/admin/pages/site-shell', description: '회사소개로 연결되는 공통 메뉴를 관리합니다. 회사소개 본문은 코드에서 관리합니다.', capabilities: ['조회'], saveMode: '게시 후 반영' }],
+  },
+  {
     key: 'site-shell',
     title: '전체 화면 공통 영역',
     publicRoute: '모든 고객 화면',

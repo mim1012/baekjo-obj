@@ -12,13 +12,13 @@ interface FilterBarProps {
 
 export default function FilterBar({ children, onSearch, searchPlaceholder = '검색...', searchValue = '' }: FilterBarProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-md p-3 mb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="bg-white border border-gray-200 rounded-md p-3 mb-4 flex min-w-0 flex-col xl:flex-row xl:items-center justify-between gap-4">
+      <div className="grid min-w-0 grid-cols-2 sm:flex sm:flex-wrap items-center gap-3 [&>select]:min-w-0 [&>select]:max-w-full [&>select]:min-h-11">
         {children}
       </div>
       
       {onSearch && (
-        <div className="relative w-full md:w-64 shrink-0">
+        <div className="relative w-full xl:w-64 shrink-0">
           <input 
             type="text" 
             placeholder={searchPlaceholder}

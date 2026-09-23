@@ -37,15 +37,15 @@ export default function StaticLegalDocument({
 }: StaticLegalDocumentProps) {
   const document = substituteCompanyTokensDeep(rawDocument);
   return (
-    <div className="min-h-dvh bg-[#F4F2EC] py-16" data-cms-managed={cmsManagedKey}>
+    <div className="page-section min-h-dvh bg-[#F4F2EC]" data-cms-managed={cmsManagedKey}>
       <div className="site-container">
         <div className="mx-auto max-w-3xl">
           <p className="page-eyebrow">{document.eyebrow}</p>
-          <h1 className="mt-3 text-3xl font-bold text-[#202521] md:text-4xl">{document.title}</h1>
+          <h1 className="page-title mt-3">{document.title}</h1>
           <p className="mt-4 text-sm text-[#6F766F]">시행일: {document.effectiveDate}</p>
 
           {document.introduction && (
-            <p className="mt-8 whitespace-pre-line break-keep text-sm leading-7 text-[#4A514A]">
+            <p className="mt-8 whitespace-pre-line break-keep text-[15px] leading-7 text-[#4A514A]">
               {document.introduction}
             </p>
           )}
@@ -55,7 +55,7 @@ export default function StaticLegalDocument({
               <section key={article.title}>
                 <h2 className="text-lg font-bold text-[#202521]">{article.title}</h2>
                 {article.noticeLines && article.noticeLines.length > 0 ? (
-                  <div className="mt-3 break-keep text-sm leading-7 text-[#4A514A]">
+                  <div className="mt-3 break-keep text-[15px] leading-7 text-[#4A514A]">
                     <div className="rounded-2xl border border-[#D8D6CE] bg-white/60 p-5">
                       {article.noticeLines.map((line) => (
                         <p key={line}>{line}</p>
@@ -63,7 +63,7 @@ export default function StaticLegalDocument({
                     </div>
                   </div>
                 ) : article.bulletList && article.body ? (
-                  <div className="mt-3 break-keep text-sm leading-7 text-[#4A514A]">
+                  <div className="mt-3 break-keep text-[15px] leading-7 text-[#4A514A]">
                     <ul className="list-disc space-y-2 pl-5">
                       {article.body
                         .split('\n')
@@ -75,7 +75,7 @@ export default function StaticLegalDocument({
                   </div>
                 ) : (
                   article.body && (
-                    <div className="mt-3 whitespace-pre-line break-keep text-sm leading-7 text-[#4A514A]">
+                    <div className="mt-3 whitespace-pre-line break-keep text-[15px] leading-7 text-[#4A514A]">
                       {article.body}
                     </div>
                   )
@@ -85,7 +85,7 @@ export default function StaticLegalDocument({
           </div>
 
           {showCompany && (
-            <div className="mt-14 rounded-2xl border border-[#D8D6CE] bg-white/60 p-6 text-sm leading-7 text-[#4A514A]">
+            <div className="mt-14 rounded-2xl border border-[#D8D6CE] bg-white/60 p-6 text-[15px] leading-7 text-[#4A514A]">
               <p className="font-semibold text-[#202521]">{document.companyBoxTitle || '사업자 정보'}</p>
               <p className="mt-2">
                 상호: {COMPANY.name} · 대표자: {COMPANY.ceo}
@@ -100,7 +100,7 @@ export default function StaticLegalDocument({
           )}
 
           {document.footerNote && (
-            <p className="mt-10 whitespace-pre-line break-keep text-sm leading-7 text-[#4A514A]">
+            <p className="mt-10 whitespace-pre-line break-keep text-[15px] leading-7 text-[#4A514A]">
               {document.footerNote}
             </p>
           )}

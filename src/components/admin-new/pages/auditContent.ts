@@ -55,7 +55,7 @@ export function auditContentFromPageTexts(settings: PageTextSettings): AuditCont
       eyebrow: text('heroEyebrow'),
       title: [text('heroTitleLine1'), text('heroTitleLine2')].join('\n'),
       description: text('heroDescription'),
-      image: '/images/brand-curation-hero.webp',
+      image: '/images/audit-review-hero-v1.webp',
       imageAlt: text('heroImageAlt'),
       imageCaptionLine1: text('heroImageCaptionLine1'),
       imageCaptionLine2: text('heroImageCaptionLine2'),

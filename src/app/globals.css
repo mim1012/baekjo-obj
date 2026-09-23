@@ -33,11 +33,13 @@
   --color-text-primary: var(--color-text-main);
   --color-text-secondary: var(--color-text-sub);
 
-  --font-sans: var(--font-sans), "Pretendard Variable", Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
-  --font-serif: var(--font-serif), "Playfair Display", Iowan Old Style, Baskerville, "Times New Roman", serif;
+  --font-sans: "Pretendard Variable", Pretendard, "Noto Sans KR", "Apple SD Gothic Neo", Arial, sans-serif;
+  --font-serif: var(--font-playfair), "Playfair Display", Iowan Old Style, Baskerville, "Times New Roman", serif;
 }
 
 :root {
+  --page-gutter: 1.25rem;
+  --section-space: 3rem;
   --background: var(--color-bg);
   --foreground: var(--color-text-main);
   --paper: var(--color-card);
@@ -151,15 +153,23 @@ textarea {
   }
 
   .site-container {
-    @apply mx-auto w-full max-w-[1120px] px-5 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1120px];
+    padding-inline: var(--page-gutter);
   }
   
   .site-container-wide {
-    @apply mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1280px];
+    padding-inline: var(--page-gutter);
   }
   
+  .brand-page-container {
+    @apply mx-auto w-full max-w-[1280px];
+    padding-inline: var(--page-gutter);
+  }
+
   .site-container-hero {
-    @apply mx-auto w-full max-w-[1240px] px-5 sm:px-6 lg:px-8;
+    @apply mx-auto w-full max-w-[1280px];
+    padding-inline: var(--page-gutter);
   }
 
   .hide-scrollbar::-webkit-scrollbar {
@@ -227,13 +237,13 @@ textarea {
 
   .page-section {
     position: relative;
-    padding-block: 4rem;
+    padding-block: var(--section-space);
   }
 
   .page-section-muted {
     position: relative;
     background: #faf8f3;
-    padding-block: 4rem;
+    padding-block: var(--section-space);
   }
 
   .page-eyebrow {
@@ -247,9 +257,9 @@ textarea {
 
   .page-title {
     color: #17211d;
-    font-size: clamp(1.875rem, 4vw, 2.75rem);
+    font-size: clamp(1.75rem, 4vw, 2.75rem);
     font-weight: 700;
-    line-height: 1.18;
+    line-height: 1.3;
     letter-spacing: -0.035em;
     word-break: keep-all;
   }
@@ -264,8 +274,8 @@ textarea {
   }
 
   .body-copy {
-    color: #6f766f;
-    font-size: 1rem;
+    color: #59615b;
+    font-size: 0.9375rem;
     font-weight: 400;
     line-height: 1.8;
     word-break: keep-all;
@@ -359,7 +369,7 @@ textarea {
 
   .filter-chip {
     display: inline-flex;
-    min-height: 2.5rem;
+    min-height: 2.75rem;
     align-items: center;
     justify-content: center;
     border: 1px solid #e7e0d5;
@@ -386,20 +396,8 @@ main.public-main {
 }
 
 main.public-main :where(h1, h2, h3, h4, h5, h6, p, li, dt, dd, blockquote, figcaption, label) {
-  text-align: left;
   word-break: keep-all;
-}
-
-main.public-main :where(h1, h2) {
-  font-weight: 800;
-}
-
-main.public-main :where(h3, h4, h5, h6) {
-  font-weight: 700;
-}
-
-:where(main.public-main) p {
-  line-height: 1.7;
+  overflow-wrap: break-word;
 }
 
 main.public-main .body-copy p {
@@ -484,62 +482,56 @@ main.public-main p:not([class*="font-"]) {
   }
 }
 
+/* Shared spacing and readable controls; page content remains in the DOM at every size. */
+@media (min-width: 640px) {
+  :root { --page-gutter: 1.5rem; }
+}
+
+@media (min-width: 768px) {
+  :root { --section-space: 4rem; }
+  .body-copy { font-size: 1rem; }
+}
+
+@media (min-width: 1024px) {
+  :root { --page-gutter: 2rem; }
+}
+
+@media (min-width: 1280px) {
+  :root { --page-gutter: 3rem; --section-space: 5rem; }
+}
+
 @media (max-width: 767px) {
-  main.public-main section {
-    scroll-margin-top: 4.5rem;
-  }
+  main.public-main section { scroll-margin-top: 4.5rem; }
 
-  main.public-main [class~="py-16"] {
-    padding-block: 4.5rem;
-  }
-
-  main.public-main [class~="py-20"] {
-    padding-block: 5.25rem;
-  }
-
-  main.public-main [class~="py-24"] {
-    padding-block: 6rem;
-  }
-
-  main.public-main [class~="py-32"] {
-    padding-block: 6.75rem;
-  }
-
-  main.public-main [class~="space-y-32"] {
-    row-gap: 6rem;
-  }
-}
-
-@media (min-width: 768px) {
-  .page-section,
-  .page-section-muted {
-    padding-block: 5rem;
-  }
-
-  .body-copy {
+  :is(main.public-main, .admin-content) :is(input, select, textarea):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="hidden"]) {
+    min-width: 0;
+    min-height: 3rem;
     font-size: 1rem;
-    line-height: 1.7;
   }
 }
 
-@media (min-width: 1200px) {
-  .page-section,
-  .page-section-muted {
-    padding-block: 6rem;
-  }
-}
-
-@media (min-width: 768px) {
-  main.public-main [class~="lg:py-28"] {
-    padding-block: 7.5rem;
+@layer components {
+  .auth-page {
+    display: flex;
+    min-height: calc(100svh - 4rem);
+    align-items: center;
+    justify-content: center;
+    background: #fbfaf7;
+    padding: var(--section-space) var(--page-gutter);
   }
 
-  main.public-main [class~="lg:py-32"] {
-    padding-block: 9rem;
+  .auth-panel {
+    width: 100%;
+    max-width: 28rem;
+    min-width: 0;
   }
 
-  main.public-main [class~="space-y-32"] {
-    row-gap: 7.5rem;
+  @media (min-width: 640px) {
+    .auth-panel {
+      border: 1px solid #e7e0d5;
+      background: white;
+      padding: 2.5rem;
+    }
   }
 }
 

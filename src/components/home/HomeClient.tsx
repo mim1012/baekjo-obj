@@ -128,7 +128,7 @@ export default function HomeClient({
           <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
             가오픈 진행 중
           </span>
-          <p className="min-w-0 break-keep text-left text-[10px] font-semibold leading-[1.25] tracking-[-0.02em] text-[#FBFAF7] sm:whitespace-nowrap sm:text-[12px] sm:leading-none sm:tracking-normal">
+          <p className="min-w-0 break-keep text-left text-sm font-semibold leading-[1.5] tracking-[-0.02em] text-[#FBFAF7] sm:tracking-normal">
             | 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
           </p>
         </div>
@@ -154,13 +154,13 @@ export default function HomeClient({
           {hero.badgeTitle && (
             <div
               data-testid="home-hero-badge"
-              className="absolute right-5 top-5 z-10 hidden items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:flex md:right-8 md:top-8"
+              className="absolute right-5 top-5 z-10 flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:flex md:right-8 md:top-8"
             >
               <ShieldCheck className="size-4 text-[#7A4E1D]" strokeWidth={2} />
               <div className="flex flex-col leading-tight">
                 <span className="text-[12px] font-bold text-[#17231E]">{hero.badgeTitle}</span>
                 {hero.badgeSubtitle && (
-                  <span className="text-[10px] font-medium text-[#68716C]">{hero.badgeSubtitle}</span>
+                  <span className="text-xs font-medium text-[#59615B]">{hero.badgeSubtitle}</span>
                 )}
               </div>
             </div>
@@ -233,7 +233,7 @@ export default function HomeClient({
                     <Icon className="size-5" strokeWidth={1.5} />
                   </div>
                   <h3 className="break-keep text-[15px] font-bold text-[#17231E]">{item.title}</h3>
-                  <p className="mt-2 break-keep text-[13px] leading-[1.55] text-[#68716C]">{item.desc}</p>
+                  <p className="mt-2 break-keep text-sm leading-[1.7] text-[#59615B]">{item.desc}</p>
                 </div>
               );
             })}
@@ -290,11 +290,11 @@ export default function HomeClient({
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
             {curation.diagnosisLinkLabel && (
-              <Link href="/diagnosis" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] md:text-[14px] font-semibold text-white transition-colors hover:bg-[#2F3B34]">
+              <Link href="/diagnosis" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] md:text-[14px] font-semibold text-white transition-colors hover:bg-[#2F3B34]">
                 {curation.diagnosisLinkLabel} <ArrowRight className="ml-1.5 size-4" />
               </Link>
             )}
-            <Link href="/concerns" className="inline-flex h-[38px] md:h-[42px] items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
+            <Link href="/concerns" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
           </div>
@@ -326,7 +326,7 @@ export default function HomeClient({
                   <div className="mb-1 flex items-center gap-2">
                     <span className="text-[18px] font-bold text-white lg:text-[19px]">{title}</span>
                   </div>
-                  <span className="line-clamp-2 text-[12px] font-medium leading-[1.55] text-[#F5F1E9] lg:text-[13px]">{desc}</span>
+                  <span className="text-sm font-medium leading-[1.7] text-[#F5F1E9] lg:text-[13px]">{desc}</span>
                 </div>
               </Link>
             );

@@ -37,6 +37,7 @@ export interface RouteEntry {
 }
 
 export const ALL_APP_ROUTES: RouteEntry[] = [
+  { route: '/about', kind: 'static', auth: 'none', note: '회사소개 — 이름과 철학, 사업 방향' },
   // ── 공개 정적 페이지 ─────────────────────────────────────────
   { route: '/', kind: 'static', auth: 'none', note: '홈' },
   { route: '/audit', kind: 'static', auth: 'none', note: 'Audit 기준 소개' },

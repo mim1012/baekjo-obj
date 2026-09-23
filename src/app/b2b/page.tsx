@@ -44,44 +44,43 @@ export default async function B2BPage() {
 
   return (
     <div className="page-canvas" data-cms-managed={managed ? 'b2b' : undefined}>
-      {content.hero.visible && <section className="bg-noise border-b border-[#E7E0D5] bg-[#F7F4ED] py-12 md:py-14 lg:py-16">
-        <div className="site-container-wide grid items-center gap-8 md:gap-10 lg:grid-cols-12 lg:gap-16">
-          <PageIntro
-            className="lg:col-span-6"
-            eyebrow={content.hero.eyebrow}
-            title={<MultilineText text={content.hero.title} />}
-            description={
-              <p>
-                {content.hero.description}
-              </p>
-            }
-            action={
-              <div className="grid w-full gap-3 sm:flex">
-                {content.hero.primaryCtaLabel && <EditorialActionLink href={content.hero.primaryCtaHref}>{content.hero.primaryCtaLabel}</EditorialActionLink>}
-                {content.hero.secondaryCtaLabel && <EditorialActionLink href={content.hero.secondaryCtaHref} variant="secondary">{content.hero.secondaryCtaLabel}</EditorialActionLink>}
-              </div>
-            }
-          />
-
-          <div className="relative h-[300px] overflow-hidden rounded-[24px] border border-[#E7E0D5] bg-white sm:h-[360px] lg:col-span-6 lg:h-[410px]">
-            {heroImage && <Image
-              src={heroImage.src}
-              unoptimized={heroImage.unoptimized}
-              alt={content.hero.imageAlt}
-              fill
-              priority
-              sizes="(max-width: 1023px) 100vw, 50vw"
-              className="object-cover"
-            />}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#17211D]/85 via-[#17211D]/10 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
-              <p className="font-editorial text-sm italic tracking-wide text-[#D8C4A3]">{content.hero.overlayEyebrow}</p>
-              <p className="mt-2 max-w-lg text-[20px] font-bold leading-[1.3] text-[#FBFAF7] sm:text-[24px]">
-                {content.hero.overlayText}
-              </p>
+      {content.hero.visible && <section className="relative isolate overflow-hidden border-b border-[#E7E0D5] bg-[#F7F4ED]">
+        <div aria-hidden="true" className="absolute inset-0 -z-10 hidden bg-[linear-gradient(90deg,rgba(249,246,239,0.95)_0%,rgba(249,246,239,0.85)_35%,rgba(249,246,239,0.12)_65%,rgba(249,246,239,0)_100%)] lg:block" />
+        <div className="site-container-wide relative py-10 sm:py-14 lg:flex lg:min-h-[620px] lg:items-center lg:py-20">
+          <div className="max-w-xl lg:w-1/2">
+            <PageIntro
+              className="max-w-xl lg:max-w-[520px]"
+              eyebrow={content.hero.eyebrow}
+              title={<MultilineText text={content.hero.title} />}
+              description={
+                <p>
+                  {content.hero.description}
+                </p>
+              }
+              action={
+                <div className="grid w-full gap-3 sm:flex">
+                  {content.hero.primaryCtaLabel && <EditorialActionLink href={content.hero.primaryCtaHref}>{content.hero.primaryCtaLabel}</EditorialActionLink>}
+                  {content.hero.secondaryCtaLabel && <EditorialActionLink href={content.hero.secondaryCtaHref} variant="secondary">{content.hero.secondaryCtaLabel}</EditorialActionLink>}
+                </div>
+              }
+            />
+            <div className="mt-6 max-w-md">
+              <p className="font-editorial text-sm italic tracking-wide text-[#8C683B]">{content.hero.overlayEyebrow}</p>
+              <p className="mt-2 break-keep text-[15px] leading-[1.8] text-[#59615B]">{content.hero.overlayText}</p>
             </div>
           </div>
         </div>
+        {heroImage && <div className="relative aspect-[3/2] w-full lg:absolute lg:inset-0 lg:-z-20 lg:aspect-auto">
+          <Image
+            src={heroImage.src}
+            unoptimized={heroImage.unoptimized}
+            alt={content.hero.imageAlt}
+            fill
+            preload
+            sizes="100vw"
+            className="object-contain lg:object-cover lg:object-[center_65%]"
+          />
+        </div>}
       </section>}
 
       {content.partners.visible && <section className="page-section">

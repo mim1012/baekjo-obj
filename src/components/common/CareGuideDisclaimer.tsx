@@ -12,7 +12,7 @@ export default function CareGuideDisclaimer({ className = '' }: { className?: st
         <Stethoscope className="mt-0.5 size-4 shrink-0 text-[#7A4E1D]" aria-hidden="true" />
         <div>
           <p className="text-[13px] font-bold text-[#17211D]">꼭 확인해주세요</p>
-          <p className="mt-1.5 break-keep text-[12px] leading-6 text-[#59615B] md:text-[13px]">
+          <p className="mt-1.5 break-keep text-sm leading-6 text-[#59615B] ">
             {CARE_GUIDE_DISCLAIMER}
           </p>
         </div>
