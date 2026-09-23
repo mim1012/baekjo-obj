@@ -4,15 +4,19 @@
 // CmsPageDefinition 구조로 변환하는 순수 매퍼(build)를 갖는다. 서버(import 라우트)는 이 매퍼로
 // 계산한 값만 활성화 콘텐츠로 신뢰한다 — 클라이언트가 보낸 content는 절대 신뢰하지 않는다(D1).
 //
-// 15개 CMS_PAGE_DEFINITIONS 전부 bootstrapReady:true인 실제 매퍼로 연결되어 있다(U1~U3~U9 완료).
-// 아직 실 매퍼가 없는 신규 페이지를 추가할 때는 bootstrapReady:false placeholder로 시작하고 —
-// import 라우트가 이 표시를 보고 409로 막는다 — cms-source-mapper-contract.spec.ts가 placeholder
-// 존재 자체를 계약으로 검증하니 실 매퍼로 교체할 때 그 스펙도 함께 갱신한다.
+// 16개 CMS_PAGE_DEFINITIONS 전부 bootstrapReady:true인 실제 매퍼로 연결되어 있다(U1~U3~U9,
+// about 승격 완료). 아직 실 매퍼가 없는 신규 페이지를 추가할 때는 bootstrapReady:false placeholder로
+// 시작하고 — import 라우트가 이 표시를 보고 409로 막는다 — cms-source-mapper-contract.spec.ts가
+// placeholder 존재 자체를 계약으로 검증하니 실 매퍼로 교체할 때 그 스펙도 함께 갱신한다. about은
+// 원문이 어느 site_settings 행에도 없어(새로 생긴 페이지) siteSettingIds:[]로 정본 기본값에서
+// 직접 파생한다(src/lib/cms/source/about.ts 참조) — bootstrapReady:true이지만 소스 행을 잠그지
+// 않는 유일한 실 매퍼다.
 //
 // 'server-only'를 포함한 서버 전용 의존성은 여기서 import하지 않는다 — cms-source-mapper-contract.spec.ts
 // 등 순수 계약 테스트가 이 파일을 그대로 로드해 검증할 수 있어야 한다.
 import { getCmsPageDefinition } from '@/lib/cms/pageDefinitions';
 import { normalizeCmsPageContent } from '@/lib/cms/normalize';
+import { aboutSourceMapper } from '@/lib/cms/source/about';
 import { auditSourceMapper } from '@/lib/cms/source/audit';
 import { siteShellSourceMapper } from '@/lib/cms/source/siteShell';
 import { termsSourceMapper } from '@/lib/cms/source/terms';
@@ -29,12 +33,13 @@ import { insuranceLandingSourceMapper } from '@/lib/cms/source/insuranceLanding'
 import { reviewsSourceMapper } from '@/lib/cms/source/reviews';
 import { noticesSourceMapper } from '@/lib/cms/source/notices';
 
-/** CMS_PAGE_DEFINITIONS(15개)의 key 리터럴 합집합. pageDefinitions.ts는 key를 string으로만
+/** CMS_PAGE_DEFINITIONS(16개)의 key 리터럴 합집합. pageDefinitions.ts는 key를 string으로만
  * 타이핑하므로(정의가 헬퍼 함수로 조립돼 리터럴 추론이 안 된다), 레지스트리가 전체 키를
  * 빠짐없이 다루도록 여기서 별도로 리터럴 유니언을 고정한다. */
 export type CmsPageKey =
   | 'home'
   | 'site-shell'
+  | 'about'
   | 'shop'
   | 'brands'
   | 'reviews'
@@ -77,6 +82,7 @@ function placeholderMapper(pageKey: CmsPageKey): CmsSourceMapper {
 }
 
 export const CMS_SOURCE_REGISTRY: Record<CmsPageKey, CmsSourceMapper> = {
+  about: aboutSourceMapper,
   audit: auditSourceMapper,
   home: homeSourceMapper,
   'site-shell': siteShellSourceMapper,
