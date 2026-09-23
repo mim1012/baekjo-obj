@@ -302,7 +302,6 @@ export default function SiteSettingsPage() {
                   {renderInput('섹션 제목 (title)', draft.curation.title, (v) => updateDraft('curation', 'title', v))}
                   {renderInput('설명 (description)', draft.curation.description, (v) => updateDraft('curation', 'description', v), true)}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {renderInput('진단 링크 텍스트', draft.curation.diagnosisLinkLabel, (v) => updateDraft('curation', 'diagnosisLinkLabel', v))}
                     {renderInput('모든 고민 링크 텍스트', draft.curation.allConcernsLinkLabel, (v) => updateDraft('curation', 'allConcernsLinkLabel', v))}
                   </div>
                 </div>

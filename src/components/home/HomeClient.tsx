@@ -128,8 +128,9 @@ export default function HomeClient({
           <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
             가오픈 진행 중
           </span>
+          <span aria-hidden="true" className="hidden h-3 w-px shrink-0 bg-[#FBFAF7]/40 sm:block" />
           <p className="min-w-0 break-keep text-left text-sm font-semibold leading-[1.5] tracking-[-0.02em] text-[#FBFAF7] sm:tracking-normal">
-            | 현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
+            현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
           </p>
         </div>
       </aside>
@@ -150,21 +151,6 @@ export default function HomeClient({
             aria-hidden="true"
             className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
           />
-
-          {hero.badgeTitle && (
-            <div
-              data-testid="home-hero-badge"
-              className="absolute right-5 top-5 z-10 flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2.5 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-sm sm:flex md:right-8 md:top-8"
-            >
-              <ShieldCheck className="size-4 text-[#7A4E1D]" strokeWidth={2} />
-              <div className="flex flex-col leading-tight">
-                <span className="text-[12px] font-bold text-[#17231E]">{hero.badgeTitle}</span>
-                {hero.badgeSubtitle && (
-                  <span className="text-xs font-medium text-[#59615B]">{hero.badgeSubtitle}</span>
-                )}
-              </div>
-            </div>
-          )}
 
           <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
             <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
@@ -289,11 +275,6 @@ export default function HomeClient({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            {curation.diagnosisLinkLabel && (
-              <Link href="/diagnosis" className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#173C32] px-5 text-[13px] md:text-[14px] font-semibold text-white transition-colors hover:bg-[#2F3B34]">
-                {curation.diagnosisLinkLabel} <ArrowRight className="ml-1.5 size-4" />
-              </Link>
-            )}
             <Link href="/concerns" className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#DED8CC] bg-white px-5 text-[13px] md:text-[14px] font-semibold text-[#18231F] transition-colors hover:bg-[#F9F8F5] hover:border-[#B99562]">
               {curation.allConcernsLinkLabel} <ArrowRight className="ml-1.5 size-4" />
             </Link>
