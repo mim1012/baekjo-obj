@@ -76,12 +76,10 @@ function validateOption(raw: unknown): ProductOption | null {
   if (!isStr(o.name, 1, MAX_TEXT)) return null;
   if (!isNum(o.price, 0, MAX_PRICE)) return null;
   if (o.priceDiff !== undefined && !isNum(o.priceDiff, -MAX_PRICE, MAX_PRICE)) return null;
-  if (!isNum(o.stock, 0, MAX_STOCK)) return null;
   return {
     id: o.id,
     name: o.name,
     price: o.price,
-    stock: o.stock,
     ...(o.priceDiff !== undefined ? { priceDiff: o.priceDiff as number } : {}),
   };
 }
