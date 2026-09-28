@@ -32,8 +32,8 @@ function productWithOptions(): Product {
     isBest: false,
     isRecommended: false,
     options: [
-      { id: 'opt-large', name: '대형', price: 0, priceDiff: 5000, stock: 5 },
-      { id: 'opt-legacy', name: '레거시', price: 12000, stock: 5 }, // priceDiff 없음 → price를 가산분으로
+      { id: 'opt-large', name: '대형', price: 0, priceDiff: 5000 },
+      { id: 'opt-legacy', name: '레거시', price: 12000 }, // priceDiff 없음 → price를 가산분으로
     ],
   };
 }

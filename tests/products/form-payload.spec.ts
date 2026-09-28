@@ -29,8 +29,8 @@ function form(over: Partial<ProductFormState> = {}): ProductFormState {
     image: '/products/p1.webp',
     images: ['/products/p1.webp', '/products/p1-2.webp'],
     options: [
-      { id: 'opt-a', name: '2kg', price: '32000', stock: '10' },
-      { id: 'opt-b', name: '5kg', price: '68000', stock: '5' },
+      { id: 'opt-a', name: '2kg', price: '32000' },
+      { id: 'opt-b', name: '5kg', price: '68000' },
     ],
     auditPoints: ['상품 검증 포인트'],
     concernTags: ['skin'],
@@ -78,6 +78,7 @@ test('봉인됐던 필드(images·options·auditPoints·concernTags·ingredients
   const payload = buildProductUpdatePayload(form(), '지위픽');
   expect(payload.images).toEqual(['/products/p1.webp', '/products/p1-2.webp']);
   expect(payload.options).toHaveLength(2);
+  expect(payload.stock).toBe(10);
   expect(payload.auditPoints).toEqual(['상품 검증 포인트']);
   expect(payload.concernTags).toEqual(['skin']);
   expect(payload.ingredients).toBe('닭고기, 현미');
@@ -168,58 +169,55 @@ test('salePrice 0 은 null 로 정규화한다(할인 없음)', () => {
 
 test('normalizeOptions: name 이 빈 행은 버린다', () => {
   const rows: ProductOptionFormState[] = [
-    { name: '2kg', price: '32000', stock: '10' },
-    { name: '   ', price: '5000', stock: '3' },
+    { name: '2kg', price: '32000' },
+    { name: '   ', price: '5000' },
   ];
   expect(normalizeOptions(rows)).toHaveLength(1);
 });
 
 test('normalizeOptions: price 가 숫자가 아니거나 음수면 버린다', () => {
   const rows: ProductOptionFormState[] = [
-    { name: '유효', price: '32000', stock: '10' },
-    { name: '가격이상', price: 'abc', stock: '10' },
-    { name: '음수', price: '-1', stock: '10' },
+    { name: '유효', price: '32000' },
+    { name: '가격이상', price: 'abc' },
+    { name: '음수', price: '-1' },
   ];
   const out = normalizeOptions(rows);
   expect(out).toHaveLength(1);
   expect(out[0].name).toBe('유효');
 });
 
-test('normalizeOptions: stock 은 행을 버리지 않는다 — 유효하면 보존, 없거나 이상하면 0', () => {
-  // 옵션 재고 입력 UI 제거(2026-07-18): 재고는 상품 단위 하나. 기존 저장값은 보존하되
-  // 신규 행(stock 없음)·깨진 값은 0 으로 저장한다. 재고 때문에 옵션명·가격이 증발하면 안 된다.
+test('normalizeOptions: 옵션은 재고 없이 이름·가격을 보존한다', () => {
   const rows: ProductOptionFormState[] = [
-    { name: '기존값보존', price: '32000', stock: '10' },
+    { name: '기존값보존', price: '32000' },
     { name: '신규행', price: '1000' },
-    { name: '깨진값', price: '1000', stock: '1.5' },
-    { name: '음수재고', price: '1000', stock: '-3' },
   ];
   const out = normalizeOptions(rows);
-  expect(out).toHaveLength(4);
-  expect(out.map((o) => o.stock)).toEqual([10, 0, 0, 0]);
+  expect(out).toEqual([
+    { id: 'opt-1', name: '기존값보존', price: 32000 },
+    { id: 'opt-2', name: '신규행', price: 1000 },
+  ]);
 });
 
 test('normalizeOptions: 기존 id 는 보존하고 없으면 안정적 id 를 부여한다', () => {
   const rows: ProductOptionFormState[] = [
-    { id: 'opt-existing', name: '2kg', price: '32000', stock: '10' },
-    { name: '5kg', price: '68000', stock: '5' },
+    { id: 'opt-existing', name: '2kg', price: '32000' },
+    { name: '5kg', price: '68000' },
   ];
   const out = normalizeOptions(rows);
   expect(out[0].id).toBe('opt-existing');
   expect(out[1].id.length).toBeGreaterThan(0);
 });
 
-test('normalizeOptions: price/stock 문자열을 숫자로 변환한다', () => {
-  const out = normalizeOptions([{ name: '2kg', price: '32000', stock: '10' }]);
+test('normalizeOptions: price 문자열을 숫자로 변환한다', () => {
+  const out = normalizeOptions([{ name: '2kg', price: '32000' }]);
   expect(out[0].price).toBe(32000);
-  expect(out[0].stock).toBe(10);
 });
 
 test('normalizeOptions: 신규 행 id 가 기존 보존 id 와 충돌하지 않는다(장바구니 오바인딩 방지)', () => {
   // opt-1 삭제 후 남은 opt-2 + 신규 빈 행 → 신규가 opt-2 로 재부여돼선 안 된다.
   const rows: ProductOptionFormState[] = [
-    { id: 'opt-2', name: '5kg', price: '68000', stock: '5' },
-    { name: '신규', price: '1000', stock: '1' },
+    { id: 'opt-2', name: '5kg', price: '68000' },
+    { name: '신규', price: '1000' },
   ];
   const out = normalizeOptions(rows);
   const ids = out.map((o) => o.id);
