@@ -1,6 +1,7 @@
 import { Clock, Mail, MapPin, MessageCircle, Phone, RotateCcw, Truck } from 'lucide-react';
 import { formatPrice } from '@/lib/format';
 import { CARRIER_LABELS } from '@/lib/carriers';
+import PageContainer from '@/components/common/PageContainer';
 import type { Brand } from '@/types';
 
 interface BrandShippingInfoProps {
@@ -81,7 +82,7 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
 
   return (
     <section className="mb-10 md:mb-12">
-      <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+      <PageContainer>
         <div className="rounded-[18px] border border-[#E2DACD] bg-[#FFFEFB] p-5 shadow-[0_4px_24px_rgba(23,37,31,0.03)] md:p-6">
           <h2 className="mb-4 text-[15px] font-bold text-[#17251F] md:text-[16px]">배송·교환·반품 안내</h2>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
@@ -98,7 +99,7 @@ export default function BrandShippingInfo({ brand }: BrandShippingInfoProps) {
             ))}
           </dl>
         </div>
-      </div>
+      </PageContainer>
     </section>
   );
 }

@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatBrandDisplayName, getBrandPresentation } from '@/lib/brands/presentation';
 import type { BrandsContentData } from '@/lib/cms/source/brands';
 import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
+import PageContainer from '@/components/common/PageContainer';
 
 interface Props {
   brands: Brand[];
@@ -126,7 +127,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
           className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.82)_0%,rgba(249,246,239,0.64)_54%,rgba(249,246,239,0.08)_76%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.68)_0%,rgba(249,246,239,0.34)_44%,rgba(249,246,239,0)_64%)]"
         />
 
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+        <PageContainer className="relative z-10 flex h-full items-start pb-8 pt-20 md:items-center md:py-10">
           <div className="flex w-full max-w-[540px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="mb-3 block text-[11px] font-bold uppercase tracking-[0.12em] text-[#7A4E1D] md:mb-4 lg:text-[12px]">{content.hero.eyebrow}</span>
             <h1 className="break-keep text-[30px] font-bold leading-[1.2] tracking-[-0.035em] text-[#17231E] md:text-[34px] lg:text-[44px] lg:leading-[1.18]">
@@ -141,7 +142,7 @@ function BrandsInner({ brands, productCounts, initialSpotlightBrand, content, ma
               <span className="text-[18px] font-bold text-[#17251F] lg:text-[20px]">{brands.length}{content.hero.countSuffix}</span>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 2. 백조오브제의 5가지 브랜드 오디트 기준 */}

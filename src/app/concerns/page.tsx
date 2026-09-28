@@ -11,6 +11,7 @@ import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectConcernsContent, type ConcernsContent } from '@/lib/cms/source/concerns';
 import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
+import PageContainer from '@/components/common/PageContainer';
 
 export const metadata = {
   title: '케어 가이드',
@@ -62,7 +63,7 @@ export default async function ConcernsPage() {
           className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.92)_0%,rgba(248,246,240,0.74)_38%,rgba(248,246,240,0.18)_70%,rgba(248,246,240,0)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.94)_0%,rgba(248,246,240,0.78)_31%,rgba(248,246,240,0.28)_55%,rgba(248,246,240,0)_76%)]"
         />
 
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+        <PageContainer className="relative z-10 flex h-full items-start pb-8 pt-20 md:items-center md:py-10">
           <div className="flex w-full max-w-[540px] flex-col items-start md:w-[52%] md:min-w-[440px]">
             <span className="mb-3 text-[11px] font-bold tracking-[0.12em] text-[#7A4E1D] md:mb-4 lg:text-[12px]">
               {content.hero.eyebrow}
@@ -85,10 +86,10 @@ export default async function ConcernsPage() {
               </div>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>}
 
-      <div className="mx-auto w-full max-w-[1280px] px-5 pb-16 pt-[42px] md:px-7 md:pb-[56px] md:pt-[52px] lg:px-10 lg:pb-[72px] xl:px-12">
+      <PageContainer className="pb-16 pt-[42px] md:pb-[56px] md:pt-[52px] lg:pb-[72px]">
 
         {/* 3. 주요 고민 카드 6개 */}
         <section className="mb-[40px] md:mb-[52px]">
@@ -180,7 +181,7 @@ export default async function ConcernsPage() {
           </div>
         </section>}
 
-      </div>
+      </PageContainer>
     </main>
   );
 }

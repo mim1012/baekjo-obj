@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { getInsuranceContentConfig } from '@/lib/storage';
 import { defaultInsuranceContentConfig, type ConsentDoc } from '@/lib/insuranceContent/config';
+import PageContainer from '@/components/common/PageContainer';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const ALLOWED_FILE_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
@@ -222,7 +223,7 @@ export default function InsurancePage() {
     <div className="bg-[#FAF9F5] pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }}>
       {/* 1. 히어로 영역 */}
       <section className="pt-10">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="bg-noise relative flex flex-col overflow-hidden rounded-[22px] border border-[#E2DACD] bg-[#F1EDE5] px-8 py-12 shadow-[0_20px_50px_-35px_rgba(23,33,29,0.18)] md:h-[410px] md:flex-row md:items-center md:px-12 lg:px-14">
             {/* 좌측 콘텐츠 (55%) */}
             <div className="relative z-10 md:w-[55%]">
@@ -267,12 +268,12 @@ export default function InsurancePage() {
               <ShieldCheck className="size-96 text-[#D8C4A3]" />
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 2. 보험 분석 원칙 3개 통합 패널 */}
       <section className="mt-8">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="flex flex-row overflow-x-auto snap-x snap-mandatory hide-scrollbar gap-4 md:gap-0 pb-4 md:pb-0 md:rounded-[22px] md:border md:border-[#EBE8E1] md:bg-white md:h-[140px] md:overflow-hidden">
             {reviewPrinciples.map(({ icon: Icon, title, text }, idx) => (
               <article key={title} className={`flex flex-col justify-center p-6 lg:p-8 w-[80vw] sm:w-[320px] md:w-auto shrink-0 snap-center rounded-[22px] border border-[#EBE8E1] bg-white md:rounded-none md:border-0 md:flex-1 ${idx !== 0 ? 'md:border-l md:border-[#EBE8E1]' : ''}`}>
@@ -288,12 +289,12 @@ export default function InsurancePage() {
               </article>
             ))}
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 3. 증권 준비 안내 + 실제 업로드·신청 폼 */}
       <section id="insurance-form" className="mt-12 scroll-mt-24">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="flex flex-col gap-10 lg:flex-row lg:gap-16">
             {/* 좌측 준비 안내 (32%) */}
             <div className="lg:w-[32%] lg:pt-2">
@@ -450,12 +451,12 @@ export default function InsurancePage() {
               </form>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 개인정보 보호 안내 바 */}
       <section className="mt-12">
-         <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+         <PageContainer>
            <div className="flex flex-col md:flex-row md:items-center justify-between rounded-[20px] bg-white p-6 md:px-8 border border-[#EBE8E1]">
               <div className="flex items-center gap-4">
                 <ShieldCheck className="size-8 text-[#1A221E]" strokeWidth={1.5} />
@@ -468,12 +469,12 @@ export default function InsurancePage() {
                 개인정보 처리 방침 보기 <ArrowRight className="size-3" />
               </a>
            </div>
-         </div>
+         </PageContainer>
       </section>
 
       {/* 4. 진행 과정 4단계 */}
       <section className="mt-20">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="mb-8">
             <h2 className="text-[24px] font-bold tracking-tight text-[#1A1D1B]">신청 후에는 이렇게 이어져요.</h2>
             <p className="mt-2 text-[15px] text-[#5F6761]">신청부터 결과 확인까지, 차근차근 안내해 드립니다.</p>
@@ -496,12 +497,12 @@ export default function InsurancePage() {
               </div>
             ))}
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 5. 현재 보험 유지 안내 CTA */}
       <section className="mt-20">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
            <div className="relative overflow-hidden rounded-[24px] bg-[#F4F2EC] px-8 py-12 md:px-12 lg:py-16 flex flex-col md:flex-row items-center justify-between border border-[#EBE8E1]">
               <div className="relative z-10 md:w-2/3">
                  <p className="text-[13px] font-bold text-[#A8742E]">현재 가입한 보험이 만족스러우신가요?</p>
@@ -517,12 +518,12 @@ export default function InsurancePage() {
                  </a>
               </div>
            </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 6. FAQ + 1:1 문의 */}
       <section className="mt-12">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12 flex flex-col lg:flex-row gap-6">
+        <PageContainer className="flex flex-col lg:flex-row gap-6">
           {/* FAQ (70%) */}
           <div className="lg:w-[70%] rounded-[24px] bg-white border border-[#EBE8E1] p-8 md:p-10">
             <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">자주 묻는 질문</h2>
@@ -567,7 +568,7 @@ export default function InsurancePage() {
                1:1 문의하기 <ArrowRight className="ml-1 size-3" />
              </a>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 동의 문서 전문 모달 — '전문 보기' 클릭 시 관리자가 저장한 약관 전문을 그대로 보여준다. */}
