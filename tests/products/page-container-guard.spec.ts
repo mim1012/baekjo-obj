@@ -81,4 +81,31 @@ test.describe('페이지 최상위 폭 컨테이너 가드 (#344 이후 인라�
 
     expect(offenders).toEqual([]);
   });
+
+  // 홈 "보호자 후기·소식" 박스는 dad 원본(8/27)부터 배경·둥근 모서리를 컨테이너 자체에 걸어,
+  // 바깥선이 여백 밖으로 나가 다른 프레임(Audit 소개·빠른 쇼핑·보험 배너 — 모두 컨테이너 안쪽
+  // 첫 자식에 테두리를 둠)보다 양옆으로 튀어나왔다(1280px 이상에서 좌우 각 48px). 프레임은
+  // 컨테이너 안쪽 요소에 둬야 바깥선이 헤더 로고 줄에 맞는다.
+  test('PageContainer 자체에 프레임(배경·테두리·둥근 모서리·그림자)을 걸지 않는다', () => {
+    const FRAME_REGEX = /(?:^|\s)(?:rounded-|border(?:\s|$|-)|shadow-|bg-)/;
+    const OPEN_TAG_REGEX = /<PageContainer\b[^>]*?className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/g;
+    const offenders: Offender[] = [];
+
+    for (const dir of SEARCH_DIRS) {
+      const absDir = path.join(ROOT, dir);
+      if (!fs.existsSync(absDir)) continue;
+      for (const file of walk(absDir)) {
+        if (isExcluded(file)) continue;
+        const content = fs.readFileSync(file, 'utf8');
+        let match: RegExpExecArray | null;
+        OPEN_TAG_REGEX.lastIndex = 0;
+        while ((match = OPEN_TAG_REGEX.exec(content)) !== null) {
+          const className = match[1] ?? match[2] ?? match[3] ?? '';
+          if (FRAME_REGEX.test(className)) offenders.push({ file: path.relative(ROOT, file), className });
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
 });

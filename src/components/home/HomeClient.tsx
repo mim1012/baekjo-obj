@@ -365,7 +365,10 @@ export default function HomeClient({
       )}
 
       {/* 10. 반려가족 후기와 백조오브제 소식 */}
-      <PageContainer as="section" className="mb-12 rounded-[24px] bg-[#F2EEE5] py-8 md:mb-16 md:py-10">
+      {/* 프레임(배경·둥근 모서리)은 컨테이너 안쪽에 둔다 — 컨테이너 자체에 걸면 바깥선이 여백 밖으로
+          나가 다른 프레임(Audit 소개·빠른 쇼핑·보험 배너)과 헤더 로고 줄보다 양옆으로 튀어나온다. */}
+      <PageContainer as="section" className="mb-12 md:mb-16">
+        <div className="rounded-[24px] bg-[#F2EEE5] px-5 py-8 md:px-8 md:py-10 lg:px-10">
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
@@ -415,6 +418,7 @@ export default function HomeClient({
               )}
             </div>
           </div>
+        </div>
         </div>
       </PageContainer>
     </main>
