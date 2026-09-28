@@ -9,6 +9,7 @@ import { getCachedPageTextSettings } from '@/lib/public-read-cache';
 import { logServerError } from '@/lib/logServerError';
 import { selectExpertsContent, type ExpertsContent } from '@/lib/cms/source/experts';
 import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
+import PageContainer from '@/components/common/PageContainer';
 
 export const metadata = {
   title: '전문가 추천 | 백조오브제',
@@ -64,7 +65,7 @@ export default async function ExpertsPage({
     <div className="bg-[#FAF9F5] min-h-dvh pb-24 text-[#1A1D1B]" style={{ wordBreak: 'keep-all' }} data-cms-managed={managed ? 'experts' : undefined}>
       {/* 1. 전문가 추천 인트로 (박스 없음) */}
       {content.hero.visible && <section className="pt-16 pb-12 overflow-hidden">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
            <div className="flex flex-col md:flex-row items-center relative">
               <div className="relative z-10 w-full md:w-[58%] pt-4 pb-6 md:py-0">
                  <p className="font-editorial text-[12px] tracking-widest text-[#A8742E] font-semibold uppercase mb-4">
@@ -93,13 +94,13 @@ export default async function ExpertsPage({
                  </div>
               </div>}
            </div>
-        </div>
+        </PageContainer>
       </section>}
 
       {content.body.visible && <>
       {/* 2. 전문가 관점 카드 */}
       <section className="mt-4">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {content.body.perspectiveItems.filter((item) => item.visible).map((perspective, index) => {
               const Icon = perspectiveIcons[index % perspectiveIcons.length] ?? Stethoscope;
@@ -124,12 +125,12 @@ export default async function ExpertsPage({
               );
             })}
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 3. 상품 선정 과정 4단계 */}
       <section className="mt-20">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">{content.body.title}</h2>
           <div
             className="hide-scrollbar -mx-5 flex snap-x snap-mandatory scroll-px-5 items-stretch gap-4 overflow-x-auto px-5 pb-4 md:mx-0 md:items-center md:justify-between md:overflow-visible md:px-2 md:pb-0"
@@ -158,12 +159,12 @@ export default async function ExpertsPage({
               );
             })}
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 4. 추천 상품 섹션 */}
       <section className="mt-20 border-t border-[#EBE8E1] pt-16">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <h2 className="text-[20px] font-bold text-[#1A1D1B] mb-8">{content.body.productsTitle}</h2>
 
           <div className="flex gap-2 overflow-x-auto pb-2 mb-8 scrollbar-hide">
@@ -198,12 +199,12 @@ export default async function ExpertsPage({
               <p className="text-[#5F6761] text-[15px] font-medium">{content.body.emptyText}</p>
             </div>
           )}
-        </div>
+        </PageContainer>
       </section>
 
       {/* 5. 추천 기준 안내 CTA */}
       <section className="mt-16">
-        <div className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-12">
+        <PageContainer>
           <div className="bg-[#F4F2EC] rounded-[16px] p-6 md:px-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-[#EBE8E1]">
             <div className="flex items-start gap-4">
               <div className="mt-0.5">
@@ -223,7 +224,7 @@ export default async function ExpertsPage({
               <ArrowRight className="ml-2 size-4 text-[#5F6761]" />
             </Link>
           </div>
-        </div>
+        </PageContainer>
       </section>
       </>}
     </div>

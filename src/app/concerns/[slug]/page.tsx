@@ -10,6 +10,7 @@ import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import { FEATURES } from '@/config/features';
 import CareGuideDisclaimer from '@/components/common/CareGuideDisclaimer';
+import PageContainer from '@/components/common/PageContainer';
 
 interface ConcernDetailPageProps {
   params: Promise<{ slug: string }>;
@@ -321,7 +322,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,246,240,0.94)_0%,rgba(248,246,240,0.76)_42%,rgba(248,246,240,0.18)_72%,rgba(248,246,240,0)_100%)] md:bg-[linear-gradient(90deg,rgba(248,246,240,0.95)_0%,rgba(248,246,240,0.80)_32%,rgba(248,246,240,0.30)_56%,rgba(248,246,240,0)_78%)]"
         />
 
-        <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-12 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+        <PageContainer className="relative z-10 flex h-full items-start pb-8 pt-12 md:items-center md:py-10">
           <div className="flex w-full max-w-[560px] flex-col items-start md:w-[54%] md:min-w-[450px]">
             <Link
               href="/concerns"
@@ -344,15 +345,15 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
               {heroCopy.description}
             </p>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
-      <div className="mx-auto mt-8 w-full max-w-[1240px] px-5 md:mt-10 md:px-7 lg:px-10 xl:px-12">
+      <PageContainer className="mt-8 md:mt-10">
         <CareGuideDisclaimer />
-      </div>
+      </PageContainer>
 
       {/* 2. 핵심 정보 요약 바 */}
-      <div className="mx-auto mb-12 mt-10 w-full max-w-[1240px] px-5 md:mt-14 md:px-7 lg:mb-16 lg:mt-16 lg:px-10 xl:px-12">
+      <PageContainer className="mb-12 mt-10 md:mt-14 lg:mb-16 lg:mt-16">
         <div className="flex flex-col sm:flex-row sm:items-stretch overflow-hidden rounded-[18px] sm:rounded-[20px] border border-[#E4DDD1] bg-[#FFFEFB] sm:min-h-[112px] lg:min-h-[124px]">
           {quickGuideItems.map((item, index) => (
             <a
@@ -384,9 +385,9 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
             </a>
           ))}
         </div>
-      </div>
+      </PageContainer>
 
-      <div className="mx-auto w-full max-w-[1240px] px-5 md:px-7 lg:px-10 xl:px-12 pb-16 space-y-14 lg:space-y-16">
+      <PageContainer className="pb-16 space-y-14 lg:space-y-16">
 
         {/* 3. 증상 확인 + 병원 방문 기준 2단 통합 섹션 */}
         <section id="hospital" className="scroll-mt-32 flex flex-col lg:flex-row gap-5 lg:gap-6">
@@ -544,7 +545,7 @@ export default async function ConcernDetailPage({ params }: ConcernDetailPagePro
           </div>
         </section>
 
-      </div>
+      </PageContainer>
     </main>
   );
 }

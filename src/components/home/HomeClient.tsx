@@ -10,6 +10,7 @@ import {
 import type { HomeSettings } from '@/data/homeContent';
 import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
 import BrandShowcaseSlider from '@/components/home/BrandShowcaseSlider';
+import PageContainer from '@/components/common/PageContainer';
 import ProductCard from '@/components/common/ProductCard';
 import ReviewCard from '@/components/common/ReviewCard';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
@@ -124,7 +125,7 @@ export default function HomeClient({
         aria-label="가오픈 결제 안내"
         className="flex min-h-[38px] w-full items-center bg-[#17211D] text-[#FBFAF7] sm:min-h-[34px]"
       >
-        <div className="mx-auto flex w-full max-w-[1280px] items-center justify-center gap-2 px-2 py-1 sm:px-8 lg:px-12 xl:px-14">
+        <PageContainer className="flex items-center justify-center gap-2 py-1">
           <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
             가오픈 진행 중
           </span>
@@ -132,7 +133,7 @@ export default function HomeClient({
           <p className="min-w-0 break-keep text-left text-sm font-semibold leading-[1.5] tracking-[-0.02em] text-[#FBFAF7] sm:tracking-normal">
             현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
           </p>
-        </div>
+        </PageContainer>
       </aside>
 
       {/* 1. 메인 히어로 */}
@@ -152,7 +153,7 @@ export default function HomeClient({
             className="absolute inset-0 bg-[linear-gradient(180deg,rgba(249,246,239,0.78)_0%,rgba(249,246,239,0.58)_52%,rgba(249,246,239,0.08)_72%,rgba(249,246,239,0)_100%)] md:bg-[linear-gradient(90deg,rgba(249,246,239,0.58)_0%,rgba(249,246,239,0.22)_44%,rgba(249,246,239,0)_62%)]"
           />
 
-          <div className="relative z-10 mx-auto flex h-full w-full max-w-[1280px] items-start px-5 pb-8 pt-20 md:items-center md:px-8 md:py-10 lg:px-12 xl:px-14">
+          <PageContainer className="relative z-10 flex h-full items-start pb-8 pt-20 md:items-center md:py-10">
             <div className="flex w-full max-w-[510px] flex-col items-start md:w-[52%] md:min-w-[430px]">
             <span className="block text-[11px] lg:text-[12px] font-bold tracking-[0.12em] text-[#7A4E1D] uppercase mb-3 md:mb-4">{hero.eyebrow}</span>
             <h1 className="text-[30px] md:text-[34px] lg:text-[44px] font-bold leading-[1.2] lg:leading-[1.18] tracking-[-0.035em] text-[#17231E] break-keep">
@@ -174,12 +175,12 @@ export default function HomeClient({
               {hero.trustNote}
             </div>
           </div>
-          </div>
+          </PageContainer>
 
         </div>
       </section>
 
-      <section className="mx-auto mt-14 w-full max-w-[1280px] px-5 md:mt-[72px] md:px-7 lg:mt-[88px] lg:px-10 xl:px-14 mb-14 md:mb-[72px] lg:mb-[88px]">
+      <PageContainer as="section" className="mt-14 md:mt-[72px] lg:mt-[88px] mb-14 md:mb-[72px] lg:mb-[88px]">
         <div className="overflow-hidden rounded-[24px] border border-[#E7E2D9] bg-[#F6F3ED] shadow-[0_2px_10px_rgba(0,0,0,0.02)]">
           <div data-testid="home-audit-hero" className="relative isolate flex min-h-0 flex-col overflow-hidden md:block md:min-h-[360px] lg:min-h-[380px]">
             <picture className="order-2 relative block h-[214px] shrink-0 md:absolute md:inset-0 md:h-auto">
@@ -225,9 +226,9 @@ export default function HomeClient({
             })}
           </div>
         </div>
-      </section>
+      </PageContainer>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-24">
+      <PageContainer as="section" className="mb-16 md:mb-20 lg:mb-24">
         <nav aria-label={quickShop.title || '빠른 쇼핑'} className="rounded-[22px] border border-[#E8E0D4] bg-white px-3 py-5 shadow-[0_2px_10px_rgba(0,0,0,0.02)] sm:px-5 md:py-7 lg:px-8 lg:py-8">
           <div className="grid grid-cols-3 gap-x-2 gap-y-6 sm:grid-cols-6 sm:gap-x-4">
             {quickLinks.map((link, i) => {
@@ -244,9 +245,9 @@ export default function HomeClient({
             })}
           </div>
         </nav>
-      </section>
+      </PageContainer>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+      <PageContainer as="section" className="mb-16 md:mb-20 lg:mb-28">
         <div className="flex items-end justify-between mb-6 md:mb-8">
           <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{bestProductsCopy.title}</h2>
           <Link href="/shop" className="hidden sm:flex items-center text-[14px] font-semibold text-[#59615B] hover:text-[#7A4E1D] transition-colors">
@@ -264,9 +265,9 @@ export default function HomeClient({
           {bestProductsCopy.linkLabel}
         </Link>
         <MarketplaceNotice className="mt-6 md:mt-8" />
-      </section>
+      </PageContainer>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+      <PageContainer as="section" className="mb-16 md:mb-20 lg:mb-28">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 md:mb-8 gap-4">
           <div>
             <h2 className="text-[22px] md:text-[24px] font-bold tracking-tight text-[#18231F] sm:text-[28px]">{curation.title}</h2>
@@ -313,15 +314,15 @@ export default function HomeClient({
             );
           })}
         </div>
-      </section>
+      </PageContainer>
 
-      <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+      <PageContainer as="section" className="mb-16 md:mb-20 lg:mb-28">
         <BrandShowcaseSlider brands={displayBrands} />
-      </section>
+      </PageContainer>
 
       {/* 9. 펫보험 안내 배너 — 기능 플래그로 미노출(복귀는 features.ts) */}
       {FEATURES.insurance && insuranceBanner && (
-        <section className="mx-auto w-full max-w-[1280px] px-5 md:px-7 lg:px-10 xl:px-14 mb-16 md:mb-20 lg:mb-28">
+        <PageContainer as="section" className="mb-16 md:mb-20 lg:mb-28">
         <div className="relative flex h-auto min-h-[210px] md:min-h-[240px] overflow-hidden rounded-[24px] bg-[#1A2F25] px-6 py-8 md:px-12 md:py-0 md:items-center">
           <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between w-full h-full md:h-auto gap-6 md:gap-0">
             <div className="flex max-w-[480px] flex-col items-start text-[#17231E]">
@@ -360,11 +361,14 @@ export default function HomeClient({
             </picture>
           </div>
         </div>
-      </section>
+      </PageContainer>
       )}
 
       {/* 10. 반려가족 후기와 백조오브제 소식 */}
-      <section className="mx-auto mb-12 w-full max-w-[1280px] rounded-[24px] bg-[#F2EEE5] px-5 py-8 md:mb-16 md:px-7 md:py-10 lg:px-10 xl:px-14">
+      {/* 프레임(배경·둥근 모서리)은 컨테이너 안쪽에 둔다 — 컨테이너 자체에 걸면 바깥선이 여백 밖으로
+          나가 다른 프레임(Audit 소개·빠른 쇼핑·보험 배너)과 헤더 로고 줄보다 양옆으로 튀어나온다. */}
+      <PageContainer as="section" className="mb-12 md:mb-16">
+        <div className="rounded-[24px] bg-[#F2EEE5] px-5 py-8 md:px-8 md:py-10 lg:px-10">
         <div className="flex flex-col lg:flex-row gap-12 lg:gap-16">
           <div className="w-full lg:w-[58%]">
             <div className="flex items-end justify-between mb-8 border-b border-[#DED8CC] pb-4">
@@ -415,7 +419,8 @@ export default function HomeClient({
             </div>
           </div>
         </div>
-      </section>
+        </div>
+      </PageContainer>
     </main>
   );
 }
