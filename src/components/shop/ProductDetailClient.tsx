@@ -23,8 +23,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
   const router = useRouter();
   const mounted = useMounted();
   const [quantity, setQuantity] = useState(1);
-  const firstSelectableOption = product.options?.find((option) => option.stock === undefined || option.stock > 0)
-    ?? product.options?.[0];
+  const firstSelectableOption = product.options?.[0];
   const [selectedOption, setSelectedOption] = useState(firstSelectableOption?.id || '');
   const gallery = (product.images?.length ? product.images : [product.image]).filter(Boolean);
   const [activeImage, setActiveImage] = useState(0);
@@ -112,9 +111,7 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
 
   const finalPrice = basePrice + optionPrice;
   // 표시·계산·핸들러 전달 수량 일원화 — stock 변동과 무관하게 항상 1 이상으로 클램프
-  const availableStock = validOption?.stock === undefined
-    ? product.stock
-    : Math.min(product.stock, validOption.stock);
+  const availableStock = product.stock;
   const displayQty = Math.max(1, Math.min(quantity, Math.max(1, availableStock)));
   const totalPrice = finalPrice * displayQty;
   const discount = hasPrice ? calcDiscount(product.price!, product.salePrice ?? undefined) : 0;
@@ -144,10 +141,6 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
       alert('일시 품절된 상품입니다.');
       return;
     }
-    if (validOption?.stock !== undefined && validOption.stock <= 0) {
-      alert('선택한 옵션은 일시 품절되었습니다.');
-      return;
-    }
     const user = await getSessionUser();
     if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(`/shop/${product.id}`)}`);
@@ -173,10 +166,6 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
     }
     if (product.stock <= 0) {
       alert('일시 품절된 상품입니다.');
-      return;
-    }
-    if (validOption?.stock !== undefined && validOption.stock <= 0) {
-      alert('선택한 옵션은 일시 품절되었습니다.');
       return;
     }
     const user = await getSessionUser();
@@ -323,9 +312,8 @@ export default function ProductDetailClient({ product, relatedConcernLabels = []
                 className="w-full appearance-none rounded-[12px] border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3 md:py-4 text-sm text-[#17211D] focus:border-[#17211D] focus:outline-none focus:ring-1 focus:ring-[#17211D] shadow-sm transition-all"
               >
                 {product.options.map(opt => (
-                  <option key={opt.id} value={opt.id} disabled={opt.stock !== undefined && opt.stock <= 0}>
+                  <option key={opt.id} value={opt.id}>
                     {opt.name} {(opt.priceDiff ?? opt.price) > 0 ? `(+${formatPrice(opt.priceDiff ?? opt.price)})` : ''}
-                    {opt.stock !== undefined && opt.stock <= 0 ? ' · 품절' : ''}
                   </option>
                 ))}
               </select>
