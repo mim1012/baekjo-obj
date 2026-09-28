@@ -9,6 +9,7 @@ import BrandLogo, { getBrandTitleDisplayLogo } from '@/components/common/BrandLo
 import AuditAccordion from '@/components/common/AuditAccordion';
 import BrandAuditReport from '@/components/common/BrandAuditReport';
 import BrandShippingInfo from '@/components/brands/BrandShippingInfo';
+import PageContainer from '@/components/common/PageContainer';
 import {
   getCachedPublicBrandById,
   getCachedPublicBrandBySlug,
@@ -97,7 +98,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
     <main className="bg-[#F8F6F0] pb-24 md:pb-14">
       {/* 1. 브랜드 상세 히어로 */}
       <section className="pt-6 pb-8 md:pt-8 md:pb-10">
-        <div className="mx-auto flex w-full max-w-[1120px] flex-col items-center gap-8 px-5 md:flex-row md:px-6 lg:gap-12 lg:px-8">
+        <PageContainer className="flex flex-col items-center gap-8 md:flex-row lg:gap-12">
           {/* 좌측 브랜드 정보 */}
           <div className="flex w-full flex-1 flex-col md:w-[46%]">
             <Link
@@ -158,12 +159,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                )}
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 2. 핵심 정보 요약 바 */}
       <section className="mb-8 md:mb-10">
-        <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+        <PageContainer>
           <div className="rounded-[18px] border border-[#E2DACD] bg-[#FFFEFB] p-4 shadow-[0_4px_24px_rgba(23,37,31,0.03)] md:p-0">
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 divide-y md:grid-cols-2 md:divide-y-0">
               {/* 카테고리 */}
@@ -195,12 +196,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
           </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 3. 스토리 & Audit 통합 패널 */}
       <section id="brand-audit" className="mb-10 scroll-mt-24 md:mb-12">
-        <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+        <PageContainer>
            <div className="flex flex-col overflow-hidden rounded-[20px] border border-[#E2DACD] bg-[#FFFEFB] shadow-[0_4px_24px_rgba(23,37,31,0.03)] lg:flex-row">
              
              {/* 스토리 */}
@@ -259,7 +260,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
              </div>
 
            </div>
-        </div>
+        </PageContainer>
       </section>
 
       {/* 3-1. 브랜드 배송 정책 (값 있을 때만 렌더) */}
@@ -268,15 +269,15 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
       {/* 3-2. 감사 리포트 상세 (관리자 입력 — 리포트가 실제로 있을 때만 렌더한다.) */}
       {hasDetailedAudit && (
         <section id="brand-audit-report" className="mb-10 scroll-mt-24 md:mb-12 [&_section]:mt-0">
-          <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+          <PageContainer>
             <BrandAuditReport brand={publicBrand} />
-          </div>
+          </PageContainer>
         </section>
       )}
 
       {/* 4. 대표 상품 */}
       <section className="mb-10 md:mb-12">
-        <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+        <PageContainer>
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 break-keep text-[18px] font-bold leading-[1.3] text-[#17251F] md:text-[21px]">{pageCopy.productsTitle}</h2>
@@ -308,12 +309,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                <p className="mt-2 text-sm  text-[#6F756F]">{pageCopy.emptyProductsDescription}</p>
             </div>
           )}
-        </div>
+        </PageContainer>
       </section>
 
       {/* 5. 반려가족 후기 */}
       <section className="mb-10 md:mb-12">
-        <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+        <PageContainer>
           <div className="mb-5 flex flex-col justify-between gap-4 sm:flex-row sm:items-end md:mb-6">
              <div>
                <h2 className="mb-1 text-[18px] font-bold text-[#17251F] md:text-[21px]">{pageCopy.reviewsTitle}</h2>
@@ -344,12 +345,12 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
               <p className="mt-1 text-sm text-[#6F756F]">{pageCopy.emptyReviewsDescription}</p>
             </div>
           )}
-        </div>
+        </PageContainer>
       </section>
 
       {/* 6. 다른 검증 브랜드 탐색 CTA */}
       <section className="mb-0">
-         <div className="mx-auto w-full max-w-[1120px] px-5 md:px-6 lg:px-8">
+         <PageContainer>
             <div className="relative flex h-[168px] w-full flex-col items-center overflow-hidden rounded-[20px] border border-[#E2DACD] bg-[#F1EDE5] md:h-[176px] md:flex-row">
                
                {/* 텍스트 영역 */}
@@ -371,7 +372,7 @@ export default async function BrandDetailPage({ params }: { params: Promise<{ id
                   <div className="absolute inset-0 bg-gradient-to-r from-[#F1EDE5] to-transparent"></div>
                </div>
             </div>
-         </div>
+         </PageContainer>
       </section>
     </main>
   );

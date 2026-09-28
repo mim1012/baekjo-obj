@@ -4,6 +4,7 @@ import { COMPANY } from '@/data/company';
 import MarketplaceNotice from '@/components/common/MarketplaceNotice';
 import type { SiteShellContent } from '@/lib/cms/source/siteShell';
 import { resolveCmsImageProps } from '@/lib/cms/imageSrc';
+import PageContainer from '@/components/common/PageContainer';
 
 const INSTAGRAM_URL = 'https://www.instagram.com/baekjo.objet/';
 
@@ -24,7 +25,9 @@ export default function Footer({
   variant?: 'default' | 'home';
   siteShell?: SiteShellContent | null;
 }) {
-  const isHome = variant === 'home';
+  // variant='home'은 과거 홈 전용 폭(1180px)을 썼으나, #344 공통 기준 통일로 헤더와 동일한
+  // site-container-wide(PageContainer)를 쓰게 되어 더 이상 폭 분기가 필요 없다. prop 자체는
+  // 호출부(AppShell) 호환을 위해 유지한다.
   const managed = siteShell !== null;
   const branding = siteShell?.branding ?? {
     headerLogo: '/images/baekjo-objet-header-logo-v2.png',
@@ -42,8 +45,12 @@ export default function Footer({
     : footerLinks.map((link) => ({ ...link, visible: true }));
 
   return (
-    <footer data-cms-managed={managed ? 'site-shell' : undefined} className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0">
-      <div className={isHome ? 'mx-auto w-full max-w-[1180px] px-5 sm:px-6 lg:px-8 py-12' : 'site-container-wide py-12'}>
+    <footer
+      data-cms-managed={managed ? 'site-shell' : undefined}
+      data-footer-variant={variant}
+      className="bg-[#202521] pb-20 text-[#FBFAF7]/65 md:pb-0"
+    >
+      <PageContainer className="py-12">
         <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between">
           <Link
             href="/"
@@ -103,7 +110,7 @@ export default function Footer({
             </p>
           </div>
         </div>
-      </div>
+      </PageContainer>
     </footer>
   );
 }
