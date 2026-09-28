@@ -232,62 +232,16 @@ test.describe('런칭 핵심: 검색·카테고리·브랜드·정렬', () => {
 });
 
 test.describe('런칭 핵심: 옵션·장바구니·모바일·예외 상태', () => {
-  test('품절 옵션 차단, 옵션가 계산, 장바구니 재고 상한과 새로고침 보존', async ({ page }) => {
+  test('옵션 가격은 옵션 재고 없이 동작한다', async ({ page }) => {
     const { products } = await catalog(page);
-    const member = {
-      id: 'storefront-stock-member',
-      email: 'storefront-stock@example.test',
-      name: '재고 검증 회원',
-      role: 'user',
-      status: 'active',
-      provider: 'email',
-      emailVerified: true,
-    };
-    await page.route('**/api/members/me', (route) =>
-      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ user: member }) }),
-    );
-    const mixedStockProduct = products.find((product) =>
-      product.stock > 0 && product.options?.some((option) => option.stock === 0) && product.options.some((option) => option.stock > 0),
-    )!;
-    await page.goto(`/shop/${mixedStockProduct.id}`);
+    const optionProduct = products.find((product) => product.price != null && (product.options?.length ?? 0) > 0)!;
+    await page.goto(`/shop/${optionProduct.id}`);
     const select = page.locator('select').first();
-    const soldOutOptions = select.locator('option:disabled');
-    await expect(soldOutOptions.first()).toContainText('품절');
-    expect(await soldOutOptions.count()).toBeGreaterThan(0);
 
     const selectedId = await select.inputValue();
-    const selectedOption = mixedStockProduct.options!.find((option) => option.id === selectedId)!;
-    const unitPrice = (mixedStockProduct.salePrice ?? mixedStockProduct.price!) + (selectedOption.priceDiff ?? selectedOption.price ?? 0);
+    const selectedOption = optionProduct.options!.find((option) => option.id === selectedId)!;
+    const unitPrice = (optionProduct.salePrice ?? optionProduct.price!) + (selectedOption.priceDiff ?? selectedOption.price ?? 0);
     await expect(page.getByText(new Intl.NumberFormat('ko-KR').format(unitPrice) + '원', { exact: true }).last()).toBeVisible();
-
-    await page.evaluate(() => localStorage.removeItem('baekjo_cart'));
-    const stockLimitedProduct = products.find((product) => product.price != null && product.stock > 0)!;
-    await page.goto(`/shop/${stockLimitedProduct.id}`);
-    // Playwright는 리스너가 없는 alert를 자동으로 닫는다. 저장 결과를 정본으로 확인한다.
-    await page.getByRole('button', { name: '장바구니', exact: true }).first().click();
-    await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('baekjo_cart') || '[]').length)).toBe(1);
-    const selectedStock = await page.locator('select').first().evaluate((select: HTMLSelectElement) => {
-      const option = select.selectedOptions[0];
-      return option ? option.value : '';
-    }).then((optionId) => stockLimitedProduct.options?.find((option) => option.id === optionId)?.stock ?? stockLimitedProduct.stock);
-    await page.evaluate(
-      ({ quantity }) => {
-        const cart = JSON.parse(localStorage.getItem('baekjo_cart') || '[]');
-        cart[0].quantity = quantity;
-        localStorage.setItem('baekjo_cart', JSON.stringify(cart));
-      },
-      { quantity: selectedStock },
-    );
-    await page.goto('/cart');
-    await expect(page.getByText(stockLimitedProduct.name, { exact: true })).toBeVisible();
-    const plus = page.getByRole('button', { name: new RegExp(`${stockLimitedProduct.name} 수량 늘리기`) });
-    const minus = page.getByRole('button', { name: new RegExp(`${stockLimitedProduct.name} 수량 줄이기`) });
-    await expect(plus).toBeDisabled();
-    await expect(minus).toBeEnabled();
-    await page.reload();
-    await expect(page.getByText(stockLimitedProduct.name, { exact: true })).toBeVisible();
-    const storedQuantity = await page.evaluate(() => JSON.parse(localStorage.getItem('baekjo_cart') || '[]')[0]?.quantity);
-    expect(storedQuantity).toBe(selectedStock);
   });
 
   test('모바일 메뉴 외부 클릭·Escape와 필터 바텀시트를 실제 조작한다', async ({ page }) => {

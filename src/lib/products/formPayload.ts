@@ -46,13 +46,11 @@ export const PRODUCT_FORM_FIELDS = [
 ] as const;
 
 /** 옵션 하위 폼 상태. 값은 문자열(입력 그대로)로 들고 payload 단계에서 정규화한다.
- *  stock 은 입력 UI 를 제거했다(재고는 상품 단위 하나 — 차감·품절표시 전부 product.stock 기준).
- *  기존 저장값 보존을 위해 폼 상태로만 실어 나르고, 없거나 유효하지 않으면 0 으로 저장한다. */
+ *  재고는 상품 단위 하나이므로 옵션에는 이름·가격만 저장한다. */
 export interface ProductOptionFormState {
   id?: string;
   name: string;
   price: string;
-  stock?: string;
 }
 
 /** 문자열 배열에서 공백 항목을 제거해 실제 입력된 값만 남긴다(추천대상·주의사항·이미지 갤러리). */
@@ -62,8 +60,7 @@ function cleanStringList(items: string[]): string[] {
 
 /**
  * 옵션 폼 행 → ProductOption[]. name 이 비었거나 price 가 숫자가 아니면 그 행은 버린다
- * (빈 옵션 행이 저장돼 구매 화면에 "이름 없는 옵션"이 뜨는 것을 막는다). stock 은 입력 UI 가
- * 없으므로 행을 버리는 조건이 아니다 — 기존 저장값이 유효하면 보존, 아니면 0. id 는 기존 값을 쓰되
+ * (빈 옵션 행이 저장돼 구매 화면에 "이름 없는 옵션"이 뜨는 것을 막는다). id 는 기존 값을 쓰되
  * 없으면(신규 행) 안정적인 값을 부여한다 — 저장 후 재로드해도 같은 id 를 유지하기 위해서다.
  */
 export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[] {
@@ -77,11 +74,6 @@ export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[
     if (name.length === 0) continue;
     const price = Number(row.price);
     if (!Number.isFinite(price) || price < 0) continue;
-    const parsedStock = Number(row.stock);
-    const stock =
-      Number.isFinite(parsedStock) && Number.isInteger(parsedStock) && parsedStock >= 0
-        ? parsedStock
-        : 0;
     let id = (row.id ?? '').trim();
     if (!id) {
       do {
@@ -90,7 +82,7 @@ export function normalizeOptions(rows: ProductOptionFormState[]): ProductOption[
       } while (used.has(id));
       used.add(id);
     }
-    out.push({ id, name, price, stock });
+    out.push({ id, name, price });
   }
   return out;
 }

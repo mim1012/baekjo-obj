@@ -97,12 +97,8 @@ export default function CartPage() {
     const brandName = product?.brandName || brands.find(b => b.id === product?.brandId)?.name || product?.brandId;
     // 상품 상세 페이지와 동일한 재고 판단 기준(ProductDetailClient.tsx: isSellable = hasPrice && stock > 0).
     // stock 정보가 없는 상품(product 자체가 안 실린 경우)은 아래 filter(item.product)에서 이미 걸러진다.
-    const productStock = product?.stock ?? null;
-    const stock = option?.stock === undefined
-      ? productStock
-      : productStock === null
-        ? option.stock
-        : Math.min(productStock, option.stock);
+    // 재고는 옵션이 아니라 상품 단위의 product.stock 하나만 사용한다.
+    const stock = product?.stock ?? null;
     const isSoldOut = stock !== null && stock <= 0;
     const isOverStock = stock !== null && stock > 0 && item.quantity > stock;
     const commerceReady = product ? isProductCommerceReady(product) : false;

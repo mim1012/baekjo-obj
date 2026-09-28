@@ -136,7 +136,6 @@ function toOptionRows(product?: Product | null): ProductOptionFormState[] {
     id: o.id,
     name: o.name,
     price: String(o.price),
-    stock: String(o.stock),
   }));
 }
 
@@ -191,7 +190,7 @@ export default function ProductForm({ initialData, brands, productTags, sellers 
     ...initialData,
   });
 
-  // 옵션은 price/stock 을 입력 중 문자열로 다뤄야 해 formData 와 별도 상태로 든다.
+  // 옵션은 price 를 입력 중 문자열로 다뤄야 해 formData 와 별도 상태로 든다.
   const [optionRows, setOptionRows] = useState<ProductOptionFormState[]>(() => toOptionRows(initialData));
 
   const [isSaving, setIsSaving] = useState(false);

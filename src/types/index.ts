@@ -119,7 +119,6 @@ export interface ProductOption {
   name: string;
   price: number;
   priceDiff?: number;
-  stock: number;
 }
 
 /** 상품 상세 본문 블록 — 네이버식 상세(텍스트·이미지 순차 삽입). 추후 업체 관리자 에디터가 편집. */
