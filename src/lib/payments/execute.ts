@@ -3,6 +3,7 @@
  * 판단은 전혀 하지 않는다 — confirm/webhook/reconcile 세 라우트가 공유한다.
  */
 import { setOrderPaid, cancelConfirmingAndRestore } from '@/lib/orders/repo';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 import type { PaymentAction } from './decide';
 
 export type ApplyResult =
@@ -30,6 +31,8 @@ export async function applyPaymentAction(
         throw new Error('applyPaymentAction: confirm 액션은 confirmPaymentKey가 필요합니다');
       }
       const affected = await setOrderPaid(orderId, { paymentKey: confirmPaymentKey, paidAt: new Date().toISOString() });
+      // 1행 = 이번 호출이 결제완료로 전이시킨 것 — 멱등 재호출(0행)에는 알림톡을 보내지 않는다.
+      if (affected === 1) notifyAlimtalkAfter({ event: 'orderPaid', orderId });
       return { applied: 'confirm', affected };
     }
     case 'restoreConfirming': {

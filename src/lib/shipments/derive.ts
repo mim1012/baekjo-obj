@@ -169,6 +169,36 @@ export function isTerminalShipment(current: Shipment | undefined): boolean {
   return current?.deliveryStatus === '구매확정' || Boolean(current?.confirmedAt);
 }
 
+/** 관리자 송장 PATCH가 일으킨 전이 중 고객 알림톡(배송출발·배송완료) 대상. */
+export type ShipmentNotification =
+  | { event: 'shippingStarted'; carrier: string; trackingNumber: string }
+  | { event: 'delivered' };
+
+/**
+ * 송장 PATCH 직전 상태(current)와 새 patch를 비교해 알림톡을 보낼 전이인지 판정한다(순수).
+ *  - 배송출발: deliveryStatus가 '배송중'으로 바뀜(이미 배송완료·구매확정이던 행은 제외) + 운송장 있음.
+ *    이미 배송중이던 행은 기존에 운송장이 없었고 이번 patch가 처음 운송장을 넣을 때만(최초 송장 등록).
+ *  - 배송완료: deliveryStatus가 '배송완료'로 바뀜(이미 배송완료·구매확정이던 행은 제외)
+ * 상태를 patch에 싣지 않았거나 같은 상태 재전송이면 null — 멱등 재저장에는 알리지 않는다.
+ */
+export function decideShipmentNotification(
+  current: Shipment | undefined,
+  patch: AdminShipmentPatchInput,
+): ShipmentNotification | null {
+  const next = patch.deliveryStatus;
+  if (next === undefined) return null;
+  const prev = current?.deliveryStatus ?? '배송전';
+  if (next === '배송중' && prev !== '배송완료' && prev !== '구매확정') {
+    const trackingNumber = patch.trackingNumber || current?.trackingNumber;
+    if (!trackingNumber) return null;
+    // 이미 배송중: 송장이 처음 붙는 경우에만 알린다(같은 송장 재저장·송장 수정은 제외).
+    if (prev === '배송중' && (current?.trackingNumber || !patch.trackingNumber)) return null;
+    return { event: 'shippingStarted', carrier: patch.carrier || current?.carrier || '', trackingNumber };
+  }
+  if (next === '배송완료' && prev !== '배송완료' && prev !== '구매확정') return { event: 'delivered' };
+  return null;
+}
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**

@@ -202,6 +202,12 @@ export default defineConfig({
       use: {},
     },
     {
+      // 카카오 알림톡(솔라피) 메시지 구성·발송 안전 스위치·이벤트 배선 스펙 — transport stub, 네트워크·DB 불필요.
+      name: 'notifications',
+      testDir: './tests/notifications',
+      use: {},
+    },
+    {
       name: 'partners',
       testDir: './tests/partners',
       use: {},

@@ -5,6 +5,7 @@ import { getOrderById } from '@/lib/orders/repo';
 import { confirmShipmentIfDelivered, listShipmentsByOrder } from '@/lib/shipments/repo';
 import { decideShipmentConfirm } from '@/lib/shipments/derive';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -61,8 +62,11 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: 'order-not-paid' }, { status: 409 });
     }
 
-    const confirmed = await confirmShipmentIfDelivered(id, brandId, new Date().toISOString());
+    const confirmedAt = new Date().toISOString();
+    const confirmed = await confirmShipmentIfDelivered(id, brandId, confirmedAt);
     if (confirmed) {
+      // 조건부 UPDATE가 1행 — 이번 호출이 구매확정시킨 경우에만 알린다(재확정·경합 패배는 위에서 멱등 200).
+      notifyAlimtalkAfter({ event: 'purchaseConfirmed', orderId: id, brandId, confirmedAt });
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
