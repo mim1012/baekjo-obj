@@ -4,6 +4,7 @@ import { getCustomerServiceRequestById, updateCustomerServiceRequest } from '@/l
 import { isCustomerServiceRequestTransitionAllowed } from '@/lib/orders/customerServiceState';
 import type { CustomerServiceRequestStatus } from '@/types';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 const STATUSES = new Set<CustomerServiceRequestStatus>(['received', 'reviewing', 'approved', 'rejected', 'completed']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -26,6 +27,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
     const serviceRequest = await updateCustomerServiceRequest(id, { status: body.status as CustomerServiceRequestStatus, adminNote: typeof body.adminNote === 'string' ? body.adminNote.trim() : undefined });
     if (!serviceRequest) return NextResponse.json({ error: 'not-found' }, { status: 404 });
+    // 처리완료 알림 — approved → completed 전이에서만(반려 건 종결·같은 상태 재전송은 알리지 않는다).
+    if (serviceRequest.status === 'completed' && current.status === 'approved') {
+      notifyAlimtalkAfter({
+        event: serviceRequest.type === 'exchange' ? 'exchangeCompleted' : 'returnCompleted',
+        orderId: serviceRequest.orderId,
+        sellerKey: serviceRequest.sellerKey,
+      });
+    }
     return NextResponse.json({ request: serviceRequest });
   } catch (error) {
     if (error && typeof error === 'object' && (error as { message?: string }).message?.includes('INVALID_CUSTOMER_REQUEST_STATUS_TRANSITION')) {

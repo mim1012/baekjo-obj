@@ -383,3 +383,34 @@ test.describe('applyOrderUpdates — 환불 크래시 윈도우 재조정', () =
     expect(fake.calls).not.toContain('refundRPC');
   });
 });
+
+// 알림톡 등 부수효과가 멱등 재호출에 중복 발동하지 않도록, 라우트가 보는 "이번 호출이 일으킨 전이" 신호.
+test.describe('applyOrderUpdates — 전이 신호(OrderUpdateOutcome)', () => {
+  test('입금대기 → 결제완료 입금확인은 paymentConfirmed=true, 같은 요청을 다시 보내면 false', async () => {
+    const fake = makeFake({ paymentStatus: '입금대기', orderStatus: '주문접수' });
+    const first = await applyOrderUpdates('d1', { paymentStatus: '결제완료' }, fake.ports);
+    expect(first).toEqual({ paymentConfirmed: true, cancelled: false, refunded: false });
+    const repeat = await applyOrderUpdates('d1', { paymentStatus: '결제완료' }, fake.ports);
+    expect(repeat).toEqual({ paymentConfirmed: false, cancelled: false, refunded: false });
+  });
+
+  test('결제상태 없이 필드만 바꾸면 어떤 전이 신호도 켜지지 않는다', async () => {
+    const fake = makeFake({ paymentStatus: '입금대기', orderStatus: '주문접수' });
+    const outcome = await applyOrderUpdates('d2', { trackingNumber: '123' }, fake.ports);
+    expect(outcome).toEqual({ paymentConfirmed: false, cancelled: false, refunded: false });
+  });
+
+  test('취소 RPC가 수행되면 cancelled=true, 이미 취소된 주문의 재요청(RPC false)은 false', async () => {
+    const fake = makeFake({ paymentStatus: '입금대기', orderStatus: '주문접수' });
+    const first = await applyOrderUpdates('d3', { orderStatus: '취소완료', paymentStatus: '결제취소' }, fake.ports);
+    expect(first.cancelled).toBe(true);
+    const repeat = await applyOrderUpdates('d3', { orderStatus: '취소완료', paymentStatus: '결제취소' }, fake.ports);
+    expect(repeat).toEqual({ paymentConfirmed: false, cancelled: false, refunded: false });
+  });
+
+  test('전액환불이 수행되면 refunded=true', async () => {
+    const fake = makeFake({ paymentStatus: '결제완료', orderStatus: '주문접수', paymentKey: null });
+    const outcome = await applyOrderUpdates('d4', { paymentStatus: '환불완료' }, fake.ports);
+    expect(outcome).toEqual({ paymentConfirmed: false, cancelled: false, refunded: true });
+  });
+});

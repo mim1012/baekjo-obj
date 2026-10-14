@@ -20,6 +20,7 @@ import {
 } from '@/lib/orders/applyOrderUpdates';
 import { cancelTossPayment, queryTossPayment, TossConfirmError, isTossClientRejection } from '@/lib/payments/toss';
 import { logServerError, logServerWarn } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 import { isCarrierCode } from '@/lib/carriers';
 import {
   DELIVERY_STATUSES,
@@ -162,7 +163,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       return NextResponse.json({ error: 'forbidden' }, { status: 403 });
     }
 
-    await applyOrderUpdates(id, updates, orderUpdatePorts);
+    const outcome = await applyOrderUpdates(id, updates, orderUpdatePorts);
+    // 알림톡은 이번 호출이 실제로 입금확인 전이를 일으켰을 때만. 취소(미결제 전용 RPC)는 환불이 아니라
+    // 알리지 않고, paymentStatus=환불완료는 이 라우트 validate()가 400으로 거절해 도달 불가다.
+    if (outcome.paymentConfirmed) notifyAlimtalkAfter({ event: 'orderPaid', orderId: id });
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (error) {
     if (error instanceof OrderNotFoundError) {

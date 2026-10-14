@@ -3,12 +3,14 @@ import { requireAdmin } from '@/lib/admin/requireAdmin';
 import { getOrderById, updateOrderStatus } from '@/lib/orders/repo';
 import { listShipmentsByOrder, updateShipmentUnlessConfirmed } from '@/lib/shipments/repo';
 import {
+  decideShipmentNotification,
   deriveOrderDeliveryStatus,
   orderBrandIds,
   resolveShipmentStamps,
   validateAdminShipmentPatch,
 } from '@/lib/shipments/derive';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,6 +64,20 @@ export async function PATCH(
     const outcome = await updateShipmentUnlessConfirmed(id, brandId, { ...patch, ...stamps });
     if (outcome === 'confirmed-locked') {
       return NextResponse.json({ error: 'shipment-confirmed' }, { status: 409 });
+    }
+
+    // 배송출발·배송완료 알림톡 — 사전 read한 current 대비 상태가 실제로 바뀐 쓰기에서만 보낸다.
+    const notification = decideShipmentNotification(current, patch);
+    if (notification?.event === 'shippingStarted') {
+      notifyAlimtalkAfter({
+        event: 'shippingStarted',
+        orderId: id,
+        brandId,
+        carrier: notification.carrier,
+        trackingNumber: notification.trackingNumber,
+      });
+    } else if (notification?.event === 'delivered') {
+      notifyAlimtalkAfter({ event: 'delivered', orderId: id, brandId });
     }
 
     // D-3 파생: 업체별 송장이 바뀌면 주문 단위 deliveryStatus를 다시 파생한다. 주문 단위는
