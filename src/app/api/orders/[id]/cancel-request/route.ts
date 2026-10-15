@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireActiveMember } from '@/lib/members/requireActiveMember';
 import { getOrderById, requestOrderCancellation } from '@/lib/orders/repo';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 import { isCancellationRequestAllowed } from '@/lib/orders/cancellation';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,6 +30,8 @@ export async function POST(_request: Request, context: { params: Promise<{ id: s
     if (!requested) {
       return NextResponse.json({ error: 'cancel-request-conflict' }, { status: 409 });
     }
+    // 조건부 UPDATE(주문접수 → 취소요청)가 1행 반영된 이번 호출에서만 알린다.
+    notifyAlimtalkAfter({ event: 'cancelRequested', orderId: id });
     return NextResponse.json({ ok: true, orderStatus: '취소요청' }, { status: 200 });
   } catch (error) {
     logServerError('[POST /api/orders/[id]/cancel-request] 취소 요청 실패', error);

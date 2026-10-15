@@ -1,7 +1,13 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { autoConfirmDeliveredBefore } from '@/lib/shipments/repo';
+import {
+  AutoConfirmRowsRpcMissingError,
+  autoConfirmDeliveredBefore,
+  autoConfirmDeliveredBeforeWithRows,
+  type AutoConfirmedShipment,
+} from '@/lib/shipments/repo';
 import { autoConfirmCutoff } from '@/lib/shipments/derive';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 // 자동 구매확정 임계일수 — D-2 결정(2026-07-17): 배송완료 후 7일이 지나면 자동으로 '구매확정' 전이
 // (커머스 관례). 고객이 마이페이지 버튼으로 먼저 확정하면 그 행은 delivery_status가 '구매확정'이라
@@ -38,19 +44,51 @@ export async function GET(request: NextRequest) {
   const cutoffIso = autoConfirmCutoff(now, AUTO_CONFIRM_DAYS);
 
   let confirmed: number;
+  let rows: AutoConfirmedShipment[] = [];
   try {
-    confirmed = await autoConfirmDeliveredBefore(cutoffIso, now.toISOString());
+    try {
+      rows = await autoConfirmDeliveredBeforeWithRows(cutoffIso, now.toISOString());
+      confirmed = rows.length;
+    } catch (error) {
+      if (!(error instanceof AutoConfirmRowsRpcMissingError)) throw error;
+      // 0179 미적용 DB — 알림 없이 count 판으로 확정만 수행(크론 가용성 우선).
+      logServerError(
+        '[GET /api/cron/auto-confirm-shipments] 0179 RPC 미적용 — count 판으로 폴백(구매확정 알림톡 미발송)',
+        error,
+      );
+      confirmed = await autoConfirmDeliveredBefore(cutoffIso, now.toISOString());
+    }
   } catch (error) {
     logServerError('[GET /api/cron/auto-confirm-shipments] 자동 구매확정 실패', error);
     return NextResponse.json({ error: 'server-error' }, { status: 500 });
   }
 
+  // 이번 호출이 실제로 확정시킨 행마다 구매확정 알림톡을 예약한다. 한 건의 실패가 다른 건이나
+  // 크론 응답에 영향을 주지 않는다(notifyAlimtalkAfter는 던지지 않으며, 방어적으로 한 번 더 감싼다).
+  let notified = 0;
+  for (const row of rows) {
+    try {
+      notifyAlimtalkAfter({
+        event: 'purchaseConfirmed',
+        orderId: row.orderId,
+        brandId: row.brandId,
+        confirmedAt: row.confirmedAt,
+      });
+      notified++;
+    } catch (error) {
+      logServerError(
+        `[GET /api/cron/auto-confirm-shipments] 알림톡 예약 실패 order=${row.orderId} brand=${row.brandId}`,
+        error,
+      );
+    }
+  }
+
   if (confirmed > 0) {
     logServerError(
-      `[GET /api/cron/auto-confirm-shipments] 자동 구매확정 완료 confirmed=${confirmed} cutoff=${cutoffIso}`,
+      `[GET /api/cron/auto-confirm-shipments] 자동 구매확정 완료 confirmed=${confirmed} notified=${notified} cutoff=${cutoffIso}`,
       {},
     );
   }
 
-  return NextResponse.json({ ok: true, confirmed });
+  return NextResponse.json({ ok: true, confirmed, notified });
 }

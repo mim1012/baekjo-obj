@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import type { OrderItem, Shipment } from '@/types';
 import {
   autoConfirmCutoff,
+  decideShipmentNotification,
   deriveOrderDeliveryStatus,
   orderBrandIds,
   resolveShipmentStamps,
@@ -161,5 +162,62 @@ test.describe('autoConfirmCutoff', () => {
   test('월 경계를 넘겨도 정확히 계산한다', () => {
     const now = new Date('2026-08-03T00:00:00.000Z');
     expect(autoConfirmCutoff(now, 7)).toBe('2026-07-27T00:00:00.000Z');
+  });
+});
+
+test.describe('decideShipmentNotification (알림톡 대상 전이 판정)', () => {
+  test('배송전 → 배송중 + 운송장이 있으면 배송출발(택배사·운송장 포함)', () => {
+    const result = decideShipmentNotification(shipment('b1', '배송전'), {
+      deliveryStatus: '배송중',
+      carrier: 'cj',
+      trackingNumber: '1234',
+    });
+    expect(result).toEqual({ event: 'shippingStarted', carrier: 'cj', trackingNumber: '1234' });
+  });
+
+  test('송장 행이 아직 없어도(undefined) patch에 운송장이 있으면 배송출발', () => {
+    expect(decideShipmentNotification(undefined, { deliveryStatus: '배송중', carrier: 'hanjin', trackingNumber: '77' })).toEqual({
+      event: 'shippingStarted',
+      carrier: 'hanjin',
+      trackingNumber: '77',
+    });
+  });
+
+  test('patch에 운송장이 없어도 기존 행의 운송장을 쓴다', () => {
+    const current = shipment('b1', '배송준비', { carrier: 'lotte', trackingNumber: '55' });
+    expect(decideShipmentNotification(current, { deliveryStatus: '배송중' })).toEqual({
+      event: 'shippingStarted',
+      carrier: 'lotte',
+      trackingNumber: '55',
+    });
+  });
+
+  test('운송장이 어디에도 없으면 배송출발을 보내지 않는다', () => {
+    expect(decideShipmentNotification(shipment('b1', '배송전'), { deliveryStatus: '배송중' })).toBeNull();
+  });
+
+  test('이미 배송중이던 행: 송장이 처음 붙을 때만 배송출발, 이미 송장이 있으면 알리지 않는다', () => {
+    const patch = { deliveryStatus: '배송중', carrier: 'cj', trackingNumber: '1' };
+    expect(decideShipmentNotification(shipment('b1', '배송중'), patch)).toEqual({
+      event: 'shippingStarted',
+      carrier: 'cj',
+      trackingNumber: '1',
+    });
+    expect(decideShipmentNotification(shipment('b1', '배송중'), { deliveryStatus: '배송중' })).toBeNull();
+    expect(decideShipmentNotification(shipment('b1', '배송중', { trackingNumber: '0' }), patch)).toBeNull();
+  });
+
+  test('배송완료·구매확정 행에 배송중을 보내면 알리지 않는다(역전이)', () => {
+    const patch = { deliveryStatus: '배송중', carrier: 'cj', trackingNumber: '1' };
+    expect(decideShipmentNotification(shipment('b1', '배송완료', { trackingNumber: '1' }), patch)).toBeNull();
+  });
+
+  test('배송중 → 배송완료는 배송완료, 같은 상태 재전송은 null', () => {
+    expect(decideShipmentNotification(shipment('b1', '배송중'), { deliveryStatus: '배송완료' })).toEqual({ event: 'delivered' });
+    expect(decideShipmentNotification(shipment('b1', '배송완료'), { deliveryStatus: '배송완료' })).toBeNull();
+  });
+
+  test('상태 없이 운송장만 고치는 patch는 알리지 않는다', () => {
+    expect(decideShipmentNotification(shipment('b1', '배송중'), { carrier: 'cj', trackingNumber: '2' })).toBeNull();
   });
 });

@@ -214,6 +214,46 @@ export async function autoConfirmDeliveredBefore(
   return data ?? 0;
 }
 
+export interface AutoConfirmedShipment {
+  orderId: string;
+  brandId: string;
+  confirmedAt: string;
+}
+
+/**
+ * 자동 구매확정(행 반환판) — 0179 RPC. autoConfirmDeliveredBefore와 선택·갱신 로직이 같고,
+ * 이번 호출이 '구매확정'으로 전이시킨 (주문, 브랜드) 목록을 돌려줘 알림톡 발송에 쓴다.
+ * 함수가 아직 배포되지 않은 DB(코드가 마이그레이션보다 먼저 나간 경우)에서는
+ * 'rpc-missing'을 던져 호출부가 count 판으로 폴백할 수 있게 한다
+ * (PostgREST PGRST202 / PostgreSQL 42883).
+ */
+export class AutoConfirmRowsRpcMissingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AutoConfirmRowsRpcMissingError';
+  }
+}
+
+export async function autoConfirmDeliveredBeforeWithRows(
+  cutoffIso: string,
+  confirmedAt: string,
+): Promise<AutoConfirmedShipment[]> {
+  const { data, error } = await getSupabase().rpc('auto_confirm_paid_delivered_shipments_rows', {
+    p_cutoff: cutoffIso,
+    p_confirmed_at: confirmedAt,
+  });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') {
+      throw new AutoConfirmRowsRpcMissingError(error.message);
+    }
+    throw new Error(error.message);
+  }
+  return ((data ?? []) as Array<{ order_id: string; brand_id: string; confirmed_at: string }>).map((row) => ({
+    orderId: row.order_id,
+    brandId: row.brand_id,
+    confirmedAt: row.confirmed_at,
+  }));
+}
 /** 고객 구매확정 — WHERE delivery_status='배송완료' 조건부 UPDATE(setOrderPaid와 같은 원자 전이 패턴).
  *  매치 0행이면 false(이미 확정됐거나 아직 배송완료가 아님) — 판별은 호출 라우트가 재조회로 한다. */
 export async function confirmShipmentIfDelivered(

@@ -60,6 +60,19 @@ export class ConflictingOrderUpdateRequestError extends Error {
   }
 }
 
+/**
+ * applyOrderUpdates 가 **이번 호출에서 실제로** 일으킨 전이. 알림 같은 부수효과가 멱등 재호출에
+ * 중복 발동하지 않도록 호출 라우트가 이 신호만 보고 판단한다.
+ *  - paymentConfirmed: 입금대기 → 결제완료 CAS 가 1행 반영됨(무통장 입금확인)
+ *  - cancelled: 취소 RPC(cancelReservationAndRestore)가 true — 이번 호출이 취소·복원을 수행함
+ *  - refunded: 환불 RPC(refundOrderAndRestore)가 true — 이번 호출이 전액환불을 수행함
+ */
+export interface OrderUpdateOutcome {
+  paymentConfirmed: boolean;
+  cancelled: boolean;
+  refunded: boolean;
+}
+
 /** applyOrderUpdates 가 의존하는 협력자. 라우트는 실제 repo 함수를, 테스트는 fake 를 넣는다. */
 export interface OrderUpdatePorts {
   cancelReservationAndRestore: (id: string) => Promise<boolean>;
@@ -130,7 +143,7 @@ export async function applyOrderUpdates(
   id: string,
   updates: OrderStatusUpdate,
   ports: OrderUpdatePorts,
-): Promise<void> {
+): Promise<OrderUpdateOutcome> {
   if (updates.orderStatus === '취소완료' && updates.paymentStatus === '환불완료') {
     throw new ConflictingOrderUpdateRequestError();
   }
@@ -188,7 +201,7 @@ export async function applyOrderUpdates(
     if (Object.keys(rest).length > 0) {
       await ports.updateOrderStatus(id, rest);
     }
-    return;
+    return { paymentConfirmed: false, cancelled: false, refunded: true };
   }
 
   if (isCancelRequest) {
@@ -205,7 +218,8 @@ export async function applyOrderUpdates(
       if (write) {
         await ports.updatePaymentStatusGuarded(id, write.from, write.to);
       }
-      return;
+      // RPC 미매치 — 취소·복원은 일어나지 않았다(이미 처리됐거나 결제완료 확정 주문의 취소 기록).
+      return { paymentConfirmed: false, cancelled: false, refunded: false };
     }
 
     // RPC가 이미 orderStatus/paymentStatus를 세팅했으므로 나머지 필드만 반영한다.
@@ -213,7 +227,7 @@ export async function applyOrderUpdates(
     if (Object.keys(rest).length > 0) {
       await ports.updateOrderStatus(id, rest);
     }
-    return;
+    return { paymentConfirmed: false, cancelled: true, refunded: false };
   }
 
   // 비취소 경로: paymentStatus 변경은 화이트리스트 + CAS 를 반드시 통과시킨다.
@@ -235,7 +249,7 @@ export async function applyOrderUpdates(
         fields,
       );
       if (changed === 0) throw new PaymentStatusConflictError(id);
-      return;
+      return { paymentConfirmed: paymentStatus === '결제완료', cancelled: false, refunded: false };
     }
     // current === paymentStatus 면 무변경 no-op — 결제상태는 건드리지 않고 나머지 필드만 반영한다.
   }
@@ -243,4 +257,5 @@ export async function applyOrderUpdates(
   if (Object.keys(fields).length > 0) {
     await ports.updateOrderStatus(id, fields);
   }
+  return { paymentConfirmed: false, cancelled: false, refunded: false };
 }

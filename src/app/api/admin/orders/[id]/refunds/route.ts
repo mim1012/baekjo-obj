@@ -22,6 +22,7 @@ import {
   type TossConfirmResult,
 } from '@/lib/payments/toss';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -73,6 +74,17 @@ function hasNewProviderCancel(
   return after.cancels.some(
     (cancel) => !knownTransactions.has(cancel.transactionKey) && cancel.cancelAmount === amount,
   );
+}
+
+/** 부분환불 확정 알림 — complete RPC가 이미 SUCCEEDED인 행을 그대로 돌려주는 경우(멱등)는 위에서
+ *  SUCCEEDED 조기 반환으로 걸러진다. 이 함수는 이번 요청이 확정한 환불에서만 호출된다. */
+function notifyRefundCompleted(orderId: string, refund: OrderRefundRecord): void {
+  notifyAlimtalkAfter({
+    event: 'cancelCompleted',
+    orderId,
+    itemNames: refund.items.map((item) => item.productName),
+    amount: refund.approvedAmount ?? refund.requestedAmount,
+  });
 }
 
 function successfulRefundAmount(refunds: OrderRefundRecord[]): number {
@@ -171,6 +183,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           providerSnapshot.status,
           lastTransactionKey(providerSnapshot),
         );
+        notifyRefundCompleted(id, completed);
         return NextResponse.json({ refund: completed }, { status: 200 });
       } catch (error) {
         await markRefundException(refund.id, 'UNKNOWN', errorMessage(error));
@@ -220,6 +233,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
             reconciled.status,
             lastTransactionKey(reconciled),
           );
+          notifyRefundCompleted(id, completed);
           return NextResponse.json({ refund: completed }, { status: 200 });
         } catch (finalizeError) {
           await markRefundException(refund.id, 'UNKNOWN', errorMessage(finalizeError));
@@ -243,6 +257,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         cancelled.status,
         lastTransactionKey(cancelled),
       );
+      notifyRefundCompleted(id, completed);
       return NextResponse.json({ refund: completed }, { status: 200 });
     } catch (error) {
       await markRefundException(refund.id, 'UNKNOWN', errorMessage(error));

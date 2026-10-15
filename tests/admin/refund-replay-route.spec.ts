@@ -83,6 +83,7 @@ function handler(opts: {
       TossConfirmError: class extends Error {},
     },
     '@/lib/logServerError': { logServerError: () => {} },
+    '@/lib/notifications/alimtalkNotify': { notifyAlimtalkAfter: () => {} },
   };
 
   const source = readFileSync('src/app/api/admin/orders/[id]/refunds/route.ts', 'utf8');

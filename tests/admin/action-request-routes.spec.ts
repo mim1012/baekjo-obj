@@ -62,6 +62,8 @@ interface AdminRouteState {
   requests: { id: string }[];
   transitionThrows: Error | null;
   completeThrows: Error | null;
+  completeResult?: Record<string, unknown>;
+  notifications: unknown[];
 }
 
 function loadAdminRoute(state: AdminRouteState) {
@@ -70,6 +72,7 @@ function loadAdminRoute(state: AdminRouteState) {
     '@/lib/admin/requireAdmin': { requireAdmin: async () => state.admin },
     '@/lib/orders/actionRequests': actionRequests,
     '@/lib/logServerError': { logServerError: () => {} },
+    '@/lib/notifications/alimtalkNotify': { notifyAlimtalkAfter: (trigger: unknown) => state.notifications.push(trigger) },
     '@/lib/orders/repo': {
       getOrderById: async () => state.order,
       listOrderActionRequests: async () => state.requests,
@@ -79,7 +82,7 @@ function loadAdminRoute(state: AdminRouteState) {
       },
       completeOrderActionRequest: async () => {
         if (state.completeThrows) throw state.completeThrows;
-        return { id: UUID_REQUEST, status: 'COMPLETED' };
+        return state.completeResult ?? { id: UUID_REQUEST, status: 'COMPLETED', items: [], requestedAmount: 0 };
       },
     },
   };
@@ -96,6 +99,7 @@ function baseAdminState(): AdminRouteState {
     requests: [{ id: UUID_REQUEST }],
     transitionThrows: null,
     completeThrows: null,
+    notifications: [],
   };
 }
 
@@ -183,6 +187,17 @@ test.describe('관리자 action-requests POST 계약', () => {
     const response = await callAdminPost(state, { requestId: UUID_REQUEST, action: 'approve' });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true, requests: state.requests });
+    expect(state.notifications).toEqual([]);
+  });
+
+  test('complete는 알림톡을 보내지 않는다 — 주문취소완료는 환불이 확정된 /refunds 경로에서만 보낸다', async () => {
+    const state = baseAdminState();
+    const item = (status: string) => ({ id: 'item-1', lineIndex: 0, productName: '상품A', amount: 10000, status });
+    state.requests = [{ id: UUID_REQUEST, items: [item('APPROVED')] } as never];
+    state.completeResult = { id: UUID_REQUEST, status: 'COMPLETED', requestedAmount: 12500, items: [item('COMPLETED')] };
+    const response = await callAdminPost(state, { requestId: UUID_REQUEST, action: 'complete' });
+    expect(response.status).toBe(200);
+    expect(state.notifications).toEqual([]);
   });
 });
 
@@ -196,6 +211,8 @@ interface MemberRouteState {
   order: (Record<string, unknown> & { memberId: string | null }) | null;
   requests: { id: string }[];
   createThrows: Error | null;
+  created?: Record<string, unknown>;
+  notifications?: unknown[];
 }
 
 function loadMemberRoute(state: MemberRouteState) {
@@ -206,11 +223,13 @@ function loadMemberRoute(state: MemberRouteState) {
     '@/lib/orders/actionRequests': actionRequests,
     '@/lib/orders/cancellation': cancellation,
     '@/lib/logServerError': { logServerError: () => {} },
+    '@/lib/notifications/alimtalkNotify': { notifyAlimtalkAfter: (trigger: unknown) => void state.notifications?.push(trigger) },
     '@/lib/orders/repo': {
       getOrderById: async () => state.order,
       listOrderActionRequests: async () => state.requests,
       createOrderActionRequest: async () => {
         if (state.createThrows) throw state.createThrows;
+        if (state.created) return state.created;
         throw new Error('createOrderActionRequest success path is not exercised by this spec');
       },
     },
@@ -234,6 +253,7 @@ function baseMemberState(): MemberRouteState {
     },
     requests: [],
     createThrows: null,
+    notifications: [],
   };
 }
 
@@ -253,6 +273,24 @@ test.describe('회원 action-requests POST — ACTION_CONFLICT(B4: 40P01 데드�
     );
     expect(response.status).toBe(409);
     expect((await response.json()).error).toBe('action-request-conflict');
+    expect(state.notifications).toEqual([]);
+  });
+
+  test('요청이 실제로 생성되면 요청 상품명으로 주문취소접수 알림을 한 번 예약한다', async () => {
+    const state = baseMemberState();
+    state.created = { id: UUID_REQUEST, status: 'REQUESTED' };
+    const route = loadMemberRoute(state);
+    const response = await route.POST(
+      jsonRequest(`http://localhost/api/orders/${UUID_ORDER}/action-requests`, 'POST', {
+        requestType: 'CANCEL',
+        brandId: 'brand-a',
+        items: [{ lineIndex: 0, quantity: 1 }],
+        reason: '고객 요청',
+      }),
+      { params: Promise.resolve({ id: UUID_ORDER }) },
+    );
+    expect(response.status).toBe(201);
+    expect(state.notifications).toEqual([{ event: 'cancelRequested', orderId: UUID_ORDER, itemNames: ['상품'] }]);
   });
 });
 

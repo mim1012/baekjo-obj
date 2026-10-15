@@ -3,71 +3,13 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
 const repoRoot = process.cwd();
-// 2026-08-21 재검토: 아래 allowedAdvisories(nodemailer·Next 하위 postcss 계열)는 모두
-// 빌드타임 전용·사용자 입력 미도달 논거가 유효하고, Next 16.2.11 기준 패치판 postcss/nodemailer
-// 업그레이드 경로가 아직 없어 예외를 재승인한다. 다음 재검토 강제일로 연장.
-const exceptionExpiresOn = '2026-09-30';
+// 2026-10-14: nodemailer 10.1.1 · next 16.4.0 · sharp 0.35.5 · uuid(override) 11.1.1 · 최신 lockfile 해소로
+// 기존 예외(nodemailer·Next 하위 postcss·exceljs->uuid)가 전부 사라졌다. 현재 허용 예외는 없다.
+// 새 advisory 예외가 꼭 필요하면 allowedAdvisories에 사유와 함께 추가하고 exceptionExpiresOn을 약 30일 뒤로 둔다.
+const exceptionExpiresOn = '2026-11-14';
 const today = new Date().toISOString().slice(0, 10);
 
-const allowedAdvisories = new Map([
-  [
-    'https://github.com/advisories/GHSA-c7w3-x93f-qmm8',
-    'nodemailer 7 is reachable only through fixed Gmail SMTP options; envelope.size is not accepted from callers.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-vvjj-xcjg-gr5g',
-    'nodemailer transport name is not configurable by user input.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-268h-hp4c-crq3',
-    'Nodemailer List-* headers are not used by the project mailer.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-wqvq-jvpq-h66f',
-    'jsonTransport is not used by the project mailer.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-r7g4-qg5f-qqm2',
-    'OAuth2 transport auth is not used by the project mailer.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-p6gq-j5cr-w38f',
-    'The project mailer does not pass raw messages, attachments, file paths, or URLs into Nodemailer.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-qx2v-qp2m-jg93',
-    'PostCSS is nested under Next.js; application source does not parse or stringify user-controlled CSS.',
-  ],
-  [
-    'https://github.com/advisories/GHSA-w5hq-g745-h8pq',
-    'ExcelJS transitively includes uuid; the vulnerable uuid buffer APIs are not called by this server-side workbook export, which supplies only validated order data. Re-review on the exception expiry date.',
-  ],
-  [
-    // 2026-07-24 신규 공개 — arbitrary file read during CSS parsing. next 16.2.11(최신)이 아직
-    // 패치판 postcss를 동봉하지 않아 업그레이드 경로 부재. qx2v와 동일 도달성 논거: postcss는
-    // Next 빌드 체인 내부에서만 실행되고 사용자 제어 CSS를 파싱하지 않는다. next 패치 릴리즈
-    // 시 업그레이드로 전환할 것(만료일 exceptionExpiresOn이 재검토를 강제).
-    'https://github.com/advisories/GHSA-6g55-p6wh-862q',
-    'PostCSS is nested under Next.js (no patched Next release yet); build-time only, no user-controlled CSS is parsed.',
-  ],
-  [
-    // 2026-07-24 신규 공개(high 7.5) — sourceMappingURL 경로 순회로 임의 .map 파일 노출,
-    // postcss <= 8.5.17. 위 6g55와 동일 상황·동일 도달성 논거: postcss는 Next 빌드 체인
-    // 내부(빌드 타임)에서만 실행되고 사용자 제어 CSS/소스맵을 파싱하지 않는다. next가
-    // 패치판(8.5.18+) postcss를 동봉하면 업그레이드로 전환(만료일 exceptionExpiresOn이 강제).
-    'https://github.com/advisories/GHSA-r28c-9q8g-f849',
-    'PostCSS sourceMappingURL path traversal; nested under Next.js, build-time only, no user-controlled CSS or source maps are parsed.',
-  ],
-  [
-    // 2026-08-04 공개 — GHSA-6g55(위)의 불완전 수정 후속 advisory. 동일 취약점 계열(from
-    // 미설정 시 sourceMappingURL로 임의 .map 파일 읽힘), 동일 도달성 논거: postcss는 Next
-    // 빌드 체인 내부에서만 실행되고 사용자 제어 CSS/소스맵을 파싱하지 않는다. 패치판 postcss
-    // 배포 시 업그레이드로 전환(만료일 exceptionExpiresOn이 재검토를 강제).
-    'https://github.com/advisories/GHSA-fxqj-rqcc-2cmp',
-    'PostCSS sourceMappingURL incomplete-fix follow-up; same GHSA-6g55 reachability — build-time only, no user-controlled CSS or source maps are parsed.',
-  ],
-]);
-
+const allowedAdvisories = new Map([]);
 function runAudit() {
   try {
     return execSync('npm audit --omit=dev --json', {
@@ -149,7 +91,7 @@ function collectAdvisories(name, vulnerabilities, seen = new Set()) {
 }
 
 function main() {
-  if (today > exceptionExpiresOn) {
+  if (allowedAdvisories.size > 0 && today > exceptionExpiresOn) {
     throw new Error(
       `dependency audit 예외가 ${exceptionExpiresOn}에 만료되었습니다. Next/next-auth/nodemailer 업그레이드 또는 재승인이 필요합니다.`,
     );

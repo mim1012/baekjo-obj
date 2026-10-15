@@ -11,6 +11,7 @@ import {
   type OrderActionRequestType,
 } from '@/lib/orders/actionRequests';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 import { CANCELLABLE_DELIVERY_STATUSES } from '@/lib/orders/cancellation';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -91,6 +92,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
     const requestedAmount = items.reduce((sum, item) => sum + item.amount, 0) + brandDeliveryFee(order, brandId, selectedItems);
     const created = await createOrderActionRequest({ orderId: id, memberId: member.memberId, requestType, brandId, items, requestedAmount, reason });
+    // 상품별 취소·환불 요청 접수 — 생성 RPC가 성공(중복이면 PT409로 throw)한 경우에만 알린다.
+    notifyAlimtalkAfter({ event: 'cancelRequested', orderId: id, itemNames: items.map((item) => item.productName) });
     return NextResponse.json({ request: created }, { status: 201 });
   } catch (error) {
     // createOrderActionRequest가 이제 0170 RPC(create_order_action_request)를 호출하므로,

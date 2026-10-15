@@ -4,6 +4,7 @@ import { getOrderById } from '@/lib/orders/repo';
 import { insertCustomerServiceRequest, listCustomerServiceRequestsByMember } from '@/lib/orders/customerServiceRepo';
 import type { CustomerServiceRequestType } from '@/types';
 import { logServerError } from '@/lib/logServerError';
+import { notifyAlimtalkAfter } from '@/lib/notifications/alimtalkNotify';
 
 const TYPES = new Set<CustomerServiceRequestType>(['exchange', 'return']);
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -44,6 +45,12 @@ export async function POST(request: Request) {
       sellerKey: body.sellerKey,
       type: body.type as CustomerServiceRequestType,
       reason: body.reason.trim(),
+    });
+    // 교환·반품 접수 — 신규 행 INSERT 성공 시에만(열린 요청 중복은 23505로 throw).
+    notifyAlimtalkAfter({
+      event: serviceRequest.type === 'exchange' ? 'exchangeRequested' : 'returnRequested',
+      orderId: order.id,
+      sellerKey: serviceRequest.sellerKey,
     });
     return NextResponse.json({ request: serviceRequest }, { status: 201 });
   } catch (error) {

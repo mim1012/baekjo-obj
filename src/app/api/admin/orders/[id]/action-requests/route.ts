@@ -69,6 +69,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     if (action === 'approve' || action === 'reject') {
       await transitionOrderActionRequest({ orderId: id, requestId, action, actorId: admin.requester.id });
     } else {
+      // 주문취소완료 알림톡은 여기서 보내지 않는다 — 돈이 실제로 돌아간 /refunds 완료 경로에서만 보낸다
+      // (결제완료 건의 complete는 SUCCEEDED 환불 행이 선행돼야 해서 환불 알림과 중복되고, 미결제 건은 환불 대상이 아니다).
       await completeOrderActionRequest({ orderId: id, requestId, actorId: admin.requester.id });
     }
 
