@@ -120,22 +120,6 @@ export default function HomeClient({
       className="flex flex-col bg-[#FCFBF8] min-h-screen pb-20"
       data-cms-managed={cmsManaged ? 'home' : undefined}
     >
-      <aside
-        data-testid="home-soft-open-notice"
-        aria-label="가오픈 결제 안내"
-        className="flex min-h-[38px] w-full items-center bg-[#17211D] text-[#FBFAF7] sm:min-h-[34px]"
-      >
-        <PageContainer className="flex items-center justify-center gap-2 py-1">
-          <span className="inline-flex min-h-6 shrink-0 items-center rounded-full bg-[#EAD7BC] px-2.5 text-[10px] font-bold leading-none text-[#17211D] sm:text-[11px]">
-            가오픈 진행 중
-          </span>
-          <span aria-hidden="true" className="hidden h-3 w-px shrink-0 bg-[#FBFAF7]/40 sm:block" />
-          <p className="min-w-0 break-keep text-left text-sm font-semibold leading-[1.5] tracking-[-0.02em] text-[#FBFAF7] sm:tracking-normal">
-            현재 PG사 심사 진행으로 무통장입금 결제만 가능합니다.
-          </p>
-        </PageContainer>
-      </aside>
-
       {/* 1. 메인 히어로 */}
       <section data-testid="home-hero" className="relative h-[640px] w-full overflow-hidden bg-[#EDE5D8] sm:h-[620px] md:h-[480px] lg:h-[520px] xl:h-[560px]">
         <div className="relative h-full w-full overflow-hidden">
