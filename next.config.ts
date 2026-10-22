@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+// Production 배포가 아니면(Preview·로컬) 검색엔진 색인을 막는다. headers()는 빌드 시 평가되므로
+// Vercel이 빌드 단계에 주입하는 VERCEL_ENV로 판단한다. Preview는 Deployment Protection이 1차 방어이고,
+// 이 헤더는 보호가 꺼지거나 우회 링크가 새어 나갔을 때의 2차 방어다.
+const IS_PRODUCTION_DEPLOYMENT = process.env.VERCEL_ENV === 'production';
+
 const nextConfig: NextConfig = {
   async headers() {
     return [
@@ -41,6 +46,14 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      ...(IS_PRODUCTION_DEPLOYMENT
+        ? []
+        : [
+            {
+              source: '/(.*)',
+              headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+            },
+          ]),
     ];
   },
   async redirects() {

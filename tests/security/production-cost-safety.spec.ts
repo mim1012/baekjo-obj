@@ -324,6 +324,27 @@ test.describe('Production 비용 안전 경계', () => {
     expect(source).not.toContain('facebookexternalhit');
   });
 
+  test('Preview·비운영 빌드는 색인을 막고 /shop 필터 조합 URL과 GoogleOther 크롤링을 차단한다', () => {
+    const robots = read('src', 'app', 'robots.ts');
+    const nextConfig = read('next.config.ts');
+
+    // 비운영 빌드는 robots에서 전면 차단, 운영만 색인 허용.
+    expect(robots).toContain("process.env.VERCEL_ENV === 'production'");
+    expect(robots).toContain("disallow: '/'");
+    // 2026-10 크롤링 비용 사고 원인(GoogleOther·/shop 쿼리 조합) 재발 방지.
+    for (const crawler of ['GoogleOther', 'GoogleOther-Image', 'GoogleOther-Video']) {
+      expect(robots).toContain(`'${crawler}'`);
+    }
+    expect(robots).toContain("'/shop?'");
+    // Googlebot(검색 색인)은 막지 않는다.
+    expect(robots).not.toContain("'Googlebot'");
+
+    // 비운영 배포는 응답 헤더로도 noindex.
+    expect(nextConfig).toContain("process.env.VERCEL_ENV === 'production'");
+    expect(nextConfig).toContain('X-Robots-Tag');
+    expect(nextConfig).toContain('noindex, nofollow');
+  });
+
   test('수동 Preview read-only QA 워크플로는 Vercel 별칭과 커스텀 Production 도메인을 모두 거부한다', () => {
     for (const workflow of ['release-qa.yml', 'update-baselines.yml']) {
       const source = read('.github', 'workflows', workflow);
